@@ -3,7 +3,7 @@ import fetchRSSFeeds from '@/lib/fetchRSSFeeds'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useState } from 'react'
 
-const SOURCES = ['Vse', '24ur', 'RTVSLO', 'Siol.net', 'Slovenske novice', 'Zurnal24', 'Delo']
+const SOURCES = ['Vse', '24ur', 'RTVSLO', 'Siol.net', 'Slovenske novice', 'DELO', 'Zurnal']
 
 type Props = {
   initialNews: NewsItem[]
@@ -17,7 +17,7 @@ export default function Home({ initialNews }: Props) {
   return (
     <main className="min-h-screen bg-gray-900 text-white px-4 md:px-8 lg:px-16 py-8">
       <h1 className="text-3xl md:text-4xl font-bold mb-4">📰 Križišče</h1>
-      <p className="text-gray-400 mb-6">Najnovejše novice največjih slovenskih medijev</p>
+      <p className="text-gray-400 mb-6">Najnovejše novice slovenskih medijev</p>
 
       <div className="flex flex-wrap gap-3 mb-6 relative">
         {SOURCES.map((source) => (
