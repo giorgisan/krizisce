@@ -3,7 +3,7 @@ import fetchRSSFeeds from '@/lib/fetchRSSFeeds'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useState } from 'react'
 
-const SOURCES = ['Vse', '24ur', 'RTVSLO', 'Siol.net', 'Slovenske novice', 'DELO', 'Zurnal']
+const SOURCES = ['Vse', 'RTVSLO', '24ur', 'Siol.net', 'Slovenske novice', 'Delo', 'Zurnal24']
 
 type Props = {
   initialNews: NewsItem[]
