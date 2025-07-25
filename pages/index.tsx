@@ -5,6 +5,20 @@ import Footer from '@/components/Footer'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useState, useMemo } from 'react'
 
+// Mapa barv za vsak vir – prilagodite odtenke po želji
+const sourceColors: Record<string, string> = {
+  'RTVSLO': 'text-blue-400',
+  '24ur': 'text-red-400',
+  'Siol.net': 'text-green-400',
+  'Slovenske novice': 'text-pink-400',
+  'Delo': 'text-yellow-400',
+  'Zurnal24': 'text-cyan-400',
+  'Dnevnik': 'text-orange-400',
+  'Finance': 'text-teal-400',
+  'N1': 'text-indigo-400',
+  'Svet24': 'text-rose-400',
+}
+
 const SOURCES = [
   'Vse',
   'RTVSLO',
@@ -122,9 +136,13 @@ export default function Home({ initialNews }: Props) {
                       />
                     )}
                     <div className="p-4 flex flex-col flex-1">
-                      {/* Vir in datum/ura, prilagojeno za mobilne naprave */}
+                      {/* Vir in datum/ura, barva vira se določi iz mape sourceColors */}
                       <div className="flex flex-col sm:flex-row sm:justify-between items-start sm:items-center mb-1">
-                        <span className="text-sm text-purple-400 font-semibold">
+                        <span
+                          className={`text-sm font-semibold ${
+                            sourceColors[article.source] ?? 'text-purple-400'
+                          }`}
+                        >
                           {article.source}
                         </span>
                         <span className="text-xs text-gray-400 mt-1 sm:mt-0 sm:ml-2">
@@ -132,11 +150,11 @@ export default function Home({ initialNews }: Props) {
                         </span>
                       </div>
                       {/* Naslov omejen na 2 vrsti */}
-                      <h2 className="text-base font-semibold mb-1 leading-tight line-clamp-3">
+                      <h2 className="text-base font-semibold mb-1 leading-tight line-clamp-2">
                         {article.title}
                       </h2>
                       {/* Povzetek v temnejši barvi, omejen na 3 vrstice */}
-                      <p className="text-sm text-gray-400 line-clamp-4">
+                      <p className="text-sm text-gray-400 line-clamp-3">
                         {article.contentSnippet}
                       </p>
                     </div>
