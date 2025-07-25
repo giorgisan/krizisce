@@ -16,27 +16,7 @@ export default function About() {
           slovenskih medijev. Spletna stran uporablja RSS vire različnih
           portalov in jih združuje na enem mestu. Cilj projekta je
           uporabnikom ponuditi hiter pregled nad dogajanjem v državi.
-        </p>
-        <p className="text-gray-300 mb-4">
-          Projekt je odprtokoden in kodo lahko najdete na{' '}
-          <a
-            href="https://github.com/giorgisan/krizisce"
-            className="text-purple-400 underline hover:text-purple-300"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            GitHubu
-          </a>
-          . Dobrodošli so predlogi in prispevki k razvoju.
-        </p>
-        <p className="text-gray-300">
-          Za povratne informacije ali vprašanja nam pišite na{' '}
-          <a
-            href="mailto:gjkcme@gmail.com"
-            className="text-purple-400 underline hover:text-purple-300"
-          >
-            Elektronska pošta
-          </a>
+      
           .
         </p>
         {/* povezava nazaj na domačo stran */}
