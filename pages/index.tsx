@@ -5,7 +5,8 @@ import Footer from '@/components/Footer'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useState, useMemo } from 'react'
 
-// Mapa barv za vsak vir – prilagodite odtenke po želji
+// Mapa barv za vsak vir – to je trenutno stanje v repozitoriju.
+// Barve lahko po želji spremenite.
 const sourceColors: Record<string, string> = {
   'RTVSLO': 'text-blue-400',
   '24ur': 'text-blue-300',
@@ -76,7 +77,7 @@ export default function Home({ initialNews }: Props) {
               key={source}
               onClick={() => {
                 setFilter(source)
-                setDisplayCount(20) // reset ob spremembi filtra
+                setDisplayCount(20)
               }}
               className={`relative px-4 py-1 rounded-full transition font-medium ${
                 filter === source
@@ -127,12 +128,13 @@ export default function Home({ initialNews }: Props) {
                       <img
                         src={article.image}
                         alt={article.title}
-                        className="w-full h-40 object-cover"
+                        // Nižja višina na mobilnih napravah, višja na sm in večjih
+                        className="w-full h-32 sm:h-40 object-cover"
                         loading="lazy"
                       />
                     )}
                     <div className="p-4 flex flex-col flex-1">
-                      {/* Vir in datum/ura, barva vira se določi iz mape sourceColors */}
+                      {/* Vir in datum/ura z barvo vira */}
                       <div className="flex flex-col sm:flex-row sm:justify-between items-start sm:items-center mb-1">
                         <span
                           className={`text-sm font-semibold ${
@@ -145,12 +147,12 @@ export default function Home({ initialNews }: Props) {
                           {formattedDate}
                         </span>
                       </div>
-                      {/* Naslov omejen na 2 vrsti */}
-                      <h2 className="text-base font-semibold mb-1 leading-tight line-clamp-2">
+                      {/* Naslov: 3 vrstice na mobilnih, 2 vrsti na sm+ */}
+                      <h2 className="text-base font-semibold mb-1 leading-tight line-clamp-3 sm:line-clamp-2">
                         {article.title}
                       </h2>
-                      {/* Povzetek v temnejši barvi, omejen na 3 vrstice */}
-                      <p className="text-sm text-gray-400 line-clamp-3">
+                        {/* Povzetek: 4 vrstice na mobilnih, 3 vrstice na sm+ */}
+                      <p className="text-sm text-gray-400 line-clamp-4 sm:line-clamp-3">
                         {article.contentSnippet}
                       </p>
                     </div>
