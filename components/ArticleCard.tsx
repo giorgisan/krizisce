@@ -6,6 +6,9 @@ type Props = {
 }
 
 export default function ArticleCard({ news }: Props) {
+  // oblikujemo datum že tukaj, da ni preračuna v renderju
+  const formattedDate = new Date(news.pubDate).toLocaleString('sl-SI')
+
   return (
     <a
       href={news.link}
@@ -24,7 +27,8 @@ export default function ArticleCard({ news }: Props) {
         <p className="text-purple-400 text-sm mb-1">{news.source}</p>
         <h3 className="font-semibold mb-2">{news.title}</h3>
         <p className="text-sm text-gray-300 mb-2">{news.contentSnippet}</p>
-        <p className="text-sm text-blue-400 underline">Preberi več →</p>
+        {/* namesto „Preberi več“ prikazujemo čas objave */}
+        <p className="text-sm text-gray-400">{formattedDate}</p>
       </div>
     </a>
   )
