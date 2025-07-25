@@ -45,3 +45,21 @@ body {
   -webkit-line-clamp: 4;
   overflow: hidden;
 }
+
+/* “sm:” variante za širše zaslone (min-width: 640px) */
+@media (min-width: 640px) {
+  /* Razred sm:line-clamp-2 */
+  .sm\:line-clamp-2 {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    overflow: hidden;
+  }
+  /* Razred sm:line-clamp-3 */
+  .sm\:line-clamp-3 {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+    overflow: hidden;
+  }
+}
