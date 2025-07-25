@@ -4,8 +4,13 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { useState } from 'react'
 
 const SOURCES = [
-  'Vse', 'RTVSLO', '24ur', 'Siol.net',
-  'Slovenske novice', 'Delo', 'Zurnal24'
+  'Vse',
+  'RTVSLO',
+  '24ur',
+  'Siol.net',
+  'Slovenske novice',
+  'Delo',
+  'Zurnal24',
 ]
 
 type Props = {
@@ -15,9 +20,9 @@ type Props = {
 export default function Home({ initialNews }: Props) {
   const [filter, setFilter] = useState<string>('Vse')
   const filteredNews =
-    filter === 'Vse' ? initialNews : initialNews.filter(
-      (article) => article.source === filter
-    )
+    filter === 'Vse'
+      ? initialNews
+      : initialNews.filter((article) => article.source === filter)
 
   return (
     <main className="min-h-screen bg-gray-900 text-white px-4 md:px-8 lg:px-16 py-8">
@@ -30,7 +35,9 @@ export default function Home({ initialNews }: Props) {
             key={source}
             onClick={() => setFilter(source)}
             className={`relative px-4 py-1 rounded-full transition font-medium ${
-              filter === source ? 'text-white' : 'text-gray-400 hover:text-white'
+              filter === source
+                ? 'text-white'
+                : 'text-gray-400 hover:text-white'
             }`}
           >
             {filter === source && (
@@ -60,7 +67,10 @@ export default function Home({ initialNews }: Props) {
             className="grid gap-6 grid-cols-2 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5"
           >
             {filteredNews.map((article, index) => {
-              const formattedDate = new Date(article.pubDate).toLocaleString('sl-SI')
+              // formatiramo datum in uro v slovenskem formatu
+              const formattedDate = new Date(
+                article.pubDate
+              ).toLocaleString('sl-SI')
               return (
                 <a
                   href={article.link}
@@ -77,19 +87,19 @@ export default function Home({ initialNews }: Props) {
                     />
                   )}
                   <div className="p-4 flex flex-col flex-1">
+                    {/* vir novice */}
                     <div className="text-sm text-purple-400 font-semibold mb-1">
                       {article.source}
                     </div>
                     <h2 className="text-base font-semibold mb-2 leading-tight">
                       {article.title}
                     </h2>
-                    <p className="text-sm text-gray-300 line-clamp-4 mb-2">
+                    {/* povzetek novice */}
+                    <p className="text-sm text-gray-300 line-clamp-4 mb-1">
                       {article.contentSnippet}
                     </p>
-                    {/* namesto „Preberi več“ prikažemo datum in uro objave */}
-                    <span className="mt-auto text-sm text-gray-400">
-                      {formattedDate}
-                    </span>
+                    {/* datum in ura takoj pod povzetkom */}
+                    <p className="text-xs text-gray-400">{formattedDate}</p>
                   </div>
                 </a>
               )
