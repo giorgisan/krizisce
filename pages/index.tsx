@@ -20,15 +20,14 @@ type Props = {
 export default function Home({ initialNews }: Props) {
   const [filter, setFilter] = useState<string>('Vse')
 
-  // najprej sortiramo novice po pubDate v padajočem vrstnem redu
+  // sortiranje novic po datumu (najprej najnovejše)
   const sortedNews = useMemo(() => {
     return [...initialNews].sort(
-      (a, b) =>
-        new Date(b.pubDate).getTime() - new Date(a.pubDate).getTime()
+      (a, b) => new Date(b.pubDate).getTime() - new Date(a.pubDate).getTime()
     )
   }, [initialNews])
 
-  // nato filtriramo glede na izbrani vir
+  // filtriranje po izbranem viru
   const filteredNews =
     filter === 'Vse'
       ? sortedNews
@@ -39,6 +38,7 @@ export default function Home({ initialNews }: Props) {
       <h1 className="text-3xl md:text-4xl font-bold mb-4"> Križišče</h1>
       <p className="text-gray-400 mb-6">Najnovejše novice slovenskih medijev</p>
 
+      {/* gumbi za filtre */}
       <div className="flex flex-wrap gap-3 mb-6 relative">
         {SOURCES.map((source) => (
           <button
@@ -62,6 +62,7 @@ export default function Home({ initialNews }: Props) {
         ))}
       </div>
 
+      {/* prikaz novic */}
       {filteredNews.length === 0 ? (
         <p className="text-gray-400 text-center w-full mt-10">
           Ni novic za izbrani vir ali napaka pri nalaganju.
@@ -96,20 +97,23 @@ export default function Home({ initialNews }: Props) {
                     />
                   )}
                   <div className="p-4 flex flex-col flex-1">
-                    {/* vir novice */}
-                    <div className="text-sm text-purple-400 font-semibold mb-1">
-                      {article.source}
+                    {/* Vrstica z virom in datumom/uro */}
+                    <div className="flex justify-between items-center mb-1">
+                      <span className="text-sm text-purple-400 font-semibold">
+                        {article.source}
+                      </span>
+                      <span className="text-xs text-gray-400">
+                        {formattedDate}
+                      </span>
                     </div>
-                    {/* naslov */}
+                    {/* Naslov novice */}
                     <h2 className="text-base font-semibold mb-2 leading-tight">
                       {article.title}
                     </h2>
-                    {/* povzetek */}
-                    <p className="text-sm text-gray-300 line-clamp-4 mb-1">
+                    {/* Povzetek novice */}
+                    <p className="text-sm text-gray-300 line-clamp-4">
                       {article.contentSnippet}
                     </p>
-                    {/* datum in ura neposredno pod povzetkom (brez mt-auto) */}
-                    <p className="text-xs text-gray-400">{formattedDate}</p>
                   </div>
                 </a>
               )
