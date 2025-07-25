@@ -13,6 +13,8 @@ const SOURCES = [
   'Slovenske novice',
   'Delo',
   'Zurnal24',
+  'Dnevnik',
+  'Finance',
   'N1',
   'Svet24',
 ]
@@ -28,7 +30,8 @@ export default function Home({ initialNews }: Props) {
   // sortiranje novic po datumu (najprej najnovejše)
   const sortedNews = useMemo(() => {
     return [...initialNews].sort(
-      (a, b) => new Date(b.pubDate).getTime() - new Date(a.pubDate).getTime()
+      (a, b) =>
+        new Date(b.pubDate).getTime() - new Date(a.pubDate).getTime()
     )
   }, [initialNews])
 
@@ -50,9 +53,11 @@ export default function Home({ initialNews }: Props) {
     <>
       <main className="min-h-screen bg-gray-900 text-white px-4 md:px-8 lg:px-16 py-8">
         <h1 className="text-3xl md:text-4xl font-bold mb-4"> Križišče</h1>
-        <p className="text-gray-400 mb-6">Najnovejše novice slovenskih medijev</p>
+        <p className="text-gray-400 mb-6">
+          Najnovejše novice slovenskih medijev
+        </p>
 
-        {/* STICKY filter bar z „glass“ efektom */}
+        {/* STICKY filter bar z “glass” efektom */}
         <div
           className="sticky top-0 z-40 bg-gray-900/70 backdrop-blur-md backdrop-saturate-150 py-2 mb-6 flex gap-3 overflow-x-auto whitespace-nowrap border-b border-gray-800"
         >
@@ -64,7 +69,9 @@ export default function Home({ initialNews }: Props) {
                 setDisplayCount(20) // reset ob spremembi filtra
               }}
               className={`relative px-4 py-1 rounded-full transition font-medium ${
-                filter === source ? 'text-white' : 'text-gray-400 hover:text-white'
+                filter === source
+                  ? 'text-white'
+                  : 'text-gray-400 hover:text-white'
               }`}
             >
               {filter === source && (
@@ -115,6 +122,7 @@ export default function Home({ initialNews }: Props) {
                       />
                     )}
                     <div className="p-4 flex flex-col flex-1">
+                      {/* Vir in datum/ura, prilagojeno za mobilne naprave */}
                       <div className="flex flex-col sm:flex-row sm:justify-between items-start sm:items-center mb-1">
                         <span className="text-sm text-purple-400 font-semibold">
                           {article.source}
@@ -123,10 +131,12 @@ export default function Home({ initialNews }: Props) {
                           {formattedDate}
                         </span>
                       </div>
-                      <h2 className="text-base font-semibold mb-2 leading-tight">
+                      {/* Naslov omejen na 2 vrsti */}
+                      <h2 className="text-base font-semibold mb-1 leading-tight line-clamp-2">
                         {article.title}
                       </h2>
-                      <p className="text-sm text-gray-300 line-clamp-4">
+                      {/* Povzetek v temnejši barvi, omejen na 3 vrstice */}
+                      <p className="text-sm text-gray-400 line-clamp-3">
                         {article.contentSnippet}
                       </p>
                     </div>
