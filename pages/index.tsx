@@ -132,11 +132,11 @@ export default function Home({ initialNews }: Props) {
                         </span>
                       </div>
                       {/* Naslov omejen na 2 vrsti */}
-                      <h2 className="text-base font-semibold mb-1 leading-tight line-clamp-2">
+                      <h2 className="text-base font-semibold mb-1 leading-tight line-clamp-3">
                         {article.title}
                       </h2>
                       {/* Povzetek v temnejši barvi, omejen na 3 vrstice */}
-                      <p className="text-sm text-gray-400 line-clamp-3">
+                      <p className="text-sm text-gray-400 line-clamp-4">
                         {article.contentSnippet}
                       </p>
                     </div>
