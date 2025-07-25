@@ -6,8 +6,8 @@ export default function Footer() {
         <div>
           <p className="font-semibold text-white">Križišče</p>
           <p className="mt-1">
-            Agregator najnovejših novic iz slovenskih medijev. <br>
-            Članki so last izvornih portalov.</br>
+            Agregator najnovejših novic iz slovenskih medijev. <br></br>Članki so last
+            izvornih portalov.
           </p>
         </div>
         <div>
@@ -37,9 +37,10 @@ export default function Footer() {
               href="mailto:gjkcme@gmail.com"
               className="hover:text-purple-400"
             >
-              gjkcme@gmail.com
-        
+              Pošljite nam sporočilo
+            </a>
           </p>
+       
         </div>
       </div>
       <div className="text-center text-xs text-gray-600 py-4 border-t border-gray-700">
