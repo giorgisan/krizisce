@@ -18,13 +18,8 @@ export default function Footer() {
                 O projektu
               </a>
             </li>
-            <li>
-              <a href="#" className="hover:text-purple-400">
-                RSS viri
-              </a>
-            </li>
-            <li>
-              <a href="#" className="hover:text-purple-400">
+             <li>
+              <a href="https://krizisce.vercel.app/pogoji" className="hover:text-purple-400">
                 Pogoji uporabe
               </a>
             </li>
