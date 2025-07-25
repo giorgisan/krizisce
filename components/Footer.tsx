@@ -14,7 +14,7 @@ export default function Footer() {
           <p className="font-semibold text-white">Povezave</p>
           <ul className="mt-1 space-y-1">
             <li>
-              <a href="#" className="hover:text-purple-400">
+              <a href="https://krizisce.vercel.app/about" className="hover:text-purple-400">
                 O projektu
               </a>
             </li>
