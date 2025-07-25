@@ -52,14 +52,16 @@ export default function Home({ initialNews }: Props) {
           Najnovejše novice slovenskih medijev
         </p>
 
-        {/* Filtrirni gumbi */}
-        <div className="flex flex-wrap gap-3 mb-6 relative">
+        {/* STICKY filter bar: ostane na vrhu, z vodoravnim drsnikom na ozkih zaslonih */}
+        <div
+          className="sticky top-0 z-40 bg-gray-900 pb-2 mb-6 flex gap-3 overflow-x-auto whitespace-nowrap"
+        >
           {SOURCES.map((source) => (
             <button
               key={source}
               onClick={() => {
                 setFilter(source)
-                setDisplayCount(20) // ob spremembi filtra začnemo znova
+                setDisplayCount(20) // reset ob spremembi filtra
               }}
               className={`relative px-4 py-1 rounded-full transition font-medium ${
                 filter === source
@@ -115,7 +117,6 @@ export default function Home({ initialNews }: Props) {
                       />
                     )}
                     <div className="p-4 flex flex-col flex-1">
-                      {/* Vir in datum/ura, odzivno za mobilne naprave */}
                       <div className="flex flex-col sm:flex-row sm:justify-between items-start sm:items-center mb-1">
                         <span className="text-sm text-purple-400 font-semibold">
                           {article.source}
@@ -124,7 +125,6 @@ export default function Home({ initialNews }: Props) {
                           {formattedDate}
                         </span>
                       </div>
-                      {/* Naslov in povzetek */}
                       <h2 className="text-base font-semibold mb-2 leading-tight">
                         {article.title}
                       </h2>
@@ -152,7 +152,7 @@ export default function Home({ initialNews }: Props) {
         )}
       </main>
 
-      {/* Dodan footer s povezavami in kontaktnimi informacijami */}
+      {/* Footer s povezavami in kontaktnimi informacijami */}
       <Footer />
     </>
   )
