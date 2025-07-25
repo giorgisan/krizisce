@@ -6,8 +6,8 @@ export default function Footer() {
         <div>
           <p className="font-semibold text-white">Križišče</p>
           <p className="mt-1">
-            Agregator najnovejših novic iz slovenskih medijev. Članki so last
-            izvornih portalov.
+            Agregator najnovejših novic iz slovenskih medijev. <br>
+            Članki so last izvornih portalov.</br>
           </p>
         </div>
         <div>
@@ -34,19 +34,11 @@ export default function Footer() {
           <p className="font-semibold text-white">Kontakt</p>
           <p className="mt-1">
             <a
-              href="mailto:info@example.com"
+              href="mailto:gjkcme@gmail.com"
               className="hover:text-purple-400"
             >
               gjkcme@gmail.com
-            </a>
-          </p>
-          <p className="mt-1">
-            <a
-              href="https://github.com/giorgisan/krizisce"
-              className="hover:text-purple-400"
-            >
-              GitHub repozitorij
-            </a>
+        
           </p>
         </div>
       </div>
