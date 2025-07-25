@@ -17,7 +17,7 @@ export default function Header() {
     <header className="flex flex-col sm:flex-row sm:items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-[#0f172a] transition">
       <div>
         <h1 className="text-xl font-bold text-gray-800 dark:text-white transition">
-          <Link href="/">📰 Agregator Danes</Link>
+          <Link href="/">📰 Križišče </Link>
         </h1>
         <SponsorBanner />
       </div>
