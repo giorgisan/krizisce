@@ -52,21 +52,19 @@ export default function Home({ initialNews }: Props) {
           Najnovejše novice slovenskih medijev
         </p>
 
-        {/* STICKY filter bar: ostane na vrhu, z vodoravnim drsnikom na ozkih zaslonih */}
+        {/* STICKY filter bar z zračnostjo in senco/obrobo */}
         <div
-          className="sticky top-0 z-40 bg-gray-900 pb-2 mb-6 flex gap-3 overflow-x-auto whitespace-nowrap"
+          className="sticky top-0 z-40 bg-gray-900 py-2 mb-6 flex gap-3 overflow-x-auto whitespace-nowrap border-b border-gray-800 shadow-md"
         >
           {SOURCES.map((source) => (
             <button
               key={source}
               onClick={() => {
                 setFilter(source)
-                setDisplayCount(20) // reset ob spremembi filtra
+                setDisplayCount(20)
               }}
               className={`relative px-4 py-1 rounded-full transition font-medium ${
-                filter === source
-                  ? 'text-white'
-                  : 'text-gray-400 hover:text-white'
+                filter === source ? 'text-white' : 'text-gray-400 hover:text-white'
               }`}
             >
               {filter === source && (
@@ -80,6 +78,7 @@ export default function Home({ initialNews }: Props) {
             </button>
           ))}
         </div>
+
 
         {/* Prikaz novic */}
         {visibleNews.length === 0 ? (
