@@ -6,7 +6,7 @@ type Props = {
 }
 
 export default function ArticleCard({ news }: Props) {
-  // Pretvorimo datum v lokalni format (sl-SI)
+  // pretvorimo datum v lokalni slovenski format
   const formattedDate = new Date(news.pubDate).toLocaleString('sl-SI')
 
   return (
@@ -24,17 +24,14 @@ export default function ArticleCard({ news }: Props) {
         />
       )}
       <div className="p-4 flex flex-col flex-1">
-        {/* zgornja vrstica: vir na levi, datum in ura na desni */}
-        <div className="flex justify-between items-center mb-1">
-          <span className="text-purple-400 text-sm font-semibold">
-            {news.source}
-          </span>
-          <span className="text-gray-400 text-xs">{formattedDate}</span>
-        </div>
-
+        {/* vir novice */}
+        <p className="text-purple-400 text-sm mb-1">{news.source}</p>
+        {/* naslov */}
         <h3 className="font-semibold mb-2">{news.title}</h3>
-        <p className="text-sm text-gray-300 mb-2">{news.contentSnippet}</p>
-        {/* tu lahko po potrebi dodate prikaz ogledov/komentarjev, če polji obstajata v NewsItem */}
+        {/* povzetek */}
+        <p className="text-sm text-gray-300 mb-1">{news.contentSnippet}</p>
+        {/* datum in ura takoj pod povzetkom (brez mt-auto) */}
+        <p className="text-xs text-gray-400">{formattedDate}</p>
       </div>
     </a>
   )
