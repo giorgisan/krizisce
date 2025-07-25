@@ -9,12 +9,12 @@ import { useState, useMemo } from 'react'
 const sourceColors: Record<string, string> = {
   'RTVSLO': 'text-blue-400',
   '24ur': 'text-blue-300',
-  'Siol.net': 'text-violet-400',
+  'Siol.net': 'text-violet-300',
   'Slovenske novice': 'text-red-400',
-  'Delo': 'text-yellow-400',
+  'Delo': 'text-blue-200',
   'Zurnal24': 'text-cyan-400',
   'N1': 'text-indigo-400',
-  'Svet24': 'text-rose-400',
+  'Svet24': 'text-rose-300',
 }
 
 const SOURCES = [
