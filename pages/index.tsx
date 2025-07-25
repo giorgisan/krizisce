@@ -8,13 +8,11 @@ import { useState, useMemo } from 'react'
 // Mapa barv za vsak vir – prilagodite odtenke po želji
 const sourceColors: Record<string, string> = {
   'RTVSLO': 'text-blue-400',
-  '24ur': 'text-blue-500',
-  'Siol.net': 'text-blue-600',
-  'Slovenske novice': 'text-pink-400',
+  '24ur': 'text-blue-300',
+  'Siol.net': 'text-violet-400',
+  'Slovenske novice': 'text-red-400',
   'Delo': 'text-yellow-400',
   'Zurnal24': 'text-cyan-400',
-  'Dnevnik': 'text-orange-400',
-  'Finance': 'text-teal-400',
   'N1': 'text-indigo-400',
   'Svet24': 'text-rose-400',
 }
@@ -27,8 +25,6 @@ const SOURCES = [
   'Slovenske novice',
   'Delo',
   'Zurnal24',
-  'Dnevnik',
-  'Finance',
   'N1',
   'Svet24',
 ]
