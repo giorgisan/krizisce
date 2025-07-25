@@ -13,6 +13,8 @@ const SOURCES = [
   'Slovenske novice',
   'Delo',
   'Zurnal24',
+  'N1',
+  'Svet24',
 ]
 
 type Props = {
@@ -48,11 +50,9 @@ export default function Home({ initialNews }: Props) {
     <>
       <main className="min-h-screen bg-gray-900 text-white px-4 md:px-8 lg:px-16 py-8">
         <h1 className="text-3xl md:text-4xl font-bold mb-4"> Križišče</h1>
-        <p className="text-gray-400 mb-6">
-          Najnovejše novice slovenskih medijev
-        </p>
+        <p className="text-gray-400 mb-6">Najnovejše novice slovenskih medijev</p>
 
-        {/* STICKY filter bar z zračnostjo in senco/obrobo */}
+        {/* STICKY filter bar z „glass“ efektom */}
         <div
           className="sticky top-0 z-40 bg-gray-900/70 backdrop-blur-md backdrop-saturate-150 py-2 mb-6 flex gap-3 overflow-x-auto whitespace-nowrap border-b border-gray-800"
         >
@@ -61,7 +61,7 @@ export default function Home({ initialNews }: Props) {
               key={source}
               onClick={() => {
                 setFilter(source)
-                setDisplayCount(20)
+                setDisplayCount(20) // reset ob spremembi filtra
               }}
               className={`relative px-4 py-1 rounded-full transition font-medium ${
                 filter === source ? 'text-white' : 'text-gray-400 hover:text-white'
@@ -78,7 +78,6 @@ export default function Home({ initialNews }: Props) {
             </button>
           ))}
         </div>
-
 
         {/* Prikaz novic */}
         {visibleNews.length === 0 ? (
