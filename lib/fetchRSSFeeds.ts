@@ -1,3 +1,4 @@
+// lib/fetchRSSFeeds.ts
 import Parser from 'rss-parser'
 import { NewsItem } from '../types'
 
@@ -14,6 +15,8 @@ const feeds: Record<string, string> = {
   'Zurnal24': 'https://www.zurnal24.si/feeds/latest',
   'Slovenske novice': 'https://www.slovenskenovice.si/rss',
   'Delo': 'https://www.delo.si/rss',
+  'N1': 'https://n1info.si/feed/',
+  'Svet24': 'https://svet24.si/rss/site.xml',
 }
 
 function extractImage(item: any): string | null {
