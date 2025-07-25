@@ -1,7 +1,7 @@
 import { NewsItem } from '@/types'
 import fetchRSSFeeds from '@/lib/fetchRSSFeeds'
 import { motion, AnimatePresence } from 'framer-motion'
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 
 const SOURCES = [
   'Vse',
@@ -19,10 +19,20 @@ type Props = {
 
 export default function Home({ initialNews }: Props) {
   const [filter, setFilter] = useState<string>('Vse')
+
+  // najprej sortiramo novice po pubDate v padajočem vrstnem redu
+  const sortedNews = useMemo(() => {
+    return [...initialNews].sort(
+      (a, b) =>
+        new Date(b.pubDate).getTime() - new Date(a.pubDate).getTime()
+    )
+  }, [initialNews])
+
+  // nato filtriramo glede na izbrani vir
   const filteredNews =
     filter === 'Vse'
-      ? initialNews
-      : initialNews.filter((article) => article.source === filter)
+      ? sortedNews
+      : sortedNews.filter((article) => article.source === filter)
 
   return (
     <main className="min-h-screen bg-gray-900 text-white px-4 md:px-8 lg:px-16 py-8">
@@ -67,7 +77,6 @@ export default function Home({ initialNews }: Props) {
             className="grid gap-6 grid-cols-2 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5"
           >
             {filteredNews.map((article, index) => {
-              // formatiramo datum in uro v slovenskem formatu
               const formattedDate = new Date(
                 article.pubDate
               ).toLocaleString('sl-SI')
@@ -91,14 +100,15 @@ export default function Home({ initialNews }: Props) {
                     <div className="text-sm text-purple-400 font-semibold mb-1">
                       {article.source}
                     </div>
+                    {/* naslov */}
                     <h2 className="text-base font-semibold mb-2 leading-tight">
                       {article.title}
                     </h2>
-                    {/* povzetek novice */}
+                    {/* povzetek */}
                     <p className="text-sm text-gray-300 line-clamp-4 mb-1">
                       {article.contentSnippet}
                     </p>
-                    {/* datum in ura takoj pod povzetkom */}
+                    {/* datum in ura neposredno pod povzetkom (brez mt-auto) */}
                     <p className="text-xs text-gray-400">{formattedDate}</p>
                   </div>
                 </a>
