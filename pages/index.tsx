@@ -54,7 +54,7 @@ export default function Home({ initialNews }: Props) {
 
         {/* STICKY filter bar z zračnostjo in senco/obrobo */}
         <div
-          className="sticky top-0 z-40 bg-gray-900 py-2 mb-6 flex gap-3 overflow-x-auto whitespace-nowrap border-b border-gray-800 shadow-md"
+          className="sticky top-0 z-40 bg-gray-900/70 backdrop-blur-md backdrop-saturate-150 py-2 mb-6 flex gap-3 overflow-x-auto whitespace-nowrap border-b border-gray-800"
         >
           {SOURCES.map((source) => (
             <button
