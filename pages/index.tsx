@@ -38,7 +38,6 @@ export default function Home({ initialNews }: Props) {
       <h1 className="text-3xl md:text-4xl font-bold mb-4"> Križišče</h1>
       <p className="text-gray-400 mb-6">Najnovejše novice slovenskih medijev</p>
 
-      {/* gumbi za filtre */}
       <div className="flex flex-wrap gap-3 mb-6 relative">
         {SOURCES.map((source) => (
           <button
@@ -62,7 +61,6 @@ export default function Home({ initialNews }: Props) {
         ))}
       </div>
 
-      {/* prikaz novic */}
       {filteredNews.length === 0 ? (
         <p className="text-gray-400 text-center w-full mt-10">
           Ni novic za izbrani vir ali napaka pri nalaganju.
@@ -97,20 +95,18 @@ export default function Home({ initialNews }: Props) {
                     />
                   )}
                   <div className="p-4 flex flex-col flex-1">
-                    {/* Vrstica z virom in datumom/uro */}
-                    <div className="flex justify-between items-center mb-1">
+                    {/* Na mobilnih zaslonih (privzeto) bo vir nad datumom; od velikosti sm naprej sta v isti vrstici */}
+                    <div className="flex flex-col sm:flex-row sm:justify-between items-start sm:items-center mb-1">
                       <span className="text-sm text-purple-400 font-semibold">
                         {article.source}
                       </span>
-                      <span className="text-xs text-gray-400">
+                      <span className="text-xs text-gray-400 mt-1 sm:mt-0 sm:ml-2">
                         {formattedDate}
                       </span>
                     </div>
-                    {/* Naslov novice */}
                     <h2 className="text-base font-semibold mb-2 leading-tight">
                       {article.title}
                     </h2>
-                    {/* Povzetek novice */}
                     <p className="text-sm text-gray-300 line-clamp-4">
                       {article.contentSnippet}
                     </p>
