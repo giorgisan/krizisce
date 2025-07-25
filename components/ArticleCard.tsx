@@ -6,7 +6,7 @@ type Props = {
 }
 
 export default function ArticleCard({ news }: Props) {
-  // datum in ura v slovenskem formatu
+  // Pretvorimo datum v lokalni format (sl-SI)
   const formattedDate = new Date(news.pubDate).toLocaleString('sl-SI')
 
   return (
@@ -16,7 +16,6 @@ export default function ArticleCard({ news }: Props) {
       rel="noopener noreferrer"
       className="bg-gray-800 hover:bg-gray-700 rounded-xl shadow-md overflow-hidden flex flex-col transition-all duration-300 transform hover:-translate-y-1 hover:shadow-xl animate-fade-in"
     >
-      {/* slika članka, če obstaja */}
       {news.image && (
         <img
           src={news.image}
@@ -33,11 +32,9 @@ export default function ArticleCard({ news }: Props) {
           <span className="text-gray-400 text-xs">{formattedDate}</span>
         </div>
 
-        {/* naslov in povzetek */}
         <h3 className="font-semibold mb-2">{news.title}</h3>
         <p className="text-sm text-gray-300 mb-2">{news.contentSnippet}</p>
-
-        {/* tukaj lahko dodate prikaz ogledov/komentarjev, če tip NewsItem to podpira */}
+        {/* tu lahko po potrebi dodate prikaz ogledov/komentarjev, če polji obstajata v NewsItem */}
       </div>
     </a>
   )
