@@ -6,9 +6,7 @@ type Props = {
 }
 
 export default function ArticleCard({ news }: Props) {
-  // oblikujemo datum že tukaj, da ni preračuna v renderju
   const formattedDate = new Date(news.pubDate).toLocaleString('sl-SI')
-
   return (
     <a
       href={news.link}
@@ -24,11 +22,35 @@ export default function ArticleCard({ news }: Props) {
         />
       )}
       <div className="p-4 flex flex-col flex-1">
-        <p className="text-purple-400 text-sm mb-1">{news.source}</p>
+        {/* zgornji del: vir na levi, datum in ura na desni */}
+        <div className="flex justify-between items-center mb-1">
+          <span className="text-purple-400 text-sm font-semibold">
+            {news.source}
+          </span>
+          <span className="text-gray-400 text-xs">{formattedDate}</span>
+        </div>
+
         <h3 className="font-semibold mb-2">{news.title}</h3>
         <p className="text-sm text-gray-300 mb-2">{news.contentSnippet}</p>
-        {/* namesto „Preberi več“ prikazujemo čas objave */}
-        <p className="text-sm text-gray-400">{formattedDate}</p>
+
+        {/* spodnji del: število ogledov in komentarjev, če obstajata; trenutno NewsItem tega nima */}
+        {/* Primer strukture; namesto SVG‑jev lahko uporabite knjižnice ikon (npr. react-icons) */}
+        {news.views !== undefined || news.comments !== undefined ? (
+          <div className="mt-auto flex items-center gap-3 text-gray-400 text-xs">
+            {news.views !== undefined && (
+              <span className="flex items-center gap-1">
+                <span aria-hidden>👁</span>
+                {news.views}
+              </span>
+            )}
+            {news.comments !== undefined && (
+              <span className="flex items-center gap-1">
+                <span aria-hidden>💬</span>
+                {news.comments}
+              </span>
+            )}
+          </div>
+        ) : null}
       </div>
     </a>
   )
