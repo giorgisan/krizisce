@@ -8,9 +8,10 @@ class MyDocument extends Document {
       <Html lang="sl">
         <Head>
           {/* Favicon */}
-          <link rel="icon" type="image/png" href="/favikn-v2.png" />
-          <link rel="apple-touch-icon" href="/favikn-v2.png" />
+          <link rel="icon" href="/favicon.ico" />
+          <link rel="apple-touch-icon" sizes="180x180" href="/favicon.ico" />
           <meta name="theme-color" content="#0f172a" />
+          <meta name="msapplication-TileColor" content="#0f172a" />
 
           {/* Google Analytics */}
           <script async src="https://www.googletagmanager.com/gtag/js?id=G-5VVENQ6E2G"></script>
