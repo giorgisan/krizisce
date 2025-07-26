@@ -17,12 +17,10 @@ export default function About() {
           portalov in jih združuje na enem mestu. Cilj projekta je izboljšati pregled nad domačo medijsko krajino
           in omogočiti hiter dostop do najpomembnejših informacij na enem mestu.        </p>
 
-               </p>
-        <p className="text-gray-300 mb-4">
+       
           Novice se ne shranjujejo, temveč zgolj povzemajo in povezujejo na originalne vire.
           Vse vsebine pripadajo posameznim medijem.
-        </p>
-        <p className="text-gray-300">
+       
           Hvala, ker uporabljate Križišče. Veseli bomo vašega mnenja in predlogov.
           
         <div className="mt-8">
