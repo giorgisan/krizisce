@@ -4,7 +4,7 @@ import fetchRSSFeeds from '@/lib/fetchRSSFeeds'
 import Footer from '@/components/Footer'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useState, useMemo } from 'react'
-import { SOURCES, sourceColors } from '@/lib/sources' // ⬅️ Uvoz iz nove skupne datoteke
+import { SOURCES, sourceColors } from '@/lib/sources'
 
 type Props = {
   initialNews: NewsItem[]
@@ -16,8 +16,7 @@ export default function Home({ initialNews }: Props) {
 
   const sortedNews = useMemo(() => {
     return [...initialNews].sort(
-      (a, b) =>
-        new Date(b.pubDate).getTime() - new Date(a.pubDate).getTime()
+      (a, b) => new Date(b.pubDate).getTime() - new Date(a.pubDate).getTime()
     )
   }, [initialNews])
 
@@ -35,11 +34,10 @@ export default function Home({ initialNews }: Props) {
   return (
     <>
       <main className="min-h-screen bg-gray-900 text-white px-4 md:px-8 lg:px-16 py-8">
-
-        {/* STICKY filter bar z logotipom in filtri */}
-        <div className="sticky top-0 z-40 bg-gray-900/70 backdrop-blur-md backdrop-saturate-150 py-3 mb-6 border-b border-gray-800">
-          <div className="flex flex-wrap items-center justify-between gap-4 px-2 sm:px-4">
-            {/* Levo: logotip in naziv */}
+        {/* Sticky bar z logotipom in filtri */}
+        <div className="sticky top-0 z-40 bg-gray-900/70 backdrop-blur-md backdrop-saturate-150 py-2 mb-6 border-b border-gray-800">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4 px-2 sm:px-4">
+            {/* Logotip + naziv */}
             <div className="flex items-center space-x-3">
               <img src="/logo.png" alt="Križišče" className="w-8 h-8 rounded-full" />
               <div>
@@ -48,8 +46,8 @@ export default function Home({ initialNews }: Props) {
               </div>
             </div>
 
-            {/* Desno: filter gumbi */}
-            <div className="flex flex-wrap items-center gap-2 sm:gap-3 overflow-x-auto">
+            {/* Filtri */}
+            <div className="flex flex-nowrap items-center gap-2 sm:gap-3 overflow-x-auto pb-1">
               {SOURCES.map((source) => (
                 <button
                   key={source}
@@ -93,9 +91,7 @@ export default function Home({ initialNews }: Props) {
               className="grid gap-6 grid-cols-2 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5"
             >
               {visibleNews.map((article, index) => {
-                const formattedDate = new Date(
-                  article.pubDate
-                ).toLocaleString('sl-SI')
+                const formattedDate = new Date(article.pubDate).toLocaleString('sl-SI')
                 return (
                   <a
                     href={article.link}
@@ -139,7 +135,7 @@ export default function Home({ initialNews }: Props) {
           </AnimatePresence>
         )}
 
-        {/* Gumb za nalaganje več novic */}
+        {/* Gumb za več novic */}
         {displayCount < filteredNews.length && (
           <div className="text-center mt-8">
             <button
