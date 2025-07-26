@@ -8,7 +8,7 @@ class MyDocument extends Document {
       <Html lang="sl">
         <Head>
           {/* Favicon */}
-          <link rel="icon" type="image/png" href="/compass.png" />
+          <link rel="icon" type="image/png" href="/favikn.png" />
 
           {/* Google Analytics */}
           <script async src="https://www.googletagmanager.com/gtag/js?id=G-5VVENQ6E2G"></script>
