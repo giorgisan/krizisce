@@ -1,23 +1,13 @@
 // lib/fetchRSSFeeds.ts
 import Parser from 'rss-parser'
 import { NewsItem } from '../types'
+import { feeds } from './sources' // ⬅️ nova uvožena konfiguracija
 
 const parser: Parser = new Parser({
   customFields: {
     item: ['media:content', 'enclosure'],
   },
 })
-
-const feeds: Record<string, string> = {
-  '24ur': 'https://www.24ur.com/rss',
-  'RTVSLO': 'https://img.rtvslo.si/feeds/00.xml',
-  'Siol.net': 'https://siol.net/feeds/latest',
-  'Zurnal24': 'https://www.zurnal24.si/feeds/latest',
-  'Slovenske novice': 'https://www.slovenskenovice.si/rss',
-  'Delo': 'https://www.delo.si/rss',
-  'N1': 'https://n1info.si/feed/',
-  'Svet24': 'https://svet24.si/rss/site.xml',
-}
 
 function extractImage(item: any): string | null {
   if (item['media:content']?.$?.url) return item['media:content'].$.url
