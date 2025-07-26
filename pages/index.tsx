@@ -147,8 +147,8 @@ export default function Home({ initialNews }: Props) {
                           {formattedDate}
                         </span>
                       </div>
-                      {/* Naslov: 2 vrstice na mobilnih, 3 vrsti na sm+ */}
-                      <h2 className="text-base font-semibold mb-1 leading-tight line-clamp-2 sm:line-clamp-3">
+                      {/* Naslov: 3 vrstice na mobilnih, 4 vrsti na sm+ */}
+                      <h2 className="text-base font-semibold mb-1 leading-tight line-clamp-3 sm:line-clamp-4">
                         {article.title}
                       </h2>
                         {/* Povzetek: 3 vrstice na mobilnih, 4 vrstice na sm+ */}
