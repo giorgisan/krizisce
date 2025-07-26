@@ -4,7 +4,17 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter } from 'next/router'
 
-const sources = ['Vse','RTVSLO','24ur','Siol.net','Slovenske novice','Delo','Zurnal24','N1','Svet24']
+const sources = [
+  'Vse',
+  'RTVSLO',
+  '24ur',
+  'Siol.net',
+  'Slovenske novice',
+  'Delo',
+  'Zurnal24',
+  'N1',
+  'Svet24',
+]
 
 const Header = () => {
   const router = useRouter()
@@ -16,10 +26,11 @@ const Header = () => {
       <Link href="/" className="flex items-center space-x-3 mb-4 sm:mb-0 group">
         <Image
           src="/logo.png"
-          alt="Križišče logo"
-          width={42}
-          height={42}
-          className="transition-transform group-hover:rotate-[8deg]"
+          alt="Križišče logotip"
+          width={40}
+          height={40}
+          className="transition-transform group-hover:rotate-6"
+          priority
         />
         <div>
           <h1 className="text-2xl font-extrabold bg-gradient-to-r from-yellow-400 via-pink-500 to-pink-600 bg-clip-text text-transparent">
