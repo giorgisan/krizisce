@@ -1,15 +1,14 @@
 // pages/_document.tsx
-
-import Document, { Html, Head, Main, NextScript } from 'next/document';
+import Document, { Html, Head, Main, NextScript } from 'next/document'
 
 class MyDocument extends Document {
   render() {
     return (
       <Html lang="sl">
         <Head>
-          {/* Favicon */}
+          {/* Favicon & Apple icons */}
           <link rel="icon" href="/favicon.ico" />
-          <link rel="apple-touch-icon" sizes="180x180" href="/favicon.ico" />
+          <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
           <meta name="theme-color" content="#0f172a" />
           <meta name="msapplication-TileColor" content="#0f172a" />
 
@@ -31,8 +30,8 @@ class MyDocument extends Document {
           <NextScript />
         </body>
       </Html>
-    );
+    )
   }
 }
 
-export default MyDocument;
+export default MyDocument
