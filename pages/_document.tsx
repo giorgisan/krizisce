@@ -7,6 +7,7 @@ class MyDocument extends Document {
     return (
       <Html lang="sl">
         <Head>
+          <link rel="icon" type="image/png" href="/compass.png" />
           {/* Google Analytics */}
           <script async src="https://www.googletagmanager.com/gtag/js?id=G-5VVENQ6E2G"></script>
           <script
