@@ -7,7 +7,7 @@ const Header = () => {
       {/* Logo + Naslov */}
       <Link href="/" className="flex items-center space-x-3 mb-4 sm:mb-0">
         <Image
-          src="/compass.png"
+          src="/favikn.png"
           alt="Križišče logo"
           width={36}
           height={36}
@@ -17,7 +17,7 @@ const Header = () => {
           <h1 className="text-2xl font-extrabold bg-gradient-to-r from-yellow-400 via-pink-500 to-pink-600 bg-clip-text text-transparent tracking-tight">
             Križišče
           </h1>
-          <p className="text-sm text-gray-400 leading-none">Slovenski informacijski kompas</p>
+          <p className="text-sm text-gray-400 leading-none">Najnovejše novice slovenskih medijev</p>
         </div>
       </Link>
 
