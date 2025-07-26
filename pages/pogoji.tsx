@@ -6,7 +6,7 @@ import Link from 'next/link'
 export default function Pogoji() {
   return (
     <>
-      <Header />
+  
       <main className="min-h-screen bg-gray-900 text-white px-4 md:px-8 lg:px-16 py-8">
         <h1 className="text-3xl md:text-4xl font-bold mb-6">Pogoji uporabe</h1>
 
