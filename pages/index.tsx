@@ -38,7 +38,7 @@ export default function Home({ initialNews }: Props) {
         <div className="sticky top-0 z-40 bg-gray-900/70 backdrop-blur-md backdrop-saturate-150 py-2 mb-6 border-b border-gray-800">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4 px-2 sm:px-4">
             <div className="flex items-center space-x-3">
-              <img src="/logo.png" alt="Križišče" className="w-8 h-8 rounded-full" />
+              <img src="/logo.png" alt="Križišče" className="w-10 h-10 rounded-full" />
               <div>
                 <h1 className="text-2xl font-bold leading-tight">Križišče</h1>
                 <p className="text-xs text-gray-400">Najnovejše novice slovenskih medijev</p>
