@@ -16,7 +16,7 @@ export const sourceColors: Record<string, string> = {
   'RTVSLO': '#3263ad',
   '24ur': '#404faf',
   'Siol.net': '#413f93',
-  'Slovenske novice': '#F5593B',
+  'Slovenske novice': '#D1482E',
   'Delo': '#0052a1',
   'Zurnal24': '#678ca3',
   'N1': '#253d9c',
