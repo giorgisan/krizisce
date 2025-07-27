@@ -4,11 +4,11 @@ import Link from 'next/link'
 
 export default function Footer() {
   return (
-    <footer className="bg-gray-900 text-gray-400 border-t border-gray-700 mt-12">
-      <div className="max-w-7xl mx-auto px-4 py-10 grid gap-8 sm:grid-cols-3 text-sm">
-        {/* Leva stran: logo + opis */}
-        <div>
-          <div className="flex items-center space-x-3 mb-2">
+    <footer className="bg-gray-900 text-gray-400 border-t border-gray-700 mt-16">
+      <div className="max-w-7xl mx-auto px-4 py-12 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-8 text-sm">
+        {/* Logo in opis */}
+        <div className="space-y-2">
+          <div className="flex items-center space-x-3">
             <img
               src="/logo.png"
               alt="Križišče logo"
@@ -22,7 +22,7 @@ export default function Footer() {
           </p>
         </div>
 
-        {/* Sredina: povezave */}
+        {/* Povezave */}
         <div>
           <p className="text-white font-semibold mb-2">Povezave</p>
           <ul className="space-y-1">
@@ -39,7 +39,7 @@ export default function Footer() {
           </ul>
         </div>
 
-        {/* Desna stran: kontakt */}
+        {/* Kontakt */}
         <div>
           <p className="text-white font-semibold mb-2">Kontakt</p>
           <a
@@ -49,9 +49,14 @@ export default function Footer() {
             Pošljite nam sporočilo
           </a>
         </div>
+
+        {/* Rezerviran prostor ali CTA */}
+        <div className="flex items-start justify-start">
+          {/* Lahko dodaš npr. donacijo, socialne ikone, dark mode */}
+          {/* <div className="text-white">Coming soon...</div> */}
+        </div>
       </div>
 
-      {/* Spodnja vrstica */}
       <div className="text-center text-xs text-gray-600 py-4 border-t border-gray-800">
         © {new Date().getFullYear()} Križišče – Vse pravice pridržane.
       </div>
