@@ -4,8 +4,31 @@ import fetchRSSFeeds from '@/lib/fetchRSSFeeds'
 import Footer from '@/components/Footer'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useState, useMemo } from 'react'
-import { SOURCES } from '@/lib/sources'
-import ArticleCard from '@/components/ArticleCard'
+
+// Mapa barv za vsak vir – to je trenutno stanje v repozitoriju.
+// Barve lahko po želji spremenite.
+const sourceColors: Record<string, string> = {
+  'RTVSLO': 'text-blue-400',
+  '24ur': 'text-blue-300',
+  'Siol.net': 'text-violet-300',
+  'Slovenske novice': 'text-red-400',
+  'Delo': 'text-blue-200',
+  'Zurnal24': 'text-cyan-400',
+  'N1': 'text-indigo-400',
+  'Svet24': 'text-rose-300',
+}
+
+const SOURCES = [
+  'Vse',
+  'RTVSLO',
+  '24ur',
+  'Siol.net',
+  'Slovenske novice',
+  'Delo',
+  'Zurnal24',
+  'N1',
+  'Svet24',
+]
 
 type Props = {
   initialNews: NewsItem[]
@@ -15,19 +38,24 @@ export default function Home({ initialNews }: Props) {
   const [filter, setFilter] = useState<string>('Vse')
   const [displayCount, setDisplayCount] = useState<number>(20)
 
+  // sortiranje novic po datumu (najprej najnovejše)
   const sortedNews = useMemo(() => {
     return [...initialNews].sort(
-      (a, b) => new Date(b.pubDate).getTime() - new Date(a.pubDate).getTime()
+      (a, b) =>
+        new Date(b.pubDate).getTime() - new Date(a.pubDate).getTime()
     )
   }, [initialNews])
 
+  // filtriranje po izbranem viru
   const filteredNews =
     filter === 'Vse'
       ? sortedNews
       : sortedNews.filter((article) => article.source === filter)
 
+  // seznam novic, ki jih prikazujemo
   const visibleNews = filteredNews.slice(0, displayCount)
 
+  // funkcija za nalaganje več novic
   const handleLoadMore = () => {
     setDisplayCount((prev) => prev + 20)
   }
@@ -35,48 +63,41 @@ export default function Home({ initialNews }: Props) {
   return (
     <>
       <main className="min-h-screen bg-gray-900 text-white px-4 md:px-8 lg:px-16 py-8">
-        {/* Sticky filter bar */}
-        <div className="sticky top-0 z-40 bg-gray-900/70 backdrop-blur-md backdrop-saturate-150 py-2 mb-6 border-b border-gray-800">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4 px-2 sm:px-4">
-            {/* Logo */}
-            <div className="flex items-center space-x-3">
-              <img src="/logo.png" alt="Križišče" className="w-8 h-8 rounded-full" />
-              <div>
-                <h1 className="text-lg font-bold">Križišče</h1>
-                <p className="text-xs text-gray-400">Najnovejše novice slovenskih medijev</p>
-              </div>
-            </div>
+        <h1 className="text-3xl md:text-4xl font-bold mb-4"> Križišče</h1>
+        <p className="text-gray-400 mb-6">
+          Najnovejše novice slovenskih medijev
+        </p>
 
-            {/* Filter buttons */}
-            <div className="flex flex-nowrap items-center gap-2 sm:gap-3 overflow-x-auto pb-1">
-              {SOURCES.map((source) => (
-                <button
-                  key={source}
-                  onClick={() => {
-                    setFilter(source)
-                    setDisplayCount(20)
-                  }}
-                  className={`relative px-4 py-1 rounded-full transition font-medium whitespace-nowrap ${
-                    filter === source
-                      ? 'text-white'
-                      : 'text-gray-400 hover:text-white'
-                  }`}
-                >
-                  {filter === source && (
-                    <motion.div
-                      layoutId="bubble"
-                      className="absolute inset-0 rounded-full bg-purple-600 z-0"
-                      transition={{ type: 'spring', stiffness: 300, damping: 20 }}
-                    />
-                  )}
-                  <span className="relative z-10">{source}</span>
-                </button>
-              ))}
-            </div>
-          </div>
+        {/* STICKY filter bar z “glass” efektom */}
+        <div
+          className="sticky top-0 z-40 bg-gray-900/70 backdrop-blur-md backdrop-saturate-150 py-2 mb-6 flex gap-3 overflow-x-auto whitespace-nowrap border-b border-gray-800"
+        >
+          {SOURCES.map((source) => (
+            <button
+              key={source}
+              onClick={() => {
+                setFilter(source)
+                setDisplayCount(20)
+              }}
+              className={`relative px-4 py-1 rounded-full transition font-medium ${
+                filter === source
+                  ? 'text-white'
+                  : 'text-gray-400 hover:text-white'
+              }`}
+            >
+              {filter === source && (
+                <motion.div
+                  layoutId="bubble"
+                  className="absolute inset-0 rounded-full bg-purple-600 z-0"
+                  transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+                />
+              )}
+              <span className="relative z-10">{source}</span>
+            </button>
+          ))}
         </div>
 
-        {/* News grid */}
+        {/* Prikaz novic */}
         {visibleNews.length === 0 ? (
           <p className="text-gray-400 text-center w-full mt-10">
             Ni novic za izbrani vir ali napaka pri nalaganju.
@@ -91,14 +112,58 @@ export default function Home({ initialNews }: Props) {
               transition={{ duration: 0.2 }}
               className="grid gap-6 grid-cols-2 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5"
             >
-              {visibleNews.map((article, index) => (
-                <ArticleCard key={index} news={article} />
-              ))}
+              {visibleNews.map((article, index) => {
+                const formattedDate = new Date(
+                  article.pubDate
+                ).toLocaleString('sl-SI')
+                return (
+                  <a
+                    href={article.link}
+                    key={index}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="bg-gray-800 hover:bg-gray-700 rounded-xl shadow-md overflow-hidden flex flex-col transition-all duration-300 transform hover:-translate-y-1 hover:shadow-xl"
+                  >
+                    {article.image && (
+                      <img
+                        src={article.image}
+                        alt={article.title}
+                        // Nižja višina na mobilnih napravah, višja na sm in večjih
+                        className="w-full h-32 sm:h-40 object-cover"
+                        loading="lazy"
+                      />
+                    )}
+                    <div className="p-4 flex flex-col flex-1">
+                      {/* Vir in datum/ura z barvo vira */}
+                      <div className="flex flex-col sm:flex-row sm:justify-between items-start sm:items-center mb-1">
+                        <span
+                          className={`text-sm font-semibold ${
+                            sourceColors[article.source] ?? 'text-purple-400'
+                          }`}
+                        >
+                          {article.source}
+                        </span>
+                        <span className="text-xs text-gray-400 mt-1 sm:mt-0 sm:ml-2">
+                          {formattedDate}
+                        </span>
+                      </div>
+                      {/* Naslov: 3 vrstice na mobilnih, 3 vrsti na sm+ */}
+                      <h2 className="text-base font-semibold mb-1 leading-tight line-clamp-3 sm:line-clamp-3">
+                        {article.title}
+                      </h2>
+                        {/* Povzetek: 4 vrstice na mobilnih, 4 vrstice na sm+ */}
+                      <p className="text-sm text-gray-400 line-clamp-4 sm:line-clamp-4">
+                        {article.contentSnippet}
+                      </p>
+                    </div>
+                  </a>
+                )
+              })}
             </motion.div>
           </AnimatePresence>
         )}
 
-        {/* Load more */}
+        {/* Gumb za nalaganje več novic */}
         {displayCount < filteredNews.length && (
           <div className="text-center mt-8">
             <button
@@ -111,6 +176,7 @@ export default function Home({ initialNews }: Props) {
         )}
       </main>
 
+      {/* Footer s povezavami in kontaktnimi informacijami */}
       <Footer />
     </>
   )
