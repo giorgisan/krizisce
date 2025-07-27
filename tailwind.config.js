@@ -6,7 +6,7 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        brand: '#fcb89e',
+        brand: '#feab68',
         'brand-hover': '#e57b53',
       },
     },
