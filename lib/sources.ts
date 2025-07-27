@@ -12,16 +12,16 @@ export const SOURCES = [
   'Svet24',
 ]
 
-export const sourceColors: Record<string, string> = {
-  'RTVSLO': '#3263ad',
-  '24ur': '#404faf',
-  'Siol.net': '#413f93',
-  'Slovenske novice': '#D1482E',
-  'Delo': '#0052a1',
-  'Zurnal24': '#678ca3',
-  'N1': '#253d9c',
-  'Svet24': '#ee9999',
-  'Vse': '#9E9E9E',
+export const sourceColors: Record<string,string> = {
+  'RTVSLO': '#0052a5',
+  '24ur': '#003399',
+  'Siol.net': '#4f46e5',
+  'Slovenske novice': '#bf2a24',
+  'Delo': '#0d47a1',
+  'Zurnal24': '#2574a9',
+  'N1': '#283593',
+  'Svet24': '#e53935',
+  'Vse': '#9e9e9e',
 }
 
 export const feeds: Record<string, string> = {
