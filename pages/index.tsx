@@ -97,7 +97,7 @@ export default function Home({ initialNews }: Props) {
             >
               {visibleNews.map((article, index) => {
                 const formattedDate = new Date(article.pubDate).toLocaleString('sl-SI')
-                const color = sourceColors[article.source] || '#fcb89e'
+                const color = sourceColors[article.source] || '#feab68'
 
                 return (
                   <a
