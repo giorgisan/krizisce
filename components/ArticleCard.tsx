@@ -2,7 +2,7 @@
 
 import React from 'react'
 import { NewsItem } from '@/types'
-import { sourceColors } from '@/lib/sources' // <- dodaj uvoz barv
+import { sourceColors } from '@/lib/sources'
 
 type Props = {
   news: NewsItem
@@ -10,6 +10,7 @@ type Props = {
 
 export default function ArticleCard({ news }: Props) {
   const formattedDate = new Date(news.pubDate).toLocaleString('sl-SI')
+  const sourceColor = sourceColors[news.source] ?? '#9E9E9E'
 
   return (
     <a
@@ -26,15 +27,12 @@ export default function ArticleCard({ news }: Props) {
         />
       )}
       <div className="p-4 flex flex-col flex-1">
-        {/* vir novice z dinamično barvo */}
-        <p className={`text-sm mb-1 font-semibold ${sourceColors[news.source] ?? 'text-purple-400'}`}>
+        {/* vir novice z barvo preko style */}
+        <p className="text-sm font-semibold mb-1" style={{ color: sourceColor }}>
           {news.source}
         </p>
-        {/* naslov */}
         <h3 className="font-semibold mb-2">{news.title}</h3>
-        {/* povzetek */}
         <p className="text-sm text-gray-300 mb-1">{news.contentSnippet}</p>
-        {/* datum in ura */}
         <p className="text-xs text-gray-400">{formattedDate}</p>
       </div>
     </a>
