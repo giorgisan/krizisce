@@ -35,7 +35,6 @@ export default function Home({ initialNews }: Props) {
   return (
     <>
       <main className="min-h-screen bg-gray-900 text-white px-4 md:px-8 lg:px-16 py-8">
-        {/* Sticky bar z logotipom in filtri */}
         <div className="sticky top-0 z-40 bg-gray-900/70 backdrop-blur-md backdrop-saturate-150 py-2 mb-6 border-b border-gray-800">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4 px-2 sm:px-4">
             <div className="flex items-center space-x-3">
@@ -71,7 +70,7 @@ export default function Home({ initialNews }: Props) {
                   {filter === source && (
                     <motion.div
                       layoutId="bubble"
-                      className="absolute inset-0 rounded-full bg-purple-600 z-0"
+                      className="absolute inset-0 rounded-full bg-brand z-0"
                       transition={{ type: 'spring', stiffness: 300, damping: 20 }}
                     />
                   )}
@@ -98,7 +97,7 @@ export default function Home({ initialNews }: Props) {
             >
               {visibleNews.map((article, index) => {
                 const formattedDate = new Date(article.pubDate).toLocaleString('sl-SI')
-                const color = sourceColors[article.source] || '#A855F7'
+                const color = sourceColors[article.source] || '#fc946c'
 
                 return (
                   <a
@@ -143,7 +142,7 @@ export default function Home({ initialNews }: Props) {
           <div className="text-center mt-8">
             <button
               onClick={handleLoadMore}
-              className="px-5 py-2 bg-purple-600 text-white rounded-full hover:bg-purple-700 transition"
+              className="px-5 py-2 bg-brand text-white rounded-full hover:bg-brand-hover transition"
             >
               Naloži več
             </button>
