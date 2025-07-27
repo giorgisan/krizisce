@@ -40,7 +40,7 @@ export default function Home({ initialNews }: Props) {
             <div className="flex items-center space-x-3">
               <img src="/logo.png" alt="Križišče" className="w-8 h-8 rounded-full" />
               <div>
-                <h1 className="text-lg font-bold">Križišče</h1>
+                <h1 className="text-3xl font-bold leading-tight">Križišče</h1>
                 <p className="text-xs text-gray-400">Najnovejše novice slovenskih medijev</p>
               </div>
             </div>
