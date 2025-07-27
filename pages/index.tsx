@@ -1,11 +1,11 @@
 // pages/index.tsx
-import Link from 'next/link'
 import { NewsItem } from '@/types'
 import fetchRSSFeeds from '@/lib/fetchRSSFeeds'
 import Footer from '@/components/Footer'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useState, useMemo } from 'react'
 import { SOURCES, sourceColors } from '@/lib/sources'
+import Link from 'next/link'
 
 type Props = {
   initialNews: NewsItem[]
@@ -38,17 +38,21 @@ export default function Home({ initialNews }: Props) {
         {/* Sticky bar z logotipom in filtri */}
         <div className="sticky top-0 z-40 bg-gray-900/70 backdrop-blur-md backdrop-saturate-150 py-2 mb-6 border-b border-gray-800">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4 px-2 sm:px-4">
-            <Link href="/" className="flex items-center space-x-3 hover:opacity-90 transition">
-              <img
-                src="/logo.png"
-                alt="Križišče"
-                className="w-10 h-10 rounded-full grayscale hover:grayscale-0 transition duration-300"
-              />
-              <div>
-                <h1 className="text-2xl font-bold leading-tight text-white">Križišče</h1>
-                <p className="text-xs text-gray-400">Najnovejše novice slovenskih medijev</p>
-              </div>
-            </Link>
+            <div className="flex items-center space-x-3">
+              <Link href="/">
+                <div className="flex items-center space-x-3 cursor-pointer">
+                  <img
+                    src="/logo.png"
+                    alt="Križišče"
+                    className="w-10 h-10 rounded-full transition duration-300 transform hover:scale-105 hover:shadow-lg"
+                  />
+                  <div>
+                    <h1 className="text-2xl font-bold leading-tight">Križišče</h1>
+                    <p className="text-xs text-gray-400">Najnovejše novice slovenskih medijev</p>
+                  </div>
+                </div>
+              </Link>
+            </div>
 
             <div className="flex flex-nowrap items-center gap-2 sm:gap-3 overflow-x-auto pb-1">
               {SOURCES.map((source) => (
@@ -94,7 +98,7 @@ export default function Home({ initialNews }: Props) {
             >
               {visibleNews.map((article, index) => {
                 const formattedDate = new Date(article.pubDate).toLocaleString('sl-SI')
-                const color = sourceColors[article.source] || '#A855F7' // fallback purple
+                const color = sourceColors[article.source] || '#A855F7'
 
                 return (
                   <a
@@ -114,10 +118,7 @@ export default function Home({ initialNews }: Props) {
                     )}
                     <div className="p-4 flex flex-col flex-1">
                       <div className="flex flex-col sm:flex-row sm:justify-between items-start sm:items-center mb-1">
-                        <span
-                          className="text-sm font-semibold"
-                          style={{ color }}
-                        >
+                        <span className="text-sm font-semibold" style={{ color }}>
                           {article.source}
                         </span>
                         <span className="text-xs text-gray-400 mt-1 sm:mt-0 sm:ml-2">
