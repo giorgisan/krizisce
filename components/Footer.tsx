@@ -20,17 +20,23 @@ export default function Footer() {
         {/* Povezave */}
         <div className="flex flex-col space-y-2">
           <p className="text-white font-semibold">Povezave</p>
-          <a href="/about" className="hover:text-purple-400 transition">O projektu</a>
-          <a href="/pogoji" className="hover:text-purple-400 transition">Pogoji uporabe</a>
+          <a href="/about" className="hover:text-[#fc946c] transition">O projektu</a>
+          <a href="/pogoji" className="hover:text-[#fc946c] transition">Pogoji uporabe</a>
         </div>
 
         {/* Kontakt */}
         <div className="flex flex-col space-y-2">
           <p className="text-white font-semibold">Kontakt</p>
-          <a href="mailto:gjkcme@gmail.com" className="hover:text-purple-400 transition">
+          <a href="mailto:gjkcme@gmail.com" className="hover:text-[#fc946c] transition">
             Pošljite nam sporočilo
           </a>
         </div>
+      </div>
+
+      {/* Citat */}
+      <div className="text-center text-sm text-gray-500 italic px-6 pb-3">
+        “Informacija ni znanje. Edino razumevanje šteje.” <br />
+        <span className="text-xs not-italic text-gray-600">– pripisano Albertu Einsteinu</span>
       </div>
 
       {/* Spodnja vrstica */}
