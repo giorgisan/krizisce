@@ -2,9 +2,11 @@
 import { NewsItem } from '@/types'
 import fetchRSSFeeds from '@/lib/fetchRSSFeeds'
 import Footer from '@/components/Footer'
+import Header from '@/components/Header'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useState, useMemo } from 'react'
-import { SOURCES, sourceColors } from '@/lib/sources'
+import { SOURCES } from '@/lib/sources'
+import ArticleCard from '@/components/ArticleCard'
 
 type Props = {
   initialNews: NewsItem[]
@@ -34,10 +36,10 @@ export default function Home({ initialNews }: Props) {
   return (
     <>
       <main className="min-h-screen bg-gray-900 text-white px-4 md:px-8 lg:px-16 py-8">
-        {/* Sticky bar z logotipom in filtri */}
+        {/* Sticky filter bar */}
         <div className="sticky top-0 z-40 bg-gray-900/70 backdrop-blur-md backdrop-saturate-150 py-2 mb-6 border-b border-gray-800">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4 px-2 sm:px-4">
-            {/* Logotip + naziv */}
+            {/* Logo */}
             <div className="flex items-center space-x-3">
               <img src="/logo.png" alt="Križišče" className="w-8 h-8 rounded-full" />
               <div>
@@ -46,7 +48,7 @@ export default function Home({ initialNews }: Props) {
               </div>
             </div>
 
-            {/* Filtri */}
+            {/* Filter buttons */}
             <div className="flex flex-nowrap items-center gap-2 sm:gap-3 overflow-x-auto pb-1">
               {SOURCES.map((source) => (
                 <button
@@ -75,7 +77,7 @@ export default function Home({ initialNews }: Props) {
           </div>
         </div>
 
-        {/* Prikaz novic */}
+        {/* News grid */}
         {visibleNews.length === 0 ? (
           <p className="text-gray-400 text-center w-full mt-10">
             Ni novic za izbrani vir ali napaka pri nalaganju.
@@ -90,52 +92,14 @@ export default function Home({ initialNews }: Props) {
               transition={{ duration: 0.2 }}
               className="grid gap-6 grid-cols-2 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5"
             >
-              {visibleNews.map((article, index) => {
-                const formattedDate = new Date(article.pubDate).toLocaleString('sl-SI')
-                return (
-                  <a
-                    href={article.link}
-                    key={index}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="bg-gray-800 hover:bg-gray-700 rounded-xl shadow-md overflow-hidden flex flex-col transition-all duration-300 transform hover:-translate-y-1 hover:shadow-xl"
-                  >
-                    {article.image && (
-                      <img
-                        src={article.image}
-                        alt={article.title}
-                        className="w-full h-32 sm:h-40 object-cover"
-                        loading="lazy"
-                      />
-                    )}
-                    <div className="p-4 flex flex-col flex-1">
-                      <div className="flex flex-col sm:flex-row sm:justify-between items-start sm:items-center mb-1">
-                        <span
-                          className={`text-sm font-semibold ${
-                            sourceColors[article.source] ?? 'text-purple-400'
-                          }`}
-                        >
-                          {article.source}
-                        </span>
-                        <span className="text-xs text-gray-400 mt-1 sm:mt-0 sm:ml-2">
-                          {formattedDate}
-                        </span>
-                      </div>
-                      <h2 className="text-base font-semibold mb-1 leading-tight line-clamp-3 sm:line-clamp-3">
-                        {article.title}
-                      </h2>
-                      <p className="text-sm text-gray-400 line-clamp-4 sm:line-clamp-4">
-                        {article.contentSnippet}
-                      </p>
-                    </div>
-                  </a>
-                )
-              })}
+              {visibleNews.map((article, index) => (
+                <ArticleCard key={index} news={article} />
+              ))}
             </motion.div>
           </AnimatePresence>
         )}
 
-        {/* Gumb za več novic */}
+        {/* Load more */}
         {displayCount < filteredNews.length && (
           <div className="text-center mt-8">
             <button
