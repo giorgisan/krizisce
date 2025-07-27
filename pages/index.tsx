@@ -2,7 +2,6 @@
 import { NewsItem } from '@/types'
 import fetchRSSFeeds from '@/lib/fetchRSSFeeds'
 import Footer from '@/components/Footer'
-import Header from '@/components/Header'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useState, useMemo } from 'react'
 import { SOURCES } from '@/lib/sources'
