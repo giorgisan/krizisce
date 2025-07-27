@@ -1,4 +1,5 @@
 // pages/index.tsx
+import Link from 'next/link'
 import { NewsItem } from '@/types'
 import fetchRSSFeeds from '@/lib/fetchRSSFeeds'
 import Footer from '@/components/Footer'
@@ -37,13 +38,17 @@ export default function Home({ initialNews }: Props) {
         {/* Sticky bar z logotipom in filtri */}
         <div className="sticky top-0 z-40 bg-gray-900/70 backdrop-blur-md backdrop-saturate-150 py-2 mb-6 border-b border-gray-800">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4 px-2 sm:px-4">
-            <div className="flex items-center space-x-3">
-              <img src="/logo.png" alt="Križišče" className="w-10 h-10 rounded-full" />
+            <Link href="/" className="flex items-center space-x-3 hover:opacity-90 transition">
+              <img
+                src="/logo.png"
+                alt="Križišče"
+                className="w-10 h-10 rounded-full grayscale hover:grayscale-0 transition duration-300"
+              />
               <div>
-                <h1 className="text-2xl font-bold leading-tight">Križišče</h1>
+                <h1 className="text-2xl font-bold leading-tight text-white">Križišče</h1>
                 <p className="text-xs text-gray-400">Najnovejše novice slovenskih medijev</p>
               </div>
-            </div>
+            </Link>
 
             <div className="flex flex-nowrap items-center gap-2 sm:gap-3 overflow-x-auto pb-1">
               {SOURCES.map((source) => (
