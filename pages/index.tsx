@@ -1,5 +1,4 @@
 // pages/index.tsx
-import ArticleCard from '@/components/ArticleCard' // dodaj na vrh
 import { NewsItem } from '@/types'
 import fetchRSSFeeds from '@/lib/fetchRSSFeeds'
 import Footer from '@/components/Footer'
