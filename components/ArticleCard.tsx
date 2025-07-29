@@ -12,7 +12,7 @@ type Props = {
 export default function ArticleCard({ news }: Props) {
   const formattedDate = new Date(news.pubDate).toLocaleString('sl-SI')
   const sourceColor = sourceColors[news.source] ?? '#9E9E9E'
-  const isNew = (new Date().getTime() - new Date(news.pubDate).getTime()) < 60 * 60 * 1000 // manj kot 1 ura
+  const isNew = (new Date().getTime() - new Date(news.pubDate).getTime()) < 300000 // manj kot 5 min
 
   const structuredData = {
     "@context": "https://schema.org",
