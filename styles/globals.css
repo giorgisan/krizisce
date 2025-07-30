@@ -48,18 +48,44 @@ body {
 
 /* “sm:” variante za širše zaslone (min-width: 640px) */
 @media (min-width: 640px) {
-  /* Razred sm:line-clamp-2 */
   .sm\:line-clamp-2 {
     display: -webkit-box;
     -webkit-box-orient: vertical;
     -webkit-line-clamp: 2;
     overflow: hidden;
   }
-  /* Razred sm:line-clamp-3 */
+
   .sm\:line-clamp-3 {
     display: -webkit-box;
     -webkit-box-orient: vertical;
     -webkit-line-clamp: 3;
     overflow: hidden;
+  }
+}
+
+/* Moderno stiliziran scrollbar za desktop */
+@media (min-width: 768px) {
+  ::-webkit-scrollbar {
+    height: 8px; /* višina scroll bara */
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent; /* prozorna podlaga */
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.2); /* subtilna barva thumb-a */
+    border-radius: 9999px; /* popolnoma zaobljen */
+    transition: background 0.3s ease;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.4); /* svetlejši hover efekt */
+  }
+
+  /* Podpora za Firefox */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
   }
 }
