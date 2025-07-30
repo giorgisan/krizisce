@@ -1,11 +1,18 @@
+/* styles/globals.css */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* Ozadje strani */
+/* privzeta (svetla) tema */
 body {
+  background-color: #ffffff;
+  color: #1a1a1a;
+}
+
+/* temna tema — aktivira se z razredom .dark na <html> ali <body> */
+.dark body {
   background-color: #0d0d0d;
-  color: white;
+  color: #ffffff;
 }
 
 /* Fade-in animacija */
