@@ -12,7 +12,7 @@ export default function Footer() {
             <img src="/logo.png" alt="Križišče" className="w-8 h-8 rounded-full mr-2" />
             <h3 className="text-xl font-bold text-white">Križišče</h3>
           </div>
-          <p className="text-sm mb-2">
+          <p className="text-sm font-normal mb-2">
             Agregator najnovejših novic iz slovenskih medijev. Članki so last izvornih portalov.
           </p>
         </div>
@@ -20,7 +20,7 @@ export default function Footer() {
         {/* Srednja kolona: navigacijske povezave */}
         <div>
           <h4 className="text-white font-semibold mb-3">Povezave</h4>
-          <ul className="space-y-1">
+          <ul className="space-y-1 text-sm font-normal">
             <li>
               <Link href="/about">
                 <a className="hover:text-white transition">O projektu</a>
@@ -37,7 +37,7 @@ export default function Footer() {
         {/* Desna kolona: kontakt */}
         <div>
           <h4 className="text-white font-semibold mb-3">Kontakt</h4>
-          <p className="text-sm">
+          <p className="text-sm font-normal">
             <a href="mailto:info@krizisce.si" className="hover:text-white transition">
               info@krizisce.si
             </a>
@@ -46,7 +46,7 @@ export default function Footer() {
       </div>
 
       {/* Spodnji trak z citatom in avtorsko vrstico */}
-      <div className="border-t border-gray-800 mt-12 pt-4 text-center text-sm text-gray-500">
+      <div className="border-t border-gray-800 mt-12 pt-4 text-center text-sm font-normal text-gray-500">
         <p className="italic mb-2">
           “Informacija ni znanje. Edino razumevanje šteje.” – Albert Einstein
         </p>
