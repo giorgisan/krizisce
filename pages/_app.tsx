@@ -1,10 +1,19 @@
-// /pages/_app.tsx
+// pages/_app.tsx
+
 import '../styles/globals.css'
 import type { AppProps } from 'next/app'
 import { useEffect } from 'react'
 import { useRouter } from 'next/router'
 import Head from 'next/head'
 
+// TypeScript naj pozna, da lahko na window obstaja metoda gtag
+declare global {
+  interface Window {
+    gtag: (...args: any[]) => void
+  }
+}
+
+// Google Analytics identifikator (naj bo enoten skozi projekt)
 const GA_MEASUREMENT_ID = 'G-5VVENQ6E2G'
 
 function App({ Component, pageProps }: AppProps) {
@@ -12,12 +21,14 @@ function App({ Component, pageProps }: AppProps) {
 
   useEffect(() => {
     const handleRouteChange = (url: string) => {
-      if (window.gtag) {
+      // Preverimo, ali je gtag definiran, preden ga kličemo
+      if (typeof window.gtag === 'function') {
         window.gtag('config', GA_MEASUREMENT_ID, {
           page_path: url,
         })
       }
     }
+
     router.events.on('routeChangeComplete', handleRouteChange)
     return () => {
       router.events.off('routeChangeComplete', handleRouteChange)
@@ -26,6 +37,7 @@ function App({ Component, pageProps }: AppProps) {
 
   return (
     <>
+      {/* Vstavimo Google Analytics skripto v <Head> */}
       <Head>
         <script
           async
