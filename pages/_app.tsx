@@ -6,6 +6,10 @@ import { useEffect } from 'react'
 import { useRouter } from 'next/router'
 import Head from 'next/head'
 
+// Uvoz Vercel Analytics in Speed Insights
+import { Analytics } from '@vercel/analytics/next'
+import { SpeedInsights } from '@vercel/speed-insights/next'
+
 // TypeScript naj pozna, da lahko na window obstaja metoda gtag
 declare global {
   interface Window {
@@ -37,7 +41,7 @@ function App({ Component, pageProps }: AppProps) {
 
   return (
     <>
-      {/* Vstavimo Google Analytics skripto v <Head> */}
+      {/* Google Analytics skripte */}
       <Head>
         <script
           async
@@ -54,7 +58,13 @@ function App({ Component, pageProps }: AppProps) {
           }}
         />
       </Head>
+
+      {/* Prikaz izbrane strani */}
       <Component {...pageProps} />
+
+      {/* Vercel Analytics in Speed Insights */}
+      <Analytics />
+      <SpeedInsights />
     </>
   )
 }
