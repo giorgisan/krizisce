@@ -1,8 +1,8 @@
-/* components/ArticleCard.tsx */
+// components/ArticleCard.tsx
+
 import React from 'react'
 import { NewsItem } from '@/types'
 import { sourceColors } from '@/lib/sources'
-import Image from 'next/image'
 
 type Props = {
   news: NewsItem
@@ -13,24 +13,28 @@ export default function ArticleCard({ news }: Props) {
   const sourceColor = sourceColors[news.source] ?? '#9E9E9E'
 
   return (
-    <article className="bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 p-4 rounded-lg shadow-sm fade-in">
+    <a
+      href={news.link}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="bg-gray-800 hover:bg-gray-700 rounded-xl shadow-md overflow-hidden flex flex-col transition-all duration-300 transform hover:-translate-y-1 hover:shadow-xl animate-fade-in"
+    >
       {news.image && (
-        <div className="mb-3">
-          <Image
-            src={news.image}
-            alt={news.title}
-            width={640}
-            height={360}
-            className="w-full h-auto rounded"
-          />
-        </div>
+        <img
+          src={news.image}
+          alt={news.title}
+          className="w-full h-40 object-cover"
+        />
       )}
-      <div className="text-sm font-semibold mb-1" style={{ color: sourceColor }}>
-        {news.source}
+      <div className="p-4 flex flex-col flex-1">
+        {/* vir novice z barvo preko style */}
+        <p className="text-sm font-semibold mb-1" style={{ color: sourceColor }}>
+          {news.source}
+        </p>
+        <h3 className="font-semibold mb-2">{news.title}</h3>
+        <p className="text-sm text-gray-300 mb-1">{news.contentSnippet}</p>
+        <p className="text-xs text-gray-400">{formattedDate}</p>
       </div>
-      <h2 className="text-lg font-bold mb-2">{news.title}</h2>
-      <p className="text-sm line-clamp-3 mb-2">{news.contentSnippet}</p>
-      <time className="text-xs text-gray-500 dark:text-gray-400">{formattedDate}</time>
-    </article>
+    </a>
   )
 }
