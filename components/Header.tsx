@@ -1,37 +1,37 @@
-// components/Header.tsx
-
+/* components/Header.tsx */
 import Link from 'next/link'
 
-export default function Header() {
-  return (
-    <header className="sticky top-0 z-40 bg-gray-900/70 backdrop-blur-md backdrop-saturate-150 py-2 border-b border-gray-800">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4 px-2 sm:px-4">
-        <div className="flex items-center space-x-3">
-          <Link href="/">
-            <div className="flex items-center space-x-3 cursor-pointer">
-              <img
-                src="/logo.png"
-                alt="Križišče"
-                className="w-8 h-8 rounded-full transition duration-300 transform hover:scale-105 hover:shadow-lg"
-              />
-              <div>
-                <h1 className="text-xl font-bold leading-tight">Križišče</h1>
-                <p className="text-xs text-gray-400">Najnovejše novice slovenskih medijev</p>
-              </div>
-            </div>
-          </Link>
-        </div>
+type HeaderProps = {
+  onToggleTheme: () => void
+  theme: 'light' | 'dark'
+}
 
-        {/* Navigacija do drugih strani */}
-        <nav className="flex gap-4 text-sm">
-          <Link href="/about">
-            <a className="text-gray-400 hover:text-white transition">O projektu</a>
-          </Link>
-          <Link href="/pogoji">
-            <a className="text-gray-400 hover:text-white transition">Pogoji uporabe</a>
-          </Link>
-        </nav>
+export default function Header({ onToggleTheme, theme }: HeaderProps) {
+  return (
+    <header className="flex flex-col sm:flex-row sm:items-center sm:justify-between px-4 py-4 border-b border-gray-200 dark:border-gray-800">
+      <div>
+        <h1 className="text-2xl font-bold">
+          <Link href="/">Križišče</Link>
+        </h1>
+        <p className="text-sm text-gray-600 dark:text-gray-400">
+          Najnovejše novice slovenskih medijev
+        </p>
       </div>
+      <nav className="mt-4 sm:mt-0 flex items-center gap-4">
+        <Link href="/about" className="hover:underline">
+          O projektu
+        </Link>
+        <Link href="/pogoji" className="hover:underline">
+          Pogoji uporabe
+        </Link>
+        <button
+          onClick={onToggleTheme}
+          aria-label="Preklopi temo"
+          className="ml-2 p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700"
+        >
+          {theme === 'dark' ? '🌞' : '🌙'}
+        </button>
+      </nav>
     </header>
   )
 }
