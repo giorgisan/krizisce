@@ -7,10 +7,15 @@ class MyDocument extends Document {
     return (
       <Html lang="sl">
         <Head>
-          {/* Favicon in ikona za Apple naprave */}
+          {/* Faviconi za različne brskalnike */}
           <link rel="icon" href="/favicon.ico" />
-          {/* Uporabimo obstoječi logo kot Apple Touch Icon */}
-          <link rel="apple-touch-icon" sizes="180x180" href="/logo.png" />
+          {/* PNG faviconi za boljšo podporo v brskalnikih (lahko uporabite logo.png) */}
+          <link rel="icon" type="image/png" sizes="32x32" href="/logo.png" />
+          <link rel="icon" type="image/png" sizes="16x16" href="/logo.png" />
+
+          {/* Apple Touch Icon za iOS (180×180 px) */}
+          <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+
           <meta name="theme-color" content="#0f172a" />
           <meta name="msapplication-TileColor" content="#0f172a" />
 
