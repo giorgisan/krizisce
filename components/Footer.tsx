@@ -38,8 +38,8 @@ export default function Footer() {
         <div>
           <h4 className="text-white font-semibold mb-3">Kontakt</h4>
           <p className="text-sm font-normal">
-            <a href="mailto:info@krizisce.si" className="hover:text-white transition">
-              info@krizisce.si
+            <a href="mailto:gjkcme@gmail.com" className="hover:text-white transition">
+              Pošljite nam sporočilo
             </a>
           </p>
         </div>
