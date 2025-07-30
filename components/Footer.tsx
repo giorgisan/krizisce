@@ -1,48 +1,56 @@
 // components/Footer.tsx
+
+import Link from 'next/link'
+
 export default function Footer() {
   return (
-    <footer className="bg-gray-900 text-gray-400 border-t border-gray-800 mt-10">
-      <div className="max-w-6xl mx-auto px-6 py-10 grid gap-10 md:grid-cols-3 text-sm">
-        {/* Križišče opis z logotipom */}
-        <div className="flex flex-col space-y-3">
-          <div className="flex items-center space-x-2">
-            <img
-              src="/logo.png"
-              alt="Križišče"
-              className="w-6 h-6 grayscale hover:grayscale-0 transition duration-300"
-            />
-            <span className="text-white font-semibold">Križišče</span>
+    <footer className="bg-gray-900 text-gray-300 pt-12 pb-6 mt-8 border-t border-gray-800">
+      <div className="max-w-6xl mx-auto px-4 grid grid-cols-1 sm:grid-cols-3 gap-8">
+        {/* Leva kolona: logotip in opis */}
+        <div>
+          <div className="flex items-center mb-3">
+            <img src="/logo.png" alt="Križišče" className="w-8 h-8 rounded-full mr-2" />
+            <h3 className="text-xl font-bold text-white">Križišče</h3>
           </div>
-          <p className="text-sm leading-relaxed text-gray-400">
-            Agregator najnovejših novic iz slovenskih medijev. <br />
-            Članki so last izvornih portalov.
+          <p className="text-sm mb-2">
+            Agregator najnovejših novic iz slovenskih medijev. Članki so last izvornih portalov.
           </p>
         </div>
 
-        {/* Povezave */}
-        <div className="flex flex-col space-y-3">
-          <p className="text-white font-semibold">Povezave</p>
-          <a href="/about" className="hover:text-[#fcb89e] transition">O projektu</a>
-          <a href="/pogoji" className="hover:text-[#fcb89e] transition">Pogoji uporabe</a>
+        {/* Srednja kolona: navigacijske povezave */}
+        <div>
+          <h4 className="text-white font-semibold mb-3">Povezave</h4>
+          <ul className="space-y-1">
+            <li>
+              <Link href="/about">
+                <a className="hover:text-white transition">O projektu</a>
+              </Link>
+            </li>
+            <li>
+              <Link href="/pogoji">
+                <a className="hover:text-white transition">Pogoji uporabe</a>
+              </Link>
+            </li>
+          </ul>
         </div>
 
-        {/* Kontakt */}
-        <div className="flex flex-col space-y-3">
-          <p className="text-white font-semibold">Kontakt</p>
-          <a href="mailto:gjkcme@gmail.com" className="hover:text-[#fcb89e] transition">
-            Pošljite nam sporočilo
-          </a>
+        {/* Desna kolona: kontakt */}
+        <div>
+          <h4 className="text-white font-semibold mb-3">Kontakt</h4>
+          <p className="text-sm">
+            <a href="mailto:info@krizisce.si" className="hover:text-white transition">
+              info@krizisce.si
+            </a>
+          </p>
         </div>
       </div>
 
-      {/* Citat */}
-      <div className="text-center text-sm italic text-gray-500 mt-6 px-4">
-        “Informacija ni znanje. Edino razumevanje šteje.” – Albert Einstein
-      </div>
-
-      {/* Spodnja vrstica */}
-      <div className="text-center text-xs text-gray-600 py-4 border-t border-gray-800 mt-6">
-        © {new Date().getFullYear()} Križišče – Vse pravice pridržane.
+      {/* Spodnji trak z citatom in avtorsko vrstico */}
+      <div className="border-t border-gray-800 mt-12 pt-4 text-center text-sm text-gray-500">
+        <p className="italic mb-2">
+          “Informacija ni znanje. Edino razumevanje šteje.” – Albert Einstein
+        </p>
+        <p>© {new Date().getFullYear()} Križišče – Vse pravice pridržane.</p>
       </div>
     </footer>
   )
