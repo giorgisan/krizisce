@@ -1,27 +1,31 @@
-/* pages/_app.tsx */
+// pages/_app.tsx
+
 import '../styles/globals.css'
 import type { AppProps } from 'next/app'
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 import { useRouter } from 'next/router'
 import Head from 'next/head'
-import Header from '../components/Header'
+
+// Uvoz Vercel Analytics in Speed Insights
 import { Analytics } from '@vercel/analytics/next'
 import { SpeedInsights } from '@vercel/speed-insights/next'
 
+// TypeScript naj pozna, da lahko na window obstaja metoda gtag
 declare global {
   interface Window {
     gtag: (...args: any[]) => void
   }
 }
 
+// Google Analytics identifikator (naj bo enoten skozi projekt)
 const GA_MEASUREMENT_ID = 'G-5VVENQ6E2G'
 
-export default function App({ Component, pageProps }: AppProps) {
+function App({ Component, pageProps }: AppProps) {
   const router = useRouter()
-  const [theme, setTheme] = useState<'light' | 'dark'>('light')
 
   useEffect(() => {
     const handleRouteChange = (url: string) => {
+      // Preverimo, ali je gtag definiran, preden ga kličemo
       if (typeof window.gtag === 'function') {
         window.gtag('config', GA_MEASUREMENT_ID, {
           page_path: url,
@@ -35,32 +39,34 @@ export default function App({ Component, pageProps }: AppProps) {
     }
   }, [router.events])
 
-  useEffect(() => {
-    if (typeof window === 'undefined') return
-    const saved = localStorage.getItem('theme') as 'light' | 'dark' | null
-    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
-    const initial = saved ?? (prefersDark ? 'dark' : 'light')
-    setTheme(initial)
-    document.documentElement.classList.toggle('dark', initial === 'dark')
-  }, [])
-
-  const toggleTheme = () => {
-    const newTheme = theme === 'dark' ? 'light' : 'dark'
-    setTheme(newTheme)
-    localStorage.setItem('theme', newTheme)
-    document.documentElement.classList.toggle('dark', newTheme === 'dark')
-  }
-
   return (
     <>
+      {/* Google Analytics skripte */}
       <Head>
-        <title>Križišče – Najnovejše novice slovenskih medijev</title>
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <script
+          async
+          src={`https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}`}
+        />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              window.dataLayer = window.dataLayer || [];
+              function gtag(){dataLayer.push(arguments);}
+              gtag('js', new Date());
+              gtag('config', '${GA_MEASUREMENT_ID}');
+            `,
+          }}
+        />
       </Head>
-      <Header onToggleTheme={toggleTheme} theme={theme} />
+
+      {/* Prikaz izbrane strani */}
       <Component {...pageProps} />
+
+      {/* Vercel Analytics in Speed Insights */}
       <Analytics />
       <SpeedInsights />
     </>
   )
 }
+
+export default App
