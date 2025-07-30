@@ -1,4 +1,5 @@
 // pages/index.tsx
+
 import { NewsItem } from '@/types'
 import fetchRSSFeeds from '@/lib/fetchRSSFeeds'
 import Footer from '@/components/Footer'
@@ -45,10 +46,10 @@ export default function Home({ initialNews }: Props) {
                     alt="Križišče"
                     className="w-10 h-10 rounded-full transition duration-300 transform hover:scale-105 hover:shadow-lg"
                   />
-                  <div>
-                    <h1 className="text-2xl font-bold leading-tight">Križišče</h1>
-                    <p className="text-xs text-gray-400">Najnovejše novice slovenskih medijev</p>
-                  </div>
+                    <div>
+                      <h1 className="text-2xl font-bold leading-tight">Križišče</h1>
+                      <p className="text-xs text-gray-400">Najnovejše novice slovenskih medijev</p>
+                    </div>
                 </div>
               </Link>
             </div>
@@ -155,11 +156,14 @@ export default function Home({ initialNews }: Props) {
   )
 }
 
-export async function getServerSideProps() {
+// Namesto getServerSideProps uporabimo getStaticProps z revalidate 300 sekund (5 minut).
+export async function getStaticProps() {
   const initialNews = await fetchRSSFeeds()
   return {
     props: {
       initialNews,
     },
+    // Stran se bo na Vercelu regenerirala največ enkrat na 300 sekund.
+    revalidate: 300,
   }
 }
