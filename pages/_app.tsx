@@ -5,7 +5,7 @@ import { useEffect } from 'react'
 import { useRouter } from 'next/router'
 import Head from 'next/head'
 
-const GA_MEASUREMENT_ID = 'G-PCEMG0NP3J'
+const GA_MEASUREMENT_ID = 'G-5VVENQ6E2G'
 
 function App({ Component, pageProps }: AppProps) {
   const router = useRouter()
