@@ -1,11 +1,24 @@
+/* styles/globals.css */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* Ozadje strani */
+/* global body styles for light and dark themes */
 body {
-  background-color: #0d0d0d;
-  color: white;
+  @apply bg-bg-light text-text-light;
+}
+
+.dark body {
+  @apply bg-bg-dark text-text-dark;
+}
+
+/* default link color */
+a {
+  @apply text-secondary;
+}
+
+a:hover {
+  @apply underline;
 }
 
 /* Fade-in animacija */
@@ -24,7 +37,7 @@ body {
   }
 }
 
-/* Prilagojeni razredi za omejitev vrstice (line clamp) */
+/* line clamp classes */
 .line-clamp-2 {
   display: -webkit-box;
   -webkit-box-orient: vertical;
@@ -46,16 +59,14 @@ body {
   overflow: hidden;
 }
 
-/* “sm:” variante za širše zaslone (min-width: 640px) */
+/* responsive line clamp */
 @media (min-width: 640px) {
-  /* Razred sm:line-clamp-2 */
   .sm\:line-clamp-2 {
     display: -webkit-box;
     -webkit-box-orient: vertical;
     -webkit-line-clamp: 2;
     overflow: hidden;
   }
-  /* Razred sm:line-clamp-3 */
   .sm\:line-clamp-3 {
     display: -webkit-box;
     -webkit-box-orient: vertical;
