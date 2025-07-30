@@ -2,11 +2,11 @@
 import Link from 'next/link'
 
 type HeaderProps = {
-  onToggleTheme: () => void
-  theme: 'light' | 'dark'
+  onToggleTheme?: () => void
+  theme?: 'light' | 'dark'
 }
 
-export default function Header({ onToggleTheme, theme }: HeaderProps) {
+export default function Header({ onToggleTheme = () => {}, theme = 'light' }: HeaderProps) {
   return (
     <header className="flex flex-col sm:flex-row sm:items-center sm:justify-between px-4 py-4 border-b border-gray-200 dark:border-gray-800">
       <div>
