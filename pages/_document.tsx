@@ -1,4 +1,5 @@
 // pages/_document.tsx
+
 import Document, { Html, Head, Main, NextScript } from 'next/document'
 
 class MyDocument extends Document {
@@ -6,13 +7,14 @@ class MyDocument extends Document {
     return (
       <Html lang="sl">
         <Head>
-          {/* Favicon & Apple icons */}
+          {/* Favicon in ikona za Apple naprave */}
           <link rel="icon" href="/favicon.ico" />
-          <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+          {/* Uporabimo obstoječi logo kot Apple Touch Icon */}
+          <link rel="apple-touch-icon" sizes="180x180" href="/logo.png" />
           <meta name="theme-color" content="#0f172a" />
           <meta name="msapplication-TileColor" content="#0f172a" />
 
-          {/* Google Analytics */}
+          {/* Google Analytics – uporabljen enoten ID */}
           <script async src="https://www.googletagmanager.com/gtag/js?id=G-5VVENQ6E2G"></script>
           <script
             dangerouslySetInnerHTML={{
