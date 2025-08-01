@@ -12,53 +12,35 @@ type Props = {
   initialNews: NewsItem[]
 }
 
-/**
- * Home page component.
- * Displays the latest news articles and allows filtering by source.
- * Includes a refresh button next to the logo for manually reloading the page to
- * fetch any new articles.
- *
- * The filter bar scrolls horizontally when there are more sources than can fit
- * in the available space. On desktop the bar shows a small arrow on the right
- * when there are additional sources off-screen; on mobile the bar can be
- * scrolled by touch and the arrow is hidden.
- */
 export default function Home({ initialNews }: Props) {
   const [filter, setFilter] = useState<string>('Vse')
   const [displayCount, setDisplayCount] = useState<number>(20)
   const [showArrow, setShowArrow] = useState(false)
   const filterRef = useRef<HTMLDivElement | null>(null)
 
-  // Sort news by publish date descending
   const sortedNews = useMemo(() => {
     return [...initialNews].sort(
       (a, b) => new Date(b.pubDate).getTime() - new Date(a.pubDate).getTime()
     )
   }, [initialNews])
 
-  // Filter news by selected source or show all
   const filteredNews =
     filter === 'Vse'
       ? sortedNews
       : sortedNews.filter((article) => article.source === filter)
 
-  // Only show a subset of the news initially; load more on demand
   const visibleNews = filteredNews.slice(0, displayCount)
 
-  // Increase the number of visible news articles when "load more" is clicked
   const handleLoadMore = () => {
     setDisplayCount((prev) => prev + 20)
   }
 
-  // Scroll the filter bar to the right by a fixed amount
   const scrollRight = () => {
     if (filterRef.current) {
       filterRef.current.scrollBy({ left: 200, behavior: 'smooth' })
     }
   }
 
-  // Determine when to show the right-hand arrow on desktop.
-  // Show the arrow if there is hidden content to the right of the scrollable container.
   useEffect(() => {
     const updateArrow = () => {
       if (filterRef.current) {
@@ -80,9 +62,7 @@ export default function Home({ initialNews }: Props) {
     <>
       <main className="min-h-screen bg-gray-900 text-white px-4 md:px-8 lg:px-16 py-8">
         <div className="sticky top-0 z-40 bg-gray-900/70 backdrop-blur-md backdrop-saturate-150 py-2 mb-6 border-b border-gray-800">
-          {/* Header row. On small screens items stack vertically; on larger screens they sit on a single row. */}
           <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 px-2 sm:px-4">
-            {/* Left side: site logo and refresh button */}
             <div className="flex items-center space-x-5">
               <Link href="/">
                 <div className="flex items-center space-x-3 cursor-pointer">
@@ -99,7 +79,6 @@ export default function Home({ initialNews }: Props) {
                   </div>
                 </div>
               </Link>
-              {/* Refresh button to reload the page */}
               <button
                 onClick={() => location.reload()}
                 aria-label="Osveži stran"
@@ -121,8 +100,8 @@ export default function Home({ initialNews }: Props) {
                 </svg>
               </button>
             </div>
-            {/* Right side: align the filter bar to the far right. On mobile this will stack below the logo */}
-            <div className="flex items-center gap-2 sm:gap-3 ml-auto">
+            {/* On mobile, the filter bar takes full width; on desktop it shifts to the far right */}
+            <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto sm:ml-auto">
               <div
                 ref={filterRef}
                 className="flex flex-nowrap items-center gap-1 sm:gap-2 overflow-x-auto pb-1 scrollbar-hide"
@@ -152,7 +131,7 @@ export default function Home({ initialNews }: Props) {
                   </button>
                 ))}
               </div>
-              {/* On desktop, show a right arrow when there is hidden content to the right; hide on mobile. */}
+              {/* Arrow appears only on desktop and when content overflows */}
               {showArrow && (
                 <button
                   onClick={scrollRight}
@@ -177,7 +156,7 @@ export default function Home({ initialNews }: Props) {
           </div>
         </div>
 
-        {/* Main news grid */}
+        {/* Rest of the component remains unchanged (news grid, load more button, footer, styles) */}
         {visibleNews.length === 0 ? (
           <p className="text-gray-400 text-center w-full mt-10">
             Ni novic za izbrani vir ali napaka pri nalaganju.
@@ -235,7 +214,6 @@ export default function Home({ initialNews }: Props) {
           </AnimatePresence>
         )}
 
-        {/* "Load more" button */}
         {displayCount < filteredNews.length && (
           <div className="text-center mt-8">
             <button
@@ -250,7 +228,6 @@ export default function Home({ initialNews }: Props) {
 
       <Footer />
 
-      {/* Hide the horizontal scrollbar while still allowing scrolling */}
       <style jsx>{`
         .scrollbar-hide {
           -ms-overflow-style: none;
@@ -264,8 +241,7 @@ export default function Home({ initialNews }: Props) {
   )
 }
 
-// Use getStaticProps with revalidation to fetch the news on the server.
-// The page will regenerate at most once every 300 seconds (5 minutes).
+// Static generation with revalidation
 export async function getStaticProps() {
   const initialNews = await fetchRSSFeeds()
   return {
