@@ -12,12 +12,6 @@ type Props = {
   initialNews: NewsItem[]
 }
 
-/**
- * Home page component.
- * Displays the latest news articles and allows filtering by source.
- * Includes a refresh button next to the logo for manually reloading the page to
- * fetch any new articles.
- */
 export default function Home({ initialNews }: Props) {
   const [filter, setFilter] = useState<string>('Vse')
   const [displayCount, setDisplayCount] = useState<number>(20)
@@ -44,7 +38,7 @@ export default function Home({ initialNews }: Props) {
       <main className="min-h-screen bg-gray-900 text-white px-4 md:px-8 lg:px-16 py-8">
         <div className="sticky top-0 z-40 bg-gray-900/70 backdrop-blur-md backdrop-saturate-150 py-2 mb-6 border-b border-gray-800">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4 px-2 sm:px-4">
-            <div className="flex items-center space-x-3">
+            <div className="flex items-center space-x-4">
               {/* Logo and site name */}
               <Link href="/">
                 <div className="flex items-center space-x-3 cursor-pointer">
@@ -73,7 +67,7 @@ export default function Home({ initialNews }: Props) {
                   strokeWidth="2"
                   strokeLinecap="round"
                   strokeLinejoin="round"
-                  className="w-5 h-5"
+                  className="w-4 h-4"
                 >
                   <path stroke="none" d="M0 0h24v24H0z" fill="none" />
                   <path d="M20 11a8.1 8.1 0 0 0 -15.5 -2m-.5 -4v4h4" />
