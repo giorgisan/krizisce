@@ -97,7 +97,7 @@ export default function Home({ initialNews }: Props) {
               </button>
             </div>
 
-            {/* Filter bar with hidden scrollbar and optional right arrow */}
+            {/* Filter bar with hidden scrollbar and single right arrow */}
             <div className="flex items-center gap-2 sm:gap-3">
               <div
                 ref={filterRef}
@@ -127,12 +127,12 @@ export default function Home({ initialNews }: Props) {
                 ))}
               </div>
 
-              {/* Desna puščica – prikaže se le, ko je seznam daljši od vsebnika */}
+              {/* Right arrow – appears when list overflows regardless of breakpoint */}
               {showArrow && (
                 <button
                   onClick={scrollRight}
                   aria-label="Premakni desno"
-                  className="hidden md:flex items-center justify-center p-2 text-gray-400 hover:text-white"
+                  className="flex items-center justify-center p-2 text-gray-400 hover:text-white"
                 >
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
