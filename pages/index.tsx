@@ -46,16 +46,12 @@ export default function Home({ initialNews }: Props) {
     const updateArrow = () => {
       if (filterRef.current) {
         const { scrollLeft, scrollWidth, clientWidth } = filterRef.current
-        // Show arrow only if there is hidden content on the right
         setShowArrow(scrollLeft + clientWidth < scrollWidth)
       }
     }
-    // Run once on mount
     updateArrow()
     const refCurrent = filterRef.current
-    // Listen for scroll events on the container
     refCurrent?.addEventListener('scroll', updateArrow)
-    // Also update on window resize
     window.addEventListener('resize', updateArrow)
     return () => {
       refCurrent?.removeEventListener('scroll', updateArrow)
@@ -67,9 +63,9 @@ export default function Home({ initialNews }: Props) {
     <>
       <main className="min-h-screen bg-gray-900 text-white px-4 md:px-8 lg:px-16 py-8">
         <div className="sticky top-0 z-40 bg-gray-900/70 backdrop-blur-md backdrop-saturate-150 py-2 mb-6 border-b border-gray-800">
-          {/* Glavna vrstica glave – brez justify-between, elementi poravnani v vrstico na širšem zaslonu */}
+          {/* Header row without justify-between */}
           <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 px-2 sm:px-4">
-            {/* Leva stran: logotip in gumb za osvežitev */}
+            {/* Left: logo and refresh button */}
             <div className="flex items-center space-x-5">
               <Link href="/">
                 <div className="flex items-center space-x-3 cursor-pointer">
@@ -106,11 +102,11 @@ export default function Home({ initialNews }: Props) {
               </button>
             </div>
 
-            {/* Desna stran: filter bar v raztegljivem vsebniku, ki se lahko scrola */}
-            <div className="flex-1 flex items-center gap-2 sm:gap-3">
+            {/* Right: filter bar in a flex-1 container with min-w-0 to allow shrinking */}
+            <div className="flex-1 min-w-0 flex items-center gap-2 sm:gap-3">
               <div
                 ref={filterRef}
-                className="flex flex-nowrap items-center gap-2 sm:gap-3 overflow-x-auto pb-1 scrollbar-hide"
+                className="flex flex-nowrap items-center gap-2 sm:gap-3 overflow-x-auto pb-1 scrollbar-hide w-full"
                 style={{ scrollBehavior: 'smooth' }}
               >
                 {SOURCES.map((source) => (
@@ -231,14 +227,13 @@ export default function Home({ initialNews }: Props) {
 
       <Footer />
 
-      {/* CSS to hide scrollbars while keeping horizontal scroll */}
       <style jsx>{`
         .scrollbar-hide {
-          -ms-overflow-style: none; /* IE in Edge */
-          scrollbar-width: none; /* Firefox */
+          -ms-overflow-style: none;
+          scrollbar-width: none;
         }
         .scrollbar-hide::-webkit-scrollbar {
-          display: none; /* Chrome, Safari in Opera */
+          display: none;
         }
       `}</style>
     </>
@@ -252,7 +247,6 @@ export async function getStaticProps() {
     props: {
       initialNews,
     },
-    // Stran se bo na Vercelu regenerirala največ enkrat na 300 sekund.
     revalidate: 300,
   }
 }
