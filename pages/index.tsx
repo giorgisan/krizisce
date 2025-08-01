@@ -4,7 +4,7 @@ import { NewsItem } from '@/types'
 import fetchRSSFeeds from '@/lib/fetchRSSFeeds'
 import Footer from '@/components/Footer'
 import { motion, AnimatePresence } from 'framer-motion'
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef } from 'react'
 import { SOURCES, sourceColors } from '@/lib/sources'
 import Link from 'next/link'
 
@@ -12,15 +12,10 @@ type Props = {
   initialNews: NewsItem[]
 }
 
-/**
- * Home page component.
- * Displays the latest news articles and allows filtering by source.
- * Includes a refresh button next to the logo for manually reloading the page to
- * fetch any new articles.
- */
 export default function Home({ initialNews }: Props) {
   const [filter, setFilter] = useState<string>('Vse')
   const [displayCount, setDisplayCount] = useState<number>(20)
+  const filterRef = useRef<HTMLDivElement | null>(null)
 
   const sortedNews = useMemo(() => {
     return [...initialNews].sort(
@@ -39,12 +34,24 @@ export default function Home({ initialNews }: Props) {
     setDisplayCount((prev) => prev + 20)
   }
 
+  const scrollLeft = () => {
+    if (filterRef.current) {
+      filterRef.current.scrollBy({ left: -200, behavior: 'smooth' })
+    }
+  }
+
+  const scrollRight = () => {
+    if (filterRef.current) {
+      filterRef.current.scrollBy({ left: 200, behavior: 'smooth' })
+    }
+  }
+
   return (
     <>
       <main className="min-h-screen bg-gray-900 text-white px-4 md:px-8 lg:px-16 py-8">
         <div className="sticky top-0 z-40 bg-gray-900/70 backdrop-blur-md backdrop-saturate-150 py-2 mb-6 border-b border-gray-800">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4 px-2 sm:px-4">
-            <div className="flex items-center space-x-5">
+            <div className="flex items-center space-x-4">
               {/* Logo and site name */}
               <Link href="/">
                 <div className="flex items-center space-x-3 cursor-pointer">
@@ -73,7 +80,7 @@ export default function Home({ initialNews }: Props) {
                   strokeWidth="2"
                   strokeLinecap="round"
                   strokeLinejoin="round"
-                  className="w-5 h-5"
+                  className="w-4 h-4"
                 >
                   <path stroke="none" d="M0 0h24v24H0z" fill="none" />
                   <path d="M20 11a8.1 8.1 0 0 0 -15.5 -2m-.5 -4v4h4" />
@@ -82,28 +89,75 @@ export default function Home({ initialNews }: Props) {
               </button>
             </div>
 
-            <div className="flex flex-nowrap items-center gap-2 sm:gap-3 overflow-x-auto pb-1">
-              {SOURCES.map((source) => (
-                <button
-                  key={source}
-                  onClick={() => {
-                    setFilter(source)
-                    setDisplayCount(20)
-                  }}
-                  className={`relative px-4 py-1 rounded-full transition font-medium whitespace-nowrap ${
-                    filter === source ? 'text-white' : 'text-gray-400 hover:text-white'
-                  }`}
+            {/* Filter bar with scroll buttons */}
+            <div className="flex items-center gap-1 relative">
+              {/* Left arrow – prikazana samo na namiznih napravah */}
+              <button
+                onClick={scrollLeft}
+                aria-label="Premakni levo"
+                className="hidden md:flex items-center justify-center p-2 text-gray-400 hover:text-white"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="w-5 h-5"
                 >
-                  {filter === source && (
-                    <motion.div
-                      layoutId="bubble"
-                      className="absolute inset-0 rounded-full bg-brand z-0"
-                      transition={{ type: 'spring', stiffness: 300, damping: 20 }}
-                    />
-                  )}
-                  <span className="relative z-10">{source}</span>
-                </button>
-              ))}
+                  <path d="M15 6l-6 6 6 6" />
+                </svg>
+              </button>
+
+              <div
+                ref={filterRef}
+                className="flex flex-nowrap items-center gap-2 sm:gap-3 overflow-x-auto md:overflow-x-hidden pb-1"
+                style={{ scrollBehavior: 'smooth' }}
+              >
+                {SOURCES.map((source) => (
+                  <button
+                    key={source}
+                    onClick={() => {
+                      setFilter(source)
+                      setDisplayCount(20)
+                    }}
+                    className={`relative px-4 py-1 rounded-full transition font-medium whitespace-nowrap ${
+                      filter === source ? 'text-white' : 'text-gray-400 hover:text-white'
+                    }`}
+                  >
+                    {filter === source && (
+                      <motion.div
+                        layoutId="bubble"
+                        className="absolute inset-0 rounded-full bg-brand z-0"
+                        transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+                      />
+                    )}
+                    <span className="relative z-10">{source}</span>
+                  </button>
+                ))}
+              </div>
+
+              {/* Right arrow – prikazana samo na namiznih napravah */}
+              <button
+                onClick={scrollRight}
+                aria-label="Premakni desno"
+                className="hidden md:flex items-center justify-center p-2 text-gray-400 hover:text-white"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="w-5 h-5"
+                >
+                  <path d="M9 6l6 6-6 6" />
+                </svg>
+              </button>
             </div>
           </div>
         </div>
@@ -189,7 +243,6 @@ export async function getStaticProps() {
     props: {
       initialNews,
     },
-    // Stran se bo na Vercelu regenerirala največ enkrat na 300 sekund.
-    revalidate: 300,
+    revalidate: 300, // stran se bo regenerirala na Vercelu največ enkrat na 300 sekund
   }
 }
