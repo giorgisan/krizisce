@@ -13,8 +13,8 @@ export default function Footer() {
             <h3 className="text-xl font-bold text-white">Križišče</h3>
           </div>
           <p className="text-sm font-normal mb-2">
-            Agregator najnovejših novic iz slovenskih medijev. <p>
-            </p>Članki so last izvornih portalov.
+            </p>Agregator najnovejših novic iz slovenskih medijev. </br>
+            Članki so last izvornih portalov.
           </p>
         </div>
 
