@@ -12,6 +12,12 @@ type Props = {
   initialNews: NewsItem[]
 }
 
+/**
+ * Home page component.
+ * Displays the latest news articles and allows filtering by source.
+ * Includes a refresh button next to the logo for manually reloading the page to
+ * fetch any new articles.
+ */
 export default function Home({ initialNews }: Props) {
   const [filter, setFilter] = useState<string>('Vse')
   const [displayCount, setDisplayCount] = useState<number>(20)
@@ -39,6 +45,7 @@ export default function Home({ initialNews }: Props) {
         <div className="sticky top-0 z-40 bg-gray-900/70 backdrop-blur-md backdrop-saturate-150 py-2 mb-6 border-b border-gray-800">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4 px-2 sm:px-4">
             <div className="flex items-center space-x-3">
+              {/* Logo and site name */}
               <Link href="/">
                 <div className="flex items-center space-x-3 cursor-pointer">
                   <img
@@ -46,12 +53,33 @@ export default function Home({ initialNews }: Props) {
                     alt="Križišče"
                     className="w-10 h-10 rounded-full transition duration-300 transform hover:scale-105 hover:shadow-lg"
                   />
-                    <div>
-                      <h1 className="text-2xl font-bold leading-tight">Križišče</h1>
-                      <p className="text-xs text-gray-400">Najnovejše novice slovenskih medijev</p>
-                    </div>
+                  <div>
+                    <h1 className="text-2xl font-bold leading-tight">Križišče</h1>
+                    <p className="text-xs text-gray-400">Najnovejše novice slovenskih medijev</p>
+                  </div>
                 </div>
               </Link>
+              {/* Refresh button */}
+              <button
+                onClick={() => location.reload()}
+                aria-label="Osveži stran"
+                className="p-2 rounded-full text-gray-400 hover:text-white hover:bg-gray-800 transition-transform transform hover:rotate-180"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="w-5 h-5"
+                >
+                  <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+                  <path d="M20 11a8.1 8.1 0 0 0 -15.5 -2m-.5 -4v4h4" />
+                  <path d="M4 13a8.1 8.1 0 0 0 15.5 2m.5 4v-4h-4" />
+                </svg>
+              </button>
             </div>
 
             <div className="flex flex-nowrap items-center gap-2 sm:gap-3 overflow-x-auto pb-1">
@@ -63,9 +91,7 @@ export default function Home({ initialNews }: Props) {
                     setDisplayCount(20)
                   }}
                   className={`relative px-4 py-1 rounded-full transition font-medium whitespace-nowrap ${
-                    filter === source
-                      ? 'text-white'
-                      : 'text-gray-400 hover:text-white'
+                    filter === source ? 'text-white' : 'text-gray-400 hover:text-white'
                   }`}
                 >
                   {filter === source && (
