@@ -63,6 +63,7 @@ export default function Home({ initialNews }: Props) {
       <main className="min-h-screen bg-gray-900 text-white px-4 md:px-8 lg:px-16 py-8">
         <div className="sticky top-0 z-40 bg-gray-900/70 backdrop-blur-md backdrop-saturate-150 py-2 mb-6 border-b border-gray-800">
           <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 px-2 sm:px-4">
+            {/* Logo in osvežitev */}
             <div className="flex items-center space-x-5">
               <Link href="/">
                 <div className="flex items-center space-x-3 cursor-pointer">
@@ -100,11 +101,12 @@ export default function Home({ initialNews }: Props) {
                 </svg>
               </button>
             </div>
-            {/* On mobile, the filter bar takes full width; on desktop it shifts to the far right */}
+
+            {/* Filtri */}
             <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto sm:ml-auto">
               <div
                 ref={filterRef}
-                className="flex flex-nowrap items-center gap-1 sm:gap-2 overflow-x-auto pb-1 scrollbar-hide"
+                className="flex flex-nowrap items-center gap-1 sm:gap-2 overflow-x-auto pb-1 scrollbar-hide sm:justify-end"
                 style={{ scrollBehavior: 'smooth' }}
               >
                 {SOURCES.map((source) => (
@@ -131,7 +133,8 @@ export default function Home({ initialNews }: Props) {
                   </button>
                 ))}
               </div>
-              {/* Arrow appears only on desktop and when content overflows */}
+
+              {/* Puščica za desktop */}
               {showArrow && (
                 <button
                   onClick={scrollRight}
@@ -156,7 +159,7 @@ export default function Home({ initialNews }: Props) {
           </div>
         </div>
 
-        {/* Rest of the component remains unchanged (news grid, load more button, footer, styles) */}
+        {/* Novice */}
         {visibleNews.length === 0 ? (
           <p className="text-gray-400 text-center w-full mt-10">
             Ni novic za izbrani vir ali napaka pri nalaganju.
@@ -241,7 +244,6 @@ export default function Home({ initialNews }: Props) {
   )
 }
 
-// Static generation with revalidation
 export async function getStaticProps() {
   const initialNews = await fetchRSSFeeds()
   return {
