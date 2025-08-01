@@ -121,9 +121,8 @@ export default function Home({ initialNews }: Props) {
                 </svg>
               </button>
             </div>
-            {/* Right side: filter bar. We add margin on the left to separate it from the refresh button.
-                On larger screens the arrow appears when content overflows; on mobile the arrow is hidden. */}
-            <div className="flex-1 min-w-0 flex items-center gap-2 sm:gap-3 sm:ml-6">
+            {/* Right side: align the filter bar to the far right. On mobile this will stack below the logo */}
+            <div className="flex items-center gap-2 sm:gap-3 ml-auto">
               <div
                 ref={filterRef}
                 className="flex flex-nowrap items-center gap-1 sm:gap-2 overflow-x-auto pb-1 scrollbar-hide"
