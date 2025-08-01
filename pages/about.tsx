@@ -15,7 +15,7 @@ export default function About() {
 
         <p className="text-gray-300 mb-4">
           <strong>Križišče</strong> je neodvisen agregator najnovejših novic
-          iz slovenskih medijev. Spletna stran uporablja RSS vire različnih
+          iz slovenskih medijev. Spletna stran uporablja vire različnih
           portalov in jih združuje na enem mestu. Cilj projekta je izboljšati
           pregled nad domačo medijsko krajino in omogočiti hiter dostop do
           najpomembnejših informacij na enem mestu.
