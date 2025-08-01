@@ -1,4 +1,4 @@
-// pages/about.tsx
+// pages/projekt.tsx
 
 import Header from '@/components/Header'
 import Footer from '@/components/Footer'
