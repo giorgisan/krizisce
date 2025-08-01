@@ -12,7 +12,7 @@ export default function Footer() {
             <img src="/logo.png" alt="Križišče" className="w-8 h-8 rounded-full mr-2" />
             <h3 className="text-xl font-bold text-white">Križišče</h3>
           </div>
-          <p className="text-sm font-normal mb-1">
+          <p className="text-sm font-normal">
             Agregator najnovejših novic iz slovenskih medijev.
           </p>
           <p className="text-sm font-normal">
