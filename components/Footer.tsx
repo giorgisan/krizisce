@@ -10,13 +10,16 @@ export default function Footer() {
         <div className="flex-1">
           <div className="flex items-center mb-4">
             <img src="/logo.png" alt="Križišče" className="w-8 h-8 rounded-full mr-2" />
-            <h3 className="text-xl font-bold text-white">Križišče</h3>
+            <h4 className="text-white font-semibold text-lg">Križišče</h4>
           </div>
           <p className="text-sm font-normal leading-relaxed">
             Agregator najnovejših novic iz slovenskih medijev. <br />
             Članki so last izvornih portalov.
           </p>
         </div>
+
+        {/* Divider */}
+        <div className="hidden sm:block w-px bg-gray-800"></div>
 
         {/* Srednja kolona: navigacijske povezave */}
         <div className="flex-1">
@@ -34,6 +37,9 @@ export default function Footer() {
             </li>
           </ul>
         </div>
+
+        {/* Divider */}
+        <div className="hidden sm:block w-px bg-gray-800"></div>
 
         {/* Desna kolona: kontakt */}
         <div className="flex-1">
