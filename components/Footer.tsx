@@ -5,41 +5,39 @@ import Link from 'next/link'
 export default function Footer() {
   return (
     <footer className="bg-gray-900 text-gray-300 pt-12 pb-6 mt-8 border-t border-gray-800">
-      <div className="max-w-6xl mx-auto px-4 grid grid-cols-1 sm:grid-cols-3 gap-8">
+      <div className="max-w-6xl mx-auto px-4 flex flex-col sm:flex-row sm:justify-between sm:items-start gap-8">
         {/* Leva kolona: logotip in opis */}
-        <div>
-          <div className="flex items-center mb-3">
+        <div className="flex-1">
+          <div className="flex items-center mb-4">
             <img src="/logo.png" alt="Križišče" className="w-8 h-8 rounded-full mr-2" />
             <h3 className="text-xl font-bold text-white">Križišče</h3>
           </div>
-          <p className="text-sm font-normal mb-1">
-            Agregator najnovejših novic iz slovenskih medijev.
-          </p>
-          <p className="text-sm font-normal">
+          <p className="text-sm font-normal leading-relaxed">
+            Agregator najnovejših novic iz slovenskih medijev. <br />
             Članki so last izvornih portalov.
           </p>
         </div>
 
         {/* Srednja kolona: navigacijske povezave */}
-        <div>
-          <h4 className="text-white font-semibold mb-3">Povezave</h4>
-          <ul className="space-y-1 text-sm font-normal">
+        <div className="flex-1">
+          <h4 className="text-white font-semibold mb-4">Povezave</h4>
+          <ul className="space-y-2 text-sm font-normal">
             <li>
-              <Link href="/projekt">
-                <a className="hover:text-white transition">O projektu</a>
+              <Link href="/projekt" className="hover:text-white transition">
+                O projektu
               </Link>
             </li>
             <li>
-              <Link href="/pogoji">
-                <a className="hover:text-white transition">Pogoji uporabe</a>
+              <Link href="/pogoji" className="hover:text-white transition">
+                Pogoji uporabe
               </Link>
             </li>
           </ul>
         </div>
 
         {/* Desna kolona: kontakt */}
-        <div>
-          <h4 className="text-white font-semibold mb-3">Kontakt</h4>
+        <div className="flex-1">
+          <h4 className="text-white font-semibold mb-4">Kontakt</h4>
           <p className="text-sm font-normal">
             <a href="mailto:gjkcme@gmail.com" className="hover:text-white transition">
               Pošljite nam sporočilo
