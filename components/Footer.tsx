@@ -22,7 +22,7 @@ export default function Footer() {
           <h4 className="text-white font-semibold mb-3">Povezave</h4>
           <ul className="space-y-1 text-sm font-normal">
             <li>
-              <Link href="/about">
+              <Link href="/projekt">
                 <a className="hover:text-white transition">O projektu</a>
               </Link>
             </li>
