@@ -4,7 +4,7 @@ import { NewsItem } from '@/types'
 import fetchRSSFeeds from '@/lib/fetchRSSFeeds'
 import Footer from '@/components/Footer'
 import { motion, AnimatePresence } from 'framer-motion'
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef, useEffect } from 'react'
 import { SOURCES, sourceColors } from '@/lib/sources'
 import Link from 'next/link'
 
@@ -12,15 +12,11 @@ type Props = {
   initialNews: NewsItem[]
 }
 
-/**
- * Home page component.
- * Displays the latest news articles and allows filtering by source.
- * Includes a refresh button next to the logo for manually reloading the page to
- * fetch any new articles.
- */
 export default function Home({ initialNews }: Props) {
   const [filter, setFilter] = useState<string>('Vse')
   const [displayCount, setDisplayCount] = useState<number>(20)
+  const [showArrow, setShowArrow] = useState(false)
+  const filterRef = useRef<HTMLDivElement | null>(null)
 
   const sortedNews = useMemo(() => {
     return [...initialNews].sort(
@@ -38,6 +34,25 @@ export default function Home({ initialNews }: Props) {
   const handleLoadMore = () => {
     setDisplayCount((prev) => prev + 20)
   }
+
+  const scrollRight = () => {
+    if (filterRef.current) {
+      filterRef.current.scrollBy({ left: 200, behavior: 'smooth' })
+    }
+  }
+
+  // Update arrow visibility based on overflow
+  useEffect(() => {
+    const updateArrow = () => {
+      if (filterRef.current) {
+        const { scrollWidth, clientWidth } = filterRef.current
+        setShowArrow(scrollWidth > clientWidth)
+      }
+    }
+    updateArrow()
+    window.addEventListener('resize', updateArrow)
+    return () => window.removeEventListener('resize', updateArrow)
+  }, [])
 
   return (
     <>
@@ -82,29 +97,57 @@ export default function Home({ initialNews }: Props) {
               </button>
             </div>
 
-            {/* Filter bar with hidden scrollbar; user can swipe/scroll horizontally */}
-            <div className="flex flex-nowrap items-center gap-2 sm:gap-3 overflow-x-auto pb-1 scrollbar-hide">
-              {SOURCES.map((source) => (
+            {/* Filter bar with hidden scrollbar and optional right arrow */}
+            <div className="flex items-center gap-2 sm:gap-3">
+              <div
+                ref={filterRef}
+                className="flex flex-nowrap items-center gap-2 sm:gap-3 overflow-x-auto pb-1 scrollbar-hide"
+                style={{ scrollBehavior: 'smooth' }}
+              >
+                {SOURCES.map((source) => (
+                  <button
+                    key={source}
+                    onClick={() => {
+                      setFilter(source)
+                      setDisplayCount(20)
+                    }}
+                    className={`relative px-4 py-1 rounded-full transition font-medium whitespace-nowrap ${
+                      filter === source ? 'text-white' : 'text-gray-400 hover:text-white'
+                    }`}
+                  >
+                    {filter === source && (
+                      <motion.div
+                        layoutId="bubble"
+                        className="absolute inset-0 rounded-full bg-brand z-0"
+                        transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+                      />
+                    )}
+                    <span className="relative z-10">{source}</span>
+                  </button>
+                ))}
+              </div>
+
+              {/* Desna puščica – prikaže se le, ko je seznam daljši od vsebnika */}
+              {showArrow && (
                 <button
-                  key={source}
-                  onClick={() => {
-                    setFilter(source)
-                    setDisplayCount(20)
-                  }}
-                  className={`relative px-4 py-1 rounded-full transition font-medium whitespace-nowrap ${
-                    filter === source ? 'text-white' : 'text-gray-400 hover:text-white'
-                  }`}
+                  onClick={scrollRight}
+                  aria-label="Premakni desno"
+                  className="hidden md:flex items-center justify-center p-2 text-gray-400 hover:text-white"
                 >
-                  {filter === source && (
-                    <motion.div
-                      layoutId="bubble"
-                      className="absolute inset-0 rounded-full bg-brand z-0"
-                      transition={{ type: 'spring', stiffness: 300, damping: 20 }}
-                    />
-                  )}
-                  <span className="relative z-10">{source}</span>
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="w-5 h-5"
+                  >
+                    <path d="M9 6l6 6-6 6" />
+                  </svg>
                 </button>
-              ))}
+              )}
             </div>
           </div>
         </div>
