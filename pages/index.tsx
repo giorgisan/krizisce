@@ -63,7 +63,6 @@ export default function Home({ initialNews }: Props) {
     <>
       <main className="min-h-screen bg-gray-900 text-white px-4 md:px-8 lg:px-16 py-8">
         <div className="sticky top-0 z-40 bg-gray-900/70 backdrop-blur-md backdrop-saturate-150 py-2 mb-6 border-b border-gray-800">
-          {/* Header row with justify-between for left and right alignment */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4 px-2 sm:px-4">
             {/* Left: logo and refresh button */}
             <div className="flex items-center space-x-5">
@@ -102,11 +101,11 @@ export default function Home({ initialNews }: Props) {
               </button>
             </div>
 
-            {/* Right: filter bar aligned to the right, with arrow on desktop */}
-            <div className="flex-1 min-w-0 flex items-center gap-2 sm:gap-3 ml-auto">
+            {/* Right: filter bar aligned right, compact styling */}
+            <div className="flex-1 min-w-0 flex items-center ml-auto">
               <div
                 ref={filterRef}
-                className="flex flex-nowrap items-center gap-2 sm:gap-3 overflow-x-auto pb-1 scrollbar-hide w-full"
+                className="flex flex-nowrap items-center gap-1 sm:gap-2 overflow-x-auto pb-1 scrollbar-hide w-full pl-4"
                 style={{ scrollBehavior: 'smooth' }}
               >
                 {SOURCES.map((source) => (
@@ -116,7 +115,7 @@ export default function Home({ initialNews }: Props) {
                       setFilter(source)
                       setDisplayCount(20)
                     }}
-                    className={`relative px-4 py-1 rounded-full transition font-medium whitespace-nowrap ${
+                    className={`relative px-3 py-1 rounded-full text-sm transition font-medium whitespace-nowrap ${
                       filter === source ? 'text-white' : 'text-gray-400 hover:text-white'
                     }`}
                   >
@@ -132,7 +131,7 @@ export default function Home({ initialNews }: Props) {
                 ))}
               </div>
 
-              {/* Arrow – shown only on screens ≥ sm (desktop/tablet) and when overflow */}
+              {/* Arrow – only on screens ≥ sm (desktop/tablet) and when overflow */}
               {showArrow && (
                 <button
                   onClick={scrollRight}
