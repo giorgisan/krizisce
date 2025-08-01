@@ -4,7 +4,7 @@ import { NewsItem } from '@/types'
 import fetchRSSFeeds from '@/lib/fetchRSSFeeds'
 import Footer from '@/components/Footer'
 import { motion, AnimatePresence } from 'framer-motion'
-import { useState, useMemo, useRef, useEffect } from 'react'
+import { useState, useMemo, useRef } from 'react'
 import { SOURCES, sourceColors } from '@/lib/sources'
 import Link from 'next/link'
 
@@ -15,7 +15,6 @@ type Props = {
 export default function Home({ initialNews }: Props) {
   const [filter, setFilter] = useState<string>('Vse')
   const [displayCount, setDisplayCount] = useState<number>(20)
-  const [showArrow, setShowArrow] = useState(false)
   const filterRef = useRef<HTMLDivElement | null>(null)
 
   const sortedNews = useMemo(() => {
@@ -40,19 +39,6 @@ export default function Home({ initialNews }: Props) {
       filterRef.current.scrollBy({ left: 200, behavior: 'smooth' })
     }
   }
-
-  // Update arrow visibility based on overflow
-  useEffect(() => {
-    const updateArrow = () => {
-      if (filterRef.current) {
-        const { scrollWidth, clientWidth } = filterRef.current
-        setShowArrow(scrollWidth > clientWidth)
-      }
-    }
-    updateArrow()
-    window.addEventListener('resize', updateArrow)
-    return () => window.removeEventListener('resize', updateArrow)
-  }, [])
 
   return (
     <>
@@ -97,7 +83,7 @@ export default function Home({ initialNews }: Props) {
               </button>
             </div>
 
-            {/* Filter bar with hidden scrollbar and single right arrow */}
+            {/* Filter bar with hidden scrollbar and always-visible right arrow */}
             <div className="flex items-center gap-2 sm:gap-3">
               <div
                 ref={filterRef}
@@ -127,27 +113,25 @@ export default function Home({ initialNews }: Props) {
                 ))}
               </div>
 
-              {/* Right arrow – appears when list overflows regardless of breakpoint */}
-              {showArrow && (
-                <button
-                  onClick={scrollRight}
-                  aria-label="Premakni desno"
-                  className="flex items-center justify-center p-2 text-gray-400 hover:text-white"
+              {/* Right arrow – always visible to allow manual scroll */}
+              <button
+                onClick={scrollRight}
+                aria-label="Premakni desno"
+                className="flex items-center justify-center p-2 text-gray-400 hover:text-white"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="w-5 h-5"
                 >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className="w-5 h-5"
-                  >
-                    <path d="M9 6l6 6-6 6" />
-                  </svg>
-                </button>
-              )}
+                  <path d="M9 6l6 6-6 6" />
+                </svg>
+              </button>
             </div>
           </div>
         </div>
