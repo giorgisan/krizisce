@@ -82,7 +82,8 @@ export default function Home({ initialNews }: Props) {
               </button>
             </div>
 
-            <div className="flex flex-nowrap items-center gap-2 sm:gap-3 overflow-x-auto pb-1">
+            {/* Filter bar with hidden scrollbar; user can swipe/scroll horizontally */}
+            <div className="flex flex-nowrap items-center gap-2 sm:gap-3 overflow-x-auto pb-1 scrollbar-hide">
               {SOURCES.map((source) => (
                 <button
                   key={source}
@@ -178,6 +179,17 @@ export default function Home({ initialNews }: Props) {
       </main>
 
       <Footer />
+
+      {/* CSS to hide scrollbars while keeping horizontal scroll */}
+      <style jsx>{`
+        .scrollbar-hide {
+          -ms-overflow-style: none; /* IE and Edge */
+          scrollbar-width: none; /* Firefox */
+        }
+        .scrollbar-hide::-webkit-scrollbar {
+          display: none; /* Chrome, Safari and Opera */
+        }
+      `}</style>
     </>
   )
 }
