@@ -14,8 +14,7 @@ export default function Pogoji() {
         <h1 className="text-3xl md:text-4xl font-bold mb-6">Pogoji uporabe</h1>
 
         <p className="text-gray-300 mb-4">
-          <strong>Križišče</strong> je informativni agregator novic, ki s pomočjo
-          RSS virov povezuje na objave različnih slovenskih medijev. Vsebine, ki jih
+          <strong>Križišče</strong> je informativni agregator novic, ki povezuje na objave različnih slovenskih medijev. Vsebine, ki jih
           povzemamo (naslovi, povzetki, slike), so last izvornih avtorjev, zato ne
           jamčimo za njihovo točnost ali ažurnost.
         </p>
