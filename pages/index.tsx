@@ -123,7 +123,7 @@ export default function Home({ initialNews }: Props) {
             </div>
             {/* Right side: filter bar. We add margin on the left to separate it from the refresh button.
                 On larger screens the arrow appears when content overflows; on mobile the arrow is hidden. */}
-            <div className="flex items-center gap-2 sm:gap-3 sm:ml-6">
+            <div className="flex-1 min-w-0 flex items-center gap-2 sm:gap-3 sm:ml-6">
               <div
                 ref={filterRef}
                 className="flex flex-nowrap items-center gap-1 sm:gap-2 overflow-x-auto pb-1 scrollbar-hide"
@@ -225,9 +225,9 @@ export default function Home({ initialNews }: Props) {
                       <h2 className="text-base font-semibold mb-1 leading-tight line-clamp-3 sm:line-clamp-3">
                         {article.title}
                       </h2>
-                        <p className="text-sm text-gray-400 line-clamp-4 sm:line-clamp-4">
+                      <p className="text-sm text-gray-400 line-clamp-4 sm:line-clamp-4">
                         {article.contentSnippet}
-                        </p>
+                      </p>
                     </div>
                   </a>
                 )
