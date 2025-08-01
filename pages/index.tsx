@@ -4,7 +4,7 @@ import { NewsItem } from '@/types'
 import fetchRSSFeeds from '@/lib/fetchRSSFeeds'
 import Footer from '@/components/Footer'
 import { motion, AnimatePresence } from 'framer-motion'
-import { useState, useMemo, useRef } from 'react'
+import { useState, useMemo, useRef, useEffect } from 'react'
 import { SOURCES, sourceColors } from '@/lib/sources'
 import Link from 'next/link'
 
@@ -15,6 +15,7 @@ type Props = {
 export default function Home({ initialNews }: Props) {
   const [filter, setFilter] = useState<string>('Vse')
   const [displayCount, setDisplayCount] = useState<number>(20)
+  const [showArrow, setShowArrow] = useState(false)
   const filterRef = useRef<HTMLDivElement | null>(null)
 
   const sortedNews = useMemo(() => {
@@ -40,13 +41,36 @@ export default function Home({ initialNews }: Props) {
     }
   }
 
+  // Update arrow visibility based on overflow and scroll position
+  useEffect(() => {
+    const updateArrow = () => {
+      if (filterRef.current) {
+        const { scrollLeft, scrollWidth, clientWidth } = filterRef.current
+        // Show arrow only if there is hidden content on the right
+        setShowArrow(scrollLeft + clientWidth < scrollWidth)
+      }
+    }
+    // Run once on mount
+    updateArrow()
+    const refCurrent = filterRef.current
+    // Listen for scroll events on the container
+    refCurrent?.addEventListener('scroll', updateArrow)
+    // Also update on window resize
+    window.addEventListener('resize', updateArrow)
+    return () => {
+      refCurrent?.removeEventListener('scroll', updateArrow)
+      window.removeEventListener('resize', updateArrow)
+    }
+  }, [])
+
   return (
     <>
       <main className="min-h-screen bg-gray-900 text-white px-4 md:px-8 lg:px-16 py-8">
         <div className="sticky top-0 z-40 bg-gray-900/70 backdrop-blur-md backdrop-saturate-150 py-2 mb-6 border-b border-gray-800">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4 px-2 sm:px-4">
+          {/* Glavna vrstica glave – brez justify-between, elementi poravnani v vrstico na širšem zaslonu */}
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 px-2 sm:px-4">
+            {/* Leva stran: logotip in gumb za osvežitev */}
             <div className="flex items-center space-x-5">
-              {/* Logo and site name */}
               <Link href="/">
                 <div className="flex items-center space-x-3 cursor-pointer">
                   <img
@@ -60,7 +84,6 @@ export default function Home({ initialNews }: Props) {
                   </div>
                 </div>
               </Link>
-              {/* Refresh button */}
               <button
                 onClick={() => location.reload()}
                 aria-label="Osveži stran"
@@ -83,8 +106,8 @@ export default function Home({ initialNews }: Props) {
               </button>
             </div>
 
-            {/* Filter bar with hidden scrollbar and always-visible right arrow */}
-            <div className="flex items-center gap-2 sm:gap-3">
+            {/* Desna stran: filter bar v raztegljivem vsebniku, ki se lahko scrola */}
+            <div className="flex-1 flex items-center gap-2 sm:gap-3">
               <div
                 ref={filterRef}
                 className="flex flex-nowrap items-center gap-2 sm:gap-3 overflow-x-auto pb-1 scrollbar-hide"
@@ -113,25 +136,26 @@ export default function Home({ initialNews }: Props) {
                 ))}
               </div>
 
-              {/* Right arrow – always visible to allow manual scroll */}
-              <button
-                onClick={scrollRight}
-                aria-label="Premakni desno"
-                className="flex items-center justify-center p-2 text-gray-400 hover:text-white"
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  className="w-5 h-5"
+              {showArrow && (
+                <button
+                  onClick={scrollRight}
+                  aria-label="Premakni desno"
+                  className="flex items-center justify-center p-2 text-gray-400 hover:text-white"
                 >
-                  <path d="M9 6l6 6-6 6" />
-                </svg>
-              </button>
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="w-5 h-5"
+                  >
+                    <path d="M9 6l6 6-6 6" />
+                  </svg>
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -210,11 +234,11 @@ export default function Home({ initialNews }: Props) {
       {/* CSS to hide scrollbars while keeping horizontal scroll */}
       <style jsx>{`
         .scrollbar-hide {
-          -ms-overflow-style: none; /* IE and Edge */
+          -ms-overflow-style: none; /* IE in Edge */
           scrollbar-width: none; /* Firefox */
         }
         .scrollbar-hide::-webkit-scrollbar {
-          display: none; /* Chrome, Safari and Opera */
+          display: none; /* Chrome, Safari in Opera */
         }
       `}</style>
     </>
