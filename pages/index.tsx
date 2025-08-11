@@ -14,15 +14,16 @@ export default function Home({ initialNews }: Props) {
   const [filter, setFilter] = useState<string>('Vse')
   const [displayCount, setDisplayCount] = useState<number>(20)
 
-  // indikator novejših novic
+  // “fresh check” indikator
   const [hasFresh, setHasFresh] = useState(false)
 
-  // stanje za drsni filter bar
+  // filter bar state
   const filterRef = useRef<HTMLDivElement | null>(null)
   const [showLeft, setShowLeft] = useState(false)
   const [showRight, setShowRight] = useState(false)
-  const [alignEnd, setAlignEnd] = useState(true) // poravnaj desno, če ni overflowa
+  const [alignEnd, setAlignEnd] = useState(true) // poravnan desno, če NI overflowa
 
+  // --- podatki ---
   const sortedNews = useMemo(
     () => [...initialNews].sort((a, b) => new Date(b.pubDate).getTime() - new Date(a.pubDate).getTime()),
     [initialNews]
@@ -31,7 +32,7 @@ export default function Home({ initialNews }: Props) {
   const filteredNews = filter === 'Vse' ? sortedNews : sortedNews.filter(a => a.source === filter)
   const visibleNews = filteredNews.slice(0, displayCount)
 
-  // fresh check po mountu
+  // --- fresh check po mountu ---
   useEffect(() => {
     const latest = initialNews?.[0]?.pubDate
     if (!latest) return
@@ -40,23 +41,30 @@ export default function Home({ initialNews }: Props) {
         const res = await fetch('/api/news?forceFresh=1', { cache: 'no-store' })
         const fresh = await res.json()
         if (Array.isArray(fresh) && fresh.length) {
-          if (new Date(fresh[0].pubDate).getTime() > new Date(latest).getTime()) setHasFresh(true)
+          if (new Date(fresh[0].pubDate).getTime() > new Date(latest).getTime()) {
+            setHasFresh(true)
+          }
         }
-      } catch {}
+      } catch {
+        // ignore
+      }
     }
     check()
   }, [initialNews])
 
-  // upravljanje puščic + poravnave glede na overflow
+  // --- overflow/puščice/poravnava ---
   useEffect(() => {
     const update = () => {
       const el = filterRef.current
       if (!el) return
-      const { scrollLeft, scrollWidth, clientWidth } = el
+      const scrollLeft = Math.ceil(el.scrollLeft)
+      const clientWidth = Math.ceil(el.clientWidth)
+      const scrollWidth = Math.ceil(el.scrollWidth)
       const overflow = scrollWidth > clientWidth + 1
+
       setShowLeft(overflow && scrollLeft > 0)
       setShowRight(overflow && scrollLeft + clientWidth < scrollWidth - 1)
-      setAlignEnd(!overflow) // desno, če NI overflowa
+      setAlignEnd(!overflow) // desno poravnano, ko NI overflowa
     }
     update()
     const el = filterRef.current
@@ -77,7 +85,7 @@ export default function Home({ initialNews }: Props) {
         {/* Header */}
         <div className="sticky top-0 z-40 bg-gray-900/70 backdrop-blur-md backdrop-saturate-150 py-2 mb-6 border-b border-gray-800">
           <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 px-2 sm:px-4">
-            {/* logo + osveži */}
+            {/* Logo + osvežitev */}
             <div className="flex items-center space-x-5">
               <Link href="/">
                 <div className="flex items-center space-x-3 cursor-pointer">
@@ -100,8 +108,9 @@ export default function Home({ initialNews }: Props) {
                 {hasFresh && (
                   <span className="absolute -top-0.5 -right-0.5 inline-block w-2.5 h-2.5 rounded-full bg-emerald-400 ring-2 ring-gray-900" />
                 )}
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                  strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                  stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+                  className="w-5 h-5">
                   <path stroke="none" d="M0 0h24v24H0z" />
                   <path d="M20 11a8.1 8.1 0 0 0 -15.5 -2m-.5 -4v4h4" />
                   <path d="M4 13a8.1 8.1 0 0 0 15.5 2m.5 4v-4h-4" />
@@ -109,9 +118,9 @@ export default function Home({ initialNews }: Props) {
               </button>
             </div>
 
-            {/* filter bar (na mobiju w-full pod logom; na desktopu skrajno desno, če NI overflowa) */}
+            {/* Filtri – na mobiju w-full pod logom; na desktopu skrajno desno, če NI overflowa */}
             <div className="flex items-center gap-1 sm:gap-2 w-full sm:w-auto sm:ml-auto">
-              {/* leva puščica – samo na desktopu in ko lahko drsimo levo */}
+              {/* leva puščica (skrita na mobiju) */}
               {showLeft && (
                 <button
                   onClick={() => scrollBy(-220)}
@@ -119,8 +128,8 @@ export default function Home({ initialNews }: Props) {
                   className="hidden sm:flex items-center justify-center p-2 text-gray-400 hover:text-white"
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"
-                    fill="none" stroke="currentColor" strokeWidth="2"
-                    strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
+                    fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+                    className="w-5 h-5">
                     <path d="M15 6l-6 6 6 6" />
                   </svg>
                 </button>
@@ -131,7 +140,6 @@ export default function Home({ initialNews }: Props) {
                 className={[
                   'flex flex-nowrap items-center overflow-x-auto pb-1 scrollbar-hide',
                   'gap-1 sm:gap-2',
-                  // poravnava: na desktopu desno, ko NI overflowa; sicer levo
                   alignEnd ? 'sm:justify-end' : 'justify-start'
                 ].join(' ')}
                 style={{ scrollBehavior: 'smooth' }}
@@ -156,7 +164,7 @@ export default function Home({ initialNews }: Props) {
                 ))}
               </div>
 
-              {/* desna puščica – samo na desktopu in ko lahko drsimo desno */}
+              {/* desna puščica (skrita na mobiju) */}
               {showRight && (
                 <button
                   onClick={() => scrollBy(220)}
@@ -164,8 +172,8 @@ export default function Home({ initialNews }: Props) {
                   className="hidden sm:flex items-center justify-center p-2 text-gray-400 hover:text-white"
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"
-                    fill="none" stroke="currentColor" strokeWidth="2"
-                    strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
+                    fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+                    className="w-5 h-5">
                     <path d="M9 6l6 6-6 6" />
                   </svg>
                 </button>
@@ -242,7 +250,7 @@ export default function Home({ initialNews }: Props) {
   )
 }
 
-// hitrejši ISR
+// Hitrejši ISR (minutni)
 export async function getStaticProps() {
   const initialNews = await fetchRSSFeeds()
   return { props: { initialNews }, revalidate: 60 }
