@@ -14,14 +14,14 @@ export default function Home({ initialNews }: Props) {
   const [filter, setFilter] = useState<string>('Vse')
   const [displayCount, setDisplayCount] = useState<number>(20)
 
-  // “fresh check” indikator
+  // indikator “svežih” novic
   const [hasFresh, setHasFresh] = useState(false)
 
-  // filter bar state
+  // filter bar
   const filterRef = useRef<HTMLDivElement | null>(null)
   const [showLeft, setShowLeft] = useState(false)
   const [showRight, setShowRight] = useState(false)
-  const [alignEnd, setAlignEnd] = useState(true) // poravnan desno, če NI overflowa
+  const [alignEnd, setAlignEnd] = useState(true) // poravnaj desno, ko NI overflowa
 
   // --- podatki ---
   const sortedNews = useMemo(
@@ -52,27 +52,40 @@ export default function Home({ initialNews }: Props) {
     check()
   }, [initialNews])
 
-  // --- overflow/puščice/poravnava ---
+  // --- overflow/puščice/poravnava (robustno za Safari/Chrome) ---
   useEffect(() => {
+    const el = filterRef.current
+    if (!el) return
+
     const update = () => {
-      const el = filterRef.current
-      if (!el) return
+      // Safari včasih vrne decimalke – zaokrožimo
       const scrollLeft = Math.ceil(el.scrollLeft)
       const clientWidth = Math.ceil(el.clientWidth)
       const scrollWidth = Math.ceil(el.scrollWidth)
-      const overflow = scrollWidth > clientWidth + 1
 
+      const overflow = scrollWidth - clientWidth > 2 // toleranca 2 px
       setShowLeft(overflow && scrollLeft > 0)
       setShowRight(overflow && scrollLeft + clientWidth < scrollWidth - 1)
       setAlignEnd(!overflow) // desno poravnano, ko NI overflowa
     }
+
+    // inicialno
     update()
-    const el = filterRef.current
-    el?.addEventListener('scroll', update)
+
+    // poslušalci
+    el.addEventListener('scroll', update)
     window.addEventListener('resize', update)
+
+    // ResizeObserver, ko se spremeni širina vsebine (font, gumbi …)
+    const ro = new ResizeObserver(update)
+    ro.observe(el)
+    // opazuj tudi otroke
+    Array.from(el.children).forEach(child => ro.observe(child as Element))
+
     return () => {
-      el?.removeEventListener('scroll', update)
+      el.removeEventListener('scroll', update)
       window.removeEventListener('resize', update)
+      ro.disconnect()
     }
   }, [])
 
@@ -118,14 +131,14 @@ export default function Home({ initialNews }: Props) {
               </button>
             </div>
 
-            {/* Filtri – na mobiju w-full pod logom; na desktopu skrajno desno, če NI overflowa */}
-            <div className="flex items-center gap-1 sm:gap-2 w-full sm:w-auto sm:ml-auto">
-              {/* leva puščica (skrita na mobiju) */}
+            {/* Filtri – na mobiju w-full; na desktopu skrajno desno, če NI overflowa */}
+            <div className="flex items-center gap-2 w-full sm:w-auto sm:ml-auto">
+              {/* leva puščica – prikazana KADAR je overflow (tudi na ozkem desktopu) */}
               {showLeft && (
                 <button
                   onClick={() => scrollBy(-220)}
                   aria-label="Premakni levo"
-                  className="hidden sm:flex items-center justify-center p-2 text-gray-400 hover:text-white"
+                  className="flex items-center justify-center p-2 text-gray-400 hover:text-white"
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"
                     fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
@@ -140,7 +153,7 @@ export default function Home({ initialNews }: Props) {
                 className={[
                   'flex flex-nowrap items-center overflow-x-auto pb-1 scrollbar-hide',
                   'gap-1 sm:gap-2',
-                  alignEnd ? 'sm:justify-end' : 'justify-start'
+                  alignEnd ? 'justify-end' : 'justify-start'
                 ].join(' ')}
                 style={{ scrollBehavior: 'smooth' }}
               >
@@ -164,12 +177,12 @@ export default function Home({ initialNews }: Props) {
                 ))}
               </div>
 
-              {/* desna puščica (skrita na mobiju) */}
+              {/* desna puščica – prikazana KADAR je overflow */}
               {showRight && (
                 <button
                   onClick={() => scrollBy(220)}
                   aria-label="Premakni desno"
-                  className="hidden sm:flex items-center justify-center p-2 text-gray-400 hover:text-white"
+                  className="flex items-center justify-center p-2 text-gray-400 hover:text-white"
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"
                     fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
@@ -250,7 +263,7 @@ export default function Home({ initialNews }: Props) {
   )
 }
 
-// Hitrejši ISR (minutni)
+// Hitrejši ISR (1 min)
 export async function getStaticProps() {
   const initialNews = await fetchRSSFeeds()
   return { props: { initialNews }, revalidate: 60 }
