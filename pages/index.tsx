@@ -13,17 +13,13 @@ type Props = { initialNews: NewsItem[] }
 export default function Home({ initialNews }: Props) {
   const [filter, setFilter] = useState<string>('Vse')
   const [displayCount, setDisplayCount] = useState<number>(20)
-
-  // indikator “svežih” novic
   const [hasFresh, setHasFresh] = useState(false)
 
-  // filter bar (za puščici in poravnavo na desktopu)
   const filterRef = useRef<HTMLDivElement | null>(null)
   const [showLeft, setShowLeft] = useState(false)
   const [showRight, setShowRight] = useState(false)
-  const [alignEnd, setAlignEnd] = useState(true) // desno, ko NI overflowa (samo za desktop)
+  const [alignEnd, setAlignEnd] = useState(true)
 
-  // --- podatki ---
   const sortedNews = useMemo(
     () => [...initialNews].sort((a, b) => new Date(b.pubDate).getTime() - new Date(a.pubDate).getTime()),
     [initialNews]
@@ -32,7 +28,7 @@ export default function Home({ initialNews }: Props) {
   const filteredNews = filter === 'Vse' ? sortedNews : sortedNews.filter(a => a.source === filter)
   const visibleNews = filteredNews.slice(0, displayCount)
 
-  // --- fresh check po mountu ---
+  // Check fresh news once on mount
   useEffect(() => {
     const latest = initialNews?.[0]?.pubDate
     if (!latest) return
@@ -45,20 +41,20 @@ export default function Home({ initialNews }: Props) {
             setHasFresh(true)
           }
         }
-      } catch {/* ignore */}
+      } catch {}
     }
     check()
   }, [initialNews])
 
-  // --- overflow/puščice/poravnava za desktop ---
+  // Overflow detection for desktop only
   useEffect(() => {
     const el = filterRef.current
     if (!el) return
+
     const update = () => {
-      // to upoštevamo samo za desktop (sm+), na mobiju je flex-wrap (brez horizontalnega scrolla)
       const mq = window.matchMedia('(min-width: 640px)')
       if (!mq.matches) {
-        // mobilni pogled: brez scroll puščic, poravnava ni pomembna
+        // mobile — ignore overflow arrows
         setShowLeft(false)
         setShowRight(false)
         setAlignEnd(false)
@@ -72,6 +68,7 @@ export default function Home({ initialNews }: Props) {
       setShowRight(overflow && scrollLeft + clientWidth < scrollWidth - 1)
       setAlignEnd(!overflow)
     }
+
     update()
     el.addEventListener('scroll', update)
     window.addEventListener('resize', update)
@@ -91,18 +88,13 @@ export default function Home({ initialNews }: Props) {
   return (
     <>
       <main className="min-h-screen bg-gray-900 text-white px-4 md:px-8 lg:px-16 py-8">
-        {/* Header */}
-        <div className="sticky top-0 z-40 bg-gray-900/70 backdrop-blur-md backdrop-saturate-150 py-2 mb-6 border-b border-gray-800">
+        <div className="sticky top-0 z-40 bg-gray-900/70 backdrop-blur-md border-b border-gray-800 py-2 mb-6">
           <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 px-2 sm:px-4">
-            {/* Logo + osvežitev */}
+            {/* Logo + refresh */}
             <div className="flex items-center space-x-5">
               <Link href="/">
                 <div className="flex items-center space-x-3 cursor-pointer">
-                  <img
-                    src="/logo.png"
-                    alt="Križišče"
-                    className="w-10 h-10 rounded-full transition duration-300 transform hover:scale-105 hover:shadow-lg"
-                  />
+                  <img src="/logo.png" alt="Križišče" className="w-10 h-10 rounded-full transition hover:scale-105" />
                   <div>
                     <h1 className="text-2xl font-bold leading-tight">Križišče</h1>
                     <p className="text-xs text-gray-400">Najnovejše novice slovenskih medijev</p>
@@ -112,15 +104,14 @@ export default function Home({ initialNews }: Props) {
               <button
                 onClick={() => location.reload()}
                 aria-label="Osveži stran"
-                className="relative p-2 rounded-full text-gray-400 hover:text-white hover:bg-gray-800 transition-transform transform hover:rotate-180"
+                className="relative p-2 rounded-full text-gray-400 hover:text-white hover:bg-gray-800 transition-transform hover:rotate-180"
               >
-                {/* Zelena pika samo na NAMIZJU (skrita na mobiju) */}
+                {/* hide green dot on mobile */}
                 {hasFresh && (
                   <span className="hidden sm:inline-block absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-400 ring-2 ring-gray-900" />
                 )}
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
-                  stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
-                  className="w-5 h-5">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+                  stroke="currentColor" strokeWidth="2" className="w-5 h-5">
                   <path stroke="none" d="M0 0h24v24H0z" />
                   <path d="M20 11a8.1 8.1 0 0 0 -15.5 -2m-.5 -4v4h4" />
                   <path d="M4 13a8.1 8.1 0 0 0 15.5 2m.5 4v-4h-4" />
@@ -128,18 +119,17 @@ export default function Home({ initialNews }: Props) {
               </button>
             </div>
 
-            {/* Filtri – MOBILNI: več vrstic (brez horiz. scrolla); NAMIZJE: skrajno desno + puščici ob overflowu */}
+            {/* Filters */}
             <div className="flex items-center gap-2 w-full sm:w-auto sm:ml-auto">
-              {/* leva puščica – samo namizje */}
+              {/* Left arrow — desktop only */}
               {showLeft && (
                 <button
                   onClick={() => scrollBy(-220)}
                   aria-label="Premakni levo"
                   className="hidden sm:flex items-center justify-center p-2 text-gray-400 hover:text-white"
                 >
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"
-                    fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
-                    className="w-5 h-5">
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+                    stroke="currentColor" strokeWidth="2" className="w-5 h-5">
                     <path d="M15 6l-6 6 6 6" />
                   </svg>
                 </button>
@@ -148,13 +138,9 @@ export default function Home({ initialNews }: Props) {
               <div
                 ref={filterRef}
                 className={[
-                  // MOBILNI: flex-wrap, brez horiz. scrolla
-                  'flex flex-wrap sm:flex-nowrap items-center',
-                  'overflow-x-visible sm:overflow-x-auto',
-                  // razmiki
-                  'gap-2 sm:gap-2 pb-1',
-                  // poravnava: namizje dinamično; mobilni vedno levo
-                  alignEnd ? 'sm:justify-end justify-start' : 'justify-start'
+                  'flex flex-nowrap items-center overflow-x-auto scrollbar-hide',
+                  'gap-2 pb-1',
+                  alignEnd ? 'sm:justify-end' : ''
                 ].join(' ')}
                 style={{ scrollBehavior: 'smooth' }}
               >
@@ -178,16 +164,15 @@ export default function Home({ initialNews }: Props) {
                 ))}
               </div>
 
-              {/* desna puščica – samo namizje */}
+              {/* Right arrow — desktop only */}
               {showRight && (
                 <button
                   onClick={() => scrollBy(220)}
                   aria-label="Premakni desno"
                   className="hidden sm:flex items-center justify-center p-2 text-gray-400 hover:text-white"
                 >
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"
-                    fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
-                    className="w-5 h-5">
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+                    stroke="currentColor" strokeWidth="2" className="w-5 h-5">
                     <path d="M9 6l6 6-6 6" />
                   </svg>
                 </button>
@@ -196,7 +181,7 @@ export default function Home({ initialNews }: Props) {
           </div>
         </div>
 
-        {/* GRID novic */}
+        {/* News grid */}
         {visibleNews.length === 0 ? (
           <p className="text-gray-400 text-center w-full mt-10">Ni novic za izbrani vir ali napaka pri nalaganju.</p>
         ) : (
@@ -251,7 +236,6 @@ export default function Home({ initialNews }: Props) {
 
       <Footer />
 
-      {/* skrij horizontalni scrollbar na namizju; na mobilu ga več ne uporabljamo */}
       <style jsx>{`
         .scrollbar-hide {
           -ms-overflow-style: none;
@@ -265,7 +249,6 @@ export default function Home({ initialNews }: Props) {
   )
 }
 
-// Hitrejši ISR (1 min)
 export async function getStaticProps() {
   const initialNews = await fetchRSSFeeds()
   return { props: { initialNews }, revalidate: 60 }
