@@ -186,10 +186,8 @@ export default function Home({ initialNews }: Props) {
 export async function getStaticProps() {
   const initialNews = await fetchRSSFeeds()
   return {
-    props: {
-      initialNews,
-    },
-    // Stran se bo na Vercelu regenerirala največ enkrat na 300 sekund.
-    revalidate: 300,
+    props: { initialNews },
+    // bilo je 300 (5 min)
+    revalidate: 60, // 1 minuta – opazno hitrejše osveževanje
   }
 }
