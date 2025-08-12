@@ -2,107 +2,46 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ---------------------------
-   Osnovni stil
----------------------------- */
-:root {
-  color-scheme: dark;
-}
-
-html, body {
-  height: 100%;
-}
-
+:root { color-scheme: dark; }
+html, body { height: 100%; }
 body {
-  background-color: #0d0d0d; /* temno ozadje kot na strani */
+  background-color: #0d0d0d;
   color: #fff;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* ---------------------------
-   Animacije
----------------------------- */
-.fade-in {
-  animation: fadeIn 0.6s ease-in-out both;
+/* Skip link helper */
+.sr-only {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
 }
 
+.fade-in { animation: fadeIn 0.6s ease-in-out both; }
 @keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
-/* ---------------------------
-   Line clamp helperji
-   (uporabljamo jih v karticah)
----------------------------- */
-.line-clamp-2,
-.line-clamp-3,
-.line-clamp-4 {
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
+/* line clamp helpers */
+.line-clamp-2,.line-clamp-3,.line-clamp-4{display:-webkit-box;-webkit-box-orient:vertical;overflow:hidden;}
+.line-clamp-2{-webkit-line-clamp:2;} .line-clamp-3{-webkit-line-clamp:3;} .line-clamp-4{-webkit-line-clamp:4;}
+@media (min-width:640px){
+  .sm\:line-clamp-3{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3;overflow:hidden;}
+  .sm\:line-clamp-4{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:4;overflow:hidden;}
 }
 
-.line-clamp-2 { -webkit-line-clamp: 2; }
-.line-clamp-3 { -webkit-line-clamp: 3; }
-.line-clamp-4 { -webkit-line-clamp: 4; }
+/* Performance: kartice */
+.cv-auto { content-visibility:auto; contain-intrinsic-size:256px 320px; }
 
-/* sm: variante za širše zaslone */
-@media (min-width: 640px) {
-  .sm\:line-clamp-2 {
-    display: -webkit-box;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 2;
-    overflow: hidden;
-  }
-  .sm\:line-clamp-3 {
-    display: -webkit-box;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 3;
-    overflow: hidden;
-  }
-  .sm\:line-clamp-4 {
-    display: -webkit-box;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 4;
-    overflow: hidden;
-  }
-}
+/* Scrollbar hide za filter bar */
+.scrollbar-hide { -ms-overflow-style:none; scrollbar-width:none; }
+.scrollbar-hide::-webkit-scrollbar { display:none; }
 
-/* ---------------------------
-   Performance helperji
----------------------------- */
-/* Kartice ne renderiraj, dokler niso v viewportu (zniža INP) */
-.cv-auto {
-  content-visibility: auto;
-  /* približna intrinzična dimenzija kartice (prilagodi po želji) */
-  contain-intrinsic-size: 256px 320px;
-}
+/* Mikro-press efekti na gumbe */
+.btn-press:active { transform: translateY(1px) scale(0.98); }
 
-/* Skrij horizont. scroll bar tam, kjer je nežen swipe/scroll po vsebini */
-.scrollbar-hide {
-  -ms-overflow-style: none;  /* IE in stari Edge */
-  scrollbar-width: none;     /* Firefox */
-}
-.scrollbar-hide::-webkit-scrollbar {
-  display: none;             /* Chrome/Safari */
-}
-
-/* ---------------------------
-   Dostopnost / Reduced motion
----------------------------- */
+/* Dostopnost: reduced motion */
 @media (prefers-reduced-motion: reduce) {
-  * {
-    animation-duration: 0.001ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.001ms !important;
-    scroll-behavior: auto !important;
-  }
+  * { animation-duration:.001ms !important; animation-iteration-count:1 !important; transition-duration:.001ms !important; scroll-behavior:auto !important; }
 }
