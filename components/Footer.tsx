@@ -4,10 +4,9 @@ import Link from "next/link";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
-/* --- Viri --- */
 const SOURCES = [
   { name: "RTVSLO", url: "https://www.rtvslo.si/" },
-  { name: "24ur",   url: "https://www.24ur.com/" },
+  { name: "24ur", url: "https://www.24ur.com/" },
   { name: "Siol.net", url: "https://siol.net/" },
   { name: "Slovenske novice", url: "https://www.slovenskenovice.si/" },
   { name: "Delo", url: "https://www.delo.si/" },
@@ -16,7 +15,6 @@ const SOURCES = [
   { name: "Svet24", url: "https://novice.svet24.si/" },
 ];
 
-/* --- Portal helper --- */
 function Portal({ children }: { children: React.ReactNode }) {
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
@@ -24,7 +22,7 @@ function Portal({ children }: { children: React.ReactNode }) {
   return createPortal(children, document.body);
 }
 
-/* --- Nežna ikona “križišče / signpost” (inline SVG) --- */
+/* Nežna ikona signpost/križišče (inline SVG) */
 function IconSignpost(props: React.SVGProps<SVGSVGElement>) {
   return (
     <svg
@@ -37,11 +35,8 @@ function IconSignpost(props: React.SVGProps<SVGSVGElement>) {
       aria-hidden="true"
       {...props}
     >
-      {/* drog */}
       <path d="M12 3v18" />
-      {/* zgornja tabla (levo) */}
       <path d="M5 6h9l-2.5 3H5z" />
-      {/* spodnja tabla (desno) */}
       <path d="M19 14h-9l2.5-3H19z" />
     </svg>
   );
@@ -54,34 +49,34 @@ export default function Footer() {
   const buttonRef = useRef<HTMLButtonElement | null>(null);
   const panelRef  = useRef<HTMLDivElement | null>(null);
 
-  // ko je null -> center fallback; ko izmerimo -> absolutni top tik nad gumbom
+  // null => fallback center (prvi frame z animacijo); številka => natančen top nad gumbom
   const [panelTop, setPanelTop] = useState<number | null>(null);
 
-  // Izračunaj top tako, da je panel ~16px NAD gumbom
   const positionPanelOverButton = () => {
     const btn = buttonRef.current;
     const pnl = panelRef.current;
     if (!btn || !pnl) return;
-
     const btnRect = btn.getBoundingClientRect();
     const pnlRect = pnl.getBoundingClientRect();
     const GAP = 16; // razmak nad gumbom
-
-    // panel je v overlayu (fixed), zato uporabimo scrollY
     const top = window.scrollY + btnRect.top - pnlRect.height - GAP;
-    setPanelTop(Math.max(12, top)); // safety rob
+    setPanelTop(Math.max(12, top));
   };
 
-  // Ob odprtju: pokaži center fallback, nato v naslednjem frame-u izmeri in premakni nad gumb.
+  // ob odprtju: prikaži center + animacijo, nato v dvojnem RAF-u izmeri in premakni nad gumb
   useLayoutEffect(() => {
     if (!open) return;
-    setPanelTop(null); // fallback center (da se vedno vidi)
-    const raf = requestAnimationFrame(positionPanelOverButton);
+    setPanelTop(null);
+    const id1 = requestAnimationFrame(() => {
+      const id2 = requestAnimationFrame(positionPanelOverButton);
+      // cleanup inner raf
+      return () => cancelAnimationFrame(id2);
+    });
     const on = () => positionPanelOverButton();
     window.addEventListener("resize", on);
     window.addEventListener("scroll", on, { passive: true });
     return () => {
-      cancelAnimationFrame(raf);
+      cancelAnimationFrame(id1);
       window.removeEventListener("resize", on);
       window.removeEventListener("scroll", on);
     };
@@ -98,7 +93,6 @@ export default function Footer() {
     <footer className="relative bg-gray-900 text-gray-300 pt-12 pb-6 mt-8 border-t border-gray-800">
       {/* Zgornji trije stolpci */}
       <div className="max-w-6xl mx-auto px-4 flex flex-col sm:flex-row sm:justify-between sm:items-start gap-8">
-        {/* Leva kolona */}
         <div className="flex-1">
           <div className="flex items-center mb-4">
             <img src="/logo.png" alt="Križišče" className="w-8 h-8 rounded-full mr-2" />
@@ -112,7 +106,6 @@ export default function Footer() {
 
         <div className="hidden sm:block w-px bg-gray-800" />
 
-        {/* Srednja kolona */}
         <div className="flex-1">
           <h4 className="text-white font-semibold mb-4">Povezave</h4>
           <ul className="space-y-2 text-sm font-normal">
@@ -123,7 +116,6 @@ export default function Footer() {
 
         <div className="hidden sm:block w-px bg-gray-800" />
 
-        {/* Desna kolona */}
         <div className="flex-1">
           <h4 className="text-white font-semibold mb-4">Kontakt</h4>
           <p className="text-sm font-normal">
@@ -160,22 +152,24 @@ export default function Footer() {
             className="fixed inset-0 z-[200] pointer-events-auto"
             role="dialog"
             aria-modal="true"
-            onMouseDown={() => setOpen(false)}   // klik na scrim zapre
+            onMouseDown={() => setOpen(false)}
           >
+            {/* nežen scrim */}
             <div className="absolute inset-0 bg-black/20" />
 
+            {/* PANEL: animacija samo v fallback centru; po izračunu brez animacije */}
             <div
               ref={panelRef}
               id="sources-panel"
-              className="fixed left-1/2 w-[min(92vw,64rem)] rounded-2xl bg-gray-900/85 backdrop-blur
-                         ring-1 ring-white/10 shadow-2xl p-4 sm:p-6 pointer-events-auto
-                         animate-fadeUp"
+              className={`fixed left-1/2 w-[min(92vw,64rem)] rounded-2xl bg-gray-900/85 backdrop-blur
+                          ring-1 ring-white/10 shadow-2xl p-4 sm:p-6 pointer-events-auto
+                          ${panelTop === null ? "animate-fadeUp" : ""}`}
               style={
                 panelTop === null
-                  ? { top: "50%", transform: "translate(-50%, -50%)" } // center fallback (prvi frame)
-                  : { top: panelTop, transform: "translateX(-50%)" }   // realna pozicija nad gumbom
+                  ? { top: "50%", transform: "translate(-50%, -50%)" } // prvi frame (center + anim)
+                  : { top: panelTop, transform: "translateX(-50%)" }   // natančna pozicija nad gumbom
               }
-              onMouseDown={(e) => e.stopPropagation()} // klik znotraj ne zapre
+              onMouseDown={(e) => e.stopPropagation()}
             >
               <p className="px-1 pb-3 text-[11px] uppercase tracking-wide text-gray-500 text-center">
                 Viri novic
@@ -202,7 +196,7 @@ export default function Footer() {
             </div>
           </div>
 
-          {/* animacija (globalno) */}
+          {/* animacija (samo za fallback center) */}
           <style jsx global>{`
             @keyframes fadeUp {
               0% { opacity: 0; transform: translate(-50%, -46%) scale(0.985); }
