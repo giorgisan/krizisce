@@ -19,7 +19,7 @@ export default function Footer() {
   const panelRef  = useRef<HTMLDivElement | null>(null)
   const buttonRef = useRef<HTMLButtonElement | null>(null)
 
-  // zapri na ESC in klik izven
+  // Zapri na ESC in klik izven panela
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false) }
     const onDoc = (e: MouseEvent) => {
@@ -37,7 +37,7 @@ export default function Footer() {
 
   return (
     <footer className="relative bg-gray-900 text-gray-300 pt-12 pb-6 mt-8 border-t border-gray-800">
-      {/* === Zgornji trije stolpci (tvoji, nespremenjeni) === */}
+      {/* === Zgornji trije stolpci – nespremenjeno === */}
       <div className="max-w-6xl mx-auto px-4 flex flex-col sm:flex-row sm:justify-between sm:items-start gap-8">
         {/* Leva kolona */}
         <div className="flex-1">
@@ -75,31 +75,30 @@ export default function Footer() {
         </div>
       </div>
 
-      {/* === SREDINSKI BLOK: gumb + centriran panel nad gumbom === */}
+      {/* === SREDINSKI BLOK: gumb + ABSOLUTNO CENTRIRAN PANEL NAD GUMBOM === */}
       <div className="max-w-6xl mx-auto px-4 mt-8">
-        {/* kontejner mora biti relative, da bo panel absolutno centriran nad gumbom */}
         <div className="relative flex justify-center">
-          {/* Gumb */}
+          {/* Gumb (manj vpadljiva ikona) */}
           <button
             ref={buttonRef}
             onClick={() => setOpen(v => !v)}
             aria-expanded={open}
             aria-controls="sources-panel"
             className="inline-flex items-center gap-2 rounded-full px-4 py-2 ring-1 ring-white/10
-                       text-gray-400 hover:text-white bg-gray-800/40 hover:bg-gray-800/60 transition"
+                       text-gray-400 hover:text-white bg-gray-800/30 hover:bg-gray-800/50 transition"
           >
-            {/* tanka “globe” ikona – nevpadljiva */}
+            {/* tri diskretne pike */}
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"
                  fill="none" stroke="currentColor" strokeWidth="1.4"
-                 className="h-4 w-4 opacity-80">
-              <path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z" />
-              <path d="M3 12h18" />
-              <path d="M12 3c2.5 2.7 2.5 14.3 0 18" />
+                 className="h-4 w-4 opacity-60">
+              <circle cx="12" cy="12" r="1.2" />
+              <circle cx="6" cy="12" r="1.2" />
+              <circle cx="18" cy="12" r="1.2" />
             </svg>
             <span className="text-sm font-medium">Viri</span>
           </button>
 
-          {/* Panel – ABSOLUTNO, CENTRIRANO, NAVZGOR */}
+          {/* Panel – absolutno centriran, navzgor, polprosojno ozadje */}
           {open && (
             <div
               id="sources-panel"
@@ -107,13 +106,13 @@ export default function Footer() {
               className="absolute left-1/2 -translate-x-1/2 bottom-full mb-4
                          w-[min(92vw,64rem)] rounded-2xl bg-gray-900/85 backdrop-blur
                          ring-1 ring-white/10 shadow-2xl p-4 sm:p-6 animate-fadeUpFromBtn pointer-events-auto"
-              style={{ marginTop: '0.5rem' }} // malo zračnosti (tvoj “rumeni +”)
+              style={{ marginTop: '0.5rem' }}
             >
-              <p className="px-1 pb-3 text-[11px] uppercase tracking-wide text-gray-500">
+              <p className="px-1 pb-3 text-[11px] uppercase tracking-wide text-gray-500 text-center">
                 Viri novic
               </p>
-              {/* brez max-height => brez scrolla; panel se razširi po potrebi */}
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+              {/* brez max-height => brez scrolla; grid sredinsko poravnan */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 justify-items-center">
                 {SOURCES.map((it) => (
                   <a
                     key={it.name}
