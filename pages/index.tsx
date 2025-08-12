@@ -11,42 +11,49 @@ import Link from 'next/link'
 type Props = { initialNews: NewsItem[] }
 
 export default function Home({ initialNews }: Props) {
+  // NEW: lokalni state z novicami (start = initialNews)
+  const [news, setNews] = useState<NewsItem[]>(initialNews)
+
   const [filter, setFilter] = useState<string>('Vse')
   const [displayCount, setDisplayCount] = useState<number>(20)
   const [hasFresh, setHasFresh] = useState(false)
+  const [refreshing, setRefreshing] = useState(false)
 
   const filterRef = useRef<HTMLDivElement | null>(null)
   const [showLeft, setShowLeft] = useState(false)
   const [showRight, setShowRight] = useState(false)
   const [alignEnd, setAlignEnd] = useState(true)
 
+  // sortiraj po state-u 'news' (ne več po initialNews)
   const sortedNews = useMemo(
-    () => [...initialNews].sort((a, b) => new Date(b.pubDate).getTime() - new Date(a.pubDate).getTime()),
-    [initialNews]
+    () => [...news].sort((a, b) => new Date(b.pubDate).getTime() - new Date(a.pubDate).getTime()),
+    [news]
   )
 
   const filteredNews = filter === 'Vse' ? sortedNews : sortedNews.filter(a => a.source === filter)
   const visibleNews = filteredNews.slice(0, displayCount)
 
-  // Check fresh news once on mount
+  // Ob mountu enkrat preveri, če obstaja svežejši zapis na API
   useEffect(() => {
     const latest = initialNews?.[0]?.pubDate
     if (!latest) return
     const check = async () => {
       try {
         const res = await fetch('/api/news?forceFresh=1', { cache: 'no-store' })
-        const fresh = await res.json()
+        const fresh: NewsItem[] = await res.json()
         if (Array.isArray(fresh) && fresh.length) {
           if (new Date(fresh[0].pubDate).getTime() > new Date(latest).getTime()) {
             setHasFresh(true)
           }
         }
-      } catch {}
+      } catch {
+        // tiho – nič
+      }
     }
     check()
   }, [initialNews])
 
-  // Overflow detection for desktop only
+  // NAMIG: puščice za drsanje filtrov (desktop)
   useEffect(() => {
     const el = filterRef.current
     if (!el) return
@@ -54,7 +61,6 @@ export default function Home({ initialNews }: Props) {
     const update = () => {
       const mq = window.matchMedia('(min-width: 640px)')
       if (!mq.matches) {
-        // mobile — ignore overflow arrows
         setShowLeft(false)
         setShowRight(false)
         setAlignEnd(false)
@@ -85,6 +91,29 @@ export default function Home({ initialNews }: Props) {
   const scrollBy = (dx: number) => filterRef.current?.scrollBy({ left: dx, behavior: 'smooth' })
   const handleLoadMore = () => setDisplayCount(p => p + 20)
 
+  // NEW: client-side refresh – brez reload-a
+  const handleRefresh = async () => {
+    if (refreshing) return
+    setRefreshing(true)
+    try {
+      const res = await fetch('/api/news?forceFresh=1', { cache: 'no-store' })
+      const fresh: NewsItem[] = await res.json()
+      if (Array.isArray(fresh) && fresh.length) {
+        setNews(fresh)          // zamenjaj prikazane novice
+        setHasFresh(false)      // ugasni zeleno piko
+        setDisplayCount(20)     // reset paginacije
+      } else {
+        // če API vrne prazno, fallback na “cache-busting” reload
+        location.href = location.pathname + (location.search ? location.search + '&' : '?') + 't=' + Date.now()
+      }
+    } catch {
+      // network fallback – prisili svež HTML
+      location.href = location.pathname + (location.search ? location.search + '&' : '?') + 't=' + Date.now()
+    } finally {
+      setRefreshing(false)
+    }
+  }
+
   return (
     <>
       <main className="min-h-screen bg-gray-900 text-white px-4 md:px-8 lg:px-16 py-8">
@@ -101,17 +130,22 @@ export default function Home({ initialNews }: Props) {
                   </div>
                 </div>
               </Link>
+
               <button
-                onClick={() => location.reload()}
+                onClick={handleRefresh}
+                disabled={refreshing}
                 aria-label="Osveži stran"
-                className="relative p-2 rounded-full text-gray-400 hover:text-white hover:bg-gray-800 transition-transform hover:rotate-180"
+                className="relative p-2 rounded-full text-gray-400 hover:text-white hover:bg-gray-800 transition-transform"
+                title={hasFresh ? 'Na voljo so nove novice' : 'Osveži'}
               >
-                {/* hide green dot on mobile */}
+                {/* zelena pika – skrita na mobilu */}
                 {hasFresh && (
                   <span className="hidden sm:inline-block absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-400 ring-2 ring-gray-900" />
                 )}
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
-                  stroke="currentColor" strokeWidth="2" className="w-5 h-5">
+                  stroke="currentColor" strokeWidth="2"
+                  className={`w-5 h-5 ${refreshing ? 'animate-spin' : 'hover:rotate-180'} transition-transform`}
+                >
                   <path stroke="none" d="M0 0h24v24H0z" />
                   <path d="M20 11a8.1 8.1 0 0 0 -15.5 -2m-.5 -4v4h4" />
                   <path d="M4 13a8.1 8.1 0 0 0 15.5 2m.5 4v-4h-4" />
@@ -121,7 +155,6 @@ export default function Home({ initialNews }: Props) {
 
             {/* Filters */}
             <div className="flex items-center gap-2 w-full sm:w-auto sm:ml-auto">
-              {/* Left arrow — desktop only */}
               {showLeft && (
                 <button
                   onClick={() => scrollBy(-220)}
@@ -164,7 +197,6 @@ export default function Home({ initialNews }: Props) {
                 ))}
               </div>
 
-              {/* Right arrow — desktop only */}
               {showRight && (
                 <button
                   onClick={() => scrollBy(220)}
@@ -249,6 +281,7 @@ export default function Home({ initialNews }: Props) {
   )
 }
 
+// ISR še vedno ostane (za primarni render, SEO in deljenje linka)
 export async function getStaticProps() {
   const initialNews = await fetchRSSFeeds()
   return { props: { initialNews }, revalidate: 60 }
