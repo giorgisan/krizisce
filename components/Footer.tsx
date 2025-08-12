@@ -1,76 +1,56 @@
-"use client";
+// components/Footer.tsx
+'use client'
 
-import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import Link from 'next/link'
+import { useEffect, useRef, useState } from 'react'
 
-/* --- Viri --- */
 const SOURCES = [
-  { name: "RTVSLO", url: "https://www.rtvslo.si/" },
-  { name: "24ur", url: "https://www.24ur.com/" },
-  { name: "Siol.net", url: "https://siol.net/" },
-  { name: "Slovenske novice", url: "https://www.slovenskenovice.si/" },
-  { name: "Delo", url: "https://www.delo.si/" },
-  { name: "Žurnal24", url: "https://www.zurnal24.si/" },
-  { name: "N1", url: "https://n1info.si/" },
-  { name: "Svet24", url: "https://novice.svet24.si/" },
-];
+  { name: 'RTVSLO', url: 'https://www.rtvslo.si/' },
+  { name: '24ur', url: 'https://www.24ur.com/' },
+  { name: 'Siol.net', url: 'https://siol.net/' },
+  { name: 'Slovenske novice', url: 'https://www.slovenskenovice.si/' },
+  { name: 'Delo', url: 'https://www.delo.si/' },
+  { name: 'Žurnal24', url: 'https://www.zurnal24.si/' },
+  { name: 'N1', url: 'https://n1info.si/' },
+  { name: 'Svet24', url: 'https://novice.svet24.si/' },
+]
 
-/* --- Ikona “križišče / signpost” (inline SVG) --- */
 function IconSignpost(props: React.SVGProps<SVGSVGElement>) {
   return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={1.5}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-      {...props}
-    >
-      {/* drog */}
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}
+         strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...props}>
       <path d="M12 3v18" />
-      {/* zgornja tabla (levo) */}
       <path d="M5 6h9l-2.5 3H5z" />
-      {/* spodnja tabla (desno) */}
       <path d="M19 14h-9l2.5-3H19z" />
     </svg>
-  );
+  )
 }
 
 export default function Footer() {
-  const year = new Date().getFullYear();
+  const year = new Date().getFullYear()
 
-  const [open, setOpen] = useState(false);
-  const popoverRef = useRef<HTMLDivElement | null>(null);
-  const buttonRef = useRef<HTMLButtonElement | null>(null);
+  const [open, setOpen] = useState(false)
+  const popRef = useRef<HTMLDivElement | null>(null)
+  const btnRef = useRef<HTMLButtonElement | null>(null)
 
-  // zapri z ESC
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, []);
-
-  // zapri ob kliku izven
+  // klik izven + ESC
   useEffect(() => {
     const onDoc = (e: MouseEvent) => {
-      if (!open) return;
-      const t = e.target as Node;
-      if (
-        !popoverRef.current?.contains(t) &&
-        !buttonRef.current?.contains(t)
-      ) {
-        setOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", onDoc);
-    return () => document.removeEventListener("mousedown", onDoc);
-  }, [open]);
+      if (!open) return
+      const t = e.target as Node
+      if (!popRef.current?.contains(t) && !btnRef.current?.contains(t)) setOpen(false)
+    }
+    const onEsc = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false)
+    document.addEventListener('mousedown', onDoc)
+    document.addEventListener('keydown', onEsc)
+    return () => {
+      document.removeEventListener('mousedown', onDoc)
+      document.removeEventListener('keydown', onEsc)
+    }
+  }, [open])
 
   return (
     <footer className="relative bg-gray-900 text-gray-300 pt-12 pb-6 mt-8 border-t border-gray-800">
-      {/* Zgornji trije stolpci */}
       <div className="max-w-6xl mx-auto px-4 flex flex-col sm:flex-row sm:justify-between sm:items-start gap-8">
         {/* Leva kolona */}
         <div className="flex-1">
@@ -106,12 +86,11 @@ export default function Footer() {
         </div>
       </div>
 
-      {/* Sredinski gumb + POPOVER (anchor) */}
+      {/* Gumb Viri + popover */}
       <div className="max-w-6xl mx-auto px-4 mt-8">
-        {/* wrapper je relative => panel je absolutno pozicioniran nad gumbom */}
         <div className="relative flex justify-center">
           <button
-            ref={buttonRef}
+            ref={btnRef}
             type="button"
             onClick={() => setOpen(v => !v)}
             className="inline-flex items-center gap-2 rounded-full px-4 py-2 ring-1 ring-white/10
@@ -123,14 +102,12 @@ export default function Footer() {
             <span className="text-sm font-medium">Viri</span>
           </button>
 
-          {/* Popover panel — absolutno nad gumbom (ne raztegne layouta, drsi s stranjo) */}
           {open && (
             <div
-              ref={popoverRef}
+              ref={popRef}
               className="absolute left-1/2 -translate-x-1/2 bottom-full mb-4
                          w-[min(92vw,64rem)] rounded-2xl bg-gray-900/85 backdrop-blur
-                         ring-1 ring-white/10 shadow-2xl p-4 sm:p-6
-                         animate-popoverFade pointer-events-auto"
+                         ring-1 ring-white/10 shadow-2xl p-4 sm:p-6 animate-popoverFade"
               role="dialog"
               aria-label="Viri novic"
             >
@@ -147,10 +124,12 @@ export default function Footer() {
                     className="flex items-center gap-2 px-2 py-2 rounded-lg text-gray-300
                                hover:text-white hover:bg-gray-800/60 transition"
                   >
-                    <span className="grid h-7 w-7 place-items-center rounded-full bg-gray-800/70
-                                       text-[10px] font-semibold text-gray-300">
-                      {it.name.slice(0, 2)}
-                    </span>
+                    {/* začasno favicon (lahko zamenjaš z /public/logos/*.svg) */}
+                    <img
+                      src={`${it.url}/favicon.ico`}
+                      alt={`${it.name} logo`}
+                      className="h-7 w-7 rounded-full bg-gray-700"
+                    />
                     <span className="text-sm">{it.name}</span>
                     <span className="ml-auto text-xs text-gray-500">↗</span>
                   </a>
@@ -161,22 +140,18 @@ export default function Footer() {
         </div>
       </div>
 
-      {/* Spodnji trak */}
       <div className="border-t border-gray-800 mt-12 pt-4 text-center text-sm text-gray-500">
-        <p className="italic mb-2">
-          “Informacija ni znanje. Edino razumevanje šteje.” – Albert Einstein
-        </p>
+        <p className="italic mb-2">“Informacija ni znanje. Edino razumevanje šteje.” – Albert Einstein</p>
         <p>© {year} Križišče – Vse pravice pridržane.</p>
       </div>
 
-      {/* Minimalna animacija za popover */}
       <style jsx>{`
         @keyframes popoverFade {
-          0%   { opacity: 0; transform: translate(-50%, 8px) scale(0.98); }
-          100% { opacity: 1; transform: translate(-50%, 0)    scale(1); }
+          0% { opacity: 0; transform: translate(-50%, 8px) scale(0.98); }
+          100% { opacity: 1; transform: translate(-50%, 0) scale(1); }
         }
         .animate-popoverFade { animation: popoverFade .18s ease-out both; }
       `}</style>
     </footer>
-  );
+  )
 }
