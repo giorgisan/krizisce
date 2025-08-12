@@ -1,8 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
-import { createPortal } from "react-dom";
+import { useEffect, useRef, useState } from "react";
 
 /* --- Viri --- */
 const SOURCES = [
@@ -15,14 +14,6 @@ const SOURCES = [
   { name: "N1", url: "https://n1info.si/" },
   { name: "Svet24", url: "https://novice.svet24.si/" },
 ];
-
-/* --- Portal helper (modal v <body>) --- */
-function Portal({ children }: { children: React.ReactNode }) {
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
-  if (!mounted) return null;
-  return createPortal(children, document.body);
-}
 
 /* --- Ikona “križišče / signpost” (inline SVG) --- */
 function IconSignpost(props: React.SVGProps<SVGSVGElement>) {
@@ -49,18 +40,37 @@ function IconSignpost(props: React.SVGProps<SVGSVGElement>) {
 
 export default function Footer() {
   const year = new Date().getFullYear();
-  const [open, setOpen] = useState(false);
 
-  // ESC zapre modal
+  const [open, setOpen] = useState(false);
+  const popoverRef = useRef<HTMLDivElement | null>(null);
+  const buttonRef = useRef<HTMLButtonElement | null>(null);
+
+  // zapri z ESC
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
   }, []);
 
+  // zapri ob kliku izven
+  useEffect(() => {
+    const onDoc = (e: MouseEvent) => {
+      if (!open) return;
+      const t = e.target as Node;
+      if (
+        !popoverRef.current?.contains(t) &&
+        !buttonRef.current?.contains(t)
+      ) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, [open]);
+
   return (
     <footer className="relative bg-gray-900 text-gray-300 pt-12 pb-6 mt-8 border-t border-gray-800">
-      {/* Zgornji trije stolpci (tvoji) */}
+      {/* Zgornji trije stolpci */}
       <div className="max-w-6xl mx-auto px-4 flex flex-col sm:flex-row sm:justify-between sm:items-start gap-8">
         {/* Leva kolona */}
         <div className="flex-1">
@@ -68,7 +78,7 @@ export default function Footer() {
             <img src="/logo.png" alt="Križišče" className="w-8 h-8 rounded-full mr-2" />
             <h4 className="text-white font-semibold text-lg">Križišče</h4>
           </div>
-          <p className="text-sm font-normal leading-relaxed">
+          <p className="text-sm leading-relaxed">
             Agregator najnovejših novic iz slovenskih medijev. <br />
             Članki so last izvornih portalov.
           </p>
@@ -79,7 +89,7 @@ export default function Footer() {
         {/* Srednja kolona */}
         <div className="flex-1">
           <h4 className="text-white font-semibold mb-4">Povezave</h4>
-          <ul className="space-y-2 text-sm font-normal">
+          <ul className="space-y-2 text-sm">
             <li><Link href="/projekt" className="hover:text-white transition">O projektu</Link></li>
             <li><Link href="/pogoji" className="hover:text-white transition">Pogoji uporabe</Link></li>
           </ul>
@@ -90,20 +100,20 @@ export default function Footer() {
         {/* Desna kolona */}
         <div className="flex-1">
           <h4 className="text-white font-semibold mb-4">Kontakt</h4>
-          <p className="text-sm font-normal">
-            <a href="mailto:gjkcme@gmail.com" className="hover:text-white transition">
-              Pošljite nam sporočilo
-            </a>
-          </p>
+          <a href="mailto:gjkcme@gmail.com" className="text-sm hover:text-white transition">
+            Pošljite nam sporočilo
+          </a>
         </div>
       </div>
 
-      {/* Sredinski gumb Viri */}
+      {/* Sredinski gumb + POPOVER (anchor) */}
       <div className="max-w-6xl mx-auto px-4 mt-8">
-        <div className="flex justify-center">
+        {/* wrapper je relative => panel je absolutno pozicioniran nad gumbom */}
+        <div className="relative flex justify-center">
           <button
+            ref={buttonRef}
             type="button"
-            onClick={() => setOpen(true)}
+            onClick={() => setOpen(v => !v)}
             className="inline-flex items-center gap-2 rounded-full px-4 py-2 ring-1 ring-white/10
                        text-gray-300 hover:text-white bg-gray-800/30 hover:bg-gray-800/50 transition"
             aria-haspopup="dialog"
@@ -112,32 +122,22 @@ export default function Footer() {
             <IconSignpost className="h-4 w-4 opacity-80" />
             <span className="text-sm font-medium">Viri</span>
           </button>
-        </div>
-      </div>
 
-      {/* Modal (portal) — prikazano NIŽJE nad dnom, ne v sredini */}
-      {open && (
-        <Portal>
-          <div
-            className="fixed inset-0 z-[200]"
-            role="dialog"
-            aria-modal="true"
-            onMouseDown={() => setOpen(false)}  // klik na scrim zapre
-          >
-            {/* nežen scrim */}
-            <div className="absolute inset-0 bg-black/20" />
-
-            {/* panel — poravnan na sredino po širini, od spodaj npr. 8rem */}
+          {/* Popover panel — absolutno nad gumbom (ne raztegne layouta, drsi s stranjo) */}
+          {open && (
             <div
-              className="fixed left-1/2 -translate-x-1/2 bottom-50
+              ref={popoverRef}
+              className="absolute left-1/2 -translate-x-1/2 bottom-full mb-4
                          w-[min(92vw,64rem)] rounded-2xl bg-gray-900/85 backdrop-blur
-                         ring-1 ring-white/10 shadow-2xl p-4 sm:p-6"
-              onMouseDown={(e) => e.stopPropagation()} // klik v panelu naj ne zapre
+                         ring-1 ring-white/10 shadow-2xl p-4 sm:p-6
+                         animate-popoverFade pointer-events-auto"
+              role="dialog"
+              aria-label="Viri novic"
             >
               <p className="px-1 pb-3 text-[11px] uppercase tracking-wide text-gray-500 text-center">
                 Viri novic
               </p>
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 justify-items-center">
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
                 {SOURCES.map((it) => (
                   <a
                     key={it.name}
@@ -157,17 +157,26 @@ export default function Footer() {
                 ))}
               </div>
             </div>
-          </div>
-        </Portal>
-      )}
+          )}
+        </div>
+      </div>
 
       {/* Spodnji trak */}
-      <div className="border-t border-gray-800 mt-12 pt-4 text-center text-sm font-normal text-gray-500">
+      <div className="border-t border-gray-800 mt-12 pt-4 text-center text-sm text-gray-500">
         <p className="italic mb-2">
           “Informacija ni znanje. Edino razumevanje šteje.” – Albert Einstein
         </p>
         <p>© {year} Križišče – Vse pravice pridržane.</p>
       </div>
+
+      {/* Minimalna animacija za popover */}
+      <style jsx>{`
+        @keyframes popoverFade {
+          0%   { opacity: 0; transform: translate(-50%, 8px) scale(0.98); }
+          100% { opacity: 1; transform: translate(-50%, 0)    scale(1); }
+        }
+        .animate-popoverFade { animation: popoverFade .18s ease-out both; }
+      `}</style>
     </footer>
   );
 }
