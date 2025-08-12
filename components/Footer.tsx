@@ -4,15 +4,21 @@
 import Link from 'next/link'
 import { useEffect, useRef, useState } from 'react'
 
-const SOURCES = [
-  { name: 'RTVSLO', url: 'https://www.rtvslo.si/' },
-  { name: '24ur', url: 'https://www.24ur.com/' },
-  { name: 'Siol.net', url: 'https://siol.net/' },
-  { name: 'Slovenske novice', url: 'https://www.slovenskenovice.si/' },
-  { name: 'Delo', url: 'https://www.delo.si/' },
-  { name: 'Žurnal24', url: 'https://www.zurnal24.si/' },
-  { name: 'N1', url: 'https://n1info.si/' },
-  { name: 'Svet24', url: 'https://novice.svet24.si/' },
+type SourceLink = {
+  name: string
+  url: string
+  slug: string // za lokalni logo: /public/logos/{slug}.svg|png
+}
+
+const SOURCES: SourceLink[] = [
+  { name: 'RTVSLO',            url: 'https://www.rtvslo.si',              slug: 'rtvslo' },
+  { name: '24ur',              url: 'https://www.24ur.com',               slug: '24ur' },
+  { name: 'Siol.net',          url: 'https://siol.net',                   slug: 'siol' },
+  { name: 'Slovenske novice',  url: 'https://www.slovenskenovice.si',     slug: 'slovenskenovice' },
+  { name: 'Delo',              url: 'https://www.delo.si',                slug: 'delo' },
+  { name: 'Žurnal24',          url: 'https://www.zurnal24.si',            slug: 'zurnal24' },
+  { name: 'N1',                url: 'https://n1info.si',                  slug: 'n1' },
+  { name: 'Svet24',            url: 'https://novice.svet24.si',           slug: 'svet24' },
 ]
 
 function IconSignpost(props: React.SVGProps<SVGSVGElement>) {
@@ -23,6 +29,51 @@ function IconSignpost(props: React.SVGProps<SVGSVGElement>) {
       <path d="M5 6h9l-2.5 3H5z" />
       <path d="M19 14h-9l2.5-3H19z" />
     </svg>
+  )
+}
+
+/**
+ * Logo z več fallbacki:
+ * 1) /public/logos/{slug}.svg
+ * 2) /public/logos/{slug}.png
+ * 3) {origin}/favicon.ico
+ * 4) {origin}/favicon.png
+ * 5) {origin}/apple-touch-icon.png
+ * 6) initials avatar
+ */
+function LogoImg({ slug, origin, label }: { slug: string; origin: string; label: string }) {
+  const candidates = [
+    `/logos/${slug}.svg`,
+    `/logos/${slug}.png`,
+    `${origin}/favicon.ico`,
+    `${origin}/favicon.png`,
+    `${origin}/apple-touch-icon.png`,
+  ]
+  const [idx, setIdx] = useState(0)
+
+  if (idx >= candidates.length) {
+    // initials avatar fallback
+    const initials = label
+      .split(/\s+/)
+      .map(w => w[0]?.toUpperCase())
+      .slice(0, 2)
+      .join('')
+    return (
+      <div className="h-7 w-7 grid place-items-center rounded-full bg-gray-700 text-[10px] font-semibold">
+        {initials || '•'}
+      </div>
+    )
+  }
+
+  return (
+    <img
+      src={candidates[idx]}
+      alt={`${label} logo`}
+      className="h-7 w-7 rounded-full bg-gray-700 object-cover"
+      loading="lazy"
+      decoding="async"
+      onError={() => setIdx(i => i + 1)}
+    />
   )
 }
 
@@ -115,25 +166,23 @@ export default function Footer() {
                 Viri novic
               </p>
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
-                {SOURCES.map((it) => (
-                  <a
-                    key={it.name}
-                    href={it.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-2 px-2 py-2 rounded-lg text-gray-300
-                               hover:text-white hover:bg-gray-800/60 transition"
-                  >
-                    {/* začasno favicon (lahko zamenjaš z /public/logos/*.svg) */}
-                    <img
-                      src={`${it.url}/favicon.ico`}
-                      alt={`${it.name} logo`}
-                      className="h-7 w-7 rounded-full bg-gray-700"
-                    />
-                    <span className="text-sm">{it.name}</span>
-                    <span className="ml-auto text-xs text-gray-500">↗</span>
-                  </a>
-                ))}
+                {SOURCES.map((it) => {
+                  const origin = new URL(it.url).origin
+                  return (
+                    <a
+                      key={it.name}
+                      href={it.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-2 px-2 py-2 rounded-lg text-gray-300
+                                 hover:text-white hover:bg-gray-800/60 transition"
+                    >
+                      <LogoImg slug={it.slug} origin={origin} label={it.name} />
+                      <span className="text-sm">{it.name}</span>
+                      <span className="ml-auto text-xs text-gray-500">↗</span>
+                    </a>
+                  )
+                })}
               </div>
             </div>
           )}
