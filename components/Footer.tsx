@@ -1,5 +1,5 @@
 // components/Footer.tsx
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 
 const SOURCES = [
@@ -16,10 +16,41 @@ const SOURCES = [
 export default function Footer() {
   const year = new Date().getFullYear()
   const [open, setOpen] = useState(false)
-  const panelRef  = useRef<HTMLDivElement | null>(null)
-  const buttonRef = useRef<HTMLButtonElement | null>(null)
 
-  // zapri na ESC + klik izven
+  // refs za pozicioniranje
+  const buttonRef = useRef<HTMLButtonElement | null>(null)
+  const panelRef  = useRef<HTMLDivElement | null>(null)
+
+  // izračun pozicije (fixed) – točno nad gumbom
+  const [panelTop, setPanelTop] = useState<number | null>(null)
+
+  const recomputeTop = () => {
+    const btn = buttonRef.current
+    const pnl = panelRef.current
+    if (!btn || !pnl) return
+    const btnRect = btn.getBoundingClientRect()
+    const pnlRect = pnl.getBoundingClientRect()
+    // postavi panel nad gumb (+ 12px zračnosti); window.scrollY doda offset strani
+    const top = window.scrollY + btnRect.top - pnlRect.height - 12
+    setPanelTop(Math.max(8, top)) // varnost: ne pustimo izven ekrana
+  }
+
+  // ko se odpre, zmeri + posodobi ob resize/scroll
+  useLayoutEffect(() => {
+    if (!open) return
+    // najprej počakamo, da se panel zrendera, potem merimo
+    const id = requestAnimationFrame(recomputeTop)
+    const on = () => recomputeTop()
+    window.addEventListener('resize', on)
+    window.addEventListener('scroll', on, { passive: true })
+    return () => {
+      cancelAnimationFrame(id)
+      window.removeEventListener('resize', on)
+      window.removeEventListener('scroll', on)
+    }
+  }, [open])
+
+  // zapiranje na ESC in klik izven
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false)
     const onDoc = (e: MouseEvent) => {
@@ -29,12 +60,15 @@ export default function Footer() {
     }
     document.addEventListener('keydown', onKey)
     document.addEventListener('mousedown', onDoc)
-    return () => { document.removeEventListener('keydown', onKey); document.removeEventListener('mousedown', onDoc) }
+    return () => {
+      document.removeEventListener('keydown', onKey)
+      document.removeEventListener('mousedown', onDoc)
+    }
   }, [open])
 
   return (
     <footer className="relative bg-gray-900 text-gray-300 pt-12 pb-6 mt-8 border-t border-gray-800">
-      {/* === Zgornji trije stolpci (tvoji, nespremenjeni) === */}
+      {/* === Zgornji trije stolpci (ne spreminjamo) === */}
       <div className="max-w-6xl mx-auto px-4 flex flex-col sm:flex-row sm:justify-between sm:items-start gap-8">
         {/* Leva kolona */}
         <div className="flex-1">
@@ -72,11 +106,9 @@ export default function Footer() {
         </div>
       </div>
 
-      {/* === SREDINSKI BLOK: gumb (v toku) + OVERLAY PANEL (absolute) === */}
+      {/* === SREDINSKI GUMB === */}
       <div className="max-w-6xl mx-auto px-4 mt-8">
-        {/* wrapper je relative, da lahko panel absolutno lebdi nad vsebino */}
-        <div className="relative flex justify-center">
-          {/* GUMB — elegantna, nevpadljiva ikona (tri pike) */}
+        <div className="flex justify-center">
           <button
             ref={buttonRef}
             onClick={() => setOpen(v => !v)}
@@ -85,6 +117,7 @@ export default function Footer() {
             className="inline-flex items-center gap-2 rounded-full px-4 py-2 ring-1 ring-white/10
                        text-gray-400 hover:text-white bg-gray-800/30 hover:bg-gray-800/50 transition"
           >
+            {/* diskretna ikona (tri pike) */}
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"
                  fill="none" stroke="currentColor" strokeWidth="1.4"
                  className="h-4 w-4 opacity-60">
@@ -94,45 +127,45 @@ export default function Footer() {
             </svg>
             <span className="text-sm font-medium">Viri</span>
           </button>
-
-          {/* ABSOLUTE OVERLAY PANEL – centriran nad gumbom; ne širi layouta */}
-          {open && (
-            <div
-              id="sources-panel"
-              ref={panelRef}
-              className="absolute left-1/2 -translate-x-1/2 bottom-full mb-4 z-50
-                         w-[min(92vw,64rem)] rounded-2xl bg-gray-900/85 backdrop-blur
-                         ring-1 ring-white/10 shadow-2xl p-4 sm:p-6 animate-fadeUp pointer-events-auto"
-            >
-              <p className="px-1 pb-3 text-[11px] uppercase tracking-wide text-gray-500 text-center">
-                Viri novic
-              </p>
-              {/* brez max-height => brez scrolla; grid na sredino */}
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 justify-items-center">
-                {SOURCES.map((it) => (
-                  <a
-                    key={it.name}
-                    href={it.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-2 px-2 py-2 rounded-lg text-gray-300
-                               hover:text-white hover:bg-gray-800/60 transition"
-                  >
-                    <span className="grid h-7 w-7 place-items-center rounded-full bg-gray-800/70
-                                       text-[10px] font-semibold text-gray-300">
-                      {it.name.slice(0, 2)}
-                    </span>
-                    <span className="text-sm">{it.name}</span>
-                    <span className="ml-auto text-xs text-gray-500">↗</span>
-                  </a>
-                ))}
-              </div>
-            </div>
-          )}
         </div>
       </div>
 
-      {/* Spodnji trak (citat + copyright) */}
+      {/* === FIXED OVERLAY PANEL (lebdi nad vsebino; ne razteguje layouta) === */}
+      {open && (
+        <div
+          ref={panelRef}
+          id="sources-panel"
+          className="fixed left-1/2 -translate-x-1/2 z-[60]
+                     w-[min(92vw,64rem)] rounded-2xl bg-gray-900/85 backdrop-blur
+                     ring-1 ring-white/10 shadow-2xl p-4 sm:p-6 animate-fadeUp pointer-events-auto"
+          style={{ top: panelTop ?? 100 }} // top se izračuna dinamično
+        >
+          <p className="px-1 pb-3 text-[11px] uppercase tracking-wide text-gray-500 text-center">
+            Viri novic
+          </p>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 justify-items-center">
+            {SOURCES.map((it) => (
+              <a
+                key={it.name}
+                href={it.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 px-2 py-2 rounded-lg text-gray-300
+                           hover:text-white hover:bg-gray-800/60 transition"
+              >
+                <span className="grid h-7 w-7 place-items-center rounded-full bg-gray-800/70
+                                   text-[10px] font-semibold text-gray-300">
+                  {it.name.slice(0, 2)}
+                </span>
+                <span className="text-sm">{it.name}</span>
+                <span className="ml-auto text-xs text-gray-500">↗</span>
+              </a>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* spodnji trak */}
       <div className="border-t border-gray-800 mt-12 pt-4 text-center text-sm font-normal text-gray-500">
         <p className="italic mb-2">
           “Informacija ni znanje. Edino razumevanje šteje.” – Albert Einstein
@@ -140,11 +173,11 @@ export default function Footer() {
         <p>© {year} Križišče – Vse pravice pridržane.</p>
       </div>
 
-      {/* Animacija */}
+      {/* animacija */}
       <style jsx>{`
         @keyframes fadeUp {
-          0%   { opacity: 0; transform: translateY(10px) scale(0.985); }
-          100% { opacity: 1; transform: translateY(0)    scale(1); }
+          0%   { opacity: 0; transform: translate(-50%, 12px) scale(0.985); }
+          100% { opacity: 1; transform: translate(-50%, 0)    scale(1); }
         }
         .animate-fadeUp { animation: fadeUp .28s cubic-bezier(.2,.6,.2,1) both; }
       `}</style>
