@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
 const SOURCES = [
@@ -15,7 +15,6 @@ const SOURCES = [
   { name: "Svet24", url: "https://novice.svet24.si/" },
 ];
 
-// Majhen Portal helper, da modal vedno narišemo v <body>
 function Portal({ children }: { children: React.ReactNode }) {
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
@@ -27,7 +26,40 @@ export default function Footer() {
   const year = new Date().getFullYear();
   const [open, setOpen] = useState(false);
 
-  // ESC za zapiranje
+  const buttonRef = useRef<HTMLButtonElement | null>(null);
+  const panelRef  = useRef<HTMLDivElement | null>(null);
+
+  // ko je null -> center fallback; ko izmerimo -> absolutni top nad gumbom
+  const [panelTop, setPanelTop] = useState<number | null>(null);
+
+  // izračunaj top tako, da je panel tik NAD gumbom (12px razmak)
+  const positionPanelOverButton = () => {
+    const btn = buttonRef.current;
+    const pnl = panelRef.current;
+    if (!btn || !pnl) return;
+
+    const btnRect = btn.getBoundingClientRect();
+    const pnlRect = pnl.getBoundingClientRect();
+    const top = window.scrollY + btnRect.top - pnlRect.height - 12;
+    setPanelTop(Math.max(12, top)); // safety, da ne gre čisto do roba
+  };
+
+  // ko se modal odpre: center fallback -> po renderju izmeri in premakni nad gumb
+  useLayoutEffect(() => {
+    if (!open) return;
+    setPanelTop(null);
+    const raf = requestAnimationFrame(positionPanelOverButton);
+    const on = () => positionPanelOverButton();
+    window.addEventListener("resize", on);
+    window.addEventListener("scroll", on, { passive: true });
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener("resize", on);
+      window.removeEventListener("scroll", on);
+    };
+  }, [open]);
+
+  // ESC zapre
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
     document.addEventListener("keydown", onKey);
@@ -36,9 +68,8 @@ export default function Footer() {
 
   return (
     <footer className="relative bg-gray-900 text-gray-300 pt-12 pb-6 mt-8 border-t border-gray-800">
-      {/* Zgornji trije stolpci (tvoji, nespremenjeni) */}
+      {/* Zgornji trije stolpci (ne spreminjamo) */}
       <div className="max-w-6xl mx-auto px-4 flex flex-col sm:flex-row sm:justify-between sm:items-start gap-8">
-        {/* Leva kolona */}
         <div className="flex-1">
           <div className="flex items-center mb-4">
             <img src="/logo.png" alt="Križišče" className="w-8 h-8 rounded-full mr-2" />
@@ -52,26 +83,16 @@ export default function Footer() {
 
         <div className="hidden sm:block w-px bg-gray-800" />
 
-        {/* Srednja kolona */}
         <div className="flex-1">
           <h4 className="text-white font-semibold mb-4">Povezave</h4>
           <ul className="space-y-2 text-sm font-normal">
-            <li>
-              <Link href="/projekt" className="hover:text-white transition">
-                O projektu
-              </Link>
-            </li>
-            <li>
-              <Link href="/pogoji" className="hover:text-white transition">
-                Pogoji uporabe
-              </Link>
-            </li>
+            <li><Link href="/projekt" className="hover:text-white transition">O projektu</Link></li>
+            <li><Link href="/pogoji" className="hover:text-white transition">Pogoji uporabe</Link></li>
           </ul>
         </div>
 
         <div className="hidden sm:block w-px bg-gray-800" />
 
-        {/* Desna kolona */}
         <div className="flex-1">
           <h4 className="text-white font-semibold mb-4">Kontakt</h4>
           <p className="text-sm font-normal">
@@ -86,12 +107,13 @@ export default function Footer() {
       <div className="max-w-6xl mx-auto px-4 mt-8">
         <div className="flex justify-center">
           <button
+            ref={buttonRef}
             type="button"
             onClick={() => setOpen(true)}
             className="inline-flex items-center gap-2 rounded-full px-4 py-2 ring-1 ring-white/10
                        text-gray-400 hover:text-white bg-gray-800/30 hover:bg-gray-800/50 transition"
           >
-            {/* minimalistične tri pike */}
+            {/* Minimal ikona – tri pike */}
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"
                  fill="none" stroke="currentColor" strokeWidth="1.4"
                  className="h-4 w-4 opacity-60">
@@ -104,24 +126,28 @@ export default function Footer() {
         </div>
       </div>
 
-      {/* Modal prek Portala – fullscreen scrim + centralni panel (ne raztegne strani) */}
+      {/* Overlay (portal) – scrim + panel nad gumbom */}
       {open && (
         <Portal>
           <div
             className="fixed inset-0 z-[200] pointer-events-auto"
             role="dialog"
             aria-modal="true"
-            onMouseDown={() => setOpen(false)} // klik na scrim zapre
+            onMouseDown={() => setOpen(false)}   // klik na scrim zapre
           >
-            {/* scrim (nežen) */}
             <div className="absolute inset-0 bg-black/20" />
 
-            {/* panel – center; klik znotraj ne zapre */}
             <div
-              className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2
-                         w-[min(92vw,64rem)] rounded-2xl bg-gray-900/85 backdrop-blur
-                         ring-1 ring-white/10 shadow-2xl p-4 sm:p-6 animate-fadeUp"
-              onMouseDown={(e) => e.stopPropagation()}
+              ref={panelRef}
+              className="fixed left-1/2 w-[min(92vw,64rem)] rounded-2xl bg-gray-900/85 backdrop-blur
+                         ring-1 ring-white/10 shadow-2xl p-4 sm:p-6 pointer-events-auto
+                         animate-fadeUp"
+              style={
+                panelTop === null
+                  ? { top: "50%", transform: "translate(-50%, -50%)" } // fallback center (takoj vidiš)
+                  : { top: panelTop, transform: "translateX(-50%)" }   // realna pozicija nad gumbom
+              }
+              onMouseDown={(e) => e.stopPropagation()} // klik znotraj ne zapre
             >
               <p className="px-1 pb-3 text-[11px] uppercase tracking-wide text-gray-500 text-center">
                 Viri novic
