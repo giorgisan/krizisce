@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from 'react'
 
 type SourceLink = { name: string; url: string }
 
-// Uredi/dopolni po svojih dejanskih virih:
+// Uredi po dejanskih virih:
 const SOURCE_LINKS: SourceLink[] = [
   { name: 'RTVSLO', url: 'https://www.rtvslo.si' },
   { name: '24ur', url: 'https://www.24ur.com' },
@@ -17,96 +17,90 @@ const SOURCE_LINKS: SourceLink[] = [
   { name: 'Svet24', url: 'https://www.svet24.si' },
 ]
 
-// Diskreten gumb + drop‑up meni (brez scrolla)
-function SourcesDropup({ className = '' }: { className?: string }) {
-  const [open, setOpen] = useState(false)
-  const btnRef = useRef<HTMLButtonElement | null>(null)
-  const menuRef = useRef<HTMLDivElement | null>(null)
+function SourcesCenterPanel({
+  open,
+  onClose,
+  anchorRef,
+}: {
+  open: boolean
+  onClose: () => void
+  anchorRef: React.RefObject<HTMLDivElement>
+}) {
+  const panelRef = useRef<HTMLDivElement | null>(null)
 
-  // zapri na klik izven ali ESC
+  // zapri na ESC / klik izven
   useEffect(() => {
-    const onDocClick = (e: MouseEvent) => {
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
+    const onDoc = (e: MouseEvent) => {
       if (!open) return
       const t = e.target as Node
-      if (!menuRef.current?.contains(t) && !btnRef.current?.contains(t)) setOpen(false)
+      if (
+        !panelRef.current?.contains(t) &&
+        !anchorRef.current?.contains(t)
+      ) onClose()
     }
-    const onEsc = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setOpen(false)
-    }
-    document.addEventListener('mousedown', onDocClick)
-    document.addEventListener('keydown', onEsc)
+    document.addEventListener('keydown', onKey)
+    document.addEventListener('mousedown', onDoc)
     return () => {
-      document.removeEventListener('mousedown', onDocClick)
-      document.removeEventListener('keydown', onEsc)
+      document.removeEventListener('keydown', onKey)
+      document.removeEventListener('mousedown', onDoc)
     }
-  }, [open])
+  }, [open, onClose, anchorRef])
+
+  if (!open) return null
 
   return (
-    <div className={`relative ${className}`}>
-      <button
-        ref={btnRef}
-        type="button"
-        aria-haspopup="menu"
-        aria-expanded={open}
-        onClick={() => setOpen(v => !v)}
-        className="inline-flex items-center gap-2 rounded-full bg-gray-800/50 ring-1 ring-white/10 hover:bg-gray-800/70 px-3 py-1.5 text-gray-300 hover:text-white transition"
+    <div
+      ref={panelRef}
+      // wrapper je relativno v footerju; panel centriramo
+      className="pointer-events-auto"
+    >
+      <div
+        className="mx-auto w-[min(92vw,64rem)] rounded-2xl bg-gray-900/95 backdrop-blur shadow-2xl ring-1 ring-white/10 p-4 sm:p-6
+                   animate-fadeUp"
       >
-        {/* Zelo diskretna animacija treh krogcev */}
-        <span className="relative h-4 w-4">
-          <span className="absolute inset-0 animate-spin-ultra-slow opacity-60">
-            <span className="absolute left-1/2 top-0 -translate-x-1/2 h-1 w-1 rounded-full bg-white/70" />
-            <span className="absolute right-0 top-1/2 -translate-y-1/2 h-1 w-1 rounded-full bg-white/60" />
-            <span className="absolute left-1/2 bottom-0 -translate-x-1/2 h-1 w-1 rounded-full bg-white/50" />
-          </span>
-        </span>
-        <span className="font-medium">Viri</span>
-      </button>
-
-      {/* Drop‑UP meni – brez max-height ⇒ brez scrolla, pokaže VSE */}
-      {open && (
-        <div
-          ref={menuRef}
-          role="menu"
-          tabIndex={-1}
-          className="absolute bottom-11 right-0 w-[min(92vw,44rem)] rounded-xl bg-gray-900/95 backdrop-blur shadow-xl ring-1 ring-white/10 p-3 z-50"
-        >
-          <p className="px-1 pb-2 text-[11px] uppercase tracking-wide text-gray-500">
-            Viri novic
-          </p>
-          {/* Responsive grid – brez scrolla; meni se po potrebi višinsko razširi navzgor */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-1.5">
-            {SOURCE_LINKS.map(it => (
-              <a
-                key={it.name}
-                href={it.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-gray-800/70 text-gray-200"
-              >
-                <span className="grid h-6 w-6 place-items-center rounded-full bg-gray-800/80 text-[10px] font-semibold text-gray-300">
-                  {it.name.slice(0, 2)}
-                </span>
-                <span className="text-sm">{it.name}</span>
-                <span className="ml-auto text-xs text-gray-500">↗</span>
-              </a>
-            ))}
-          </div>
+        <p className="px-1 pb-3 text-[11px] uppercase tracking-wide text-gray-500">
+          Viri novic
+        </p>
+        {/* Grid brez max-height => brez scrolla, panel se po potrebi poveča */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+          {SOURCE_LINKS.map((it) => (
+            <a
+              key={it.name}
+              href={it.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-2 px-2 py-2 rounded-lg hover:bg-gray-800/70 text-gray-200 transition"
+            >
+              <span className="grid h-7 w-7 place-items-center rounded-full bg-gray-800/80 text-[10px] font-semibold text-gray-300">
+                {it.name.slice(0, 2)}
+              </span>
+              <span className="text-sm">{it.name}</span>
+              <span className="ml-auto text-xs text-gray-500">↗</span>
+            </a>
+          ))}
         </div>
-      )}
+      </div>
 
-      {/* lokalni stil za počasno rotacijo */}
       <style jsx>{`
-        .animate-spin-ultra-slow { animation: spin 12s linear infinite; }
-        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        @keyframes fadeUp {
+          0%   { opacity: 0; transform: translateY(8px) scale(0.98); }
+          100% { opacity: 1; transform: translateY(0)    scale(1); }
+        }
+        .animate-fadeUp { animation: fadeUp .28s cubic-bezier(.2,.6,.2,1) both; }
       `}</style>
     </div>
   )
 }
 
-// ...
 export default function Footer() {
+  const year = new Date().getFullYear()
+  const [open, setOpen] = useState(false)
+  const anchorRef = useRef<HTMLDivElement | null>(null) // sidro za centriranje / klik izven
+
   return (
     <footer className="bg-gray-900 text-gray-300 pt-12 pb-6 mt-8 border-t border-gray-800">
+      {/* Zgornji trije stolpci: nespremenjeni */}
       <div className="max-w-6xl mx-auto px-4 flex flex-col sm:flex-row sm:justify-between sm:items-start gap-8">
         {/* Leva kolona */}
         <div className="flex-1">
@@ -121,27 +115,23 @@ export default function Footer() {
         </div>
 
         {/* Divider */}
-        <div className="hidden sm:block w-px bg-gray-800"></div>
+        <div className="hidden sm:block w-px bg-gray-800" />
 
         {/* Srednja kolona */}
         <div className="flex-1">
           <h4 className="text-white font-semibold mb-4">Povezave</h4>
           <ul className="space-y-2 text-sm font-normal">
             <li>
-              <Link href="/projekt" className="hover:text-white transition">
-                O projektu
-              </Link>
+              <Link href="/projekt" className="hover:text-white transition">O projektu</Link>
             </li>
             <li>
-              <Link href="/pogoji" className="hover:text-white transition">
-                Pogoji uporabe
-              </Link>
+              <Link href="/pogoji" className="hover:text-white transition">Pogoji uporabe</Link>
             </li>
           </ul>
         </div>
 
         {/* Divider */}
-        <div className="hidden sm:block w-px bg-gray-800"></div>
+        <div className="hidden sm:block w-px bg-gray-800" />
 
         {/* Desna kolona */}
         <div className="flex-1">
@@ -154,18 +144,46 @@ export default function Footer() {
         </div>
       </div>
 
-      {/* Gumb Viri – center aligned pod stolpci */}
-      <div className="mt-8 flex justify-center">
-        <SourcesDropup />
+      {/* SREDINA: gumb + panel na sredini, nad citatom */}
+      <div ref={anchorRef} className="max-w-6xl mx-auto px-4 mt-8">
+        <div className="flex justify-center">
+          <button
+            onClick={() => setOpen(v => !v)}
+            className="inline-flex items-center gap-2 rounded-full bg-gray-800/55 ring-1 ring-white/10 hover:bg-gray-800/75 px-4 py-2 text-gray-300 hover:text-white transition"
+            aria-expanded={open}
+            aria-controls="sources-panel"
+          >
+            {/* drobna, diskretna animacija krogcev */}
+            <span className="relative h-4 w-4">
+              <span className="absolute inset-0 animate-spin-slower opacity-60">
+                <span className="absolute left-1/2 top-0 -translate-x-1/2 h-1 w-1 rounded-full bg-white/70" />
+                <span className="absolute right-0 top-1/2 -translate-y-1/2 h-1 w-1 rounded-full bg-white/60" />
+                <span className="absolute left-1/2 bottom-0 -translate-x-1/2 h-1 w-1 rounded-full bg-white/50" />
+              </span>
+            </span>
+            <span className="font-medium">Viri</span>
+          </button>
+        </div>
+
+        {/* Centralno poravnani panel (fade-in), brez scrolla */}
+        <div id="sources-panel" className="mt-4 flex justify-center">
+          <SourcesCenterPanel open={open} onClose={() => setOpen(false)} anchorRef={anchorRef} />
+        </div>
       </div>
 
       {/* Spodnji trak */}
       <div className="border-t border-gray-800 mt-12 pt-4 text-center text-sm font-normal text-gray-500">
         <p className="italic mb-2">
-          “Informacija ni znanje. Edino razumevanje šteje.” – Albert Einstein
+          “Informacija ni znanje. Edino razumevanje šteje.” – Albert Einstein
         </p>
-        <p>© {new Date().getFullYear()} Križišče – Vse pravice pridržane.</p>
+        <p>© {year} Križišče – Vse pravice pridržane.</p>
       </div>
+
+      {/* lokalni stil: počasna rotacija */}
+      <style jsx>{`
+        .animate-spin-slower { animation: spin 10s linear infinite; }
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+      `}</style>
     </footer>
   )
 }
