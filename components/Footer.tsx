@@ -103,11 +103,12 @@ function SourcesDropup({ className = '' }: { className?: string }) {
   )
 }
 
+// ...
 export default function Footer() {
   return (
     <footer className="bg-gray-900 text-gray-300 pt-12 pb-6 mt-8 border-t border-gray-800">
       <div className="max-w-6xl mx-auto px-4 flex flex-col sm:flex-row sm:justify-between sm:items-start gap-8">
-        {/* Leva kolona: logotip in opis */}
+        {/* Leva kolona */}
         <div className="flex-1">
           <div className="flex items-center mb-4">
             <img src="/logo.png" alt="Križišče" className="w-8 h-8 rounded-full mr-2" />
@@ -122,7 +123,7 @@ export default function Footer() {
         {/* Divider */}
         <div className="hidden sm:block w-px bg-gray-800"></div>
 
-        {/* Srednja kolona: navigacijske povezave */}
+        {/* Srednja kolona */}
         <div className="flex-1">
           <h4 className="text-white font-semibold mb-4">Povezave</h4>
           <ul className="space-y-2 text-sm font-normal">
@@ -142,7 +143,7 @@ export default function Footer() {
         {/* Divider */}
         <div className="hidden sm:block w-px bg-gray-800"></div>
 
-        {/* Desna kolona: kontakt + (dodano) Viri */}
+        {/* Desna kolona */}
         <div className="flex-1">
           <h4 className="text-white font-semibold mb-4">Kontakt</h4>
           <p className="text-sm font-normal">
@@ -150,20 +151,20 @@ export default function Footer() {
               Pošljite nam sporočilo
             </a>
           </p>
-
-          {/* ---- DODANO: diskreten gumb Viri (drop‑up) ---- */}
-          <div className="mt-5 flex sm:justify-end">
-            <SourcesDropup />
-          </div>
         </div>
       </div>
 
-      {/* Spodnji trak z citatom in avtorsko vrstico */}
+      {/* Gumb Viri – center aligned pod stolpci */}
+      <div className="mt-8 flex justify-center">
+        <SourcesDropup />
+      </div>
+
+      {/* Spodnji trak */}
       <div className="border-t border-gray-800 mt-12 pt-4 text-center text-sm font-normal text-gray-500">
         <p className="italic mb-2">
-          “Informacija ni znanje. Edino razumevanje šteje.” – Albert Einstein
+          “Informacija ni znanje. Edino razumevanje šteje.” – Albert Einstein
         </p>
-        <p>© {new Date().getFullYear()} Križišče – Vse pravice pridržane.</p>
+        <p>© {new Date().getFullYear()} Križišče – Vse pravice pridržane.</p>
       </div>
     </footer>
   )
