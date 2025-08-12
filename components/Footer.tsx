@@ -129,7 +129,7 @@ export default function Footer() {
 
             {/* panel — poravnan na sredino po širini, od spodaj npr. 8rem */}
             <div
-              className="fixed left-1/2 -translate-x-1/2 bottom-40
+              className="fixed left-1/2 -translate-x-1/2 bottom-50
                          w-[min(92vw,64rem)] rounded-2xl bg-gray-900/85 backdrop-blur
                          ring-1 ring-white/10 shadow-2xl p-4 sm:p-6"
               onMouseDown={(e) => e.stopPropagation()} // klik v panelu naj ne zapre
