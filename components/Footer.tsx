@@ -110,7 +110,7 @@ export default function Footer() {
             <h4 className="text-white font-semibold text-lg">Križišče</h4>
           </div>
           <p className="text-sm leading-relaxed">
-            Agregator najnovejših novic iz slovenskih medijev. <br />
+            Agregator najnovejših novic slovenskih medijev. <br />
             Članki so last izvornih portalov.
           </p>
         </div>
