@@ -10,33 +10,34 @@ interface Props {
 
 export default function ArticleCard({ news }: Props) {
   const handleClick = async (e: MouseEvent) => {
-    // Najprej takoj odpri povezavo (ne blokira)
     window.open(news.link, '_blank')
 
-    // Nato asinhrono zabeleži klik v Supabase prek API
     try {
       await fetch('/api/click', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ source: news.source, url: news.link })
+        body: JSON.stringify({ source: news.source, url: news.link }),
       })
     } catch (error) {
       console.error('Napaka pri beleženju klika:', error)
     }
   }
 
-  const formattedDate = format(new Date(news.isoDate), 'd. MMM, HH:mm', {
-    locale: sl
+  const formattedDate = format(new Date(news.isoDate || news.pubDate), 'd. MMM, HH:mm', {
+    locale: sl,
   })
+
+  const imageSrc =
+    news.image && news.image.startsWith('http') ? news.image : '/default-news.jpg'
 
   return (
     <div
       onClick={handleClick}
-      className="bg-gray-800 rounded-lg shadow-md overflow-hidden cursor-pointer transform transition duration-200 hover:scale-[1.01] hover:bg-gray-700"
+      className="bg-gray-800 rounded-lg shadow-md overflow-hidden cursor-pointer transform transition-transform duration-200 hover:scale-[1.01] hover:bg-gray-700"
     >
       <div className="relative w-full h-44">
         <Image
-          src={news.image || '/default-news.jpg'}
+          src={imageSrc}
           alt={news.title}
           fill
           className="object-cover"
