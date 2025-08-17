@@ -31,7 +31,6 @@ export default function ArticleCard({ news }: Props) {
       console.error('❌ Napaka pri pošiljanju klika:', err)
     }
 
-    // nato odpri zavihek
     window.open(news.link, '_blank')
   }
 
