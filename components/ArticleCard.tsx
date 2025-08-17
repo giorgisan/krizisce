@@ -27,11 +27,15 @@ export default function ArticleCard({ news }: Props) {
 
       const data = await res.json()
       console.log('📥 Odgovor API:', data)
+
+      // Odpri šele po uspešnem pošiljanju
+      window.open(news.link, '_blank')
     } catch (err) {
       console.error('❌ Napaka pri pošiljanju klika:', err)
-    }
 
-    window.open(news.link, '_blank')
+      // Tudi ob napaki vseeno odpri povezavo
+      window.open(news.link, '_blank')
+    }
   }
 
   return (
