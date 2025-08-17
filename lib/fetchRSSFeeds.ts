@@ -1,4 +1,3 @@
-// lib/fetchRSSFeeds.ts
 import Parser from 'rss-parser'
 import type { NewsItem } from '../types'
 import { feeds } from './sources'
@@ -9,11 +8,22 @@ const parser: Parser = new Parser({
   customFields: { item: ['media:content', 'enclosure', 'isoDate'] },
 })
 
+// Popravljena funkcija za robustno zajemanje slike
 function extractImage(item: any): string | null {
-  if (item?.['media:content']?.$?.url) return item['media:content'].$.url
-  if (item?.enclosure?.url) return item.enclosure.url
-  const match = (item?.content as string | undefined)?.match(/<img[^>]+src="([^">]+)"/)
-  return match?.[1] ?? null
+  // Preveri media:content -> lahko ima url ali $: { url }
+  if (typeof item['media:content'] === 'object') {
+    if (item['media:content']?.url) return item['media:content'].url
+    if (item['media:content']?.$?.url) return item['media:content'].$.url
+  }
+
+  // Preveri enclosure
+  if (item.enclosure?.url) return item.enclosure.url
+
+  // Poizkusi ujeti prvo <img> iz HTML vsebine
+  const match = (item.content || item['content:encoded'] || '').match(/<img[^>]+src="([^">]+)"/)
+  if (match?.[1]) return match[1]
+
+  return null
 }
 
 export default async function fetchRSSFeeds(opts: FetchOpts = {}): Promise<NewsItem[]> {
@@ -26,6 +36,7 @@ export default async function fetchRSSFeeds(opts: FetchOpts = {}): Promise<NewsI
         headers: { 'User-Agent': 'KrizisceBot/1.0 (+https://krizisce.si)' },
         ...(forceFresh ? { cache: 'no-store', next: { revalidate: 0 as 0 } } : {}),
       } as any)
+
       const xml = await res.text()
       const feed = await parser.parseString(xml)
 
