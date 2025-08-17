@@ -17,7 +17,8 @@
     "@vercel/analytics": "1.5.0",
     "@vercel/speed-insights": "1.2.0",
     "@tailwindcss/line-clamp": "^0.4.4",
-    "@supabase/supabase-js": "^2.39.5"
+    "@supabase/supabase-js": "^2.39.5",
+    "date-fns": "^3.6.0"
   },
   "devDependencies": {
     "@types/node": "^20.6.0",
