@@ -1,3 +1,5 @@
+// components/ArticleCard.tsx
+
 import React from 'react'
 import { NewsItem } from '@/types'
 import { sourceColors } from '@/lib/sources'
@@ -7,14 +9,15 @@ type Props = {
 }
 
 export default function ArticleCard({ news }: Props) {
+  const sourceColor = sourceColors[news.source] ?? '#9E9E9E'
+
   const formattedDate = new Date(news.pubDate).toLocaleString('sl-SI', {
     day: 'numeric',
     month: 'short',
     hour: '2-digit',
     minute: '2-digit',
+    hour12: false,
   })
-
-  const sourceColor = sourceColors[news.source] ?? '#9E9E9E'
 
   const handleClick = async () => {
     console.log('🟠 Klik izveden:', news.source, news.link)
@@ -34,10 +37,10 @@ export default function ArticleCard({ news }: Props) {
       const data = await res.json()
       console.log('🟢 API odgovor:', data)
 
-      window.open(news.link, '_blank')
+      window.open(news.link, '_blank', 'noopener,noreferrer')
     } catch (err) {
       console.error('🔴 Napaka pri pošiljanju klika:', err)
-      window.open(news.link, '_blank')
+      window.open(news.link, '_blank', 'noopener,noreferrer')
     }
   }
 
@@ -46,6 +49,7 @@ export default function ArticleCard({ news }: Props) {
       role="button"
       tabIndex={0}
       onClick={handleClick}
+      onKeyDown={(e) => e.key === 'Enter' && handleClick()}
       className="cursor-pointer text-left w-full bg-gray-800 hover:bg-gray-700 rounded-xl shadow-md overflow-hidden flex flex-col transition-all duration-300 transform hover:-translate-y-1 hover:shadow-xl animate-fade-in"
     >
       {news.image && (
@@ -60,16 +64,12 @@ export default function ArticleCard({ news }: Props) {
           <p className="text-sm font-semibold" style={{ color: sourceColor }}>
             {news.source}
           </p>
-          <p className="text-xs text-gray-400 whitespace-nowrap">
-            {formattedDate}
-          </p>
+          <p className="text-xs text-gray-400 whitespace-nowrap">{formattedDate}</p>
         </div>
-        <h2 className="text-lg font-semibold text-white leading-[1.25rem] line-clamp-3">
+        <h3 className="font-semibold text-[0.95rem] leading-snug line-clamp-3 mb-1">
           {news.title}
-        </h2>
-        <p className="text-sm text-gray-400 leading-snug line-clamp-4">
-          {news.contentSnippet}
-        </p>
+        </h3>
+        <p className="text-sm text-gray-400 line-clamp-4">{news.contentSnippet}</p>
       </div>
     </div>
   )
