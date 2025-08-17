@@ -11,7 +11,7 @@ export default function ArticleCard({ news }: Props) {
   const sourceColor = sourceColors[news.source] ?? '#9E9E9E'
 
   const handleClick = async () => {
-    const win = window.open('', '_blank') // odpre okno takoj
+    console.log('🟠 Klik izveden:', news.source, news.link)
 
     try {
       const res = await fetch('/api/click', {
@@ -26,11 +26,12 @@ export default function ArticleCard({ news }: Props) {
       })
 
       const data = await res.json()
-      console.log('🟢 Klik zabeležen:', data)
-      win?.location.assign(news.link)
+      console.log('🟢 API odgovor:', data)
+
+      window.open(news.link, '_blank')
     } catch (err) {
-      console.error('🔴 Napaka pri kliku:', err)
-      win?.location.assign(news.link)
+      console.error('🔴 Napaka pri pošiljanju klika:', err)
+      window.open(news.link, '_blank')
     }
   }
 
@@ -49,12 +50,16 @@ export default function ArticleCard({ news }: Props) {
         />
       )}
       <div className="p-4 flex flex-col flex-1">
-        <p className="text-sm font-semibold mb-1" style={{ color: sourceColor }}>
-          {news.source}
-        </p>
-        <h3 className="font-semibold mb-2 line-clamp-3">{news.title}</h3>
-        <p className="text-sm text-gray-300 mb-1 line-clamp-4">{news.contentSnippet}</p>
-        <p className="text-xs text-gray-400">{formattedDate}</p>
+        <div className="flex justify-between items-center mb-1">
+          <p className="text-sm font-semibold" style={{ color: sourceColor }}>
+            {news.source}
+          </p>
+          <p className="text-xs text-gray-400 whitespace-nowrap">{formattedDate}</p>
+        </div>
+        <h3 className="font-semibold text-base leading-snug line-clamp-2 mb-1">
+          {news.title}
+        </h3>
+        <p className="text-sm text-gray-300 line-clamp-2">{news.contentSnippet}</p>
       </div>
     </div>
   )
