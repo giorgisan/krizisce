@@ -6,8 +6,18 @@ type Props = {
   news: NewsItem
 }
 
+const formatDate = (dateString: string) => {
+  const date = new Date(dateString)
+  return date.toLocaleString('sl-SI', {
+    day: '2-digit',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).replace('.', '').replace('ob', ',')
+}
+
 export default function ArticleCard({ news }: Props) {
-  const formattedDate = new Date(news.pubDate).toLocaleString('sl-SI')
+  const formattedDate = formatDate(news.pubDate)
   const sourceColor = sourceColors[news.source] ?? '#9E9E9E'
 
   const handleClick = async () => {
@@ -50,22 +60,16 @@ export default function ArticleCard({ news }: Props) {
         />
       )}
       <div className="p-4 flex flex-col flex-1">
-        <div className="flex justify-between items-center mb-1">
-          <p className="text-sm font-semibold text-gray-400">
-            <span style={{ color: sourceColor }}>{news.source}</span>
-            <span className="ml-2 text-xs text-gray-500">{formattedDate}</span>
+        <div className="flex justify-between items-center mb-1 text-xs text-gray-400">
+          <p style={{ color: sourceColor }} className="font-semibold text-xs">
+            {news.source}
           </p>
+          <p className="ml-auto">{formattedDate}</p>
         </div>
-        <h3
-          className="font-semibold text-base leading-snug text-white line-clamp-3 mb-1 hover:underline"
-          title={news.title}
-        >
+        <h3 className="font-semibold text-base leading-snug line-clamp-3 mb-0.5 hover:underline">
           {news.title}
         </h3>
-        <p
-          className="text-sm text-gray-400 line-clamp-4 hover:underline"
-          title={news.contentSnippet}
-        >
+        <p className="text-sm text-gray-400 line-clamp-4 hover:underline">
           {news.contentSnippet}
         </p>
       </div>
