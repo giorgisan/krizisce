@@ -13,64 +13,19 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { NewsItem } from '@/types'
 import fetchRSSFeeds from '@/lib/fetchRSSFeeds'
 import Footer from '@/components/Footer'
-import { SOURCES, sourceColors } from '@/lib/sources'
+import { SOURCES } from '@/lib/sources'
+import ArticleCard from '@/components/ArticleCard'
 
 type Props = { initialNews: NewsItem[] }
 
-/** Memoizirana kartica – cenejši re-render grida */
-const NewsCard = React.memo(function NewsCard({ article }: { article: NewsItem }) {
-  const formattedDate = new Date(article.pubDate).toLocaleString('sl-SI')
-  const color = sourceColors[article.source] || '#fc9c6c'
-
-  return (
-    <a
-      href={article.link}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="cv-auto bg-gray-800 hover:bg-gray-700 rounded-xl shadow-md overflow-hidden flex flex-col transition-all duration-300 hover:-translate-y-1 hover:shadow-xl"
-    >
-      {article.image && (
-        <img
-          src={article.image}
-          alt={article.title}
-          className="w-full h-32 sm:h-40 object-cover"
-          loading="lazy"
-          decoding="async"
-          fetchPriority="low"
-        />
-      )}
-      <div className="p-4 flex flex-col flex-1">
-        <div className="flex flex-col sm:flex-row sm:justify-between items-start sm:items-center mb-1">
-          <span className="text-sm font-semibold" style={{ color }}>
-            {article.source}
-          </span>
-          <span className="text-xs text-gray-400 mt-1 sm:mt-0 sm:ml-2">{formattedDate}</span>
-        </div>
-        <h2 className="text-base font-semibold mb-1 leading-tight line-clamp-3 sm:line-clamp-3">
-          {article.title}
-        </h2>
-        <p className="text-sm text-gray-400 line-clamp-4 sm:line-clamp-4">
-          {article.contentSnippet}
-        </p>
-      </div>
-    </a>
-  )
-})
-
 export default function Home({ initialNews }: Props) {
-  /** Glavni seznam novic – start = SSG HTML; takoj po mountu potihoma nadomestimo s svežimi  */
   const [news, setNews] = useState<NewsItem[]>(initialNews)
-
-  /** Filter (odziven) */
   const [filter, setFilter] = useState<string>('Vse')
   const deferredFilter = useDeferredValue(filter)
-
-  /** Paging, badge in refresh stanje */
   const [displayCount, setDisplayCount] = useState<number>(20)
   const [hasFresh, setHasFresh] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
 
-  /** Sortiranje in filtriranje */
   const sortedNews = useMemo(
     () => [...news].sort((a, b) => new Date(b.pubDate).getTime() - new Date(a.pubDate).getTime()),
     [news]
@@ -81,12 +36,6 @@ export default function Home({ initialNews }: Props) {
       : sortedNews.filter((a) => a.source === deferredFilter)
   const visibleNews = filteredNews.slice(0, displayCount)
 
-  /** -------------------------------------------
-   *  1) TAKOJŠNJA OSVEŽITEV PO ODPIRANJU STRANI
-   *  - pokažemo initialNews (brez praznine)
-   *  - potihoma zamenjamo z najnovejšimi, če so novejše
-   *  - nato naprej na 60 s samo prižgemo zeleno piko (ne menjamo UI)
-   * ------------------------------------------- */
   useEffect(() => {
     let cancelled = false
 
@@ -99,21 +48,16 @@ export default function Home({ initialNews }: Props) {
         const latestFresh = new Date(fresh[0].pubDate).getTime()
         const latestCurrent = new Date((news[0] || initialNews[0])?.pubDate || 0).getTime()
 
-        // Ob prvem mountu: če je svežje, TAKOJ zamenjaj UI (brez čakanja/gumba)
         if (latestFresh > latestCurrent && !cancelled) {
           setNews(fresh)
           setDisplayCount(20)
-          setHasFresh(false) // ravno smo osvežili
+          setHasFresh(false)
         }
-      } catch {
-        // tiho ignoriramo – uporabnik še vedno vidi initialNews
-      }
+      } catch {}
     }
 
-    // takoj po mountu
     fetchFresh()
 
-    // periodično (npr. 60 s) – ne menjamo UI, le prižgemo zeleno piko
     const iv = setInterval(async () => {
       try {
         const res = await fetch('/api/news?forceFresh=1', { cache: 'no-store' })
@@ -123,23 +67,17 @@ export default function Home({ initialNews }: Props) {
         const latestFresh = new Date(fresh[0].pubDate).getTime()
         const latestCurrent = new Date((news[0] || initialNews[0])?.pubDate || 0).getTime()
         if (latestFresh > latestCurrent && !cancelled) {
-          setHasFresh(true) // pokaži badge; uporabnik lahko klikne gumb
+          setHasFresh(true)
         }
-      } catch {
-        /* ignore */
-      }
+      } catch {}
     }, 60000)
 
     return () => {
       cancelled = true
       clearInterval(iv)
     }
-    // namenoma VEŽEMO na `initialNews` (server HTML) in ne na `news`,
-    // da interval ne resetira pri vsaki osvežitvi
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialNews])
 
-  /** Ročna osvežitev (gumb) – takoj zamenja UI */
   const handleRefresh = async () => {
     if (refreshing) return
     setRefreshing(true)
@@ -151,7 +89,6 @@ export default function Home({ initialNews }: Props) {
         setHasFresh(false)
         setDisplayCount(20)
       } else {
-        // fallback: prisilni reload brez cache
         location.href =
           location.pathname + (location.search ? location.search + '&' : '?') + 't=' + Date.now()
       }
@@ -163,7 +100,6 @@ export default function Home({ initialNews }: Props) {
     }
   }
 
-  /** Puščice/scroll za filter (desktop) */
   const filterRef = useRef<HTMLDivElement | null>(null)
   const [showLeft, setShowLeft] = useState(false)
   const [showRight, setShowRight] = useState(false)
@@ -220,7 +156,6 @@ export default function Home({ initialNews }: Props) {
         {/* HEADER */}
         <div className="sticky top-0 z-40 bg-gray-900/70 backdrop-blur-md border-b border-gray-800 py-2 mb-6">
           <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 px-2 sm:px-4">
-            {/* Logo + refresh */}
             <div className="flex items-center space-x-5">
               <Link href="/">
                 <div className="flex items-center space-x-3 cursor-pointer">
@@ -243,7 +178,6 @@ export default function Home({ initialNews }: Props) {
                 className="relative p-2 rounded-full text-gray-400 hover:text-white hover:bg-gray-800 transition-transform"
                 title={hasFresh ? 'Na voljo so nove novice' : 'Osveži'}
               >
-                {/* Badge (skrij na mobilu) */}
                 {hasFresh && (
                   <span className="hidden sm:inline-block absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-400 ring-2 ring-gray-900" />
                 )}
@@ -262,7 +196,6 @@ export default function Home({ initialNews }: Props) {
               </button>
             </div>
 
-            {/* Filters + puščice */}
             <div className="flex items-center gap-2 w-full sm:w-auto sm:ml-auto">
               {showLeft && (
                 <button
@@ -270,16 +203,7 @@ export default function Home({ initialNews }: Props) {
                   aria-label="Premakni levo"
                   className="hidden sm:flex items-center justify-center p-2 text-gray-400 hover:text-white"
                 >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    className="w-5 h-5"
-                  >
-                    <path d="M15 6l-6 6 6 6" />
-                  </svg>
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2" className="w-5 h-5"><path d="M15 6l-6 6 6 6" /></svg>
                 </button>
               )}
 
@@ -320,16 +244,7 @@ export default function Home({ initialNews }: Props) {
                   aria-label="Premakni desno"
                   className="hidden sm:flex items-center justify-center p-2 text-gray-400 hover:text-white"
                 >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    className="w-5 h-5"
-                  >
-                    <path d="M9 6l6 6-6 6" />
-                  </svg>
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2" className="w-5 h-5"><path d="M9 6l6 6-6 6" /></svg>
                 </button>
               )}
             </div>
@@ -352,7 +267,7 @@ export default function Home({ initialNews }: Props) {
               className="grid gap-6 grid-cols-2 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5"
             >
               {visibleNews.map((article, i) => (
-                <NewsCard key={i} article={article} />
+                <ArticleCard key={i} news={article} />
               ))}
             </motion.div>
           </AnimatePresence>
@@ -375,7 +290,6 @@ export default function Home({ initialNews }: Props) {
   )
 }
 
-/** SSG + ISR še vedno ostane za SEO in hitre prvi prikaze */
 export async function getStaticProps() {
   const initialNews = await fetchRSSFeeds()
   return { props: { initialNews }, revalidate: 60 }
