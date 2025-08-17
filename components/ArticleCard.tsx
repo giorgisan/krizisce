@@ -1,26 +1,18 @@
-import React from 'react'
 import { NewsItem } from '@/types'
-import { sourceColors } from '@/lib/sources'
+import { format } from 'date-fns'
+import { sl } from 'date-fns/locale'
+import Image from 'next/image'
 
 type Props = {
   news: NewsItem
 }
 
 export default function ArticleCard({ news }: Props) {
-  const formattedDate = new Date(news.pubDate).toLocaleString('sl-SI', {
-    day: '2-digit',
-    month: 'short',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
-
-  const sourceColor = sourceColors[news.source] ?? '#9E9E9E'
-
   const handleClick = () => {
-    // ✅ TAKOJŠNJE odpiranje zavihka – to prepreči blokado pop-upov
-    window.open(news.link, '_blank', 'noopener,noreferrer')
+    // Takoj odpri povezavo
+    window.open(news.link, '_blank')
 
-    // ⏱ ZAMAKNJENO (neblokirajoče) asinhrono beleženje
+    // Nato asinhrono pošlji klik v Supabase
     fetch('/api/click', {
       method: 'POST',
       headers: {
@@ -29,37 +21,44 @@ export default function ArticleCard({ news }: Props) {
       body: JSON.stringify({
         source: news.source,
         url: news.link,
+        timestamp: new Date().toISOString(),
+        user_agent: navigator.userAgent,
       }),
-    }).catch((err) => {
-      console.error('🔴 Napaka pri beleženju klika:', err)
-    })
+    }).catch((error) => console.error('Napaka pri zapisovanju klika:', error))
   }
+
+  const formattedDate = format(new Date(news.isoDate), "d. MMM, HH:mm", {
+    locale: sl,
+  })
 
   return (
     <div
-      role="button"
-      tabIndex={0}
       onClick={handleClick}
-      className="cursor-pointer text-left w-full bg-gray-800 hover:bg-gray-700 rounded-xl shadow-md overflow-hidden flex flex-col transition-all duration-200 transform hover:scale-[1.01] animate-fade-in"
+      className="bg-gray-800 rounded-lg overflow-hidden shadow-md cursor-pointer transition-transform duration-300 hover:scale-[1.01] hover:bg-gray-700"
     >
       {news.image && (
-        <img
-          src={news.image}
-          alt={news.title}
-          className="w-full h-40 object-cover"
-        />
-      )}
-      <div className="p-4 flex flex-col flex-1">
-        <div className="flex justify-between items-center mb-1 text-sm">
-          <span style={{ color: sourceColor }} className="font-semibold">
-            {news.source}
-          </span>
-          <span className="text-gray-400 text-sm whitespace-nowrap">{formattedDate}</span>
+        <div className="relative w-full h-44">
+          <Image
+            src={news.image}
+            alt={news.title}
+            fill
+            className="object-cover"
+            sizes="100vw"
+          />
         </div>
-        <h3 className="font-semibold text-base leading-tight line-clamp-3 mb-1">
+      )}
+
+      <div className="p-4 flex flex-col space-y-1">
+        <div className="flex justify-between text-xs text-gray-400 mb-1">
+          <span className="text-brand font-semibold">{news.source}</span>
+          <span>{formattedDate}</span>
+        </div>
+        <h3 className="text-white font-semibold text-sm line-clamp-3 leading-snug">
           {news.title}
         </h3>
-        <p className="text-sm text-gray-400 line-clamp-4">{news.contentSnippet}</p>
+        <p className="text-gray-400 text-sm line-clamp-4 leading-snug">
+          {news.contentSnippet}
+        </p>
       </div>
     </div>
   )
