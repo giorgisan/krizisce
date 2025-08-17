@@ -11,7 +11,7 @@ export default function ArticleCard({ news }: Props) {
   const sourceColor = sourceColors[news.source] ?? '#9E9E9E'
 
   const handleClick = async () => {
-    console.log('⬆️ Klik!', news.source, news.link)
+    console.log('🟠 Klik izveden:', news.source, news.link)
 
     try {
       const res = await fetch('/api/click', {
@@ -26,22 +26,21 @@ export default function ArticleCard({ news }: Props) {
       })
 
       const data = await res.json()
-      console.log('📥 Odgovor API:', data)
+      console.log('🟢 API odgovor:', data)
 
-      // Odpri šele po uspešnem pošiljanju
       window.open(news.link, '_blank')
     } catch (err) {
-      console.error('❌ Napaka pri pošiljanju klika:', err)
-
-      // Tudi ob napaki vseeno odpri povezavo
+      console.error('🔴 Napaka pri pošiljanju klika:', err)
       window.open(news.link, '_blank')
     }
   }
 
   return (
-    <button
+    <div
+      role="button"
+      tabIndex={0}
       onClick={handleClick}
-      className="text-left w-full bg-gray-800 hover:bg-gray-700 rounded-xl shadow-md overflow-hidden flex flex-col transition-all duration-300 transform hover:-translate-y-1 hover:shadow-xl animate-fade-in"
+      className="cursor-pointer text-left w-full bg-gray-800 hover:bg-gray-700 rounded-xl shadow-md overflow-hidden flex flex-col transition-all duration-300 transform hover:-translate-y-1 hover:shadow-xl animate-fade-in"
     >
       {news.image && (
         <img
@@ -58,6 +57,6 @@ export default function ArticleCard({ news }: Props) {
         <p className="text-sm text-gray-300 mb-1">{news.contentSnippet}</p>
         <p className="text-xs text-gray-400">{formattedDate}</p>
       </div>
-    </button>
+    </div>
   )
 }
