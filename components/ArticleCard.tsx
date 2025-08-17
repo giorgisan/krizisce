@@ -11,26 +11,15 @@ export default function ArticleCard({ news }: Props) {
   const sourceColor = sourceColors[news.source] ?? '#9E9E9E'
 
   const handleClick = async () => {
-    console.log('🟠 Klik izveden:', news.source, news.link)
-
     try {
-      const res = await fetch('/api/click', {
+      await fetch('/api/click', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          source: news.source,
-          url: news.link,
-        }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ source: news.source, url: news.link }),
       })
-
-      const data = await res.json()
-      console.log('🟢 API odgovor:', data)
-
-      window.open(news.link, '_blank')
     } catch (err) {
       console.error('🔴 Napaka pri pošiljanju klika:', err)
+    } finally {
       window.open(news.link, '_blank')
     }
   }
@@ -54,9 +43,11 @@ export default function ArticleCard({ news }: Props) {
           <p className="text-sm font-semibold" style={{ color: sourceColor }}>
             {news.source}
           </p>
-          <p className="text-xs text-gray-400 whitespace-nowrap">{formattedDate}</p>
+          <p className="text-xs text-gray-400 whitespace-nowrap">
+            {formattedDate}
+          </p>
         </div>
-        <h3 className="font-semibold text-base leading-snug line-clamp-2 mb-1">
+        <h3 className="font-semibold text-base leading-snug line-clamp-3 mb-1">
           {news.title}
         </h3>
         <p className="text-sm text-gray-300 line-clamp-4">{news.contentSnippet}</p>
