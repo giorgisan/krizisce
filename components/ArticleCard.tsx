@@ -13,8 +13,8 @@ export default function ArticleCard({ news }: Props) {
   const handleClick = async () => {
     console.log('🟠 Klik izveden:', news.source, news.link)
 
-    // Takoj odpri prazno okno, da brskalnik dovoli
-    const newWindow = window.open('', '_blank')
+    // Odpri prazno okno TAKOJ, da obidemo pop-up blocker
+    const win = window.open('', '_blank')
 
     try {
       const res = await fetch('/api/click', {
@@ -31,15 +31,10 @@ export default function ArticleCard({ news }: Props) {
       const data = await res.json()
       console.log('🟢 API odgovor:', data)
 
-      if (newWindow) {
-        newWindow.location.href = news.link
-      }
+      win?.location.assign(news.link)
     } catch (err) {
       console.error('🔴 Napaka pri pošiljanju klika:', err)
-
-      if (newWindow) {
-        newWindow.location.href = news.link
-      }
+      win?.location.assign(news.link)
     }
   }
 
@@ -61,8 +56,18 @@ export default function ArticleCard({ news }: Props) {
         <p className="text-sm font-semibold mb-1" style={{ color: sourceColor }}>
           {news.source}
         </p>
-        <h3 className="font-semibold mb-2">{news.title}</h3>
-        <p className="text-sm text-gray-300 mb-1">{news.contentSnippet}</p>
+        <h3
+          className="font-semibold mb-2 line-clamp-3"
+          title={news.title}
+        >
+          {news.title}
+        </h3>
+        <p
+          className="text-sm text-gray-300 mb-1 line-clamp-4"
+          title={news.contentSnippet}
+        >
+          {news.contentSnippet}
+        </p>
         <p className="text-xs text-gray-400">{formattedDate}</p>
       </div>
     </div>
