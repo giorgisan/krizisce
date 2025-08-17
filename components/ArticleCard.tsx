@@ -23,21 +23,18 @@ export default function ArticleCard({ news }: Props) {
     }
   }
 
-  const formattedDate = format(new Date(news.isoDate || news.pubDate), 'd. MMM, HH:mm', {
+  const formattedDate = format(new Date(news.isoDate), 'd. MMM, HH:mm', {
     locale: sl,
   })
-
-  const imageSrc =
-    news.image && news.image.startsWith('http') ? news.image : '/default-news.jpg'
 
   return (
     <div
       onClick={handleClick}
-      className="bg-gray-800 rounded-lg shadow-md overflow-hidden cursor-pointer transform transition-transform duration-200 hover:scale-[1.01] hover:bg-gray-700"
+      className="bg-gray-800 hover:bg-gray-700 transition duration-200 transform hover:scale-[1.01] rounded-lg shadow-md overflow-hidden cursor-pointer"
     >
       <div className="relative w-full h-44">
         <Image
-          src={imageSrc}
+          src={news.image || '/default-news.jpg'}
           alt={news.title}
           fill
           className="object-cover"
