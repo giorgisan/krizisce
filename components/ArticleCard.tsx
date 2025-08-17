@@ -1,9 +1,8 @@
-// components/ArticleCard.tsx
-
 import { NewsItem } from '@/types'
 import { format } from 'date-fns'
 import { sl } from 'date-fns/locale'
 import { MouseEvent } from 'react'
+import { sourceColors } from '@/lib/sources'
 
 interface Props {
   news: NewsItem
@@ -11,10 +10,8 @@ interface Props {
 
 export default function ArticleCard({ news }: Props) {
   const handleClick = async (e: MouseEvent) => {
-    // Takoj odpri povezavo
     window.open(news.link, '_blank')
 
-    // Asinhrono zabeleži klik
     try {
       await fetch('/api/click', {
         method: 'POST',
@@ -30,10 +27,12 @@ export default function ArticleCard({ news }: Props) {
     locale: sl,
   })
 
+  const sourceColor = sourceColors[news.source] || '#fc9c6c'
+
   return (
     <div
       onClick={handleClick}
-      className="bg-gray-800 rounded-lg shadow-md overflow-hidden cursor-pointer transition-transform duration-200 ease-in-out transform hover:scale-105 hover:bg-gray-700"
+      className="bg-gray-800 rounded-lg shadow-md overflow-hidden cursor-pointer transition-all duration-200 transform hover:scale-[1.01] hover:bg-gray-700"
     >
       <div className="w-full h-44 overflow-hidden">
         <img
@@ -46,7 +45,12 @@ export default function ArticleCard({ news }: Props) {
 
       <div className="p-3">
         <div className="flex justify-between text-xs text-gray-400 mb-1">
-          <span className="font-medium text-[0.7rem] text-brand">{news.source}</span>
+          <span
+            className="font-medium text-[0.7rem]"
+            style={{ color: sourceColor }}
+          >
+            {news.source}
+          </span>
           <span>{formattedDate}</span>
         </div>
 
