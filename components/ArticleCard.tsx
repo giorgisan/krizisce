@@ -11,15 +11,26 @@ export default function ArticleCard({ news }: Props) {
   const sourceColor = sourceColors[news.source] ?? '#9E9E9E'
 
   const handleClick = async () => {
+    console.log('🟠 Klik izveden:', news.source, news.link)
+
     try {
-      await fetch('/api/click', {
+      const res = await fetch('/api/click', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ source: news.source, url: news.link }),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          source: news.source,
+          url: news.link,
+        }),
       })
+
+      const data = await res.json()
+      console.log('🟢 API odgovor:', data)
+
+      window.open(news.link, '_blank')
     } catch (err) {
       console.error('🔴 Napaka pri pošiljanju klika:', err)
-    } finally {
       window.open(news.link, '_blank')
     }
   }
@@ -40,17 +51,23 @@ export default function ArticleCard({ news }: Props) {
       )}
       <div className="p-4 flex flex-col flex-1">
         <div className="flex justify-between items-center mb-1">
-          <p className="text-sm font-semibold" style={{ color: sourceColor }}>
-            {news.source}
-          </p>
-          <p className="text-xs text-gray-400 whitespace-nowrap">
-            {formattedDate}
+          <p className="text-sm font-semibold text-gray-400">
+            <span style={{ color: sourceColor }}>{news.source}</span>
+            <span className="ml-2 text-xs text-gray-500">{formattedDate}</span>
           </p>
         </div>
-        <h3 className="font-semibold text-base leading-snug line-clamp-3 mb-1">
+        <h3
+          className="font-semibold text-base leading-snug text-white line-clamp-3 mb-1 hover:underline"
+          title={news.title}
+        >
           {news.title}
         </h3>
-        <p className="text-sm text-gray-300 line-clamp-4">{news.contentSnippet}</p>
+        <p
+          className="text-sm text-gray-400 line-clamp-4 hover:underline"
+          title={news.contentSnippet}
+        >
+          {news.contentSnippet}
+        </p>
       </div>
     </div>
   )
