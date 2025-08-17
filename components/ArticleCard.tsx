@@ -1,3 +1,5 @@
+// components/ArticleCard.tsx
+
 import React from 'react'
 import { NewsItem } from '@/types'
 import { sourceColors } from '@/lib/sources'
@@ -11,8 +13,10 @@ export default function ArticleCard({ news }: Props) {
   const sourceColor = sourceColors[news.source] ?? '#9E9E9E'
 
   const handleClick = async () => {
+    console.log('Klik!', news.source, news.link)
+
     try {
-      await fetch('/api/click', {
+      const res = await fetch('/api/click', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -20,8 +24,11 @@ export default function ArticleCard({ news }: Props) {
           url: news.link,
         }),
       })
-    } catch (error) {
-      console.error('Napaka pri beleženju klika:', error)
+
+      const data = await res.json()
+      console.log('Rezultat:', data)
+    } catch (err) {
+      console.error('Napaka pri pošiljanju klika:', err)
     }
   }
 
