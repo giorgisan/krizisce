@@ -16,26 +16,23 @@ export default function ArticleCard({ news }: Props) {
 
   const sourceColor = sourceColors[news.source] ?? '#9E9E9E'
 
-  const handleClick = async () => {
-    console.log('🟠 Klik izveden:', news.source, news.link)
-
-    try {
-      await fetch('/api/click', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          source: news.source,
-          url: news.link,
-        }),
-      })
-    } catch (err) {
-      console.error('🔴 Napaka pri pošiljanju klika:', err)
-    }
-
-    // Vedno odpremo novico
+  const handleClick = () => {
+    // ✅ TAKOJŠNJE odpiranje zavihka – to prepreči blokado pop-upov
     window.open(news.link, '_blank', 'noopener,noreferrer')
+
+    // ⏱ ZAMAKNJENO (neblokirajoče) asinhrono beleženje
+    fetch('/api/click', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        source: news.source,
+        url: news.link,
+      }),
+    }).catch((err) => {
+      console.error('🔴 Napaka pri beleženju klika:', err)
+    })
   }
 
   return (
