@@ -1,7 +1,8 @@
+// components/ArticleCard.tsx
+
 import { NewsItem } from '@/types'
 import { format } from 'date-fns'
 import { sl } from 'date-fns/locale'
-import Image from 'next/image'
 import { MouseEvent } from 'react'
 
 interface Props {
@@ -10,8 +11,10 @@ interface Props {
 
 export default function ArticleCard({ news }: Props) {
   const handleClick = async (e: MouseEvent) => {
+    // Takoj odpri povezavo
     window.open(news.link, '_blank')
 
+    // Asinhrono zabeleži klik
     try {
       await fetch('/api/click', {
         method: 'POST',
@@ -30,15 +33,14 @@ export default function ArticleCard({ news }: Props) {
   return (
     <div
       onClick={handleClick}
-      className="bg-gray-800 hover:bg-gray-700 transition duration-200 transform hover:scale-[1.01] rounded-lg shadow-md overflow-hidden cursor-pointer"
+      className="bg-gray-800 rounded-lg shadow-md overflow-hidden cursor-pointer transition-transform duration-200 ease-in-out transform hover:scale-105 hover:bg-gray-700"
     >
-      <div className="relative w-full h-44">
-        <Image
+      <div className="w-full h-44 overflow-hidden">
+        <img
           src={news.image || '/default-news.jpg'}
           alt={news.title}
-          fill
-          className="object-cover"
-          sizes="(max-width: 768px) 100vw, 33vw"
+          className="w-full h-full object-cover"
+          loading="lazy"
         />
       </div>
 
