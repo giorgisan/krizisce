@@ -7,14 +7,12 @@ type Props = {
 }
 
 export default function ArticleCard({ news }: Props) {
-  const dateObj = new Date(news.pubDate)
-
-  const formattedDate = `${dateObj.getDate()}. ${dateObj.toLocaleString('sl-SI', {
+  const formattedDate = new Date(news.pubDate).toLocaleString('sl-SI', {
+    day: 'numeric',
     month: 'short',
-  })}, ${dateObj.toLocaleTimeString('sl-SI', {
     hour: '2-digit',
     minute: '2-digit',
-  })}`
+  })
 
   const sourceColor = sourceColors[news.source] ?? '#9E9E9E'
 
@@ -57,22 +55,19 @@ export default function ArticleCard({ news }: Props) {
           className="w-full h-40 object-cover"
         />
       )}
-
       <div className="p-4 flex flex-col flex-1">
-        <div className="flex justify-between items-center mb-1 text-xs">
-          <span className="font-semibold" style={{ color: sourceColor }}>
+        <div className="flex justify-between items-center mb-1">
+          <p className="text-sm font-semibold" style={{ color: sourceColor }}>
             {news.source}
-          </span>
-          <span className="text-gray-400 whitespace-nowrap">
+          </p>
+          <p className="text-xs text-gray-400 whitespace-nowrap">
             {formattedDate}
-          </span>
+          </p>
         </div>
-
-        <h3 className="font-semibold text-base leading-snug line-clamp-3 mb-1">
+        <h2 className="text-lg font-semibold text-white leading-[1.25rem] line-clamp-3">
           {news.title}
-        </h3>
-
-        <p className="text-sm text-gray-400 leading-tight line-clamp-4">
+        </h2>
+        <p className="text-sm text-gray-400 leading-snug line-clamp-4">
           {news.contentSnippet}
         </p>
       </div>
