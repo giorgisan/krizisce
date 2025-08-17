@@ -13,6 +13,9 @@ export default function ArticleCard({ news }: Props) {
   const handleClick = async () => {
     console.log('🟠 Klik izveden:', news.source, news.link)
 
+    // Takoj odpri prazno okno, da brskalnik dovoli
+    const newWindow = window.open('', '_blank')
+
     try {
       const res = await fetch('/api/click', {
         method: 'POST',
@@ -28,10 +31,15 @@ export default function ArticleCard({ news }: Props) {
       const data = await res.json()
       console.log('🟢 API odgovor:', data)
 
-      window.open(news.link, '_blank')
+      if (newWindow) {
+        newWindow.location.href = news.link
+      }
     } catch (err) {
       console.error('🔴 Napaka pri pošiljanju klika:', err)
-      window.open(news.link, '_blank')
+
+      if (newWindow) {
+        newWindow.location.href = news.link
+      }
     }
   }
 
