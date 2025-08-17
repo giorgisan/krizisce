@@ -8,16 +8,13 @@ type Props = {
 
 export default function ArticleCard({ news }: Props) {
   const dateObj = new Date(news.pubDate)
-  const formattedDate = dateObj.toLocaleDateString('sl-SI', {
-    day: 'numeric',
-    month: 'numeric',
-    year: 'numeric',
-  })
-  const formattedTime = dateObj.toLocaleTimeString('sl-SI', {
+
+  const formattedDate = `${dateObj.getDate()}. ${dateObj.toLocaleString('sl-SI', {
+    month: 'short',
+  })}, ${dateObj.toLocaleTimeString('sl-SI', {
     hour: '2-digit',
     minute: '2-digit',
-    second: '2-digit',
-  })
+  })}`
 
   const sourceColor = sourceColors[news.source] ?? '#9E9E9E'
 
@@ -67,7 +64,7 @@ export default function ArticleCard({ news }: Props) {
             {news.source}
           </span>
           <span className="text-gray-400 whitespace-nowrap">
-            {formattedDate}, {formattedTime}
+            {formattedDate}
           </span>
         </div>
 
