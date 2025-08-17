@@ -59,7 +59,7 @@ export default function ArticleCard({ news }: Props) {
         <h3 className="font-semibold text-base leading-snug line-clamp-2 mb-1">
           {news.title}
         </h3>
-        <p className="text-sm text-gray-300 line-clamp-2">{news.contentSnippet}</p>
+        <p className="text-sm text-gray-300 line-clamp-4">{news.contentSnippet}</p>
       </div>
     </div>
   )
