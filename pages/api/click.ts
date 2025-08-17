@@ -2,7 +2,7 @@ import supabase from '@/lib/supabase'
 import type { NextApiRequest, NextApiResponse } from 'next'
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  console.log('📩 API zahtevek za /api/click:', req.method)
+  console.log('📡 API zahtevek za /api/click:', req.method)
 
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' })
@@ -11,12 +11,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const { source, url } = req.body
   const userAgent = req.headers['user-agent']?.toString() ?? 'unknown'
 
-  const { error } = await supabase.from('clicks').insert({
-    source,
-    url,
-    timestamp: new Date().toISOString(),
-    user_agent: userAgent,
-  })
+  const { error } = await supabase.from('clicks').insert([
+    {
+      source,
+      url,
+      timestamp: new Date().toISOString(),
+      user_agent: userAgent,
+    },
+  ])
 
   if (error) {
     console.error('❌ Napaka pri vstavljanju v Supabase:', error)
