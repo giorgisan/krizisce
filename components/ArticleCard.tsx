@@ -32,7 +32,7 @@ export default function ArticleCard({ news }: Props) {
   return (
     <div
       onClick={handleClick}
-      className="bg-gray-800 rounded-lg shadow-md overflow-hidden cursor-pointer transition-all duration-200 transform hover:scale-[1.01] hover:bg-gray-700"
+      className="group bg-gray-800 rounded-lg shadow-md overflow-hidden cursor-pointer transition-all duration-200 transform hover:scale-[1.01] hover:bg-gray-700"
     >
       <div className="w-full h-44 overflow-hidden">
         <img
@@ -54,7 +54,10 @@ export default function ArticleCard({ news }: Props) {
           <span>{formattedDate}</span>
         </div>
 
-        <h2 className="text-sm font-semibold leading-snug line-clamp-3 mb-1">
+        <h2
+          className="text-sm font-semibold leading-snug line-clamp-3 mb-1 group-hover:line-clamp-none"
+          title={news.title}
+        >
           {news.title}
         </h2>
 
