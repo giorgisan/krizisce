@@ -28,43 +28,46 @@ function extractImage(item: any): string | null {
 
 export default async function fetchRSSFeeds(opts: FetchOpts = {}): Promise<NewsItem[]> {
   const { forceFresh = false } = opts
-  const results: NewsItem[] = []
 
-  for (const [source, url] of Object.entries(feeds)) {
-    try {
-      const res = await fetch(url, {
-        headers: { 'User-Agent': 'KrizisceBot/1.0 (+https://krizisce.si)' },
-        ...(forceFresh ? { cache: 'no-store', next: { revalidate: 0 as 0 } } : {}),
-      } as any)
+  const results = await Promise.all(
+    Object.entries(feeds).map(async ([source, url]) => {
+      try {
+        const res = await fetch(url, {
+          headers: { 'User-Agent': 'KrizisceBot/1.0 (+https://krizisce.si)' },
+          ...(forceFresh ? { cache: 'no-store', next: { revalidate: 0 as 0 } } : {}),
+        } as any)
 
-      const xml = await res.text()
-      const feed = await parser.parseString(xml)
+        const xml = await res.text()
+        const feed = await parser.parseString(xml)
 
-      if (!feed.items?.length) {
-        console.warn(`⚠️ Vir "${source}" ni vrnil nobenih člankov.`)
-        continue
-      }
-
-      const items: NewsItem[] = feed.items.slice(0, 20).map((item) => {
-        const isoDate = (item as any).isoDate ?? item.pubDate ?? new Date().toISOString()
-        return {
-          title: item.title ?? '',
-          link: item.link ?? '',
-          pubDate: item.pubDate ?? isoDate,
-          isoDate,
-          content: (item as any)['content:encoded'] ?? item.content ?? '',
-          contentSnippet: item.contentSnippet ?? '',
-          source,
-          image: extractImage(item) ?? '/default-news.jpg',
+        if (!feed.items?.length) {
+          console.warn(`⚠️ Vir "${source}" ni vrnil nobenih člankov.`)
+          return []
         }
-      })
 
-      results.push(...items)
-    } catch (error) {
-      console.error(`❌ Napaka pri viru "${source}":`, error)
-    }
-  }
+        const items: NewsItem[] = feed.items.slice(0, 20).map((item) => {
+          const isoDate = (item as any).isoDate ?? item.pubDate ?? new Date().toISOString()
+          return {
+            title: item.title ?? '',
+            link: item.link ?? '',
+            pubDate: item.pubDate ?? isoDate,
+            isoDate,
+            content: (item as any)['content:encoded'] ?? item.content ?? '',
+            contentSnippet: item.contentSnippet ?? '',
+            source,
+            image: extractImage(item) ?? '/default-news.jpg',
+          }
+        })
 
-  results.sort((a, b) => new Date(b.isoDate).getTime() - new Date(a.isoDate).getTime())
-  return results
+        return items
+      } catch (error) {
+        console.error(`❌ Napaka pri viru "${source}":`, error)
+        return []
+      }
+    })
+  )
+
+  const flatResults = results.flat()
+  flatResults.sort((a, b) => new Date(b.isoDate).getTime() - new Date(a.isoDate).getTime())
+  return flatResults
 }
