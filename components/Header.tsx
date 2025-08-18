@@ -24,11 +24,11 @@ export default function Header() {
 
         {/* Navigacija do drugih strani */}
         <nav className="flex gap-4 text-sm">
-          <Link href="/about">
-            <a className="text-gray-400 hover:text-white transition">O projektu</a>
+          <Link href="/projekt" className="text-gray-400 hover:text-white transition">
+            O projektu
           </Link>
-          <Link href="/pogoji">
-            <a className="text-gray-400 hover:text-white transition">Pogoji uporabe</a>
+          <Link href="/pogoji" className="text-gray-400 hover:text-white transition">
+            Pogoji uporabe
           </Link>
         </nav>
       </div>
