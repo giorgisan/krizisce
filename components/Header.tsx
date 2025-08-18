@@ -24,7 +24,7 @@ export default function Header() {
 
         {/* Navigacija do drugih strani */}
         <nav className="flex gap-4 text-sm">
-          <Link href="/about">
+          <Link href="/projekt">
             <a className="text-gray-400 hover:text-white transition">O projektu</a>
           </Link>
           <Link href="/pogoji">
