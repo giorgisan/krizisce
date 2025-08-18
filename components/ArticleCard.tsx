@@ -1,17 +1,37 @@
 import { NewsItem } from '@/types'
 import { format } from 'date-fns'
 import { sl } from 'date-fns/locale'
-import { MouseEvent } from 'react'
 import { sourceColors } from '@/lib/sources'
+import { MouseEvent } from 'react'
 
 interface Props {
   news: NewsItem
 }
 
 export default function ArticleCard({ news }: Props) {
-  const handleClick = async (e: MouseEvent) => {
+  const formattedDate = format(new Date(news.isoDate), 'd. MMM, HH:mm', {
+    locale: sl,
+  })
+
+  const sourceColor = sourceColors[news.source] || '#fc9c6c'
+
+  const handleClick = async (e: MouseEvent<HTMLAnchorElement>) => {
+    // Ignoriraj srednji klik in Ctrl/Cmd + klik (brskalnik sam odpre v novem zavihku)
+    if (
+      e.metaKey || // Cmd (Mac)
+      e.ctrlKey || // Ctrl (Win)
+      e.button === 1 // middle click
+    ) {
+      return
+    }
+
+    // Prepreči privzeto navigacijo (zgolj za levi klik)
+    e.preventDefault()
+
+    // Odpri v novem zavihku
     window.open(news.link, '_blank')
 
+    // Zabeleži klik
     try {
       await fetch('/api/click', {
         method: 'POST',
@@ -23,16 +43,13 @@ export default function ArticleCard({ news }: Props) {
     }
   }
 
-  const formattedDate = format(new Date(news.isoDate), 'd. MMM, HH:mm', {
-    locale: sl,
-  })
-
-  const sourceColor = sourceColors[news.source] || '#fc9c6c'
-
   return (
-    <div
+    <a
+      href={news.link}
+      target="_blank"
+      rel="noopener noreferrer"
       onClick={handleClick}
-      className="group bg-gray-800 rounded-lg shadow-md overflow-hidden cursor-pointer transition-all duration-200 transform hover:scale-[1.01] hover:bg-gray-700"
+      className="group block bg-gray-800 rounded-lg shadow-md overflow-hidden transition-all duration-200 transform hover:scale-[1.01] hover:bg-gray-700"
     >
       <div className="w-full h-44 overflow-hidden">
         <img
@@ -67,6 +84,6 @@ export default function ArticleCard({ news }: Props) {
           </p>
         )}
       </div>
-    </div>
+    </a>
   )
 }
