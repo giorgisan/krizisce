@@ -1,6 +1,7 @@
 // components/Header.tsx
 
 import Link from 'next/link'
+import Image from 'next/image'
 
 export default function Header() {
   return (
@@ -9,9 +10,11 @@ export default function Header() {
         <div className="flex items-center space-x-3">
           <Link href="/">
             <div className="flex items-center space-x-3 cursor-pointer">
-              <img
+              <Image
                 src="/logo.png"
                 alt="Križišče"
+                width={32}
+                height={32}
                 className="w-8 h-8 rounded-full transition duration-300 transform hover:scale-105 hover:shadow-lg"
               />
               <div>

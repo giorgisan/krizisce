@@ -3,6 +3,7 @@
 
 import Link from 'next/link'
 import { useEffect, useRef, useState } from 'react'
+import Image from 'next/image'
 
 type SourceLink = {
   name: string
@@ -66,12 +67,13 @@ function LogoImg({ slug, origin, label }: { slug: string; origin: string; label:
   }
 
   return (
-    <img
+    <Image
       src={candidates[idx]}
       alt={`${label} logo`}
+      width={28}
+      height={28}
       className="h-7 w-7 rounded-full bg-gray-700 object-cover"
       loading="lazy"
-      decoding="async"
       onError={() => setIdx(i => i + 1)}
     />
   )
@@ -106,7 +108,7 @@ export default function Footer() {
         {/* Leva kolona */}
         <div className="flex-1">
           <div className="flex items-center mb-4">
-            <img src="/logo.png" alt="Križišče" className="w-8 h-8 rounded-full mr-2" />
+            <Image src="/logo.png" alt="Križišče" width={32} height={32} className="w-8 h-8 rounded-full mr-2" />
             <h4 className="text-white font-semibold text-lg">Križišče</h4>
           </div>
           <p className="text-sm leading-relaxed">
