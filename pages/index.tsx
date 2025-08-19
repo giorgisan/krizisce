@@ -15,6 +15,7 @@ import fetchRSSFeeds from '@/lib/fetchRSSFeeds'
 import Footer from '@/components/Footer'
 import { SOURCES } from '@/lib/sources'
 import ArticleCard from '@/components/ArticleCard'
+import ArticleCardSkeleton from '@/components/ArticleCardSkeleton'
 
 async function loadNews(forceFresh: boolean): Promise<NewsItem[] | null> {
   try {
@@ -38,6 +39,7 @@ export default function Home({ initialNews }: Props) {
   const [displayCount, setDisplayCount] = useState<number>(20)
   const [hasFresh, setHasFresh] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
+  const [loading, setLoading] = useState(false)
 
   const sortedNews = useMemo(
     () => [...news].sort((a, b) => new Date(b.pubDate).getTime() - new Date(a.pubDate).getTime()),
@@ -53,7 +55,9 @@ export default function Home({ initialNews }: Props) {
     let cancelled = false
 
     const fetchFresh = async () => {
+      setLoading(true)
       const fresh = await loadNews(true)
+      setLoading(false)
       if (!fresh) return
 
       const latestFresh = new Date(fresh[0].pubDate).getTime()
@@ -86,8 +90,9 @@ export default function Home({ initialNews }: Props) {
   }, [initialNews])
 
   const handleRefresh = async () => {
-    if (refreshing) return
+    if (refreshing || loading) return
     setRefreshing(true)
+    setLoading(true)
     try {
       const fresh = await loadNews(true)
       if (fresh) {
@@ -99,6 +104,7 @@ export default function Home({ initialNews }: Props) {
           location.pathname + (location.search ? location.search + '&' : '?') + 't=' + Date.now()
       }
     } finally {
+      setLoading(false)
       setRefreshing(false)
     }
   }
@@ -255,7 +261,13 @@ export default function Home({ initialNews }: Props) {
         </div>
 
         {/* GRID */}
-        {visibleNews.length === 0 ? (
+        {loading ? (
+          <div className="grid gap-6 grid-cols-2 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5">
+            {Array.from({ length: displayCount }).map((_, i) => (
+              <ArticleCardSkeleton key={i} />
+            ))}
+          </div>
+        ) : visibleNews.length === 0 ? (
           <p className="text-gray-400 text-center w-full mt-10">
             Ni novic za izbrani vir ali napaka pri nalaganju.
           </p>
