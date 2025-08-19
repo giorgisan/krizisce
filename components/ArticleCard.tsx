@@ -3,6 +3,7 @@ import { format } from 'date-fns'
 import { sl } from 'date-fns/locale'
 import { sourceColors } from '@/lib/sources'
 import { MouseEvent } from 'react'
+import Image from 'next/image'
 
 interface Props {
   news: NewsItem
@@ -52,9 +53,11 @@ export default function ArticleCard({ news }: Props) {
       className="group block bg-gray-800 rounded-lg shadow-md overflow-hidden transition-all duration-200 transform hover:scale-[1.01] hover:bg-gray-700"
     >
       <div className="w-full h-44 overflow-hidden">
-        <img
+        <Image
           src={news.image || '/default-news.jpg'}
           alt={news.title}
+          width={400}
+          height={176}
           className="w-full h-full object-cover"
           loading="lazy"
         />
