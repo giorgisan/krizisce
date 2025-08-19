@@ -6,21 +6,21 @@
    BARVNA PALETA / THEME VARIABLES
 ---------------------------------- */
 :root {
-  color-scheme: dark;
+  color-scheme: light;
 
   /* osnovne */
-  --bg: #0d0d0d;
-  --bg-soft: rgba(17, 17, 17, 0.8);
-  --text: #ffffff;
-  --text-dim: rgba(255,255,255,.68);
+  --bg: #fafafa;
+  --bg-soft: rgba(255,255,255,.85);
+  --text: #0f172a;
+  --text-dim: rgba(15,23,42,.7);
 
   /* obrobe / plastenje */
-  --ring: rgba(255,255,255,.12);
-  --divider: #232323;
+  --ring: rgba(15,23,42,.25);
+  --divider: #e5e7eb;
 
   /* brand (ujema se z bg-brand v Tailwind configu, če ga imaš) */
-  --brand: #ff9966;
-  --brand-hover: #ff8a4d;
+  --brand: #ff7a45;
+  --brand-hover: #ff6a2c;
 
   /* poudarki */
   --ok: #34d399;      /* emerald-400 */
@@ -28,9 +28,9 @@
   --err: #ef4444;     /* red-500 */
 
   /* sence/blur */
-  --card-bg: rgba(255,255,255,.05);
-  --card-bg-hover: rgba(255,255,255,.08);
-  --popover: rgba(13,13,13,.85);
+  --card-bg: rgba(0,0,0,.03);
+  --card-bg-hover: rgba(0,0,0,.06);
+  --popover: rgba(255,255,255,.96);
 }
 
 html, body { height: 100%; }
@@ -40,6 +40,7 @@ body {
   color: var(--text);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  transition: background-color .3s, color .3s;
 }
 
 /* ---------------------------------
@@ -128,23 +129,25 @@ body {
 }
 
 /* ---------------------------------
-   LAHKA TEMA (opcijsko)
-   Dodaj na <html> ali <body> razred .theme-light
+   LAHKA TEMA (privzeto)
+   Temni način z razredom .dark na <html> (next-themes)
 ---------------------------------- */
-.theme-light {
-  --bg: #fafafa;
-  --bg-soft: rgba(255,255,255,.85);
-  --text: #0f172a;
-  --text-dim: rgba(15,23,42,.7);
-  --ring: rgba(15,23,42,.25);
-  --divider: #e5e7eb;
+.dark {
+  color-scheme: dark;
 
-  --brand: #ff7a45;
-  --brand-hover: #ff6a2c;
+  --bg: #0d0d0d;
+  --bg-soft: rgba(17, 17, 17, 0.8);
+  --text: #ffffff;
+  --text-dim: rgba(255,255,255,.68);
+  --ring: rgba(255,255,255,.12);
+  --divider: #232323;
 
-  --card-bg: rgba(0,0,0,.03);
-  --card-bg-hover: rgba(0,0,0,.06);
-  --popover: rgba(255,255,255,.96);
+  --brand: #ff9966;
+  --brand-hover: #ff8a4d;
+
+  --card-bg: rgba(255,255,255,.05);
+  --card-bg-hover: rgba(255,255,255,.08);
+  --popover: rgba(13,13,13,.85);
 }
 
 /* ---------------------------------

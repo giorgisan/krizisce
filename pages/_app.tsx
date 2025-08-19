@@ -5,6 +5,7 @@ import type { AppProps } from 'next/app'
 import { useEffect } from 'react'
 import { useRouter } from 'next/router'
 import Head from 'next/head'
+import { ThemeProvider } from 'next-themes'
 
 // Uvoz Vercel Analytics in Speed Insights
 import { Analytics } from '@vercel/analytics/next'
@@ -60,7 +61,9 @@ function App({ Component, pageProps }: AppProps) {
       </Head>
 
       {/* Prikaz izbrane strani */}
-      <Component {...pageProps} />
+      <ThemeProvider attribute="class">
+        <Component {...pageProps} />
+      </ThemeProvider>
 
       {/* Vercel Analytics in Speed Insights */}
       <Analytics />
