@@ -52,13 +52,12 @@ export default function ArticleCard({ news }: Props) {
       onClick={handleClick}
       className="group block bg-gray-800 rounded-lg shadow-md overflow-hidden transition-all duration-200 transform hover:scale-[1.01] hover:bg-gray-700"
     >
-      <div className="w-full h-44 overflow-hidden">
+      <div className="relative w-full aspect-[16/9] overflow-hidden">
         <Image
           src={news.image || '/default-news.jpg'}
           alt={news.title}
-          width={400}
-          height={176}
-          className="w-full h-full object-cover"
+          fill
+          className="object-cover"
           loading="lazy"
         />
       </div>
@@ -75,14 +74,14 @@ export default function ArticleCard({ news }: Props) {
         </div>
 
         <h2
-          className="text-sm font-semibold leading-snug line-clamp-3 mb-1 group-hover:line-clamp-none"
+          className="text-sm font-semibold leading-snug line-clamp-3 mb-1"
           title={news.title}
         >
           {news.title}
         </h2>
 
         {news.contentSnippet && (
-          <p className="text-gray-400 text-sm leading-tight line-clamp-4">
+          <p className="text-gray-400 text-sm leading-tight line-clamp-2">
             {news.contentSnippet}
           </p>
         )}
