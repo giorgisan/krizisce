@@ -81,7 +81,7 @@ export default function ArticleCard({ news }: Props) {
         </h2>
 
         {news.contentSnippet && (
-          <p className="text-gray-400 text-sm leading-tight line-clamp-2">
+          <p className="text-gray-400 text-sm leading-tight line-clamp-4">
             {news.contentSnippet}
           </p>
         )}
