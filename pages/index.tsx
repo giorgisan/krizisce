@@ -16,6 +16,19 @@ import Footer from '@/components/Footer'
 import { SOURCES } from '@/lib/sources'
 import ArticleCard from '@/components/ArticleCard'
 
+async function loadNews(forceFresh: boolean): Promise<NewsItem[] | null> {
+  try {
+    const res = await fetch(`/api/news${forceFresh ? '?forceFresh=1' : ''}`, {
+      cache: 'no-store',
+    })
+    const fresh: NewsItem[] = await res.json()
+    return Array.isArray(fresh) && fresh.length ? fresh : null
+  } catch (err) {
+    console.error('Failed to load news', err)
+    return null
+  }
+}
+
 type Props = { initialNews: NewsItem[] }
 
 export default function Home({ initialNews }: Props) {
@@ -40,36 +53,30 @@ export default function Home({ initialNews }: Props) {
     let cancelled = false
 
     const fetchFresh = async () => {
-      try {
-        const res = await fetch('/api/news?forceFresh=1', { cache: 'no-store' })
-        const fresh: NewsItem[] = await res.json()
-        if (!Array.isArray(fresh) || fresh.length === 0) return
+      const fresh = await loadNews(true)
+      if (!fresh) return
 
-        const latestFresh = new Date(fresh[0].pubDate).getTime()
-        const latestCurrent = new Date((news[0] || initialNews[0])?.pubDate || 0).getTime()
+      const latestFresh = new Date(fresh[0].pubDate).getTime()
+      const latestCurrent = new Date((news[0] || initialNews[0])?.pubDate || 0).getTime()
 
-        if (latestFresh > latestCurrent && !cancelled) {
-          setNews(fresh)
-          setDisplayCount(20)
-          setHasFresh(false)
-        }
-      } catch {}
+      if (latestFresh > latestCurrent && !cancelled) {
+        setNews(fresh)
+        setDisplayCount(20)
+        setHasFresh(false)
+      }
     }
 
     fetchFresh()
 
     const iv = setInterval(async () => {
-      try {
-        const res = await fetch('/api/news?forceFresh=1', { cache: 'no-store' })
-        const fresh: NewsItem[] = await res.json()
-        if (!Array.isArray(fresh) || fresh.length === 0) return
+      const fresh = await loadNews(true)
+      if (!fresh) return
 
-        const latestFresh = new Date(fresh[0].pubDate).getTime()
-        const latestCurrent = new Date((news[0] || initialNews[0])?.pubDate || 0).getTime()
-        if (latestFresh > latestCurrent && !cancelled) {
-          setHasFresh(true)
-        }
-      } catch {}
+      const latestFresh = new Date(fresh[0].pubDate).getTime()
+      const latestCurrent = new Date((news[0] || initialNews[0])?.pubDate || 0).getTime()
+      if (latestFresh > latestCurrent && !cancelled) {
+        setHasFresh(true)
+      }
     }, 60000)
 
     return () => {
@@ -82,9 +89,8 @@ export default function Home({ initialNews }: Props) {
     if (refreshing) return
     setRefreshing(true)
     try {
-      const res = await fetch('/api/news?forceFresh=1', { cache: 'no-store' })
-      const fresh: NewsItem[] = await res.json()
-      if (Array.isArray(fresh) && fresh.length) {
+      const fresh = await loadNews(true)
+      if (fresh) {
         setNews(fresh)
         setHasFresh(false)
         setDisplayCount(20)
@@ -92,9 +98,6 @@ export default function Home({ initialNews }: Props) {
         location.href =
           location.pathname + (location.search ? location.search + '&' : '?') + 't=' + Date.now()
       }
-    } catch {
-      location.href =
-        location.pathname + (location.search ? location.search + '&' : '?') + 't=' + Date.now()
     } finally {
       setRefreshing(false)
     }
