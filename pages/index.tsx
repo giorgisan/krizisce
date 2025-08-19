@@ -8,7 +8,7 @@ import React, {
   startTransition,
 } from 'react'
 import Link from 'next/link'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion, AnimatePresence, LayoutGroup } from 'framer-motion'
 
 import { NewsItem } from '@/types'
 import fetchRSSFeeds from '@/lib/fetchRSSFeeds'
@@ -261,18 +261,29 @@ export default function Home({ initialNews }: Props) {
           </p>
         ) : (
           <AnimatePresence mode="wait">
-            <motion.div
-              key={deferredFilter}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              transition={{ duration: 0.2 }}
-              className="grid gap-6 grid-cols-2 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5"
-            >
-              {visibleNews.map((article, i) => (
-                <ArticleCard key={i} news={article} />
-              ))}
-            </motion.div>
+            <LayoutGroup>
+              <motion.div
+                key={deferredFilter}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                transition={{ duration: 0.2, staggerChildren: 0.05 }}
+                className="grid gap-6 grid-cols-2 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5"
+              >
+                {visibleNews.map((article, i) => (
+                  <motion.div
+                    key={i}
+                    layout
+                    transition={{ type: 'spring', damping: 20 }}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                  >
+                    <ArticleCard news={article} />
+                  </motion.div>
+                ))}
+              </motion.div>
+            </LayoutGroup>
           </AnimatePresence>
         )}
 
