@@ -1,4 +1,3 @@
-// components/Footer.tsx
 'use client'
 
 import Link from 'next/link'
@@ -81,7 +80,6 @@ export default function Footer() {
   return (
     <footer className="mt-16">
       <div className="mx-auto max-w-7xl px-4 md:px-8 lg:px-16 text-gray-800 dark:text-gray-300">
-        {/* Glava footra (brez okvirja, samo vsebina) */}
         <div className="grid gap-8 sm:grid-cols-3">
           {/* Levo */}
           <div>
@@ -114,7 +112,7 @@ export default function Footer() {
         </div>
 
         {/* Gumb Viri */}
-        <div className="mt-8 flex justify-center">
+        <div className="mt-10 flex justify-center">
           <div className="relative">
             <button
               ref={btnRef}
@@ -122,7 +120,8 @@ export default function Footer() {
               onClick={() => setOpen(v => !v)}
               className="inline-flex items-center gap-2 rounded-full px-4 py-2 ring-1 ring-black/10 dark:ring-white/10
                          text-gray-700 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white
-                         bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 transition"
+                         bg-white/60 hover:bg-white/80 dark:bg-gray-900/60 dark:hover:bg-gray-900/80 
+                         backdrop-blur-md transition"
               aria-haspopup="dialog"
               aria-expanded={open}
             >
@@ -135,7 +134,7 @@ export default function Footer() {
                 ref={popRef}
                 className="absolute left-1/2 -translate-x-1/2 bottom-full mb-4
                            w-[min(92vw,64rem)] rounded-2xl
-                           bg-white/95 dark:bg-gray-900/90 backdrop-blur
+                           bg-white/90 dark:bg-gray-900/85 backdrop-blur-md
                            ring-1 ring-black/10 dark:ring-white/10 shadow-2xl p-4 sm:p-6 animate-popoverFade"
                 role="dialog"
                 aria-label="Viri novic"
@@ -167,8 +166,8 @@ export default function Footer() {
           </div>
         </div>
 
-        {/* Samo horizontalna ločnica + copyright */}
-        <div className="border-t border-gray-200 dark:border-gray-800 mt-10 pt-4 text-center text-sm text-gray-600 dark:text-gray-500">
+        {/* Ločnica + copyright */}
+        <div className="border-t border-gray-200 dark:border-gray-800 mt-12 pt-6 text-center text-sm text-gray-600 dark:text-gray-500">
           <p className="italic mb-2">“Informacija ni znanje. Edino razumevanje šteje.” — Albert Einstein</p>
           <p>© {year} Križišče – Vse pravice pridržane.</p>
         </div>
