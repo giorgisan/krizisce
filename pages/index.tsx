@@ -41,7 +41,7 @@ export default function Home({ initialNews }: Props) {
     return () => window.removeEventListener('toggle-filters', handler as EventListener)
   }, [])
 
-  // Nove novice – signal headerju (zelena pika)
+  // Periodično preverjanje novih novic (za zeleno piko)
   const [freshNews, setFreshNews] = useState<NewsItem[] | null>(null)
   const [hasNew, setHasNew] = useState(false)
 
@@ -76,23 +76,29 @@ export default function Home({ initialNews }: Props) {
     }
   }, [news, initialNews])
 
-  // Na klik “Osveži” iz headerja
+  // Osveži – poslušaj klik iz headerja in animacijski signal vrni headerju
   useEffect(() => {
     const onRefresh = () => {
+      window.dispatchEvent(new CustomEvent('news-refreshing', { detail: true }))
       startTransition(() => {
+        const finish = () => {
+          window.dispatchEvent(new CustomEvent('news-refreshing', { detail: false }))
+          setHasNew(false)
+          window.dispatchEvent(new CustomEvent('news-has-new', { detail: false }))
+        }
         if (freshNews && hasNew) {
           setNews(freshNews)
           setDisplayCount(20)
+          finish()
         } else {
           loadNews(true).then((fresh) => {
             if (fresh && fresh.length) {
               setNews(fresh)
               setDisplayCount(20)
             }
+            finish()
           })
         }
-        setHasNew(false)
-        window.dispatchEvent(new CustomEvent('news-has-new', { detail: false }))
       })
     }
     window.addEventListener('refresh-news', onRefresh as EventListener)
@@ -127,11 +133,9 @@ export default function Home({ initialNews }: Props) {
     <>
       <Header />
 
-      {/* Glavna vsebina – brez odvečnega top paddiga; poravnano z headerjem */}
-      <main className="min-h-screen bg-white text-gray-900 dark:bg-gray-900 dark:text-white 
-                 px-4 md:px-8 lg:px-16 pt-4 sm:pt-5 pb-8">
-
-        {/* STICKY čip “Pokaži vse” – vidno le, ko je izbran specifičen vir */}
+      {/* Vsebina – več “zraka” in boljše svetlo ozadje */}
+      <main className="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white px-4 md:px-8 lg:px-16 pt-5 lg:pt-6 pb-16">
+        {/* STICKY čip “Pokaži vse” – le, ko je izbran specifičen vir */}
         <AnimatePresence>
           {deferredFilter !== 'Vse' && (
             <motion.div
@@ -155,11 +159,11 @@ export default function Home({ initialNews }: Props) {
           )}
         </AnimatePresence>
 
-        {/* DRAWER: vertikalni filter – “glass” + fluidna animacija */}
+        {/* DRAWER: vertikalni filter – glass + fluid animacija */}
         <AnimatePresence>
           {drawerOpen && (
             <>
-              {/* Backdrop z rahlim blurjem in transparentnostjo */}
+              {/* Backdrop */}
               <motion.div
                 key="backdrop"
                 initial={{ opacity: 0 }}
@@ -169,7 +173,7 @@ export default function Home({ initialNews }: Props) {
                 className="fixed inset-0 z-40 bg-black/60 backdrop-blur-[2px]"
                 onClick={() => setDrawerOpen(false)}
               />
-              {/* Panel z glass efektom */}
+              {/* Panel */}
               <motion.aside
                 key="drawer"
                 initial={{ x: '100%', opacity: 0.6 }}
