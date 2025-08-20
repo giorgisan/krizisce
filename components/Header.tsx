@@ -15,13 +15,12 @@ export default function Header() {
   const isDark = currentTheme === 'dark'
 
   const onHamburgerClick = () => {
-    // Globalni dogodek, ki ga ujame pages/index.tsx
     window.dispatchEvent(new CustomEvent('toggle-filters'))
   }
 
   return (
     <header className="sticky top-0 z-40 bg-white/70 dark:bg-gray-900/70 backdrop-blur-md border-b border-gray-200 dark:border-gray-700">
-      {/* Kompakten header: ikone poravnane z vrhom kartic */}
+      {/* Kompakten header: poravnan z vrhom kartic */}
       <div className="h-12 px-3 sm:px-4 flex items-center justify-between">
         {/* Logo + naslov (enoten logo) */}
         <Link href="/" className="flex items-center gap-3">
@@ -43,14 +42,14 @@ export default function Header() {
           </div>
         </Link>
 
-        {/* Desno: hamburger + tema (poravnano, brez tekstovnih linkov) */}
+        {/* Desno: hamburger (transparenten) + moderni toggle teme */}
         <div className="flex items-center gap-1.5 sm:gap-2">
-          {/* Hamburger */}
+          {/* Hamburger – bolj transparenten */}
           <button
             type="button"
             onClick={onHamburgerClick}
             aria-label="Odpri filter"
-            className="inline-flex h-9 w-9 items-center justify-center rounded-md hover:bg-black/5 dark:hover:bg-white/5 transition"
+            className="inline-flex h-9 w-9 items-center justify-center rounded-md text-black/60 dark:text-white/70 hover:text-black/90 dark:hover:text-white/90 hover:bg-black/[0.04] dark:hover:bg-white/[0.06] transition"
           >
             <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
               <path
@@ -62,7 +61,7 @@ export default function Header() {
             </svg>
           </button>
 
-          {/* Toggle teme – moderni sun/moon z animacijo */}
+          {/* Toggle teme – sun/moon animacija */}
           {mounted && (
             <button
               type="button"
@@ -70,7 +69,7 @@ export default function Header() {
               aria-pressed={isDark}
               aria-label="Preklopi temo"
               title={isDark ? 'Svetla tema' : 'Temna tema'}
-              className="inline-flex h-9 w-9 items-center justify-center rounded-md hover:bg-black/5 dark:hover:bg-white/5 transition"
+              className="inline-flex h-9 w-9 items-center justify-center rounded-md text-black/60 dark:text-white/70 hover:text-black/90 dark:hover:text-white/90 hover:bg-black/[0.04] dark:hover:bg-white/[0.06] transition"
             >
               <span className="relative inline-block">
                 {/* Sun */}
