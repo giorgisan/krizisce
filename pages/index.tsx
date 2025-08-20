@@ -128,7 +128,8 @@ export default function Home({ initialNews }: Props) {
       <Header />
 
       {/* Glavna vsebina – brez odvečnega top paddiga; poravnano z headerjem */}
-      <main className="min-h-screen bg-white text-gray-900 dark:bg-gray-900 dark:text-white px-4 md:px-8 lg:px-16 pb-8">
+      <main className="min-h-screen bg-white text-gray-900 dark:bg-gray-900 dark:text-white 
+                 px-4 md:px-8 lg:px-16 pt-4 sm:pt-5 pb-8">
 
         {/* STICKY čip “Pokaži vse” – vidno le, ko je izbran specifičen vir */}
         <AnimatePresence>
