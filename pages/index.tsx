@@ -124,7 +124,7 @@ export default function Home({ initialNews }: Props) {
     <>
       <Header />
       <main className="min-h-screen bg-white text-gray-900 dark:bg-gray-900 dark:text-white px-4 md:px-8 lg:px-16 py-8">
-        <div className="sticky top-0 z-40 bg-white/70 dark:bg-gray-900/70 backdrop-blur-md border-b border-gray-200 dark:border-gray-800 py-2 mb-6">
+        <div className="sticky top-12 z-30 bg-white/70 dark:bg-gray-900/70 backdrop-blur-md border-b border-gray-200 dark:border-gray-800 py-2 mb-6">
           <div className="flex items-center gap-2 w-full sm:w-auto sm:ml-auto px-2 sm:px-4">
             {showLeft && (
               <button
