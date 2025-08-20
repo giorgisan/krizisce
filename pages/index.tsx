@@ -36,11 +36,10 @@ export default function Home({ initialNews }: Props) {
   const deferredFilter = useDeferredValue(filter)
   const [displayCount, setDisplayCount] = useState<number>(20)
 
-  const [showFilters, setShowFilters] = useState(true) // nadzoruje prikaz toolbarja
-
-  // Poslušalec za hamburger
+  // SIDE FILTER (drawer) – toggle preko globalnega eventa iz Headerja
+  const [drawerOpen, setDrawerOpen] = useState(false)
   useEffect(() => {
-    const handler = () => setShowFilters((s) => !s)
+    const handler = () => setDrawerOpen((s) => !s)
     window.addEventListener('toggle-filters', handler as EventListener)
     return () => window.removeEventListener('toggle-filters', handler as EventListener)
   }, [])
@@ -73,12 +72,11 @@ export default function Home({ initialNews }: Props) {
     }
   }, [initialNews])
 
-  const filterRef = useRef<HTMLDivElement | null>(null)
-
   const onPick = (s: string) =>
     startTransition(() => {
       setFilter(s)
       setDisplayCount(20)
+      setDrawerOpen(false)
     })
 
   const handleLoadMore = () => setDisplayCount((p) => p + 20)
@@ -86,50 +84,70 @@ export default function Home({ initialNews }: Props) {
   return (
     <>
       <Header />
-      <main className="min-h-screen bg-white text-gray-900 dark:bg-gray-900 dark:text-white px-4 md:px-8 lg:px-16 py-8">
 
-        {/* FILTER BAR – polna širina, v skladu z headerjem */}
-        <AnimatePresence initial={false}>
-          {showFilters && (
-            <motion.div
-              key="filters"
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: 'auto', opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              transition={{ duration: 0.18 }}
-              className="sticky top-14 z-30 bg-white dark:bg-gray-900 border-b border-gray-200/60 dark:border-gray-700/60"
-            >
-              <div
-                ref={filterRef}
-                className="flex items-center gap-2 w-full overflow-x-auto scrollbar-hide px-2 sm:px-4 h-12"
-                style={{ scrollBehavior: 'smooth' }}
+      {/* Glavna vsebina – top padding poravnan z višino headerja (h-12) */}
+      <main className="min-h-screen bg-white text-gray-900 dark:bg-gray-900 dark:text-white px-4 md:px-8 lg:px-16 pt-4 pb-8">
+
+        {/* DRAWER: vertikalni filter; poravnava na desni (na mob. čez širino) */}
+        <AnimatePresence>
+          {drawerOpen && (
+            <>
+              {/* Backdrop */}
+              <motion.div
+                key="backdrop"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 0.4 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.15 }}
+                className="fixed inset-0 z-40 bg-black"
+                onClick={() => setDrawerOpen(false)}
+              />
+              {/* Panel */}
+              <motion.aside
+                key="drawer"
+                initial={{ x: '100%' }}
+                animate={{ x: 0 }}
+                exit={{ x: '100%' }}
+                transition={{ type: 'tween', duration: 0.2 }}
+                className="fixed right-0 top-0 z-50 h-full w-[90vw] max-w-xs bg-white dark:bg-gray-900 border-l border-gray-200 dark:border-gray-700 shadow-xl"
               >
-                {SOURCES.map((source) => (
+                <div className="h-12 px-4 flex items-center justify-between border-b border-gray-200 dark:border-gray-700">
+                  <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">
+                    Filtriraj vire
+                  </span>
                   <button
-                    key={source}
-                    onClick={() => onPick(source)}
-                    className={`relative px-3 py-1 rounded-full text-sm transition font-medium whitespace-nowrap ${
-                      deferredFilter === source
-                        ? 'text-white'
-                        : 'text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white'
-                    }`}
+                    aria-label="Zapri"
+                    onClick={() => setDrawerOpen(false)}
+                    className="h-9 w-9 inline-flex items-center justify-center rounded-md hover:bg-black/5 dark:hover:bg-white/5"
                   >
-                    {deferredFilter === source && (
-                      <motion.div
-                        layoutId="bubble"
-                        className="absolute inset-0 rounded-full bg-brand z-0"
-                        transition={{ type: 'spring', stiffness: 300, damping: 20 }}
-                      />
-                    )}
-                    <span className="relative z-10">{source}</span>
+                    <svg viewBox="0 0 24 24" width="20" height="20">
+                      <path d="M6 6l12 12M18 6l-12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                    </svg>
                   </button>
-                ))}
-              </div>
-            </motion.div>
+                </div>
+
+                <nav className="p-3 overflow-y-auto">
+                  {/* Gumb 'Vse' + posamezni viri, navpično */}
+                  {[ 'Vse', ...SOURCES.filter(s => s !== 'Vse') ].map((source) => (
+                    <button
+                      key={source}
+                      onClick={() => onPick(source)}
+                      className={`w-full text-left px-3 py-2 rounded-md mb-1.5 transition ${
+                        deferredFilter === source
+                          ? 'bg-brand text-white'
+                          : 'hover:bg-black/5 dark:hover:bg-white/5 text-gray-700 dark:text-gray-300'
+                      }`}
+                    >
+                      {source}
+                    </button>
+                  ))}
+                </nav>
+              </motion.aside>
+            </>
           )}
         </AnimatePresence>
 
-        {/* GRID */}
+        {/* GRID kartic novic */}
         {visibleNews.length === 0 ? (
           <p className="text-gray-500 dark:text-gray-400 text-center w-full mt-10">
             Ni novic za izbrani vir ali napaka pri nalaganju.
