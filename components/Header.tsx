@@ -14,16 +14,10 @@ export default function Header() {
 
   useEffect(() => setMounted(true), [])
 
-  // signal iz index.tsx: nove novice
+  // Signali iz index.tsx
   useEffect(() => {
-    const onHasNew = (e: Event) => {
-      const detail = (e as CustomEvent).detail as boolean
-      setHasNew(Boolean(detail))
-    }
-    const onRefreshing = (e: Event) => {
-      const detail = (e as CustomEvent).detail as boolean
-      setRefreshing(Boolean(detail))
-    }
+    const onHasNew = (e: Event) => setHasNew(Boolean((e as CustomEvent).detail))
+    const onRefreshing = (e: Event) => setRefreshing(Boolean((e as CustomEvent).detail))
     window.addEventListener('news-has-new', onHasNew as EventListener)
     window.addEventListener('news-refreshing', onRefreshing as EventListener)
     return () => {
@@ -36,7 +30,7 @@ export default function Header() {
   const isDark = currentTheme === 'dark'
 
   const refreshNow = () => {
-    setRefreshing(true) // takoj pokaži spin
+    setRefreshing(true) // pokaži spin takoj
     window.dispatchEvent(new CustomEvent('refresh-news'))
   }
   const toggleFilters = () =>
@@ -44,12 +38,12 @@ export default function Header() {
 
   return (
     <header className="sticky top-0 z-40 bg-[#FAFAFA]/95 dark:bg-gray-900/70 backdrop-blur-md border-b border-gray-200 dark:border-gray-700 shadow-sm">
-      {/* Ujemanje z linijo kartic: enaka vodoravna notranja poravnava kot v <main> */}
+      {/* Enaka vodoravna poravnava kot v <main> */}
       <div className="h-12 px-4 md:px-8 lg:px-16 flex items-center justify-between">
-        {/* Levo: logo + naslov (večje) */}
+        {/* Logo + naslov */}
         <Link href="/" className="flex items-center gap-3">
           <Image
-            src="/logo.png" /* enoten logo */
+            src="/logo.png"
             alt="Križišče"
             width={36}
             height={36}
@@ -61,9 +55,9 @@ export default function Header() {
           </h1>
         </Link>
 
-        {/* Desno: Refresh → Tema → Hamburger (transparentni gumbi) */}
+        {/* Desno: Refresh → Tema → Hamburger */}
         <div className="flex items-center gap-1.5 sm:gap-2">
-          {/* Refresh (zelen indikator + spin) */}
+          {/* Refresh (modern arrow-path + spin + zelena pika) */}
           <button
             type="button"
             onClick={refreshNow}
@@ -81,8 +75,23 @@ export default function Header() {
               aria-hidden="true"
               className={refreshing ? 'animate-spin' : ''}
             >
-              <path d="M21 12a9 9 0 1 1-2.64-6.36" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-              <path d="M21 4v6h-6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+              {/* Heroicons 2 – Arrow Path (outline) */}
+              <path
+                d="M16.023 9.348h4.992V4.356M7.5 15.75H2.508v4.992"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                fill="none"
+              />
+              <path
+                d="M5.598 8.52a8.25 8.25 0 0113.434-1.908M18.432 16.98A8.25 8.25 0 016.75 19.5"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                fill="none"
+              />
             </svg>
             {hasNew && !refreshing && (
               <span
@@ -92,7 +101,7 @@ export default function Header() {
             )}
           </button>
 
-          {/* Tema – modern sun/moon */}
+          {/* Toggle teme – sun/moon preklop */}
           {mounted && (
             <button
               type="button"
@@ -127,10 +136,10 @@ export default function Header() {
             </button>
           )}
 
-          {/* Hamburger – zadnji, še bolj transparenten */}
+          {/* Hamburger – zadnji */}
           <button
             type="button"
-            onClick={() => window.dispatchEvent(new CustomEvent('toggle-filters'))}
+            onClick={toggleFilters}
             aria-label="Odpri filter"
             title="Filtri"
             className="inline-flex h-10 w-10 items-center justify-center rounded-md
