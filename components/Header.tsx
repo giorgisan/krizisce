@@ -17,10 +17,10 @@ export default function Header() {
 
   // Da se izognemo hydration mismatchu, logo določi šele po mountu
   const logoSrc = !mounted
-    ? '/logo-light.svg' // placeholder (dark privzeto)
+    ? '/logo.png' // placeholder (dark privzeto)
     : isDark
-    ? '/logo-light.svg' // svetel/obarvan logo za temno ozadje
-    : '/logo-dark.svg'  // temen logo za svetlo ozadje
+    ? '/logo.png' // svetel/obarvan logo za temno ozadje
+    : '/logo.png'  // temen logo za svetlo ozadje
 
   return (
     <header className="sticky top-0 z-40 bg-white/70 dark:bg-gray-900/70 backdrop-blur-md backdrop-saturate-150 py-2 border-b border-gray-200 dark:border-gray-700">
