@@ -134,7 +134,7 @@ export default function Home({ initialNews }: Props) {
       <Header />
 
       {/* Vsebina – več “zraka” in boljše svetlo ozadje */}
-      <main className="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white px-4 md:px-8 lg:px-16 pt-5 lg:pt-6 pb-20">
+      <main className="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white px-4 md:px-8 lg:px-16 pt-5 lg:pt-6 pb-24">
         {/* STICKY čip “Pokaži vse” – le, ko je izbran specifičen vir */}
         <AnimatePresence>
           {deferredFilter !== 'Vse' && (
@@ -260,7 +260,7 @@ export default function Home({ initialNews }: Props) {
         )}
 
         {displayCount < filteredNews.length && (
-          <div className="text-center mt-8 mb-6">
+          <div className="text-center mt-8 mb-10">
             <button
               onClick={handleLoadMore}
               className="px-5 py-2 bg-brand text-white rounded-full hover:bg-brand-hover transition"
@@ -269,6 +269,9 @@ export default function Home({ initialNews }: Props) {
             </button>
           </div>
         )}
+
+        {/* Separator nad footerjem – subtilna črta, ujemanje z max širino kartic */}
+        <hr className="max-w-6xl mx-auto mt-4 border-t border-gray-200 dark:border-gray-700" />
       </main>
 
       <Footer />
