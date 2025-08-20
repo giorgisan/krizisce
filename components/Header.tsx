@@ -10,47 +10,60 @@ export default function Header() {
   const { theme, resolvedTheme, setTheme } = useTheme()
   const [mounted, setMounted] = useState(false)
   const [hasNew, setHasNew] = useState(false)
+  const [refreshing, setRefreshing] = useState(false)
 
   useEffect(() => setMounted(true), [])
 
-  // signal iz index.tsx, da so na voljo nove novice
+  // signal iz index.tsx: nove novice
   useEffect(() => {
     const onHasNew = (e: Event) => {
       const detail = (e as CustomEvent).detail as boolean
       setHasNew(Boolean(detail))
     }
+    const onRefreshing = (e: Event) => {
+      const detail = (e as CustomEvent).detail as boolean
+      setRefreshing(Boolean(detail))
+    }
     window.addEventListener('news-has-new', onHasNew as EventListener)
-    return () => window.removeEventListener('news-has-new', onHasNew as EventListener)
+    window.addEventListener('news-refreshing', onRefreshing as EventListener)
+    return () => {
+      window.removeEventListener('news-has-new', onHasNew as EventListener)
+      window.removeEventListener('news-refreshing', onRefreshing as EventListener)
+    }
   }, [])
 
   const currentTheme = (theme ?? resolvedTheme) || 'dark'
   const isDark = currentTheme === 'dark'
 
-  const toggleFilters = () => window.dispatchEvent(new CustomEvent('toggle-filters'))
-  const refreshNow = () => window.dispatchEvent(new CustomEvent('refresh-news'))
+  const refreshNow = () => {
+    setRefreshing(true) // takoj pokaži spin
+    window.dispatchEvent(new CustomEvent('refresh-news'))
+  }
+  const toggleFilters = () =>
+    window.dispatchEvent(new CustomEvent('toggle-filters'))
 
   return (
-    <header className="sticky top-0 z-40 bg-white/70 dark:bg-gray-900/70 backdrop-blur-md border-b border-gray-200 dark:border-gray-700">
+    <header className="sticky top-0 z-40 bg-[#FAFAFA]/95 dark:bg-gray-900/70 backdrop-blur-md border-b border-gray-200 dark:border-gray-700 shadow-sm">
       {/* Ujemanje z linijo kartic: enaka vodoravna notranja poravnava kot v <main> */}
       <div className="h-12 px-4 md:px-8 lg:px-16 flex items-center justify-between">
         {/* Levo: logo + naslov (večje) */}
         <Link href="/" className="flex items-center gap-3">
           <Image
-            src="/logo.png"          // enoten logo
+            src="/logo.png" /* enoten logo */
             alt="Križišče"
-            width={32}
-            height={32}
+            width={36}
+            height={36}
             priority
-            className="w-8 h-8 rounded-md"
+            className="w-9 h-9 rounded-md"
           />
-          <h1 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white leading-none">
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white leading-none">
             Križišče
           </h1>
         </Link>
 
-        {/* Desno: osveži + hamburger + tema (transparentni gumbi) */}
+        {/* Desno: Refresh → Tema → Hamburger (transparentni gumbi) */}
         <div className="flex items-center gap-1.5 sm:gap-2">
-          {/* Osveži – zelena pika ob novih novicah */}
+          {/* Refresh (zelen indikator + spin) */}
           <button
             type="button"
             onClick={refreshNow}
@@ -61,32 +74,22 @@ export default function Header() {
                        hover:text-black/90 dark:hover:text-white/90
                        hover:bg-black/[0.04] dark:hover:bg-white/[0.06] transition"
           >
-            <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+            <svg
+              viewBox="0 0 24 24"
+              width="22"
+              height="22"
+              aria-hidden="true"
+              className={refreshing ? 'animate-spin' : ''}
+            >
               <path d="M21 12a9 9 0 1 1-2.64-6.36" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
               <path d="M21 4v6h-6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
             </svg>
-            {hasNew && (
+            {hasNew && !refreshing && (
               <span
                 className="absolute right-2 top-2 h-2.5 w-2.5 rounded-full bg-emerald-500 ring-2 ring-white dark:ring-gray-900 animate-pulse"
                 aria-hidden="true"
               />
             )}
-          </button>
-
-          {/* Hamburger – bolj transparenten */}
-          <button
-            type="button"
-            onClick={toggleFilters}
-            aria-label="Odpri filter"
-            title="Filtri"
-            className="inline-flex h-10 w-10 items-center justify-center rounded-md
-                       text-black/45 dark:text-white/55
-                       hover:text-black/85 dark:hover:text-white/85
-                       hover:bg-black/[0.04] dark:hover:bg-white/[0.06] transition"
-          >
-            <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
-              <path d="M3 6h18M3 12h18M3 18h18" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-            </svg>
           </button>
 
           {/* Tema – modern sun/moon */}
@@ -123,6 +126,22 @@ export default function Header() {
               </span>
             </button>
           )}
+
+          {/* Hamburger – zadnji, še bolj transparenten */}
+          <button
+            type="button"
+            onClick={() => window.dispatchEvent(new CustomEvent('toggle-filters'))}
+            aria-label="Odpri filter"
+            title="Filtri"
+            className="inline-flex h-10 w-10 items-center justify-center rounded-md
+                       text-black/45 dark:text-white/55
+                       hover:text-black/85 dark:hover:text-white/85
+                       hover:bg-black/[0.04] dark:hover:bg-white/[0.06] transition"
+          >
+            <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+              <path d="M3 6h18M3 12h18M3 18h18" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+            </svg>
+          </button>
         </div>
       </div>
     </header>
