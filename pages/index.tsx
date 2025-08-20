@@ -23,8 +23,7 @@ async function loadNews(forceFresh: boolean): Promise<NewsItem[] | null> {
     })
     const fresh: NewsItem[] = await res.json()
     return Array.isArray(fresh) && fresh.length ? fresh : null
-  } catch (err) {
-    console.error('Failed to load news', err)
+  } catch {
     return null
   }
 }
@@ -36,6 +35,15 @@ export default function Home({ initialNews }: Props) {
   const [filter, setFilter] = useState<string>('Vse')
   const deferredFilter = useDeferredValue(filter)
   const [displayCount, setDisplayCount] = useState<number>(20)
+
+  const [showFilters, setShowFilters] = useState(true) // nadzoruje prikaz toolbarja
+
+  // Poslušalec za hamburger
+  useEffect(() => {
+    const handler = () => setShowFilters((s) => !s)
+    window.addEventListener('toggle-filters', handler as EventListener)
+    return () => window.removeEventListener('toggle-filters', handler as EventListener)
+  }, [])
 
   const sortedNews = useMemo(
     () => [...news].sort((a, b) => new Date(b.pubDate).getTime() - new Date(a.pubDate).getTime()),
@@ -80,36 +88,46 @@ export default function Home({ initialNews }: Props) {
       <Header />
       <main className="min-h-screen bg-white text-gray-900 dark:bg-gray-900 dark:text-white px-4 md:px-8 lg:px-16 py-8">
 
-        {/* FILTER BAR – "nadaljevanje" headerja */}
-        {/* top-14 ~ 56px; po potrebi prilagodi glede na dejansko višino headerja */}
-        <div className="sticky top-14 z-30 bg-white dark:bg-gray-900 border-b border-gray-200/60 dark:border-gray-700/60">
-          <div
-            ref={filterRef}
-            className="flex items-center gap-2 w-full overflow-x-auto scrollbar-hide px-2 sm:px-4 h-12"
-            style={{ scrollBehavior: 'smooth' }}
-          >
-            {SOURCES.map((source) => (
-              <button
-                key={source}
-                onClick={() => onPick(source)}
-                className={`relative px-3 py-1 rounded-full text-sm transition font-medium whitespace-nowrap ${
-                  deferredFilter === source
-                    ? 'text-white'
-                    : 'text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white'
-                }`}
+        {/* FILTER BAR – polna širina, v skladu z headerjem */}
+        <AnimatePresence initial={false}>
+          {showFilters && (
+            <motion.div
+              key="filters"
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.18 }}
+              className="sticky top-14 z-30 bg-white dark:bg-gray-900 border-b border-gray-200/60 dark:border-gray-700/60"
+            >
+              <div
+                ref={filterRef}
+                className="flex items-center gap-2 w-full overflow-x-auto scrollbar-hide px-2 sm:px-4 h-12"
+                style={{ scrollBehavior: 'smooth' }}
               >
-                {deferredFilter === source && (
-                  <motion.div
-                    layoutId="bubble"
-                    className="absolute inset-0 rounded-full bg-brand z-0"
-                    transition={{ type: 'spring', stiffness: 300, damping: 20 }}
-                  />
-                )}
-                <span className="relative z-10">{source}</span>
-              </button>
-            ))}
-          </div>
-        </div>
+                {SOURCES.map((source) => (
+                  <button
+                    key={source}
+                    onClick={() => onPick(source)}
+                    className={`relative px-3 py-1 rounded-full text-sm transition font-medium whitespace-nowrap ${
+                      deferredFilter === source
+                        ? 'text-white'
+                        : 'text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white'
+                    }`}
+                  >
+                    {deferredFilter === source && (
+                      <motion.div
+                        layoutId="bubble"
+                        className="absolute inset-0 rounded-full bg-brand z-0"
+                        transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+                      />
+                    )}
+                    <span className="relative z-10">{source}</span>
+                  </button>
+                ))}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* GRID */}
         {visibleNews.length === 0 ? (
