@@ -134,7 +134,7 @@ export default function Home({ initialNews }: Props) {
       <Header />
 
       {/* Vsebina – več “zraka” in boljše svetlo ozadje */}
-      <main className="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white px-4 md:px-8 lg:px-16 pt-5 lg:pt-6 pb-16">
+      <main className="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white px-4 md:px-8 lg:px-16 pt-5 lg:pt-6 pb-20">
         {/* STICKY čip “Pokaži vse” – le, ko je izbran specifičen vir */}
         <AnimatePresence>
           {deferredFilter !== 'Vse' && (
@@ -159,7 +159,7 @@ export default function Home({ initialNews }: Props) {
           )}
         </AnimatePresence>
 
-        {/* DRAWER: vertikalni filter – glass + fluid animacija */}
+        {/* DRAWER */}
         <AnimatePresence>
           {drawerOpen && (
             <>
@@ -260,7 +260,7 @@ export default function Home({ initialNews }: Props) {
         )}
 
         {displayCount < filteredNews.length && (
-          <div className="text-center mt-8">
+          <div className="text-center mt-8 mb-6">
             <button
               onClick={handleLoadMore}
               className="px-5 py-2 bg-brand text-white rounded-full hover:bg-brand-hover transition"
