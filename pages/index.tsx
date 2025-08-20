@@ -17,9 +17,7 @@ import ArticleCard from '@/components/ArticleCard'
 
 async function loadNews(forceFresh: boolean): Promise<NewsItem[] | null> {
   try {
-    const res = await fetch(`/api/news${forceFresh ? '?forceFresh=1' : ''}`, {
-      cache: 'no-store',
-    })
+    const res = await fetch(`/api/news${forceFresh ? '?forceFresh=1' : ''}`, { cache: 'no-store' })
     const fresh: NewsItem[] = await res.json()
     return Array.isArray(fresh) && fresh.length ? fresh : null
   } catch {
@@ -43,7 +41,7 @@ export default function Home({ initialNews }: Props) {
     return () => window.removeEventListener('toggle-filters', handler as EventListener)
   }, [])
 
-  // NOVE NOVICE – periodično preverjanje + signal headerju
+  // Nove novice – signal headerju (zelena pika)
   const [freshNews, setFreshNews] = useState<NewsItem[] | null>(null)
   const [hasNew, setHasNew] = useState(false)
 
@@ -70,17 +68,15 @@ export default function Home({ initialNews }: Props) {
       }
     }
 
-    // prvi check + interval (60 s)
     checkFresh()
     timer = window.setInterval(checkFresh, 60_000)
-
     return () => {
       cancelled = true
       if (timer) window.clearInterval(timer)
     }
   }, [news, initialNews])
 
-  // Poslušaj na klik »Osveži« iz headerja
+  // Na klik “Osveži” iz headerja
   useEffect(() => {
     const onRefresh = () => {
       startTransition(() => {
@@ -88,7 +84,6 @@ export default function Home({ initialNews }: Props) {
           setNews(freshNews)
           setDisplayCount(20)
         } else {
-          // fallback – če slučajno ni pripravljeno
           loadNews(true).then((fresh) => {
             if (fresh && fresh.length) {
               setNews(fresh)
@@ -104,7 +99,7 @@ export default function Home({ initialNews }: Props) {
     return () => window.removeEventListener('refresh-news', onRefresh as EventListener)
   }, [freshNews, hasNew])
 
-  // Filtriranje in prikaz
+  // Filtriranje
   const sortedNews = useMemo(
     () => [...news].sort((a, b) => new Date(b.pubDate).getTime() - new Date(a.pubDate).getTime()),
     [news]
@@ -132,10 +127,10 @@ export default function Home({ initialNews }: Props) {
     <>
       <Header />
 
-      {/* Glavna vsebina; padding poravnan z višino headerja (h-14) */}
-      <main className="min-h-screen bg-white text-gray-900 dark:bg-gray-900 dark:text-white px-4 md:px-8 lg:px-16 pt-4 pb-8">
+      {/* Glavna vsebina – brez odvečnega top paddiga; poravnano z headerjem */}
+      <main className="min-h-screen bg-white text-gray-900 dark:bg-gray-900 dark:text-white px-4 md:px-8 lg:px-16 pb-8">
 
-        {/* STICKY čip “Pokaži vse” – vidno le, ko je aktiven specifičen vir */}
+        {/* STICKY čip “Pokaži vse” – vidno le, ko je izbran specifičen vir */}
         <AnimatePresence>
           {deferredFilter !== 'Vse' && (
             <motion.div
@@ -144,7 +139,7 @@ export default function Home({ initialNews }: Props) {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -6 }}
               transition={{ duration: 0.15 }}
-              className="sticky top-14 z-30 mb-3"
+              className="sticky top-12 z-30 mb-3"
             >
               <button
                 onClick={resetFilter}
@@ -159,30 +154,34 @@ export default function Home({ initialNews }: Props) {
           )}
         </AnimatePresence>
 
-        {/* DRAWER: vertikalni filter (desni panel) */}
+        {/* DRAWER: vertikalni filter – “glass” + fluidna animacija */}
         <AnimatePresence>
           {drawerOpen && (
             <>
-              {/* Backdrop */}
+              {/* Backdrop z rahlim blurjem in transparentnostjo */}
               <motion.div
                 key="backdrop"
                 initial={{ opacity: 0 }}
-                animate={{ opacity: 0.4 }}
+                animate={{ opacity: 0.35 }}
                 exit={{ opacity: 0 }}
-                transition={{ duration: 0.15 }}
-                className="fixed inset-0 z-40 bg-black"
+                transition={{ duration: 0.18 }}
+                className="fixed inset-0 z-40 bg-black/60 backdrop-blur-[2px]"
                 onClick={() => setDrawerOpen(false)}
               />
-              {/* Panel */}
+              {/* Panel z glass efektom */}
               <motion.aside
                 key="drawer"
-                initial={{ x: '100%' }}
-                animate={{ x: 0 }}
-                exit={{ x: '100%' }}
-                transition={{ type: 'tween', duration: 0.2 }}
-                className="fixed right-0 top-0 z-50 h-full w-[90vw] max-w-xs bg-white dark:bg-gray-900 border-l border-gray-200 dark:border-gray-700 shadow-xl"
+                initial={{ x: '100%', opacity: 0.6 }}
+                animate={{ x: 0, opacity: 1 }}
+                exit={{ x: '100%', opacity: 0.6 }}
+                transition={{ type: 'tween', duration: 0.22 }}
+                className="fixed right-0 top-0 z-50 h-full w-[90vw] max-w-xs
+                           bg-white/60 dark:bg-gray-900/60 backdrop-blur-xl
+                           border-l border-gray-200/70 dark:border-gray-700/70
+                           shadow-2xl rounded-l-2xl overflow-hidden"
+                aria-label="Filter virov"
               >
-                <div className="h-12 px-4 flex items-center justify-between border-b border-gray-200 dark:border-gray-700">
+                <div className="h-12 px-4 flex items-center justify-between border-b border-gray-200/70 dark:border-gray-700/70">
                   <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">
                     Filtriraj vire
                   </span>
@@ -198,31 +197,34 @@ export default function Home({ initialNews }: Props) {
                 </div>
 
                 <nav className="p-3 overflow-y-auto">
-                  {/* Pokaži vse (na vrhu) */}
+                  {/* Pokaži vse */}
                   <button
                     onClick={resetFilter}
                     className={`w-full text-left px-3 py-2 rounded-md mb-2 transition ${
                       deferredFilter === 'Vse'
                         ? 'bg-brand text-white'
-                        : 'hover:bg-black/5 dark:hover:bg-white/5 text-gray-700 dark:text-gray-300'
+                        : 'hover:bg-black/5 dark:hover:bg-white/5 text-gray-800 dark:text-gray-200'
                     }`}
                   >
                     Pokaži vse
                   </button>
 
                   {/* Viri */}
-                  {SOURCES.filter((s) => s !== 'Vse').map((source) => (
-                    <button
+                  {SOURCES.filter((s) => s !== 'Vse').map((source, idx) => (
+                    <motion.button
                       key={source}
                       onClick={() => onPick(source)}
+                      initial={{ opacity: 0, x: 8 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ duration: 0.15, delay: 0.02 * idx }}
                       className={`w-full text-left px-3 py-2 rounded-md mb-1.5 transition ${
                         deferredFilter === source
                           ? 'bg-brand text-white'
-                          : 'hover:bg-black/5 dark:hover:bg-white/5 text-gray-700 dark:text-gray-300'
+                          : 'hover:bg-black/5 dark:hover:bg-white/5 text-gray-800 dark:text-gray-200'
                       }`}
                     >
                       {source}
-                    </button>
+                    </motion.button>
                   ))}
                 </nav>
               </motion.aside>
