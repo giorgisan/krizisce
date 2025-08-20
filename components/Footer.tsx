@@ -79,15 +79,15 @@ export default function Footer() {
   }, [open])
 
   return (
-    <footer className="mt-16">
-      <div className="mx-auto max-w-7xl px-4 md:px-8 lg:px-16 text-gray-800 dark:text-gray-300">
-        {/* Vsebinski del (brez okvirja) */}
-        <div className="grid gap-8 sm:grid-cols-3">
+    <footer className="mt-8">
+      <div className="mx-auto max-w-6xl px-4 md:px-8 lg:px-16 text-gray-800 dark:text-gray-300">
+        {/* Vsebina – kompaktnejši vertikalni ritem */}
+        <div className="grid gap-6 sm:grid-cols-3 items-start">
           {/* Levo */}
           <div>
-            <div className="flex items-center mb-4">
-              <Image src="/logo.png" alt="Križišče" width={36} height={36} className="w-9 h-9 rounded-md mr-2" />
-              <h4 className="text-lg font-semibold text-gray-900 dark:text-white">Križišče</h4>
+            <div className="flex items-center mb-3">
+              <Image src="/logo.png" alt="Križišče" width={32} height={32} className="w-8 h-8 rounded-md mr-2" />
+              <h4 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white">Križišče</h4>
             </div>
             <p className="text-sm leading-relaxed text-gray-700 dark:text-gray-300">
               Agregator najnovejših novic slovenskih medijev. <br />
@@ -97,8 +97,8 @@ export default function Footer() {
 
           {/* Sredina */}
           <div>
-            <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Povezave</h4>
-            <ul className="space-y-2 text-sm">
+            <h4 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white mb-3">Povezave</h4>
+            <ul className="space-y-1.5 text-sm">
               <li><Link href="/projekt" className="hover:text-gray-900 dark:hover:text-white transition">O projektu</Link></li>
               <li><Link href="/pogoji" className="hover:text-gray-900 dark:hover:text-white transition">Pogoji uporabe</Link></li>
             </ul>
@@ -106,15 +106,15 @@ export default function Footer() {
 
           {/* Desno */}
           <div>
-            <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Kontakt</h4>
+            <h4 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white mb-3">Kontakt</h4>
             <a href="mailto:gjkcme@gmail.com" className="text-sm hover:text-gray-900 dark:hover:text-white transition">
               Pošljite nam sporočilo
             </a>
           </div>
         </div>
 
-        {/* Gumb Viri */}
-        <div className="mt-10 flex justify-center">
+        {/* Gumb Viri – bližje vsebini */}
+        <div className="mt-6 flex justify-center">
           <div className="relative">
             <button
               ref={btnRef}
@@ -134,7 +134,7 @@ export default function Footer() {
             {open && (
               <div
                 ref={popRef}
-                className="absolute left-1/2 -translate-x-1/2 bottom-full mb-4
+                className="absolute left-1/2 -translate-x-1/2 bottom-full mb-3
                            w-[min(92vw,64rem)] rounded-2xl
                            bg-white/90 dark:bg-gray-900/85 backdrop-blur-md
                            ring-1 ring-black/10 dark:ring-white/10 shadow-2xl p-4 sm:p-6 animate-popoverFade"
@@ -168,8 +168,9 @@ export default function Footer() {
           </div>
         </div>
 
-        {/* Samo horizontalna ločnica + copyright, več zraka spodaj */}
-        <div className="border-t border-gray-200 dark:border-gray-800 mt-12 pt-6 text-center text-sm text-gray-600 dark:text-gray-500">
+        {/* Ločnica + copyright; dodatni "air" spodaj, vključno z safe-area na mobilnikih */}
+        <div className="border-t border-gray-200 dark:border-gray-800 mt-8 pt-4 text-center text-sm text-gray-600 dark:text-gray-500
+                        pb-[calc(env(safe-area-inset-bottom,0px)+24px)]">
           <p className="italic mb-2">“Informacija ni znanje. Edino razumevanje šteje.” — Albert Einstein</p>
           <p>© {year} Križišče – Vse pravice pridržane.</p>
         </div>
