@@ -7,12 +7,12 @@ import React, {
   useDeferredValue,
   startTransition,
 } from 'react'
-import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
 
 import { NewsItem } from '@/types'
 import fetchRSSFeeds from '@/lib/fetchRSSFeeds'
 import Footer from '@/components/Footer'
+import Header from '@/components/Header'
 import { SOURCES } from '@/lib/sources'
 import ArticleCard from '@/components/ArticleCard'
 
@@ -36,8 +36,6 @@ export default function Home({ initialNews }: Props) {
   const [filter, setFilter] = useState<string>('Vse')
   const deferredFilter = useDeferredValue(filter)
   const [displayCount, setDisplayCount] = useState<number>(20)
-  const [hasFresh, setHasFresh] = useState(false)
-  const [refreshing, setRefreshing] = useState(false)
 
   const sortedNews = useMemo(
     () => [...news].sort((a, b) => new Date(b.pubDate).getTime() - new Date(a.pubDate).getTime()),
@@ -62,46 +60,15 @@ export default function Home({ initialNews }: Props) {
       if (latestFresh > latestCurrent && !cancelled) {
         setNews(fresh)
         setDisplayCount(20)
-        setHasFresh(false)
       }
     }
 
     fetchFresh()
 
-    const iv = setInterval(async () => {
-      const fresh = await loadNews(true)
-      if (!fresh) return
-
-      const latestFresh = new Date(fresh[0].pubDate).getTime()
-      const latestCurrent = new Date((news[0] || initialNews[0])?.pubDate || 0).getTime()
-      if (latestFresh > latestCurrent && !cancelled) {
-        setHasFresh(true)
-      }
-    }, 60000)
-
     return () => {
       cancelled = true
-      clearInterval(iv)
     }
   }, [initialNews])
-
-  const handleRefresh = async () => {
-    if (refreshing) return
-    setRefreshing(true)
-    try {
-      const fresh = await loadNews(true)
-      if (fresh) {
-        setNews(fresh)
-        setHasFresh(false)
-        setDisplayCount(20)
-      } else {
-        location.href =
-          location.pathname + (location.search ? location.search + '&' : '?') + 't=' + Date.now()
-      }
-    } finally {
-      setRefreshing(false)
-    }
-  }
 
   const filterRef = useRef<HTMLDivElement | null>(null)
   const [showLeft, setShowLeft] = useState(false)
@@ -155,102 +122,78 @@ export default function Home({ initialNews }: Props) {
 
   return (
     <>
+      <Header />
       <main className="min-h-screen bg-gray-900 text-white px-4 md:px-8 lg:px-16 py-8">
-        {/* HEADER */}
         <div className="sticky top-0 z-40 bg-gray-900/70 backdrop-blur-md border-b border-gray-800 py-2 mb-6">
-          <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 px-2 sm:px-4">
-            <div className="flex items-center space-x-5">
-              <Link href="/">
-                <div className="flex items-center space-x-3 cursor-pointer">
-                  <img
-                    src="/logo.png"
-                    alt="Križišče"
-                    className="w-10 h-10 rounded-full transition hover:scale-105"
-                  />
-                  <div>
-                    <h1 className="text-2xl font-bold leading-tight">Križišče</h1>
-                    <p className="text-xs text-gray-400">Najnovejše novice slovenskih medijev</p>
-                  </div>
-                </div>
-              </Link>
-
+          <div className="flex items-center gap-2 w-full sm:w-auto sm:ml-auto px-2 sm:px-4">
+            {showLeft && (
               <button
-                onClick={handleRefresh}
-                disabled={refreshing}
-                aria-label="Osveži"
-                className="relative p-2 rounded-full text-gray-400 hover:text-white hover:bg-gray-800 transition-transform"
-                title={hasFresh ? 'Na voljo so nove novice' : 'Osveži'}
+                onClick={() => scrollBy(-220)}
+                aria-label="Premakni levo"
+                className="hidden sm:flex items-center justify-center p-2 text-gray-400 hover:text-white"
               >
-                {hasFresh && (
-                  <span className="hidden sm:inline-block absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-400 ring-2 ring-gray-900" />
-                )}
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
                   fill="none"
                   viewBox="0 0 24 24"
                   stroke="currentColor"
                   strokeWidth="2"
-                  className={`w-5 h-5 ${refreshing ? 'animate-spin' : 'hover:rotate-180'} transition-transform`}
+                  className="w-5 h-5"
                 >
-                  <path stroke="none" d="M0 0h24v24H0z" />
-                  <path d="M20 11a8.1 8.1 0 0 0 -15.5 -2m-.5 -4v4h4" />
-                  <path d="M4 13a8.1 8.1 0 0 0 15.5 2m.5 4v-4h-4" />
+                  <path d="M15 6l-6 6 6 6" />
                 </svg>
               </button>
+            )}
+
+            <div
+              ref={filterRef}
+              className={[
+                'flex flex-nowrap items-center overflow-x-auto scrollbar-hide',
+                'gap-2 pb-1',
+                alignEnd ? 'sm:justify-end' : '',
+              ].join(' ')}
+              style={{ scrollBehavior: 'smooth' }}
+            >
+              {SOURCES.map((source) => (
+                <button
+                  key={source}
+                  onClick={() => onPick(source)}
+                  className={`relative px-3 py-1 rounded-full text-sm transition font-medium whitespace-nowrap ${
+                    deferredFilter === source
+                      ? 'text-white'
+                      : 'text-gray-400 hover:text-white'
+                  }`}
+                >
+                  {deferredFilter === source && (
+                    <motion.div
+                      layoutId="bubble"
+                      className="absolute inset-0 rounded-full bg-brand z-0"
+                      transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+                    />
+                  )}
+                  <span className="relative z-10">{source}</span>
+                </button>
+              ))}
             </div>
 
-            <div className="flex items-center gap-2 w-full sm:w-auto sm:ml-auto">
-              {showLeft && (
-                <button
-                  onClick={() => scrollBy(-220)}
-                  aria-label="Premakni levo"
-                  className="hidden sm:flex items-center justify-center p-2 text-gray-400 hover:text-white"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2" className="w-5 h-5"><path d="M15 6l-6 6 6 6" /></svg>
-                </button>
-              )}
-
-              <div
-                ref={filterRef}
-                className={[
-                  'flex flex-nowrap items-center overflow-x-auto scrollbar-hide',
-                  'gap-2 pb-1',
-                  alignEnd ? 'sm:justify-end' : '',
-                ].join(' ')}
-                style={{ scrollBehavior: 'smooth' }}
+            {showRight && (
+              <button
+                onClick={() => scrollBy(220)}
+                aria-label="Premakni desno"
+                className="hidden sm:flex items-center justify-center p-2 text-gray-400 hover:text-white"
               >
-                {SOURCES.map((source) => (
-                  <button
-                    key={source}
-                    onClick={() => onPick(source)}
-                    className={`relative px-3 py-1 rounded-full text-sm transition font-medium whitespace-nowrap ${
-                      deferredFilter === source
-                        ? 'text-white'
-                        : 'text-gray-400 hover:text-white'
-                    }`}
-                  >
-                    {deferredFilter === source && (
-                      <motion.div
-                        layoutId="bubble"
-                        className="absolute inset-0 rounded-full bg-brand z-0"
-                        transition={{ type: 'spring', stiffness: 300, damping: 20 }}
-                      />
-                    )}
-                    <span className="relative z-10">{source}</span>
-                  </button>
-                ))}
-              </div>
-
-              {showRight && (
-                <button
-                  onClick={() => scrollBy(220)}
-                  aria-label="Premakni desno"
-                  className="hidden sm:flex items-center justify-center p-2 text-gray-400 hover:text-white"
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  className="w-5 h-5"
                 >
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2" className="w-5 h-5"><path d="M9 6l6 6-6 6" /></svg>
-                </button>
-              )}
-            </div>
+                  <path d="M9 6l6 6-6 6" />
+                </svg>
+              </button>
+            )}
           </div>
         </div>
 
