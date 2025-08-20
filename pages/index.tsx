@@ -17,7 +17,9 @@ import ArticleCard from '@/components/ArticleCard'
 
 async function loadNews(forceFresh: boolean): Promise<NewsItem[] | null> {
   try {
-    const res = await fetch(`/api/news${forceFresh ? '?forceFresh=1' : ''}`, { cache: 'no-store' })
+    const res = await fetch(`/api/news${forceFresh ? '?forceFresh=1' : ''}`, {
+      cache: 'no-store',
+    })
     const fresh: NewsItem[] = await res.json()
     return Array.isArray(fresh) && fresh.length ? fresh : null
   } catch {
@@ -33,7 +35,7 @@ export default function Home({ initialNews }: Props) {
   const deferredFilter = useDeferredValue(filter)
   const [displayCount, setDisplayCount] = useState<number>(20)
 
-  // Drawer – vertikalni filter
+  // Drawer (vertikalni filter)
   const [drawerOpen, setDrawerOpen] = useState(false)
   useEffect(() => {
     const handler = () => setDrawerOpen((s) => !s)
@@ -41,33 +43,75 @@ export default function Home({ initialNews }: Props) {
     return () => window.removeEventListener('toggle-filters', handler as EventListener)
   }, [])
 
+  // NOVE NOVICE – periodično preverjanje + signal headerju
+  const [freshNews, setFreshNews] = useState<NewsItem[] | null>(null)
+  const [hasNew, setHasNew] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    let timer: number | undefined
+
+    const checkFresh = async () => {
+      const fresh = await loadNews(true)
+      if (!fresh || fresh.length === 0) {
+        if (!cancelled) {
+          setHasNew(false)
+          window.dispatchEvent(new CustomEvent('news-has-new', { detail: false }))
+        }
+        return
+      }
+      const latestFresh = new Date(fresh[0].pubDate).getTime()
+      const latestCurrent = new Date((news[0] ?? initialNews[0])?.pubDate || 0).getTime()
+      const newer = latestFresh > latestCurrent
+      if (!cancelled) {
+        setFreshNews(fresh)
+        setHasNew(newer)
+        window.dispatchEvent(new CustomEvent('news-has-new', { detail: newer }))
+      }
+    }
+
+    // prvi check + interval (60 s)
+    checkFresh()
+    timer = window.setInterval(checkFresh, 60_000)
+
+    return () => {
+      cancelled = true
+      if (timer) window.clearInterval(timer)
+    }
+  }, [news, initialNews])
+
+  // Poslušaj na klik »Osveži« iz headerja
+  useEffect(() => {
+    const onRefresh = () => {
+      startTransition(() => {
+        if (freshNews && hasNew) {
+          setNews(freshNews)
+          setDisplayCount(20)
+        } else {
+          // fallback – če slučajno ni pripravljeno
+          loadNews(true).then((fresh) => {
+            if (fresh && fresh.length) {
+              setNews(fresh)
+              setDisplayCount(20)
+            }
+          })
+        }
+        setHasNew(false)
+        window.dispatchEvent(new CustomEvent('news-has-new', { detail: false }))
+      })
+    }
+    window.addEventListener('refresh-news', onRefresh as EventListener)
+    return () => window.removeEventListener('refresh-news', onRefresh as EventListener)
+  }, [freshNews, hasNew])
+
+  // Filtriranje in prikaz
   const sortedNews = useMemo(
     () => [...news].sort((a, b) => new Date(b.pubDate).getTime() - new Date(a.pubDate).getTime()),
     [news]
   )
   const filteredNews =
-    deferredFilter === 'Vse'
-      ? sortedNews
-      : sortedNews.filter((a) => a.source === deferredFilter)
+    deferredFilter === 'Vse' ? sortedNews : sortedNews.filter((a) => a.source === deferredFilter)
   const visibleNews = filteredNews.slice(0, displayCount)
-
-  useEffect(() => {
-    let cancelled = false
-    const fetchFresh = async () => {
-      const fresh = await loadNews(true)
-      if (!fresh) return
-      const latestFresh = new Date(fresh[0].pubDate).getTime()
-      const latestCurrent = new Date((news[0] || initialNews[0])?.pubDate || 0).getTime()
-      if (latestFresh > latestCurrent && !cancelled) {
-        setNews(fresh)
-        setDisplayCount(20)
-      }
-    }
-    fetchFresh()
-    return () => {
-      cancelled = true
-    }
-  }, [initialNews])
 
   const onPick = (s: string) =>
     startTransition(() => {
@@ -88,10 +132,10 @@ export default function Home({ initialNews }: Props) {
     <>
       <Header />
 
-      {/* Glavna vsebina */}
+      {/* Glavna vsebina; padding poravnan z višino headerja (h-14) */}
       <main className="min-h-screen bg-white text-gray-900 dark:bg-gray-900 dark:text-white px-4 md:px-8 lg:px-16 pt-4 pb-8">
 
-        {/* STICKY “Pokaži vse” – prikaži le, ko je aktiven filter */}
+        {/* STICKY čip “Pokaži vse” – vidno le, ko je aktiven specifičen vir */}
         <AnimatePresence>
           {deferredFilter !== 'Vse' && (
             <motion.div
@@ -100,7 +144,7 @@ export default function Home({ initialNews }: Props) {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -6 }}
               transition={{ duration: 0.15 }}
-              className="sticky top-12 z-30 mb-3"
+              className="sticky top-14 z-30 mb-3"
             >
               <button
                 onClick={resetFilter}
@@ -108,8 +152,6 @@ export default function Home({ initialNews }: Props) {
                            bg-black/[0.06] text-gray-800 hover:bg-black/[0.08]
                            dark:bg-white/[0.08] dark:text-gray-100 dark:hover:bg-white/[0.12]
                            transition"
-                aria-label="Pokaži vse"
-                title="Pokaži vse"
               >
                 Pokaži vse
               </button>
@@ -117,7 +159,7 @@ export default function Home({ initialNews }: Props) {
           )}
         </AnimatePresence>
 
-        {/* DRAWER: vertikalni filter */}
+        {/* DRAWER: vertikalni filter (desni panel) */}
         <AnimatePresence>
           {drawerOpen && (
             <>
@@ -156,7 +198,7 @@ export default function Home({ initialNews }: Props) {
                 </div>
 
                 <nav className="p-3 overflow-y-auto">
-                  {/* Pokaži vse – vedno na vrhu v drawerju */}
+                  {/* Pokaži vse (na vrhu) */}
                   <button
                     onClick={resetFilter}
                     className={`w-full text-left px-3 py-2 rounded-md mb-2 transition ${
@@ -168,7 +210,7 @@ export default function Home({ initialNews }: Props) {
                     Pokaži vse
                   </button>
 
-                  {/* Posamezni viri */}
+                  {/* Viri */}
                   {SOURCES.filter((s) => s !== 'Vse').map((source) => (
                     <button
                       key={source}
@@ -188,7 +230,7 @@ export default function Home({ initialNews }: Props) {
           )}
         </AnimatePresence>
 
-        {/* GRID kartic novic */}
+        {/* GRID kartic */}
         {visibleNews.length === 0 ? (
           <p className="text-gray-500 dark:text-gray-400 text-center w-full mt-10">
             Ni novic za izbrani vir ali napaka pri nalaganju.
