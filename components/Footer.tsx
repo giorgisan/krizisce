@@ -33,7 +33,6 @@ function IconSignpost(props: React.SVGProps<SVGSVGElement>) {
   )
 }
 
-/** Logo z več fallbacki */
 function LogoImg({ slug, origin, label }: { slug: string; origin: string; label: string }) {
   const candidates = [
     `/logos/${slug}.svg`,
@@ -77,7 +76,6 @@ export default function Footer() {
   const popRef = useRef<HTMLDivElement | null>(null)
   const btnRef = useRef<HTMLButtonElement | null>(null)
 
-  // klik izven + ESC
   useEffect(() => {
     const onDoc = (e: MouseEvent) => {
       if (!open) return
@@ -94,101 +92,105 @@ export default function Footer() {
   }, [open])
 
   return (
-    <footer className="relative bg-[#FAFAFA] dark:bg-gray-900 text-gray-700 dark:text-gray-300 pt-12 pb-6 mt-16 border-t border-gray-200 dark:border-gray-800">
-      {/* Poravnava z header/main: isti paddingi, brez max-width omejitve */}
-      <div className="px-4 md:px-8 lg:px-16">
-        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-8">
-          {/* Leva kolona */}
-          <div className="flex-1">
-            <div className="flex items-center mb-4">
-              <Image src="/logo.png" alt="Križišče" width={36} height={36} className="w-9 h-9 rounded-md mr-2" />
-              <h4 className="text-gray-900 dark:text-white font-semibold text-lg">Križišče</h4>
-            </div>
-            <p className="text-sm leading-relaxed text-gray-700/90 dark:text-gray-300">
-              Agregator najnovejših novic slovenskih medijev. <br />
-              Članki so last izvornih portalov.
-            </p>
-          </div>
-
-          <div className="hidden sm:block w-px bg-gray-200 dark:bg-gray-800" />
-
-          {/* Srednja kolona */}
-          <div className="flex-1">
-            <h4 className="text-gray-900 dark:text-white font-semibold mb-4">Povezave</h4>
-            <ul className="space-y-2 text-sm">
-              <li><Link href="/projekt" className="hover:text-gray-900 dark:hover:text-white transition">O projektu</Link></li>
-              <li><Link href="/pogoji" className="hover:text-gray-900 dark:hover:text-white transition">Pogoji uporabe</Link></li>
-            </ul>
-          </div>
-
-          <div className="hidden sm:block w-px bg-gray-200 dark:bg-gray-800" />
-
-          {/* Desna kolona */}
-          <div className="flex-1">
-            <h4 className="text-gray-900 dark:text-white font-semibold mb-4">Kontakt</h4>
-            <a href="mailto:gjkcme@gmail.com" className="text-sm hover:text-gray-900 dark:hover:text-white transition">
-              Pošljite nam sporočilo
-            </a>
-          </div>
-        </div>
-
-        {/* Gumb Viri + popover */}
-        <div className="mt-8">
-          <div className="relative flex justify-center">
-            <button
-              ref={btnRef}
-              type="button"
-              onClick={() => setOpen(v => !v)}
-              className="inline-flex items-center gap-2 rounded-full px-4 py-2 ring-1 ring-black/10 dark:ring-white/10
-                         text-gray-700 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white
-                         bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 transition"
-              aria-haspopup="dialog"
-              aria-expanded={open}
-            >
-              <IconSignpost className="h-4 w-4 opacity-80" />
-              <span className="text-sm font-medium">Viri</span>
-            </button>
-
-            {open && (
-              <div
-                ref={popRef}
-                className="absolute left-1/2 -translate-x-1/2 bottom-full mb-4
-                           w-[min(92vw,64rem)] rounded-2xl
-                           bg-white/95 dark:bg-gray-900/90 backdrop-blur
-                           ring-1 ring-black/10 dark:ring-white/10 shadow-2xl p-4 sm:p-6 animate-popoverFade"
-                role="dialog"
-                aria-label="Viri novic"
-              >
-                <p className="px-1 pb-3 text-[11px] uppercase tracking-wide text-gray-500 text-center">
-                  Viri novic
-                </p>
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
-                  {SOURCES.map((it) => {
-                    const origin = new URL(it.url).origin
-                    return (
-                      <a
-                        key={it.name}
-                        href={it.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center gap-2 px-2 py-2 rounded-lg text-gray-700 dark:text-gray-300
-                                   hover:text-gray-900 dark:hover:text-white hover:bg-gray-100/70 dark:hover:bg-gray-800/70 transition"
-                      >
-                        <LogoImg slug={it.slug} origin={origin} label={it.name} />
-                        <span className="text-sm">{it.name}</span>
-                        <span className="ml-auto text-xs text-gray-500">↗</span>
-                      </a>
-                    )
-                  })}
-                </div>
+    <footer className="mt-16">
+      {/* Centered container */}
+      <div className="mx-auto max-w-7xl px-4 md:px-8 lg:px-16">
+        {/* Card-like footer body */}
+        <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-[#FAFAFA] dark:bg-gray-900/85 p-8 md:p-10">
+          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-8">
+            {/* Leva kolona */}
+            <div className="flex-1">
+              <div className="flex items-center mb-4">
+                <Image src="/logo.png" alt="Križišče" width={36} height={36} className="w-9 h-9 rounded-md mr-2" />
+                <h4 className="text-gray-900 dark:text-white font-semibold text-lg">Križišče</h4>
               </div>
-            )}
-          </div>
-        </div>
+              <p className="text-sm leading-relaxed text-gray-700/90 dark:text-gray-300">
+                Agregator najnovejših novic slovenskih medijev. <br />
+                Članki so last izvornih portalov.
+              </p>
+            </div>
 
-        <div className="border-t border-gray-200 dark:border-gray-800 mt-12 pt-4 text-center text-sm text-gray-600 dark:text-gray-500">
-          <p className="italic mb-2">“Informacija ni znanje. Edino razumevanje šteje.” — Albert Einstein</p>
-          <p>© {year} Križišče – Vse pravice pridržane.</p>
+            <div className="hidden sm:block w-px bg-gray-200 dark:bg-gray-800" />
+
+            {/* Srednja kolona */}
+            <div className="flex-1">
+              <h4 className="text-gray-900 dark:text-white font-semibold mb-4">Povezave</h4>
+              <ul className="space-y-2 text-sm">
+                <li><Link href="/projekt" className="hover:text-gray-900 dark:hover:text-white transition">O projektu</Link></li>
+                <li><Link href="/pogoji" className="hover:text-gray-900 dark:hover:text-white transition">Pogoji uporabe</Link></li>
+              </ul>
+            </div>
+
+            <div className="hidden sm:block w-px bg-gray-200 dark:bg-gray-800" />
+
+            {/* Desna kolona */}
+            <div className="flex-1">
+              <h4 className="text-gray-900 dark:text-white font-semibold mb-4">Kontakt</h4>
+              <a href="mailto:gjkcme@gmail.com" className="text-sm hover:text-gray-900 dark:hover:text-white transition">
+                Pošljite nam sporočilo
+              </a>
+            </div>
+          </div>
+
+          {/* Gumb Viri + popover */}
+          <div className="mt-8">
+            <div className="relative flex justify-center">
+              <button
+                ref={btnRef}
+                type="button"
+                onClick={() => setOpen(v => !v)}
+                className="inline-flex items-center gap-2 rounded-full px-4 py-2 ring-1 ring-black/10 dark:ring-white/10
+                           text-gray-700 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white
+                           bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 transition"
+                aria-haspopup="dialog"
+                aria-expanded={open}
+              >
+                <IconSignpost className="h-4 w-4 opacity-80" />
+                <span className="text-sm font-medium">Viri</span>
+              </button>
+
+              {open && (
+                <div
+                  ref={popRef}
+                  className="absolute left-1/2 -translate-x-1/2 bottom-full mb-4
+                             w-[min(92vw,64rem)] rounded-2xl
+                             bg-white/95 dark:bg-gray-900/90 backdrop-blur
+                             ring-1 ring-black/10 dark:ring-white/10 shadow-2xl p-4 sm:p-6 animate-popoverFade"
+                  role="dialog"
+                  aria-label="Viri novic"
+                >
+                  <p className="px-1 pb-3 text-[11px] uppercase tracking-wide text-gray-500 text-center">
+                    Viri novic
+                  </p>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+                    {SOURCES.map((it) => {
+                      const origin = new URL(it.url).origin
+                      return (
+                        <a
+                          key={it.name}
+                          href={it.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-2 px-2 py-2 rounded-lg text-gray-700 dark:text-gray-300
+                                     hover:text-gray-900 dark:hover:text-white hover:bg-gray-100/70 dark:hover:bg-gray-800/70 transition"
+                        >
+                          <LogoImg slug={it.slug} origin={origin} label={it.name} />
+                          <span className="text-sm">{it.name}</span>
+                          <span className="ml-auto text-xs text-gray-500">↗</span>
+                        </a>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Spodnji copyright v kartici */}
+          <div className="border-t border-gray-200 dark:border-gray-800 mt-10 pt-4 text-center text-sm text-gray-600 dark:text-gray-500">
+            <p className="italic mb-2">“Informacija ni znanje. Edino razumevanje šteje.” — Albert Einstein</p>
+            <p>© {year} Križišče – Vse pravice pridržane.</p>
+          </div>
         </div>
       </div>
 
