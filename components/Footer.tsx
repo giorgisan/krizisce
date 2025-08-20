@@ -1,3 +1,4 @@
+// components/Footer.tsx
 'use client'
 
 import Link from 'next/link'
@@ -80,6 +81,7 @@ export default function Footer() {
   return (
     <footer className="mt-16">
       <div className="mx-auto max-w-7xl px-4 md:px-8 lg:px-16 text-gray-800 dark:text-gray-300">
+        {/* Vsebinski del (brez okvirja) */}
         <div className="grid gap-8 sm:grid-cols-3">
           {/* Levo */}
           <div>
@@ -166,7 +168,7 @@ export default function Footer() {
           </div>
         </div>
 
-        {/* Ločnica + copyright */}
+        {/* Samo horizontalna ločnica + copyright, več zraka spodaj */}
         <div className="border-t border-gray-200 dark:border-gray-800 mt-12 pt-6 text-center text-sm text-gray-600 dark:text-gray-500">
           <p className="italic mb-2">“Informacija ni znanje. Edino razumevanje šteje.” — Albert Einstein</p>
           <p>© {year} Križišče – Vse pravice pridržane.</p>
