@@ -2,7 +2,6 @@
 import React, {
   useEffect,
   useMemo,
-  useRef,
   useState,
   useDeferredValue,
   startTransition,
@@ -18,9 +17,7 @@ import ArticleCard from '@/components/ArticleCard'
 
 async function loadNews(forceFresh: boolean): Promise<NewsItem[] | null> {
   try {
-    const res = await fetch(`/api/news${forceFresh ? '?forceFresh=1' : ''}`, {
-      cache: 'no-store',
-    })
+    const res = await fetch(`/api/news${forceFresh ? '?forceFresh=1' : ''}`, { cache: 'no-store' })
     const fresh: NewsItem[] = await res.json()
     return Array.isArray(fresh) && fresh.length ? fresh : null
   } catch {
@@ -36,7 +33,7 @@ export default function Home({ initialNews }: Props) {
   const deferredFilter = useDeferredValue(filter)
   const [displayCount, setDisplayCount] = useState<number>(20)
 
-  // SIDE FILTER (drawer) – toggle preko globalnega eventa iz Headerja
+  // Drawer – vertikalni filter
   const [drawerOpen, setDrawerOpen] = useState(false)
   useEffect(() => {
     const handler = () => setDrawerOpen((s) => !s)
@@ -79,16 +76,48 @@ export default function Home({ initialNews }: Props) {
       setDrawerOpen(false)
     })
 
+  const resetFilter = () =>
+    startTransition(() => {
+      setFilter('Vse')
+      setDisplayCount(20)
+    })
+
   const handleLoadMore = () => setDisplayCount((p) => p + 20)
 
   return (
     <>
       <Header />
 
-      {/* Glavna vsebina – top padding poravnan z višino headerja (h-12) */}
+      {/* Glavna vsebina */}
       <main className="min-h-screen bg-white text-gray-900 dark:bg-gray-900 dark:text-white px-4 md:px-8 lg:px-16 pt-4 pb-8">
 
-        {/* DRAWER: vertikalni filter; poravnava na desni (na mob. čez širino) */}
+        {/* STICKY “Pokaži vse” – prikaži le, ko je aktiven filter */}
+        <AnimatePresence>
+          {deferredFilter !== 'Vse' && (
+            <motion.div
+              key="reset-chip"
+              initial={{ opacity: 0, y: -6 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -6 }}
+              transition={{ duration: 0.15 }}
+              className="sticky top-12 z-30 mb-3"
+            >
+              <button
+                onClick={resetFilter}
+                className="px-3 py-1 rounded-full text-sm font-medium
+                           bg-black/[0.06] text-gray-800 hover:bg-black/[0.08]
+                           dark:bg-white/[0.08] dark:text-gray-100 dark:hover:bg-white/[0.12]
+                           transition"
+                aria-label="Pokaži vse"
+                title="Pokaži vse"
+              >
+                Pokaži vse
+              </button>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* DRAWER: vertikalni filter */}
         <AnimatePresence>
           {drawerOpen && (
             <>
@@ -127,8 +156,20 @@ export default function Home({ initialNews }: Props) {
                 </div>
 
                 <nav className="p-3 overflow-y-auto">
-                  {/* Gumb 'Vse' + posamezni viri, navpično */}
-                  {[ 'Vse', ...SOURCES.filter(s => s !== 'Vse') ].map((source) => (
+                  {/* Pokaži vse – vedno na vrhu v drawerju */}
+                  <button
+                    onClick={resetFilter}
+                    className={`w-full text-left px-3 py-2 rounded-md mb-2 transition ${
+                      deferredFilter === 'Vse'
+                        ? 'bg-brand text-white'
+                        : 'hover:bg-black/5 dark:hover:bg-white/5 text-gray-700 dark:text-gray-300'
+                    }`}
+                  >
+                    Pokaži vse
+                  </button>
+
+                  {/* Posamezni viri */}
+                  {SOURCES.filter((s) => s !== 'Vse').map((source) => (
                     <button
                       key={source}
                       onClick={() => onPick(source)}
