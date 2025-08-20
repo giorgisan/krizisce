@@ -123,14 +123,14 @@ export default function Home({ initialNews }: Props) {
   return (
     <>
       <Header />
-      <main className="min-h-screen bg-gray-900 text-white px-4 md:px-8 lg:px-16 py-8">
-        <div className="sticky top-0 z-40 bg-gray-900/70 backdrop-blur-md border-b border-gray-800 py-2 mb-6">
+      <main className="min-h-screen bg-white text-gray-900 dark:bg-gray-900 dark:text-white px-4 md:px-8 lg:px-16 py-8">
+        <div className="sticky top-0 z-40 bg-white/70 dark:bg-gray-900/70 backdrop-blur-md border-b border-gray-200 dark:border-gray-800 py-2 mb-6">
           <div className="flex items-center gap-2 w-full sm:w-auto sm:ml-auto px-2 sm:px-4">
             {showLeft && (
               <button
                 onClick={() => scrollBy(-220)}
                 aria-label="Premakni levo"
-                className="hidden sm:flex items-center justify-center p-2 text-gray-400 hover:text-white"
+                className="hidden sm:flex items-center justify-center p-2 text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white"
               >
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
@@ -161,7 +161,7 @@ export default function Home({ initialNews }: Props) {
                   className={`relative px-3 py-1 rounded-full text-sm transition font-medium whitespace-nowrap ${
                     deferredFilter === source
                       ? 'text-white'
-                      : 'text-gray-400 hover:text-white'
+                      : 'text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white'
                   }`}
                 >
                   {deferredFilter === source && (
@@ -180,7 +180,7 @@ export default function Home({ initialNews }: Props) {
               <button
                 onClick={() => scrollBy(220)}
                 aria-label="Premakni desno"
-                className="hidden sm:flex items-center justify-center p-2 text-gray-400 hover:text-white"
+                className="hidden sm:flex items-center justify-center p-2 text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white"
               >
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
@@ -199,7 +199,7 @@ export default function Home({ initialNews }: Props) {
 
         {/* GRID */}
         {visibleNews.length === 0 ? (
-          <p className="text-gray-400 text-center w-full mt-10">
+          <p className="text-gray-500 dark:text-gray-400 text-center w-full mt-10">
             Ni novic za izbrani vir ali napaka pri nalaganju.
           </p>
         ) : (
