@@ -13,7 +13,7 @@ export default function Header() {
 
   useEffect(() => setMounted(true), [])
 
-  // Poslušaj signal iz index.tsx, da so nove novice na voljo
+  // signal iz index.tsx, da so na voljo nove novice
   useEffect(() => {
     const onHasNew = (e: Event) => {
       const detail = (e as CustomEvent).detail as boolean
@@ -26,41 +26,31 @@ export default function Header() {
   const currentTheme = (theme ?? resolvedTheme) || 'dark'
   const isDark = currentTheme === 'dark'
 
-  const toggleFilters = () => {
-    window.dispatchEvent(new CustomEvent('toggle-filters'))
-  }
-
-  const refreshNow = () => {
-    window.dispatchEvent(new CustomEvent('refresh-news'))
-  }
+  const toggleFilters = () => window.dispatchEvent(new CustomEvent('toggle-filters'))
+  const refreshNow = () => window.dispatchEvent(new CustomEvent('refresh-news'))
 
   return (
     <header className="sticky top-0 z-40 bg-white/70 dark:bg-gray-900/70 backdrop-blur-md border-b border-gray-200 dark:border-gray-700">
-      {/* Višina 56px; poravnano z vrhom kartic */}
-      <div className="h-14 px-3 sm:px-4 flex items-center justify-between">
-        {/* Logo + naslov (večje) */}
+      {/* Ujemanje z linijo kartic: enaka vodoravna notranja poravnava kot v <main> */}
+      <div className="h-12 px-4 md:px-8 lg:px-16 flex items-center justify-between">
+        {/* Levo: logo + naslov (večje) */}
         <Link href="/" className="flex items-center gap-3">
           <Image
             src="/logo.png"          // enoten logo
             alt="Križišče"
-            width={36}
-            height={36}
+            width={32}
+            height={32}
             priority
-            className="w-9 h-9 rounded-md"
+            className="w-8 h-8 rounded-md"
           />
-          <div className="leading-tight">
-            <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
-              Križišče
-            </h1>
-            <p className="hidden sm:block text-[11px] text-gray-600 dark:text-gray-400">
-              Najnovejše novice slovenskih medijev
-            </p>
-          </div>
+          <h1 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white leading-none">
+            Križišče
+          </h1>
         </Link>
 
-        {/* Desni kontrolniki */}
+        {/* Desno: osveži + hamburger + tema (transparentni gumbi) */}
         <div className="flex items-center gap-1.5 sm:gap-2">
-          {/* Osveži – pokaže zeleno piko, ko so nove novice na voljo */}
+          {/* Osveži – zelena pika ob novih novicah */}
           <button
             type="button"
             onClick={refreshNow}
@@ -71,7 +61,6 @@ export default function Header() {
                        hover:text-black/90 dark:hover:text-white/90
                        hover:bg-black/[0.04] dark:hover:bg-white/[0.06] transition"
           >
-            {/* ikona refresh */}
             <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
               <path d="M21 12a9 9 0 1 1-2.64-6.36" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
               <path d="M21 4v6h-6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
@@ -84,14 +73,14 @@ export default function Header() {
             )}
           </button>
 
-          {/* Hamburger – še bolj transparenten */}
+          {/* Hamburger – bolj transparenten */}
           <button
             type="button"
             onClick={toggleFilters}
             aria-label="Odpri filter"
             title="Filtri"
             className="inline-flex h-10 w-10 items-center justify-center rounded-md
-                       text-black/50 dark:text-white/60
+                       text-black/45 dark:text-white/55
                        hover:text-black/85 dark:hover:text-white/85
                        hover:bg-black/[0.04] dark:hover:bg-white/[0.06] transition"
           >
@@ -100,7 +89,7 @@ export default function Header() {
             </svg>
           </button>
 
-          {/* Toggle teme – modern sun/moon */}
+          {/* Tema – modern sun/moon */}
           {mounted && (
             <button
               type="button"
