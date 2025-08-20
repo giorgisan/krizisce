@@ -1,5 +1,4 @@
 // pages/_app.tsx
-
 import '../styles/globals.css'
 import type { AppProps } from 'next/app'
 import { useEffect } from 'react'
@@ -7,18 +6,19 @@ import { useRouter } from 'next/router'
 import Head from 'next/head'
 import { ThemeProvider } from 'next-themes'
 
-// Uvoz Vercel Analytics in Speed Insights
+// Vercel Analytics & Speed Insights
 import { Analytics } from '@vercel/analytics/next'
 import { SpeedInsights } from '@vercel/speed-insights/next'
 
-// TypeScript naj pozna, da lahko na window obstaja metoda gtag
+// TypeScript naj pozna window.gtag
 declare global {
   interface Window {
     gtag: (...args: any[]) => void
+    dataLayer?: any[]
   }
 }
 
-// Google Analytics identifikator (naj bo enoten skozi projekt)
+// Enoten GA ID
 const GA_MEASUREMENT_ID = 'G-5VVENQ6E2G'
 
 function App({ Component, pageProps }: AppProps) {
@@ -26,29 +26,24 @@ function App({ Component, pageProps }: AppProps) {
 
   useEffect(() => {
     const handleRouteChange = (url: string) => {
-      // Preverimo, ali je gtag definiran, preden ga kličemo
       if (typeof window.gtag === 'function') {
-        window.gtag('config', GA_MEASUREMENT_ID, {
-          page_path: url,
-        })
+        window.gtag('config', GA_MEASUREMENT_ID, { page_path: url })
       }
     }
-
     router.events.on('routeChangeComplete', handleRouteChange)
-    return () => {
-      router.events.off('routeChangeComplete', handleRouteChange)
-    }
+    return () => router.events.off('routeChangeComplete', handleRouteChange)
   }, [router.events])
 
   return (
     <>
-      {/* Google Analytics skripte */}
+      {/* Google Analytics */}
       <Head>
         <script
           async
           src={`https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}`}
         />
         <script
+          id="ga-init"
           dangerouslySetInnerHTML={{
             __html: `
               window.dataLayer = window.dataLayer || [];
@@ -60,12 +55,12 @@ function App({ Component, pageProps }: AppProps) {
         />
       </Head>
 
-      {/* Prikaz izbrane strani */}
-      <ThemeProvider attribute="class">
+      {/* Privzeto DARK, brez system override; attribute="class" za Tailwind */}
+      <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
         <Component {...pageProps} />
       </ThemeProvider>
 
-      {/* Vercel Analytics in Speed Insights */}
+      {/* Vercel metrika */}
       <Analytics />
       <SpeedInsights />
     </>
