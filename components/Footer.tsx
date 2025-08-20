@@ -103,13 +103,13 @@ export default function Footer() {
   }, [open])
 
   return (
-    <footer className="relative bg-gray-900 text-gray-300 pt-12 pb-6 mt-8 border-t border-gray-800">
+    <footer className="relative bg-white/70 dark:bg-gray-900/70 backdrop-blur-md backdrop-saturate-150 text-gray-700 dark:text-gray-300 pt-12 pb-6 mt-8 border-t border-gray-200 dark:border-gray-700">
       <div className="max-w-6xl mx-auto px-4 flex flex-col sm:flex-row sm:justify-between sm:items-start gap-8">
         {/* Leva kolona */}
         <div className="flex-1">
           <div className="flex items-center mb-4">
             <Image src="/logo.png" alt="Križišče" width={32} height={32} className="w-8 h-8 rounded-full mr-2" />
-            <h4 className="text-white font-semibold text-lg">Križišče</h4>
+            <h4 className="text-gray-900 dark:text-white font-semibold text-lg">Križišče</h4>
           </div>
           <p className="text-sm leading-relaxed">
             Agregator najnovejših novic slovenskih medijev. <br />
@@ -117,23 +117,23 @@ export default function Footer() {
           </p>
         </div>
 
-        <div className="hidden sm:block w-px bg-gray-800" />
+        <div className="hidden sm:block w-px bg-gray-200 dark:bg-gray-700" />
 
         {/* Srednja kolona */}
         <div className="flex-1">
-          <h4 className="text-white font-semibold mb-4">Povezave</h4>
+          <h4 className="text-gray-900 dark:text-white font-semibold mb-4">Povezave</h4>
           <ul className="space-y-2 text-sm">
-            <li><Link href="/projekt" className="hover:text-white transition">O projektu</Link></li>
-            <li><Link href="/pogoji" className="hover:text-white transition">Pogoji uporabe</Link></li>
+            <li><Link href="/projekt" className="hover:text-gray-900 dark:hover:text-white transition">O projektu</Link></li>
+            <li><Link href="/pogoji" className="hover:text-gray-900 dark:hover:text-white transition">Pogoji uporabe</Link></li>
           </ul>
         </div>
 
-        <div className="hidden sm:block w-px bg-gray-800" />
+        <div className="hidden sm:block w-px bg-gray-200 dark:bg-gray-700" />
 
         {/* Desna kolona */}
         <div className="flex-1">
-          <h4 className="text-white font-semibold mb-4">Kontakt</h4>
-          <a href="mailto:gjkcme@gmail.com" className="text-sm hover:text-white transition">
+          <h4 className="text-gray-900 dark:text-white font-semibold mb-4">Kontakt</h4>
+          <a href="mailto:gjkcme@gmail.com" className="text-sm hover:text-gray-900 dark:hover:text-white transition">
             Pošljite nam sporočilo
           </a>
         </div>
@@ -146,8 +146,8 @@ export default function Footer() {
             ref={btnRef}
             type="button"
             onClick={() => setOpen(v => !v)}
-            className="inline-flex items-center gap-2 rounded-full px-4 py-2 ring-1 ring-white/10
-                       text-gray-300 hover:text-white bg-gray-800/30 hover:bg-gray-800/50 transition"
+            className="inline-flex items-center gap-2 rounded-full px-4 py-2 ring-1 ring-black/10 dark:ring-white/10
+                       text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white bg-gray-100/30 hover:bg-gray-100/50 dark:bg-gray-800/30 dark:hover:bg-gray-800/50 transition"
             aria-haspopup="dialog"
             aria-expanded={open}
           >
@@ -191,7 +191,7 @@ export default function Footer() {
         </div>
       </div>
 
-      <div className="border-t border-gray-800 mt-12 pt-4 text-center text-sm text-gray-500">
+      <div className="border-t border-gray-200 dark:border-gray-700 mt-12 pt-4 text-center text-sm text-gray-600 dark:text-gray-500">
         <p className="italic mb-2">“Informacija ni znanje. Edino razumevanje šteje.” – Albert Einstein</p>
         <p>© {year} Križišče – Vse pravice pridržane.</p>
       </div>
