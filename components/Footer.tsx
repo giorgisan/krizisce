@@ -60,7 +60,7 @@ function LogoImg({ slug, origin, label }: { slug: string; origin: string; label:
       .slice(0, 2)
       .join('')
     return (
-      <div className="h-7 w-7 grid place-items-center rounded-full bg-gray-700 text-[10px] font-semibold">
+      <div className="h-7 w-7 grid place-items-center rounded-full bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-200 text-[10px] font-semibold">
         {initials || '•'}
       </div>
     )
@@ -72,7 +72,7 @@ function LogoImg({ slug, origin, label }: { slug: string; origin: string; label:
       alt={`${label} logo`}
       width={28}
       height={28}
-      className="h-7 w-7 rounded-full bg-gray-700 object-cover"
+      className="h-7 w-7 rounded-full bg-gray-200 dark:bg-gray-700 object-cover"
       loading="lazy"
       onError={() => setIdx(i => i + 1)}
     />
@@ -103,13 +103,13 @@ export default function Footer() {
   }, [open])
 
   return (
-    <footer className="relative bg-gray-900 text-gray-300 pt-12 pb-6 mt-8 border-t border-gray-800">
+    <footer className="relative pt-12 pb-6 mt-8 border-t bg-gray-50 text-gray-700 border-gray-200 dark:bg-gray-900 dark:text-gray-300 dark:border-gray-800">
       <div className="max-w-6xl mx-auto px-4 flex flex-col sm:flex-row sm:justify-between sm:items-start gap-8">
         {/* Leva kolona */}
         <div className="flex-1">
           <div className="flex items-center mb-4">
             <Image src="/logo.png" alt="Križišče" width={32} height={32} className="w-8 h-8 rounded-full mr-2" />
-            <h4 className="text-white font-semibold text-lg">Križišče</h4>
+            <h4 className="text-gray-900 dark:text-white font-semibold text-lg">Križišče</h4>
           </div>
           <p className="text-sm leading-relaxed">
             Agregator najnovejših novic slovenskih medijev. <br />
@@ -117,23 +117,23 @@ export default function Footer() {
           </p>
         </div>
 
-        <div className="hidden sm:block w-px bg-gray-800" />
+        <div className="hidden sm:block w-px bg-gray-200 dark:bg-gray-800" />
 
         {/* Srednja kolona */}
         <div className="flex-1">
-          <h4 className="text-white font-semibold mb-4">Povezave</h4>
+          <h4 className="text-gray-900 dark:text-white font-semibold mb-4">Povezave</h4>
           <ul className="space-y-2 text-sm">
-            <li><Link href="/projekt" className="hover:text-white transition">O projektu</Link></li>
-            <li><Link href="/pogoji" className="hover:text-white transition">Pogoji uporabe</Link></li>
+            <li><Link href="/projekt" className="text-gray-700 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white transition">O projektu</Link></li>
+            <li><Link href="/pogoji" className="text-gray-700 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white transition">Pogoji uporabe</Link></li>
           </ul>
         </div>
 
-        <div className="hidden sm:block w-px bg-gray-800" />
+        <div className="hidden sm:block w-px bg-gray-200 dark:bg-gray-800" />
 
         {/* Desna kolona */}
         <div className="flex-1">
-          <h4 className="text-white font-semibold mb-4">Kontakt</h4>
-          <a href="mailto:gjkcme@gmail.com" className="text-sm hover:text-white transition">
+          <h4 className="text-gray-900 dark:text-white font-semibold mb-4">Kontakt</h4>
+          <a href="mailto:gjkcme@gmail.com" className="text-sm text-gray-700 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white transition">
             Pošljite nam sporočilo
           </a>
         </div>
@@ -146,8 +146,9 @@ export default function Footer() {
             ref={btnRef}
             type="button"
             onClick={() => setOpen(v => !v)}
-            className="inline-flex items-center gap-2 rounded-full px-4 py-2 ring-1 ring-white/10
-                       text-gray-300 hover:text-white bg-gray-800/30 hover:bg-gray-800/50 transition"
+            className="inline-flex items-center gap-2 rounded-full px-4 py-2 ring-1 ring-gray-200/50 dark:ring-white/10
+                       text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white
+                       bg-white/30 hover:bg-white/50 dark:bg-gray-800/30 dark:hover:bg-gray-800/50 backdrop-blur-sm transition"
             aria-haspopup="dialog"
             aria-expanded={open}
           >
@@ -159,8 +160,8 @@ export default function Footer() {
             <div
               ref={popRef}
               className="absolute left-1/2 -translate-x-1/2 bottom-full mb-4
-                         w-[min(92vw,64rem)] rounded-2xl bg-gray-900/85 backdrop-blur
-                         ring-1 ring-white/10 shadow-2xl p-4 sm:p-6 animate-popoverFade"
+                         w-[min(92vw,64rem)] rounded-2xl bg-white/90 dark:bg-gray-900/85 backdrop-blur
+                         ring-1 ring-gray-200/50 dark:ring-white/10 shadow-2xl p-4 sm:p-6 animate-popoverFade"
               role="dialog"
               aria-label="Viri novic"
             >
@@ -176,8 +177,8 @@ export default function Footer() {
                       href={it.url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex items-center gap-2 px-2 py-2 rounded-lg text-gray-300
-                                 hover:text-white hover:bg-gray-800/60 transition"
+                      className="flex items-center gap-2 px-2 py-2 rounded-lg text-gray-700 dark:text-gray-300
+                                 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100/60 dark:hover:bg-gray-800/60 transition"
                     >
                       <LogoImg slug={it.slug} origin={origin} label={it.name} />
                       <span className="text-sm">{it.name}</span>
@@ -191,7 +192,7 @@ export default function Footer() {
         </div>
       </div>
 
-      <div className="border-t border-gray-800 mt-12 pt-4 text-center text-sm text-gray-500">
+      <div className="border-t border-gray-200 dark:border-gray-800 mt-12 pt-4 text-center text-sm text-gray-500">
         <p className="italic mb-2">“Informacija ni znanje. Edino razumevanje šteje.” – Albert Einstein</p>
         <p>© {year} Križišče – Vse pravice pridržane.</p>
       </div>

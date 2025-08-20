@@ -43,7 +43,7 @@ export default function SourcesMenu({ items, className = "" }: Props) {
         aria-expanded={open}
         aria-label="Viri novic"
         onClick={() => setOpen((v) => !v)}
-        className="relative h-9 w-9 rounded-full bg-gray-800/70 ring-1 ring-white/10 hover:bg-gray-700 text-white grid place-items-center transition"
+        className="relative h-9 w-9 rounded-full bg-white/40 dark:bg-gray-800/70 ring-1 ring-gray-200/50 dark:ring-white/10 hover:bg-white/60 dark:hover:bg-gray-700 text-gray-700 dark:text-white grid place-items-center transition backdrop-blur-sm"
       >
         {/* 3 krogci v orbiti – nežna animacija */}
         <span className="relative block h-5 w-5">
@@ -61,9 +61,9 @@ export default function SourcesMenu({ items, className = "" }: Props) {
           ref={menuRef}
           role="menu"
           tabIndex={-1}
-          className="absolute right-0 mt-2 w-64 max-h-80 overflow-auto rounded-xl bg-gray-850/95 backdrop-blur shadow-xl ring-1 ring-white/10 p-2 z-50"
+          className="absolute right-0 mt-2 w-64 max-h-80 overflow-auto rounded-xl bg-white/80 dark:bg-gray-850/95 backdrop-blur shadow-xl ring-1 ring-gray-200/50 dark:ring-white/10 p-2 z-50"
         >
-          <p className="px-2 pb-2 text-xs uppercase tracking-wide text-gray-400">
+          <p className="px-2 pb-2 text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">
             Viri novic
           </p>
           <div className="grid gap-1">
@@ -73,9 +73,9 @@ export default function SourcesMenu({ items, className = "" }: Props) {
                 href={it.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-gray-750 text-gray-200"
+                className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-750 text-gray-700 dark:text-gray-200"
               >
-                <span className="grid h-6 w-6 place-items-center rounded-full bg-gray-700 text-[10px] font-bold">
+                <span className="grid h-6 w-6 place-items-center rounded-full bg-gray-300 text-gray-700 dark:bg-gray-700 dark:text-gray-200 text-[10px] font-bold">
                   {it.name.slice(0, 2)}
                 </span>
                 <span className="text-sm">{it.name}</span>
