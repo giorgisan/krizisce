@@ -24,7 +24,6 @@ export default function ArticleCard({ news }: Props) {
     if (e.metaKey || e.ctrlKey || e.button === 1) return
     e.preventDefault()
     window.open(news.link, '_blank')
-
     try {
       await fetch('/api/click', {
         method: 'POST',
@@ -43,7 +42,9 @@ export default function ArticleCard({ news }: Props) {
         target="_blank"
         rel="noopener noreferrer"
         onClick={handleClick}
-        className="group block bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden transition-all duration-200 transform hover:scale-[1.01] hover:bg-gray-100 dark:hover:bg-gray-700"
+        className="group block bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden 
+                   transition-all duration-200 transform hover:scale-[1.01] 
+                   hover:bg-gray-100 dark:hover:bg-gray-700"
       >
         <div className="relative w-full aspect-[16/9] overflow-hidden">
           <Image
@@ -53,52 +54,38 @@ export default function ArticleCard({ news }: Props) {
             className="object-cover"
             loading="lazy"
           />
-
-          {/* Gumb za predogled */}
-          <div className="absolute top-2 right-2">
-            <button
-              onClick={(e) => {
-                e.preventDefault()
-                e.stopPropagation()
-                setShowPreview(true)
-              }}
-              aria-label="Prikaži predogled"
-              className="relative p-2 rounded-full
-                         bg-white/80 dark:bg-gray-900/70 
-                         text-gray-700 dark:text-gray-200 
-                         shadow-sm 
-                         opacity-0 scale-90 
-                         group-hover:opacity-100 group-hover:scale-100
-                         hover:scale-125 hover:bg-white dark:hover:bg-gray-800
-                         transition-all duration-300 ease-out hover:animate-bounce-subtle"
+          <button
+            onClick={(e) => {
+              e.preventDefault()
+              e.stopPropagation()
+              setShowPreview(true)
+            }}
+            aria-label="Predogled"
+            title="Predogled"
+            className="absolute top-2 right-2 p-2 bg-white/80 hover:bg-white 
+                       rounded-full text-gray-700 hover:text-gray-900 
+                       transition-transform duration-200 hover:animate-bounce-subtle"
+          >
+            {/* Ikona oko */}
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
+              className="w-5 h-5"
             >
-              {/* Oko ikona */}
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
+              <path
                 strokeLinecap="round"
                 strokeLinejoin="round"
-                className="w-4 h-4"
-              >
-                <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z" />
-                <circle cx="12" cy="12" r="3" />
-              </svg>
-
-              {/* Tooltip */}
-              <span
-                className="absolute -bottom-8 left-1/2 -translate-x-1/2
-                           px-2 py-1 text-xs rounded-md
-                           bg-gray-800 text-white
-                           opacity-0 group-hover:opacity-0 hover:opacity-100
-                           transition-opacity duration-200 whitespace-nowrap"
-              >
-                Predogled
-              </span>
-            </button>
-          </div>
+                d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.364 4.5 
+                   12 4.5c4.636 0 8.577 3.01 9.964 7.183.07.207.07.431 
+                   0 .639C20.577 16.49 16.636 19.5 12 19.5c-4.636 
+                   0-8.577-3.01-9.964-7.183z"
+              />
+              <circle cx="12" cy="12" r="3" />
+            </svg>
+          </button>
         </div>
 
         <div className="p-3">
@@ -126,12 +113,9 @@ export default function ArticleCard({ news }: Props) {
           )}
         </div>
       </a>
-
       {showPreview && (
         <ArticlePreview url={news.link} onClose={() => setShowPreview(false)} />
       )}
     </>
   )
 }
-
-/* Tailwind: dodaš custom animacijo bounce */
