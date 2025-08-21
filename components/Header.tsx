@@ -67,7 +67,7 @@ export default function Header() {
                 Križišče
               </h1>
               <p className="text-xs sm:text-[13px] text-gray-600 dark:text-gray-400 mt-0.5">
-                Najnovejše novice slovenskih medijev
+                Zadnje novice slovenskih medijev
               </p>
             </div>
           </Link>
