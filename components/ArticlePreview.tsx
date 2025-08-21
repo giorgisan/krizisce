@@ -9,15 +9,13 @@ import { MouseEvent, useMemo, useState, type ComponentType } from 'react'
 import Image from 'next/image'
 import dynamic from 'next/dynamic'
 
-type CardProps = {
-  news: NewsItem
-}
+type CardProps = { news: NewsItem }
 
-// ---- tipi za dinamični predogled (to rabimo, da TS ne zmeša tipov) ----
+// ---- tipi za modal s predogledom ----
 type PreviewProps = { url: string; onClose: () => void }
 
-// Nekatere TS različice ignorirajo generik na dynamic<...>. Zanesljiv cast:
-const ArticlePreview = dynamic(
+// Dinamični uvoz modala (brez SSR) + zanesljiv cast tipa props
+const PreviewModal = dynamic(
   () => import('./ArticlePreview'),
   { ssr: false }
 ) as ComponentType<PreviewProps>
@@ -38,7 +36,7 @@ export default function ArticleCard({ news }: CardProps) {
     }
   }
 
-  // (rezervno) inicialke vira
+  // (rezervno) inicialke vira (trenutno neuporabljeno, puščam za prihodnje)
   const sourceInitials = useMemo(() => {
     const parts = (news.source || '').split(' ').filter(Boolean)
     if (parts.length === 0) return '??'
@@ -48,6 +46,7 @@ export default function ArticleCard({ news }: CardProps) {
 
   const [showPreview, setShowPreview] = useState(false)
 
+  // Odpri članek v novem zavihku + zabeleži klik
   const handleClick = async (e: MouseEvent<HTMLAnchorElement>) => {
     if (e.metaKey || e.ctrlKey || e.button === 1) return
     e.preventDefault()
@@ -94,7 +93,7 @@ export default function ArticleCard({ news }: CardProps) {
             />
           )}
 
-          {/* Predogled – oko */}
+          {/* Gumb za predogled – oko */}
           <button
             onClick={(e) => {
               e.preventDefault()
@@ -113,6 +112,7 @@ export default function ArticleCard({ news }: CardProps) {
               <circle cx="12" cy="12" r="3.5" stroke="currentColor" strokeWidth="2" fill="none"/>
             </svg>
           </button>
+          {/* Tooltip “Predogled” */}
           <span
             className="pointer-events-none absolute top-2 right-12 translate-y-0.5
                        rounded-md px-2 py-1 text-xs font-medium
@@ -149,7 +149,7 @@ export default function ArticleCard({ news }: CardProps) {
       </a>
 
       {showPreview && (
-        <ArticlePreview url={news.link} onClose={() => setShowPreview(false)} />
+        <PreviewModal url={news.link} onClose={() => setShowPreview(false)} />
       )}
     </>
   )
