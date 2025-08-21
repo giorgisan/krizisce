@@ -24,6 +24,8 @@
   "devDependencies": {
     "@types/node": "^20.6.0",
     "@types/react": "^18.2.15",
+    "@csstools/postcss-container-query": "^1.0.0",
+    "@csstools/postcss-nested": "^5.0.0",
     "autoprefixer": "^10.4.12",
     "eslint": "^8.56.0",
     "eslint-config-next": "13.5.6",

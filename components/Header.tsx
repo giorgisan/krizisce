@@ -37,7 +37,7 @@ export default function Header() {
     window.dispatchEvent(new CustomEvent('toggle-filters'))
 
   return (
-    <header className="sticky top-0 z-40 bg-[#FAFAFA]/95 dark:bg-gray-900/70 backdrop-blur-md border-b border-gray-200 dark:border-gray-700 shadow-sm">
+    <header className="container sticky top-0 z-40 bg-[#FAFAFA]/95 dark:bg-gray-900/70 backdrop-blur-md border-b border-gray-200 dark:border-gray-700 shadow-sm">
       {/* Enaka vodoravna poravnava kot v <main> */}
       <div className="h-12 px-4 md:px-8 lg:px-16 flex items-center justify-between">
         {/* Logo + naslov */}
