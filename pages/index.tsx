@@ -14,6 +14,7 @@ import Footer from '@/components/Footer'
 import Header from '@/components/Header'
 import { SOURCES } from '@/lib/sources'
 import ArticleCard from '@/components/ArticleCard'
+import SeoHead from '@/components/SeoHead'
 
 async function loadNews(forceFresh: boolean): Promise<NewsItem[] | null> {
   try {
@@ -131,9 +132,17 @@ export default function Home({ initialNews }: Props) {
 
   return (
     <>
+      {/* SEO meta in pravilni <title> */}
+      <SeoHead
+        title="Križišče"
+        description="Agregator najnovejših novic iz slovenskih medijev. Članki so last izvornih portalov."
+        url="https://krizisce.si/"
+        image="/logos/default-news.jpg"
+      />
+
       <Header />
 
-      {/* Vsebina – več “zraka” in boljše svetlo ozadje */}
+      {/* Vsebina */}
       <main className="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white px-4 md:px-8 lg:px-16 pt-5 lg:pt-6 pb-24">
         {/* STICKY čip “Pokaži vse” – le, ko je izbran specifičen vir */}
         <AnimatePresence>
@@ -163,7 +172,6 @@ export default function Home({ initialNews }: Props) {
         <AnimatePresence>
           {drawerOpen && (
             <>
-              {/* Backdrop */}
               <motion.div
                 key="backdrop"
                 initial={{ opacity: 0 }}
@@ -173,7 +181,6 @@ export default function Home({ initialNews }: Props) {
                 className="fixed inset-0 z-40 bg-black/60 backdrop-blur-[2px]"
                 onClick={() => setDrawerOpen(false)}
               />
-              {/* Panel */}
               <motion.aside
                 key="drawer"
                 initial={{ x: '100%', opacity: 0.6 }}
@@ -202,7 +209,6 @@ export default function Home({ initialNews }: Props) {
                 </div>
 
                 <nav className="p-3 overflow-y-auto">
-                  {/* Pokaži vse */}
                   <button
                     onClick={resetFilter}
                     className={`w-full text-left px-3 py-2 rounded-md mb-2 transition ${
@@ -214,7 +220,6 @@ export default function Home({ initialNews }: Props) {
                     Pokaži vse
                   </button>
 
-                  {/* Viri */}
                   {SOURCES.filter((s) => s !== 'Vse').map((source, idx) => (
                     <motion.button
                       key={source}
@@ -270,7 +275,6 @@ export default function Home({ initialNews }: Props) {
           </div>
         )}
 
-        {/* Separator nad footerjem – subtilna črta, ujemanje z max širino kartic */}
         <hr className="max-w-6xl mx-auto mt-4 border-t border-gray-200 dark:border-gray-700" />
       </main>
 
