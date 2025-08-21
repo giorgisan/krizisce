@@ -162,7 +162,7 @@ export default function Header() {
             type="button"
             onClick={toggleFilters}
             aria-label="Odpri filter"
-            title="Filtri"
+            title="Filtriraj vire"
             className="inline-flex h-10 w-10 items-center justify-center rounded-md
                        text-black/45 dark:text-white/55
                        hover:text-black/85 dark:hover:text-white/85
