@@ -97,6 +97,23 @@ body {
 .line-clamp-3 { -webkit-line-clamp: 3; }
 .line-clamp-4 { -webkit-line-clamp: 4; }
 
+/* ---------------------------------
+   CONTAINER QUERIES
+---------------------------------- */
+.container {
+  container-type: inline-size;
+}
+
+@container (min-width: 400px) {
+  .article-title {
+    -webkit-line-clamp: 2;
+  }
+  .article-snippet {
+    font-size: 1rem;
+    -webkit-line-clamp: 3;
+  }
+}
+
 @media (min-width: 640px) {
   .sm\:line-clamp-2 { display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2; overflow:hidden; }
   .sm\:line-clamp-3 { display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:3; overflow:hidden; }

@@ -34,7 +34,7 @@ export default function SourcesMenu({ items, className = "" }: Props) {
   }, [open])
 
   return (
-    <div className={`relative ${className}`}>
+    <div className={`container relative ${className}`}>
       {/* Gumb z vrtečimi se krogci */}
       <button
         ref={btnRef}
