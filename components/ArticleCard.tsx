@@ -128,8 +128,9 @@ export default function ArticleCard({ news }: Props) {
               hidden md:block pointer-events-none
               absolute top-2 right-[calc(0.5rem+2rem+8px)]
               rounded-md px-2 py-1 text-xs font-medium
-              bg-black/70 text-white shadow
-
+              bg-black/60 text-white
+              backdrop-blur-sm drop-shadow-lg
+          
               opacity-0 -translate-x-1
               transition-all duration-150
               md:peer-hover:opacity-100 md:peer-hover:translate-x-0
@@ -137,7 +138,6 @@ export default function ArticleCard({ news }: Props) {
           >
             Predogled&nbsp;novice
           </span>
-        </div>
 
         {/* TEXT */}
         <div className="p-3">
