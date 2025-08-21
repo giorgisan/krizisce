@@ -5,7 +5,7 @@ import { NewsItem } from '@/types'
 import { format } from 'date-fns'
 import { sl } from 'date-fns/locale'
 import { sourceColors } from '@/lib/sources'
-import { MouseEvent, useMemo, useState } from 'react'
+import { MouseEvent, useMemo, useState, ComponentType } from 'react'
 import Image from 'next/image'
 import dynamic from 'next/dynamic'
 
@@ -13,7 +13,13 @@ interface Props {
   news: NewsItem
 }
 
-const ArticlePreview = dynamic(() => import('./ArticlePreview'), { ssr: false })
+// tipi za predogledni modal
+type PreviewProps = { url: string; onClose: () => void }
+
+// ArticlePreview dinamično naložimo in ga eksplicitno tipiziramo
+const ArticlePreview = dynamic(() => import('./ArticlePreview'), {
+  ssr: false,
+}) as ComponentType<PreviewProps>
 
 const FALLBACK_SRC = '/logos/default-news.jpg'
 
@@ -31,7 +37,6 @@ export default function ArticleCard({ news }: Props) {
     }
   }
 
-  // (trenutno neuporabljeno – če boš kdaj želel badge z inicialkami)
   const sourceInitials = useMemo(() => {
     const parts = (news.source || '').split(' ').filter(Boolean)
     if (parts.length === 0) return '??'
