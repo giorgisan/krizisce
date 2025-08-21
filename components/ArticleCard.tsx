@@ -13,16 +13,16 @@ interface Props {
 
 const ArticlePreview = dynamic(() => import('./ArticlePreview'), { ssr: false })
 
-const FALLBACK_SRC = '/logos/default-news.jpg' // <- imaš ga v /public/logos/
+// Rezervna slika (če želiš drugačno datoteko, zamenjaj pot)
+const FALLBACK_SRC = '/logos/default-news.jpg'
 
 export default function ArticleCard({ news }: Props) {
   const formattedDate = format(new Date(news.isoDate), 'd. MMM, HH:mm', { locale: sl })
   const sourceColor = sourceColors[news.source] || '#fc9c6c'
 
-  // --- Fallback logika ---
+  // ----- Slika + fallback -----
   const [imgSrc, setImgSrc] = useState<string | null>(news.image || null)
   const [useFallback, setUseFallback] = useState<boolean>(!news.image)
-
   const onImgError = () => {
     if (!useFallback) {
       setImgSrc(FALLBACK_SRC)
@@ -30,7 +30,7 @@ export default function ArticleCard({ news }: Props) {
     }
   }
 
-  // začetnice vira (za “no image” ploščico)
+  // Začetnice vira (če jih kdaj želiš prikazati; trenutno ne)
   const sourceInitials = useMemo(() => {
     const parts = (news.source || '').split(' ').filter(Boolean)
     if (parts.length === 0) return '??'
@@ -40,6 +40,7 @@ export default function ArticleCard({ news }: Props) {
 
   const [showPreview, setShowPreview] = useState(false)
 
+  // Odpri članek v novem zavihku + zabeleži klik
   const handleClick = async (e: MouseEvent<HTMLAnchorElement>) => {
     if (e.metaKey || e.ctrlKey || e.button === 1) return
     e.preventDefault()
@@ -50,7 +51,9 @@ export default function ArticleCard({ news }: Props) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ source: news.source, url: news.link }),
       })
-    } catch {}
+    } catch {
+      /* ignore */
+    }
   }
 
   return (
@@ -65,24 +68,12 @@ export default function ArticleCard({ news }: Props) {
         {/* MEDIA */}
         <div className="relative w-full aspect-[16/9] overflow-hidden">
           {useFallback ? (
-            // Lep “no image” blok, ko slike ni ali je zatajila
+            // Minimalističen fallback: gradient + “Ni slike”
             <div className="absolute inset-0 flex items-center justify-center">
               <div className="absolute inset-0 bg-gradient-to-br from-gray-200 via-gray-300 to-gray-200 dark:from-gray-700 dark:via-gray-800 dark:to-gray-700" />
-              <div className="relative z-10 flex items-center gap-2 px-3 py-1.5 rounded-full bg-black/30 text-white backdrop-blur-sm">
-                {/* Očesce/preview ikonca kot “decor” */}
-                <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
-                  <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12Z" stroke="currentColor" strokeWidth="1.7" fill="none"/>
-                  <circle cx="12" cy="12" r="3.5" stroke="currentColor" strokeWidth="1.7" fill="none"/>
-                </svg>
-                <span className="text-xs font-medium tracking-wide">Ni slike</span>
-                <span
-                  className="ml-2 grid h-6 w-6 place-items-center rounded-full text-[10px] font-bold"
-                  style={{ background: sourceColor }}
-                  title={news.source}
-                >
-                  {sourceInitials}
-                </span>
-              </div>
+              <span className="relative z-10 text-sm font-medium text-gray-700 dark:text-gray-300">
+                Ni slike
+              </span>
             </div>
           ) : (
             <Image
@@ -92,16 +83,15 @@ export default function ArticleCard({ news }: Props) {
               className="object-cover transition-opacity duration-300 opacity-0 data-[loaded=true]:opacity-100"
               onError={onImgError}
               onLoad={(e) => {
-                // dodaj data-loaded za fade-in
                 (e.target as HTMLImageElement).setAttribute('data-loaded', 'true')
               }}
-              // pomaga pri hotlink 403
+              // zmanjša možnosti 403 zaradi refererja
               referrerPolicy="no-referrer"
               loading="lazy"
             />
           )}
 
-          {/* PREVIEW “oko” gumb */}
+          {/* Gumb za predogled – “oko” (z močnejšim hover scale + tooltip) */}
           <button
             onClick={(e) => {
               e.preventDefault()
@@ -109,18 +99,27 @@ export default function ArticleCard({ news }: Props) {
               setShowPreview(true)
             }}
             aria-label="Predogled"
-            className="absolute top-2 right-2 h-8 w-8 rounded-full grid place-items-center
+            className="peer absolute top-2 right-2 h-8 w-8 rounded-full grid place-items-center
                        bg-white/75 dark:bg-gray-900/75 ring-1 ring-black/10 dark:ring-white/10
                        text-gray-700 dark:text-gray-200
-                       transition transform
-                       hover:scale-110 hover:bg-white dark:hover:bg-gray-800"
+                       transition-transform duration-150
+                       hover:scale-125 active:scale-110"
           >
             <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
               <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12Z" stroke="currentColor" strokeWidth="2" fill="none"/>
               <circle cx="12" cy="12" r="3.5" stroke="currentColor" strokeWidth="2" fill="none"/>
             </svg>
-            <span className="sr-only">Predogled</span>
           </button>
+          {/* Tooltip “Predogled” – pokaži samo ob hoveru na oko */}
+          <span
+            className="pointer-events-none absolute top-2 right-12 translate-y-0.5
+                       rounded-md px-2 py-1 text-xs font-medium
+                       bg-black/65 text-white shadow
+                       opacity-0 transition-opacity duration-150
+                       peer-hover:opacity-100"
+          >
+            Predogled
+          </span>
         </div>
 
         {/* TEXT */}
