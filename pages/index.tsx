@@ -16,6 +16,7 @@ import Footer from '@/components/Footer'
 import Header from '@/components/Header'
 import { SOURCES } from '@/lib/sources'
 import ArticleCard from '@/components/ArticleCard'
+import SeoHead from '@/components/SeoHead'   // ✅ dodano
 
 async function loadNews(forceFresh: boolean): Promise<NewsItem[] | null> {
   try {
@@ -37,11 +38,9 @@ export default function Home({ initialNews }: Props) {
   const deferredFilter = useDeferredValue(filter)
   const [displayCount, setDisplayCount] = useState<number>(20)
 
-  // Dropdown stanje + pozicija (poravnan pod headerjem)
   const [menuOpen, setMenuOpen] = useState(false)
   const [pos, setPos] = useState<{ top: number; right: number }>({ top: 0, right: 0 })
 
-  // odpiranje/zapiranje iz headerja
   useEffect(() => {
     const handler = () => {
       computeDropdownPos()
@@ -51,7 +50,6 @@ export default function Home({ initialNews }: Props) {
     return () => window.removeEventListener('toggle-filters', handler as EventListener)
   }, [])
 
-  // === FIX: izračun pozicije za FIXED panel (brez scrollY) ===
   const computeDropdownPos = () => {
     const trigger = document.getElementById('filters-trigger')
     const header = document.getElementById('site-header')
@@ -59,12 +57,10 @@ export default function Home({ initialNews }: Props) {
     const triggerRect = trigger?.getBoundingClientRect()
     const headerRect = header?.getBoundingClientRect()
 
-    // panel naj bo tik pod headerjem oz. tik pod gumbom (kar je nižje)
     const topFromTrigger = (triggerRect?.bottom ?? 56) + 8
     const topFromHeader = (headerRect?.bottom ?? 56) + 8
     const top = Math.max(topFromHeader, topFromTrigger)
 
-    // poravnamo desni rob z desnim robom gumba
     const right = Math.max(
       0,
       window.innerWidth - (triggerRect?.right ?? window.innerWidth)
@@ -73,7 +69,6 @@ export default function Home({ initialNews }: Props) {
     setPos({ top, right })
   }
 
-  // ob odprtju, resize, scroll (ko je odprt) ponovno izračunaj pozicijo
   useEffect(() => {
     computeDropdownPos()
     const onResize = () => computeDropdownPos()
@@ -87,7 +82,6 @@ export default function Home({ initialNews }: Props) {
     }
   }, [menuOpen])
 
-  // zapri na ESC
   useEffect(() => {
     if (!menuOpen) return
     const onKey = (e: KeyboardEvent) => {
@@ -97,7 +91,6 @@ export default function Home({ initialNews }: Props) {
     return () => document.removeEventListener('keydown', onKey)
   }, [menuOpen])
 
-  // fresh indikator
   const [freshNews, setFreshNews] = useState<NewsItem[] | null>(null)
   const [hasNew, setHasNew] = useState(false)
 
@@ -130,7 +123,6 @@ export default function Home({ initialNews }: Props) {
     }
   }, [news, initialNews])
 
-  // refresh poslušalec
   useEffect(() => {
     const onRefresh = () => {
       window.dispatchEvent(new CustomEvent('news-refreshing', { detail: true }))
@@ -159,7 +151,6 @@ export default function Home({ initialNews }: Props) {
     return () => window.removeEventListener('refresh-news', onRefresh as EventListener)
   }, [freshNews, hasNew])
 
-  // filtriranje
   const sortedNews = useMemo(
     () => [...news].sort((a, b) => new Date(b.pubDate).getTime() - new Date(a.pubDate).getTime()),
     [news]
@@ -188,11 +179,16 @@ export default function Home({ initialNews }: Props) {
     <>
       <Header />
 
-      {/* DROPDOWN – poravnan pod headerjem (desno) */}
+      {/* ✅ Dodan SEO HEAD */}
+      <SeoHead
+        title="Križišče"
+        description="Agregator najnovejših novic iz slovenskih medijev. Članki so last izvornih portalov."
+      />
+
+      {/* DROPDOWN */}
       <AnimatePresence>
         {menuOpen && (
           <>
-            {/* click‑away, da se na klik izven zapre */}
             <motion.div
               key="clickaway"
               initial={{ opacity: 0 }}
@@ -202,7 +198,6 @@ export default function Home({ initialNews }: Props) {
               className="fixed inset-0 z-30 bg-transparent"
               onClick={() => setMenuOpen(false)}
             />
-            {/* panel (fixed) */}
             <motion.div
               key="filter-dropdown"
               initial={{ opacity: 0, y: -6 }}
@@ -268,9 +263,7 @@ export default function Home({ initialNews }: Props) {
         )}
       </AnimatePresence>
 
-      {/* Vsebina */}
       <main className="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white px-4 md:px-8 lg:px-16 pt-5 lg:pt-6 pb-24">
-        {/* STICKY čip “Pokaži vse” */}
         <AnimatePresence>
           {deferredFilter !== 'Vse' && (
             <motion.div
@@ -294,7 +287,6 @@ export default function Home({ initialNews }: Props) {
           )}
         </AnimatePresence>
 
-        {/* GRID kartic */}
         {visibleNews.length === 0 ? (
           <p className="text-gray-500 dark:text-gray-400 text-center w-full mt-10">
             Ni novic za izbrani vir ali napaka pri nalaganju.
@@ -310,10 +302,7 @@ export default function Home({ initialNews }: Props) {
               className="grid gap-6 grid-cols-2 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5"
             >
               {visibleNews.map((article) => (
-                <ArticleCard
-                  key={article.link} // stabilen key prepreči “zamenjane” slike
-                  news={article}
-                />
+                <ArticleCard key={article.link} news={article} />
               ))}
             </motion.div>
           </AnimatePresence>
