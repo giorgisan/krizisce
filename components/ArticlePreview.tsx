@@ -33,7 +33,8 @@ function imageKeyFromSrc(src: string | null | undefined): string {
 /** “Stem” zadnjega segmenta poti (brez končnice), očiščen suffixev. */
 function basenameStem(pathname: string): string {
   const last = pathname.split('/').pop() || ''
-  const name = last.replace(/\.[a-z0-9]+$/, '')
+  const name = last
+    .replace(/\.[a-z0-9]+$/, '')
     .replace(/(-|\_)?\d{2,4}x\d{2,4}$/g, '')
     .replace(/(-|\_)?\d{2,4}x$/g, '')
     .replace(/-scaled$/g, '')
@@ -70,8 +71,7 @@ function cleanPreviewHTML(html: string): string {
       }
     })
 
-    // 4) dodatno: odstrani prvo kasnejšo sliko z istim “stemom” kot hero,
-    //    tudi če je drugačna velikost/format (N1, Svet24 ipd.)
+    // 4) dodatno: odstrani prvo kasnejšo sliko z istim “stemom” kot hero
     const rest = Array.from(wrap.querySelectorAll('img')).slice(1)
     for (const img of rest) {
       const raw = img.getAttribute('src') || img.getAttribute('data-src') || ''
@@ -104,6 +104,7 @@ export default function ArticlePreview({ url, onClose }: Props) {
   const modalRef = useRef<HTMLDivElement>(null)
   const closeRef = useRef<HTMLButtonElement>(null)
 
+  // naloži/sanitizira vsebino
   useEffect(() => {
     let alive = true
     const fetchContent = async () => {
@@ -130,9 +131,12 @@ export default function ArticlePreview({ url, onClose }: Props) {
       }
     }
     fetchContent()
-    return () => { alive = false }
+    return () => {
+      alive = false
+    }
   }, [url])
 
+  // focus trap + zakleni scroll + skrij underline v ozadju
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose()
@@ -144,9 +148,13 @@ export default function ArticlePreview({ url, onClose }: Props) {
         const first = focusable[0]
         const last = focusable[focusable.length - 1]
         if (e.shiftKey) {
-          if (document.activeElement === first) { e.preventDefault(); last.focus() }
+          if (document.activeElement === first) {
+            e.preventDefault()
+            last.focus()
+          }
         } else if (document.activeElement === last) {
-          e.preventDefault(); first.focus()
+          e.preventDefault()
+          first.focus()
         }
       }
     }
@@ -154,13 +162,13 @@ export default function ArticlePreview({ url, onClose }: Props) {
     document.addEventListener('keydown', handleKeyDown)
     const prevOverflow = document.body.style.overflow
     document.body.style.overflow = 'hidden'
-    document.body.classList.add('preview-open')
+    document.body.classList.add('modal-open') // <-- vklopi globalni anti-underline
     setTimeout(() => closeRef.current?.focus(), 0)
 
     return () => {
       document.removeEventListener('keydown', handleKeyDown)
       document.body.style.overflow = prevOverflow
-      document.body.classList.remove('preview-open')
+      document.body.classList.remove('modal-open') // <-- počisti
     }
   }, [onClose])
 
@@ -171,7 +179,9 @@ export default function ArticlePreview({ url, onClose }: Props) {
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 transition-opacity duration-300"
       role="dialog"
       aria-modal="true"
-      onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose()
+      }}
     >
       <div
         ref={modalRef}
