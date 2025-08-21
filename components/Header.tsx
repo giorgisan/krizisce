@@ -54,7 +54,7 @@ export default function Header() {
               Križišče
             </h1>
             <span className="hidden sm:inline text-sm font-normal text-gray-600 dark:text-gray-400 truncate max-w-[45vw]">
-              | Najnovejše novice slovenskih medijev
+              Najnovejše novice slovenskih medijev
             </span>
           </div>
         </Link>
