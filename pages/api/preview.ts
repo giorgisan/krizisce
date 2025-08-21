@@ -7,9 +7,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return
   }
   try {
-    const response = await fetch(url)
+    const response = await fetch(url, {
+      headers: {
+        'User-Agent':
+          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept-Language': 'en-US,en;q=0.9',
+      },
+    })
     if (!response.ok) {
-      res.status(500).json({ error: 'Failed to fetch url' })
+      res.status(500).json({ error: 'Failed to fetch preview' })
       return
     }
     const html = await response.text()
