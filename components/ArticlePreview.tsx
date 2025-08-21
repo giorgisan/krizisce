@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import DOMPurify from 'dompurify'
 
 interface Props {
@@ -59,7 +60,9 @@ export default function ArticlePreview({ url, onClose }: Props) {
     }
   }, [onClose])
 
-  return (
+  if (typeof document === 'undefined') return null
+
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" role="dialog" aria-modal="true">
       <div
         ref={modalRef}
@@ -87,6 +90,7 @@ export default function ArticlePreview({ url, onClose }: Props) {
         </button>
         <div dangerouslySetInnerHTML={{ __html: content }} />
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }
