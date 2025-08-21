@@ -2,12 +2,15 @@ import { NewsItem } from '@/types'
 import { format } from 'date-fns'
 import { sl } from 'date-fns/locale'
 import { sourceColors } from '@/lib/sources'
-import { MouseEvent } from 'react'
+import { MouseEvent, useState } from 'react'
 import Image from 'next/image'
+import dynamic from 'next/dynamic'
 
 interface Props {
   news: NewsItem
 }
+
+const ArticlePreview = dynamic(() => import('./ArticlePreview'), { ssr: false })
 
 export default function ArticleCard({ news }: Props) {
   const formattedDate = format(new Date(news.isoDate), 'd. MMM, HH:mm', {
@@ -15,6 +18,8 @@ export default function ArticleCard({ news }: Props) {
   })
 
   const sourceColor = sourceColors[news.source] || '#fc9c6c'
+
+  const [showPreview, setShowPreview] = useState(false)
 
   const handleClick = async (e: MouseEvent<HTMLAnchorElement>) => {
     // Ignoriraj srednji klik in Ctrl/Cmd + klik (brskalnik sam odpre v novem zavihku)
@@ -60,6 +65,29 @@ export default function ArticleCard({ news }: Props) {
           className="object-cover"
           loading="lazy"
         />
+        <button
+          onClick={(e) => {
+            e.preventDefault()
+            e.stopPropagation()
+            setShowPreview(true)
+          }}
+          aria-label="Prikaži predogled"
+          className="absolute top-2 right-2 p-2 bg-white/80 hover:bg-white rounded-full text-gray-700 hover:text-gray-900"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="w-4 h-4"
+          >
+            <circle cx="11" cy="11" r="8" />
+            <line x1="21" y1="21" x2="16.65" y2="16.65" />
+          </svg>
+        </button>
       </div>
 
       <div className="p-3">
@@ -86,6 +114,9 @@ export default function ArticleCard({ news }: Props) {
           </p>
         )}
       </div>
+      {showPreview && (
+        <ArticlePreview url={news.link} onClose={() => setShowPreview(false)} />
+      )}
     </a>
   )
 }
