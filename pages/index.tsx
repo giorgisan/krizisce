@@ -1,10 +1,4 @@
-import React, {
-  useEffect,
-  useMemo,
-  useState,
-  useDeferredValue,
-  startTransition,
-} from 'react'
+import React, { useEffect, useMemo, useState, useDeferredValue, startTransition } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 
 import { NewsItem } from '@/types'
@@ -19,9 +13,7 @@ async function loadNews(forceFresh: boolean): Promise<NewsItem[] | null> {
     const res = await fetch(`/api/news${forceFresh ? '?forceFresh=1' : ''}`, { cache: 'no-store' })
     const fresh: NewsItem[] = await res.json()
     return Array.isArray(fresh) && fresh.length ? fresh : null
-  } catch {
-    return null
-  }
+  } catch { return null }
 }
 
 type Props = { initialNews: NewsItem[] }
@@ -32,28 +24,25 @@ export default function Home({ initialNews }: Props) {
   const deferredFilter = useDeferredValue(filter)
   const [displayCount, setDisplayCount] = useState<number>(20)
 
-  // Dropdown stanje + pozicija (pod hamburgerjem)
+  /* -------- dropdown filter (pozicija pod hamburgerjem) -------- */
   const [menuOpen, setMenuOpen] = useState(false)
   const [pos, setPos] = useState<{ top: number; right: number }>({ top: 0, right: 0 })
 
-  // odpri/zapri iz headerja
+  const computeDropdownPos = () => {
+    const trigger = document.getElementById('filters-trigger')
+    const rect = trigger?.getBoundingClientRect()
+    // ker uporabljamo position: fixed, NE dodajamo scrollY
+    const top = (rect?.bottom ?? 56) + 8
+    const right = Math.max(0, window.innerWidth - (rect?.right ?? window.innerWidth))
+    setPos({ top, right })
+  }
+
   useEffect(() => {
-    const handler = () => {
-      computeDropdownPos()
-      setMenuOpen((s) => !s)
-    }
+    const handler = () => { computeDropdownPos(); setMenuOpen((s) => !s) }
     window.addEventListener('toggle-filters', handler as EventListener)
     return () => window.removeEventListener('toggle-filters', handler as EventListener)
   }, [])
 
-  // pozicija iz gumba #filters-trigger
-  const computeDropdownPos = () => {
-    const trigger = document.getElementById('filters-trigger')
-    const rect = trigger?.getBoundingClientRect()
-    const top = (rect?.bottom ?? 56) + window.scrollY
-    const right = Math.max(0, window.innerWidth - (rect?.right ?? window.innerWidth))
-    setPos({ top, right })
-  }
   useEffect(() => {
     computeDropdownPos()
     const onResize = () => computeDropdownPos()
@@ -61,24 +50,20 @@ export default function Home({ initialNews }: Props) {
     return () => window.removeEventListener('resize', onResize)
   }, [])
 
-  // zapri na ESC
   useEffect(() => {
     if (!menuOpen) return
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setMenuOpen(false)
-    }
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setMenuOpen(false) }
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
   }, [menuOpen])
 
-  // fresh indikator
+  /* -------- indikator novih novic -------- */
   const [freshNews, setFreshNews] = useState<NewsItem[] | null>(null)
   const [hasNew, setHasNew] = useState(false)
 
   useEffect(() => {
     let cancelled = false
     let timer: number | undefined
-
     const checkFresh = async () => {
       const fresh = await loadNews(true)
       if (!fresh || fresh.length === 0) {
@@ -97,16 +82,11 @@ export default function Home({ initialNews }: Props) {
         window.dispatchEvent(new CustomEvent('news-has-new', { detail: newer }))
       }
     }
-
     checkFresh()
     timer = window.setInterval(checkFresh, 60_000)
-    return () => {
-      cancelled = true
-      if (timer) window.clearInterval(timer)
-    }
+    return () => { cancelled = true; if (timer) window.clearInterval(timer) }
   }, [news, initialNews])
 
-  // refresh poslušalec
   useEffect(() => {
     const onRefresh = () => {
       window.dispatchEvent(new CustomEvent('news-refreshing', { detail: true }))
@@ -135,75 +115,47 @@ export default function Home({ initialNews }: Props) {
     return () => window.removeEventListener('refresh-news', onRefresh as EventListener)
   }, [freshNews, hasNew])
 
-  // filtriranje
+  /* -------- filtriranje -------- */
   const sortedNews = useMemo(
     () => [...news].sort((a, b) => new Date(b.pubDate).getTime() - new Date(a.pubDate).getTime()),
     [news]
   )
   const filteredNews =
-    deferredFilter === 'Vse' ? sortedNews : sortedNews.filter((a) => a.source === deferredFilter)
+    deferredFilter === 'Vse' ? sortedNews : sortedNews.filter(a => a.source === deferredFilter)
   const visibleNews = filteredNews.slice(0, displayCount)
 
-  const onPick = (s: string) =>
-    startTransition(() => {
-      setFilter(s)
-      setDisplayCount(20)
-      setMenuOpen(false)
-    })
-
-  const resetFilter = () =>
-    startTransition(() => {
-      setFilter('Vse')
-      setDisplayCount(20)
-      setMenuOpen(false)
-    })
-
-  const handleLoadMore = () => setDisplayCount((p) => p + 20)
+  const onPick = (s: string) => startTransition(() => { setFilter(s); setDisplayCount(20); setMenuOpen(false) })
+  const resetFilter = () => startTransition(() => { setFilter('Vse'); setDisplayCount(20); setMenuOpen(false) })
+  const handleLoadMore = () => setDisplayCount(p => p + 20)
 
   return (
     <>
       <Header />
 
-      {/* DROPDOWN – poravnan pod hamburgerjem (desno) */}
+      {/* DROPDOWN – zmeraj pod hamburgerjem */}
       <AnimatePresence>
         {menuOpen && (
           <>
-            {/* neviden "click-catcher" čez celo stran – zapre na klik */}
             <motion.div
               key="clickaway"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.05 }}
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.05 }}
               className="fixed inset-0 z-30 bg-transparent"
               onClick={() => setMenuOpen(false)}
             />
-            {/* sam panel; ustavimo bubble, da klik v njem ne zapre */}
             <motion.div
               key="filter-dropdown"
-              initial={{ opacity: 0, y: -6 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -6 }}
-              transition={{ duration: 0.16 }}
-              className="fixed z-40"
-              style={{ top: pos.top, right: pos.right }}
-              onClick={(e) => e.stopPropagation()}
+              initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} transition={{ duration: 0.16 }}
+              className="fixed z-40" style={{ top: pos.top, right: pos.right }} onClick={(e) => e.stopPropagation()}
             >
               <div
-                className="w-[86vw] max-w-[22rem]
-                           rounded-xl border border-gray-200/70 dark:border-gray-700/70
-                           bg-white/80 dark:bg-gray-900/75 backdrop-blur-xl
-                           shadow-xl overflow-hidden"
-                role="menu"
-                aria-label="Filtriraj vire"
+                className="w-[86vw] max-w-[22rem] rounded-xl border border-gray-200/70 dark:border-gray-700/70
+                           bg-white/80 dark:bg-gray-900/75 backdrop-blur-xl shadow-xl overflow-hidden"
+                role="menu" aria-label="Filtriraj vire"
               >
                 <div className="px-4 py-2 flex items-center justify-between">
-                  <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">
-                    Filtriraj vire
-                  </span>
+                  <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">Filtriraj vire</span>
                   <button
-                    aria-label="Zapri"
-                    onClick={() => setMenuOpen(false)}
+                    aria-label="Zapri" onClick={() => setMenuOpen(false)}
                     className="h-8 w-8 inline-flex items-center justify-center rounded-md hover:bg-black/5 dark:hover:bg-white/5"
                   >
                     <svg viewBox="0 0 24 24" width="18" height="18">
@@ -216,22 +168,17 @@ export default function Home({ initialNews }: Props) {
                   <div className="space-y-1">
                     <button
                       onClick={resetFilter}
-                      className="w-full text-left px-3 py-2 rounded-md
-                                 bg-brand text-white hover:bg-brand-hover transition"
+                      className="w-full text-left px-3 py-2 rounded-md bg-brand text-white hover:bg-brand-hover transition"
                     >
                       Pokaži vse
                     </button>
 
-                    {SOURCES.filter((s) => s !== 'Vse').map((source, idx) => (
+                    {SOURCES.filter(s => s !== 'Vse').map((source, idx) => (
                       <motion.button
-                        key={source}
-                        onClick={() => onPick(source)}
-                        initial={{ opacity: 0, y: 3 }}
-                        animate={{ opacity: 1, y: 0 }}
+                        key={source} onClick={() => onPick(source)}
+                        initial={{ opacity: 0, y: 3 }} animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.12, delay: 0.01 * idx }}
-                        className="w-full text-left px-3 py-2 rounded-md
-                                   hover:bg-black/5 dark:hover:bg-white/5
-                                   text-gray-800 dark:text-gray-200 transition"
+                        className="w-full text-left px-3 py-2 rounded-md hover:bg-black/5 dark:hover:bg-white/5 text-gray-800 dark:text-gray-200 transition"
                       >
                         {source}
                       </motion.button>
@@ -250,19 +197,13 @@ export default function Home({ initialNews }: Props) {
         <AnimatePresence>
           {deferredFilter !== 'Vse' && (
             <motion.div
-              key="reset-chip"
-              initial={{ opacity: 0, y: -6 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -6 }}
-              transition={{ duration: 0.15 }}
-              className="sticky top-[3.25rem] z-30"
+              key="reset-chip" initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }}
+              transition={{ duration: 0.15 }} className="sticky top-[3.25rem] z-30"
             >
               <button
                 onClick={resetFilter}
-                className="px-3 py-1 rounded-full text-sm font-medium
-                           bg-black/[0.06] text-gray-800 hover:bg-black/[0.08]
-                           dark:bg-white/[0.08] dark:text-gray-100 dark:hover:bg-white/[0.12]
-                           transition"
+                className="px-3 py-1 rounded-full text-sm font-medium bg-black/[0.06] text-gray-800 hover:bg-black/[0.08]
+                           dark:bg-white/[0.08] dark:text-gray-100 dark:hover:bg-white/[0.12] transition"
               >
                 Pokaži vse
               </button>
@@ -279,14 +220,12 @@ export default function Home({ initialNews }: Props) {
           <AnimatePresence mode="wait">
             <motion.div
               key={deferredFilter}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
+              initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
               transition={{ duration: 0.2 }}
               className="grid gap-6 grid-cols-2 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5"
             >
-              {visibleNews.map((article, i) => (
-                <ArticleCard key={i} news={article} />
+              {visibleNews.map((article) => (
+                <ArticleCard key={article.link} news={article} /> {/* stabilen key prepreči “zamenjane” slike */}
               ))}
             </motion.div>
           </AnimatePresence>
@@ -294,10 +233,7 @@ export default function Home({ initialNews }: Props) {
 
         {displayCount < filteredNews.length && (
           <div className="text-center mt-8 mb-10">
-            <button
-              onClick={handleLoadMore}
-              className="px-5 py-2 bg-brand text-white rounded-full hover:bg-brand-hover transition"
-            >
+            <button onClick={handleLoadMore} className="px-5 py-2 bg-brand text-white rounded-full hover:bg-brand-hover transition">
               Naloži več
             </button>
           </div>
