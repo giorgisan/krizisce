@@ -13,22 +13,21 @@ interface Props {
   news: NewsItem
 }
 
-// tipi za predogledni modal
+// ---- Preview modal typing ----
 type PreviewProps = { url: string; onClose: () => void }
 
-// ArticlePreview dinamično naložimo in ga eksplicitno tipiziramo
 const ArticlePreview = dynamic(() => import('./ArticlePreview'), {
   ssr: false,
 }) as ComponentType<PreviewProps>
 
-// Rezervna slika (če želiš drugačno datoteko, zamenjaj pot)
+// Rezervna slika
 const FALLBACK_SRC = '/logos/default-news.jpg'
 
 export default function ArticleCard({ news }: Props) {
   const formattedDate = format(new Date(news.isoDate), 'd. MMM, HH:mm', { locale: sl })
   const sourceColor = sourceColors[news.source] || '#fc9c6c'
 
-  // ----- Slika + fallback -----
+  // Slika + fallback
   const [imgSrc, setImgSrc] = useState<string | null>(news.image || null)
   const [useFallback, setUseFallback] = useState<boolean>(!news.image)
   const onImgError = () => {
@@ -38,9 +37,17 @@ export default function ArticleCard({ news }: Props) {
     }
   }
 
+  // (trenutno neuporabljeno – koristno za značke)
+  const sourceInitials = useMemo(() => {
+    const parts = (news.source || '').split(' ').filter(Boolean)
+    if (parts.length === 0) return '??'
+    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()
+    return (parts[0][0] + parts[1][0]).toUpperCase()
+  }, [news.source])
+
   const [showPreview, setShowPreview] = useState(false)
 
-  // Odpri članek v novem zavihku + zabeleži klik
+  // Odpri v novem zavihku + ping API
   const handleClick = async (e: MouseEvent<HTMLAnchorElement>) => {
     if (e.metaKey || e.ctrlKey || e.button === 1) return
     e.preventDefault()
@@ -51,9 +58,7 @@ export default function ArticleCard({ news }: Props) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ source: news.source, url: news.link }),
       })
-    } catch {
-      /* ignore */
-    }
+    } catch { /* ignore */ }
   }
 
   return (
@@ -63,7 +68,7 @@ export default function ArticleCard({ news }: Props) {
         target="_blank"
         rel="noopener noreferrer"
         onClick={handleClick}
-        className="group block bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden transition-all duration-200 transform hover:scale-[1.01] hover:bg-gray-100 dark:hover:bg-gray-700"
+        className="group block no-underline bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden transition-all duration-200 transform hover:scale-[1.01] hover:bg-gray-100 dark:hover:bg-gray-700"
       >
         {/* MEDIA */}
         <div className="relative w-full aspect-[16/9] overflow-hidden">
@@ -82,16 +87,13 @@ export default function ArticleCard({ news }: Props) {
               fill
               className="object-cover transition-opacity duration-300 opacity-0 data-[loaded=true]:opacity-100"
               onError={onImgError}
-              onLoad={(e) => {
-                (e.target as HTMLImageElement).setAttribute('data-loaded', 'true')
-              }}
-              // zmanjša možnosti 403 zaradi refererja
+              onLoadingComplete={(img) => img.setAttribute('data-loaded', 'true')}
               referrerPolicy="no-referrer"
               loading="lazy"
             />
           )}
 
-          {/* Gumb za predogled – “oko” */}
+          {/* Oko – na mobitelu vedno vidno; na desktopu šele na hover kartice */}
           <button
             onClick={(e) => {
               e.preventDefault()
@@ -100,25 +102,25 @@ export default function ArticleCard({ news }: Props) {
             }}
             aria-label="Predogled"
             className="
-              peer absolute top-2 right-2 h-8 w-8 rounded-full grid place-items-center
-              bg-white/75 dark:bg-gray-900/75 ring-1 ring-black/10 dark:ring-white/10
+              peer absolute top-2 right-2 h-8 w-8 grid place-items-center rounded-full
+              ring-1 ring-black/10 dark:ring-white/10
               text-gray-700 dark:text-gray-200
-              transition-transform duration-150
+              bg-white/80 dark:bg-gray-900/80 backdrop-blur
+              transition-all duration-150
 
-              /* mobilno: vedno vidno */
-              opacity-100 pointer-events-auto
+              /* mobile: vedno vidno */
+              opacity-100 scale-100
 
-              /* desktop: pokaži samo na hover kartice */
-              md:opacity-0 md:pointer-events-none
-              md:group-hover:opacity-100 md:group-hover:pointer-events-auto
-              md:focus-visible:opacity-100 md:focus-visible:pointer-events-auto
+              /* desktop: pokaži šele ob hoverju kartice */
+              md:opacity-0 md:scale-95 md:-translate-y-0.5
+              md:group-hover:opacity-100 md:group-hover:scale-100 md:group-hover:translate-y-0
 
-              hover:scale-125 active:scale-110
+              hover:scale-110 active:scale-100
             "
           >
             <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
-              <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12Z" stroke="currentColor" strokeWidth="2" fill="none"/>
-              <circle cx="12" cy="12" r="3.5" stroke="currentColor" strokeWidth="2" fill="none"/>
+              <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12Z" stroke="currentColor" strokeWidth="2" fill="none" />
+              <circle cx="12" cy="12" r="3.5" stroke="currentColor" strokeWidth="2" fill="none" />
             </svg>
           </button>
 
@@ -130,7 +132,7 @@ export default function ArticleCard({ news }: Props) {
               rounded-md px-2 py-1 text-xs font-medium
               bg-black/60 text-white
               backdrop-blur-sm drop-shadow-lg
-          
+
               opacity-0 -translate-x-1
               transition-all duration-150
               md:peer-hover:opacity-100 md:peer-hover:translate-x-0
@@ -138,10 +140,11 @@ export default function ArticleCard({ news }: Props) {
           >
             Predogled&nbsp;novice
           </span>
+        </div>
 
         {/* TEXT */}
         <div className="p-3">
-          <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400 mb-1">
+          <div className="mb-1 flex justify-between text-xs text-gray-500 dark:text-gray-400">
             <span className="font-medium text-[0.7rem]" style={{ color: sourceColor }}>
               {news.source}
             </span>
