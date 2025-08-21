@@ -80,7 +80,7 @@ export default function Footer() {
 
   return (
     <footer className="mt-8">
-      <div className="container mx-auto max-w-6xl px-4 md:px-8 lg:px-16 text-gray-800 dark:text-gray-300">
+      <div className="mx-auto max-w-6xl px-4 md:px-8 lg:px-16 text-gray-800 dark:text-gray-300">
         {/* Vsebina – kompaktnejši vertikalni ritem */}
         <div className="grid gap-6 sm:grid-cols-3 items-start">
           {/* Levo */}

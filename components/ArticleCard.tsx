@@ -50,7 +50,7 @@ export default function ArticleCard({ news }: Props) {
       target="_blank"
       rel="noopener noreferrer"
       onClick={handleClick}
-      className="group block container bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden transition-all duration-200 transform hover:scale-[1.01] hover:bg-gray-100 dark:hover:bg-gray-700"
+      className="group block bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden transition-all duration-200 transform hover:scale-[1.01] hover:bg-gray-100 dark:hover:bg-gray-700"
     >
       <div className="relative w-full aspect-[16/9] overflow-hidden">
         <Image
@@ -74,14 +74,14 @@ export default function ArticleCard({ news }: Props) {
         </div>
 
         <h2
-          className="article-title font-semibold leading-snug line-clamp-3 mb-1 text-gray-900 dark:text-white text-[clamp(0.9rem,2vw,1.1rem)]"
+          className="text-sm font-semibold leading-snug line-clamp-3 mb-1 text-gray-900 dark:text-white"
           title={news.title}
         >
           {news.title}
         </h2>
 
         {news.contentSnippet && (
-          <p className="article-snippet text-gray-600 dark:text-gray-400 leading-tight line-clamp-4 text-[clamp(0.8rem,1.8vw,1rem)]">
+          <p className="text-gray-600 dark:text-gray-400 text-sm leading-tight line-clamp-4">
             {news.contentSnippet}
           </p>
         )}
