@@ -16,7 +16,6 @@ export default function Header() {
 
   useEffect(() => setMounted(true), [])
 
-  // Signali iz index.tsx
   useEffect(() => {
     const onHasNew = (e: Event) => setHasNew(Boolean((e as CustomEvent).detail))
     const onRefreshing = (e: Event) => setRefreshing(Boolean((e as CustomEvent).detail))
@@ -39,7 +38,6 @@ export default function Header() {
   const toggleFilters = () =>
     window.dispatchEvent(new CustomEvent('toggle-filters'))
 
-  // Če smo že na "/", prepreči navigacijo in samo scroll-aj na vrh
   const onBrandClick: React.MouseEventHandler<HTMLAnchorElement> = (e) => {
     if (router.pathname === '/') {
       e.preventDefault()
@@ -49,30 +47,30 @@ export default function Header() {
 
   return (
     <header className="sticky top-0 z-40 bg-[#FAFAFA]/95 dark:bg-gray-900/70 backdrop-blur-md border-b border-gray-200 dark:border-gray-700 shadow-sm">
-      {/* višina ni več fiksna; damo prijeten padding, da “diha” */}
       <div className="py-2 px-4 md:px-8 lg:px-16 flex items-center justify-between">
-        {/* Levo: Brand (logo + naslov + slogan) + REFRESH gumb */}
-        <div className="flex items-center gap-3 min-w-0">
-          <Link href="/" onClick={onBrandClick} className="flex items-center gap-3 min-w-0">
-            <Image
-              src="/logo.png"
-              alt="Križišče"
-              width={36}
-              height={36}
-              priority
-              className="w-9 h-9 rounded-md"
-            />
-            <div className="min-w-0 leading-tight">
-              <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
-                Križišče
-              </h1>
-              <p className="text-xs sm:text-[13px] text-gray-600 dark:text-gray-400 mt-0.5">
-                Zadnje novice slovenskih medijev
-              </p>
-            </div>
-          </Link>
+        {/* Levo: Brand (logo + naslov + slogan) */}
+        <Link href="/" onClick={onBrandClick} className="flex items-center gap-3 min-w-0">
+          <Image
+            src="/logo.png"
+            alt="Križišče"
+            width={36}
+            height={36}
+            priority
+            className="w-9 h-9 rounded-md"
+          />
+          <div className="min-w-0 leading-tight">
+            <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
+              Križišče
+            </h1>
+            <p className="text-xs sm:text-[13px] text-gray-600 dark:text-gray-400 mt-0.5">
+              Zadnje novice slovenskih medijev
+            </p>
+          </div>
+        </Link>
 
-          {/* Refresh – premaknjen levo, poleg naslova/loga */}
+        {/* Desno: refresh + tema + hamburger */}
+        <div className="flex items-center gap-1.5 sm:gap-2">
+          {/* Refresh */}
           <button
             type="button"
             onClick={refreshNow}
@@ -114,10 +112,7 @@ export default function Header() {
               />
             )}
           </button>
-        </div>
 
-        {/* Desno: tema + hamburger */}
-        <div className="flex items-center gap-1.5 sm:gap-2">
           {/* Tema toggle */}
           {mounted && (
             <button
