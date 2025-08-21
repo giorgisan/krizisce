@@ -1,96 +1,86 @@
-// components/ArticlePreview.tsx
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import DOMPurify from 'dompurify'
 
-interface Props {
-  url: string
-  onClose: () => void
-}
+type PreviewProps = { url: string; onClose: () => void }
 
 type ApiPayload =
   | { error: string }
   | { title: string; site: string; image?: string | null; html: string; url: string }
 
-/** Normaliziran ključ za sliko (odreži query/hash, odstrani “size suffixe”, .webp/.jpeg → .jpg). */
-function imageKeyFromSrc(src: string | null | undefined): string {
+/* ---------- pomočniki za zaznavo duplikatov slik ---------- */
+
+/** naredi “ključ” za sliko, da se bolj zanesljivo prepoznajo duplikati */
+function imgKey(src: string | null | undefined): string {
   if (!src) return ''
-  let pathname = ''
+  let p = ''
   try {
     const u = new URL(src, location.origin)
-    pathname = u.pathname.toLowerCase()
+    p = u.pathname.toLowerCase()
   } catch {
-    pathname = (src.split('#')[0] || '').split('?')[0].toLowerCase()
+    p = (src.split('#')[0] || '').split('?')[0].toLowerCase()
   }
-  pathname = pathname.replace(/(-|\_)?\d{2,4}x\d{2,4}(?=\.)/g, '')
-  pathname = pathname.replace(/(-|\_)?\d{2,4}x(?=\.)/g, '')
-  pathname = pathname.replace(/-scaled(?=\.)/g, '')
-  pathname = pathname.replace(/\.(webp|jpeg)$/g, '.jpg')
-  return pathname
+  // odreži pogoste suffixe dimenzij/variacij
+  p = p.replace(/(-|_)?\d{2,4}x\d{2,4}(?=\.)/g, '')
+  p = p.replace(/(-|_)?\d{2,4}x(?=\.)/g, '')
+  p = p.replace(/-scaled(?=\.)/g, '')
+  p = p.replace(/\.(webp|jpeg)$/g, '.jpg')
+  return p
 }
 
-/** “Stem” zadnjega segmenta poti (brez končnice), očiščen suffixev. */
-function basenameStem(pathname: string): string {
+/** samo “ime” datoteke brez končnice/suffixev (za ohlapno primerjavo) */
+function stem(pathname: string): string {
   const last = pathname.split('/').pop() || ''
-  const name = last.replace(/\.[a-z0-9]+$/, '') // brez končnice
-    .replace(/(-|\_)?\d{2,4}x\d{2,4}$/g, '')
-    .replace(/(-|\_)?\d{2,4}x$/g, '')
-    .replace(/-scaled$/g, '')
-  return name
+  return last
+    .replace(/\.[a-z0-9]+$/i, '')
+    .replace(/(-|_)?\d{2,4}x\d{2,4}$/i, '')
+    .replace(/(-|_)?\d{2,4}x$/i, '')
+    .replace(/-scaled$/i, '')
+    .toLowerCase()
 }
 
-/** Odstrani <noscript> & podvojene slike. Po potrebi doda portal‑specifične popravke. */
+/** generično čiščenje + portal‑specifične prilagoditve (RTVSLO, N1, Svet24) */
 function cleanPreviewHTML(html: string, siteHost?: string): string {
   try {
     const wrap = document.createElement('div')
     wrap.innerHTML = html
 
-    // 1) noscript fallbacke stran (pogosto podvojene slike)
-    wrap.querySelectorAll('noscript').forEach((n) => n.remove())
+    // 1) <noscript> fallbacki pogosto povzročijo podvojitev
+    wrap.querySelectorAll('noscript').forEach(n => n.remove())
 
-    // 2) generično: obdrži prvo pojavitev vsake slike
+    // 2) odstrani točne duplikate po ključu (obdrži 1. pojavitve)
     const seen = new Set<string>()
-    wrap.querySelectorAll('img').forEach((img) => {
-      const key = imageKeyFromSrc(img.getAttribute('src') || img.getAttribute('data-src'))
+    wrap.querySelectorAll('img').forEach(img => {
+      const key = imgKey(img.getAttribute('src') || img.getAttribute('data-src'))
       if (!key) return
       if (seen.has(key)) {
-        const w = img.closest('figure, picture') || img
-        w.remove()
+        ;(img.closest('figure, picture') || img).remove()
       } else {
         seen.add(key)
       }
     })
 
-    // 3) portal‑specifično: MMC/rtvslo – pogosto ista “hero” slika še enkrat nižje
-    if (siteHost && siteHost.includes('rtvslo')) {
-      const imgs = Array.from(wrap.querySelectorAll('img'))
-      if (imgs.length >= 2) {
-        // vzemi 1. sliko kot “hero”
-        const firstSrc = imgs[0].getAttribute('src') || imgs[0].getAttribute('data-src') || ''
-        const firstKey = imageKeyFromSrc(firstSrc)
-        const firstStem = basenameStem(firstKey)
+    // 3) zelo pogost vzorec: prva “hero” + takoj spodaj ista ali skoraj ista
+    const imgs = Array.from(wrap.querySelectorAll('img'))
+    if (imgs.length >= 2) {
+      const k1 = imgKey(imgs[0].getAttribute('src') || imgs[0].getAttribute('data-src') || '')
+      const k2 = imgKey(imgs[1].getAttribute('src') || imgs[1].getAttribute('data-src') || '')
+      const s1 = stem(k1), s2 = stem(k2)
 
-        // poišči drugo, ki je zelo podobna po stemu (isti začetek ali enaka)
-        for (let i = 1; i < imgs.length; i++) {
-          const s = imgs[i].getAttribute('src') || imgs[i].getAttribute('data-src') || ''
-          const key = imageKeyFromSrc(s)
-          if (!key) continue
-          const stem = basenameStem(key)
+      // ohlapna podobnost (za mnoge portale zadostuje)
+      const looksSame =
+        s1 === s2 ||
+        s1.startsWith(s2.slice(0, 8)) ||
+        s2.startsWith(s1.slice(0, 8))
 
-          // zelo permisiven “match”: popolnoma enak stem ali močno prekrivanje začetka
-          const similar =
-            stem === firstStem ||
-            stem.startsWith(firstStem.slice(0, 8)) ||
-            firstStem.startsWith(stem.slice(0, 8))
+      // malo strožji “switch” za znane portale, kjer je to pogost problem
+      const host = (siteHost || '').toLowerCase()
+      const isKnownPortal = /rtvslo|n1info|svet24/.test(host)
 
-          if (similar) {
-            const w = imgs[i].closest('figure, picture') || imgs[i]
-            w.remove()
-            break // odstrani le prvo očitno duplikacijo
-          }
-        }
+      if (looksSame && (isKnownPortal || s1.length > 0)) {
+        ;(imgs[1].closest('figure, picture') || imgs[1]).remove()
       }
     }
 
@@ -100,11 +90,13 @@ function cleanPreviewHTML(html: string, siteHost?: string): string {
   }
 }
 
-export default function ArticlePreview({ url, onClose }: Props) {
-  const [content, setContent] = useState<string>('')
-  const [title, setTitle] = useState<string>('')
-  const [site, setSite] = useState<string>('')
-  const [loading, setLoading] = useState<boolean>(true)
+/* --------------------------- komponenta --------------------------- */
+
+export default function ArticlePreview({ url, onClose }: PreviewProps) {
+  const [content, setContent] = useState('')
+  const [title, setTitle] = useState('')
+  const [site, setSite] = useState('')
+  const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   const modalRef = useRef<HTMLDivElement>(null)
@@ -112,7 +104,7 @@ export default function ArticlePreview({ url, onClose }: Props) {
 
   useEffect(() => {
     let alive = true
-    const fetchContent = async () => {
+    ;(async () => {
       setLoading(true)
       setError(null)
       try {
@@ -134,37 +126,38 @@ export default function ArticlePreview({ url, onClose }: Props) {
         setError('Napaka pri nalaganju predogleda.')
         setLoading(false)
       }
-    }
-    fetchContent()
+    })()
     return () => { alive = false }
   }, [url])
 
+  // focus trap + body state (overflow + “preview-open”, da onemogočimo underline)
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
+    const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose()
-      else if (e.key === 'Tab') {
-        const focusable = modalRef.current?.querySelectorAll<HTMLElement>(
-          'a[href], button, textarea, input, select, [tabindex]:not([tabindex="-1"])'
-        )
-        if (!focusable || focusable.length === 0) return
-        const first = focusable[0]
-        const last = focusable[focusable.length - 1]
-        if (e.shiftKey) {
-          if (document.activeElement === first) { e.preventDefault(); last.focus() }
-        } else if (document.activeElement === last) {
-          e.preventDefault(); first.focus()
-        }
+      if (e.key !== 'Tab') return
+      const nodes = modalRef.current?.querySelectorAll<HTMLElement>(
+        'a[href], button, textarea, input, select, [tabindex]:not([tabindex="-1"])'
+      )
+      if (!nodes || nodes.length === 0) return
+      const first = nodes[0]
+      const last = nodes[nodes.length - 1]
+      if (e.shiftKey) {
+        if (document.activeElement === first) { e.preventDefault(); last.focus() }
+      } else {
+        if (document.activeElement === last) { e.preventDefault(); first.focus() }
       }
     }
 
-    document.addEventListener('keydown', handleKeyDown)
+    document.addEventListener('keydown', onKey)
     const prevOverflow = document.body.style.overflow
     document.body.style.overflow = 'hidden'
+    document.body.classList.add('preview-open')
     setTimeout(() => closeRef.current?.focus(), 0)
 
     return () => {
-      document.removeEventListener('keydown', handleKeyDown)
+      document.removeEventListener('keydown', onKey)
       document.body.style.overflow = prevOverflow
+      document.body.classList.remove('preview-open')
     }
   }, [onClose])
 
@@ -172,14 +165,13 @@ export default function ArticlePreview({ url, onClose }: Props) {
 
   return createPortal(
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 transition-opacity duration-300"
-      role="dialog"
-      aria-modal="true"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
+      role="dialog" aria-modal="true"
       onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
     >
       <div
         ref={modalRef}
-        className="bg-white dark:bg-gray-900 rounded-xl shadow-2xl w-full max-w-2xl mx-4 max-h-[80vh] overflow-y-auto border border-gray-200/10 transform transition-all duration-300 ease-out scale-95 opacity-0 animate-fadeInUp"
+        className="bg-white dark:bg-gray-900 rounded-xl shadow-2xl w-full max-w-2xl mx-4 max-h-[80vh] overflow-y-auto border border-gray-200/10 animate-fadeInUp"
       >
         {/* Header */}
         <div className="sticky top-0 z-10 flex items-center justify-between gap-3 px-4 py-3 border-b border-gray-200/20 bg-white/80 dark:bg-gray-900/80 backdrop-blur rounded-t-xl">
@@ -191,17 +183,13 @@ export default function ArticlePreview({ url, onClose }: Props) {
           </div>
           <div className="flex items-center gap-2 shrink-0">
             <a
-              href={url}
-              target="_blank"
-              rel="noopener noreferrer"
+              href={url} target="_blank" rel="noopener noreferrer"
               className="no-underline inline-flex items-center justify-center rounded-lg px-2 py-1 text-sm bg-blue-600 text-white hover:bg-blue-700"
             >
               Odpri cel članek
             </a>
             <button
-              ref={closeRef}
-              onClick={onClose}
-              aria-label="Zapri predogled"
+              ref={closeRef} onClick={onClose} aria-label="Zapri predogled"
               className="inline-flex h-8 px-2 items-center justify-center rounded-lg text-sm bg-gray-100/70 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200"
             >
               ✕
