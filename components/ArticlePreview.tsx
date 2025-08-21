@@ -14,46 +14,85 @@ type ApiPayload =
   | { error: string }
   | { title: string; site: string; image?: string | null; html: string; url: string }
 
-/** Normaliziraj pot do slike: odreži query/hash in odstrani tipične “size suffixe”. */
-function imageKey(src: string | null | undefined): string {
+/** Normaliziran ključ za sliko (odreži query/hash, odstrani “size suffixe”, .webp/.jpeg → .jpg). */
+function imageKeyFromSrc(src: string | null | undefined): string {
   if (!src) return ''
   let pathname = ''
   try {
     const u = new URL(src, location.origin)
     pathname = u.pathname.toLowerCase()
   } catch {
-    pathname = src.split('?')[0].split('#')[0].toLowerCase()
+    pathname = (src.split('#')[0] || '').split('?')[0].toLowerCase()
   }
-  // Odstrani tipične “size” vzorce iz imena datoteke (npr. foto-768x432.jpg, slika_1024x.jpg, slika-scaled.jpg)
   pathname = pathname.replace(/(-|\_)?\d{2,4}x\d{2,4}(?=\.)/g, '')
   pathname = pathname.replace(/(-|\_)?\d{2,4}x(?=\.)/g, '')
   pathname = pathname.replace(/-scaled(?=\.)/g, '')
-  // Normaliziraj končnico (.webp/.jpeg → .jpg), da ne štejemo istih slik kot različne
   pathname = pathname.replace(/\.(webp|jpeg)$/g, '.jpg')
   return pathname
 }
 
-/** Odstrani <noscript> in podvojene slike (pusti prvo pojavitev). */
-function cleanPreviewHTML(html: string): string {
+/** “Stem” zadnjega segmenta poti (brez končnice), očiščen suffixev. */
+function basenameStem(pathname: string): string {
+  const last = pathname.split('/').pop() || ''
+  const name = last.replace(/\.[a-z0-9]+$/, '') // brez končnice
+    .replace(/(-|\_)?\d{2,4}x\d{2,4}$/g, '')
+    .replace(/(-|\_)?\d{2,4}x$/g, '')
+    .replace(/-scaled$/g, '')
+  return name
+}
+
+/** Odstrani <noscript> & podvojene slike. Po potrebi doda portal‑specifične popravke. */
+function cleanPreviewHTML(html: string, siteHost?: string): string {
   try {
     const wrap = document.createElement('div')
     wrap.innerHTML = html
 
+    // 1) noscript fallbacke stran (pogosto podvojene slike)
     wrap.querySelectorAll('noscript').forEach((n) => n.remove())
 
+    // 2) generično: obdrži prvo pojavitev vsake slike
     const seen = new Set<string>()
     wrap.querySelectorAll('img').forEach((img) => {
-      const key = imageKey(img.getAttribute('src') || img.getAttribute('data-src') || '')
+      const key = imageKeyFromSrc(img.getAttribute('src') || img.getAttribute('data-src'))
       if (!key) return
       if (seen.has(key)) {
-        // odstrani wrapper, če obstaja
-        const wrapper = img.closest('figure, picture')
-        if (wrapper) wrapper.remove()
-        else img.remove()
+        const w = img.closest('figure, picture') || img
+        w.remove()
       } else {
         seen.add(key)
       }
     })
+
+    // 3) portal‑specifično: MMC/rtvslo – pogosto ista “hero” slika še enkrat nižje
+    if (siteHost && siteHost.includes('rtvslo')) {
+      const imgs = Array.from(wrap.querySelectorAll('img'))
+      if (imgs.length >= 2) {
+        // vzemi 1. sliko kot “hero”
+        const firstSrc = imgs[0].getAttribute('src') || imgs[0].getAttribute('data-src') || ''
+        const firstKey = imageKeyFromSrc(firstSrc)
+        const firstStem = basenameStem(firstKey)
+
+        // poišči drugo, ki je zelo podobna po stemu (isti začetek ali enaka)
+        for (let i = 1; i < imgs.length; i++) {
+          const s = imgs[i].getAttribute('src') || imgs[i].getAttribute('data-src') || ''
+          const key = imageKeyFromSrc(s)
+          if (!key) continue
+          const stem = basenameStem(key)
+
+          // zelo permisiven “match”: popolnoma enak stem ali močno prekrivanje začetka
+          const similar =
+            stem === firstStem ||
+            stem.startsWith(firstStem.slice(0, 8)) ||
+            firstStem.startsWith(stem.slice(0, 8))
+
+          if (similar) {
+            const w = imgs[i].closest('figure, picture') || imgs[i]
+            w.remove()
+            break // odstrani le prvo očitno duplikacijo
+          }
+        }
+      }
+    }
 
     return wrap.innerHTML
   } catch {
@@ -85,7 +124,7 @@ export default function ArticlePreview({ url, onClose }: Props) {
           setLoading(false)
           return
         }
-        const cleaned = cleanPreviewHTML(data.html)
+        const cleaned = cleanPreviewHTML(data.html, data.site)
         setTitle(data.title)
         setSite(data.site)
         setContent(DOMPurify.sanitize(cleaned))
