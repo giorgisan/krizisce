@@ -93,20 +93,6 @@ body {
   animation: iconIn 0.5s ease-out;
 }
 
-/* Subtilen bounce efekt za hover na ikono */
-@keyframes bounce-subtle {
-  0%, 100% {
-    transform: scale(1);
-  }
-  50% {
-    transform: scale(1.15);
-  }
-}
-
-.hover\:animate-bounce-subtle:hover {
-  animation: bounce-subtle 0.25s ease-out;
-}
-
 
 /* ---------------------------------
    LINE CLAMP
