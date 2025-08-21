@@ -13,7 +13,11 @@ interface Props {
   news: NewsItem
 }
 
-const ArticlePreview = dynamic(() => import('./ArticlePreview'), { ssr: false })
+// 🔧 KLJUČ: podaj props tipe prek generika, da TS ne jamra
+const ArticlePreview = dynamic<{ url: string; onClose: () => void }>(
+  () => import('./ArticlePreview'),
+  { ssr: false }
+)
 
 const FALLBACK_SRC = '/logos/default-news.jpg'
 
@@ -21,6 +25,7 @@ export default function ArticleCard({ news }: Props) {
   const formattedDate = format(new Date(news.isoDate), 'd. MMM, HH:mm', { locale: sl })
   const sourceColor = sourceColors[news.source] || '#fc9c6c'
 
+  // Slika + fallback
   const [imgSrc, setImgSrc] = useState<string | null>(news.image || null)
   const [useFallback, setUseFallback] = useState<boolean>(!news.image)
   const onImgError = () => {
@@ -30,6 +35,7 @@ export default function ArticleCard({ news }: Props) {
     }
   }
 
+  // (rezervno) inicialke vira
   const sourceInitials = useMemo(() => {
     const parts = (news.source || '').split(' ').filter(Boolean)
     if (parts.length === 0) return '??'
@@ -61,6 +67,7 @@ export default function ArticleCard({ news }: Props) {
         onClick={handleClick}
         className="no-underline group block bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden transition-all duration-200 transform hover:scale-[1.01] hover:bg-gray-100 dark:hover:bg-gray-700"
       >
+        {/* MEDIA */}
         <div className="relative w-full aspect-[16/9] overflow-hidden">
           {useFallback ? (
             <div className="absolute inset-0 flex items-center justify-center">
@@ -84,6 +91,7 @@ export default function ArticleCard({ news }: Props) {
             />
           )}
 
+          {/* Predogled – oko */}
           <button
             onClick={(e) => {
               e.preventDefault()
@@ -113,6 +121,7 @@ export default function ArticleCard({ news }: Props) {
           </span>
         </div>
 
+        {/* TEXT */}
         <div className="p-3">
           <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400 mb-1">
             <span className="font-medium text-[0.7rem]" style={{ color: sourceColor }}>
