@@ -13,10 +13,7 @@ interface Props {
 const ArticlePreview = dynamic(() => import('./ArticlePreview'), { ssr: false })
 
 export default function ArticleCard({ news }: Props) {
-  const formattedDate = format(new Date(news.isoDate), 'd. MMM, HH:mm', {
-    locale: sl,
-  })
-
+  const formattedDate = format(new Date(news.isoDate), 'd. MMM, HH:mm', { locale: sl })
   const sourceColor = sourceColors[news.source] || '#fc9c6c'
   const [showPreview, setShowPreview] = useState(false)
 
@@ -30,9 +27,7 @@ export default function ArticleCard({ news }: Props) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ source: news.source, url: news.link }),
       })
-    } catch (error) {
-      console.error('Napaka pri beleženju klika:', error)
-    }
+    } catch {}
   }
 
   return (
@@ -42,10 +37,9 @@ export default function ArticleCard({ news }: Props) {
         target="_blank"
         rel="noopener noreferrer"
         onClick={handleClick}
-        className="group block bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden 
-                   transition-all duration-200 transform hover:scale-[1.01] 
-                   hover:bg-gray-100 dark:hover:bg-gray-700"
+        className="group block bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden transition-all duration-200 transform hover:scale-[1.01] hover:bg-gray-100 dark:hover:bg-gray-700"
       >
+        {/* Slika */}
         <div className="relative w-full aspect-[16/9] overflow-hidden">
           <Image
             src={news.image || '/default-news.jpg'}
@@ -54,6 +48,11 @@ export default function ArticleCard({ news }: Props) {
             className="object-cover"
             loading="lazy"
           />
+
+          {/* Oko (PREVIEW):
+              - mobile: vidno (opacity-100)
+              - ≥md: skrito, pokaži ob hoverju kartice (group-hover)
+          */}
           <button
             onClick={(e) => {
               e.preventDefault()
@@ -62,38 +61,46 @@ export default function ArticleCard({ news }: Props) {
             }}
             aria-label="Predogled"
             title="Predogled"
-            className="absolute top-2 right-2 p-2 bg-white/80 hover:bg-white 
-                       rounded-full text-gray-700 hover:text-gray-900 
-                       transition-transform duration-200 hover:animate-bounce-subtle"
+            className="
+              absolute top-2 right-2 p-2 rounded-full
+              bg-white/85 dark:bg-gray-900/70 text-gray-800 dark:text-gray-100
+              ring-1 ring-black/5 dark:ring-white/10 shadow
+
+              /* mobile: vedno vidno */
+              opacity-100 scale-100
+
+              /* desktop: skrito, prikaži ob hoverju kartice */
+              md:opacity-0 md:scale-90 md:group-hover:opacity-100 md:group-hover:scale-100
+
+              /* animacije */
+              transition-all duration-300 ease-out
+              hover:animate-bounce-subtle
+
+              /* a11y: če uporabnik ne mara animacij */
+              motion-reduce:transition-none motion-reduce:transform-none
+            "
           >
             {/* Ikona oko */}
             <svg
               xmlns="http://www.w3.org/2000/svg"
-              fill="none"
               viewBox="0 0 24 24"
+              fill="none"
               stroke="currentColor"
-              strokeWidth={2}
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
               className="w-5 h-5"
             >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.364 4.5 
-                   12 4.5c4.636 0 8.577 3.01 9.964 7.183.07.207.07.431 
-                   0 .639C20.577 16.49 16.636 19.5 12 19.5c-4.636 
-                   0-8.577-3.01-9.964-7.183z"
-              />
+              <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z" />
               <circle cx="12" cy="12" r="3" />
             </svg>
           </button>
         </div>
 
+        {/* Vsebina kartice */}
         <div className="p-3">
           <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400 mb-1">
-            <span
-              className="font-medium text-[0.7rem]"
-              style={{ color: sourceColor }}
-            >
+            <span className="font-medium text-[0.7rem]" style={{ color: sourceColor }}>
               {news.source}
             </span>
             <span>{formattedDate}</span>
@@ -113,6 +120,7 @@ export default function ArticleCard({ news }: Props) {
           )}
         </div>
       </a>
+
       {showPreview && (
         <ArticlePreview url={news.link} onClose={() => setShowPreview(false)} />
       )}
