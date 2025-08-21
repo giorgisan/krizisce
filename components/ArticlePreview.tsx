@@ -5,23 +5,26 @@ import { NewsItem } from '@/types'
 import { format } from 'date-fns'
 import { sl } from 'date-fns/locale'
 import { sourceColors } from '@/lib/sources'
-import { MouseEvent, useMemo, useState } from 'react'
+import { MouseEvent, useMemo, useState, type ComponentType } from 'react'
 import Image from 'next/image'
 import dynamic from 'next/dynamic'
 
-interface Props {
+type CardProps = {
   news: NewsItem
 }
 
-// 🔧 KLJUČ: podaj props tipe prek generika, da TS ne jamra
-const ArticlePreview = dynamic<{ url: string; onClose: () => void }>(
+// ---- tipi za dinamični predogled (to rabimo, da TS ne zmeša tipov) ----
+type PreviewProps = { url: string; onClose: () => void }
+
+// Nekatere TS različice ignorirajo generik na dynamic<...>. Zanesljiv cast:
+const ArticlePreview = dynamic(
   () => import('./ArticlePreview'),
   { ssr: false }
-)
+) as ComponentType<PreviewProps>
 
 const FALLBACK_SRC = '/logos/default-news.jpg'
 
-export default function ArticleCard({ news }: Props) {
+export default function ArticleCard({ news }: CardProps) {
   const formattedDate = format(new Date(news.isoDate), 'd. MMM, HH:mm', { locale: sl })
   const sourceColor = sourceColors[news.source] || '#fc9c6c'
 
