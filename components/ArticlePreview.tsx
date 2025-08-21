@@ -1,3 +1,4 @@
+// components/ArticlePreview.tsx
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import DOMPurify from 'dompurify'
@@ -7,22 +8,49 @@ interface Props {
   onClose: () => void
 }
 
+type ApiPayload =
+  | { error: string }
+  | { title: string; site: string; image?: string | null; html: string; url: string }
+
 export default function ArticlePreview({ url, onClose }: Props) {
-  const [content, setContent] = useState('')
+  const [content, setContent] = useState<string>('')
+  const [title, setTitle] = useState<string>('')
+  const [site, setSite] = useState<string>('')
+  const [loading, setLoading] = useState<boolean>(true)
+  const [error, setError] = useState<string | null>(null)
+
   const modalRef = useRef<HTMLDivElement>(null)
   const closeRef = useRef<HTMLButtonElement>(null)
 
   useEffect(() => {
+    let alive = true
     const fetchContent = async () => {
+      setLoading(true)
+      setError(null)
       try {
         const res = await fetch(`/api/preview?url=${encodeURIComponent(url)}`)
-        const data = await res.json()
+        const data: ApiPayload = await res.json()
+        if (!alive) return
+        if ('error' in data) {
+          setError('Napaka pri nalaganju predogleda.')
+          setLoading(false)
+          return
+        }
+        setTitle(data.title)
+        setSite(data.site)
+        // dodatna, odjemalska sanizacija (obramba v globini)
         setContent(DOMPurify.sanitize(data.html))
+        setLoading(false)
       } catch (err) {
-        setContent('<p>Napaka pri nalaganju predogleda.</p>')
+        if (!alive) return
+        setError('Napaka pri nalaganju predogleda.')
+        setLoading(false)
       }
     }
     fetchContent()
+    return () => {
+      alive = false
+    }
   }, [url])
 
   useEffect(() => {
@@ -53,7 +81,9 @@ export default function ArticlePreview({ url, onClose }: Props) {
     document.addEventListener('keydown', handleKeyDown)
     const prevOverflow = document.body.style.overflow
     document.body.style.overflow = 'hidden'
-    closeRef.current?.focus()
+    // Fokus na gumb Zapri
+    setTimeout(() => closeRef.current?.focus(), 0)
+
     return () => {
       document.removeEventListener('keydown', handleKeyDown)
       document.body.style.overflow = prevOverflow
@@ -63,32 +93,43 @@ export default function ArticlePreview({ url, onClose }: Props) {
   if (typeof document === 'undefined') return null
 
   return createPortal(
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" role="dialog" aria-modal="true">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
+      role="dialog"
+      aria-modal="true"
+    >
       <div
         ref={modalRef}
-        className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4 max-w-3xl w-full mx-4 max-h-screen overflow-y-auto"
+        className="bg-white dark:bg-gray-900 rounded-xl shadow-2xl w-full max-w-2xl mx-4 max-h-[80vh] overflow-y-auto border border-gray-200/10"
       >
-        <button
-          ref={closeRef}
-          onClick={onClose}
-          aria-label="Zapri predogled"
-          className="mb-4 inline-flex items-center justify-center text-gray-700 dark:text-gray-300 hover:text-black dark:hover:text-white"
-        >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className="w-4 h-4"
+        <div className="sticky top-0 z-10 flex items-center justify-between gap-3 px-4 py-3 border-b border-gray-200/20 bg-white/80 dark:bg-gray-900/80 backdrop-blur">
+          <div className="min-w-0">
+            <div className="text-xs text-gray-500 dark:text-gray-400 truncate">{site}</div>
+            <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">{title || 'Predogled'}</h3>
+          </div>
+          <button
+            ref={closeRef}
+            onClick={onClose}
+            aria-label="Zapri predogled"
+            className="shrink-0 inline-flex items-center justify-center rounded-lg px-2 py-1 text-sm bg-gray-100/70 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200"
           >
-            <circle cx="11" cy="11" r="8" />
-            <line x1="21" y1="21" x2="16.65" y2="16.65" />
-          </svg>
-        </button>
-        <div dangerouslySetInnerHTML={{ __html: content }} />
+            Zapri ✕
+          </button>
+        </div>
+
+        <div className="px-4 py-4">
+          {loading && (
+            <div className="flex items-center justify-center py-10">
+              <div className="animate-pulse w-12 h-12 rounded-full bg-gray-300 dark:bg-gray-700" />
+            </div>
+          )}
+          {error && <p className="text-sm text-red-500">{error}</p>}
+          {!loading && !error && (
+            <div className="prose prose-invert max-w-none prose-img:rounded-lg prose-a:underline">
+              <div dangerouslySetInnerHTML={{ __html: content }} />
+            </div>
+          )}
+        </div>
       </div>
     </div>,
     document.body
