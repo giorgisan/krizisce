@@ -49,10 +49,16 @@ export default function Header() {
             priority
             className="w-9 h-9 rounded-md"
           />
-          <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white leading-none">
-            Križišče
-          </h1>
+          <div className="flex flex-col leading-tight">
+            <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
+              Križišče
+            </h1>
+            <p className="text-xs text-gray-600 dark:text-gray-400">
+              Najnovejše novice slovenskih medijev
+            </p>
+          </div>
         </Link>
+
 
         {/* Desno */}
         <div className="flex items-center gap-1.5 sm:gap-2">
