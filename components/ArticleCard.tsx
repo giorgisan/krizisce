@@ -19,10 +19,7 @@ export default function ArticleCard({ news }: Props) {
   const [showPreview, setShowPreview] = useState(false)
 
   const handleClick = async (e: MouseEvent<HTMLAnchorElement>) => {
-    // Srednji klik ali Ctrl/Cmd klik naj normalno odpre v novem zavihku
     if (e.metaKey || e.ctrlKey || e.button === 1) return
-
-    // Levi klik: odpri v novem tabu in zabeleži klik
     e.preventDefault()
     window.open(news.link, '_blank')
 
@@ -57,7 +54,7 @@ export default function ArticleCard({ news }: Props) {
             loading="lazy"
           />
 
-          {/* QUICK PREVIEW: oko – spodaj levo */}
+          {/* QUICK PREVIEW: lupa – spodaj levo */}
           <button
             onClick={(e) => {
               e.preventDefault()
@@ -76,10 +73,19 @@ export default function ArticleCard({ news }: Props) {
                        focus:outline-none focus:ring-2 focus:ring-[var(--ring)]
                        opacity-100 md:opacity-0 md:group-hover:opacity-100"
           >
-            {/* Ikona oko (preview) */}
-            <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z" />
-              <circle cx="12" cy="12" r="3" />
+            {/* Ikona lupa */}
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="w-5 h-5"
+            >
+              <circle cx="11" cy="11" r="8" />
+              <line x1="21" y1="21" x2="16.65" y2="16.65" />
             </svg>
           </button>
         </div>
