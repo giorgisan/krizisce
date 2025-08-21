@@ -155,7 +155,7 @@ export default function Home({ initialNews }: Props) {
     <>
       <Header />
 
-      {/* DROPDOWN FILTER – NOVO (brez backdropa), poravnan pod headerjem */}
+      {/* DROPDOWN FILTER – NAVPIČNI SEZNAM (brez backdropa), poravnan pod headerjem */}
       <AnimatePresence>
         {menuOpen && (
           <motion.div
@@ -188,26 +188,28 @@ export default function Home({ initialNews }: Props) {
                 </button>
               </div>
 
+              {/* NAVPIČNI SEZNAM */}
               <div className="px-4 sm:px-6 pb-4 max-h-[70vh] overflow-y-auto scrollbar-hide">
-                <button
-                  onClick={resetFilter}
-                  className="w-full text-left px-3 py-2 rounded-md mb-2
-                             bg-brand text-white hover:bg-brand-hover transition"
-                >
-                  Pokaži vse
-                </button>
+                <div className="space-y-1">
+                  <button
+                    onClick={resetFilter}
+                    className="w-full text-left px-3 py-2 rounded-md
+                               bg-brand text-white hover:bg-brand-hover transition"
+                  >
+                    Pokaži vse
+                  </button>
 
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5">
+                  {/* vsak vir = ena vrstica */}
                   {SOURCES.filter((s) => s !== 'Vse').map((source, idx) => (
                     <motion.button
                       key={source}
                       onClick={() => onPick(source)}
                       initial={{ opacity: 0, y: 4 }}
                       animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.15, delay: 0.02 * idx }}
-                      className={`text-left px-3 py-2 rounded-md transition
-                                  hover:bg-black/5 dark:hover:bg-white/5
-                                  text-gray-800 dark:text-gray-200`}
+                      transition={{ duration: 0.15, delay: 0.015 * idx }}
+                      className="w-full text-left px-3 py-2 rounded-md
+                                 hover:bg-black/5 dark:hover:bg-white/5
+                                 text-gray-800 dark:text-gray-200 transition"
                     >
                       {source}
                     </motion.button>
@@ -221,7 +223,7 @@ export default function Home({ initialNews }: Props) {
 
       {/* Vsebina */}
       <main className="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white px-4 md:px-8 lg:px-16 pt-5 lg:pt-6 pb-24">
-        {/* STICKY čip “Pokaži vse” – le, ko je izbran specifičen vir */}
+        {/* STICKY čip “Pokaži vse” */}
         <AnimatePresence>
           {deferredFilter !== 'Vse' && (
             <motion.div
@@ -231,7 +233,7 @@ export default function Home({ initialNews }: Props) {
               exit={{ opacity: 0, y: -6 }}
               transition={{ duration: 0.15 }}
               className="sticky"
-              style={{ top: (dropdownTop || 56) - window.scrollY }} // da ne gre pod header/dropdown
+              style={{ top: (dropdownTop || 56) - window.scrollY }}
             >
               <button
                 onClick={resetFilter}
