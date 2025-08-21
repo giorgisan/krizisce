@@ -22,11 +22,7 @@ export default function ArticleCard({ news }: Props) {
   const [showPreview, setShowPreview] = useState(false)
 
   const handleClick = async (e: MouseEvent<HTMLAnchorElement>) => {
-    if (
-      e.metaKey || // Cmd (Mac)
-      e.ctrlKey || // Ctrl (Win)
-      e.button === 1 // middle click
-    ) {
+    if (e.metaKey || e.ctrlKey || e.button === 1) {
       return
     }
 
@@ -64,7 +60,7 @@ export default function ArticleCard({ news }: Props) {
             loading="lazy"
           />
 
-          {/* Gumb za predogled (oko) */}
+          {/* Gumb za predogled (oko) — prikaže se le ob hoverju */}
           <button
             onClick={(e) => {
               e.preventDefault()
@@ -72,10 +68,10 @@ export default function ArticleCard({ news }: Props) {
               setShowPreview(true)
             }}
             aria-label="Prikaži predogled"
-            className="absolute top-2 right-2 p-2 bg-white/80 dark:bg-gray-900/70 
-                       hover:bg-white dark:hover:bg-gray-800 
-                       rounded-full text-gray-700 dark:text-gray-200 
-                       shadow-sm hover:shadow-md transition-all duration-200"
+            className="absolute top-2 right-2 p-2 rounded-full 
+                       bg-white/80 dark:bg-gray-900/70 text-gray-700 dark:text-gray-200 
+                       shadow-sm opacity-0 group-hover:opacity-100 
+                       transition-all duration-200 hover:bg-white dark:hover:bg-gray-800"
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"
