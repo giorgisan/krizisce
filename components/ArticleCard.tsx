@@ -60,7 +60,7 @@ export default function ArticleCard({ news }: Props) {
             loading="lazy"
           />
 
-          {/* Gumb za predogled (oko) — prikaže se le ob hoverju */}
+          {/* Gumb za predogled (oko) */}
           <button
             onClick={(e) => {
               e.preventDefault()
@@ -70,8 +70,10 @@ export default function ArticleCard({ news }: Props) {
             aria-label="Prikaži predogled"
             className="absolute top-2 right-2 p-2 rounded-full 
                        bg-white/80 dark:bg-gray-900/70 text-gray-700 dark:text-gray-200 
-                       shadow-sm opacity-0 group-hover:opacity-100 
-                       transform transition duration-200 
+                       shadow-sm 
+                       opacity-0 scale-90 
+                       group-hover:opacity-100 group-hover:scale-100
+                       transition-all duration-300 ease-out
                        hover:scale-110 hover:bg-white dark:hover:bg-gray-800"
           >
             <svg
