@@ -13,16 +13,23 @@ interface Props {
 const ArticlePreview = dynamic(() => import('./ArticlePreview'), { ssr: false })
 
 export default function ArticleCard({ news }: Props) {
-  const formattedDate = format(new Date(news.isoDate), 'd. MMM, HH:mm', { locale: sl })
+  const formattedDate = format(new Date(news.isoDate), 'd. MMM, HH:mm', {
+    locale: sl,
+  })
+
   const sourceColor = sourceColors[news.source] || '#fc9c6c'
 
   const [showPreview, setShowPreview] = useState(false)
 
   const handleClick = async (e: MouseEvent<HTMLAnchorElement>) => {
-    // naj brskalnik sam odpre v novem tabu pri Cmd/Ctrl/middle klik
-    if (e.metaKey || e.ctrlKey || e.button === 1) return
+    if (
+      e.metaKey || // Cmd (Mac)
+      e.ctrlKey || // Ctrl (Win)
+      e.button === 1 // middle click
+    ) {
+      return
+    }
 
-    // levi klik -> odpri v novem zavihku, zabeleži klik
     e.preventDefault()
     window.open(news.link, '_blank')
 
@@ -32,8 +39,8 @@ export default function ArticleCard({ news }: Props) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ source: news.source, url: news.link }),
       })
-    } catch (err) {
-      console.error('Napaka pri beleženju klika:', err)
+    } catch (error) {
+      console.error('Napaka pri beleženju klika:', error)
     }
   }
 
@@ -44,36 +51,31 @@ export default function ArticleCard({ news }: Props) {
         target="_blank"
         rel="noopener noreferrer"
         onClick={handleClick}
-        title="Odpri članek v novem zavihku"
-        className="group block bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden transition-all duration-200 transform hover:scale-[1.01] hover:bg-gray-100 dark:hover:bg-gray-700"
+        className="group block bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden 
+                   transition-all duration-200 transform hover:scale-[1.01] 
+                   hover:bg-gray-100 dark:hover:bg-gray-700"
       >
-        {/* Slika + quick action (lupa, čist stil) */}
         <div className="relative w-full aspect-[16/9] overflow-hidden">
           <Image
-            src={news.image || '/logos/default-news.jpg'}
+            src={news.image || '/default-news.jpg'}
             alt={news.title}
             fill
             className="object-cover"
             loading="lazy"
           />
 
-          {/* Lupa – zgoraj desno, minimal look */}
+          {/* Gumb za predogled (oko) */}
           <button
             onClick={(e) => {
               e.preventDefault()
               e.stopPropagation()
               setShowPreview(true)
             }}
-            aria-label="Predogled članka"
-            title="Predogled"
-            className="absolute top-2 right-2 h-9 w-9 rounded-full
-                       flex items-center justify-center
-                       bg-black/55 text-white backdrop-blur-sm
-                       ring-1 ring-white/15 shadow
-                       transition
-                       hover:bg-black/70
-                       focus:outline-none focus:ring-2 focus:ring-white/40
-                       opacity-100 md:opacity-0 md:group-hover:opacity-100"
+            aria-label="Prikaži predogled"
+            className="absolute top-2 right-2 p-2 bg-white/80 dark:bg-gray-900/70 
+                       hover:bg-white dark:hover:bg-gray-800 
+                       rounded-full text-gray-700 dark:text-gray-200 
+                       shadow-sm hover:shadow-md transition-all duration-200"
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -83,17 +85,20 @@ export default function ArticleCard({ news }: Props) {
               strokeWidth="2"
               strokeLinecap="round"
               strokeLinejoin="round"
-              className="w-5 h-5"
+              className="w-4 h-4"
             >
-              <circle cx="11" cy="11" r="8" />
-              <line x1="21" y1="21" x2="16.65" y2="16.65" />
+              <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z" />
+              <circle cx="12" cy="12" r="3" />
             </svg>
           </button>
         </div>
 
         <div className="p-3">
           <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400 mb-1">
-            <span className="font-medium text-[0.7rem]" style={{ color: sourceColor }}>
+            <span
+              className="font-medium text-[0.7rem]"
+              style={{ color: sourceColor }}
+            >
               {news.source}
             </span>
             <span>{formattedDate}</span>
@@ -113,7 +118,6 @@ export default function ArticleCard({ news }: Props) {
           )}
         </div>
       </a>
-
       {showPreview && (
         <ArticlePreview url={news.link} onClose={() => setShowPreview(false)} />
       )}
