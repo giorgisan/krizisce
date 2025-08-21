@@ -1,4 +1,3 @@
-// pages/index.tsx
 import React, {
   useEffect,
   useMemo,
@@ -14,7 +13,6 @@ import Footer from '@/components/Footer'
 import Header from '@/components/Header'
 import { SOURCES } from '@/lib/sources'
 import ArticleCard from '@/components/ArticleCard'
-import SeoHead from '@/components/SeoHead'
 
 async function loadNews(forceFresh: boolean): Promise<NewsItem[] | null> {
   try {
@@ -34,12 +32,34 @@ export default function Home({ initialNews }: Props) {
   const deferredFilter = useDeferredValue(filter)
   const [displayCount, setDisplayCount] = useState<number>(20)
 
-  // Drawer (vertikalni filter)
-  const [drawerOpen, setDrawerOpen] = useState(false)
+  // DROPDOWN (zamenjava za prejšnji desni drawer)
+  const [menuOpen, setMenuOpen] = useState(false)
+  const [dropdownTop, setDropdownTop] = useState<number>(0)
+
+  // poslušaj hamburger iz headerja
   useEffect(() => {
-    const handler = () => setDrawerOpen((s) => !s)
+    const handler = () => setMenuOpen((s) => !s)
     window.addEventListener('toggle-filters', handler as EventListener)
     return () => window.removeEventListener('toggle-filters', handler as EventListener)
+  }, [])
+
+  // izračun pozicije pod headerjem
+  const computeTop = () => {
+    const header = document.getElementById('site-header')
+    const rect = header?.getBoundingClientRect()
+    const top = (rect?.bottom ?? 56) + window.scrollY
+    setDropdownTop(top)
+  }
+  useEffect(() => {
+    computeTop()
+    const onResize = () => computeTop()
+    const onScroll = () => computeTop()
+    window.addEventListener('resize', onResize)
+    window.addEventListener('scroll', onScroll, { passive: true })
+    return () => {
+      window.removeEventListener('resize', onResize)
+      window.removeEventListener('scroll', onScroll)
+    }
   }, [])
 
   // Periodično preverjanje novih novic (za zeleno piko)
@@ -119,28 +139,85 @@ export default function Home({ initialNews }: Props) {
     startTransition(() => {
       setFilter(s)
       setDisplayCount(20)
-      setDrawerOpen(false)
+      setMenuOpen(false) // zapri dropdown
     })
 
   const resetFilter = () =>
     startTransition(() => {
       setFilter('Vse')
       setDisplayCount(20)
+      setMenuOpen(false)
     })
 
   const handleLoadMore = () => setDisplayCount((p) => p + 20)
 
   return (
     <>
-      {/* SEO meta in pravilni <title> */}
-      <SeoHead
-        title="Križišče"
-        description="Agregator najnovejših novic iz slovenskih medijev. Članki so last izvornih portalov."
-        url="https://krizisce.si/"
-        image="/logos/default-news.jpg"
-      />
-
       <Header />
+
+      {/* DROPDOWN FILTER – NOVO (brez backdropa), poravnan pod headerjem */}
+      <AnimatePresence>
+        {menuOpen && (
+          <motion.div
+            key="filter-dropdown"
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.18 }}
+            className="fixed inset-x-0 z-40"
+            style={{ top: dropdownTop }}
+          >
+            <div
+              className="mx-auto w-full max-w-6xl
+                         rounded-b-2xl border border-gray-200/70 dark:border-gray-700/70
+                         bg-white/75 dark:bg-gray-900/70 backdrop-blur-xl
+                         shadow-xl"
+            >
+              <div className="px-4 sm:px-6 py-3 flex items-center justify-between">
+                <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">
+                  Filtriraj vire
+                </span>
+                <button
+                  aria-label="Zapri"
+                  onClick={() => setMenuOpen(false)}
+                  className="h-9 w-9 inline-flex items-center justify-center rounded-md hover:bg-black/5 dark:hover:bg-white/5"
+                >
+                  <svg viewBox="0 0 24 24" width="20" height="20">
+                    <path d="M6 6l12 12M18 6l-12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                  </svg>
+                </button>
+              </div>
+
+              <div className="px-4 sm:px-6 pb-4 max-h-[70vh] overflow-y-auto scrollbar-hide">
+                <button
+                  onClick={resetFilter}
+                  className="w-full text-left px-3 py-2 rounded-md mb-2
+                             bg-brand text-white hover:bg-brand-hover transition"
+                >
+                  Pokaži vse
+                </button>
+
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5">
+                  {SOURCES.filter((s) => s !== 'Vse').map((source, idx) => (
+                    <motion.button
+                      key={source}
+                      onClick={() => onPick(source)}
+                      initial={{ opacity: 0, y: 4 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.15, delay: 0.02 * idx }}
+                      className={`text-left px-3 py-2 rounded-md transition
+                                  hover:bg-black/5 dark:hover:bg-white/5
+                                  text-gray-800 dark:text-gray-200`}
+                    >
+                      {source}
+                    </motion.button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Vsebina */}
       <main className="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white px-4 md:px-8 lg:px-16 pt-5 lg:pt-6 pb-24">
@@ -153,7 +230,8 @@ export default function Home({ initialNews }: Props) {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -6 }}
               transition={{ duration: 0.15 }}
-              className="sticky top-12 z-30 mb-3"
+              className="sticky"
+              style={{ top: (dropdownTop || 56) - window.scrollY }} // da ne gre pod header/dropdown
             >
               <button
                 onClick={resetFilter}
@@ -165,80 +243,6 @@ export default function Home({ initialNews }: Props) {
                 Pokaži vse
               </button>
             </motion.div>
-          )}
-        </AnimatePresence>
-
-        {/* DRAWER */}
-        <AnimatePresence>
-          {drawerOpen && (
-            <>
-              <motion.div
-                key="backdrop"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 0.35 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.18 }}
-                className="fixed inset-0 z-40 bg-black/60 backdrop-blur-[2px]"
-                onClick={() => setDrawerOpen(false)}
-              />
-              <motion.aside
-                key="drawer"
-                initial={{ x: '100%', opacity: 0.6 }}
-                animate={{ x: 0, opacity: 1 }}
-                exit={{ x: '100%', opacity: 0.6 }}
-                transition={{ type: 'tween', duration: 0.22 }}
-                className="fixed right-0 top-0 z-50 h-full w-[90vw] max-w-xs
-                           bg-white/60 dark:bg-gray-900/60 backdrop-blur-xl
-                           border-l border-gray-200/70 dark:border-gray-700/70
-                           shadow-2xl rounded-l-2xl overflow-hidden"
-                aria-label="Filter virov"
-              >
-                <div className="h-12 px-4 flex items-center justify-between border-b border-gray-200/70 dark:border-gray-700/70">
-                  <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">
-                    Filtriraj vire
-                  </span>
-                  <button
-                    aria-label="Zapri"
-                    onClick={() => setDrawerOpen(false)}
-                    className="h-9 w-9 inline-flex items-center justify-center rounded-md hover:bg-black/5 dark:hover:bg-white/5"
-                  >
-                    <svg viewBox="0 0 24 24" width="20" height="20">
-                      <path d="M6 6l12 12M18 6l-12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-                    </svg>
-                  </button>
-                </div>
-
-                <nav className="p-3 overflow-y-auto">
-                  <button
-                    onClick={resetFilter}
-                    className={`w-full text-left px-3 py-2 rounded-md mb-2 transition ${
-                      deferredFilter === 'Vse'
-                        ? 'bg-brand text-white'
-                        : 'hover:bg-black/5 dark:hover:bg-white/5 text-gray-800 dark:text-gray-200'
-                    }`}
-                  >
-                    Pokaži vse
-                  </button>
-
-                  {SOURCES.filter((s) => s !== 'Vse').map((source, idx) => (
-                    <motion.button
-                      key={source}
-                      onClick={() => onPick(source)}
-                      initial={{ opacity: 0, x: 8 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ duration: 0.15, delay: 0.02 * idx }}
-                      className={`w-full text-left px-3 py-2 rounded-md mb-1.5 transition ${
-                        deferredFilter === source
-                          ? 'bg-brand text-white'
-                          : 'hover:bg-black/5 dark:hover:bg-white/5 text-gray-800 dark:text-gray-200'
-                      }`}
-                    >
-                      {source}
-                    </motion.button>
-                  ))}
-                </nav>
-              </motion.aside>
-            </>
           )}
         </AnimatePresence>
 
