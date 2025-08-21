@@ -5,8 +5,10 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { useTheme } from 'next-themes'
 import { useEffect, useState } from 'react'
+import { useRouter } from 'next/router'
 
 export default function Header() {
+  const router = useRouter()
   const { theme, resolvedTheme, setTheme } = useTheme()
   const [mounted, setMounted] = useState(false)
   const [hasNew, setHasNew] = useState(false)
@@ -33,42 +35,51 @@ export default function Header() {
     setRefreshing(true)
     window.dispatchEvent(new CustomEvent('refresh-news'))
   }
+
   const toggleFilters = () =>
     window.dispatchEvent(new CustomEvent('toggle-filters'))
 
+  // Če smo že na "/", prepreči navigacijo in samo scroll-aj na vrh
+  const onBrandClick: React.MouseEventHandler<HTMLAnchorElement> = (e) => {
+    if (router.pathname === '/') {
+      e.preventDefault()
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+    }
+  }
+
   return (
     <header className="sticky top-0 z-40 bg-[#FAFAFA]/95 dark:bg-gray-900/70 backdrop-blur-md border-b border-gray-200 dark:border-gray-700 shadow-sm">
-      <div className="h-12 px-4 md:px-8 lg:px-16 flex items-center justify-between">
-        {/* Logo + naslov + slogan v eni liniji (poravnano po baseline = 'isto dno') */}
-        <Link href="/" className="flex items-center gap-3 min-w-0">
-          <Image
-            src="/logo.png"
-            alt="Križišče"
-            width={36}
-            height={36}
-            priority
-            className="w-9 h-9 rounded-md"
-          />
-          <div className="flex items-baseline gap-2 min-w-0">
-            <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white whitespace-nowrap">
-              Križišče
-            </h1>
-            <span className="hidden sm:inline text-sm font-normal text-gray-600 dark:text-gray-400 truncate max-w-[45vw]">
-              Najnovejše novice slovenskih medijev
-            </span>
-          </div>
-        </Link>
+      {/* višina ni več fiksna; damo prijeten padding, da “diha” */}
+      <div className="py-2 px-4 md:px-8 lg:px-16 flex items-center justify-between">
+        {/* Levo: Brand (logo + naslov + slogan) + REFRESH gumb */}
+        <div className="flex items-center gap-3 min-w-0">
+          <Link href="/" onClick={onBrandClick} className="flex items-center gap-3 min-w-0">
+            <Image
+              src="/logo.png"
+              alt="Križišče"
+              width={36}
+              height={36}
+              priority
+              className="w-9 h-9 rounded-md"
+            />
+            <div className="min-w-0 leading-tight">
+              <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
+                Križišče
+              </h1>
+              <p className="text-xs sm:text-[13px] text-gray-600 dark:text-gray-400 mt-0.5">
+                Najnovejše novice slovenskih medijev
+              </p>
+            </div>
+          </Link>
 
-        {/* Desno */}
-        <div className="flex items-center gap-1.5 sm:gap-2">
-          {/* Refresh */}
+          {/* Refresh – premaknjen levo, poleg naslova/loga */}
           <button
             type="button"
             onClick={refreshNow}
             aria-label="Osveži novice"
             title="Osveži"
             className="relative inline-flex h-10 w-10 items-center justify-center rounded-md
-                       text-black/55 dark:text-white/65
+                       text-black/60 dark:text-white/70
                        hover:text-black/90 dark:hover:text-white/90
                        hover:bg-black/[0.04] dark:hover:bg-white/[0.06] transition"
           >
@@ -103,7 +114,10 @@ export default function Header() {
               />
             )}
           </button>
+        </div>
 
+        {/* Desno: tema + hamburger */}
+        <div className="flex items-center gap-1.5 sm:gap-2">
           {/* Tema toggle */}
           {mounted && (
             <button
