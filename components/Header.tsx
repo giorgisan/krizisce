@@ -30,7 +30,7 @@ export default function Header() {
   const isDark = currentTheme === 'dark'
 
   const refreshNow = () => {
-    setRefreshing(true) // pokaži spin takoj
+    setRefreshing(true)
     window.dispatchEvent(new CustomEvent('refresh-news'))
   }
   const toggleFilters = () =>
@@ -38,7 +38,6 @@ export default function Header() {
 
   return (
     <header className="sticky top-0 z-40 bg-[#FAFAFA]/95 dark:bg-gray-900/70 backdrop-blur-md border-b border-gray-200 dark:border-gray-700 shadow-sm">
-      {/* Enaka vodoravna poravnava kot v <main> */}
       <div className="h-12 px-4 md:px-8 lg:px-16 flex items-center justify-between">
         {/* Logo + naslov */}
         <Link href="/" className="flex items-center gap-3">
@@ -55,7 +54,7 @@ export default function Header() {
           </h1>
         </Link>
 
-        {/* Desno: Refresh → Tema → Hamburger */}
+        {/* Desno */}
         <div className="flex items-center gap-1.5 sm:gap-2">
           {/* Refresh */}
           <button
@@ -100,7 +99,7 @@ export default function Header() {
             )}
           </button>
 
-          {/* Toggle teme – sonček/luna */}
+          {/* Tema toggle */}
           {mounted && (
             <button
               type="button"
@@ -110,30 +109,37 @@ export default function Header() {
               className="inline-flex h-10 w-10 items-center justify-center rounded-md
                          text-black/55 dark:text-white/65
                          hover:text-black/90 dark:hover:text-white/90
-                         hover:bg-black/[0.04] dark:hover:bg-white/[0.06] transition"
+                         hover:bg-black/[0.04] dark:hover:bg-white/[0.06] transition relative overflow-hidden"
             >
-              {isDark ? (
-                // Ikona SONCA – pokaži v temni temi
-                <svg
-                  viewBox="0 0 24 24"
-                  width="20"
-                  height="20"
-                  aria-hidden="true"
-                >
-                  <path d="M12 4V2M12 22v-2M4.93 4.93 3.52 3.52M20.48 20.48l-1.41-1.41M4 12H2M22 12h-2M4.93 19.07 3.52 20.48M20.48 3.52l-1.41 1.41" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-                  <circle cx="12" cy="12" r="4" stroke="currentColor" strokeWidth="2" fill="none"/>
-                </svg>
-              ) : (
-                // Ikona LUNE – pokaži v svetli temi
-                <svg
-                  viewBox="0 0 24 24"
-                  width="20"
-                  height="20"
-                  aria-hidden="true"
-                >
-                  <path d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 0 0 9.79 9.79Z" stroke="currentColor" strokeWidth="2" fill="none"/>
-                </svg>
-              )}
+              {/* Ikona sonca */}
+              <svg
+                viewBox="0 0 24 24"
+                width="20"
+                height="20"
+                aria-hidden="true"
+                className={`absolute transition-all duration-500 transform ${
+                  isDark
+                    ? 'opacity-100 scale-100 rotate-0 animate-iconIn'
+                    : 'opacity-0 scale-50 -rotate-90'
+                }`}
+              >
+                <path d="M12 4V2M12 22v-2M4.93 4.93 3.52 3.52M20.48 20.48l-1.41-1.41M4 12H2M22 12h-2M4.93 19.07 3.52 20.48M20.48 3.52l-1.41 1.41" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                <circle cx="12" cy="12" r="4" stroke="currentColor" strokeWidth="2" fill="none"/>
+              </svg>
+              {/* Ikona lune */}
+              <svg
+                viewBox="0 0 24 24"
+                width="20"
+                height="20"
+                aria-hidden="true"
+                className={`absolute transition-all duration-500 transform ${
+                  !isDark
+                    ? 'opacity-100 scale-100 rotate-0 animate-iconIn'
+                    : 'opacity-0 scale-50 rotate-90'
+                }`}
+              >
+                <path d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 0 0 9.79 9.79Z" stroke="currentColor" strokeWidth="2" fill="none"/>
+              </svg>
             </button>
           )}
 
