@@ -5,76 +5,66 @@ import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import DOMPurify from 'dompurify'
 
-interface Props {
+type ApiPayload =
+  | { error: string }
+  | { title?: string; site?: string; image?: string | null; html: string; url: string }
+
+type Props = {
   url: string
   onClose: () => void
 }
 
-type ApiPayload =
-  | { error: string }
-  | { title: string; site: string; image?: string | null; html: string; url: string }
-
-/** Normalizira src (odreže query stringe; če je relativen, ga naredi relativnega po poti) */
-function normalizeSrc(src: string | null | undefined): string {
+/** Normaliziraj src (odstrani query/hash, naredi absolutno pot) */
+function normalizeSrc(src?: string | null): string {
   if (!src) return ''
   try {
-    // poskusimo absolutno normalizacijo
     const u = new URL(src, location.origin)
     return (u.origin + u.pathname).toLowerCase()
   } catch {
-    // če ni veljaven URL, odrežemo query
-    return src.split('?')[0].toLowerCase()
+    return src.split(/[?#]/)[0].toLowerCase()
   }
 }
 
-/** Hevristika: odstrani očitne duplikate “hero” slik in <noscript> fallbacke. */
+/** Odstrani <noscript> fallbacke in podvojene slike po enakem src */
 function cleanPreviewHTML(html: string): string {
   try {
     const wrap = document.createElement('div')
     wrap.innerHTML = html
 
-    // 1) noscript pogosto vsebuje podvojeno <img> (fallback) → odstrani
+    // 1) <noscript> pogosto vsebuje kopijo prve slike
     wrap.querySelectorAll('noscript').forEach((n) => n.remove())
 
-    // 2) Zberi img elemente po pojavitvi
-    const imgs = Array.from(wrap.querySelectorAll('img')).filter((img) => img.getAttribute('src'))
-
-    if (imgs.length >= 2) {
-      const a = normalizeSrc(imgs[0].getAttribute('src'))
-      const b = normalizeSrc(imgs[1].getAttribute('src'))
-      // neposredni duplikat prvih dveh → odstrani drugega
-      if (a && b && a === b) {
-        imgs[1].remove()
+    // 2) Odstrani natančne duplikate <img> po src v celotnem dokumentu.
+    //    Prvo pojavitev pustimo, naslednje enake odstranimo.
+    const seen = new Set<string>()
+    for (const img of Array.from(wrap.querySelectorAll('img'))) {
+      const norm = normalizeSrc(img.getAttribute('src'))
+      if (!norm) continue
+      if (seen.has(norm)) {
+        img.remove()
+      } else {
+        seen.add(norm)
       }
     }
 
-    // 3) Dodatno: v prvih parih pojavih odstrani duplikate
-    const seen = new Set<string>()
-    let inspected = 0
-    for (const img of Array.from(wrap.querySelectorAll('img'))) {
-      if (inspected > 5) break // ne posegamo pregloboko (gore/galleries)
-      inspected++
-      const srcN = normalizeSrc(img.getAttribute('src'))
-      if (!srcN) continue
-      if (seen.has(srcN)) {
-        img.remove()
-      } else {
-        seen.add(srcN)
+    // 3) (Nežno) odstrani prazne figure, ki so ostale po odstranjevanju
+    for (const fig of Array.from(wrap.querySelectorAll('figure'))) {
+      if (!fig.querySelector('img') && fig.textContent?.trim() === '') {
+        fig.remove()
       }
     }
 
     return wrap.innerHTML
   } catch {
-    // če karkoli, vrni original
     return html
   }
 }
 
 export default function ArticlePreview({ url, onClose }: Props) {
-  const [content, setContent] = useState<string>('')
-  const [title, setTitle] = useState<string>('')
-  const [site, setSite] = useState<string>('')
-  const [loading, setLoading] = useState<boolean>(true)
+  const [content, setContent] = useState('')
+  const [title, setTitle] = useState('')
+  const [site, setSite] = useState('')
+  const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   const modalRef = useRef<HTMLDivElement>(null)
@@ -82,23 +72,23 @@ export default function ArticlePreview({ url, onClose }: Props) {
 
   useEffect(() => {
     let alive = true
-    const fetchContent = async () => {
+    ;(async () => {
       setLoading(true)
       setError(null)
       try {
         const res = await fetch(`/api/preview?url=${encodeURIComponent(url)}`)
         const data: ApiPayload = await res.json()
         if (!alive) return
+
         if ('error' in data) {
           setError('Napaka pri nalaganju predogleda.')
           setLoading(false)
           return
         }
 
-        // očisti HTML (odstrani duplikate slik) preden sanitiziramo
         const cleaned = cleanPreviewHTML(data.html)
-        setTitle(data.title)
-        setSite(data.site)
+        setTitle(data.title?.trim() || 'Predogled članka')
+        setSite(data.site?.trim() || new URL(url).hostname.replace(/^www\./, ''))
         setContent(DOMPurify.sanitize(cleaned))
         setLoading(false)
       } catch {
@@ -106,43 +96,45 @@ export default function ArticlePreview({ url, onClose }: Props) {
         setError('Napaka pri nalaganju predogleda.')
         setLoading(false)
       }
-    }
-    fetchContent()
+    })()
     return () => {
       alive = false
     }
   }, [url])
 
+  // Fokus trap + zapiranje z ESC + zakleni body scroll
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
+    const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose()
-      else if (e.key === 'Tab') {
-        const focusable = modalRef.current?.querySelectorAll<HTMLElement>(
+      if (e.key === 'Tab') {
+        const nodes = modalRef.current?.querySelectorAll<HTMLElement>(
           'a[href], button, textarea, input, select, [tabindex]:not([tabindex="-1"])'
         )
-        if (!focusable || focusable.length === 0) return
-        const first = focusable[0]
-        const last = focusable[focusable.length - 1]
+        if (!nodes || nodes.length === 0) return
+        const first = nodes[0]
+        const last = nodes[nodes.length - 1]
         if (e.shiftKey) {
           if (document.activeElement === first) {
             e.preventDefault()
             last.focus()
           }
-        } else if (document.activeElement === last) {
-          e.preventDefault()
-          first.focus()
+        } else {
+          if (document.activeElement === last) {
+            e.preventDefault()
+            first.focus()
+          }
         }
       }
     }
 
-    document.addEventListener('keydown', handleKeyDown)
-    const prevOverflow = document.body.style.overflow
+    document.addEventListener('keydown', onKey)
+    const prev = document.body.style.overflow
     document.body.style.overflow = 'hidden'
     setTimeout(() => closeRef.current?.focus(), 0)
 
     return () => {
-      document.removeEventListener('keydown', handleKeyDown)
-      document.body.style.overflow = prevOverflow
+      document.removeEventListener('keydown', onKey)
+      document.body.style.overflow = prev
     }
   }, [onClose])
 
@@ -166,7 +158,7 @@ export default function ArticlePreview({ url, onClose }: Props) {
           <div className="min-w-0 flex-1">
             <div className="text-xs text-gray-500 dark:text-gray-400 truncate">{site}</div>
             <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">
-              {title || 'Predogled'}
+              {title}
             </h3>
           </div>
           <div className="flex items-center gap-2 shrink-0">
