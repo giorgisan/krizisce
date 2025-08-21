@@ -1,4 +1,6 @@
 // pages/index.tsx
+'use client'
+
 import React, {
   useEffect,
   useMemo,
@@ -15,7 +17,6 @@ import Header from '@/components/Header'
 import { SOURCES } from '@/lib/sources'
 import ArticleCard from '@/components/ArticleCard'
 
-// helper za fetch aktualnih novic (opcijsko prisili svežino)
 async function loadNews(forceFresh: boolean): Promise<NewsItem[] | null> {
   try {
     const res = await fetch(`/api/news${forceFresh ? '?forceFresh=1' : ''}`, {
@@ -36,21 +37,11 @@ export default function Home({ initialNews }: Props) {
   const deferredFilter = useDeferredValue(filter)
   const [displayCount, setDisplayCount] = useState<number>(20)
 
-  // -----------------------------
-  // Dropdown (filtri) – stanje + pozicija
-  // -----------------------------
+  // Dropdown stanje + pozicija (poravnan pod headerjem)
   const [menuOpen, setMenuOpen] = useState(false)
   const [pos, setPos] = useState<{ top: number; right: number }>({ top: 0, right: 0 })
 
-  const computeDropdownPos = () => {
-    const trigger = document.getElementById('filters-trigger')
-    const rect = trigger?.getBoundingClientRect()
-    const top = (rect?.bottom ?? 56) + window.scrollY
-    const right = Math.max(0, window.innerWidth - (rect?.right ?? window.innerWidth))
-    setPos({ top, right })
-  }
-
-  // odpiranje/zapiranje preko dogodka iz Headerja
+  // odpiranje/zapiranje iz headerja
   useEffect(() => {
     const handler = () => {
       computeDropdownPos()
@@ -60,12 +51,34 @@ export default function Home({ initialNews }: Props) {
     return () => window.removeEventListener('toggle-filters', handler as EventListener)
   }, [])
 
-  // sprotno prilagodi pozicijo (resize + scroll)
+  // === FIX: izračun pozicije za FIXED panel (brez scrollY) ===
+  const computeDropdownPos = () => {
+    const trigger = document.getElementById('filters-trigger')
+    const header = document.getElementById('site-header')
+
+    const triggerRect = trigger?.getBoundingClientRect()
+    const headerRect = header?.getBoundingClientRect()
+
+    // panel naj bo tik pod headerjem oz. tik pod gumbom (kar je nižje)
+    const topFromTrigger = (triggerRect?.bottom ?? 56) + 8
+    const topFromHeader = (headerRect?.bottom ?? 56) + 8
+    const top = Math.max(topFromHeader, topFromTrigger)
+
+    // poravnamo desni rob z desnim robom gumba
+    const right = Math.max(
+      0,
+      window.innerWidth - (triggerRect?.right ?? window.innerWidth)
+    )
+
+    setPos({ top, right })
+  }
+
+  // ob odprtju, resize, scroll (ko je odprt) ponovno izračunaj pozicijo
   useEffect(() => {
+    computeDropdownPos()
     const onResize = () => computeDropdownPos()
-    const onScroll = () => {
-      if (menuOpen) computeDropdownPos()
-    }
+    const onScroll = () => menuOpen && computeDropdownPos()
+
     window.addEventListener('resize', onResize)
     window.addEventListener('scroll', onScroll, { passive: true })
     return () => {
@@ -84,16 +97,12 @@ export default function Home({ initialNews }: Props) {
     return () => document.removeEventListener('keydown', onKey)
   }, [menuOpen])
 
-  // -----------------------------
-  // Periodično preverjanje novih novic (indikator v headerju)
-  // -----------------------------
+  // fresh indikator
   const [freshNews, setFreshNews] = useState<NewsItem[] | null>(null)
   const [hasNew, setHasNew] = useState(false)
 
   useEffect(() => {
     let cancelled = false
-    let timer: number | undefined
-
     const checkFresh = async () => {
       const fresh = await loadNews(true)
       if (!fresh || fresh.length === 0) {
@@ -114,14 +123,14 @@ export default function Home({ initialNews }: Props) {
     }
 
     checkFresh()
-    timer = window.setInterval(checkFresh, 60_000)
+    const timer = window.setInterval(checkFresh, 60_000)
     return () => {
       cancelled = true
-      if (timer) window.clearInterval(timer)
+      window.clearInterval(timer)
     }
   }, [news, initialNews])
 
-  // poslušalec na "refresh-news" iz Headerja
+  // refresh poslušalec
   useEffect(() => {
     const onRefresh = () => {
       window.dispatchEvent(new CustomEvent('news-refreshing', { detail: true }))
@@ -150,31 +159,22 @@ export default function Home({ initialNews }: Props) {
     return () => window.removeEventListener('refresh-news', onRefresh as EventListener)
   }, [freshNews, hasNew])
 
-  // -----------------------------
-  // Filtriranje in seznam za prikaz
-  // -----------------------------
+  // filtriranje
   const sortedNews = useMemo(
-    () =>
-      [...news].sort(
-        (a, b) => new Date(b.pubDate).getTime() - new Date(a.pubDate).getTime()
-      ),
+    () => [...news].sort((a, b) => new Date(b.pubDate).getTime() - new Date(a.pubDate).getTime()),
     [news]
   )
-
   const filteredNews =
-    deferredFilter === 'Vse'
-      ? sortedNews
-      : sortedNews.filter((a) => a.source === deferredFilter)
-
+    deferredFilter === 'Vse' ? sortedNews : sortedNews.filter((a) => a.source === deferredFilter)
   const visibleNews = filteredNews.slice(0, displayCount)
 
-  // izbira filtra
   const onPick = (s: string) =>
     startTransition(() => {
       setFilter(s)
       setDisplayCount(20)
       setMenuOpen(false)
     })
+
   const resetFilter = () =>
     startTransition(() => {
       setFilter('Vse')
@@ -184,18 +184,15 @@ export default function Home({ initialNews }: Props) {
 
   const handleLoadMore = () => setDisplayCount((p) => p + 20)
 
-  // -----------------------------
-  // RENDER
-  // -----------------------------
   return (
     <>
       <Header />
 
-      {/* DROPDOWN – poravnan pod hamburgerjem (desno) */}
+      {/* DROPDOWN – poravnan pod headerjem (desno) */}
       <AnimatePresence>
         {menuOpen && (
           <>
-            {/* click-away: zapri na klik izven */}
+            {/* click‑away, da se na klik izven zapre */}
             <motion.div
               key="clickaway"
               initial={{ opacity: 0 }}
@@ -205,7 +202,7 @@ export default function Home({ initialNews }: Props) {
               className="fixed inset-0 z-30 bg-transparent"
               onClick={() => setMenuOpen(false)}
             />
-            {/* panel (ustavi bubble, da klik v njem ne zapre) */}
+            {/* panel (fixed) */}
             <motion.div
               key="filter-dropdown"
               initial={{ opacity: 0, y: -6 }}
@@ -234,12 +231,7 @@ export default function Home({ initialNews }: Props) {
                     className="h-8 w-8 inline-flex items-center justify-center rounded-md hover:bg-black/5 dark:hover:bg-white/5"
                   >
                     <svg viewBox="0 0 24 24" width="18" height="18">
-                      <path
-                        d="M6 6l12 12M18 6l-12 12"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                      />
+                      <path d="M6 6l12 12M18 6l-12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
                     </svg>
                   </button>
                 </div>
@@ -318,7 +310,10 @@ export default function Home({ initialNews }: Props) {
               className="grid gap-6 grid-cols-2 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5"
             >
               {visibleNews.map((article) => (
-                <ArticleCard key={article.link} news={article} />
+                <ArticleCard
+                  key={article.link} // stabilen key prepreči “zamenjane” slike
+                  news={article}
+                />
               ))}
             </motion.div>
           </AnimatePresence>
