@@ -32,37 +32,36 @@ export default function Home({ initialNews }: Props) {
   const deferredFilter = useDeferredValue(filter)
   const [displayCount, setDisplayCount] = useState<number>(20)
 
-  // DROPDOWN (zamenjava za prejšnji desni drawer)
+  // Dropdown stanje + pozicija (pod hamburgerjem)
   const [menuOpen, setMenuOpen] = useState(false)
-  const [dropdownTop, setDropdownTop] = useState<number>(0)
+  const [pos, setPos] = useState<{ top: number; right: number }>({ top: 0, right: 0 })
 
-  // poslušaj hamburger iz headerja
+  // odpri/zapri iz headerja
   useEffect(() => {
-    const handler = () => setMenuOpen((s) => !s)
+    const handler = () => {
+      computeDropdownPos()
+      setMenuOpen((s) => !s)
+    }
     window.addEventListener('toggle-filters', handler as EventListener)
     return () => window.removeEventListener('toggle-filters', handler as EventListener)
   }, [])
 
-  // izračun pozicije pod headerjem
-  const computeTop = () => {
-    const header = document.getElementById('site-header')
-    const rect = header?.getBoundingClientRect()
+  // izračunaj top/right iz gumba #filters-trigger
+  const computeDropdownPos = () => {
+    const trigger = document.getElementById('filters-trigger')
+    const rect = trigger?.getBoundingClientRect()
     const top = (rect?.bottom ?? 56) + window.scrollY
-    setDropdownTop(top)
+    const right = Math.max(0, window.innerWidth - (rect?.right ?? window.innerWidth))
+    setPos({ top, right })
   }
   useEffect(() => {
-    computeTop()
-    const onResize = () => computeTop()
-    const onScroll = () => computeTop()
+    computeDropdownPos()
+    const onResize = () => computeDropdownPos()
     window.addEventListener('resize', onResize)
-    window.addEventListener('scroll', onScroll, { passive: true })
-    return () => {
-      window.removeEventListener('resize', onResize)
-      window.removeEventListener('scroll', onScroll)
-    }
+    return () => window.removeEventListener('resize', onResize)
   }, [])
 
-  // Periodično preverjanje novih novic (za zeleno piko)
+  // fresh indikator
   const [freshNews, setFreshNews] = useState<NewsItem[] | null>(null)
   const [hasNew, setHasNew] = useState(false)
 
@@ -97,7 +96,7 @@ export default function Home({ initialNews }: Props) {
     }
   }, [news, initialNews])
 
-  // Osveži – poslušaj klik iz headerja in animacijski signal vrni headerju
+  // refresh poslušalec
   useEffect(() => {
     const onRefresh = () => {
       window.dispatchEvent(new CustomEvent('news-refreshing', { detail: true }))
@@ -126,7 +125,7 @@ export default function Home({ initialNews }: Props) {
     return () => window.removeEventListener('refresh-news', onRefresh as EventListener)
   }, [freshNews, hasNew])
 
-  // Filtriranje
+  // filtriranje
   const sortedNews = useMemo(
     () => [...news].sort((a, b) => new Date(b.pubDate).getTime() - new Date(a.pubDate).getTime()),
     [news]
@@ -139,7 +138,7 @@ export default function Home({ initialNews }: Props) {
     startTransition(() => {
       setFilter(s)
       setDisplayCount(20)
-      setMenuOpen(false) // zapri dropdown
+      setMenuOpen(false)
     })
 
   const resetFilter = () =>
@@ -155,41 +154,42 @@ export default function Home({ initialNews }: Props) {
     <>
       <Header />
 
-      {/* DROPDOWN FILTER – NAVPIČNI SEZNAM (brez backdropa), poravnan pod headerjem */}
+      {/* DROPDOWN – poravnan pod hamburgerjem (desno) */}
       <AnimatePresence>
         {menuOpen && (
           <motion.div
             key="filter-dropdown"
-            initial={{ opacity: 0, y: -8 }}
+            initial={{ opacity: 0, y: -6 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            transition={{ duration: 0.18 }}
-            className="fixed inset-x-0 z-40"
-            style={{ top: dropdownTop }}
+            exit={{ opacity: 0, y: -6 }}
+            transition={{ duration: 0.16 }}
+            className="fixed z-40"
+            style={{ top: pos.top, right: pos.right }}
           >
             <div
-              className="mx-auto w-full max-w-6xl
-                         rounded-b-2xl border border-gray-200/70 dark:border-gray-700/70
-                         bg-white/75 dark:bg-gray-900/70 backdrop-blur-xl
-                         shadow-xl"
+              className="w-[86vw] max-w-[22rem]
+                         rounded-xl border border-gray-200/70 dark:border-gray-700/70
+                         bg-white/80 dark:bg-gray-900/75 backdrop-blur-xl
+                         shadow-xl overflow-hidden"
+              role="menu"
+              aria-label="Filtriraj vire"
             >
-              <div className="px-4 sm:px-6 py-3 flex items-center justify-between">
+              <div className="px-4 py-2 flex items-center justify-between">
                 <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">
                   Filtriraj vire
                 </span>
                 <button
                   aria-label="Zapri"
                   onClick={() => setMenuOpen(false)}
-                  className="h-9 w-9 inline-flex items-center justify-center rounded-md hover:bg-black/5 dark:hover:bg-white/5"
+                  className="h-8 w-8 inline-flex items-center justify-center rounded-md hover:bg-black/5 dark:hover:bg-white/5"
                 >
-                  <svg viewBox="0 0 24 24" width="20" height="20">
+                  <svg viewBox="0 0 24 24" width="18" height="18">
                     <path d="M6 6l12 12M18 6l-12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
                   </svg>
                 </button>
               </div>
 
-              {/* NAVPIČNI SEZNAM */}
-              <div className="px-4 sm:px-6 pb-4 max-h-[70vh] overflow-y-auto scrollbar-hide">
+              <div className="px-2 pb-2 max-h-[70vh] overflow-y-auto scrollbar-hide">
                 <div className="space-y-1">
                   <button
                     onClick={resetFilter}
@@ -199,21 +199,20 @@ export default function Home({ initialNews }: Props) {
                     Pokaži vse
                   </button>
 
-                  {/* vsak vir = ena vrstica */}
-                  {SOURCES.filter((s) => s !== 'Vse').map((source, idx) => (
-                    <motion.button
-                      key={source}
-                      onClick={() => onPick(source)}
-                      initial={{ opacity: 0, y: 4 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.15, delay: 0.015 * idx }}
-                      className="w-full text-left px-3 py-2 rounded-md
-                                 hover:bg-black/5 dark:hover:bg-white/5
-                                 text-gray-800 dark:text-gray-200 transition"
-                    >
-                      {source}
-                    </motion.button>
-                  ))}
+                    {SOURCES.filter((s) => s !== 'Vse').map((source, idx) => (
+                      <motion.button
+                        key={source}
+                        onClick={() => onPick(source)}
+                        initial={{ opacity: 0, y: 3 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.12, delay: 0.01 * idx }}
+                        className="w-full text-left px-3 py-2 rounded-md
+                                   hover:bg-black/5 dark:hover:bg-white/5
+                                   text-gray-800 dark:text-gray-200 transition"
+                      >
+                        {source}
+                      </motion.button>
+                    ))}
                 </div>
               </div>
             </div>
@@ -232,8 +231,7 @@ export default function Home({ initialNews }: Props) {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -6 }}
               transition={{ duration: 0.15 }}
-              className="sticky"
-              style={{ top: (dropdownTop || 56) - window.scrollY }}
+              className="sticky top-[3.25rem] z-30" // približno višina headerja
             >
               <button
                 onClick={resetFilter}
