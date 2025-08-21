@@ -92,19 +92,20 @@ export default function ArticlePreview({ url, onClose }: Props) {
 
   return createPortal(
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 transition-opacity duration-300"
       role="dialog"
       aria-modal="true"
       onClick={(e) => {
         if (e.target === e.currentTarget) {
-          onClose() // klik zunaj okna zapre modal
+          onClose()
         }
       }}
     >
       <div
         ref={modalRef}
-        className="bg-white dark:bg-gray-900 rounded-xl shadow-2xl w-full max-w-2xl mx-4 max-h-[80vh] overflow-y-auto border border-gray-200/10"
+        className="bg-white dark:bg-gray-900 rounded-xl shadow-2xl w-full max-w-2xl mx-4 max-h-[80vh] overflow-y-auto border border-gray-200/10 transform transition-all duration-300 ease-out scale-95 opacity-0 animate-fadeInUp"
       >
+        {/* Header */}
         <div className="sticky top-0 z-10 flex items-center justify-between gap-3 px-4 py-3 border-b border-gray-200/20 bg-white/80 dark:bg-gray-900/80 backdrop-blur">
           <div className="min-w-0 flex-1">
             <div className="text-xs text-gray-500 dark:text-gray-400 truncate">{site}</div>
@@ -130,10 +131,11 @@ export default function ArticlePreview({ url, onClose }: Props) {
           </div>
         </div>
 
+        {/* Body */}
         <div className="px-4 py-4">
           {loading && (
             <div className="flex items-center justify-center py-10">
-              <div className="animate-pulse w-12 h-12 rounded-full bg-gray-300 dark:bg-gray-700" />
+              <div className="w-12 h-12 rounded-full bg-gray-300 dark:bg-gray-700 animate-zenPulse" />
             </div>
           )}
           {error && <p className="text-sm text-red-500">{error}</p>}
