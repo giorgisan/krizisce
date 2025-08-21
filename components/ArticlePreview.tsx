@@ -1,151 +1,144 @@
-// components/ArticlePreview.tsx
+// components/ArticleCard.tsx
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
-import { createPortal } from 'react-dom'
-import DOMPurify from 'dompurify'
+import { NewsItem } from '@/types'
+import { format } from 'date-fns'
+import { sl } from 'date-fns/locale'
+import { sourceColors } from '@/lib/sources'
+import { MouseEvent, useMemo, useState } from 'react'
+import Image from 'next/image'
+import dynamic from 'next/dynamic'
 
 interface Props {
-  url: string
-  onClose: () => void
+  news: NewsItem
 }
 
-type ApiPayload =
-  | { error: string }
-  | { title: string; site: string; image?: string | null; html: string; url: string }
+const ArticlePreview = dynamic(() => import('./ArticlePreview'), { ssr: false })
 
-export default function ArticlePreview({ url, onClose }: Props) {
-  const [content, setContent] = useState<string>('')
-  const [title, setTitle] = useState<string>('')
-  const [site, setSite] = useState<string>('')
-  const [loading, setLoading] = useState<boolean>(true)
-  const [error, setError] = useState<string | null>(null)
+const FALLBACK_SRC = '/logos/default-news.jpg'
 
-  const modalRef = useRef<HTMLDivElement>(null)
-  const closeRef = useRef<HTMLButtonElement>(null)
+export default function ArticleCard({ news }: Props) {
+  const formattedDate = format(new Date(news.isoDate), 'd. MMM, HH:mm', { locale: sl })
+  const sourceColor = sourceColors[news.source] || '#fc9c6c'
 
-  useEffect(() => {
-    let alive = true
-    const fetchContent = async () => {
-      setLoading(true)
-      setError(null)
-      try {
-        const res = await fetch(`/api/preview?url=${encodeURIComponent(url)}`)
-        const data: ApiPayload = await res.json()
-        if (!alive) return
-        if ('error' in data) {
-          setError('Napaka pri nalaganju predogleda.')
-          setLoading(false)
-          return
-        }
-        setTitle(data.title)
-        setSite(data.site)
-        setContent(DOMPurify.sanitize(data.html))
-        setLoading(false)
-      } catch {
-        if (!alive) return
-        setError('Napaka pri nalaganju predogleda.')
-        setLoading(false)
-      }
+  const [imgSrc, setImgSrc] = useState<string | null>(news.image || null)
+  const [useFallback, setUseFallback] = useState<boolean>(!news.image)
+  const onImgError = () => {
+    if (!useFallback) {
+      setImgSrc(FALLBACK_SRC)
+      setUseFallback(true)
     }
-    fetchContent()
-    return () => {
-      alive = false
-    }
-  }, [url])
+  }
 
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
-      else if (e.key === 'Tab') {
-        const focusable = modalRef.current?.querySelectorAll<HTMLElement>(
-          'a[href], button, textarea, input, select, [tabindex]:not([tabindex="-1"])'
-        )
-        if (!focusable || focusable.length === 0) return
-        const first = focusable[0]
-        const last = focusable[focusable.length - 1]
-        if (e.shiftKey) {
-          if (document.activeElement === first) {
-            e.preventDefault()
-            last.focus()
-          }
-        } else if (document.activeElement === last) {
-          e.preventDefault()
-          first.focus()
-        }
-      }
-    }
+  const sourceInitials = useMemo(() => {
+    const parts = (news.source || '').split(' ').filter(Boolean)
+    if (parts.length === 0) return '??'
+    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()
+    return (parts[0][0] + parts[1][0]).toUpperCase()
+  }, [news.source])
 
-    document.addEventListener('keydown', handleKeyDown)
-    const prevOverflow = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
-    setTimeout(() => closeRef.current?.focus(), 0)
+  const [showPreview, setShowPreview] = useState(false)
 
-    return () => {
-      document.removeEventListener('keydown', handleKeyDown)
-      document.body.style.overflow = prevOverflow
-    }
-  }, [onClose])
+  const handleClick = async (e: MouseEvent<HTMLAnchorElement>) => {
+    if (e.metaKey || e.ctrlKey || e.button === 1) return
+    e.preventDefault()
+    window.open(news.link, '_blank')
+    try {
+      await fetch('/api/click', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ source: news.source, url: news.link }),
+      })
+    } catch {}
+  }
 
-  if (typeof document === 'undefined') return null
-
-  return createPortal(
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 transition-opacity duration-300"
-      role="dialog"
-      aria-modal="true"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose()
-      }}
-    >
-      <div
-        ref={modalRef}
-        className="bg-white dark:bg-gray-900 rounded-xl shadow-2xl w-full max-w-2xl mx-4 max-h-[80vh] overflow-y-auto border border-gray-200/10 transform transition-all duration-300 ease-out scale-95 opacity-0 animate-fadeInUp"
+  return (
+    <>
+      <a
+        href={news.link}
+        target="_blank"
+        rel="noopener noreferrer"
+        onClick={handleClick}
+        className="no-underline group block bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden transition-all duration-200 transform hover:scale-[1.01] hover:bg-gray-100 dark:hover:bg-gray-700"
       >
-        {/* Header */}
-        <div className="sticky top-0 z-10 flex items-center justify-between gap-3 px-4 py-3 border-b border-gray-200/20 bg-white/80 dark:bg-gray-900/80 backdrop-blur rounded-t-xl">
-          <div className="min-w-0 flex-1">
-            <div className="text-xs text-gray-500 dark:text-gray-400 truncate">{site}</div>
-            <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">
-              {title || 'Predogled'}
-            </h3>
-          </div>
-          <div className="flex items-center gap-2 shrink-0">
-            <a
-              href={url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="no-underline inline-flex items-center justify-center rounded-lg px-2 py-1 text-sm bg-blue-600 text-white hover:bg-blue-700"
-            >
-              Odpri cel članek
-            </a>
-            <button
-              ref={closeRef}
-              onClick={onClose}
-              aria-label="Zapri predogled"
-              className="inline-flex h-8 px-2 items-center justify-center rounded-lg text-sm bg-gray-100/70 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200"
-            >
-              ✕
-            </button>
-          </div>
+        <div className="relative w-full aspect-[16/9] overflow-hidden">
+          {useFallback ? (
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="absolute inset-0 bg-gradient-to-br from-gray-200 via-gray-300 to-gray-200 dark:from-gray-700 dark:via-gray-800 dark:to-gray-700" />
+              <span className="relative z-10 text-sm font-medium text-gray-700 dark:text-gray-300">
+                Ni slike
+              </span>
+            </div>
+          ) : (
+            <Image
+              src={imgSrc as string}
+              alt={news.title}
+              fill
+              className="object-cover transition-opacity duration-300 opacity-0 data-[loaded=true]:opacity-100"
+              onError={onImgError}
+              onLoad={(e) => {
+                (e.target as HTMLImageElement).setAttribute('data-loaded', 'true')
+              }}
+              referrerPolicy="no-referrer"
+              loading="lazy"
+            />
+          )}
+
+          <button
+            onClick={(e) => {
+              e.preventDefault()
+              e.stopPropagation()
+              setShowPreview(true)
+            }}
+            aria-label="Predogled"
+            className="peer absolute top-2 right-2 h-8 w-8 rounded-full grid place-items-center
+                       bg-white/75 dark:bg-gray-900/75 ring-1 ring-black/10 dark:ring-white/10
+                       text-gray-700 dark:text-gray-200
+                       transition-transform duration-150
+                       hover:scale-125 active:scale-110"
+          >
+            <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+              <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12Z" stroke="currentColor" strokeWidth="2" fill="none"/>
+              <circle cx="12" cy="12" r="3.5" stroke="currentColor" strokeWidth="2" fill="none"/>
+            </svg>
+          </button>
+          <span
+            className="pointer-events-none absolute top-2 right-12 translate-y-0.5
+                       rounded-md px-2 py-1 text-xs font-medium
+                       bg-black/65 text-white shadow
+                       opacity-0 transition-opacity duration-150
+                       peer-hover:opacity-100"
+          >
+            Predogled
+          </span>
         </div>
 
-        {/* Body */}
-        <div className="px-4 py-4">
-          {loading && (
-            <div className="flex items-center justify-center py-10">
-              <div className="w-12 h-12 rounded-full bg-gray-300 dark:bg-gray-700 animate-zenPulse" />
-            </div>
-          )}
-          {error && <p className="text-sm text-red-500">{error}</p>}
-          {!loading && !error && (
-            <div className="prose prose-invert max-w-none prose-img:rounded-lg prose-a:underline">
-              <div dangerouslySetInnerHTML={{ __html: content }} />
-            </div>
+        <div className="p-3">
+          <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400 mb-1">
+            <span className="font-medium text-[0.7rem]" style={{ color: sourceColor }}>
+              {news.source}
+            </span>
+            <span>{formattedDate}</span>
+          </div>
+
+          <h2
+            className="text-sm font-semibold leading-snug line-clamp-3 mb-1 text-gray-900 dark:text-white"
+            title={news.title}
+          >
+            {news.title}
+          </h2>
+
+          {news.contentSnippet && (
+            <p className="text-gray-600 dark:text-gray-400 text-sm leading-tight line-clamp-4">
+              {news.contentSnippet}
+            </p>
           )}
         </div>
-      </div>
-    </div>,
-    document.body
+      </a>
+
+      {showPreview && (
+        <ArticlePreview url={news.link} onClose={() => setShowPreview(false)} />
+      )}
+    </>
   )
 }
