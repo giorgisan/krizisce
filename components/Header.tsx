@@ -14,7 +14,6 @@ export default function Header() {
 
   useEffect(() => setMounted(true), [])
 
-  // Signali iz index.tsx
   useEffect(() => {
     const onHasNew = (e: Event) => setHasNew(Boolean((e as CustomEvent).detail))
     const onRefreshing = (e: Event) => setRefreshing(Boolean((e as CustomEvent).detail))
@@ -39,7 +38,7 @@ export default function Header() {
   return (
     <header className="sticky top-0 z-40 bg-[#FAFAFA]/95 dark:bg-gray-900/70 backdrop-blur-md border-b border-gray-200 dark:border-gray-700 shadow-sm">
       <div className="h-12 px-4 md:px-8 lg:px-16 flex items-center justify-between">
-        {/* Logo + naslov + enovrstični slogan */}
+        {/* Logo + naslov + slogan v eni liniji */}
         <Link href="/" className="flex items-center gap-3 min-w-0">
           <Image
             src="/logo.png"
@@ -49,12 +48,14 @@ export default function Header() {
             priority
             className="w-9 h-9 rounded-md"
           />
-          <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2 leading-none min-w-0">
-            Križišče
+          <div className="flex items-center gap-2 min-w-0">
+            <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white whitespace-nowrap">
+              Križišče
+            </h1>
             <span className="hidden sm:inline text-sm font-normal text-gray-600 dark:text-gray-400 truncate max-w-[45vw]">
               | Najnovejše novice slovenskih medijev
             </span>
-          </h1>
+          </div>
         </Link>
 
         {/* Desno */}
@@ -114,7 +115,7 @@ export default function Header() {
                          hover:text-black/90 dark:hover:text-white/90
                          hover:bg-black/[0.04] dark:hover:bg-white/[0.06] transition relative overflow-hidden"
             >
-              {/* Ikona sonca (vidna v temni temi) */}
+              {/* Ikona sonca */}
               <svg
                 viewBox="0 0 24 24"
                 width="20"
@@ -129,7 +130,7 @@ export default function Header() {
                 <path d="M12 4V2M12 22v-2M4.93 4.93 3.52 3.52M20.48 20.48l-1.41-1.41M4 12H2M22 12h-2M4.93 19.07 3.52 20.48M20.48 3.52l-1.41 1.41" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
                 <circle cx="12" cy="12" r="4" stroke="currentColor" strokeWidth="2" fill="none"/>
               </svg>
-              {/* Ikona lune (vidna v svetli temi) */}
+              {/* Ikona lune */}
               <svg
                 viewBox="0 0 24 24"
                 width="20"
