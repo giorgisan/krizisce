@@ -2,15 +2,12 @@
 import Head from 'next/head'
 
 type Props = {
-  /** Page title. Če je različen od "Križišče", bo renderirano "Naslov · Križišče". */
+  /** Če ni "Križišče", bo izpisano "Naslov · Križišče" */
   title?: string
-  /** Opis strani (meta description + OG/Twitter). */
   description?: string
-  /** Absolutni URL strani (za <link rel="canonical"> in og:url). */
   url?: string
-  /** OG slika; lahko relativna (/logos/default-news.jpg) ali absolutna. */
+  /** Relativna ali absolutna pot do OG slike */
   image?: string
-  /** Po želji lahko prepišeš JSON‑LD. Če ga ne podaš, nastavimo WebSite. */
   jsonLd?: object
 }
 
@@ -50,7 +47,7 @@ export default function SeoHead({
       <title>{fullTitle}</title>
       <link rel="canonical" href={url} />
 
-      {/* Description */}
+      {/* Meta description */}
       <meta name="description" content={description} />
 
       {/* Open Graph */}
@@ -69,13 +66,11 @@ export default function SeoHead({
       <meta name="twitter:description" content={description} />
       <meta name="twitter:image" content={ogImage} />
 
-      {/* JSON‑LD (po potrebi prepišeš prek props.jsonLd) */}
+      {/* JSON‑LD */}
       <script
         type="application/ld+json"
         // eslint-disable-next-line react/no-danger
-        dangerouslySetInnerHTML={{
-          __html: JSON.stringify(jsonLd ?? fallbackJsonLd),
-        }}
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd ?? fallbackJsonLd) }}
       />
     </Head>
   )
