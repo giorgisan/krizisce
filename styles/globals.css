@@ -93,7 +93,6 @@ body {
   animation: iconIn 0.5s ease-out;
 }
 
-
 /* ---------------------------------
    LINE CLAMP
 ---------------------------------- */
@@ -173,4 +172,16 @@ body {
   box-shadow: 0 18px 40px rgba(0,0,0,.35);
   backdrop-filter: blur(8px) saturate(120%);
   border: 1px solid var(--ring);
+}
+
+/* ---------------------------------
+   PREVIEW MODAL – globalno odstrani underline
+---------------------------------- */
+body.preview-open * {
+  text-decoration: none !important;
+}
+
+/* dodatno še za vse linke v renderiranem članku */
+body.preview-open .prose a {
+  text-decoration: none !important;
 }
