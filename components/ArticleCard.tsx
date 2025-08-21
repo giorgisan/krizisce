@@ -19,7 +19,10 @@ export default function ArticleCard({ news }: Props) {
   const [showPreview, setShowPreview] = useState(false)
 
   const handleClick = async (e: MouseEvent<HTMLAnchorElement>) => {
+    // naj brskalnik sam odpre v novem tabu pri Cmd/Ctrl/middle klik
     if (e.metaKey || e.ctrlKey || e.button === 1) return
+
+    // levi klik -> odpri v novem zavihku, zabeleži klik
     e.preventDefault()
     window.open(news.link, '_blank')
 
@@ -29,8 +32,8 @@ export default function ArticleCard({ news }: Props) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ source: news.source, url: news.link }),
       })
-    } catch (error) {
-      console.error('Napaka pri beleženju klika:', error)
+    } catch (err) {
+      console.error('Napaka pri beleženju klika:', err)
     }
   }
 
@@ -44,7 +47,7 @@ export default function ArticleCard({ news }: Props) {
         title="Odpri članek v novem zavihku"
         className="group block bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden transition-all duration-200 transform hover:scale-[1.01] hover:bg-gray-100 dark:hover:bg-gray-700"
       >
-        {/* Slika + quick actions */}
+        {/* Slika + quick action (lupa, čist stil) */}
         <div className="relative w-full aspect-[16/9] overflow-hidden">
           <Image
             src={news.image || '/logos/default-news.jpg'}
@@ -54,7 +57,7 @@ export default function ArticleCard({ news }: Props) {
             loading="lazy"
           />
 
-          {/* QUICK PREVIEW: lupa – spodaj levo */}
+          {/* Lupa – zgoraj desno, minimal look */}
           <button
             onClick={(e) => {
               e.preventDefault()
@@ -63,17 +66,15 @@ export default function ArticleCard({ news }: Props) {
             }}
             aria-label="Predogled članka"
             title="Predogled"
-            className="absolute left-2 bottom-2 h-9 w-9 rounded-full
-                       bg-white/85 dark:bg-gray-900/70
-                       text-gray-800 dark:text-gray-100
-                       backdrop-blur-md shadow ring-1 ring-black/5 dark:ring-white/10
+            className="absolute top-2 right-2 h-9 w-9 rounded-full
                        flex items-center justify-center
+                       bg-black/55 text-white backdrop-blur-sm
+                       ring-1 ring-white/15 shadow
                        transition
-                       hover:bg-white dark:hover:bg-gray-900
-                       focus:outline-none focus:ring-2 focus:ring-[var(--ring)]
+                       hover:bg-black/70
+                       focus:outline-none focus:ring-2 focus:ring-white/40
                        opacity-100 md:opacity-0 md:group-hover:opacity-100"
           >
-            {/* Ikona lupa */}
             <svg
               xmlns="http://www.w3.org/2000/svg"
               viewBox="0 0 24 24"
