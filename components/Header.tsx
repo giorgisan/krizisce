@@ -51,7 +51,7 @@ export default function Header() {
       className="sticky top-0 z-40 bg-[#FAFAFA]/95 dark:bg-gray-900/70 backdrop-blur-md border-b border-gray-200 dark:border-gray-700 shadow-sm"
     >
       <div className="py-2 px-4 md:px-8 lg:px-16 flex items-center justify-between">
-        {/* Levo: Brand (logo + naslov + slogan) */}
+        {/* Levo: Brand */}
         <Link href="/" onClick={onBrandClick} className="flex items-center gap-3 min-w-0">
           <Image
             src="/logo.png"
@@ -128,31 +128,27 @@ export default function Header() {
                          hover:text-black/90 dark:hover:text-white/90
                          hover:bg-black/[0.04] dark:hover:bg-white/[0.06] transition relative overflow-hidden"
             >
-              {/* Ikona sonca (vidna v temni temi) */}
+              {/* Sun */}
               <svg
                 viewBox="0 0 24 24"
                 width="20"
                 height="20"
                 aria-hidden="true"
                 className={`absolute transition-all duration-500 transform ${
-                  isDark
-                    ? 'opacity-100 scale-100 rotate-0 animate-iconIn'
-                    : 'opacity-0 scale-50 -rotate-90'
+                  isDark ? 'opacity-100 scale-100 rotate-0 animate-iconIn' : 'opacity-0 scale-50 -rotate-90'
                 }`}
               >
                 <path d="M12 4V2M12 22v-2M4.93 4.93 3.52 3.52M20.48 20.48l-1.41-1.41M4 12H2M22 12h-2M4.93 19.07 3.52 20.48M20.48 3.52l-1.41 1.41" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
                 <circle cx="12" cy="12" r="4" stroke="currentColor" strokeWidth="2" fill="none"/>
               </svg>
-              {/* Ikona lune (vidna v svetli temi) */}
+              {/* Moon */}
               <svg
                 viewBox="0 0 24 24"
                 width="20"
                 height="20"
                 aria-hidden="true"
                 className={`absolute transition-all duration-500 transform ${
-                  !isDark
-                    ? 'opacity-100 scale-100 rotate-0 animate-iconIn'
-                    : 'opacity-0 scale-50 rotate-90'
+                  !isDark ? 'opacity-100 scale-100 rotate-0 animate-iconIn' : 'opacity-0 scale-50 rotate-90'
                 }`}
               >
                 <path d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 0 0 9.79 9.79Z" stroke="currentColor" strokeWidth="2" fill="none"/>
@@ -160,8 +156,9 @@ export default function Header() {
             </button>
           )}
 
-          {/* Hamburger */}
+          {/* Hamburger (SIDRO za dropdown) */}
           <button
+            id="filters-trigger"
             type="button"
             onClick={toggleFilters}
             aria-label="Odpri filter"
