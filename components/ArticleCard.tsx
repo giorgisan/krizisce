@@ -1,156 +1,158 @@
-'use client'
-
+// components/ArticleCard.tsx
 import { NewsItem } from '@/types'
 import { format } from 'date-fns'
 import { sl } from 'date-fns/locale'
+import { MouseEvent, useState } from 'react'
 import { sourceColors } from '@/lib/sources'
-import { MouseEvent, useMemo, useState, useEffect, ComponentType } from 'react'
-import Image from 'next/image'
-import dynamic from 'next/dynamic'
 
 interface Props {
   news: NewsItem
 }
 
-type PreviewProps = { url: string; onClose: () => void }
-const ArticlePreview = dynamic(() => import('./ArticlePreview'), { ssr: false }) as ComponentType<PreviewProps>
-
-const FALLBACK_SRC = '/logos/default-news.jpg'
-
 export default function ArticleCard({ news }: Props) {
-  const formattedDate = format(new Date(news.isoDate), 'd. MMM, HH:mm', { locale: sl })
-  const sourceColor = sourceColors[news.source] || '#fc9c6c'
-
-  // --- Slika + fallback ---
-  const [imgSrc, setImgSrc] = useState<string | null>(news.image || null)
-  const [useFallback, setUseFallback] = useState<boolean>(!news.image)
-
-  // ⬇️ Kritično: ko pride nov "news" (po refreshu), resetiraj state,
-  // da se slike ne “prilepijo” na napačno kartico.
-  useEffect(() => {
-    setImgSrc(news.image || null)
-    setUseFallback(!news.image)
-  }, [news.image])
-
-  const onImgError = () => {
-    if (!useFallback) {
-      setImgSrc(FALLBACK_SRC)
-      setUseFallback(true)
-    }
-  }
-
-  const sourceInitials = useMemo(() => {
-    const parts = (news.source || '').split(' ').filter(Boolean)
-    if (parts.length === 0) return '??'
-    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()
-    return (parts[0][0] + parts[1][0]).toUpperCase()
-  }, [news.source])
-
   const [showPreview, setShowPreview] = useState(false)
 
-  const handleClick = async (e: MouseEvent<HTMLAnchorElement>) => {
-    if (e.metaKey || e.ctrlKey || e.button === 1) return
-    e.preventDefault()
+  const handleClick = async (e: MouseEvent) => {
     window.open(news.link, '_blank')
+
     try {
       await fetch('/api/click', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ source: news.source, url: news.link }),
       })
-    } catch {}
+    } catch (error) {
+      console.error('Napaka pri beleženju klika:', error)
+    }
   }
 
+  const formattedDate = format(new Date(news.isoDate), 'd. MMM, HH:mm', {
+    locale: sl,
+  })
+
   return (
-    <>
-      <a
-        href={news.link}
-        target="_blank"
-        rel="noopener noreferrer"
-        onClick={handleClick}
-        className="no-underline group block bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden transition-all duration-200 transform hover:scale-[1.01] hover:bg-gray-100 dark:hover:bg-gray-700"
-      >
-        {/* MEDIA */}
-        <div className="relative w-full aspect-[16/9] overflow-hidden">
-          {useFallback ? (
-            <div className="absolute inset-0 flex items-center justify-center">
-              <div className="absolute inset-0 bg-gradient-to-br from-gray-200 via-gray-300 to-gray-200 dark:from-gray-700 dark:via-gray-800 dark:to-gray-700" />
-              <span className="relative z-10 text-sm font-medium text-gray-700 dark:text-gray-300">
-                Ni slike
-              </span>
-            </div>
-          ) : (
-            <Image
-              src={imgSrc as string}
-              alt={news.title}
-              fill
-              className="object-cover transition-opacity duration-300 opacity-0 data-[loaded=true]:opacity-100"
-              onError={onImgError}
-              onLoad={(e) => {
-                (e.target as HTMLImageElement).setAttribute('data-loaded', 'true')
-              }}
-              referrerPolicy="no-referrer"
-              loading="lazy"
+    <a
+      href={news.link}
+      onClick={handleClick}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="group surface block overflow-hidden cv-auto fade-in hover:scale-[1.01] transition"
+    >
+      <div className="relative">
+        {news.image && (
+          <img
+            src={news.image}
+            alt={news.title}
+            className="w-full h-48 object-cover"
+            loading="lazy"
+          />
+        )}
+
+        {/* Oko za predogled */}
+        <button
+          onClick={(e) => {
+            e.preventDefault()
+            e.stopPropagation()
+            setShowPreview(true)
+          }}
+          aria-label="Predogled"
+          className="
+            absolute top-2 right-2 h-8 w-8 rounded-full grid place-items-center
+            bg-white/75 dark:bg-gray-900/75 ring-1 ring-black/10 dark:ring-white/10
+            text-gray-700 dark:text-gray-200 transition
+
+            opacity-100 pointer-events-auto
+            md:opacity-0 md:pointer-events-none
+            md:group-hover:opacity-100 md:group-hover:pointer-events-auto
+            md:focus-visible:opacity-100 md:focus-visible:pointer-events-auto
+          "
+        >
+          <svg
+            viewBox="0 0 24 24"
+            width="18"
+            height="18"
+            aria-hidden="true"
+          >
+            <path
+              d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12Z"
+              stroke="currentColor"
+              strokeWidth="2"
+              fill="none"
             />
-          )}
+            <circle
+              cx="12"
+              cy="12"
+              r="3.5"
+              stroke="currentColor"
+              strokeWidth="2"
+              fill="none"
+            />
+          </svg>
+        </button>
 
-          {/* Predogled – oko */}
-          <button
-            onClick={(e) => {
-              e.preventDefault()
-              e.stopPropagation()
-              setShowPreview(true)
-            }}
-            aria-label="Predogled"
-            className="peer absolute top-2 right-2 h-8 w-8 rounded-full grid place-items-center
-                       bg-white/75 dark:bg-gray-900/75 ring-1 ring-black/10 dark:ring-white/10
-                       text-gray-700 dark:text-gray-200
-                       transition-transform duration-150
-                       hover:scale-125 active:scale-110"
-          >
-            <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
-              <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12Z" stroke="currentColor" strokeWidth="2" fill="none"/>
-              <circle cx="12" cy="12" r="3.5" stroke="currentColor" strokeWidth="2" fill="none"/>
-            </svg>
-          </button>
-          <span
-            className="pointer-events-none absolute top-2 right-12 translate-y-0.5
-                       rounded-md px-2 py-1 text-xs font-medium
-                       bg-black/65 text-white shadow
-                       opacity-0 transition-opacity duration-150
-                       peer-hover:opacity-100"
-          >
-            Predogled
-          </span>
+        {/* Tooltip samo na desktopu */}
+        <span
+          className="
+            pointer-events-none absolute top-2 right-12 translate-y-0.5
+            rounded-md px-2 py-1 text-xs font-medium
+            bg-black/65 text-white shadow
+            opacity-0 transition-opacity
+            md:group-hover:opacity-100
+          "
+        >
+          Predogled
+        </span>
+      </div>
+
+      {/* Vsebina kartice */}
+      <div className="p-4">
+        <div
+          className="text-sm font-medium mb-1"
+          style={{ color: sourceColors[news.source] || 'var(--text-dim)' }}
+        >
+          {news.source}
         </div>
-
-        {/* TEXT */}
-        <div className="p-3">
-          <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400 mb-1">
-            <span className="font-medium text-[0.7rem]" style={{ color: sourceColor }}>
-              {news.source}
-            </span>
-            <span>{formattedDate}</span>
-          </div>
-
-          <h2
-            className="text-sm font-semibold leading-snug line-clamp-3 mb-1 text-gray-900 dark:text-white"
-            title={news.title}
-          >
-            {news.title}
-          </h2>
-
-          {news.contentSnippet && (
-            <p className="text-gray-600 dark:text-gray-400 text-sm leading-tight line-clamp-4">
-              {news.contentSnippet}
-            </p>
-          )}
+        <h3 className="font-semibold mb-1 line-clamp-2">{news.title}</h3>
+        <p className="text-sm text-[var(--text-dim)] line-clamp-3">
+          {news.contentSnippet}
+        </p>
+        <div className="text-xs text-[var(--text-dim)] mt-2">
+          {formattedDate}
         </div>
-      </a>
+      </div>
 
+      {/* Modal predogleda (če želiš ohraniti) */}
       {showPreview && (
-        <ArticlePreview url={news.link} onClose={() => setShowPreview(false)} />
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+          onClick={() => setShowPreview(false)}
+        >
+          <div
+            className="bg-white dark:bg-gray-900 rounded-xl max-w-2xl w-full p-6 animate-fadeInUp"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 className="text-xl font-bold mb-4">{news.title}</h2>
+            {news.image && (
+              <img
+                src={news.image}
+                alt={news.title}
+                className="w-full h-64 object-cover rounded mb-4"
+              />
+            )}
+            <p className="text-sm leading-relaxed">{news.contentSnippet}</p>
+            <div className="mt-4 text-right">
+              <a
+                href={news.link}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-4 py-2 rounded bg-[var(--brand)] text-white hover:bg-[var(--brand-hover)] transition"
+              >
+                Preberi na {news.source}
+              </a>
+            </div>
+          </div>
+        </div>
       )}
-    </>
+    </a>
   )
 }
