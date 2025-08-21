@@ -46,7 +46,10 @@ export default function Header() {
   }
 
   return (
-    <header className="sticky top-0 z-40 bg-[#FAFAFA]/95 dark:bg-gray-900/70 backdrop-blur-md border-b border-gray-200 dark:border-gray-700 shadow-sm">
+    <header
+      id="site-header"
+      className="sticky top-0 z-40 bg-[#FAFAFA]/95 dark:bg-gray-900/70 backdrop-blur-md border-b border-gray-200 dark:border-gray-700 shadow-sm"
+    >
       <div className="py-2 px-4 md:px-8 lg:px-16 flex items-center justify-between">
         {/* Levo: Brand (logo + naslov + slogan) */}
         <Link href="/" onClick={onBrandClick} className="flex items-center gap-3 min-w-0">
