@@ -5,54 +5,55 @@ import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import DOMPurify from 'dompurify'
 
-type ApiPayload =
-  | { error: string }
-  | { title?: string; site?: string; image?: string | null; html: string; url: string }
-
-type Props = {
+interface Props {
   url: string
   onClose: () => void
 }
 
-/** Normaliziraj src (odstrani query/hash, naredi absolutno pot) */
-function normalizeSrc(src?: string | null): string {
+type ApiPayload =
+  | { error: string }
+  | { title: string; site: string; image?: string | null; html: string; url: string }
+
+/** Normaliziraj pot do slike: odreži query/hash in odstrani tipične “size suffixe”. */
+function imageKey(src: string | null | undefined): string {
   if (!src) return ''
+  let pathname = ''
   try {
     const u = new URL(src, location.origin)
-    return (u.origin + u.pathname).toLowerCase()
+    pathname = u.pathname.toLowerCase()
   } catch {
-    return src.split(/[?#]/)[0].toLowerCase()
+    pathname = src.split('?')[0].split('#')[0].toLowerCase()
   }
+  // Odstrani tipične “size” vzorce iz imena datoteke (npr. foto-768x432.jpg, slika_1024x.jpg, slika-scaled.jpg)
+  pathname = pathname.replace(/(-|\_)?\d{2,4}x\d{2,4}(?=\.)/g, '')
+  pathname = pathname.replace(/(-|\_)?\d{2,4}x(?=\.)/g, '')
+  pathname = pathname.replace(/-scaled(?=\.)/g, '')
+  // Normaliziraj končnico (.webp/.jpeg → .jpg), da ne štejemo istih slik kot različne
+  pathname = pathname.replace(/\.(webp|jpeg)$/g, '.jpg')
+  return pathname
 }
 
-/** Odstrani <noscript> fallbacke in podvojene slike po enakem src */
+/** Odstrani <noscript> in podvojene slike (pusti prvo pojavitev). */
 function cleanPreviewHTML(html: string): string {
   try {
     const wrap = document.createElement('div')
     wrap.innerHTML = html
 
-    // 1) <noscript> pogosto vsebuje kopijo prve slike
     wrap.querySelectorAll('noscript').forEach((n) => n.remove())
 
-    // 2) Odstrani natančne duplikate <img> po src v celotnem dokumentu.
-    //    Prvo pojavitev pustimo, naslednje enake odstranimo.
     const seen = new Set<string>()
-    for (const img of Array.from(wrap.querySelectorAll('img'))) {
-      const norm = normalizeSrc(img.getAttribute('src'))
-      if (!norm) continue
-      if (seen.has(norm)) {
-        img.remove()
+    wrap.querySelectorAll('img').forEach((img) => {
+      const key = imageKey(img.getAttribute('src') || img.getAttribute('data-src') || '')
+      if (!key) return
+      if (seen.has(key)) {
+        // odstrani wrapper, če obstaja
+        const wrapper = img.closest('figure, picture')
+        if (wrapper) wrapper.remove()
+        else img.remove()
       } else {
-        seen.add(norm)
+        seen.add(key)
       }
-    }
-
-    // 3) (Nežno) odstrani prazne figure, ki so ostale po odstranjevanju
-    for (const fig of Array.from(wrap.querySelectorAll('figure'))) {
-      if (!fig.querySelector('img') && fig.textContent?.trim() === '') {
-        fig.remove()
-      }
-    }
+    })
 
     return wrap.innerHTML
   } catch {
@@ -61,10 +62,10 @@ function cleanPreviewHTML(html: string): string {
 }
 
 export default function ArticlePreview({ url, onClose }: Props) {
-  const [content, setContent] = useState('')
-  const [title, setTitle] = useState('')
-  const [site, setSite] = useState('')
-  const [loading, setLoading] = useState(true)
+  const [content, setContent] = useState<string>('')
+  const [title, setTitle] = useState<string>('')
+  const [site, setSite] = useState<string>('')
+  const [loading, setLoading] = useState<boolean>(true)
   const [error, setError] = useState<string | null>(null)
 
   const modalRef = useRef<HTMLDivElement>(null)
@@ -72,23 +73,21 @@ export default function ArticlePreview({ url, onClose }: Props) {
 
   useEffect(() => {
     let alive = true
-    ;(async () => {
+    const fetchContent = async () => {
       setLoading(true)
       setError(null)
       try {
         const res = await fetch(`/api/preview?url=${encodeURIComponent(url)}`)
         const data: ApiPayload = await res.json()
         if (!alive) return
-
         if ('error' in data) {
           setError('Napaka pri nalaganju predogleda.')
           setLoading(false)
           return
         }
-
         const cleaned = cleanPreviewHTML(data.html)
-        setTitle(data.title?.trim() || 'Predogled članka')
-        setSite(data.site?.trim() || new URL(url).hostname.replace(/^www\./, ''))
+        setTitle(data.title)
+        setSite(data.site)
         setContent(DOMPurify.sanitize(cleaned))
         setLoading(false)
       } catch {
@@ -96,45 +95,37 @@ export default function ArticlePreview({ url, onClose }: Props) {
         setError('Napaka pri nalaganju predogleda.')
         setLoading(false)
       }
-    })()
-    return () => {
-      alive = false
     }
+    fetchContent()
+    return () => { alive = false }
   }, [url])
 
-  // Fokus trap + zapiranje z ESC + zakleni body scroll
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
+    const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose()
-      if (e.key === 'Tab') {
-        const nodes = modalRef.current?.querySelectorAll<HTMLElement>(
+      else if (e.key === 'Tab') {
+        const focusable = modalRef.current?.querySelectorAll<HTMLElement>(
           'a[href], button, textarea, input, select, [tabindex]:not([tabindex="-1"])'
         )
-        if (!nodes || nodes.length === 0) return
-        const first = nodes[0]
-        const last = nodes[nodes.length - 1]
+        if (!focusable || focusable.length === 0) return
+        const first = focusable[0]
+        const last = focusable[focusable.length - 1]
         if (e.shiftKey) {
-          if (document.activeElement === first) {
-            e.preventDefault()
-            last.focus()
-          }
-        } else {
-          if (document.activeElement === last) {
-            e.preventDefault()
-            first.focus()
-          }
+          if (document.activeElement === first) { e.preventDefault(); last.focus() }
+        } else if (document.activeElement === last) {
+          e.preventDefault(); first.focus()
         }
       }
     }
 
-    document.addEventListener('keydown', onKey)
-    const prev = document.body.style.overflow
+    document.addEventListener('keydown', handleKeyDown)
+    const prevOverflow = document.body.style.overflow
     document.body.style.overflow = 'hidden'
     setTimeout(() => closeRef.current?.focus(), 0)
 
     return () => {
-      document.removeEventListener('keydown', onKey)
-      document.body.style.overflow = prev
+      document.removeEventListener('keydown', handleKeyDown)
+      document.body.style.overflow = prevOverflow
     }
   }, [onClose])
 
@@ -145,9 +136,7 @@ export default function ArticlePreview({ url, onClose }: Props) {
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 transition-opacity duration-300"
       role="dialog"
       aria-modal="true"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose()
-      }}
+      onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
     >
       <div
         ref={modalRef}
@@ -158,7 +147,7 @@ export default function ArticlePreview({ url, onClose }: Props) {
           <div className="min-w-0 flex-1">
             <div className="text-xs text-gray-500 dark:text-gray-400 truncate">{site}</div>
             <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">
-              {title}
+              {title || 'Predogled'}
             </h3>
           </div>
           <div className="flex items-center gap-2 shrink-0">
@@ -190,7 +179,7 @@ export default function ArticlePreview({ url, onClose }: Props) {
           )}
           {error && <p className="text-sm text-red-500">{error}</p>}
           {!loading && !error && (
-            <div className="prose prose-invert max-w-none prose-img:rounded-lg prose-a:underline">
+            <div className="prose prose-invert max-w-none prose-img:rounded-lg">
               <div dangerouslySetInnerHTML={{ __html: content }} />
             </div>
           )}
