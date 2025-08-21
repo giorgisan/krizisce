@@ -112,7 +112,66 @@ body {
 /* ---------------------------------
    PERFORMANCE HELPERJI
 ---------------------------------- */
-/* Kartice ne renderiraj dokler niso blizu viewporta */
+/* približna višina/širina kartice */
 .cv-auto {
   content-visibility: auto;
-  contain-intrinsic-size: 256px 320px; /* približna višina/širi*
+  contain-intrinsic-size: 256px 320px;
+}
+
+/* Skrij horizontalni scrollbar, kjer je “swipe” UX */
+.scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+.scrollbar-hide::-webkit-scrollbar { display: none; }
+
+/* ---------------------------------
+   REDUCED MOTION (dostopnost)
+---------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: .001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ---------------------------------
+   LAHKA TEMA (privzeto)
+   Temni način z razredom .dark na <html> (next-themes)
+---------------------------------- */
+.dark {
+  color-scheme: dark;
+
+  --bg: #0d0d0d;
+  --bg-soft: rgba(17, 17, 17, 0.8);
+  --text: #ffffff;
+  --text-dim: rgba(255,255,255,.68);
+  --ring: rgba(255,255,255,.12);
+  --divider: #232323;
+
+  --brand: #ff9966;
+  --brand-hover: #ff8a4d;
+
+  --card-bg: rgba(255,255,255,.05);
+  --card-bg-hover: rgba(255,255,255,.08);
+  --popover: rgba(13,13,13,.85);
+}
+
+/* ---------------------------------
+   DROBNE VIZUALNE NADGRADNJE
+---------------------------------- */
+/* Uporabi te razrede po želji v komponentah */
+.surface {
+  background: var(--card-bg);
+  border-radius: 16px;
+  box-shadow: 0 8px 20px rgba(0,0,0,.18);
+  backdrop-filter: saturate(120%) blur(6px);
+}
+.surface:hover { background: var(--card-bg-hover); }
+
+.popover-panel {
+  background: var(--popover);
+  border-radius: 16px;
+  box-shadow: 0 18px 40px rgba(0,0,0,.35);
+  backdrop-filter: blur(8px) saturate(120%);
+  border: 1px solid var(--ring);
+}
