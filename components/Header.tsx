@@ -57,7 +57,7 @@ export default function Header() {
 
         {/* Desno: Refresh → Tema → Hamburger */}
         <div className="flex items-center gap-1.5 sm:gap-2">
-          {/* Refresh (modern arrow-path + spin + zelena pika) */}
+          {/* Refresh */}
           <button
             type="button"
             onClick={refreshNow}
@@ -75,7 +75,6 @@ export default function Header() {
               aria-hidden="true"
               className={refreshing ? 'animate-spin' : ''}
             >
-              {/* Heroicons 2 – Arrow Path (outline) */}
               <path
                 d="M16.023 9.348h4.992V4.356M7.5 15.75H2.508v4.992"
                 stroke="currentColor"
@@ -101,42 +100,44 @@ export default function Header() {
             )}
           </button>
 
-          {/* Toggle teme – sun/moon preklop */}
+          {/* Toggle teme – sonček/luna */}
           {mounted && (
             <button
               type="button"
               onClick={() => setTheme(isDark ? 'light' : 'dark')}
-              aria-pressed={isDark}
               aria-label="Preklopi temo"
-              title={isDark ? 'Svetla tema' : 'Temna tema'}
+              title={isDark ? 'Preklopi na svetlo' : 'Preklopi na temno'}
               className="inline-flex h-10 w-10 items-center justify-center rounded-md
                          text-black/55 dark:text-white/65
                          hover:text-black/90 dark:hover:text-white/90
                          hover:bg-black/[0.04] dark:hover:bg-white/[0.06] transition"
             >
-              <span className="relative inline-block">
-                {/* Moon */}
+              {isDark ? (
+                // Ikona SONCA – pokaži v temni temi
                 <svg
-                  viewBox="0 0 24 24" width="20" height="20"
-                  className={`transition-transform duration-300 ${isDark ? 'scale-0 rotate-90' : 'scale-100 rotate-0'}`}
+                  viewBox="0 0 24 24"
+                  width="20"
+                  height="20"
                   aria-hidden="true"
                 >
                   <path d="M12 4V2M12 22v-2M4.93 4.93 3.52 3.52M20.48 20.48l-1.41-1.41M4 12H2M22 12h-2M4.93 19.07 3.52 20.48M20.48 3.52l-1.41 1.41" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
                   <circle cx="12" cy="12" r="4" stroke="currentColor" strokeWidth="2" fill="none"/>
                 </svg>
-                {/* Sun */}
+              ) : (
+                // Ikona LUNE – pokaži v svetli temi
                 <svg
-                  viewBox="0 0 24 24" width="20" height="20"
-                  className={`absolute inset-0 transition-transform duration-300 ${isDark ? 'scale-100 rotate-0' : 'scale-0 -rotate-90'}`}
+                  viewBox="0 0 24 24"
+                  width="20"
+                  height="20"
                   aria-hidden="true"
                 >
                   <path d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 0 0 9.79 9.79Z" stroke="currentColor" strokeWidth="2" fill="none"/>
                 </svg>
-              </span>
+              )}
             </button>
           )}
 
-          {/* Hamburger – zadnji */}
+          {/* Hamburger */}
           <button
             type="button"
             onClick={toggleFilters}
