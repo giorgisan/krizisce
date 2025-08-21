@@ -1,4 +1,6 @@
 // components/ArticleCard.tsx
+'use client'
+
 import { NewsItem } from '@/types'
 import { format } from 'date-fns'
 import { sl } from 'date-fns/locale'
@@ -13,14 +15,13 @@ interface Props {
 
 const ArticlePreview = dynamic(() => import('./ArticlePreview'), { ssr: false })
 
-// Rezervna slika (če želiš drugačno datoteko, zamenjaj pot)
 const FALLBACK_SRC = '/logos/default-news.jpg'
 
 export default function ArticleCard({ news }: Props) {
   const formattedDate = format(new Date(news.isoDate), 'd. MMM, HH:mm', { locale: sl })
   const sourceColor = sourceColors[news.source] || '#fc9c6c'
 
-  // ----- Slika + fallback -----
+  // Slika + fallback
   const [imgSrc, setImgSrc] = useState<string | null>(news.image || null)
   const [useFallback, setUseFallback] = useState<boolean>(!news.image)
   const onImgError = () => {
@@ -30,7 +31,7 @@ export default function ArticleCard({ news }: Props) {
     }
   }
 
-  // Začetnice vira (če jih kdaj želiš prikazati; trenutno ne)
+  // (trenutno neuporabljeno – če boš kdaj želel badge z inicialkami)
   const sourceInitials = useMemo(() => {
     const parts = (news.source || '').split(' ').filter(Boolean)
     if (parts.length === 0) return '??'
@@ -40,7 +41,6 @@ export default function ArticleCard({ news }: Props) {
 
   const [showPreview, setShowPreview] = useState(false)
 
-  // Odpri članek v novem zavihku + zabeleži klik
   const handleClick = async (e: MouseEvent<HTMLAnchorElement>) => {
     if (e.metaKey || e.ctrlKey || e.button === 1) return
     e.preventDefault()
@@ -51,9 +51,7 @@ export default function ArticleCard({ news }: Props) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ source: news.source, url: news.link }),
       })
-    } catch {
-      /* ignore */
-    }
+    } catch {}
   }
 
   return (
@@ -63,12 +61,11 @@ export default function ArticleCard({ news }: Props) {
         target="_blank"
         rel="noopener noreferrer"
         onClick={handleClick}
-        className="group block bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden transition-all duration-200 transform hover:scale-[1.01] hover:bg-gray-100 dark:hover:bg-gray-700"
+        className="no-underline group block bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden transition-all duration-200 transform hover:scale-[1.01] hover:bg-gray-100 dark:hover:bg-gray-700"
       >
         {/* MEDIA */}
         <div className="relative w-full aspect-[16/9] overflow-hidden">
           {useFallback ? (
-            // Minimalističen fallback: gradient + “Ni slike”
             <div className="absolute inset-0 flex items-center justify-center">
               <div className="absolute inset-0 bg-gradient-to-br from-gray-200 via-gray-300 to-gray-200 dark:from-gray-700 dark:via-gray-800 dark:to-gray-700" />
               <span className="relative z-10 text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -85,13 +82,12 @@ export default function ArticleCard({ news }: Props) {
               onLoad={(e) => {
                 (e.target as HTMLImageElement).setAttribute('data-loaded', 'true')
               }}
-              // zmanjša možnosti 403 zaradi refererja
               referrerPolicy="no-referrer"
               loading="lazy"
             />
           )}
 
-          {/* Gumb za predogled – “oko” (z močnejšim hover scale + tooltip) */}
+          {/* Predogled – oko */}
           <button
             onClick={(e) => {
               e.preventDefault()
@@ -110,7 +106,6 @@ export default function ArticleCard({ news }: Props) {
               <circle cx="12" cy="12" r="3.5" stroke="currentColor" strokeWidth="2" fill="none"/>
             </svg>
           </button>
-          {/* Tooltip “Predogled” – pokaži samo ob hoveru na oko */}
           <span
             className="pointer-events-none absolute top-2 right-12 translate-y-0.5
                        rounded-md px-2 py-1 text-xs font-medium
