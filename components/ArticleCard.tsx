@@ -6,7 +6,6 @@ import { format } from 'date-fns'
 import { sl } from 'date-fns/locale'
 import { sourceColors } from '@/lib/sources'
 import { MouseEvent, useMemo, useState, ComponentType } from 'react'
-import Image from 'next/image'
 import dynamic from 'next/dynamic'
 
 interface Props {
@@ -47,18 +46,40 @@ export default function ArticleCard({ news }: Props) {
 
   const [showPreview, setShowPreview] = useState(false)
 
-  // Odpri v novem zavihku + ping API
-  const handleClick = async (e: MouseEvent<HTMLAnchorElement>) => {
+  // ——— Logging klika (deluje tudi pri middle-click) ———
+  const logClick = () => {
+    try {
+      const payload = JSON.stringify({ source: news.source, url: news.link })
+      if (typeof navigator !== 'undefined' && 'sendBeacon' in navigator) {
+        const blob = new Blob([payload], { type: 'application/json' })
+        navigator.sendBeacon('/api/click', blob)
+      } else {
+        fetch('/api/click', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: payload,
+          keepalive: true,
+        })
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+
+  // Levi klik: odpri takoj + log
+  const handleClick = (e: MouseEvent<HTMLAnchorElement>) => {
+    // Meta/Ctrl ali middle-click: pusti default vedenje (odpre nov tab)
     if (e.metaKey || e.ctrlKey || e.button === 1) return
     e.preventDefault()
     window.open(news.link, '_blank')
-    try {
-      await fetch('/api/click', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ source: news.source, url: news.link }),
-      })
-    } catch { /* ignore */ }
+    logClick()
+  }
+
+  // Middle-click (aux): samo zabeleži in pusti browserju, da odpre
+  const handleAuxClick = (e: MouseEvent<HTMLAnchorElement>) => {
+    if (e.button === 1) {
+      logClick()
+    }
   }
 
   return (
@@ -68,7 +89,8 @@ export default function ArticleCard({ news }: Props) {
         target="_blank"
         rel="noopener noreferrer"
         onClick={handleClick}
-        className="group block no-underline bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden transition-all duration-200 transform hover:scale-[1.01] hover:bg-gray-100 dark:hover:bg-gray-700"
+        onAuxClick={handleAuxClick}
+        className="group block no-underline bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden transition-all duration-200 transform hover:scale-[1.02] hover:shadow-lg hover:bg-gray-100 dark:hover:bg-gray-700"
       >
         {/* MEDIA */}
         <div className="relative w-full aspect-[16/9] overflow-hidden">
@@ -81,15 +103,14 @@ export default function ArticleCard({ news }: Props) {
               </span>
             </div>
           ) : (
-            <Image
+            <img
               src={imgSrc as string}
               alt={news.title}
-              fill
-              className="object-cover transition-opacity duration-300 opacity-0 data-[loaded=true]:opacity-100"
-              onError={onImgError}
-              onLoadingComplete={(img) => img.setAttribute('data-loaded', 'true')}
+              className="absolute inset-0 h-full w-full object-cover"
               referrerPolicy="no-referrer"
               loading="lazy"
+              decoding="async"
+              onError={onImgError}
             />
           )}
 
@@ -107,14 +128,9 @@ export default function ArticleCard({ news }: Props) {
               text-gray-700 dark:text-gray-200
               bg-white/80 dark:bg-gray-900/80 backdrop-blur
               transition-all duration-150
-
-              /* mobile: vedno vidno */
               opacity-100 scale-100
-
-              /* desktop: pokaži šele ob hoverju kartice */
-              md:opacity-0 md:scale-95 md:-translate-y-0.5
-              md:group-hover:opacity-100 md:group-hover:scale-100 md:group-hover:translate-y-0
-
+              md:opacity-0 md:scale-95
+              md:group-hover:opacity-100 md:group-hover:scale-100
               hover:scale-110 active:scale-100
             "
           >
@@ -132,7 +148,6 @@ export default function ArticleCard({ news }: Props) {
               rounded-md px-2 py-1 text-xs font-medium
               bg-black/60 text-white
               backdrop-blur-sm drop-shadow-lg
-
               opacity-0 -translate-x-1
               transition-all duration-150
               md:peer-hover:opacity-100 md:peer-hover:translate-x-0
