@@ -177,30 +177,53 @@ a { text-decoration: none; }
   border: 1px solid var(--ring);
 }
 
-/* --- Eye hover animation (robustno) --- */
+/* ---------------------------------
+   EYE HOVER (Tailwind-compatible)
+---------------------------------- */
+/* transform pipeline, usklajen s Tailwind CSS spremenljivkami */
 .eye-zoom {
+  transform: translate(var(--tw-translate-x, 0), var(--tw-translate-y, 0))
+             rotate(var(--tw-rotate, 0))
+             skewX(var(--tw-skew-x, 0)) skewY(var(--tw-skew-y, 0))
+             scaleX(var(--tw-scale-x, 1)) scaleY(var(--tw-scale-y, 1));
+  /* začetno stanje */
+  --tw-translate-y: -2px;
+  --tw-scale-x: .95;
+  --tw-scale-y: .95;
+
   transition: transform 200ms ease, opacity 150ms ease;
-  transform: translateY(-2px) scale(0.95);
+  will-change: transform, opacity;
   opacity: 0;
 }
+
+/* Hover kartice (group) → pokaži oko in ga malenkost povečaj */
 @media (min-width: 768px) {
-  .group:hover .eye-zoom {
-    transform: translateY(0) scale(1.12);
+  .group:hover .eye-zoom,
+  .group:hover + .eye-zoom,
+  .group:hover ~ .eye-zoom {
+    --tw-translate-y: 0;
+    --tw-scale-x: 1.12;
+    --tw-scale-y: 1.12;
     opacity: 1;
-  }
-}
-/* Na mobitelu (pod md) je gumb vedno viden */
-@media (max-width: 767.98px) {
-  .eye-zoom {
-    opacity: 1;
-    transform: translateY(0) scale(1);
   }
 }
 
-/* ✅ NOVO: ko si neposredno nad očesom, naj bo še večji (zmaga nad group-hover) */
+/* Neposredni hover na očesu → še večja povečava (nadgradi group-hover) */
 @media (min-width: 768px) and (hover: hover) {
   .eye-zoom:hover {
-    transform: translateY(0) scale(1.22);
+    --tw-translate-y: 0;
+    --tw-scale-x: 1.22;
+    --tw-scale-y: 1.22;
+    opacity: 1;
+  }
+}
+
+/* Na mobitelu je gumb vedno viden */
+@media (max-width: 767.98px) {
+  .eye-zoom {
+    --tw-translate-y: 0;
+    --tw-scale-x: 1;
+    --tw-scale-y: 1;
     opacity: 1;
   }
 }
