@@ -1,3 +1,4 @@
+// components/ArticlePreview.tsx
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
@@ -13,12 +14,21 @@ type ApiPayload =
   | { error: string }
   | { title: string; site: string; image?: string | null; html: string; url: string }
 
+/** Absolutizira URL glede na osnovni URL članka */
+function absolutize(raw: string, baseUrl: string): string {
+  try {
+    return new URL(raw, baseUrl).toString()
+  } catch {
+    return raw
+  }
+}
+
 /** Normaliziran ključ za sliko (odreži query/hash, odstrani “size suffixe”, .webp/.jpeg → .jpg). */
 function imageKeyFromSrc(src: string | null | undefined): string {
   if (!src) return ''
   let pathname = ''
   try {
-    const u = new URL(src, location.origin)
+    const u = new URL(src, typeof location !== 'undefined' ? location.origin : 'http://localhost')
     pathname = u.pathname.toLowerCase()
   } catch {
     pathname = (src.split('#')[0] || '').split('?')[0].toLowerCase()
@@ -41,8 +51,16 @@ function basenameStem(pathname: string): string {
   return name
 }
 
-/** Odstrani <noscript> & očitne duplikate (vključno z različicami velikosti). */
-function cleanPreviewHTML(html: string): string {
+/**
+ * Čiščenje HTML-ja pred prikazom:
+ * - odstrani <noscript>
+ * - absolutizira relativne URL-je
+ * - lazy-load za <img>, odstrani srcset/sizes
+ * - odstrani duplikate slik (z istim normaliziranim ključem)
+ * - dodatno: odstrani prvo “poznejšo” sliko s podobnim stemom kot hero
+ * - harden za <a>: doda rel="noopener noreferrer"
+ */
+function cleanPreviewHTML(html: string, baseUrl: string): string {
   try {
     const wrap = document.createElement('div')
     wrap.innerHTML = html
@@ -50,19 +68,54 @@ function cleanPreviewHTML(html: string): string {
     // 1) noscript fallbacke stran
     wrap.querySelectorAll('noscript').forEach((n) => n.remove())
 
+    // 2) absolutiziraj <a> in utrdi rel
+    wrap.querySelectorAll('a').forEach((a) => {
+      const href = a.getAttribute('href')
+      if (href) a.setAttribute('href', absolutize(href, baseUrl))
+      const rel = (a.getAttribute('rel') || '').split(/\s+/)
+      if (!rel.includes('noopener')) rel.push('noopener')
+      if (!rel.includes('noreferrer')) rel.push('noreferrer')
+      a.setAttribute('rel', rel.join(' ').trim())
+      // target osnovno pustimo tak, kot pride iz vira
+    })
+
     const imgs = Array.from(wrap.querySelectorAll('img'))
     if (imgs.length === 0) return wrap.innerHTML
 
-    // 2) zapomni si prvo (hero) sliko
-    const firstSrc = imgs[0].getAttribute('src') || imgs[0].getAttribute('data-src') || ''
-    const firstKey = imageKeyFromSrc(firstSrc)
+    // 3) pripravi hero referenco
+    const first = imgs[0]
+    const firstRaw = first.getAttribute('src') || first.getAttribute('data-src') || ''
+    const firstSrcAbs = firstRaw ? absolutize(firstRaw, baseUrl) : ''
+    if (firstSrcAbs) first.setAttribute('src', firstSrcAbs)
+    first.removeAttribute('data-src')
+    first.removeAttribute('srcset')
+    first.removeAttribute('sizes')
+    first.setAttribute('loading', 'lazy')
+    first.setAttribute('decoding', 'async')
+    first.setAttribute('referrerpolicy', 'no-referrer')
+
+    const firstKey = imageKeyFromSrc(firstSrcAbs || firstRaw)
     const firstStem = basenameStem(firstKey)
 
-    // 3) generično: obdrži prvo pojavitev vsake normalizirane slike
+    // 4) generično: obdrži prvo pojavitev vsake normalizirane slike
     const seen = new Set<string>()
-    wrap.querySelectorAll('img').forEach((img) => {
+    wrap.querySelectorAll('img').forEach((img, idx) => {
+      // absolutiziraj src/data-src
       const raw = img.getAttribute('src') || img.getAttribute('data-src') || ''
-      const key = imageKeyFromSrc(raw)
+      if (raw) {
+        const abs = absolutize(raw, baseUrl)
+        img.setAttribute('src', abs)
+        img.removeAttribute('data-src')
+      }
+
+      // lazy & manj prenosa
+      img.setAttribute('loading', 'lazy')
+      img.setAttribute('decoding', 'async')
+      img.setAttribute('referrerpolicy', 'no-referrer')
+      img.removeAttribute('srcset')
+      img.removeAttribute('sizes')
+
+      const key = imageKeyFromSrc(img.getAttribute('src') || '')
       if (!key) return
       if (seen.has(key)) {
         ;(img.closest('figure, picture') || img).remove()
@@ -71,10 +124,10 @@ function cleanPreviewHTML(html: string): string {
       }
     })
 
-    // 4) dodatno: odstrani prvo kasnejšo sliko z istim “stemom” kot hero
+    // 5) dodatno: odstrani prvo kasnejšo sliko z istim “stemom” kot hero
     const rest = Array.from(wrap.querySelectorAll('img')).slice(1)
     for (const img of rest) {
-      const raw = img.getAttribute('src') || img.getAttribute('data-src') || ''
+      const raw = img.getAttribute('src') || ''
       const key = imageKeyFromSrc(raw)
       if (!key) continue
       const stem = basenameStem(key)
@@ -119,9 +172,10 @@ export default function ArticlePreview({ url, onClose }: Props) {
           setLoading(false)
           return
         }
-        const cleaned = cleanPreviewHTML(data.html)
+        const cleaned = cleanPreviewHTML(data.html, url)
         setTitle(data.title)
         setSite(data.site)
+        // Sanitize šele po "cleanPreviewHTML"
         setContent(DOMPurify.sanitize(cleaned))
         setLoading(false)
       } catch {
@@ -162,13 +216,13 @@ export default function ArticlePreview({ url, onClose }: Props) {
     document.addEventListener('keydown', handleKeyDown)
     const prevOverflow = document.body.style.overflow
     document.body.style.overflow = 'hidden'
-    document.body.classList.add('modal-open') // <-- vklopi globalni anti-underline
+    document.body.classList.add('modal-open') // globalni anti-underline (kot imaš že v CSS)
     setTimeout(() => closeRef.current?.focus(), 0)
 
     return () => {
       document.removeEventListener('keydown', handleKeyDown)
       document.body.style.overflow = prevOverflow
-      document.body.classList.remove('modal-open') // <-- počisti
+      document.body.classList.remove('modal-open')
     }
   }, [onClose])
 
