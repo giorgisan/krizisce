@@ -218,7 +218,7 @@ export default function ArticlePreview({ url, onClose }: Props) {
           return
         }
         const cleaned = cleanPreviewHTML(data.html, url)
-        const truncated = truncateHTMLByTextPercent(cleaned, 0.76) // ~70–80 %
+        const truncated = truncateHTMLByTextPercent(cleaned, 0.70) // ~70 %
         setTitle(data.title)
         setSite(data.site)
         setContent(DOMPurify.sanitize(truncated))
