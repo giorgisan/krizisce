@@ -114,7 +114,8 @@ export default function ArticleCard({ news }: Props) {
             />
           )}
 
-          {/* Oko – na mobitelu vedno vidno; na desktopu šele na hover kartice */}
+          {/* Oko – na mobitelu vedno vidno; na desktopu šele na hover kartice
+              >>> popravljena animacija: na hover kartice se oko poveča (scale-110) in nežno dvigne */}
           <button
             onClick={(e) => {
               e.preventDefault()
@@ -127,10 +128,10 @@ export default function ArticleCard({ news }: Props) {
               ring-1 ring-black/10 dark:ring-white/10
               text-gray-700 dark:text-gray-200
               bg-white/80 dark:bg-gray-900/80 backdrop-blur
-              transition-all duration-150
+              transition-transform transition-opacity duration-200 ease-out will-change-transform
               opacity-100 scale-100
-              md:opacity-0 md:scale-95
-              md:group-hover:opacity-100 md:group-hover:scale-100
+              md:opacity-0 md:scale-95 md:-translate-y-0.5
+              md:group-hover:opacity-100 md:group-hover:scale-110 md:group-hover:translate-y-0
               hover:scale-110 active:scale-100
             "
           >
@@ -149,7 +150,7 @@ export default function ArticleCard({ news }: Props) {
               bg-black/60 text-white
               backdrop-blur-sm drop-shadow-lg
               opacity-0 -translate-x-1
-              transition-all duration-150
+              transition-opacity transition-transform duration-150
               md:peer-hover:opacity-100 md:peer-hover:translate-x-0
             "
           >
