@@ -13,6 +13,9 @@ type ApiPayload =
   | { error: string }
   | { title: string; site: string; image?: string | null; html: string; url: string }
 
+// Koliko besed (delež celotnega besedila) prikažemo
+const TEXT_PERCENT = 0.76; // <-- spremeni tu (npr. 0.70 ali 0.80)
+
 /** Absolutizira URL glede na osnovni URL članka */
 function absolutize(raw: string, baseUrl: string): string {
   try {
@@ -64,7 +67,7 @@ function cleanPreviewHTML(html: string, baseUrl: string): string {
     const wrap = document.createElement('div')
     wrap.innerHTML = html
 
-    // noise stran
+    // odstrani šum
     wrap.querySelectorAll('noscript,script,style,iframe,form').forEach((n) => n.remove())
 
     // absolutiziraj <a> in utrdi rel
@@ -142,54 +145,75 @@ function cleanPreviewHTML(html: string, baseUrl: string): string {
   }
 }
 
+/** Prešteje besede v nizu (podpira Unicode črke/števke). */
+function countWords(text: string): number {
+  const m = text.match(/\p{L}[\p{L}\p{M}\p{N}'’\-]*/gu)
+  return m ? m.length : 0
+}
+
 /**
- * Trunkacija po količini TEKSTA (~percent), da hero slika ostane in se ne reže sredi odstavka.
- * Ohrani DOM do tistega bloka, kjer se doseže prag; preostanek odstrani.
+ * Trunkacija po številu BESED (%). Deluje na kopiji DOM-a:
+ * - prešteje vse besede
+ * - nato po TreeWalker-ju reže znotraj tekstnih vozlišč in odstrani vse, kar sledi
+ * - slike/figure ostanejo, ker se besede ne zmanjšajo zaradi njih
  */
-function truncateHTMLByTextPercent(html: string, percent = 0.76): string {
-  const root = document.createElement('div')
-  root.innerHTML = html
+function truncateHTMLByWordsPercent(html: string, percent = 0.76): string {
+  const src = document.createElement('div')
+  src.innerHTML = html
 
   // odstrani očitne ne-vsebinske bloke
-  root.querySelectorAll('header,nav,footer,aside,.share,.social,.related,.tags').forEach((n) => n.remove())
+  src.querySelectorAll('header,nav,footer,aside,.share,.social,.related,.tags').forEach((n) => n.remove())
 
-  const blocks = Array.from(
-    root.querySelectorAll(
-      // vrstni red po dokumentu
-      'article, section, p, li, blockquote, h1, h2, h3, h4, pre, table, dl, ol, ul, figure, div'
-    )
-  ).filter((el) => {
-    const txt = (el.textContent || '').trim()
-    return txt.length > 0 // slike (figure) z 0 teksta ne vplivajo na % in zato ostanejo
-  })
+  // klon, po katerem bomo rezali
+  const out = src.cloneNode(true) as HTMLDivElement
 
-  const total = blocks.reduce((sum, el) => sum + ((el.textContent || '').trim().length), 0)
-  if (total === 0) return root.innerHTML
+  const totalWords = countWords(out.textContent || '')
+  if (totalWords === 0) return out.innerHTML
 
-  const target = Math.max(1, Math.floor(total * percent))
-  let acc = 0
-  let cutoff: Element | null = null
+  const target = Math.max(1, Math.floor(totalWords * percent))
+  let used = 0
 
-  for (const el of blocks) {
-    acc += ((el.textContent || '').trim().length)
-    if (acc >= target) {
-      cutoff = el
-      break
+  const walker = document.createTreeWalker(out, NodeFilter.SHOW_TEXT)
+  let node: Node | null = walker.nextNode()
+
+  while (node) {
+    const text = node.textContent || ''
+    if (text.trim().length === 0) {
+      node = walker.nextNode()
+      continue
     }
+
+    const words = text.match(/\p{L}[\p{L}\p{M}\p{N}'’\-]*/gu) || []
+    const remain = target - used
+
+    if (words.length <= remain) {
+      used += words.length
+      node = walker.nextNode()
+      continue
+    }
+
+    // treba je odrezati znotraj tega vozlišča
+    let cutoffIndex = 0
+    let taken = 0
+    for (const match of text.matchAll(/\p{L}[\p{L}\p{M}\p{N}'’\-]*/gu)) {
+      taken++
+      cutoffIndex = (match.index || 0) + match[0].length
+      if (taken >= remain) break
+    }
+    ;(node as Text).textContent = text.slice(0, cutoffIndex).trimEnd()
+
+    // odstrani vse, kar sledi temu vozlišču
+    const range = document.createRange()
+    range.setStartAfter(node)
+    const last = out.lastChild
+    if (last) {
+      range.setEndAfter(last)
+      range.deleteContents()
+    }
+    break
   }
 
-  if (!cutoff) return root.innerHTML
-
-  // izbriši vse po "cutoff" (v dokumentarnem vrstnem redu), ničesar ne režemo sredi odstavka
-  const range = document.createRange()
-  const last = root.lastChild
-  if (last) {
-    range.setStartAfter(cutoff)
-    range.setEndAfter(last)
-    range.deleteContents()
-  }
-
-  return root.innerHTML
+  return out.innerHTML
 }
 
 export default function ArticlePreview({ url, onClose }: Props) {
@@ -202,7 +226,7 @@ export default function ArticlePreview({ url, onClose }: Props) {
   const modalRef = useRef<HTMLDivElement>(null)
   const closeRef = useRef<HTMLButtonElement>(null)
 
-  // naloži → očisti → semantično skrajšaj → sanitiziraj
+  // naloži → očisti → semantično skrajšaj po besedah → sanitiziraj
   useEffect(() => {
     let alive = true
     const fetchContent = async () => {
@@ -218,7 +242,7 @@ export default function ArticlePreview({ url, onClose }: Props) {
           return
         }
         const cleaned = cleanPreviewHTML(data.html, url)
-        const truncated = truncateHTMLByTextPercent(cleaned, 0.50) // ~50 %
+        const truncated = truncateHTMLByWordsPercent(cleaned, TEXT_PERCENT)
         setTitle(data.title)
         setSite(data.site)
         setContent(DOMPurify.sanitize(truncated))
@@ -338,11 +362,11 @@ export default function ArticlePreview({ url, onClose }: Props) {
               <div className="prose prose-invert max-w-none prose-img:rounded-lg">
                 <div>
                   <div dangerouslySetInnerHTML={{ __html: content }} />
-                  {/* Fade pri dnu za vizualni namig */}
+                  {/* Nežen fade kot namig, da vsebine ni v celoti */}
                   <div className="pointer-events-none mt-2 h-16 -translate-y-16 bg-gradient-to-t from-gray-900 to-transparent" />
                 </div>
 
-                {/* CTA brez dodatne opombe */}
+                {/* CTA (preimenovan, brez opombe o % prikaza) */}
                 <div className="mt-2 flex justify-end">
                   <a
                     href={url}
