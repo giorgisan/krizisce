@@ -52,7 +52,7 @@ function basenameStem(pathname: string): string {
 
 /**
  * Čiščenje HTML-ja pred prikazom:
- * - odstrani <noscript>
+ * - odstrani <noscript>, <script>, <style>, <iframe>, <form>
  * - absolutizira relativne URL-je
  * - lazy-load za <img>, odstrani srcset/sizes
  * - odstrani duplikate slik (z istim normaliziranim ključem)
@@ -64,10 +64,10 @@ function cleanPreviewHTML(html: string, baseUrl: string): string {
     const wrap = document.createElement('div')
     wrap.innerHTML = html
 
-    // 1) noscript fallbacke stran
-    wrap.querySelectorAll('noscript').forEach((n) => n.remove())
+    // noise stran
+    wrap.querySelectorAll('noscript,script,style,iframe,form').forEach((n) => n.remove())
 
-    // 2) absolutiziraj <a> in utrdi rel
+    // absolutiziraj <a> in utrdi rel
     wrap.querySelectorAll('a').forEach((a) => {
       const href = a.getAttribute('href')
       if (href) a.setAttribute('href', absolutize(href, baseUrl))
@@ -80,7 +80,7 @@ function cleanPreviewHTML(html: string, baseUrl: string): string {
     const imgs = Array.from(wrap.querySelectorAll('img'))
     if (imgs.length === 0) return wrap.innerHTML
 
-    // 3) pripravi hero referenco
+    // pripravi hero referenco
     const first = imgs[0]
     const firstRaw = first.getAttribute('src') || first.getAttribute('data-src') || ''
     const firstSrcAbs = firstRaw ? absolutize(firstRaw, baseUrl) : ''
@@ -95,7 +95,7 @@ function cleanPreviewHTML(html: string, baseUrl: string): string {
     const firstKey = imageKeyFromSrc(firstSrcAbs || firstRaw)
     const firstStem = basenameStem(firstKey)
 
-    // 4) generično: obdrži prvo pojavitev vsake normalizirane slike
+    // obdrži prvo pojavitev vsake normalizirane slike
     const seen = new Set<string>()
     wrap.querySelectorAll('img').forEach((img) => {
       const raw = img.getAttribute('src') || img.getAttribute('data-src') || ''
@@ -119,7 +119,7 @@ function cleanPreviewHTML(html: string, baseUrl: string): string {
       }
     })
 
-    // 5) odstrani prvo kasnejšo sliko z istim “stemom” kot hero
+    // odstrani prvo kasnejšo sliko z istim “stemom” kot hero
     const rest = Array.from(wrap.querySelectorAll('img')).slice(1)
     for (const img of rest) {
       const raw = img.getAttribute('src') || ''
@@ -142,6 +142,56 @@ function cleanPreviewHTML(html: string, baseUrl: string): string {
   }
 }
 
+/**
+ * Trunkacija po količini TEKSTA (~percent), da hero slika ostane in se ne reže sredi odstavka.
+ * Ohrani DOM do tistega bloka, kjer se doseže prag; preostanek odstrani.
+ */
+function truncateHTMLByTextPercent(html: string, percent = 0.76): string {
+  const root = document.createElement('div')
+  root.innerHTML = html
+
+  // odstrani očitne ne-vsebinske bloke
+  root.querySelectorAll('header,nav,footer,aside,.share,.social,.related,.tags').forEach((n) => n.remove())
+
+  const blocks = Array.from(
+    root.querySelectorAll(
+      // vrstni red po dokumentu
+      'article, section, p, li, blockquote, h1, h2, h3, h4, pre, table, dl, ol, ul, figure, div'
+    )
+  ).filter((el) => {
+    const txt = (el.textContent || '').trim()
+    return txt.length > 0 // slike (figure) z 0 teksta ne vplivajo na % in zato ostanejo
+  })
+
+  const total = blocks.reduce((sum, el) => sum + ((el.textContent || '').trim().length), 0)
+  if (total === 0) return root.innerHTML
+
+  const target = Math.max(1, Math.floor(total * percent))
+  let acc = 0
+  let cutoff: Element | null = null
+
+  for (const el of blocks) {
+    acc += ((el.textContent || '').trim().length)
+    if (acc >= target) {
+      cutoff = el
+      break
+    }
+  }
+
+  if (!cutoff) return root.innerHTML
+
+  // izbriši vse po "cutoff" (v dokumentarnem vrstnem redu), ničesar ne režemo sredi odstavka
+  const range = document.createRange()
+  const last = root.lastChild
+  if (last) {
+    range.setStartAfter(cutoff)
+    range.setEndAfter(last)
+    range.deleteContents()
+  }
+
+  return root.innerHTML
+}
+
 export default function ArticlePreview({ url, onClose }: Props) {
   const [content, setContent] = useState<string>('')
   const [title, setTitle] = useState<string>('')
@@ -152,11 +202,7 @@ export default function ArticlePreview({ url, onClose }: Props) {
   const modalRef = useRef<HTMLDivElement>(null)
   const closeRef = useRef<HTMLButtonElement>(null)
 
-  // za 80 % omejitev prikaza
-  const contentWrapRef = useRef<HTMLDivElement>(null)
-  const [clampPx, setClampPx] = useState<number | null>(null)
-
-  // naloži/sanitizira vsebino
+  // naloži → očisti → semantično skrajšaj → sanitiziraj
   useEffect(() => {
     let alive = true
     const fetchContent = async () => {
@@ -172,9 +218,10 @@ export default function ArticlePreview({ url, onClose }: Props) {
           return
         }
         const cleaned = cleanPreviewHTML(data.html, url)
+        const truncated = truncateHTMLByTextPercent(cleaned, 0.76) // ~70–80 %
         setTitle(data.title)
         setSite(data.site)
-        setContent(DOMPurify.sanitize(cleaned))
+        setContent(DOMPurify.sanitize(truncated))
         setLoading(false)
       } catch {
         if (!alive) return
@@ -187,19 +234,6 @@ export default function ArticlePreview({ url, onClose }: Props) {
       alive = false
     }
   }, [url])
-
-  // po renderju vsebine izračunaj višino in odreži na ~80 %
-  useEffect(() => {
-    if (loading || error) return
-    const el = contentWrapRef.current
-    if (!el) return
-    // počakaj na layout
-    requestAnimationFrame(() => {
-      const full = el.scrollHeight
-      const eighty = Math.max(0, Math.floor(full * 0.8))
-      setClampPx(eighty)
-    })
-  }, [content, loading, error])
 
   // focus trap + zakleni scroll + globalni anti-underline
   useEffect(() => {
@@ -227,9 +261,8 @@ export default function ArticlePreview({ url, onClose }: Props) {
     document.addEventListener('keydown', handleKeyDown)
     const prevOverflow = document.body.style.overflow
     document.body.style.overflow = 'hidden'
-    document.body.classList.add('modal-open', 'preview-open') // <— doda jasno stanje
+    document.body.classList.add('modal-open', 'preview-open')
 
-    // fokus na "zapri"
     setTimeout(() => closeRef.current?.focus(), 0)
 
     return () => {
@@ -303,33 +336,21 @@ export default function ArticlePreview({ url, onClose }: Props) {
 
             {!loading && !error && (
               <div className="prose prose-invert max-w-none prose-img:rounded-lg">
-                {/* CLAMP: ~80 % celotne vsebine */}
-                <div
-                  ref={contentWrapRef}
-                  style={
-                    clampPx !== null
-                      ? { maxHeight: `${clampPx}px`, overflow: 'hidden', position: 'relative' }
-                      : undefined
-                  }
-                >
+                <div>
                   <div dangerouslySetInnerHTML={{ __html: content }} />
-                  {clampPx !== null && (
-                    <>
-                      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-gray-900 to-transparent" />
-                    </>
-                  )}
+                  {/* Fade pri dnu za vizualni namig */}
+                  <div className="pointer-events-none mt-2 h-16 -translate-y-16 bg-gradient-to-t from-gray-900 to-transparent" />
                 </div>
 
-                {/* Opomba + gumb za vir */}
-                <div className="mt-4 flex items-center justify-between text-xs text-gray-400">
-                  <span>Prikazanih je približno 80 % članka.</span>
+                {/* CTA brez dodatne opombe */}
+                <div className="mt-2 flex justify-end">
                   <a
                     href={url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="no-underline inline-flex items-center justify-center rounded-md px-2 py-1 bg-blue-600 text-white hover:bg-blue-700"
+                    className="no-underline inline-flex items-center justify-center rounded-md px-3 py-2 bg-blue-600 text-white text-sm hover:bg-blue-700"
                   >
-                    Nadaljuj na izvorni strani
+                    Za ogled celotnega članka, obiščite spletno stran
                   </a>
                 </div>
               </div>
