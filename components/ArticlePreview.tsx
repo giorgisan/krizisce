@@ -1,3 +1,4 @@
+// components/ArticlePreview.tsx
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
@@ -145,30 +146,22 @@ function cleanPreviewHTML(html: string, baseUrl: string): string {
   }
 }
 
-/** Iterator besed; raje `Intl.Segmenter`, fallback na enostaven regex (združljiv z ES5) */
-function* iterateWords(text: string): Generator<{ start: number; end: number }> {
-  const AnyIntl: any = Intl as any
-  if (AnyIntl && typeof AnyIntl.Segmenter === 'function') {
-    const seg = new AnyIntl.Segmenter(undefined, { granularity: 'word' })
-    const segments = seg.segment(text) as any
-    for (const s of segments) {
-      if (s.isWordLike) yield { start: s.index, end: s.index + s.segment.length }
-    }
-  } else {
-    // Fallback: ujemi sekvence črk/števk (vključimo nekaj razširjenih latiničnih razponov + šumnike)
-    const re = /[A-Za-z0-9À-ÖØ-öø-ÿĀ-žČŠŽčšžĆćĐđ]+(?:['’\-][A-Za-z0-9À-ÖØ-öø-ÿĀ-žČŠŽčšžĆćĐđ]+)*/g
-    let m: RegExpExecArray | null
-    while ((m = re.exec(text))) {
-      yield { start: m.index, end: m.index + m[0].length }
-    }
+/** Vrne seznam {start,end} vseh "besed" v nizu – ES5 združljivo. */
+function wordSpans(text: string): Array<{ start: number; end: number }> {
+  const spans: Array<{ start: number; end: number }> = []
+  // vključimo latinične črke, šumnike, številke; brez Unicode property escapes
+  const re =
+    /[A-Za-z0-9À-ÖØ-öø-ÿĀ-žČŠŽčšžĆćĐđ]+(?:['’-][A-Za-z0-9À-ÖØ-öø-ÿĀ-žČŠŽčšžĆćĐđ]+)*/g
+  let m: RegExpExecArray | null
+  while ((m = re.exec(text)) !== null) {
+    spans.push({ start: m.index, end: m.index + m[0].length })
   }
+  return spans
 }
 
-/** Prešteje besede z uporabo `iterateWords` */
+/** Prešteje besede z uporabo wordSpans */
 function countWords(text: string): number {
-  let n = 0
-  for (const _ of iterateWords(text)) n++
-  return n
+  return wordSpans(text).length
 }
 
 /**
@@ -198,16 +191,16 @@ function truncateHTMLByWordsPercent(html: string, percent = 0.76): string {
 
   while (node) {
     const text = node.textContent || ''
-    if (text.trim().length === 0) {
+    const trimmed = text.trim()
+    if (trimmed.length === 0) {
       node = walker.nextNode()
       continue
     }
 
-    // preštej besede v tem vozlišču
-    let localWords = 0
-    for (const _ of iterateWords(text)) localWords++
-
+    const spans = wordSpans(text)
+    const localWords = spans.length
     const remain = target - used
+
     if (localWords <= remain) {
       used += localWords
       node = walker.nextNode()
@@ -215,13 +208,8 @@ function truncateHTMLByWordsPercent(html: string, percent = 0.76): string {
     }
 
     // treba je odrezati znotraj tega vozlišča
-    let cutoffIndex = 0
-    let taken = 0
-    for (const w of iterateWords(text)) {
-      taken++
-      cutoffIndex = w.end
-      if (taken >= remain) break
-    }
+    const cutoffSpan = spans[Math.max(0, remain - 1)]
+    const cutoffIndex = cutoffSpan ? cutoffSpan.end : 0
     ;(node as Text).textContent = text.slice(0, cutoffIndex).trimEnd()
 
     // odstrani vse, kar sledi temu vozlišču
@@ -388,7 +376,7 @@ export default function ArticlePreview({ url, onClose }: Props) {
                   <div className="pointer-events-none mt-2 h-16 -translate-y-16 bg-gradient-to-t from-gray-900 to-transparent" />
                 </div>
 
-                {/* CTA (preimenovan, brez opombe o % prikaza) */}
+                {/* CTA */}
                 <div className="mt-2 flex justify-end">
                   <a
                     href={url}
