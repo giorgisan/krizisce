@@ -176,3 +176,25 @@ a { text-decoration: none; }
   backdrop-filter: blur(8px) saturate(120%);
   border: 1px solid var(--ring);
 }
+
+/* --- Eye hover animation (robustno, tudi če Tailwind odseka razrede) --- */
+.eye-zoom {
+  transition: transform 200ms ease, opacity 150ms ease;
+  transform: translateY(-2px) scale(0.95);
+  opacity: 0;
+}
+
+@media (min-width: 768px) {
+  .group:hover .eye-zoom {
+    transform: translateY(0) scale(1.12);
+    opacity: 1;
+  }
+}
+
+/* Na mobitelu (pod md) je gumb vedno viden */
+@media (max-width: 767.98px) {
+  .eye-zoom {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
