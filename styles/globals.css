@@ -92,7 +92,7 @@ a { text-decoration: none; }
 /* Ikone sonce/luna */
 @keyframes iconIn {
   from { opacity: 0; transform: scale(0.5) rotate(-90deg); }
-  to   { opacity: 1; transform: scale(1) rotate(0deg); }
+  to   { opacity: 1; transform: scale(1) rotate(0); }
 }
 .animate-iconIn { animation: iconIn 0.5s ease-out; }
 
@@ -177,24 +177,30 @@ a { text-decoration: none; }
   border: 1px solid var(--ring);
 }
 
-/* --- Eye hover animation (robustno, tudi če Tailwind odseka razrede) --- */
+/* --- Eye hover animation (robustno) --- */
 .eye-zoom {
   transition: transform 200ms ease, opacity 150ms ease;
   transform: translateY(-2px) scale(0.95);
   opacity: 0;
 }
-
 @media (min-width: 768px) {
   .group:hover .eye-zoom {
     transform: translateY(0) scale(1.12);
     opacity: 1;
   }
 }
-
 /* Na mobitelu (pod md) je gumb vedno viden */
 @media (max-width: 767.98px) {
   .eye-zoom {
     opacity: 1;
     transform: translateY(0) scale(1);
+  }
+}
+
+/* ✅ NOVO: ko si neposredno nad očesom, naj bo še večji (zmaga nad group-hover) */
+@media (min-width: 768px) and (hover: hover) {
+  .eye-zoom:hover {
+    transform: translateY(0) scale(1.22);
+    opacity: 1;
   }
 }
