@@ -149,7 +149,7 @@ function cleanPreviewHTML(html: string, baseUrl: string): string {
 /** Vrne seznam {start,end} vseh "besed" v nizu – ES5 združljivo. */
 function wordSpans(text: string): Array<{ start: number; end: number }> {
   const spans: Array<{ start: number; end: number }> = []
-  // vključimo latinične črke, šumnike, številke; brez Unicode property escapes
+  // latinične črke + šumniki + številke; brez Unicode property escapes
   const re =
     /[A-Za-z0-9À-ÖØ-öø-ÿĀ-žČŠŽčšžĆćĐđ]+(?:['’-][A-Za-z0-9À-ÖØ-öø-ÿĀ-žČŠŽčšžĆćĐđ]+)*/g
   let m: RegExpExecArray | null
@@ -344,7 +344,7 @@ export default function ArticlePreview({ url, onClose }: Props) {
                 href={url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="no-underline inline-flex items-center justify-center rounded-lg px-2 py-1 text-sm bg-blue-600 text-white hover:bg-blue-700"
+                className="no-underline inline-flex items-center justify-center rounded-lg px-2 py-1 text-sm bg-amber-600 text-white hover:bg-amber-700"
               >
                 Odpri cel članek
               </a>
@@ -376,13 +376,13 @@ export default function ArticlePreview({ url, onClose }: Props) {
                   <div className="pointer-events-none absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-white dark:from-gray-900 to-transparent" />
                 </div>
 
-                {/* CTA: center, vertikalno, najprej 'Pojdi na vir', spodaj 'Zapri' */}
+                {/* CTA: center, vertikalno; različna širina, brez preloma teksta */}
                 <div className="mt-4 flex flex-col items-center gap-2">
                   <a
                     href={url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="no-underline inline-flex justify-center rounded-md px-4 py-2 bg-blue-600 text-white text-sm hover:bg-blue-700 w-full sm:max-w-xs text-center"
+                    className="no-underline inline-flex justify-center rounded-md px-5 py-2 bg-amber-600 text-white text-sm hover:bg-amber-700 whitespace-nowrap"
                   >
                     Za ogled celotnega članka, obiščite spletno stran
                   </a>
@@ -390,7 +390,7 @@ export default function ArticlePreview({ url, onClose }: Props) {
                   <button
                     type="button"
                     onClick={onClose}
-                    className="inline-flex justify-center rounded-md px-4 py-2 bg-gray-100/80 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 text-sm w-full sm:max-w-xs"
+                    className="inline-flex justify-center rounded-md px-4 py-2 bg-gray-100/80 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 text-sm"
                   >
                     Zapri predogled
                   </button>
