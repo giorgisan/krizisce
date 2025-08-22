@@ -24,6 +24,7 @@ export default function ArticleCard({ news }: Props) {
   const formattedDate = format(new Date(news.isoDate), 'd. MMM, HH:mm', { locale: sl })
   const sourceColor = sourceColors[news.source] || '#fc9c6c'
 
+  // Slika + fallback
   const [imgSrc, setImgSrc] = useState<string | null>(news.image || null)
   const [useFallback, setUseFallback] = useState<boolean>(!news.image)
   const onImgError = () => {
@@ -33,6 +34,7 @@ export default function ArticleCard({ news }: Props) {
     }
   }
 
+  // (trenutno neuporabljeno – koristno za značke)
   const sourceInitials = useMemo(() => {
     const parts = (news.source || '').split(' ').filter(Boolean)
     if (parts.length === 0) return '??'
@@ -42,6 +44,7 @@ export default function ArticleCard({ news }: Props) {
 
   const [showPreview, setShowPreview] = useState(false)
 
+  // ——— Logging klika (deluje tudi pri middle-click) ———
   const logClick = () => {
     try {
       const payload = JSON.stringify({ source: news.source, url: news.link })
@@ -59,6 +62,7 @@ export default function ArticleCard({ news }: Props) {
     } catch {}
   }
 
+  // Levi klik: odpri takoj + log
   const handleClick = (e: MouseEvent<HTMLAnchorElement>) => {
     if (e.metaKey || e.ctrlKey || e.button === 1) return
     e.preventDefault()
@@ -66,19 +70,21 @@ export default function ArticleCard({ news }: Props) {
     logClick()
   }
 
+  // Middle-click (aux): zabeleži in pusti browserju
   const handleAuxClick = (e: MouseEvent<HTMLAnchorElement>) => {
     if (e.button === 1) logClick()
   }
 
   return (
-    <>
+    <div className="relative group">
+      {/* KARTICA */}
       <a
         href={news.link}
         target="_blank"
         rel="noopener noreferrer"
         onClick={handleClick}
         onAuxClick={handleAuxClick}
-        className="group block no-underline bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden transition-all duration-200 transform hover:scale-[1.02] hover:shadow-lg hover:bg-gray-100 dark:hover:bg-gray-700"
+        className="block no-underline bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden transition-all duration-200 transform hover:scale-[1.02] hover:shadow-lg hover:bg-gray-100 dark:hover:bg-gray-700"
       >
         {/* MEDIA */}
         <div className="relative w-full aspect-[16/9] overflow-hidden">
@@ -100,47 +106,6 @@ export default function ArticleCard({ news }: Props) {
               onError={onImgError}
             />
           )}
-
-          {/* Oko */}
-          <button
-            onClick={(e) => {
-              e.preventDefault()
-              e.stopPropagation()
-              setShowPreview(true)
-            }}
-            aria-label="Predogled"
-            className="
-              eye-zoom
-              peer absolute top-2 right-2 h-8 w-8 grid place-items-center rounded-full
-              ring-1 ring-black/10 dark:ring-white/10
-              text-gray-700 dark:text-gray-200
-              bg-white/80 dark:bg-gray-900/80 backdrop-blur
-              transition-transform transition-opacity duration-200 ease-out will-change-transform transform-gpu
-              opacity-100 scale-100
-              md:opacity-0 md:scale-95 md:-translate-y-0.5
-            "
-          >
-            <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
-              <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12Z" stroke="currentColor" strokeWidth="2" fill="none" />
-              <circle cx="12" cy="12" r="3.5" stroke="currentColor" strokeWidth="2" fill="none" />
-            </svg>
-          </button>
-
-          {/* Tooltip */}
-          <span
-            className="
-              hidden md:block pointer-events-none
-              absolute top-2 right-[calc(0.5rem+2rem+8px)]
-              rounded-md px-2 py-1 text-xs font-medium
-              bg-black/60 text-white
-              backdrop-blur-sm drop-shadow-lg
-              opacity-0 -translate-x-1
-              transition-opacity transition-transform duration-150
-              md:peer-hover:opacity-100 md:peer-hover:translate-x-0
-            "
-          >
-            Predogled&nbsp;novice
-          </span>
         </div>
 
         {/* TEXT (enotna višina) */}
@@ -165,9 +130,58 @@ export default function ArticleCard({ news }: Props) {
         </div>
       </a>
 
+      {/* OKO – ABSOLUTNI SIBLING (ni znotraj <a>) */}
+      <span
+        role="button"
+        tabIndex={0}
+        onClick={(e) => {
+          e.preventDefault()
+          e.stopPropagation()
+          setShowPreview(true)
+        }}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault()
+            setShowPreview(true)
+          }
+        }}
+        aria-label="Predogled"
+        className="
+          eye-zoom peer
+          absolute top-2 right-2 z-20 h-8 w-8 grid place-items-center rounded-full
+          ring-1 ring-black/10 dark:ring-white/10
+          text-gray-700 dark:text-gray-200
+          bg-white/80 dark:bg-gray-900/80 backdrop-blur
+          cursor-pointer select-none
+          transform-gpu
+          md:opacity-0
+        "
+      >
+        <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+          <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12Z" stroke="currentColor" strokeWidth="2" fill="none" />
+          <circle cx="12" cy="12" r="3.5" stroke="currentColor" strokeWidth="2" fill="none" />
+        </svg>
+      </span>
+
+      {/* Tooltip – pokaži ob hoverju očesa (peer) */}
+      <span
+        className="
+          hidden md:block pointer-events-none
+          absolute top-2 right-[calc(0.5rem+2rem+8px)]
+          rounded-md px-2 py-1 text-xs font-medium
+          bg-black/60 text-white
+          backdrop-blur-sm drop-shadow-lg
+          opacity-0 -translate-x-1
+          transition-opacity transition-transform duration-150
+          peer-hover:opacity-100 peer-hover:translate-x-0
+        "
+      >
+        Predogled&nbsp;novice
+      </span>
+
       {showPreview && (
         <ArticlePreview url={news.link} onClose={() => setShowPreview(false)} />
       )}
-    </>
+    </div>
   )
 }
