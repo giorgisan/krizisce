@@ -6,24 +6,29 @@ import { format } from 'date-fns'
 import { sl } from 'date-fns/locale'
 import { sourceColors } from '@/lib/sources'
 import { MouseEvent, useMemo, useState, ComponentType } from 'react'
+import Image from 'next/image'
 import dynamic from 'next/dynamic'
 
 interface Props {
   news: NewsItem
 }
 
+// tipi za predogledni modal
 type PreviewProps = { url: string; onClose: () => void }
 
+// ArticlePreview dinamično naložimo in ga eksplicitno tipiziramo
 const ArticlePreview = dynamic(() => import('./ArticlePreview'), {
   ssr: false,
 }) as ComponentType<PreviewProps>
 
+// Rezervna slika (če želiš drugačno datoteko, zamenjaj pot)
 const FALLBACK_SRC = '/logos/default-news.jpg'
 
 export default function ArticleCard({ news }: Props) {
   const formattedDate = format(new Date(news.isoDate), 'd. MMM, HH:mm', { locale: sl })
   const sourceColor = sourceColors[news.source] || '#fc9c6c'
 
+  // ----- Slika + fallback -----
   const [imgSrc, setImgSrc] = useState<string | null>(news.image || null)
   const [useFallback, setUseFallback] = useState<boolean>(!news.image)
   const onImgError = () => {
@@ -33,41 +38,22 @@ export default function ArticleCard({ news }: Props) {
     }
   }
 
-  const sourceInitials = useMemo(() => {
-    const parts = (news.source || '').split(' ').filter(Boolean)
-    if (parts.length === 0) return '??'
-    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()
-    return (parts[0][0] + parts[1][0]).toUpperCase()
-  }, [news.source])
-
   const [showPreview, setShowPreview] = useState(false)
 
-  const logClick = () => {
-    try {
-      const payload = JSON.stringify({ source: news.source, url: news.link })
-      if (typeof navigator !== 'undefined' && 'sendBeacon' in navigator) {
-        const blob = new Blob([payload], { type: 'application/json' })
-        navigator.sendBeacon('/api/click', blob)
-      } else {
-        fetch('/api/click', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: payload,
-          keepalive: true,
-        })
-      }
-    } catch {}
-  }
-
-  const handleClick = (e: MouseEvent<HTMLAnchorElement>) => {
+  // Odpri članek v novem zavihku + zabeleži klik
+  const handleClick = async (e: MouseEvent<HTMLAnchorElement>) => {
     if (e.metaKey || e.ctrlKey || e.button === 1) return
     e.preventDefault()
     window.open(news.link, '_blank')
-    logClick()
-  }
-
-  const handleAuxClick = (e: MouseEvent<HTMLAnchorElement>) => {
-    if (e.button === 1) logClick()
+    try {
+      await fetch('/api/click', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ source: news.source, url: news.link }),
+      })
+    } catch {
+      /* ignore */
+    }
   }
 
   return (
@@ -77,16 +63,12 @@ export default function ArticleCard({ news }: Props) {
         target="_blank"
         rel="noopener noreferrer"
         onClick={handleClick}
-        onAuxClick={handleAuxClick}
-        /* enotna višina kartic: fiksna višina + flex-col */
-        className="group block h-[420px] sm:h-[430px] md:h-[440px] lg:h-[450px]
-                   no-underline bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden
-                   transition-all duration-200 transform hover:scale-[1.02] hover:shadow-lg hover:bg-gray-100 dark:hover:bg-gray-700
-                   flex flex-col"
+        className="group block bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden transition-all duration-200 transform hover:scale-[1.01] hover:bg-gray-100 dark:hover:bg-gray-700"
       >
-        {/* MEDIA (ostane 16/9; višina je izračunana glede na širino) */}
+        {/* MEDIA */}
         <div className="relative w-full aspect-[16/9] overflow-hidden">
           {useFallback ? (
+            // Minimalističen fallback: gradient + “Ni slike”
             <div className="absolute inset-0 flex items-center justify-center">
               <div className="absolute inset-0 bg-gradient-to-br from-gray-200 via-gray-300 to-gray-200 dark:from-gray-700 dark:via-gray-800 dark:to-gray-700" />
               <span className="relative z-10 text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -94,22 +76,72 @@ export default function ArticleCard({ news }: Props) {
               </span>
             </div>
           ) : (
-            <img
+            <Image
               src={imgSrc as string}
               alt={news.title}
-              className="absolute inset-0 h-full w-full object-cover"
+              fill
+              className="object-cover transition-opacity duration-300 opacity-0 data-[loaded=true]:opacity-100"
+              onError={onImgError}
+              onLoad={(e) => {
+                (e.target as HTMLImageElement).setAttribute('data-loaded', 'true')
+              }}
+              // zmanjša možnosti 403 zaradi refererja
               referrerPolicy="no-referrer"
               loading="lazy"
-              decoding="async"
-              onError={onImgError}
             />
           )}
+
+          {/* Gumb za predogled – “oko” */}
+          <button
+            onClick={(e) => {
+              e.preventDefault()
+              e.stopPropagation()
+              setShowPreview(true)
+            }}
+            aria-label="Predogled"
+            className="
+              peer absolute top-2 right-2 h-8 w-8 rounded-full grid place-items-center
+              bg-white/75 dark:bg-gray-900/75 ring-1 ring-black/10 dark:ring-white/10
+              text-gray-700 dark:text-gray-200
+              transition-transform duration-150
+
+              /* mobilno: vedno vidno */
+              opacity-100 pointer-events-auto
+
+              /* desktop: pokaži samo na hover kartice */
+              md:opacity-0 md:pointer-events-none
+              md:group-hover:opacity-100 md:group-hover:pointer-events-auto
+              md:focus-visible:opacity-100 md:focus-visible:pointer-events-auto
+
+              hover:scale-125 active:scale-110
+            "
+          >
+            <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+              <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12Z" stroke="currentColor" strokeWidth="2" fill="none"/>
+              <circle cx="12" cy="12" r="3.5" stroke="currentColor" strokeWidth="2" fill="none"/>
+            </svg>
+          </button>
+
+          {/* Tooltip – “Predogled novice” samo na hover OČESA (desktop) */}
+          <span
+            className="
+              hidden md:block pointer-events-none
+              absolute top-2 right-[calc(0.5rem+2rem+8px)]
+              rounded-md px-2 py-1 text-xs font-medium
+              bg-black/70 text-white shadow
+
+              opacity-0 -translate-x-1
+              transition-all duration-150
+              md:peer-hover:opacity-100 md:peer-hover:translate-x-0
+            "
+          >
+            Predogled&nbsp;novice
+          </span>
         </div>
 
-        {/* TEXT (fiksna višina → vse kartice poravnane) */}
-        <div className="p-3 h-[calc(100%-56.25%)] overflow-hidden">
-          {/* 56.25% = 9/16, višina media področja pri aspect-[16/9] */}
-          <div className="mb-1 flex justify-between text-xs text-gray-500 dark:text-gray-400">
+        {/* TEXT */}
+        <div className="p-3">
+          <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400 mb-1">
             <span className="font-medium text-[0.7rem]" style={{ color: sourceColor }}>
               {news.source}
             </span>
@@ -123,53 +155,13 @@ export default function ArticleCard({ news }: Props) {
             {news.title}
           </h2>
 
-          {/* vedno izrišemo <p>, da je layout stabilen */}
-          <p className="text-gray-600 dark:text-gray-400 text-sm leading-tight line-clamp-4">
-            {news.contentSnippet || '\u00A0'}
-          </p>
+          {news.contentSnippet && (
+            <p className="text-gray-600 dark:text-gray-400 text-sm leading-tight line-clamp-4">
+              {news.contentSnippet}
+            </p>
+          )}
         </div>
       </a>
-
-      {/* OKO – znotraj media območja in zanesljiv hover (opacity od group, zoom od :hover) */}
-      <button
-        onClick={(e) => {
-          e.preventDefault()
-          e.stopPropagation()
-          setShowPreview(true)
-        }}
-        aria-label="Predogled"
-        className="
-          eye-zoom
-          absolute top-2 right-2 z-20 h-8 w-8 grid place-items-center rounded-full
-          ring-1 ring-black/10 dark:ring-white/10
-          text-gray-700 dark:text-gray-200
-          bg-white/80 dark:bg-gray-900/80 backdrop-blur
-          transition-opacity duration-150 transform-gpu
-          md:opacity-0
-        "
-        style={{ pointerEvents: 'auto' }}
-      >
-        <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
-          <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12Z" stroke="currentColor" strokeWidth="2" fill="none" />
-          <circle cx="12" cy="12" r="3.5" stroke="currentColor" strokeWidth="2" fill="none" />
-        </svg>
-      </button>
-
-      {/* Tooltip – pojavi se ob hoverju očesa */}
-      <span
-        className="
-          hidden md:block pointer-events-none
-          absolute top-2 right-[calc(0.5rem+2rem+8px)]
-          rounded-md px-2 py-1 text-xs font-medium
-          bg-black/60 text-white
-          backdrop-blur-sm drop-shadow-lg
-          opacity-0 -translate-x-1
-          transition-opacity transition-transform duration-150
-          group-hover:opacity-100 group-hover:translate-x-0
-        "
-      >
-        Predogled&nbsp;novice
-      </span>
 
       {showPreview && (
         <ArticlePreview url={news.link} onClose={() => setShowPreview(false)} />
