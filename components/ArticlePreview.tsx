@@ -13,8 +13,8 @@ type ApiPayload =
   | { error: string }
   | { title: string; site: string; image?: string | null; html: string; url: string }
 
-// Koliko besed (delež celotnega besedila) prikažemo
-const TEXT_PERCENT = 0.76; // <-- spremeni tu (npr. 0.70 ali 0.80)
+// Kolikšen delež besedila prikažemo (0.70–0.80 je tipično)
+const TEXT_PERCENT = 0.70 // <-- po želji spremeni
 
 /** Absolutizira URL glede na osnovni URL članka */
 function absolutize(raw: string, baseUrl: string): string {
@@ -145,17 +145,37 @@ function cleanPreviewHTML(html: string, baseUrl: string): string {
   }
 }
 
-/** Prešteje besede v nizu (podpira Unicode črke/števke). */
+/** Iterator besed; raje `Intl.Segmenter`, fallback na enostaven regex (združljiv z ES5) */
+function* iterateWords(text: string): Generator<{ start: number; end: number }> {
+  const AnyIntl: any = Intl as any
+  if (AnyIntl && typeof AnyIntl.Segmenter === 'function') {
+    const seg = new AnyIntl.Segmenter(undefined, { granularity: 'word' })
+    const segments = seg.segment(text) as any
+    for (const s of segments) {
+      if (s.isWordLike) yield { start: s.index, end: s.index + s.segment.length }
+    }
+  } else {
+    // Fallback: ujemi sekvence črk/števk (vključimo nekaj razširjenih latiničnih razponov + šumnike)
+    const re = /[A-Za-z0-9À-ÖØ-öø-ÿĀ-žČŠŽčšžĆćĐđ]+(?:['’\-][A-Za-z0-9À-ÖØ-öø-ÿĀ-žČŠŽčšžĆćĐđ]+)*/g
+    let m: RegExpExecArray | null
+    while ((m = re.exec(text))) {
+      yield { start: m.index, end: m.index + m[0].length }
+    }
+  }
+}
+
+/** Prešteje besede z uporabo `iterateWords` */
 function countWords(text: string): number {
-  const m = text.match(/\p{L}[\p{L}\p{M}\p{N}'’\-]*/gu)
-  return m ? m.length : 0
+  let n = 0
+  for (const _ of iterateWords(text)) n++
+  return n
 }
 
 /**
- * Trunkacija po številu BESED (%). Deluje na kopiji DOM-a:
+ * Trunkacija po številu BESED (%):
  * - prešteje vse besede
- * - nato po TreeWalker-ju reže znotraj tekstnih vozlišč in odstrani vse, kar sledi
- * - slike/figure ostanejo, ker se besede ne zmanjšajo zaradi njih
+ * - z TreeWalker reže znotraj tekstnih vozlišč točno na ciljnem številu
+ * - slike/figure ostanejo
  */
 function truncateHTMLByWordsPercent(html: string, percent = 0.76): string {
   const src = document.createElement('div')
@@ -183,11 +203,13 @@ function truncateHTMLByWordsPercent(html: string, percent = 0.76): string {
       continue
     }
 
-    const words = text.match(/\p{L}[\p{L}\p{M}\p{N}'’\-]*/gu) || []
-    const remain = target - used
+    // preštej besede v tem vozlišču
+    let localWords = 0
+    for (const _ of iterateWords(text)) localWords++
 
-    if (words.length <= remain) {
-      used += words.length
+    const remain = target - used
+    if (localWords <= remain) {
+      used += localWords
       node = walker.nextNode()
       continue
     }
@@ -195,9 +217,9 @@ function truncateHTMLByWordsPercent(html: string, percent = 0.76): string {
     // treba je odrezati znotraj tega vozlišča
     let cutoffIndex = 0
     let taken = 0
-    for (const match of text.matchAll(/\p{L}[\p{L}\p{M}\p{N}'’\-]*/gu)) {
+    for (const w of iterateWords(text)) {
       taken++
-      cutoffIndex = (match.index || 0) + match[0].length
+      cutoffIndex = w.end
       if (taken >= remain) break
     }
     ;(node as Text).textContent = text.slice(0, cutoffIndex).trimEnd()
