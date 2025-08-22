@@ -344,7 +344,7 @@ export default function ArticlePreview({ url, onClose }: Props) {
                 href={url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="no-underline inline-flex items-center justify-center rounded-lg px-2 py-1 text-sm bg-amber-400 text-white hover:bg-amber-500"
+                className="no-underline inline-flex items-center justify-center rounded-lg px-2 py-1 text-sm bg-orange-700 text-white hover:bg-amber-600"
               >
                 Odpri cel članek
               </a>
@@ -382,7 +382,7 @@ export default function ArticlePreview({ url, onClose }: Props) {
                     href={url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="no-underline inline-flex justify-center rounded-md px-5 py-2 bg-amber-500 text-white text-sm hover:bg-amber-600 whitespace-nowrap"
+                    className="no-underline inline-flex justify-center rounded-md px-5 py-2 bg-orange-700 text-white text-sm hover:bg-amber-600 whitespace-nowrap"
                   >
                     Za ogled celotnega članka, obiščite spletno stran
                   </a>
