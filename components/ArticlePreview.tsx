@@ -1,4 +1,3 @@
-// components/ArticlePreview.tsx
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
@@ -76,7 +75,6 @@ function cleanPreviewHTML(html: string, baseUrl: string): string {
       if (!rel.includes('noopener')) rel.push('noopener')
       if (!rel.includes('noreferrer')) rel.push('noreferrer')
       a.setAttribute('rel', rel.join(' ').trim())
-      // target osnovno pustimo tak, kot pride iz vira
     })
 
     const imgs = Array.from(wrap.querySelectorAll('img'))
@@ -99,16 +97,13 @@ function cleanPreviewHTML(html: string, baseUrl: string): string {
 
     // 4) generično: obdrži prvo pojavitev vsake normalizirane slike
     const seen = new Set<string>()
-    wrap.querySelectorAll('img').forEach((img, idx) => {
-      // absolutiziraj src/data-src
+    wrap.querySelectorAll('img').forEach((img) => {
       const raw = img.getAttribute('src') || img.getAttribute('data-src') || ''
       if (raw) {
         const abs = absolutize(raw, baseUrl)
         img.setAttribute('src', abs)
         img.removeAttribute('data-src')
       }
-
-      // lazy & manj prenosa
       img.setAttribute('loading', 'lazy')
       img.setAttribute('decoding', 'async')
       img.setAttribute('referrerpolicy', 'no-referrer')
@@ -124,7 +119,7 @@ function cleanPreviewHTML(html: string, baseUrl: string): string {
       }
     })
 
-    // 5) dodatno: odstrani prvo kasnejšo sliko z istim “stemom” kot hero
+    // 5) odstrani prvo kasnejšo sliko z istim “stemom” kot hero
     const rest = Array.from(wrap.querySelectorAll('img')).slice(1)
     for (const img of rest) {
       const raw = img.getAttribute('src') || ''
@@ -157,6 +152,10 @@ export default function ArticlePreview({ url, onClose }: Props) {
   const modalRef = useRef<HTMLDivElement>(null)
   const closeRef = useRef<HTMLButtonElement>(null)
 
+  // za 80 % omejitev prikaza
+  const contentWrapRef = useRef<HTMLDivElement>(null)
+  const [clampPx, setClampPx] = useState<number | null>(null)
+
   // naloži/sanitizira vsebino
   useEffect(() => {
     let alive = true
@@ -175,7 +174,6 @@ export default function ArticlePreview({ url, onClose }: Props) {
         const cleaned = cleanPreviewHTML(data.html, url)
         setTitle(data.title)
         setSite(data.site)
-        // Sanitize šele po "cleanPreviewHTML"
         setContent(DOMPurify.sanitize(cleaned))
         setLoading(false)
       } catch {
@@ -190,7 +188,20 @@ export default function ArticlePreview({ url, onClose }: Props) {
     }
   }, [url])
 
-  // focus trap + zakleni scroll + skrij underline v ozadju
+  // po renderju vsebine izračunaj višino in odreži na ~80 %
+  useEffect(() => {
+    if (loading || error) return
+    const el = contentWrapRef.current
+    if (!el) return
+    // počakaj na layout
+    requestAnimationFrame(() => {
+      const full = el.scrollHeight
+      const eighty = Math.max(0, Math.floor(full * 0.8))
+      setClampPx(eighty)
+    })
+  }, [content, loading, error])
+
+  // focus trap + zakleni scroll + globalni anti-underline
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose()
@@ -216,75 +227,117 @@ export default function ArticlePreview({ url, onClose }: Props) {
     document.addEventListener('keydown', handleKeyDown)
     const prevOverflow = document.body.style.overflow
     document.body.style.overflow = 'hidden'
-    document.body.classList.add('modal-open') // globalni anti-underline (kot imaš že v CSS)
+    document.body.classList.add('modal-open', 'preview-open') // <— doda jasno stanje
+
+    // fokus na "zapri"
     setTimeout(() => closeRef.current?.focus(), 0)
 
     return () => {
       document.removeEventListener('keydown', handleKeyDown)
       document.body.style.overflow = prevOverflow
-      document.body.classList.remove('modal-open')
+      document.body.classList.remove('modal-open', 'preview-open')
     }
   }, [onClose])
 
   if (typeof document === 'undefined') return null
 
   return createPortal(
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 transition-opacity duration-300"
-      role="dialog"
-      aria-modal="true"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose()
-      }}
-    >
-      <div
-        ref={modalRef}
-        className="bg-white dark:bg-gray-900 rounded-xl shadow-2xl w-full max-w-2xl mx-4 max-h-[80vh] overflow-y-auto border border-gray-200/10 transform transition-all duration-300 ease-out scale-95 opacity-0 animate-fadeInUp"
-      >
-        {/* Header */}
-        <div className="sticky top-0 z-10 flex items-center justify-between gap-3 px-4 py-3 border-b border-gray-200/20 bg-white/80 dark:bg-gray-900/80 backdrop-blur rounded-t-xl">
-          <div className="min-w-0 flex-1">
-            <div className="text-xs text-gray-500 dark:text-gray-400 truncate">{site}</div>
-            <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">
-              {title || 'Predogled'}
-            </h3>
-          </div>
-          <div className="flex items-center gap-2 shrink-0">
-            <a
-              href={url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="no-underline inline-flex items-center justify-center rounded-lg px-2 py-1 text-sm bg-blue-600 text-white hover:bg-blue-700"
-            >
-              Odpri cel članek
-            </a>
-            <button
-              ref={closeRef}
-              onClick={onClose}
-              aria-label="Zapri predogled"
-              className="inline-flex h-8 px-2 items-center justify-center rounded-lg text-sm bg-gray-100/70 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200"
-            >
-              ✕
-            </button>
-          </div>
-        </div>
+    <>
+      {/* Trd override, da v ozadju NI podčrtav in hover efektov, ko je modal odprt */}
+      <style>{`
+        body.preview-open a,
+        body.preview-open a:hover,
+        body.preview-open a:focus { text-decoration: none !important; }
+        body.preview-open .group:hover { transform: none !important; }
+        body.preview-open .group:hover * { text-decoration: none !important; }
+      `}</style>
 
-        {/* Body */}
-        <div className="px-4 py-4">
-          {loading && (
-            <div className="flex items-center justify-center py-10">
-              <div className="w-12 h-12 rounded-full bg-gray-300 dark:bg-gray-700 animate-zenPulse" />
+      <div
+        className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 transition-opacity duration-300"
+        role="dialog"
+        aria-modal="true"
+        onClick={(e) => {
+          if (e.target === e.currentTarget) onClose()
+        }}
+      >
+        <div
+          ref={modalRef}
+          className="bg-white dark:bg-gray-900 rounded-xl shadow-2xl w-full max-w-2xl mx-4 max-h-[80vh] overflow-y-auto border border-gray-200/10 transform transition-all duration-300 ease-out scale-95 opacity-0 animate-fadeInUp"
+        >
+          {/* Header */}
+          <div className="sticky top-0 z-10 flex items-center justify-between gap-3 px-4 py-3 border-b border-gray-200/20 bg-white/80 dark:bg-gray-900/80 backdrop-blur rounded-t-xl">
+            <div className="min-w-0 flex-1">
+              <div className="text-xs text-gray-500 dark:text-gray-400 truncate">{site}</div>
+              <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">
+                {title || 'Predogled'}
+              </h3>
             </div>
-          )}
-          {error && <p className="text-sm text-red-500">{error}</p>}
-          {!loading && !error && (
-            <div className="prose prose-invert max-w-none prose-img:rounded-lg">
-              <div dangerouslySetInnerHTML={{ __html: content }} />
+            <div className="flex items-center gap-2 shrink-0">
+              <a
+                href={url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="no-underline inline-flex items-center justify-center rounded-lg px-2 py-1 text-sm bg-blue-600 text-white hover:bg-blue-700"
+              >
+                Odpri cel članek
+              </a>
+              <button
+                ref={closeRef}
+                onClick={onClose}
+                aria-label="Zapri predogled"
+                className="inline-flex h-8 px-2 items-center justify-center rounded-lg text-sm bg-gray-100/70 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200"
+              >
+                ✕
+              </button>
             </div>
-          )}
+          </div>
+
+          {/* Body */}
+          <div className="px-4 py-4">
+            {loading && (
+              <div className="flex items-center justify-center py-10">
+                <div className="w-12 h-12 rounded-full bg-gray-300 dark:bg-gray-700 animate-zenPulse" />
+              </div>
+            )}
+            {error && <p className="text-sm text-red-500">{error}</p>}
+
+            {!loading && !error && (
+              <div className="prose prose-invert max-w-none prose-img:rounded-lg">
+                {/* CLAMP: ~80 % celotne vsebine */}
+                <div
+                  ref={contentWrapRef}
+                  style={
+                    clampPx !== null
+                      ? { maxHeight: `${clampPx}px`, overflow: 'hidden', position: 'relative' }
+                      : undefined
+                  }
+                >
+                  <div dangerouslySetInnerHTML={{ __html: content }} />
+                  {clampPx !== null && (
+                    <>
+                      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-gray-900 to-transparent" />
+                    </>
+                  )}
+                </div>
+
+                {/* Opomba + gumb za vir */}
+                <div className="mt-4 flex items-center justify-between text-xs text-gray-400">
+                  <span>Prikazanih je približno 80 % članka.</span>
+                  <a
+                    href={url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="no-underline inline-flex items-center justify-center rounded-md px-2 py-1 bg-blue-600 text-white hover:bg-blue-700"
+                  >
+                    Nadaljuj na izvorni strani
+                  </a>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </div>
-    </div>,
+    </>,
     document.body
   )
 }
