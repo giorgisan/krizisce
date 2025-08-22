@@ -12,21 +12,18 @@ interface Props {
   news: NewsItem
 }
 
-// ---- Preview modal typing ----
 type PreviewProps = { url: string; onClose: () => void }
 
 const ArticlePreview = dynamic(() => import('./ArticlePreview'), {
   ssr: false,
 }) as ComponentType<PreviewProps>
 
-// Rezervna slika
 const FALLBACK_SRC = '/logos/default-news.jpg'
 
 export default function ArticleCard({ news }: Props) {
   const formattedDate = format(new Date(news.isoDate), 'd. MMM, HH:mm', { locale: sl })
   const sourceColor = sourceColors[news.source] || '#fc9c6c'
 
-  // Slika + fallback
   const [imgSrc, setImgSrc] = useState<string | null>(news.image || null)
   const [useFallback, setUseFallback] = useState<boolean>(!news.image)
   const onImgError = () => {
@@ -36,7 +33,6 @@ export default function ArticleCard({ news }: Props) {
     }
   }
 
-  // (trenutno neuporabljeno – koristno za značke)
   const sourceInitials = useMemo(() => {
     const parts = (news.source || '').split(' ').filter(Boolean)
     if (parts.length === 0) return '??'
@@ -46,7 +42,6 @@ export default function ArticleCard({ news }: Props) {
 
   const [showPreview, setShowPreview] = useState(false)
 
-  // ——— Logging klika (deluje tudi pri middle-click) ———
   const logClick = () => {
     try {
       const payload = JSON.stringify({ source: news.source, url: news.link })
@@ -61,25 +56,18 @@ export default function ArticleCard({ news }: Props) {
           keepalive: true,
         })
       }
-    } catch {
-      /* ignore */
-    }
+    } catch {}
   }
 
-  // Levi klik: odpri takoj + log
   const handleClick = (e: MouseEvent<HTMLAnchorElement>) => {
-    // Meta/Ctrl ali middle-click: pusti default vedenje (odpre nov tab)
     if (e.metaKey || e.ctrlKey || e.button === 1) return
     e.preventDefault()
     window.open(news.link, '_blank')
     logClick()
   }
 
-  // Middle-click (aux): samo zabeleži in pusti browserju, da odpre
   const handleAuxClick = (e: MouseEvent<HTMLAnchorElement>) => {
-    if (e.button === 1) {
-      logClick()
-    }
+    if (e.button === 1) logClick()
   }
 
   return (
@@ -95,7 +83,6 @@ export default function ArticleCard({ news }: Props) {
         {/* MEDIA */}
         <div className="relative w-full aspect-[16/9] overflow-hidden">
           {useFallback ? (
-            // Minimalističen fallback: gradient + “Ni slike”
             <div className="absolute inset-0 flex items-center justify-center">
               <div className="absolute inset-0 bg-gradient-to-br from-gray-200 via-gray-300 to-gray-200 dark:from-gray-700 dark:via-gray-800 dark:to-gray-700" />
               <span className="relative z-10 text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -114,7 +101,7 @@ export default function ArticleCard({ news }: Props) {
             />
           )}
 
-          {/* Oko – na mobitelu vedno vidno; na desktopu šele na hover kartice */}
+          {/* Oko */}
           <button
             onClick={(e) => {
               e.preventDefault()
@@ -123,7 +110,7 @@ export default function ArticleCard({ news }: Props) {
             }}
             aria-label="Predogled"
             className="
-              eye-zoom                              /* <<— DODANO: ključni class */
+              eye-zoom
               peer absolute top-2 right-2 h-8 w-8 grid place-items-center rounded-full
               ring-1 ring-black/10 dark:ring-white/10
               text-gray-700 dark:text-gray-200
@@ -131,8 +118,6 @@ export default function ArticleCard({ news }: Props) {
               transition-transform transition-opacity duration-200 ease-out will-change-transform transform-gpu
               opacity-100 scale-100
               md:opacity-0 md:scale-95 md:-translate-y-0.5
-              md:group-hover:opacity-100 md:group-hover:scale-110 md:group-hover:translate-y-0
-              hover:scale-110 active:scale-100
             "
           >
             <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
@@ -141,7 +126,7 @@ export default function ArticleCard({ news }: Props) {
             </svg>
           </button>
 
-          {/* Tooltip – “Predogled novice” samo na hover OČESA (desktop) */}
+          {/* Tooltip */}
           <span
             className="
               hidden md:block pointer-events-none
@@ -158,7 +143,7 @@ export default function ArticleCard({ news }: Props) {
           </span>
         </div>
 
-        {/* TEXT (dodan min-height za enotne kartice) */}
+        {/* TEXT (enotna višina) */}
         <div className="p-3 min-h-[7.75rem] sm:min-h-[8.25rem]">
           <div className="mb-1 flex justify-between text-xs text-gray-500 dark:text-gray-400">
             <span className="font-medium text-[0.7rem]" style={{ color: sourceColor }}>
@@ -174,7 +159,6 @@ export default function ArticleCard({ news }: Props) {
             {news.title}
           </h2>
 
-          {/* Vedno rezerviraj prostor za snippet, da ne skače višina */}
           <p className="text-gray-600 dark:text-gray-400 text-sm leading-tight line-clamp-4">
             {news.contentSnippet || '\u00A0'}
           </p>
