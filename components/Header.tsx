@@ -59,6 +59,7 @@ export default function Header() {
             width={36}
             height={36}
             priority
+            fetchPriority="high"
             className="w-9 h-9 rounded-md"
           />
           <div className="min-w-0 leading-tight">
