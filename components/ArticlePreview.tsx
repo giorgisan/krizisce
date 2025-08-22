@@ -15,7 +15,7 @@ type ApiPayload =
   | { title: string; site: string; image?: string | null; html: string; url: string }
 
 // Kolikšen delež besedila prikažemo (0.70–0.80 je tipično)
-const TEXT_PERCENT = 0.70 // <-- po želji spremeni
+const TEXT_PERCENT = 0.65 // <-- po želji spremeni
 
 /** Absolutizira URL glede na osnovni URL članka */
 function absolutize(raw: string, baseUrl: string): string {
@@ -370,14 +370,22 @@ export default function ArticlePreview({ url, onClose }: Props) {
 
             {!loading && !error && (
               <div className="prose prose-invert max-w-none prose-img:rounded-lg">
-                <div>
+                {/* Vsebina + daljši fade */}
+                <div className="relative">
                   <div dangerouslySetInnerHTML={{ __html: content }} />
-                  {/* Nežen fade kot namig, da vsebine ni v celoti */}
-                  <div className="pointer-events-none mt-2 h-16 -translate-y-16 bg-gradient-to-t from-gray-900 to-transparent" />
+                  <div className="pointer-events-none absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-white dark:from-gray-900 to-transparent" />
                 </div>
 
-                {/* CTA */}
-                <div className="mt-2 flex justify-end">
+                {/* CTA vrstica: Zapri (levo) + Pojdi na vir (desno) */}
+                <div className="mt-3 flex items-center justify-between gap-3">
+                  <button
+                    type="button"
+                    onClick={onClose}
+                    className="inline-flex items-center justify-center rounded-md px-3 py-2 bg-gray-100/80 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 text-sm"
+                  >
+                    Zapri predogled
+                  </button>
+
                   <a
                     href={url}
                     target="_blank"
