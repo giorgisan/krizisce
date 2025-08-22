@@ -1,7 +1,7 @@
 // components/ArticlePreview.tsx
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, MouseEvent } from 'react'
 import { createPortal } from 'react-dom'
 import DOMPurify from 'dompurify'
 
@@ -16,6 +16,28 @@ type ApiPayload =
 
 // Kolikšen delež besedila prikažemo (0.70–0.80 je tipično)
 const TEXT_PERCENT = 0.76 // <-- po želji spremeni
+
+/** Pošlje klik na /api/click tako, da preživi navigacijo. */
+function trackClick(source: string, url: string) {
+  try {
+    const payload = JSON.stringify({ source, url, from: 'preview' })
+    const endpoint = '/api/click'
+    if (typeof navigator !== 'undefined' && 'sendBeacon' in navigator) {
+      const blob = new Blob([payload], { type: 'application/json' })
+      navigator.sendBeacon(endpoint, blob)
+    } else {
+      // keepalive: true poskusi dokončati request tudi ob navigaciji
+      fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: payload,
+        keepalive: true as any,
+      }).catch(() => {})
+    }
+  } catch {
+    /* ignore */
+  }
+}
 
 /** Absolutizira URL glede na osnovni URL članka */
 function absolutize(raw: string, baseUrl: string): string {
@@ -123,7 +145,7 @@ function cleanPreviewHTML(html: string, baseUrl: string): string {
       }
     })
 
-    // odstrani prvo kasnejšo sliko z istim “stemom” kot hero
+    // dodatno: odstrani prvo kasnejšo sliko z zelo podobnim stemom kot hero
     const rest = Array.from(wrap.querySelectorAll('img')).slice(1)
     for (const img of rest) {
       const raw = img.getAttribute('src') || ''
@@ -306,6 +328,14 @@ export default function ArticlePreview({ url, onClose }: Props) {
     }
   }, [onClose])
 
+  // handler za odprtje izvorne strani + beleženje klika
+  const openSourceAndTrack = (e: MouseEvent<HTMLAnchorElement>) => {
+    e.preventDefault()
+    const source = site || (() => { try { return new URL(url).hostname } catch { return 'unknown' } })()
+    trackClick(source, url)
+    window.open(url, '_blank', 'noopener,noreferrer')
+  }
+
   if (typeof document === 'undefined') return null
 
   return createPortal(
@@ -344,6 +374,7 @@ export default function ArticlePreview({ url, onClose }: Props) {
                 href={url}
                 target="_blank"
                 rel="noopener noreferrer"
+                onClick={openSourceAndTrack}
                 className="no-underline inline-flex items-center justify-center rounded-lg px-2 py-1 text-sm bg-orange-700/80 text-white hover:bg-amber-600"
               >
                 Odpri cel članek
@@ -382,6 +413,7 @@ export default function ArticlePreview({ url, onClose }: Props) {
                     href={url}
                     target="_blank"
                     rel="noopener noreferrer"
+                    onClick={openSourceAndTrack}
                     className="no-underline inline-flex justify-center rounded-md px-5 py-2 bg-orange-700/80 text-white text-sm hover:bg-amber-600 whitespace-nowrap"
                   >
                     Za ogled celotnega članka, obiščite spletno stran
