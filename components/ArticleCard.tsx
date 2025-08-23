@@ -127,8 +127,8 @@ export default function ArticleCard({ news }: Props) {
           </span>
         </div>
 
-        {/* TEXT – kompaktno, a še za 3+4 vrstice */}
-        <div className="p-2 min-h-[10.25rem] sm:min-h-[10.75rem] overflow-hidden">
+        {/* TEXT – kompaktnejše na desktopu, mobilni ostane enak */}
+        <div className="p-2 min-h-[10.25rem] sm:min-h-[10.5rem] md:min-h-[10.25rem] lg:min-h-[10rem] xl:min-h-[9.75rem] overflow-hidden">
           <div className="mb-1 flex justify-between text-xs text-gray-500 dark:text-gray-400">
             <span className="font-medium text-[0.7rem]" style={{ color: sourceColor }}>{news.source}</span>
             <span>{formattedDate}</span>
