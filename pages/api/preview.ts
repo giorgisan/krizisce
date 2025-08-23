@@ -2,7 +2,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next'
 import { JSDOM } from 'jsdom'
 import { Readability } from '@mozilla/readability'
-import createDOMPurify from 'dompurify'
+import DOMPurify from 'isomorphic-dompurify'
 
 type PreviewResponse =
   | { error: string }
@@ -33,7 +33,7 @@ export default async function handler(
     return
   }
 
-  // cache na edge-u za 5 min (+ 10 min stale)
+  // Edge cache: 5 min sveže + 10 min stale
   res.setHeader('Cache-Control', 's-maxage=300, stale-while-revalidate=600')
 
   try {
@@ -61,11 +61,11 @@ export default async function handler(
     const dom = new JSDOM(html, { url })
     const doc = dom.window.document
 
-    // Readability (naslov + vsebina)
+    // Readability
     const reader = new Readability(doc)
     const article = reader.parse()
 
-    // Meta in fallbacki
+    // Meta + fallbacki
     const ogTitle = getMeta(dom, 'og:title')
     const ogSite = getMeta(dom, 'og:site_name')
     const ogImageRaw = getMeta(dom, 'og:image') || getMeta(dom, 'twitter:image')
@@ -80,8 +80,7 @@ export default async function handler(
       doc.querySelector('article')?.innerHTML ||
       doc.body.innerHTML
 
-    // SANITIZE (server-side)
-    const DOMPurify = createDOMPurify(dom.window as unknown as Window)
+    // SANITIZE (SSR, brez tipovnih težav)
     const clean = DOMPurify.sanitize(rawContent, {
       USE_PROFILES: { html: true },
       FORBID_TAGS: ['script', 'style', 'iframe', 'object', 'embed', 'form', 'noscript'],
@@ -90,7 +89,7 @@ export default async function handler(
       ALLOWED_URI_REGEXP: /^(?:(?:https?|mailto|tel|data:image\/))/i,
     })
 
-    // Absolutiziraj slike in linke + osnovna optimizacija
+    // Absolutizacija <img> in <a> + osnovna optimizacija
     const wrap = new JSDOM(`<div id="__preview_root">${clean}</div>`, { url })
     const wdoc = wrap.window.document
 
@@ -113,7 +112,7 @@ export default async function handler(
       } catch {}
     })
 
-    // host-class za per-site mini teme (2. korak, če boš želel)
+    // host-class za per-site mini teme (opcijsko v CSS)
     const host = new URL(url).hostname.replace(/^www\./, '').replace(/[^a-z0-9-]+/gi, '-')
     const cleanedHTML = wdoc.getElementById('__preview_root')?.innerHTML || ''
 
