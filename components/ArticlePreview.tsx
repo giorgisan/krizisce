@@ -4,51 +4,34 @@
 import { useEffect, useRef, useState, MouseEvent } from 'react'
 import { createPortal } from 'react-dom'
 import DOMPurify from 'dompurify'
+import { preloadPreview, peekPreview } from '@/lib/previewPrefetch'
 
-interface Props {
-  url: string
-  onClose: () => void
-}
+interface Props { url: string; onClose: () => void }
 
 type ApiPayload =
   | { error: string }
   | { title: string; site: string; image?: string | null; html: string; url: string }
 
-// Kolikšen delež besedila prikažemo (0.70–0.80 je tipično)
-const TEXT_PERCENT = 0.76 // <-- po želji spremeni
+// Kolikšen delež besedila prikažemo
+const TEXT_PERCENT = 0.76
 
-/** Pošlje klik na /api/click tako, da preživi navigacijo. */
 function trackClick(source: string, url: string) {
   try {
     const payload = JSON.stringify({ source, url, from: 'preview' })
     const endpoint = '/api/click'
-    if (typeof navigator !== 'undefined' && 'sendBeacon' in navigator) {
+    if ('sendBeacon' in navigator) {
       const blob = new Blob([payload], { type: 'application/json' })
       navigator.sendBeacon(endpoint, blob)
     } else {
-      // keepalive: true poskusi dokončati request tudi ob navigaciji
-      fetch(endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: payload,
-        keepalive: true as any,
-      }).catch(() => {})
+      fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: payload, keepalive: true as any })
+        .catch(() => {})
     }
-  } catch {
-    /* ignore */
-  }
+  } catch {}
 }
 
-/** Absolutizira URL glede na osnovni URL članka */
 function absolutize(raw: string, baseUrl: string): string {
-  try {
-    return new URL(raw, baseUrl).toString()
-  } catch {
-    return raw
-  }
+  try { return new URL(raw, baseUrl).toString() } catch { return raw }
 }
-
-/** Normaliziran ključ za sliko (odreži query/hash, odstrani “size suffixe”, .webp/.jpeg → .jpg). */
 function imageKeyFromSrc(src: string | null | undefined): string {
   if (!src) return ''
   let pathname = ''
@@ -64,27 +47,16 @@ function imageKeyFromSrc(src: string | null | undefined): string {
   pathname = pathname.replace(/\.(webp|jpeg)$/g, '.jpg')
   return pathname
 }
-
-/** “Stem” zadnjega segmenta poti (brez končnice), očiščen suffixev. */
 function basenameStem(pathname: string): string {
   const last = pathname.split('/').pop() || ''
-  const name = last
+  return last
     .replace(/\.[a-z0-9]+$/, '')
     .replace(/(-|\_)?\d{2,4}x\d{2,4}$/g, '')
     .replace(/(-|\_)?\d{2,4}x$/g, '')
     .replace(/-scaled$/g, '')
-  return name
 }
 
-/**
- * Čiščenje HTML-ja pred prikazom:
- * - odstrani <noscript>, <script>, <style>, <iframe>, <form>
- * - absolutizira relativne URL-je
- * - lazy-load za <img>, odstrani srcset/sizes
- * - odstrani duplikate slik (z istim normaliziranim ključem)
- * - dodatno: odstrani prvo “poznejšo” sliko s podobnim stemom kot hero
- * - harden za <a>: doda rel="noopener noreferrer"
- */
+/** Čiščenje HTML-ja pred prikazom (hitro, robustno) */
 function cleanPreviewHTML(html: string, baseUrl: string): string {
   try {
     const wrap = document.createElement('div')
@@ -112,8 +84,7 @@ function cleanPreviewHTML(html: string, baseUrl: string): string {
     const firstSrcAbs = firstRaw ? absolutize(firstRaw, baseUrl) : ''
     if (firstSrcAbs) first.setAttribute('src', firstSrcAbs)
     first.removeAttribute('data-src')
-    first.removeAttribute('srcset')
-    first.removeAttribute('sizes')
+    first.removeAttribute('srcset'); first.removeAttribute('sizes')
     first.setAttribute('loading', 'lazy')
     first.setAttribute('decoding', 'async')
     first.setAttribute('referrerpolicy', 'no-referrer')
@@ -133,8 +104,7 @@ function cleanPreviewHTML(html: string, baseUrl: string): string {
       img.setAttribute('loading', 'lazy')
       img.setAttribute('decoding', 'async')
       img.setAttribute('referrerpolicy', 'no-referrer')
-      img.removeAttribute('srcset')
-      img.removeAttribute('sizes')
+      img.removeAttribute('srcset'); img.removeAttribute('sizes')
 
       const key = imageKeyFromSrc(img.getAttribute('src') || '')
       if (!key) return
@@ -145,7 +115,7 @@ function cleanPreviewHTML(html: string, baseUrl: string): string {
       }
     })
 
-    // dodatno: odstrani prvo kasnejšo sliko z zelo podobnim stemom kot hero
+    // odstrani prvo kasnejšo sliko s podobnim stemom kot hero
     const rest = Array.from(wrap.querySelectorAll('img')).slice(1)
     for (const img of rest) {
       const raw = img.getAttribute('src') || ''
@@ -168,83 +138,49 @@ function cleanPreviewHTML(html: string, baseUrl: string): string {
   }
 }
 
-/** Vrne seznam {start,end} vseh "besed" v nizu – ES5 združljivo. */
 function wordSpans(text: string): Array<{ start: number; end: number }> {
   const spans: Array<{ start: number; end: number }> = []
-  // latinične črke + šumniki + številke; brez Unicode property escapes
   const re =
     /[A-Za-z0-9À-ÖØ-öø-ÿĀ-žČŠŽčšžĆćĐđ]+(?:['’-][A-Za-z0-9À-ÖØ-öø-ÿĀ-žČŠŽčšžĆćĐđ]+)*/g
   let m: RegExpExecArray | null
-  while ((m = re.exec(text)) !== null) {
-    spans.push({ start: m.index, end: m.index + m[0].length })
-  }
+  while ((m = re.exec(text)) !== null) spans.push({ start: m.index, end: m.index + m[0].length })
   return spans
 }
+function countWords(text: string): number { return wordSpans(text).length }
 
-/** Prešteje besede z uporabo wordSpans */
-function countWords(text: string): number {
-  return wordSpans(text).length
-}
-
-/**
- * Trunkacija po številu BESED (%):
- * - prešteje vse besede
- * - z TreeWalker reže znotraj tekstnih vozlišč točno na ciljnem številu
- * - slike/figure ostanejo
- */
 function truncateHTMLByWordsPercent(html: string, percent = 0.76): string {
-  const src = document.createElement('div')
-  src.innerHTML = html
-
-  // odstrani očitne ne-vsebinske bloke
+  const src = document.createElement('div'); src.innerHTML = html
   src.querySelectorAll('header,nav,footer,aside,.share,.social,.related,.tags').forEach((n) => n.remove())
-
-  // klon, po katerem bomo rezali
   const out = src.cloneNode(true) as HTMLDivElement
 
   const totalWords = countWords(out.textContent || '')
   if (totalWords === 0) return out.innerHTML
-
   const target = Math.max(1, Math.floor(totalWords * percent))
   let used = 0
-
   const walker = document.createTreeWalker(out, NodeFilter.SHOW_TEXT)
   let node: Node | null = walker.nextNode()
 
   while (node) {
     const text = node.textContent || ''
     const trimmed = text.trim()
-    if (trimmed.length === 0) {
-      node = walker.nextNode()
-      continue
-    }
+    if (!trimmed) { node = walker.nextNode(); continue }
 
     const spans = wordSpans(text)
     const localWords = spans.length
     const remain = target - used
 
-    if (localWords <= remain) {
-      used += localWords
-      node = walker.nextNode()
-      continue
-    }
+    if (localWords <= remain) { used += localWords; node = walker.nextNode(); continue }
 
-    // treba je odrezati znotraj tega vozlišča
     const cutoffSpan = spans[Math.max(0, remain - 1)]
     const cutoffIndex = cutoffSpan ? cutoffSpan.end : 0
     ;(node as Text).textContent = text.slice(0, cutoffIndex).trimEnd()
 
-    // odstrani vse, kar sledi temu vozlišču
     const range = document.createRange()
     range.setStartAfter(node)
     const last = out.lastChild
-    if (last) {
-      range.setEndAfter(last)
-      range.deleteContents()
-    }
+    if (last) { range.setEndAfter(last); range.deleteContents() }
     break
   }
-
   return out.innerHTML
 }
 
@@ -258,37 +194,34 @@ export default function ArticlePreview({ url, onClose }: Props) {
   const modalRef = useRef<HTMLDivElement>(null)
   const closeRef = useRef<HTMLButtonElement>(null)
 
-  // naloži → očisti → semantično skrajšaj po besedah → sanitiziraj
+  // Naloži → (če je v cache-u, instant) → očisti → trunc → sanitize
   useEffect(() => {
     let alive = true
-    const fetchContent = async () => {
-      setLoading(true)
-      setError(null)
+    const run = async () => {
+      setLoading(true); setError(null)
       try {
-        const res = await fetch(`/api/preview?url=${encodeURIComponent(url)}`)
-        const data: ApiPayload = await res.json()
+        // 1) poskusi iz cache-a
+        let data = peekPreview(url) as ApiPayload | null
+        // 2) če ni, prefetch (de-dupe)
+        if (!data) data = await preloadPreview(url)
         if (!alive) return
+
         if ('error' in data) {
-          setError('Napaka pri nalaganju predogleda.')
-          setLoading(false)
-          return
+          setError('Napaka pri nalaganju predogleda.'); setLoading(false); return
         }
+        setTitle(data.title); setSite(data.site)
+
         const cleaned = cleanPreviewHTML(data.html, url)
         const truncated = truncateHTMLByWordsPercent(cleaned, TEXT_PERCENT)
-        setTitle(data.title)
-        setSite(data.site)
         setContent(DOMPurify.sanitize(truncated))
         setLoading(false)
       } catch {
         if (!alive) return
-        setError('Napaka pri nalaganju predogleda.')
-        setLoading(false)
+        setError('Napaka pri nalaganju predogleda.'); setLoading(false)
       }
     }
-    fetchContent()
-    return () => {
-      alive = false
-    }
+    run()
+    return () => { alive = false }
   }, [url])
 
   // focus trap + zakleni scroll + globalni anti-underline
@@ -300,17 +233,10 @@ export default function ArticlePreview({ url, onClose }: Props) {
           'a[href], button, textarea, input, select, [tabindex]:not([tabindex="-1"])'
         )
         if (!focusable || focusable.length === 0) return
-        const first = focusable[0]
-        const last = focusable[focusable.length - 1]
+        const first = focusable[0]; const last = focusable[focusable.length - 1]
         if (e.shiftKey) {
-          if (document.activeElement === first) {
-            e.preventDefault()
-            last.focus()
-          }
-        } else if (document.activeElement === last) {
-          e.preventDefault()
-          first.focus()
-        }
+          if (document.activeElement === first) { e.preventDefault(); last.focus() }
+        } else if (document.activeElement === last) { e.preventDefault(); first.focus() }
       }
     }
 
@@ -318,7 +244,6 @@ export default function ArticlePreview({ url, onClose }: Props) {
     const prevOverflow = document.body.style.overflow
     document.body.style.overflow = 'hidden'
     document.body.classList.add('modal-open', 'preview-open')
-
     setTimeout(() => closeRef.current?.focus(), 0)
 
     return () => {
@@ -328,7 +253,6 @@ export default function ArticlePreview({ url, onClose }: Props) {
     }
   }, [onClose])
 
-  // handler za odprtje izvorne strani + beleženje klika
   const openSourceAndTrack = (e: MouseEvent<HTMLAnchorElement>) => {
     e.preventDefault()
     const source = site || (() => { try { return new URL(url).hostname } catch { return 'unknown' } })()
@@ -340,7 +264,7 @@ export default function ArticlePreview({ url, onClose }: Props) {
 
   return createPortal(
     <>
-      {/* Trd override, da v ozadju NI podčrtav in hover efektov, ko je modal odprt */}
+      {/* trd override za ozadje med modalom */}
       <style>{`
         body.preview-open a,
         body.preview-open a:hover,
@@ -353,9 +277,7 @@ export default function ArticlePreview({ url, onClose }: Props) {
         className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 transition-opacity duration-300"
         role="dialog"
         aria-modal="true"
-        onClick={(e) => {
-          if (e.target === e.currentTarget) onClose()
-        }}
+        onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
       >
         <div
           ref={modalRef}
@@ -401,13 +323,11 @@ export default function ArticlePreview({ url, onClose }: Props) {
 
             {!loading && !error && (
               <div className="prose prose-invert max-w-none prose-img:rounded-lg">
-                {/* Vsebina + daljši fade */}
                 <div className="relative">
                   <div dangerouslySetInnerHTML={{ __html: content }} />
                   <div className="pointer-events-none absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-white dark:from-gray-900 to-transparent" />
                 </div>
 
-                {/* CTA: center, vertikalno; različna širina, brez preloma teksta */}
                 <div className="mt-4 flex flex-col items-center gap-2">
                   <a
                     href={url}
