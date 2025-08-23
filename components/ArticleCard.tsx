@@ -11,15 +11,24 @@ type PreviewProps = { url: string; onClose: () => void }
 const ArticlePreview = dynamic(() => import('./ArticlePreview'), { ssr: false }) as ComponentType<PreviewProps>
 
 const FALLBACK_SRC = '/logos/default-news.jpg'
-const fmt = new Intl.DateTimeFormat('sl-SI', { day:'numeric', month:'short', hour:'2-digit', minute:'2-digit' })
+
+// — Datum: vedno “d. MMM., HH:mm” (z V E J I C O)
+function formatDate(slugISO: string) {
+  const d = new Date(slugISO)
+  const date = new Intl.DateTimeFormat('sl-SI', { day: 'numeric', month: 'short' }).format(d) // npr. "23. avg."
+  const time = new Intl.DateTimeFormat('sl-SI', { hour: '2-digit', minute: '2-digit' }).format(d) // "09:53"
+  return `${date}, ${time}`
+}
 
 export default function ArticleCard({ news }: Props) {
-  const formattedDate = fmt.format(new Date(news.isoDate)).replace(',', '')
+  const formattedDate = formatDate(news.isoDate)
+
   const sourceColor = useMemo(() => {
     const colors = require('@/lib/sources').sourceColors as Record<string, string>
     return colors[news.source] || '#fc9c6c'
   }, [news.source])
 
+  // Slika + fallback
   const [imgSrc, setImgSrc] = useState<string | null>(news.image || null)
   const [useFallback, setUseFallback] = useState<boolean>(!news.image)
   const onImgError = () => { if (!useFallback) { setImgSrc(FALLBACK_SRC); setUseFallback(true) } }
@@ -127,11 +136,13 @@ export default function ArticleCard({ news }: Props) {
           </span>
         </div>
 
-        {/* TEXT – kompaktnejše na desktopu, mobilni ostane enak */}
+        {/* TEXT – kompaktno na desktopu; 3 vrstice naslova + 4 snippeta ostanejo */}
         <div className="p-2 min-h-[10.25rem] sm:min-h-[10.5rem] md:min-h-[10.25rem] lg:min-h-[10rem] xl:min-h-[9.75rem] overflow-hidden">
-          <div className="mb-1 flex justify-between text-xs text-gray-500 dark:text-gray-400">
-            <span className="font-medium text-[0.7rem]" style={{ color: sourceColor }}>{news.source}</span>
-            <span>{formattedDate}</span>
+          <div className="mb-1 flex items-baseline justify-between text-xs text-gray-500 dark:text-gray-400">
+            <span className="font-medium text-[0.7rem] truncate" style={{ color: sourceColor }}>
+              {news.source}
+            </span>
+            <span className="tabular-nums" title={formattedDate}>{formattedDate}</span>
           </div>
 
           <h2
