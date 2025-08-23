@@ -33,18 +33,24 @@ export default async function handler(
     return
   }
 
+  // cache na edge-u za 5 min (+ 10 min stale)
+  res.setHeader('Cache-Control', 's-maxage=300, stale-while-revalidate=600')
+
   try {
+    const ac = new AbortController()
+    const to = setTimeout(() => ac.abort(), 8000)
+
     const response = await fetch(url, {
+      signal: ac.signal,
       headers: {
         'User-Agent':
-          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
+          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
         'Accept-Language': 'sl-SI,sl;q=0.9,en-US;q=0.8,en;q=0.7',
-        Accept: 'text/html,*/*',
+        Accept: 'text/html,application/xhtml+xml',
       },
-      // nekaj strani je občutljivih – 8s timeout je dovolj za preview
-      cache: 'no-store',
       redirect: 'follow',
-    })
+      cache: 'no-store',
+    }).finally(() => clearTimeout(to))
 
     if (!response.ok) {
       res.status(500).json({ error: `Failed to fetch preview (${response.status})` })
@@ -52,66 +58,67 @@ export default async function handler(
     }
 
     const html = await response.text()
-    const dom = new JSDOM(html, { url }) // pomembno za absolutne/relativne URL-je
+    const dom = new JSDOM(html, { url })
     const doc = dom.window.document
 
-    // Poskusi z Readability (izvleče naslov, vsebino, byline ipd.)
+    // Readability (naslov + vsebina)
     const reader = new Readability(doc)
     const article = reader.parse()
 
-    // Osnovne meta info (fallbacki)
+    // Meta in fallbacki
     const ogTitle = getMeta(dom, 'og:title')
     const ogSite = getMeta(dom, 'og:site_name')
-    const ogImage = getMeta(dom, 'og:image') || getMeta(dom, 'twitter:image')
-    const title = (article?.title || ogTitle || doc.title || 'Predogled').trim()
-    const site =
-      ogSite ||
-      new URL(url).hostname.replace(/^www\./, '') ||
-      'Vir'
+    const ogImageRaw = getMeta(dom, 'og:image') || getMeta(dom, 'twitter:image')
+    const ogImage = ogImageRaw ? new URL(ogImageRaw, url).toString() : null
 
-    // Če Readability spodleti, vzemi glavni <article> ali body kot fallback
+    const title = (article?.title || ogTitle || doc.title || 'Predogled').trim()
+    const site = (ogSite || new URL(url).hostname.replace(/^www\./, '') || 'Vir').trim()
+
+    // Vsebina: Readability → <article> → <body> fallback
     const rawContent =
       article?.content ||
       doc.querySelector('article')?.innerHTML ||
       doc.body.innerHTML
 
-    // Očisti (brez skript, inline-eventov ipd.)
-    const DOMPurify = createDOMPurify(dom.window as any)
+    // SANITIZE (server-side)
+    const DOMPurify = createDOMPurify(dom.window as unknown as Window)
     const clean = DOMPurify.sanitize(rawContent, {
       USE_PROFILES: { html: true },
-      FORBID_TAGS: ['script', 'style', 'iframe', 'object', 'embed', 'form'],
-      FORBID_ATTR: ['onerror', 'onload', 'style'], // stil bomo dodali mi
-      ADD_ATTR: ['target', 'rel'],
+      FORBID_TAGS: ['script', 'style', 'iframe', 'object', 'embed', 'form', 'noscript'],
+      FORBID_ATTR: ['onerror', 'onload', 'onclick', 'style'],
+      ADD_ATTR: ['target', 'rel', 'loading', 'decoding', 'referrerpolicy'],
       ALLOWED_URI_REGEXP: /^(?:(?:https?|mailto|tel|data:image\/))/i,
     })
 
-    // Absolutiziraj relativne slike in linke
+    // Absolutiziraj slike in linke + osnovna optimizacija
     const wrap = new JSDOM(`<div id="__preview_root">${clean}</div>`, { url })
-    wrap.window.document
-      .querySelectorAll<HTMLImageElement>('img[src]')
-      .forEach((img) => {
-        try {
-          img.src = new URL(img.getAttribute('src')!, url).toString()
-          img.loading = 'lazy'
-          img.decoding = 'async'
-        } catch {}
-      })
-    wrap.window.document
-      .querySelectorAll<HTMLAnchorElement>('a[href]')
-      .forEach((a) => {
-        try {
-          a.href = new URL(a.getAttribute('href')!, url).toString()
-          a.target = '_blank'
-          a.rel = 'noopener noreferrer'
-        } catch {}
-      })
+    const wdoc = wrap.window.document
 
-    const cleanedHTML =
-      wrap.window.document.getElementById('__preview_root')?.innerHTML || ''
+    wdoc.querySelectorAll<HTMLImageElement>('img[src]').forEach((img) => {
+      try {
+        img.src = new URL(img.getAttribute('src')!, url).toString()
+        img.setAttribute('loading', 'lazy')
+        img.setAttribute('decoding', 'async')
+        img.setAttribute('referrerpolicy', 'no-referrer')
+        img.removeAttribute('srcset')
+        img.removeAttribute('sizes')
+      } catch {}
+    })
 
-    // Minimalen, berljiv templating za preview
+    wdoc.querySelectorAll<HTMLAnchorElement>('a[href]').forEach((a) => {
+      try {
+        a.href = new URL(a.getAttribute('href')!, url).toString()
+        a.target = '_blank'
+        a.rel = 'noopener noreferrer'
+      } catch {}
+    })
+
+    // host-class za per-site mini teme (2. korak, če boš želel)
+    const host = new URL(url).hostname.replace(/^www\./, '').replace(/[^a-z0-9-]+/gi, '-')
+    const cleanedHTML = wdoc.getElementById('__preview_root')?.innerHTML || ''
+
     const finalHTML = `
-      <article class="preview-article">
+      <article class="preview-article host-${host}">
         ${ogImage ? `<img class="preview-cover" src="${ogImage}" alt="" />` : ''}
         <h1 class="preview-title">${title}</h1>
         <div class="preview-meta">${site}</div>
@@ -119,19 +126,15 @@ export default async function handler(
       </article>
       <style>
         .preview-article { line-height: 1.6; font-size: 16px; }
-        .preview-title { font-size: 1.4rem; font-weight: 700; margin: 0.25rem 0 0.5rem; }
-        .preview-meta { font-size: 0.85rem; opacity: 0.75; margin-bottom: 0.75rem; }
-        .preview-cover { width: 100%; height: auto; border-radius: 0.5rem; display:block; margin-bottom: 0.75rem; }
-        .preview-content p { margin: 0.5rem 0; }
-        .preview-content img { max-width: 100%; height: auto; border-radius: 0.375rem; }
-        .preview-content figure { margin: 0.75rem 0; }
-        .preview-content h1, .preview-content h2, .preview-content h3 {
-          margin: 0.75rem 0 0.25rem; line-height: 1.25;
-        }
-        .preview-content ul, .preview-content ol { padding-left: 1.25rem; margin: 0.5rem 0; }
-        .preview-content blockquote {
-          margin: 0.75rem 0; padding-left: 0.75rem; border-left: 3px solid #ccc; opacity: .9;
-        }
+        .preview-title { font-size: 1.4rem; font-weight: 700; margin: .25rem 0 .5rem; }
+        .preview-meta { font-size: .85rem; opacity: .75; margin-bottom: .75rem; }
+        .preview-cover { width: 100%; height: auto; border-radius: .5rem; display:block; margin-bottom: .75rem; }
+        .preview-content p { margin: .5rem 0; }
+        .preview-content img { max-width: 100%; height: auto; border-radius: .375rem; }
+        .preview-content figure { margin: .75rem 0; }
+        .preview-content h1, .preview-content h2, .preview-content h3 { margin: .75rem 0 .25rem; line-height: 1.25; }
+        .preview-content ul, .preview-content ol { padding-left: 1.25rem; margin: .5rem 0; }
+        .preview-content blockquote { margin: .75rem 0; padding-left: .75rem; border-left: 3px solid #ccc; opacity: .9; }
         a { text-decoration: underline; }
       </style>
     `
