@@ -74,11 +74,49 @@ export default function ArticleCard({ news }: Props) {
   }
   const handleAuxClick = (e: MouseEvent<HTMLAnchorElement>) => { if (e.button === 1) logClick() }
 
-  // Interaktivni “oko” + PREFETCH
+  // ---------- INTENT-BASED PREFETCH ----------
+  // de-dupe guard, da ne prefetchamo večkrat za isti URL
+  const preloadedRef = useRef(false)
+  const doPrefetch = () => {
+    if (preloadedRef.current) return
+    preloadedRef.current = true
+    preloadPreview(news.link).catch(() => {})
+  }
+
+  // 1) hover/focus na OČESE (ostane enako, samo kliče doPrefetch)
   const [eyeHover, setEyeHover] = useState(false)
-  const handleEyeEnter = () => { setEyeHover(true); preloadPreview(news.link).catch(() => {}) }
+  const handleEyeEnter = () => { setEyeHover(true); doPrefetch() }
   const handleEyeLeave = () => setEyeHover(false)
-  const handleEyeFocus  = () => preloadPreview(news.link).catch(() => {})
+  const handleEyeFocus  = () => doPrefetch()
+
+  // 2) kratek hover na KARTICO (120 ms debounce, da ne prefetchamo pri “fly-by”)
+  const hoverTimer = useRef<number | null>(null)
+  const handleCardEnter = () => {
+    if (hoverTimer.current) window.clearTimeout(hoverTimer.current)
+    hoverTimer.current = window.setTimeout(() => doPrefetch(), 120)
+  }
+  const handleCardLeave = () => {
+    if (hoverTimer.current) { window.clearTimeout(hoverTimer.current); hoverTimer.current = null }
+  }
+  const handleCardFocus = () => doPrefetch() // keyboard tab na kartico
+
+  // 3) IntersectionObserver: ko je kartica ≥ 60% v viewportu, prefetch
+  useEffect(() => {
+    const el = cardRef.current; if (!el) return
+    if (preloadedRef.current) return
+    const io = new IntersectionObserver((entries) => {
+      for (const e of entries) {
+        if (e.isIntersecting && e.intersectionRatio >= 0.6) {
+          doPrefetch()
+          io.disconnect()
+          break
+        }
+      }
+    }, { threshold: [0, 0.6, 1] })
+    io.observe(el)
+    return () => io.disconnect()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // srcset/sizes
   const widths = [320, 480, 640, 768, 1024, 1280]
@@ -96,6 +134,9 @@ export default function ArticleCard({ news }: Props) {
         rel="noopener noreferrer"
         onClick={handleClick}
         onAuxClick={handleAuxClick}
+        onMouseEnter={handleCardEnter}
+        onMouseLeave={handleCardLeave}
+        onFocus={handleCardFocus}
         className="cv-auto group block no-underline bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden transition-all duration-200 hover:scale-[1.02] hover:shadow-lg hover:bg-gray-100 dark:hover:bg-gray-700"
       >
         {/* MEDIA */}
@@ -155,7 +196,7 @@ export default function ArticleCard({ news }: Props) {
           </span>
         </div>
 
-        {/* TEXT */}
+        {/* TEXT (kompaktno, 3/4 vrstice) */}
         <div className="p-2.5 min-h-[10rem] sm:min-h-[10rem] md:min-h-[9.75rem] lg:min-h-[9.5rem] xl:min-h-[9.5rem] overflow-hidden">
           <div className="mb-1 grid grid-cols-[1fr_auto] items-baseline gap-x-2">
             <span className="truncate text-[12px] font-medium tracking-[0.01em]" style={{ color: sourceColor }} title={news.source}>
