@@ -5,6 +5,7 @@ import { NewsItem } from '@/types'
 import { MouseEvent, useMemo, useRef, useState, useEffect, ComponentType } from 'react'
 import dynamic from 'next/dynamic'
 import { proxiedImage, buildSrcSet } from '@/lib/img'
+import { preloadPreview } from '@/lib/previewPrefetch'
 
 interface Props { news: NewsItem }
 
@@ -49,7 +50,6 @@ export default function ArticleCard({ news }: Props) {
     const link = document.createElement('link')
     link.rel = 'preload'
     link.as = 'image'
-    // preloadaj proxied varianto ~1024px (desktop kartica ~25vw)
     link.href = proxiedImage(imgSrc, 1024, Math.round(1024 / ASPECT), window.devicePixelRatio || 1)
     link.crossOrigin = 'anonymous'
     document.head.appendChild(link)
@@ -74,14 +74,16 @@ export default function ArticleCard({ news }: Props) {
   }
   const handleAuxClick = (e: MouseEvent<HTMLAnchorElement>) => { if (e.button === 1) logClick() }
 
+  // Interaktivni “oko” + PREFETCH
   const [eyeHover, setEyeHover] = useState(false)
+  const handleEyeEnter = () => { setEyeHover(true); preloadPreview(news.link).catch(() => {}) }
+  const handleEyeLeave = () => setEyeHover(false)
+  const handleEyeFocus  = () => preloadPreview(news.link).catch(() => {})
 
-  // srcset/sizes za kartice (mobilni 100vw, ≤1024px 50vw, sicer ~25vw)
+  // srcset/sizes
   const widths = [320, 480, 640, 768, 1024, 1280]
   const sizes = '(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw'
   const dpr = (typeof window !== 'undefined' && window.devicePixelRatio) || 1
-
-  // izračun proxied src (fallback ostane lokalni /logos/..)
   const mainSrc = imgSrc ? proxiedImage(imgSrc, 1024, Math.round(1024 / ASPECT), dpr) : FALLBACK_SRC
   const srcSet = imgSrc ? buildSrcSet(imgSrc, widths, ASPECT) : undefined
 
@@ -109,7 +111,7 @@ export default function ArticleCard({ news }: Props) {
               srcSet={srcSet}
               sizes={sizes}
               alt={news.title}
-              width={1600} height={900} /* stabilen layout */
+              width={1600} height={900}
               className="absolute inset-0 h-full w-full object-cover"
               referrerPolicy="no-referrer"
               loading={priority ? 'eager' : 'lazy'}
@@ -122,8 +124,9 @@ export default function ArticleCard({ news }: Props) {
           {/* oko */}
           <button
             onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowPreview(true) }}
-            onMouseEnter={() => setEyeHover(true)}
-            onMouseLeave={() => setEyeHover(false)}
+            onMouseEnter={handleEyeEnter}
+            onMouseLeave={handleEyeLeave}
+            onFocus={handleEyeFocus}
             aria-label="Predogled"
             className="
               eye-zoom peer absolute top-2 right-2 h-8 w-8 grid place-items-center rounded-full
@@ -152,7 +155,7 @@ export default function ArticleCard({ news }: Props) {
           </span>
         </div>
 
-        {/* TEXT – tipografsko urejeno, kompaktno na desktopu */}
+        {/* TEXT */}
         <div className="p-2.5 min-h-[10rem] sm:min-h-[10rem] md:min-h-[9.75rem] lg:min-h-[9.5rem] xl:min-h-[9.5rem] overflow-hidden">
           <div className="mb-1 grid grid-cols-[1fr_auto] items-baseline gap-x-2">
             <span className="truncate text-[12px] font-medium tracking-[0.01em]" style={{ color: sourceColor }} title={news.source}>
