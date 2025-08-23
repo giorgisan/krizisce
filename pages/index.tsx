@@ -16,7 +16,7 @@ import Footer from '@/components/Footer'
 import Header from '@/components/Header'
 import { SOURCES } from '@/lib/sources'
 import ArticleCard from '@/components/ArticleCard'
-import SeoHead from '@/components/SeoHead'   // ✅ dodano
+import SeoHead from '@/components/SeoHead'
 
 async function loadNews(forceFresh: boolean): Promise<NewsItem[] | null> {
   try {
@@ -179,7 +179,6 @@ export default function Home({ initialNews }: Props) {
     <>
       <Header />
 
-      {/* ✅ Dodan SEO HEAD */}
       <SeoHead
         title="Križišče"
         description="Agregator najnovejših novic iz slovenskih medijev. Članki so last izvornih portalov."
