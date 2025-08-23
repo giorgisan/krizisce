@@ -4,7 +4,7 @@ module.exports = {
   content: [
     './pages/**/*.{js,ts,jsx,tsx}',
     './components/**/*.{js,ts,jsx,tsx}',
-    './app/**/*.{js,ts,jsx,tsx}', // če kdaj uporabljaš app router ali nove komponente
+    './app/**/*.{js,ts,jsx,tsx}',
   ],
   theme: {
     extend: {
@@ -23,10 +23,13 @@ module.exports = {
       },
     },
   },
-  plugins: [require('@tailwindcss/line-clamp')],
-  // 🔒 Poskrbi, da Tailwind nikoli ne odreže teh razredov
+  plugins: [
+    require('@tailwindcss/line-clamp'),
+    // če boš želel, lahko kasneje dodaš še:
+    // require('@tailwindcss/typography'),
+  ],
   safelist: [
-    'group',                             // ker se zanašamo na group-hover
+    'group',
     'md:opacity-0',
     'md:scale-95',
     'md:-translate-y-0.5',
