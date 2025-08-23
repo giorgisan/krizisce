@@ -128,7 +128,7 @@ export default function ArticleCard({ news }: Props) {
         </div>
 
         {/* TEXT – enaka višina & brez “odrezave” */}
-        <div className="p-3 min-h-[11.75rem] sm:min-h-[12.25rem] overflow-hidden">
+        <div className="p-3 min-h-[10.00rem] sm:min-h-[12.25rem] overflow-hidden">
           <div className="mb-1 flex justify-between text-xs text-gray-500 dark:text-gray-400">
             <span className="font-medium text-[0.7rem]" style={{ color: sourceColor }}>{news.source}</span>
             <span>{formattedDate}</span>
