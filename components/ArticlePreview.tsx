@@ -365,7 +365,7 @@ export default function ArticlePreview({ url, onClose }: Props) {
                     target="_blank"
                     rel="noopener noreferrer"
                     onClick={openSourceAndTrack}
-                    className="no-underline inline-flex justify-center rounded-md px-5 py-2 bg-orange-700/50 text-white text-sm hover:bg-amber-600 whitespace-nowrap"
+                    className="no-underline inline-flex justify-center rounded-md px-5 py-2 dark:bg-gray-700 text-white text-sm dark:hover:bg-gray-600 whitespace-nowrap"
                   >
                     Za ogled celotnega članka, obiščite spletno stran
                   </a>
