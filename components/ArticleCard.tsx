@@ -2,10 +2,11 @@
 'use client'
 
 import { NewsItem } from '@/types'
-import { MouseEvent, useMemo, useRef, useState, useEffect, ComponentType } from 'react'
+import { MouseEvent, useRef, useState, useEffect, ComponentType } from 'react'
 import dynamic from 'next/dynamic'
 import { proxiedImage, buildSrcSet } from '@/lib/img'
 import { preloadPreview, canPrefetch } from '@/lib/previewPrefetch'
+import { sourceColors } from '@/lib/sources' // ✅ ESM import (namesto require)
 
 interface Props { news: NewsItem }
 
@@ -25,10 +26,8 @@ function formatDate(iso: string) {
 export default function ArticleCard({ news }: Props) {
   const formattedDate = formatDate(news.isoDate)
 
-  const sourceColor = useMemo(() => {
-    const colors = require('@/lib/sources').sourceColors as Record<string, string>
-    return colors[news.source] || '#fc9c6c'
-  }, [news.source])
+  // ✅ brez require v clientu
+  const sourceColor = sourceColors[news.source] || '#fc9c6c'
 
   // image state
   const [imgSrc, setImgSrc] = useState<string | null>(news.image || null)
