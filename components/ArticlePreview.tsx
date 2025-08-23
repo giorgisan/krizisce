@@ -15,6 +15,29 @@ type ApiPayload =
 // Kolikšen delež besedila prikažemo
 const TEXT_PERCENT = 0.76
 
+// Tipografski “skin” za modal – brez odvisnosti od @tailwindcss/typography
+const PREVIEW_TYPO_CSS = `
+  .preview-typo { font-size: 0.98rem; line-height: 1.68; }
+  .preview-typo > *:first-child { margin-top: 0 !important; }
+  .preview-typo p { margin: 0.55rem 0 0.9rem; }
+  .preview-typo h1, .preview-typo h2, .preview-typo h3, .preview-typo h4 {
+    margin: 1.05rem 0 0.35rem; line-height: 1.25;
+  }
+  .preview-typo ul, .preview-typo ol { margin: 0.6rem 0 0.9rem; padding-left: 1.25rem; }
+  .preview-typo li { margin: 0.25rem 0; }
+  .preview-typo img, .preview-typo figure, .preview-typo video {
+    display:block; max-width:100%; height:auto; border-radius:12px; margin:0.65rem 0 0.9rem;
+  }
+  .preview-typo figure > img { margin-bottom: 0.4rem; }
+  .preview-typo figcaption { font-size: 0.82rem; opacity: .75; margin-top: -0.2rem; }
+  .preview-typo blockquote {
+    margin: 0.9rem 0; padding: 0.25rem 0 0.25rem 0.9rem;
+    border-left: 3px solid rgba(255,255,255,.15); opacity: .95;
+  }
+  .preview-typo hr { margin: 1.1rem 0; opacity: .25; }
+  .preview-typo a { text-decoration: underline; text-underline-offset: 2px; }
+`
+
 function trackClick(source: string, url: string) {
   try {
     const payload = JSON.stringify({ source, url, from: 'preview' })
@@ -56,13 +79,24 @@ function basenameStem(pathname: string): string {
     .replace(/-scaled$/g, '')
 }
 
-/** Client-side clean: absolutiziraj href/src, lazy, odstrani dvojnike slik, utrdi rel */
-function cleanPreviewHTML(html: string, baseUrl: string): string {
+/** Client-side clean + polish: absolutiziraj URL-je, lazy, odstrani dvojnike, utrdi rel,
+ *  in (če znan) odstrani prvi heading, ki se ujema z naslovom v headerju modala. */
+function cleanPreviewHTML(html: string, baseUrl: string, knownTitle?: string): string {
   try {
     const wrap = document.createElement('div')
     wrap.innerHTML = html
 
     wrap.querySelectorAll('noscript,script,style,iframe,form').forEach((n) => n.remove())
+
+    // odpravi podvojeni naslov (če je enak iz glave modala)
+    if (knownTitle) {
+      const firstHeading = wrap.querySelector('h1, h2, h3')
+      if (firstHeading) {
+        const a = (firstHeading.textContent || '').trim().toLowerCase()
+        const b = knownTitle.trim().toLowerCase()
+        if (a && b && a === b) firstHeading.remove()
+      }
+    }
 
     wrap.querySelectorAll('a').forEach((a) => {
       const href = a.getAttribute('href')
@@ -71,6 +105,7 @@ function cleanPreviewHTML(html: string, baseUrl: string): string {
       if (!rel.includes('noopener')) rel.push('noopener')
       if (!rel.includes('noreferrer')) rel.push('noreferrer')
       a.setAttribute('rel', rel.join(' ').trim())
+      a.setAttribute('target', '_blank')
     })
 
     const imgs = Array.from(wrap.querySelectorAll('img'))
@@ -111,6 +146,7 @@ function cleanPreviewHTML(html: string, baseUrl: string): string {
       }
     })
 
+    // odstrani prvo kasnejšo sliko s podobnim stemom kot hero
     const rest = Array.from(wrap.querySelectorAll('img')).slice(1)
     for (const img of rest) {
       const raw = img.getAttribute('src') || ''
@@ -204,7 +240,7 @@ export default function ArticlePreview({ url, onClose }: Props) {
         }
         setTitle(data.title); setSite(data.site)
 
-        const cleaned = cleanPreviewHTML(data.html, url)
+        const cleaned = cleanPreviewHTML(data.html, url, data.title)
         const truncated = truncateHTMLByWordsPercent(cleaned, TEXT_PERCENT)
         setContent(DOMPurify.sanitize(truncated))
         setLoading(false)
@@ -265,6 +301,8 @@ export default function ArticlePreview({ url, onClose }: Props) {
         body.preview-open .group:hover { transform: none !important; }
         body.preview-open .group:hover * { text-decoration: none !important; }
       `}</style>
+      {/* tipografski skin */}
+      <style>{PREVIEW_TYPO_CSS}</style>
 
       <div
         className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 transition-opacity duration-300"
@@ -277,7 +315,7 @@ export default function ArticlePreview({ url, onClose }: Props) {
           className="bg-white dark:bg-gray-900 rounded-xl shadow-2xl w-full max-w-2xl mx-4 max-h-[80vh] overflow-y-auto border border-gray-200/10 transform transition-all duration-300 ease-out scale-95 opacity-0 animate-fadeInUp"
         >
           {/* Header */}
-          <div className="sticky top-0 z-10 flex items-center justify-between gap-3 px-4 py-3 border-b border-gray-200/20 bg-white/80 dark:bg-gray-900/80 backdrop-blur rounded-t-xl">
+          <div className="sticky top-0 z-10 flex items-center justify-between gap-3 px-5 py-4 border-b border-gray-200/20 bg-white/80 dark:bg-gray-900/80 backdrop-blur rounded-t-xl">
             <div className="min-w-0 flex-1">
               <div className="text-xs text-gray-500 dark:text-gray-400 truncate">{site}</div>
               <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">
@@ -290,7 +328,7 @@ export default function ArticlePreview({ url, onClose }: Props) {
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={openSourceAndTrack}
-                className="no-underline inline-flex items-center justify-center rounded-lg px-2 py-1 text-sm bg-orange-700/80 text-white hover:bg-amber-600"
+                className="no-underline inline-flex items-center justify-center rounded-lg px-3 py-1.5 text-sm bg-orange-700/80 text-white hover:bg-amber-600"
               >
                 Odpri cel članek
               </a>
@@ -306,7 +344,7 @@ export default function ArticlePreview({ url, onClose }: Props) {
           </div>
 
           {/* Body */}
-          <div className="px-4 py-4">
+          <div className="px-5 py-5">
             {loading && (
               <div className="flex items-center justify-center py-10">
                 <div className="w-12 h-12 rounded-full bg-gray-300 dark:bg-gray-700 animate-zenPulse" />
@@ -315,13 +353,13 @@ export default function ArticlePreview({ url, onClose }: Props) {
             {error && <p className="text-sm text-red-500">{error}</p>}
 
             {!loading && !error && (
-              <div className="max-w-none">
+              <div className="preview-typo max-w-none text-gray-900 dark:text-gray-100">
                 <div className="relative">
                   <div dangerouslySetInnerHTML={{ __html: content }} />
-                  <div className="pointer-events-none absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-white dark:from-gray-900 to-transparent" />
+                  <div className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-white dark:from-gray-900 to-transparent" />
                 </div>
 
-                <div className="mt-4 flex flex-col items-center gap-2">
+                <div className="mt-5 flex flex-col items-center gap-2">
                   <a
                     href={url}
                     target="_blank"
