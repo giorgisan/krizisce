@@ -12,11 +12,11 @@ const ArticlePreview = dynamic(() => import('./ArticlePreview'), { ssr: false })
 
 const FALLBACK_SRC = '/logos/default-news.jpg'
 
-// Datum: vedno "d. MMM., HH:mm" (z vejico) + tabularni števci
+// Datum: vedno "d. MMM., HH:mm" (z vejico)
 function formatDate(iso: string) {
   const d = new Date(iso)
-  const date = new Intl.DateTimeFormat('sl-SI', { day: 'numeric', month: 'short' }).format(d)
-  const time = new Intl.DateTimeFormat('sl-SI', { hour: '2-digit', minute: '2-digit' }).format(d)
+  const date = new Intl.DateTimeFormat('sl-SI', { day: 'numeric', month: 'short' }).format(d)   // npr. "23. avg."
+  const time = new Intl.DateTimeFormat('sl-SI', { hour: '2-digit', minute: '2-digit' }).format(d) // "11:56"
   return `${date}, ${time}`
 }
 
@@ -50,7 +50,7 @@ export default function ArticleCard({ news }: Props) {
     document.head.appendChild(link); return () => { document.head.removeChild(link) }
   }, [priority, imgSrc])
 
-  // Logging klika (deluje tudi pri middle-click)
+  // Click logging (deluje tudi pri middle-click)
   const logClick = () => {
     try {
       const payload = JSON.stringify({ source: news.source, url: news.link })
@@ -68,7 +68,7 @@ export default function ArticleCard({ news }: Props) {
   }
   const handleAuxClick = (e: MouseEvent<HTMLAnchorElement>) => { if (e.button === 1) logClick() }
 
-  // Interaktivni “oko” (self-hover zmaga nad vsem)
+  // Interaktivni “oko” (self-hover vedno zmaga)
   const [eyeHover, setEyeHover] = useState(false)
 
   return (
@@ -93,7 +93,7 @@ export default function ArticleCard({ news }: Props) {
             <img
               src={imgSrc as string}
               alt={news.title}
-              width={1600} height={900} /* stabilen layout */
+              width={1600} height={900}  /* stabilen layout → manjši CLS */
               className="absolute inset-0 h-full w-full object-cover"
               referrerPolicy="no-referrer"
               loading={priority ? 'eager' : 'lazy'}
@@ -137,16 +137,26 @@ export default function ArticleCard({ news }: Props) {
         </div>
 
         {/* TEXT – kompaktno na desktopu, 3/4 vrstice ostanejo */}
-        <div className="p-2.5 min-h-[10rem] sm:min-h-[10rem] md:min-h-[10rem] lg:min-h-[9.75rem] xl:min-h-[9.75rem] overflow-hidden">
-          <div className="mb-1 flex items-baseline justify-between text-xs text-gray-500 dark:text-gray-400">
-            <span className="font-medium text-[0.7rem] truncate" style={{ color: sourceColor }}>
+        <div className="p-2.5 min-h-[10rem] sm:min-h-[10rem] md:min-h-[9.75rem] lg:min-h-[9.5rem] xl:min-h-[9.5rem] overflow-hidden">
+          {/* Meta vrstica: baseline poravnava + manjši, diskreten datum z enakomernimi števkami */}
+          <div className="mb-1 grid grid-cols-[1fr_auto] items-baseline gap-x-2">
+            <span
+              className="truncate text-[12px] font-medium tracking-[0.01em]"
+              style={{ color: sourceColor }}
+              title={news.source}
+            >
               {news.source}
             </span>
-            <span className="tabular-nums">{formattedDate}</span>
+            <span
+              className="text-[11px] text-gray-400 dark:text-gray-500 tabular-nums whitespace-nowrap leading-none"
+              title={formattedDate}
+            >
+              {formattedDate}
+            </span>
           </div>
 
           <h2
-            className="text-sm font-semibold leading-snug line-clamp-3 mb-1 text-gray-900 dark:text-white"
+            className="text-sm font-semibold leading-snug tracking-[-0.005em] line-clamp-3 mb-1 text-gray-900 dark:text-white"
             title={news.title}
           >
             {news.title}
