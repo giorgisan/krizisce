@@ -12,11 +12,11 @@ const ArticlePreview = dynamic(() => import('./ArticlePreview'), { ssr: false })
 
 const FALLBACK_SRC = '/logos/default-news.jpg'
 
-// — Datum: vedno “d. MMM., HH:mm” (z V E J I C O)
-function formatDate(slugISO: string) {
-  const d = new Date(slugISO)
-  const date = new Intl.DateTimeFormat('sl-SI', { day: 'numeric', month: 'short' }).format(d) // npr. "23. avg."
-  const time = new Intl.DateTimeFormat('sl-SI', { hour: '2-digit', minute: '2-digit' }).format(d) // "09:53"
+// Datum: vedno "d. MMM., HH:mm" (z vejico) + tabularni števci
+function formatDate(iso: string) {
+  const d = new Date(iso)
+  const date = new Intl.DateTimeFormat('sl-SI', { day: 'numeric', month: 'short' }).format(d)
+  const time = new Intl.DateTimeFormat('sl-SI', { hour: '2-digit', minute: '2-digit' }).format(d)
   return `${date}, ${time}`
 }
 
@@ -35,7 +35,7 @@ export default function ArticleCard({ news }: Props) {
 
   const [showPreview, setShowPreview] = useState(false)
 
-  // LCP: prve kartice (v viewportu) so priority → eager + preload
+  // LCP: kartice v prvem zaslonu → eager + preload
   const cardRef = useRef<HTMLAnchorElement>(null)
   const [priority, setPriority] = useState(false)
   useEffect(() => {
@@ -50,15 +50,15 @@ export default function ArticleCard({ news }: Props) {
     document.head.appendChild(link); return () => { document.head.removeChild(link) }
   }, [priority, imgSrc])
 
-  // Click logging
+  // Logging klika (deluje tudi pri middle-click)
   const logClick = () => {
     try {
       const payload = JSON.stringify({ source: news.source, url: news.link })
-      if (typeof navigator !== 'undefined' && 'sendBeacon' in navigator) {
+      if ('sendBeacon' in navigator) {
         const blob = new Blob([payload], { type: 'application/json' })
         navigator.sendBeacon('/api/click', blob)
       } else {
-        fetch('/api/click', { method:'POST', headers:{ 'Content-Type':'application/json' }, body: payload, keepalive:true })
+        fetch('/api/click', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: payload, keepalive: true })
       }
     } catch {}
   }
@@ -68,7 +68,7 @@ export default function ArticleCard({ news }: Props) {
   }
   const handleAuxClick = (e: MouseEvent<HTMLAnchorElement>) => { if (e.button === 1) logClick() }
 
-  // Interaktivni “oko” (inline style vedno zmaga)
+  // Interaktivni “oko” (self-hover zmaga nad vsem)
   const [eyeHover, setEyeHover] = useState(false)
 
   return (
@@ -80,7 +80,7 @@ export default function ArticleCard({ news }: Props) {
         rel="noopener noreferrer"
         onClick={handleClick}
         onAuxClick={handleAuxClick}
-        className="group block no-underline bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden transition-all duration-200 transform hover:scale-[1.02] hover:shadow-lg hover:bg-gray-100 dark:hover:bg-gray-700"
+        className="group block no-underline bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden transition-all duration-200 hover:scale-[1.02] hover:shadow-lg hover:bg-gray-100 dark:hover:bg-gray-700"
       >
         {/* MEDIA */}
         <div className="relative w-full aspect-[16/9] overflow-hidden">
@@ -93,7 +93,7 @@ export default function ArticleCard({ news }: Props) {
             <img
               src={imgSrc as string}
               alt={news.title}
-              width={1600} height={900}
+              width={1600} height={900} /* stabilen layout */
               className="absolute inset-0 h-full w-full object-cover"
               referrerPolicy="no-referrer"
               loading={priority ? 'eager' : 'lazy'}
@@ -136,13 +136,13 @@ export default function ArticleCard({ news }: Props) {
           </span>
         </div>
 
-        {/* TEXT – kompaktno na desktopu; 3 vrstice naslova + 4 snippeta ostanejo */}
-        <div className="p-2 min-h-[10.25rem] sm:min-h-[10.5rem] md:min-h-[10.25rem] lg:min-h-[10rem] xl:min-h-[9.75rem] overflow-hidden">
+        {/* TEXT – kompaktno na desktopu, 3/4 vrstice ostanejo */}
+        <div className="p-2.5 min-h-[10rem] sm:min-h-[10rem] md:min-h-[10rem] lg:min-h-[9.75rem] xl:min-h-[9.75rem] overflow-hidden">
           <div className="mb-1 flex items-baseline justify-between text-xs text-gray-500 dark:text-gray-400">
             <span className="font-medium text-[0.7rem] truncate" style={{ color: sourceColor }}>
               {news.source}
             </span>
-            <span className="tabular-nums" title={formattedDate}>{formattedDate}</span>
+            <span className="tabular-nums">{formattedDate}</span>
           </div>
 
           <h2
