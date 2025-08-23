@@ -127,15 +127,15 @@ export default function ArticleCard({ news }: Props) {
           </span>
         </div>
 
-        {/* TEXT – enaka višina & brez “odrezave” */}
-        <div className="p-3 min-h-[10.00rem] sm:min-h-[12.25rem] overflow-hidden">
+        {/* TEXT – kompaktno, a še za 3+4 vrstice */}
+        <div className="p-2 min-h-[10.25rem] sm:min-h-[10.75rem] overflow-hidden">
           <div className="mb-1 flex justify-between text-xs text-gray-500 dark:text-gray-400">
             <span className="font-medium text-[0.7rem]" style={{ color: sourceColor }}>{news.source}</span>
             <span>{formattedDate}</span>
           </div>
 
           <h2
-            className="text-sm font-semibold leading-snug line-clamp-3 mb-0.5 text-gray-900 dark:text-white"
+            className="text-sm font-semibold leading-snug line-clamp-3 mb-1 text-gray-900 dark:text-white"
             title={news.title}
           >
             {news.title}
