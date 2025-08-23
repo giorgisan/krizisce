@@ -4,17 +4,50 @@ type Payload =
   | { error: string }
   | { title: string; site: string; image?: string | null; html: string; url: string }
 
-const TTL = 1000 * 60 * 5 // 5 min
+const TTL = 1000 * 60 * 5; // 5 min
+const INFLIGHT_MAX = 3;
+
 type Entry = { ts: number; promise: Promise<Payload>; value?: Payload }
 const store = new Map<string, Entry>()
+let inflightCount = 0
 
-/** Prefetch /api/preview za dani URL in ga shrani v globalni cache (de-dupe). */
+/** Ali je omrežje OK za prefetch (brez “save-data”, ne 2G, tab viden) */
+export function canPrefetch(): boolean {
+  try {
+    // Ne prefetcha, če je tab skrit (nič koristi uporabniku)
+    if (typeof document !== 'undefined' && document.hidden) return false
+
+    const conn = (navigator as any).connection
+    if (!conn) return true
+    const et = String(conn.effectiveType || '').toLowerCase()
+    const save = !!conn.saveData
+
+    if (save) return false
+    if (et.includes('2g') || et.includes('slow-2g')) return false
+    // po želji: če je downlink < 1 Mbps, preskoči
+    if (typeof conn.downlink === 'number' && conn.downlink < 1) return false
+
+    return true
+  } catch {
+    return true
+  }
+}
+
+/** Prefetch /api/preview za dani URL in shrani v globalni cache (de-dupe + TTL + cap). */
 export function preloadPreview(articleUrl: string): Promise<Payload> {
   const key = articleUrl
   const now = Date.now()
   const cached = store.get(key)
   if (cached && now - cached.ts < TTL) return cached.promise
 
+  // Če smo presegli globalni cap, ne začenjaj novega (ob kliku bo vseeno fetchano v komponenti)
+  if (inflightCount >= INFLIGHT_MAX) {
+    // vrni obstoječi promise, če ga imamo; sicer “no-op” resolved obljubo
+    if (cached) return cached.promise
+    return Promise.resolve({ error: 'prefetch-skipped' } as any)
+  }
+
+  inflightCount++
   const p = fetch(`/api/preview?url=${encodeURIComponent(articleUrl)}`)
     .then((r) => r.json() as Promise<Payload>)
     .then((data) => {
@@ -22,10 +55,7 @@ export function preloadPreview(articleUrl: string): Promise<Payload> {
       if (e) e.value = data
       return data
     })
-    .catch((err) => {
-      // ne ubij cache-a zaradi enkratne napake
-      throw err
-    })
+    .finally(() => { inflightCount = Math.max(0, inflightCount - 1) })
 
   store.set(key, { ts: now, promise: p })
   return p
