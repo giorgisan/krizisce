@@ -82,7 +82,6 @@ export default async function handler(
       doc.body.innerHTML
 
     // SANITIZE (SSR) — JSDOM window pretvorimo v any, da rešimo TS WindowLike
-    // @ts-expect-error: JSDOM Window ≠ DOMPurify WindowLike – dovolimo any v SSR kontekstu
     const DOMPurify = createDOMPurify(dom.window as unknown as any)
 
     const clean = DOMPurify.sanitize(rawContent, {
