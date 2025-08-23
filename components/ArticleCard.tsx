@@ -5,7 +5,7 @@ import { NewsItem } from '@/types'
 import { MouseEvent, useMemo, useRef, useState, useEffect, ComponentType } from 'react'
 import dynamic from 'next/dynamic'
 import { proxiedImage, buildSrcSet } from '@/lib/img'
-import { preloadPreview } from '@/lib/previewPrefetch'
+import { preloadPreview, canPrefetch } from '@/lib/previewPrefetch'
 
 interface Props { news: NewsItem }
 
@@ -75,21 +75,21 @@ export default function ArticleCard({ news }: Props) {
   const handleAuxClick = (e: MouseEvent<HTMLAnchorElement>) => { if (e.button === 1) logClick() }
 
   // ---------- INTENT-BASED PREFETCH ----------
-  // de-dupe guard, da ne prefetchamo večkrat za isti URL
   const preloadedRef = useRef(false)
   const doPrefetch = () => {
     if (preloadedRef.current) return
+    if (!canPrefetch()) return
     preloadedRef.current = true
     preloadPreview(news.link).catch(() => {})
   }
 
-  // 1) hover/focus na OČESE (ostane enako, samo kliče doPrefetch)
+  // 1) hover/focus na OČESE
   const [eyeHover, setEyeHover] = useState(false)
   const handleEyeEnter = () => { setEyeHover(true); doPrefetch() }
   const handleEyeLeave = () => setEyeHover(false)
   const handleEyeFocus  = () => doPrefetch()
 
-  // 2) kratek hover na KARTICO (120 ms debounce, da ne prefetchamo pri “fly-by”)
+  // 2) kratek hover na KARTICO (120 ms)
   const hoverTimer = useRef<number | null>(null)
   const handleCardEnter = () => {
     if (hoverTimer.current) window.clearTimeout(hoverTimer.current)
@@ -98,18 +98,16 @@ export default function ArticleCard({ news }: Props) {
   const handleCardLeave = () => {
     if (hoverTimer.current) { window.clearTimeout(hoverTimer.current); hoverTimer.current = null }
   }
-  const handleCardFocus = () => doPrefetch() // keyboard tab na kartico
+  const handleCardFocus = () => doPrefetch()
 
-  // 3) IntersectionObserver: ko je kartica ≥ 60% v viewportu, prefetch
+  // 3) IntersectionObserver (≥ 60% v viewportu)
   useEffect(() => {
     const el = cardRef.current; if (!el) return
     if (preloadedRef.current) return
     const io = new IntersectionObserver((entries) => {
       for (const e of entries) {
         if (e.isIntersecting && e.intersectionRatio >= 0.6) {
-          doPrefetch()
-          io.disconnect()
-          break
+          doPrefetch(); io.disconnect(); break
         }
       }
     }, { threshold: [0, 0.6, 1] })
@@ -196,7 +194,7 @@ export default function ArticleCard({ news }: Props) {
           </span>
         </div>
 
-        {/* TEXT (kompaktno, 3/4 vrstice) */}
+        {/* TEXT */}
         <div className="p-2.5 min-h-[10rem] sm:min-h-[10rem] md:min-h-[9.75rem] lg:min-h-[9.5rem] xl:min-h-[9.5rem] overflow-hidden">
           <div className="mb-1 grid grid-cols-[1fr_auto] items-baseline gap-x-2">
             <span className="truncate text-[12px] font-medium tracking-[0.01em]" style={{ color: sourceColor }} title={news.source}>
