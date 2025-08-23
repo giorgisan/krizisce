@@ -2,11 +2,17 @@
 'use client'
 
 import { NewsItem } from '@/types'
-import { MouseEvent, useRef, useState, useEffect, ComponentType } from 'react'
+import {
+  MouseEvent,
+  useMemo,
+  useRef,
+  useState,
+  useEffect,
+  ComponentType,
+} from 'react'
 import dynamic from 'next/dynamic'
 import { proxiedImage, buildSrcSet } from '@/lib/img'
 import { preloadPreview, canPrefetch } from '@/lib/previewPrefetch'
-import { sourceColors } from '@/lib/sources' // ✅ ESM import (namesto require)
 
 interface Props { news: NewsItem }
 
@@ -26,13 +32,20 @@ function formatDate(iso: string) {
 export default function ArticleCard({ news }: Props) {
   const formattedDate = formatDate(news.isoDate)
 
-  // ✅ brez require v clientu
-  const sourceColor = sourceColors[news.source] || '#fc9c6c'
+  const sourceColor = useMemo(() => {
+    const colors = require('@/lib/sources').sourceColors as Record<string, string>
+    return colors[news.source] || '#fc9c6c'
+  }, [news.source])
 
   // image state
   const [imgSrc, setImgSrc] = useState<string | null>(news.image || null)
   const [useFallback, setUseFallback] = useState<boolean>(!news.image)
-  const onImgError = () => { if (!useFallback) { setImgSrc(FALLBACK_SRC); setUseFallback(true) } }
+  const onImgError = () => {
+    if (!useFallback) {
+      setImgSrc(FALLBACK_SRC)
+      setUseFallback(true)
+    }
+  }
 
   const [showPreview, setShowPreview] = useState(false)
 
@@ -40,16 +53,26 @@ export default function ArticleCard({ news }: Props) {
   const cardRef = useRef<HTMLAnchorElement>(null)
   const [priority, setPriority] = useState(false)
   useEffect(() => {
-    const el = cardRef.current; if (!el) return
-    const rect = el.getBoundingClientRect(), vp = window.innerHeight || 0
+    const el = cardRef.current
+    if (!el) return
+    const rect = el.getBoundingClientRect()
+    const vp = window.innerHeight || 0
     if (rect.top < vp * 0.9) setPriority(true)
   }, [])
+
+  // Preload slike z dejansko širino kartice × DPR (varčnejše na mobile)
   useEffect(() => {
     if (!priority || !imgSrc) return
+    const el = cardRef.current
+    const rectW = Math.max(1, Math.round((el?.getBoundingClientRect().width || 480)))
+    const dpr = (typeof window !== 'undefined' && window.devicePixelRatio) || 1
+    const targetW = Math.min(1280, Math.round(rectW * dpr))
+    const targetH = Math.round(targetW / ASPECT)
+
     const link = document.createElement('link')
     link.rel = 'preload'
     link.as = 'image'
-    link.href = proxiedImage(imgSrc, 1024, Math.round(1024 / ASPECT), window.devicePixelRatio || 1)
+    link.href = proxiedImage(imgSrc, targetW, targetH, dpr)
     link.crossOrigin = 'anonymous'
     document.head.appendChild(link)
     return () => { document.head.removeChild(link) }
@@ -63,13 +86,15 @@ export default function ArticleCard({ news }: Props) {
         const blob = new Blob([payload], { type: 'application/json' })
         navigator.sendBeacon('/api/click', blob)
       } else {
-        fetch('/api/click', { method:'POST', headers:{ 'Content-Type':'application/json' }, body: payload, keepalive:true })
+        fetch('/api/click', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: payload, keepalive: true })
       }
     } catch {}
   }
   const handleClick = (e: MouseEvent<HTMLAnchorElement>) => {
     if (e.metaKey || e.ctrlKey || e.button === 1) return
-    e.preventDefault(); window.open(news.link, '_blank'); logClick()
+    e.preventDefault()
+    window.open(news.link, '_blank')
+    logClick()
   }
   const handleAuxClick = (e: MouseEvent<HTMLAnchorElement>) => { if (e.button === 1) logClick() }
 
@@ -86,7 +111,7 @@ export default function ArticleCard({ news }: Props) {
   const [eyeHover, setEyeHover] = useState(false)
   const handleEyeEnter = () => { setEyeHover(true); doPrefetch() }
   const handleEyeLeave = () => setEyeHover(false)
-  const handleEyeFocus  = () => doPrefetch()
+  const handleEyeFocus = () => doPrefetch()
 
   // 2) kratek hover na KARTICO (120 ms)
   const hoverTimer = useRef<number | null>(null)
@@ -115,11 +140,15 @@ export default function ArticleCard({ news }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // srcset/sizes
-  const widths = [320, 480, 640, 768, 1024, 1280]
+  // responsive src/srcset
+  const widths = [256, 320, 480, 640, 768, 1024]
   const sizes = '(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw'
   const dpr = (typeof window !== 'undefined' && window.devicePixelRatio) || 1
-  const mainSrc = imgSrc ? proxiedImage(imgSrc, 1024, Math.round(1024 / ASPECT), dpr) : FALLBACK_SRC
+
+  // KLJUČNO (mobile-first): v "src" daj manjšega — 480px
+  const baseW = 480
+  const baseH = Math.round(baseW / ASPECT)
+  const mainSrc = imgSrc ? proxiedImage(imgSrc, baseW, baseH, dpr) : FALLBACK_SRC
   const srcSet = imgSrc ? buildSrcSet(imgSrc, widths, ASPECT) : undefined
 
   return (
@@ -141,7 +170,9 @@ export default function ArticleCard({ news }: Props) {
           {useFallback ? (
             <div className="absolute inset-0 flex items-center justify-center">
               <div className="absolute inset-0 bg-gradient-to-br from-gray-200 via-gray-300 to-gray-200 dark:from-gray-700 dark:via-gray-800 dark:to-gray-700" />
-              <span className="relative z-10 text-sm font-medium text-gray-700 dark:text-gray-300">Ni slike</span>
+              <span className="relative z-10 text-sm font-medium text-gray-700 dark:text-gray-300">
+                Ni slike
+              </span>
             </div>
           ) : (
             <img
@@ -149,7 +180,8 @@ export default function ArticleCard({ news }: Props) {
               srcSet={srcSet}
               sizes={sizes}
               alt={news.title}
-              width={1600} height={900}
+              width={1600}
+              height={900}
               className="absolute inset-0 h-full w-full object-cover"
               referrerPolicy="no-referrer"
               loading={priority ? 'eager' : 'lazy'}
@@ -159,7 +191,7 @@ export default function ArticleCard({ news }: Props) {
             />
           )}
 
-          {/* oko */}
+          {/* Oko (Predogled) */}
           <button
             onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowPreview(true) }}
             onMouseEnter={handleEyeEnter}
@@ -180,7 +212,7 @@ export default function ArticleCard({ news }: Props) {
             </svg>
           </button>
 
-          {/* tooltip */}
+          {/* Tooltip */}
           <span
             className="
               hidden md:block pointer-events-none absolute top-2 right-[calc(0.5rem+2rem+8px)]
@@ -193,10 +225,14 @@ export default function ArticleCard({ news }: Props) {
           </span>
         </div>
 
-        {/* TEXT */}
+        {/* TEXT – enaka višina & skladna tipografija */}
         <div className="p-2.5 min-h-[10rem] sm:min-h-[10rem] md:min-h-[9.75rem] lg:min-h-[9.5rem] xl:min-h-[9.5rem] overflow-hidden">
           <div className="mb-1 grid grid-cols-[1fr_auto] items-baseline gap-x-2">
-            <span className="truncate text-[12px] font-medium tracking-[0.01em]" style={{ color: sourceColor }} title={news.source}>
+            <span
+              className="truncate text-[12px] font-medium tracking-[0.01em]"
+              style={{ color: sourceColor }}
+              title={news.source}
+            >
               {news.source}
             </span>
             <span className="text-[11px] text-gray-400 dark:text-gray-500 tabular-nums whitespace-nowrap leading-none">
@@ -204,7 +240,10 @@ export default function ArticleCard({ news }: Props) {
             </span>
           </div>
 
-          <h2 className="text-sm font-semibold leading-snug tracking-[-0.005em] line-clamp-3 mb-1 text-gray-900 dark:text-white" title={news.title}>
+          <h2
+            className="text-sm font-semibold leading-snug tracking-[-0.005em] line-clamp-3 mb-1 text-gray-900 dark:text-white"
+            title={news.title}
+          >
             {news.title}
           </h2>
 
