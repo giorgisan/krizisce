@@ -2,7 +2,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next'
 import { JSDOM } from 'jsdom'
 import { Readability } from '@mozilla/readability'
-import DOMPurify from 'isomorphic-dompurify'
+import createDOMPurify from 'dompurify'
 
 type PreviewResponse =
   | { error: string }
@@ -37,6 +37,7 @@ export default async function handler(
   res.setHeader('Cache-Control', 's-maxage=300, stale-while-revalidate=600')
 
   try {
+    // 8s timeout je dovolj za preview
     const ac = new AbortController()
     const to = setTimeout(() => ac.abort(), 8000)
 
@@ -58,7 +59,7 @@ export default async function handler(
     }
 
     const html = await response.text()
-    const dom = new JSDOM(html, { url })
+    const dom = new JSDOM(html, { url }) // pomembno za absolutne poti
     const doc = dom.window.document
 
     // Readability
@@ -80,7 +81,10 @@ export default async function handler(
       doc.querySelector('article')?.innerHTML ||
       doc.body.innerHTML
 
-    // SANITIZE (SSR, brez tipovnih težav)
+    // SANITIZE (SSR) — JSDOM window pretvorimo v any, da rešimo TS WindowLike
+    // @ts-expect-error: JSDOM Window ≠ DOMPurify WindowLike – dovolimo any v SSR kontekstu
+    const DOMPurify = createDOMPurify(dom.window as unknown as any)
+
     const clean = DOMPurify.sanitize(rawContent, {
       USE_PROFILES: { html: true },
       FORBID_TAGS: ['script', 'style', 'iframe', 'object', 'embed', 'form', 'noscript'],
@@ -112,12 +116,11 @@ export default async function handler(
       } catch {}
     })
 
-    // host-class za per-site mini teme (opcijsko v CSS)
-    const host = new URL(url).hostname.replace(/^www\./, '').replace(/[^a-z0-9-]+/gi, '-')
     const cleanedHTML = wdoc.getElementById('__preview_root')?.innerHTML || ''
 
+    // Minimalen, berljiv templating za preview (lahko kasneje “teme po domenah”)
     const finalHTML = `
-      <article class="preview-article host-${host}">
+      <article class="preview-article">
         ${ogImage ? `<img class="preview-cover" src="${ogImage}" alt="" />` : ''}
         <h1 class="preview-title">${title}</h1>
         <div class="preview-meta">${site}</div>
