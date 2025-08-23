@@ -4,6 +4,7 @@
 import { NewsItem } from '@/types'
 import { MouseEvent, useMemo, useRef, useState, useEffect, ComponentType } from 'react'
 import dynamic from 'next/dynamic'
+import { proxiedImage, buildSrcSet } from '@/lib/img'
 
 interface Props { news: NewsItem }
 
@@ -11,12 +12,12 @@ type PreviewProps = { url: string; onClose: () => void }
 const ArticlePreview = dynamic(() => import('./ArticlePreview'), { ssr: false }) as ComponentType<PreviewProps>
 
 const FALLBACK_SRC = '/logos/default-news.jpg'
+const ASPECT = 16 / 9
 
-// Datum: vedno "d. MMM., HH:mm" (z vejico)
 function formatDate(iso: string) {
   const d = new Date(iso)
-  const date = new Intl.DateTimeFormat('sl-SI', { day: 'numeric', month: 'short' }).format(d)   // npr. "23. avg."
-  const time = new Intl.DateTimeFormat('sl-SI', { hour: '2-digit', minute: '2-digit' }).format(d) // "11:56"
+  const date = new Intl.DateTimeFormat('sl-SI', { day: 'numeric', month: 'short' }).format(d)
+  const time = new Intl.DateTimeFormat('sl-SI', { hour: '2-digit', minute: '2-digit' }).format(d)
   return `${date}, ${time}`
 }
 
@@ -28,14 +29,14 @@ export default function ArticleCard({ news }: Props) {
     return colors[news.source] || '#fc9c6c'
   }, [news.source])
 
-  // Slika + fallback
+  // image state
   const [imgSrc, setImgSrc] = useState<string | null>(news.image || null)
   const [useFallback, setUseFallback] = useState<boolean>(!news.image)
   const onImgError = () => { if (!useFallback) { setImgSrc(FALLBACK_SRC); setUseFallback(true) } }
 
   const [showPreview, setShowPreview] = useState(false)
 
-  // LCP: kartice v prvem zaslonu → eager + preload
+  // LCP hint: prve kartice → eager + preload
   const cardRef = useRef<HTMLAnchorElement>(null)
   const [priority, setPriority] = useState(false)
   useEffect(() => {
@@ -46,11 +47,16 @@ export default function ArticleCard({ news }: Props) {
   useEffect(() => {
     if (!priority || !imgSrc) return
     const link = document.createElement('link')
-    link.rel = 'preload'; link.as = 'image'; link.href = imgSrc; link.crossOrigin = 'anonymous'
-    document.head.appendChild(link); return () => { document.head.removeChild(link) }
+    link.rel = 'preload'
+    link.as = 'image'
+    // preloadaj proxied varianto ~1024px (desktop kartica ~25vw)
+    link.href = proxiedImage(imgSrc, 1024, Math.round(1024 / ASPECT), window.devicePixelRatio || 1)
+    link.crossOrigin = 'anonymous'
+    document.head.appendChild(link)
+    return () => { document.head.removeChild(link) }
   }, [priority, imgSrc])
 
-  // Click logging (deluje tudi pri middle-click)
+  // click logging
   const logClick = () => {
     try {
       const payload = JSON.stringify({ source: news.source, url: news.link })
@@ -58,7 +64,7 @@ export default function ArticleCard({ news }: Props) {
         const blob = new Blob([payload], { type: 'application/json' })
         navigator.sendBeacon('/api/click', blob)
       } else {
-        fetch('/api/click', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: payload, keepalive: true })
+        fetch('/api/click', { method:'POST', headers:{ 'Content-Type':'application/json' }, body: payload, keepalive:true })
       }
     } catch {}
   }
@@ -68,8 +74,16 @@ export default function ArticleCard({ news }: Props) {
   }
   const handleAuxClick = (e: MouseEvent<HTMLAnchorElement>) => { if (e.button === 1) logClick() }
 
-  // Interaktivni “oko” (self-hover vedno zmaga)
   const [eyeHover, setEyeHover] = useState(false)
+
+  // srcset/sizes za kartice (mobilni 100vw, ≤1024px 50vw, sicer ~25vw)
+  const widths = [320, 480, 640, 768, 1024, 1280]
+  const sizes = '(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw'
+  const dpr = (typeof window !== 'undefined' && window.devicePixelRatio) || 1
+
+  // izračun proxied src (fallback ostane lokalni /logos/..)
+  const mainSrc = imgSrc ? proxiedImage(imgSrc, 1024, Math.round(1024 / ASPECT), dpr) : FALLBACK_SRC
+  const srcSet = imgSrc ? buildSrcSet(imgSrc, widths, ASPECT) : undefined
 
   return (
     <>
@@ -80,7 +94,7 @@ export default function ArticleCard({ news }: Props) {
         rel="noopener noreferrer"
         onClick={handleClick}
         onAuxClick={handleAuxClick}
-        className="group block no-underline bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden transition-all duration-200 hover:scale-[1.02] hover:shadow-lg hover:bg-gray-100 dark:hover:bg-gray-700"
+        className="cv-auto group block no-underline bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden transition-all duration-200 hover:scale-[1.02] hover:shadow-lg hover:bg-gray-100 dark:hover:bg-gray-700"
       >
         {/* MEDIA */}
         <div className="relative w-full aspect-[16/9] overflow-hidden">
@@ -91,9 +105,11 @@ export default function ArticleCard({ news }: Props) {
             </div>
           ) : (
             <img
-              src={imgSrc as string}
+              src={mainSrc}
+              srcSet={srcSet}
+              sizes={sizes}
               alt={news.title}
-              width={1600} height={900}  /* stabilen layout → manjši CLS */
+              width={1600} height={900} /* stabilen layout */
               className="absolute inset-0 h-full w-full object-cover"
               referrerPolicy="no-referrer"
               loading={priority ? 'eager' : 'lazy'}
@@ -103,7 +119,7 @@ export default function ArticleCard({ news }: Props) {
             />
           )}
 
-          {/* Oko */}
+          {/* oko */}
           <button
             onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowPreview(true) }}
             onMouseEnter={() => setEyeHover(true)}
@@ -123,7 +139,7 @@ export default function ArticleCard({ news }: Props) {
             </svg>
           </button>
 
-          {/* Tooltip */}
+          {/* tooltip */}
           <span
             className="
               hidden md:block pointer-events-none absolute top-2 right-[calc(0.5rem+2rem+8px)]
@@ -136,29 +152,18 @@ export default function ArticleCard({ news }: Props) {
           </span>
         </div>
 
-        {/* TEXT – kompaktno na desktopu, 3/4 vrstice ostanejo */}
+        {/* TEXT – tipografsko urejeno, kompaktno na desktopu */}
         <div className="p-2.5 min-h-[10rem] sm:min-h-[10rem] md:min-h-[9.75rem] lg:min-h-[9.5rem] xl:min-h-[9.5rem] overflow-hidden">
-          {/* Meta vrstica: baseline poravnava + manjši, diskreten datum z enakomernimi števkami */}
           <div className="mb-1 grid grid-cols-[1fr_auto] items-baseline gap-x-2">
-            <span
-              className="truncate text-[12px] font-medium tracking-[0.01em]"
-              style={{ color: sourceColor }}
-              title={news.source}
-            >
+            <span className="truncate text-[12px] font-medium tracking-[0.01em]" style={{ color: sourceColor }} title={news.source}>
               {news.source}
             </span>
-            <span
-              className="text-[11px] text-gray-400 dark:text-gray-500 tabular-nums whitespace-nowrap leading-none"
-              title={formattedDate}
-            >
+            <span className="text-[11px] text-gray-400 dark:text-gray-500 tabular-nums whitespace-nowrap leading-none">
               {formattedDate}
             </span>
           </div>
 
-          <h2
-            className="text-sm font-semibold leading-snug tracking-[-0.005em] line-clamp-3 mb-1 text-gray-900 dark:text-white"
-            title={news.title}
-          >
+          <h2 className="text-sm font-semibold leading-snug tracking-[-0.005em] line-clamp-3 mb-1 text-gray-900 dark:text-white" title={news.title}>
             {news.title}
           </h2>
 
