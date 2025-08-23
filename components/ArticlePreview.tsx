@@ -56,16 +56,14 @@ function basenameStem(pathname: string): string {
     .replace(/-scaled$/g, '')
 }
 
-/** Čiščenje HTML-ja pred prikazom (hitro, robustno) */
+/** Client-side clean: absolutiziraj href/src, lazy, odstrani dvojnike slik, utrdi rel */
 function cleanPreviewHTML(html: string, baseUrl: string): string {
   try {
     const wrap = document.createElement('div')
     wrap.innerHTML = html
 
-    // odstrani šum
     wrap.querySelectorAll('noscript,script,style,iframe,form').forEach((n) => n.remove())
 
-    // absolutiziraj <a> in utrdi rel
     wrap.querySelectorAll('a').forEach((a) => {
       const href = a.getAttribute('href')
       if (href) a.setAttribute('href', absolutize(href, baseUrl))
@@ -78,7 +76,6 @@ function cleanPreviewHTML(html: string, baseUrl: string): string {
     const imgs = Array.from(wrap.querySelectorAll('img'))
     if (imgs.length === 0) return wrap.innerHTML
 
-    // pripravi hero referenco
     const first = imgs[0]
     const firstRaw = first.getAttribute('src') || first.getAttribute('data-src') || ''
     const firstSrcAbs = firstRaw ? absolutize(firstRaw, baseUrl) : ''
@@ -92,7 +89,6 @@ function cleanPreviewHTML(html: string, baseUrl: string): string {
     const firstKey = imageKeyFromSrc(firstSrcAbs || firstRaw)
     const firstStem = basenameStem(firstKey)
 
-    // obdrži prvo pojavitev vsake normalizirane slike
     const seen = new Set<string>()
     wrap.querySelectorAll('img').forEach((img) => {
       const raw = img.getAttribute('src') || img.getAttribute('data-src') || ''
@@ -115,7 +111,6 @@ function cleanPreviewHTML(html: string, baseUrl: string): string {
       }
     })
 
-    // odstrani prvo kasnejšo sliko s podobnim stemom kot hero
     const rest = Array.from(wrap.querySelectorAll('img')).slice(1)
     for (const img of rest) {
       const raw = img.getAttribute('src') || ''
@@ -194,15 +189,13 @@ export default function ArticlePreview({ url, onClose }: Props) {
   const modalRef = useRef<HTMLDivElement>(null)
   const closeRef = useRef<HTMLButtonElement>(null)
 
-  // Naloži → (če je v cache-u, instant) → očisti → trunc → sanitize
+  // cache-first → clean → trunc → sanitize
   useEffect(() => {
     let alive = true
     const run = async () => {
       setLoading(true); setError(null)
       try {
-        // 1) poskusi iz cache-a
         let data = peekPreview(url) as ApiPayload | null
-        // 2) če ni, prefetch (de-dupe)
         if (!data) data = await preloadPreview(url)
         if (!alive) return
 
@@ -224,7 +217,7 @@ export default function ArticlePreview({ url, onClose }: Props) {
     return () => { alive = false }
   }, [url])
 
-  // focus trap + zakleni scroll + globalni anti-underline
+  // fokus trap + lock scroll + anti-underline v ozadju
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose()
@@ -322,7 +315,7 @@ export default function ArticlePreview({ url, onClose }: Props) {
             {error && <p className="text-sm text-red-500">{error}</p>}
 
             {!loading && !error && (
-              <div className="prose prose-invert max-w-none prose-img:rounded-lg">
+              <div className="max-w-none">
                 <div className="relative">
                   <div dangerouslySetInnerHTML={{ __html: content }} />
                   <div className="pointer-events-none absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-white dark:from-gray-900 to-transparent" />
