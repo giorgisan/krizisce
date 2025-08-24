@@ -38,6 +38,7 @@ export default function Home({ initialNews }: Props) {
   const deferredFilter = useDeferredValue(filter)
   const [displayCount, setDisplayCount] = useState<number>(20)
 
+  // dropdown (ostane, če ga kdaj zopet vklopiš)
   const [menuOpen, setMenuOpen] = useState(false)
   const [pos, setPos] = useState<{ top: number; right: number }>({ top: 0, right: 0 })
 
@@ -91,10 +92,40 @@ export default function Home({ initialNews }: Props) {
     return () => document.removeEventListener('keydown', onKey)
   }, [menuOpen])
 
+  // ------- NOVO: instant osvežitev ob prvem obisku -------
+  const [bootRefreshed, setBootRefreshed] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      const fresh = await loadNews(true) // /api/news?forceFresh=1 (no-store)
+      if (cancelled || !fresh || !fresh.length) {
+        setBootRefreshed(true)
+        return
+      }
+
+      const latestFresh = new Date(fresh[0].pubDate).getTime()
+      const latestInitial = new Date((initialNews[0]?.pubDate) || 0).getTime()
+
+      if (latestFresh > latestInitial) {
+        startTransition(() => {
+          setNews(fresh)
+          setDisplayCount(20)
+        })
+      }
+      setBootRefreshed(true)
+    })()
+    return () => { cancelled = true }
+  }, [initialNews])
+  // -------------------------------------------------------
+
+  // “green dot” polling – začne po boot refreshu
   const [freshNews, setFreshNews] = useState<NewsItem[] | null>(null)
   const [hasNew, setHasNew] = useState(false)
 
   useEffect(() => {
+    if (!bootRefreshed) return
+
     let cancelled = false
     const checkFresh = async () => {
       const fresh = await loadNews(true)
@@ -121,7 +152,7 @@ export default function Home({ initialNews }: Props) {
       cancelled = true
       window.clearInterval(timer)
     }
-  }, [news, initialNews])
+  }, [news, initialNews, bootRefreshed])
 
   useEffect(() => {
     const onRefresh = () => {
@@ -151,6 +182,7 @@ export default function Home({ initialNews }: Props) {
     return () => window.removeEventListener('refresh-news', onRefresh as EventListener)
   }, [freshNews, hasNew])
 
+  // izračuni/prikaz
   const sortedNews = useMemo(
     () => [...news].sort((a, b) => new Date(b.pubDate).getTime() - new Date(a.pubDate).getTime()),
     [news]
@@ -184,7 +216,7 @@ export default function Home({ initialNews }: Props) {
         description="Agregator najnovejših novic iz slovenskih medijev. Članki so last izvornih portalov."
       />
 
-      {/* DROPDOWN */}
+      {/* DROPDOWN (lahko pustiš skrit, če filtra nimaš v UI) */}
       <AnimatePresence>
         {menuOpen && (
           <>
@@ -263,29 +295,6 @@ export default function Home({ initialNews }: Props) {
       </AnimatePresence>
 
       <main className="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white px-4 md:px-8 lg:px-16 pt-5 lg:pt-6 pb-24">
-        <AnimatePresence>
-          {deferredFilter !== 'Vse' && (
-            <motion.div
-              key="reset-chip"
-              initial={{ opacity: 0, y: -6 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -6 }}
-              transition={{ duration: 0.15 }}
-              className="sticky top-[3.25rem] z-30"
-            >
-              <button
-                onClick={resetFilter}
-                className="px-3 py-1 rounded-full text-sm font-medium
-                           bg-black/[0.06] text-gray-800 hover:bg-black/[0.08]
-                           dark:bg-white/[0.08] dark:text-gray-100 dark:hover:bg-white/[0.12]
-                           transition"
-              >
-                Pokaži vse
-              </button>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
         {visibleNews.length === 0 ? (
           <p className="text-gray-500 dark:text-gray-400 text-center w-full mt-10">
             Ni novic za izbrani vir ali napaka pri nalaganju.
