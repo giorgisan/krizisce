@@ -17,7 +17,9 @@ import Header from '@/components/Header'
 import { SOURCES } from '@/lib/sources'
 import ArticleCard from '@/components/ArticleCard'
 import SeoHead from '@/components/SeoHead'
+import BackToTop from '@/components/BackToTop' // ⬅️ optional helper
 
+// Fetch helper for client polling / first-visit refresh
 async function loadNews(forceFresh: boolean): Promise<NewsItem[] | null> {
   try {
     const res = await fetch(`/api/news${forceFresh ? '?forceFresh=1' : ''}`, {
@@ -38,7 +40,7 @@ export default function Home({ initialNews }: Props) {
   const deferredFilter = useDeferredValue(filter)
   const [displayCount, setDisplayCount] = useState<number>(20)
 
-  // dropdown (ostane, če ga kdaj zopet vklopiš)
+  // Dropdown state (kept for future use; the trigger is in Header)
   const [menuOpen, setMenuOpen] = useState(false)
   const [pos, setPos] = useState<{ top: number; right: number }>({ top: 0, right: 0 })
 
@@ -54,7 +56,6 @@ export default function Home({ initialNews }: Props) {
   const computeDropdownPos = () => {
     const trigger = document.getElementById('filters-trigger')
     const header = document.getElementById('site-header')
-
     const triggerRect = trigger?.getBoundingClientRect()
     const headerRect = header?.getBoundingClientRect()
 
@@ -62,11 +63,7 @@ export default function Home({ initialNews }: Props) {
     const topFromHeader = (headerRect?.bottom ?? 56) + 8
     const top = Math.max(topFromHeader, topFromTrigger)
 
-    const right = Math.max(
-      0,
-      window.innerWidth - (triggerRect?.right ?? window.innerWidth)
-    )
-
+    const right = Math.max(0, window.innerWidth - (triggerRect?.right ?? window.innerWidth))
     setPos({ top, right })
   }
 
@@ -74,7 +71,6 @@ export default function Home({ initialNews }: Props) {
     computeDropdownPos()
     const onResize = () => computeDropdownPos()
     const onScroll = () => menuOpen && computeDropdownPos()
-
     window.addEventListener('resize', onResize)
     window.addEventListener('scroll', onScroll, { passive: true })
     return () => {
@@ -85,41 +81,36 @@ export default function Home({ initialNews }: Props) {
 
   useEffect(() => {
     if (!menuOpen) return
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setMenuOpen(false)
-    }
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setMenuOpen(false) }
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
   }, [menuOpen])
 
-  // ------- NOVO: instant osvežitev ob prvem obisku -------
+  // ---------- Instant refresh on first visit ----------
   const [bootRefreshed, setBootRefreshed] = useState(false)
 
   useEffect(() => {
     let cancelled = false
     ;(async () => {
-      const fresh = await loadNews(true) // /api/news?forceFresh=1 (no-store)
-      if (cancelled || !fresh || !fresh.length) {
-        setBootRefreshed(true)
-        return
-      }
-
-      const latestFresh = new Date(fresh[0].pubDate).getTime()
-      const latestInitial = new Date((initialNews[0]?.pubDate) || 0).getTime()
-
-      if (latestFresh > latestInitial) {
-        startTransition(() => {
-          setNews(fresh)
-          setDisplayCount(20)
-        })
+      const fresh = await loadNews(true) // no-store
+      if (cancelled) return
+      if (fresh && fresh.length) {
+        const latestFresh   = new Date(fresh[0].pubDate).getTime()
+        const latestInitial = new Date(initialNews[0]?.pubDate || 0).getTime()
+        if (latestFresh > latestInitial) {
+          startTransition(() => {
+            setNews(fresh)
+            setDisplayCount(20)
+          })
+        }
       }
       setBootRefreshed(true)
     })()
     return () => { cancelled = true }
   }, [initialNews])
-  // -------------------------------------------------------
+  // ----------------------------------------------------
 
-  // “green dot” polling – začne po boot refreshu
+  // “green-dot” polling kicks in after the first refresh pass
   const [freshNews, setFreshNews] = useState<NewsItem[] | null>(null)
   const [hasNew, setHasNew] = useState(false)
 
@@ -154,6 +145,7 @@ export default function Home({ initialNews }: Props) {
     }
   }, [news, initialNews, bootRefreshed])
 
+  // Handle manual refresh signal from the header button
   useEffect(() => {
     const onRefresh = () => {
       window.dispatchEvent(new CustomEvent('news-refreshing', { detail: true }))
@@ -182,7 +174,7 @@ export default function Home({ initialNews }: Props) {
     return () => window.removeEventListener('refresh-news', onRefresh as EventListener)
   }, [freshNews, hasNew])
 
-  // izračuni/prikaz
+  // Data shaping
   const sortedNews = useMemo(
     () => [...news].sort((a, b) => new Date(b.pubDate).getTime() - new Date(a.pubDate).getTime()),
     [news]
@@ -216,7 +208,7 @@ export default function Home({ initialNews }: Props) {
         description="Agregator najnovejših novic iz slovenskih medijev. Članki so last izvornih portalov."
       />
 
-      {/* DROPDOWN (lahko pustiš skrit, če filtra nimaš v UI) */}
+      {/* DROPDOWN (kept for future re-enable) */}
       <AnimatePresence>
         {menuOpen && (
           <>
@@ -329,6 +321,9 @@ export default function Home({ initialNews }: Props) {
 
         <hr className="max-w-6xl mx-auto mt-4 border-t border-gray-200 dark:border-gray-700" />
       </main>
+
+      {/* Small UX helper */}
+      <BackToTop threshold={600} />
 
       <Footer />
     </>
