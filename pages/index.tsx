@@ -323,7 +323,7 @@ export default function Home({ initialNews }: Props) {
       </main>
 
       {/* Small UX helper */}
-      <BackToTop threshold={600} />
+      <BackToTop threshold={300} />
 
       <Footer />
     </>
