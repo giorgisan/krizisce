@@ -13,7 +13,7 @@ type ApiPayload =
   | { title: string; site: string; image?: string | null; html: string; url: string }
 
 // Kolikšen delež besedila prikažemo
-const TEXT_PERCENT = 0.76
+const TEXT_PERCENT = 0.80
 
 // Tipografski “skin” za modal – brez odvisnosti od @tailwindcss/typography
 const PREVIEW_TYPO_CSS = `
@@ -46,12 +46,8 @@ function trackClick(source: string, url: string) {
       const blob = new Blob([payload], { type: 'application/json' })
       navigator.sendBeacon(endpoint, blob)
     } else {
-      fetch(endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: payload,
-        keepalive: true,
-      }).catch(() => {})
+      fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: payload, keepalive: true as any })
+        .catch(() => {})
     }
   } catch {}
 }
@@ -196,7 +192,7 @@ function truncateHTMLByWordsPercent(html: string, percent = 0.76): string {
   let node: Node | null = walker.nextNode()
 
   while (node) {
-    const text = (node.textContent || '')
+    const text = node.textContent || ''
     const trimmed = text.trim()
     if (!trimmed) { node = walker.nextNode(); continue }
 
@@ -226,11 +222,6 @@ export default function ArticlePreview({ url, onClose }: Props) {
   const [loading, setLoading] = useState<boolean>(true)
   const [error, setError] = useState<string | null>(null)
 
-  // lahka animacija: instant vstop (≈140ms), hitro zapiranje (≈160ms)
-  const [entered, setEntered] = useState(false)
-  const [closing, setClosing] = useState(false)
-
-  const overlayRef = useRef<HTMLDivElement>(null)
   const modalRef = useRef<HTMLDivElement>(null)
   const closeRef = useRef<HTMLButtonElement>(null)
 
@@ -262,10 +253,10 @@ export default function ArticlePreview({ url, onClose }: Props) {
     return () => { alive = false }
   }, [url])
 
-  // fokus trap + lock scroll + anti-underline v ozadju + sproži enter animacijo
+  // fokus trap + lock scroll + anti-underline v ozadju
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') startClose()
+      if (e.key === 'Escape') onClose()
       else if (e.key === 'Tab') {
         const focusable = modalRef.current?.querySelectorAll<HTMLElement>(
           'a[href], button, textarea, input, select, [tabindex]:not([tabindex="-1"])'
@@ -282,24 +273,14 @@ export default function ArticlePreview({ url, onClose }: Props) {
     const prevOverflow = document.body.style.overflow
     document.body.style.overflow = 'hidden'
     document.body.classList.add('modal-open', 'preview-open')
-    setTimeout(() => {
-      closeRef.current?.focus()
-      setEntered(true) // sproži vstopno animacijo
-    }, 0)
+    setTimeout(() => closeRef.current?.focus(), 0)
 
     return () => {
       document.removeEventListener('keydown', handleKeyDown)
       document.body.style.overflow = prevOverflow
       document.body.classList.remove('modal-open', 'preview-open')
     }
-  }, [])
-
-  const startClose = () => {
-    if (closing) return
-    setClosing(true)
-    // počakaj, da se izteče kratka zapiralna animacija (160 ms), nato onClose
-    setTimeout(() => onClose(), 170)
-  }
+  }, [onClose])
 
   const openSourceAndTrack = (e: MouseEvent<HTMLAnchorElement>) => {
     e.preventDefault()
@@ -319,28 +300,19 @@ export default function ArticlePreview({ url, onClose }: Props) {
         body.preview-open a:focus { text-decoration: none !important; }
         body.preview-open .group:hover { transform: none !important; }
         body.preview-open .group:hover * { text-decoration: none !important; }
-
-        /* Vstop/izstop animacije – lahke, GPU transform + opacity */
-        .ap-enter { opacity: 0; transform: translateY(6px) scale(.985); filter: none; }
-        .ap-enter.ap-enter-active { opacity: 1; transform: translateY(0) scale(1); transition: opacity 140ms ease-out, transform 140ms ease-out; }
-
-        .ap-exit { opacity: 1; transform: translateY(0) scale(1); }
-        .ap-exit.ap-exit-active { opacity: 0; transform: translateY(4px) scale(.985); filter: blur(3px); transition: opacity 160ms ease, transform 160ms ease, filter 160ms ease; }
       `}</style>
       {/* tipografski skin */}
       <style>{PREVIEW_TYPO_CSS}</style>
 
       <div
-        ref={overlayRef}
-        className={`fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm transition-opacity duration-150 ${closing ? 'opacity-0' : 'opacity-100'}`}
+        className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 transition-opacity duration-300"
         role="dialog"
         aria-modal="true"
-        onMouseDown={(e) => { if (e.target === e.currentTarget) startClose() }}
+        onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
       >
         <div
           ref={modalRef}
-          className={`bg-white dark:bg-gray-900 rounded-xl shadow-2xl w-full max-w-2xl mx-4 max-h-[80vh] overflow-y-auto border border-gray-200/10
-            ${!entered ? 'ap-enter' : ''} ${entered && !closing ? 'ap-enter ap-enter-active' : ''} ${closing ? 'ap-exit ap-exit-active' : ''}`}
+          className="bg-white dark:bg-gray-900 rounded-xl shadow-2xl w-full max-w-2xl mx-4 max-h-[80vh] overflow-y-auto border border-gray-200/10 transform transition-all duration-300 ease-out scale-95 opacity-0 animate-fadeInUp"
         >
           {/* Header */}
           <div className="sticky top-0 z-10 flex items-center justify-between gap-3 px-5 py-4 border-b border-gray-200/20 bg-white/80 dark:bg-gray-900/80 backdrop-blur rounded-t-xl">
@@ -362,7 +334,7 @@ export default function ArticlePreview({ url, onClose }: Props) {
               </a>
               <button
                 ref={closeRef}
-                onClick={startClose}
+                onClick={onClose}
                 aria-label="Zapri predogled"
                 className="inline-flex h-8 px-2 items-center justify-center rounded-lg text-sm bg-gray-100/70 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200"
               >
@@ -400,7 +372,7 @@ export default function ArticlePreview({ url, onClose }: Props) {
 
                   <button
                     type="button"
-                    onClick={startClose}
+                    onClick={onClose}
                     className="inline-flex justify-center rounded-md px-4 py-2 bg-gray-100/80 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 text-sm"
                   >
                     Zapri predogled
