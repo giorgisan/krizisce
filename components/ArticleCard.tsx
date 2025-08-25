@@ -191,42 +191,33 @@ export default function ArticleCard({ news }: Props) {
             />
           )}
 
-          {/* === PREDOGLED GUMB (spodaj desno, 44×44; mobilu vedno viden, desktop group-hover) === */}
+          {/* Oko (Predogled) */}
           <button
             onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowPreview(true) }}
             onMouseEnter={handleEyeEnter}
             onMouseLeave={handleEyeLeave}
             onFocus={handleEyeFocus}
-            aria-label="Predogled članka"
-            title="Predogled"
+            aria-label="Predogled"
             className="
-              eye-zoom peer absolute bottom-3 right-3 grid place-items-center
-              h-11 w-11 rounded-full
-              bg-white/80 dark:bg-gray-900/80 backdrop-blur
-              text-gray-700 dark:text-gray-200
-              ring-1 ring-black/10 dark:ring-white/10
-              hover:bg-white/90 dark:hover:bg-gray-900/90
-              focus:outline-none focus:ring-2 focus:ring-amber-500
-              transition-opacity duration-150 transform-gpu
-              opacity-100 md:opacity-0 md:group-hover:opacity-100
+              eye-zoom peer absolute top-2 right-2 h-8 w-8 grid place-items-center rounded-full
+              ring-1 ring-black/10 dark:ring-white/10 text-gray-700 dark:text-gray-200
+              bg-white/80 dark:bg-gray-900/80 backdrop-blur transition-opacity duration-150 transform-gpu
+              opacity-100 md:opacity-0
             "
-            style={eyeHover ? { transform: 'translateY(0) scale(1.12)', opacity: 1 } : undefined}
+            style={eyeHover ? { transform: 'translateY(0) scale(1.22)', opacity: 1 } : undefined}
           >
-            <svg viewBox="0 0 24 24" className="h-6 w-6" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
               <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12Z" stroke="currentColor" strokeWidth="2" fill="none" />
               <circle cx="12" cy="12" r="3.5" stroke="currentColor" strokeWidth="2" fill="none" />
             </svg>
-            <span className="sr-only">Predogled</span>
           </button>
 
-          {/* Tooltip (ostane, le prestavitev ob novi lokaciji gumba) */}
+          {/* Tooltip */}
           <span
             className="
-              hidden md:block pointer-events-none absolute bottom-3
-              right-[calc(0.75rem+2.75rem+8px)]  /* = bottom-3 + širina gumba + razmik */
-              rounded-md px-2 py-1 text-xs font-medium
-              bg-black/60 text-white backdrop-blur-sm drop-shadow-lg
-              opacity-0 translate-x-1 transition-opacity transition-transform duration-150
+              hidden md:block pointer-events-none absolute top-2 right-[calc(0.5rem+2rem+8px)]
+              rounded-md px-2 py-1 text-xs font-medium bg-black/60 text-white backdrop-blur-sm drop-shadow-lg
+              opacity-0 -translate-x-1 transition-opacity transition-transform duration-150
               md:peer-hover:opacity-100 md:peer-hover:translate-x-0
             "
           >
