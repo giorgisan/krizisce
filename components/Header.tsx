@@ -14,7 +14,7 @@ export default function Header() {
   const [hasNew, setHasNew] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
 
-  // ⇣ NOVO: aktivni filtri samo po USER dogodku (brez branja localStorage na mount)
+  // null = še ni interakcije v tej seji; [] = Pokaži vse; ['Delo'] = aktiven filter
   const [activeSources, setActiveSources] = useState<string[] | null>(null)
 
   useEffect(() => setMounted(true), [])
@@ -30,25 +30,38 @@ export default function Header() {
     }
   }, [])
 
-  // ⇣ POSLUŠAJ SAMO ROČNE SPREMEMBE: overlay naj po potrditvi pošlje filters:update
+  // KLJUČNO: prikaži trak samo po interakciji (sessionStorage flag)
   useEffect(() => {
-    const onFiltersUpdate = (e: Event) => {
+    const onUpdate = (e: Event) => {
       const det = (e as CustomEvent).detail
-      const sources = det && Array.isArray(det.sources) ? det.sources : []
-      setActiveSources(sources) // null ⇒ še ni bilo interakcije; [] ⇒ “Pokaži vse”
+      const arr = det && Array.isArray(det.sources) ? det.sources : []
+      setActiveSources(arr) // od tu naprej banner odseva realno stanje
     }
-    window.addEventListener('filters:update', onFiltersUpdate as EventListener)
-    return () => window.removeEventListener('filters:update', onFiltersUpdate as EventListener)
+    window.addEventListener('filters:update', onUpdate as EventListener)
+
+    // fallback: če kdo drug (ne naš SourcesMenu) spremeni localStorage
+    const onStorage = () => {
+      try {
+        if (sessionStorage.getItem('filters_interacted') === '1') {
+          const raw = localStorage.getItem('selectedSources')
+          const arr = raw ? JSON.parse(raw) : []
+          setActiveSources(Array.isArray(arr) ? arr : [])
+        }
+      } catch {}
+    }
+    window.addEventListener('storage', onStorage)
+
+    return () => {
+      window.removeEventListener('filters:update', onUpdate as EventListener)
+      window.removeEventListener('storage', onStorage)
+    }
   }, [])
 
   const clearFilters = () => {
-    try {
-      // ob resetu pošljemo update (feed naj to že posluša)
-      window.dispatchEvent(new CustomEvent('filters:update', { detail: { sources: [] } }))
-      setActiveSources([]) // skrij trak
-      // opcijsko: tudi pobriši persistenco, če jo uporabljaš
-      try { localStorage.setItem('selectedSources', JSON.stringify([])) } catch {}
-    } catch {}
+    try { sessionStorage.setItem('filters_interacted', '1') } catch {}
+    try { localStorage.setItem('selectedSources', JSON.stringify([])) } catch {}
+    try { window.dispatchEvent(new CustomEvent('filters:update', { detail: { sources: [] } })) } catch {}
+    setActiveSources([]) // skrij trak
   }
 
   const currentTheme = (theme ?? resolvedTheme) || 'dark'
@@ -84,22 +97,10 @@ export default function Header() {
       <div className="py-2 px-4 md:px-8 lg:px-16 flex items-center justify-between">
         {/* Levo: Brand */}
         <Link href="/" onClick={onBrandClick} className="flex items-center gap-3 min-w-0">
-          <Image
-            src="/logo.png"
-            alt="Križišče"
-            width={36}
-            height={36}
-            priority
-            fetchPriority="high"
-            className="w-9 h-9 rounded-md"
-          />
+          <Image src="/logo.png" alt="Križišče" width={36} height={36} priority fetchPriority="high" className="w-9 h-9 rounded-md" />
           <div className="min-w-0 leading-tight">
-            <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
-              Križišče
-            </h1>
-            <p className="text-xs sm:text-[13px] text-gray-600 dark:text-gray-400 mt-0.5">
-              Zadnje novice slovenskih medijev
-            </p>
+            <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">Križišče</h1>
+            <p className="text-xs sm:text-[13px] text-gray-600 dark:text-gray-400 mt-0.5">Zadnje novice slovenskih medijev</p>
           </div>
         </Link>
 
@@ -112,13 +113,12 @@ export default function Header() {
             aria-label="Osveži novice"
             title="Osveži"
             className="relative inline-flex h-10 w-10 items-center justify-center rounded-md
-                       text-black/60 dark:text-white/70
-                       hover:text-black/90 dark:hover:text-white/90
+                       text-black/60 dark:text-white/70 hover:text-black/90 dark:hover:text-white/90
                        hover:bg-black/[0.04] dark:hover:bg-white/[0.06] transition"
           >
             <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" className={refreshing ? 'animate-spin' : ''}>
-              <path d="M16.023 9.348h4.992V4.356M7.5 15.75H2.508v4.992" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" fill="none" />
-              <path d="M5.598 8.52a8.25 8.25 0 0113.434-1.908M18.432 16.98A8.25 8.25 0 016.75 19.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+              <path d="M16.023 9.348h4.992V4.356M7.5 15.75H2.508v4.992" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+              <path d="M5.598 8.52a8.25 8.25 0 0113.434-1.908M18.432 16.98A8.25 8.25 0 016.75 19.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
             </svg>
             {hasNew && !refreshing && (
               <span className="absolute right-2 top-2 h-2.5 w-2.5 rounded-full bg-emerald-500 ring-2 ring-white dark:ring-gray-900 animate-pulse" aria-hidden="true" />
@@ -133,8 +133,7 @@ export default function Header() {
               aria-label="Preklopi temo"
               title={isDark ? 'Preklopi na svetlo' : 'Preklopi na temno'}
               className="inline-flex h-10 w-10 items-center justify-center rounded-md
-                         text-black/55 dark:text-white/65
-                         hover:text-black/90 dark:hover:text-white/90
+                         text-black/55 dark:text-white/65 hover:text-black/90 dark:hover:text-white/90
                          hover:bg-black/[0.04] dark:hover:bg-white/[0.06] transition relative overflow-hidden"
             >
               {/* Sun */}
@@ -151,7 +150,7 @@ export default function Header() {
             </button>
           )}
 
-          {/* Filter trigger (lijak namesto hamburgerja) */}
+          {/* Filter trigger (lijak) */}
           <button
             id="filters-trigger"
             type="button"
@@ -159,18 +158,17 @@ export default function Header() {
             aria-label="Filtriraj vire"
             title="Filtriraj vire"
             className="inline-flex h-10 w-10 items-center justify-center rounded-md
-                       text-black/45 dark:text-white/55
-                       hover:text-black/85 dark:hover:text-white/85
+                       text-black/45 dark:text-white/55 hover:text-black/85 dark:hover:text-white/85
                        hover:bg-black/[0.04] dark:hover:bg-white/[0.06] transition"
           >
             <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
-              <path d="M3 5h18l-7 8v5l-4 2v-7L3 5z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" fill="none" />
+              <path d="M3 5h18l-7 8v5l-4 2v-7L3 5z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" fill="none"/>
             </svg>
           </button>
         </div>
       </div>
 
-      {/* ⇣ TRAK prikažemo samo, ko je bilo kaj izbrano V TEJ SEJI (activeSources ni null) */}
+      {/* trak – pokaži samo po interakciji v tej seji */}
       {activeSources !== null && activeSources.length > 0 && (
         <div className="px-4 md:px-8 lg:px-16 pb-2">
           <div className="flex items-center justify-between gap-3 rounded-lg border border-amber-200/60 dark:border-amber-800/50 bg-amber-50/90 dark:bg-amber-900/20 text-amber-900 dark:text-amber-200 px-3 py-2">
