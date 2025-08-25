@@ -14,8 +14,8 @@ export default function Header() {
   const [hasNew, setHasNew] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
 
-  // ⇣ NOVO: lokalni odsev aktivnih filtrov
-  const [activeSources, setActiveSources] = useState<string[]>([])
+  // ⇣ NOVO: aktivni filtri samo po USER dogodku (brez branja localStorage na mount)
+  const [activeSources, setActiveSources] = useState<string[] | null>(null)
 
   useEffect(() => setMounted(true), [])
 
@@ -30,36 +30,24 @@ export default function Header() {
     }
   }, [])
 
-  // ⇣ NOVO: beri iz localStorage + poslušaj filters:update
+  // ⇣ POSLUŠAJ SAMO ROČNE SPREMEMBE: overlay naj po potrditvi pošlje filters:update
   useEffect(() => {
-    const read = () => {
-      try {
-        const raw = localStorage.getItem('selectedSources')
-        const arr = raw ? JSON.parse(raw) : []
-        if (Array.isArray(arr)) setActiveSources(arr)
-      } catch {}
-    }
     const onFiltersUpdate = (e: Event) => {
       const det = (e as CustomEvent).detail
-      if (det && Array.isArray(det.sources)) setActiveSources(det.sources)
-      else read()
+      const sources = det && Array.isArray(det.sources) ? det.sources : []
+      setActiveSources(sources) // null ⇒ še ni bilo interakcije; [] ⇒ “Pokaži vse”
     }
-    read()
     window.addEventListener('filters:update', onFiltersUpdate as EventListener)
-    window.addEventListener('storage', read as any) // če se spremeni v drugem tabu
-    window.addEventListener('focus', read as any)   // ob povratku na zavihek
-    return () => {
-      window.removeEventListener('filters:update', onFiltersUpdate as EventListener)
-      window.removeEventListener('storage', read as any)
-      window.removeEventListener('focus', read as any)
-    }
+    return () => window.removeEventListener('filters:update', onFiltersUpdate as EventListener)
   }, [])
 
   const clearFilters = () => {
     try {
-      localStorage.setItem('selectedSources', JSON.stringify([]))
+      // ob resetu pošljemo update (feed naj to že posluša)
       window.dispatchEvent(new CustomEvent('filters:update', { detail: { sources: [] } }))
-      setActiveSources([])
+      setActiveSources([]) // skrij trak
+      // opcijsko: tudi pobriši persistenco, če jo uporabljaš
+      try { localStorage.setItem('selectedSources', JSON.stringify([])) } catch {}
     } catch {}
   }
 
@@ -81,9 +69,8 @@ export default function Header() {
     }
   }
 
-  // ⇣ NOVO: prijazen povzetek (“A, B +N”)
   const activeLabel = useMemo(() => {
-    if (!activeSources?.length) return ''
+    if (!activeSources || activeSources.length === 0) return ''
     const shown = activeSources.slice(0, 2).join(', ')
     const extra = activeSources.length - 2
     return extra > 0 ? `${shown} +${extra}` : shown
@@ -106,7 +93,7 @@ export default function Header() {
             fetchPriority="high"
             className="w-9 h-9 rounded-md"
           />
-        <div className="min-w-0 leading-tight">
+          <div className="min-w-0 leading-tight">
             <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
               Križišče
             </h1>
@@ -127,37 +114,14 @@ export default function Header() {
             className="relative inline-flex h-10 w-10 items-center justify-center rounded-md
                        text-black/60 dark:text-white/70
                        hover:text-black/90 dark:hover:text-white/90
-                       hover:bg-black/[0.04] dark:hover:bg:white/[0.06] transition"
+                       hover:bg-black/[0.04] dark:hover:bg-white/[0.06] transition"
           >
-            <svg
-              viewBox="0 0 24 24"
-              width="22"
-              height="22"
-              aria-hidden="true"
-              className={refreshing ? 'animate-spin' : ''}
-            >
-              <path
-                d="M16.023 9.348h4.992V4.356M7.5 15.75H2.508v4.992"
-                stroke="currentColor"
-                strokeWidth="1.8"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                fill="none"
-              />
-              <path
-                d="M5.598 8.52a8.25 8.25 0 0113.434-1.908M18.432 16.98A8.25 8.25 0 016.75 19.5"
-                stroke="currentColor"
-                strokeWidth="1.8"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                fill="none"
-              />
+            <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" className={refreshing ? 'animate-spin' : ''}>
+              <path d="M16.023 9.348h4.992V4.356M7.5 15.75H2.508v4.992" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+              <path d="M5.598 8.52a8.25 8.25 0 0113.434-1.908M18.432 16.98A8.25 8.25 0 016.75 19.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" fill="none" />
             </svg>
             {hasNew && !refreshing && (
-              <span
-                className="absolute right-2 top-2 h-2.5 w-2.5 rounded-full bg-emerald-500 ring-2 ring-white dark:ring-gray-900 animate-pulse"
-                aria-hidden="true"
-              />
+              <span className="absolute right-2 top-2 h-2.5 w-2.5 rounded-full bg-emerald-500 ring-2 ring-white dark:ring-gray-900 animate-pulse" aria-hidden="true" />
             )}
           </button>
 
@@ -174,34 +138,20 @@ export default function Header() {
                          hover:bg-black/[0.04] dark:hover:bg-white/[0.06] transition relative overflow-hidden"
             >
               {/* Sun */}
-              <svg
-                viewBox="0 0 24 24"
-                width="20"
-                height="20"
-                aria-hidden="true"
-                className={`absolute transition-all duration-500 transform ${
-                  isDark ? 'opacity-100 scale-100 rotate-0 animate-iconIn' : 'opacity-0 scale-50 -rotate-90'
-                }`}
-              >
+              <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"
+                   className={`absolute transition-all duration-500 transform ${isDark ? 'opacity-100 scale-100 rotate-0 animate-iconIn' : 'opacity-0 scale-50 -rotate-90'}`}>
                 <path d="M12 4V2M12 22v-2M4.93 4.93 3.52 3.52M20.48 20.48l-1.41-1.41M4 12H2M22 12h-2M4.93 19.07 3.52 20.48M20.48 3.52l-1.41 1.41" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
                 <circle cx="12" cy="12" r="4" stroke="currentColor" strokeWidth="2" fill="none"/>
               </svg>
               {/* Moon */}
-              <svg
-                viewBox="0 0 24 24"
-                width="20"
-                height="20"
-                aria-hidden="true"
-                className={`absolute transition-all duration-500 transform ${
-                  !isDark ? 'opacity-100 scale-100 rotate-0 animate-iconIn' : 'opacity-0 scale-50 rotate-90'
-                }`}
-              >
+              <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"
+                   className={`absolute transition-all duration-500 transform ${!isDark ? 'opacity-100 scale-100 rotate-0 animate-iconIn' : 'opacity-0 scale-50 rotate-90'}`}>
                 <path d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 0 0 9.79 9.79Z" stroke="currentColor" strokeWidth="2" fill="none"/>
               </svg>
             </button>
           )}
 
-          {/* Filter trigger (lijak) */}
+          {/* Filter trigger (lijak namesto hamburgerja) */}
           <button
             id="filters-trigger"
             type="button"
@@ -214,45 +164,25 @@ export default function Header() {
                        hover:bg-black/[0.04] dark:hover:bg-white/[0.06] transition"
           >
             <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
-              <path
-                d="M3 5h18l-7 8v5l-4 2v-7L3 5z"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinejoin="round"
-                strokeLinecap="round"
-                fill="none"
-              />
+              <path d="M3 5h18l-7 8v5l-4 2v-7L3 5z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" fill="none" />
             </svg>
           </button>
         </div>
       </div>
 
-      {/* ⇣ NOVO: trak z aktivnimi filtri (pokaži samo, če je kaj izbrano) */}
-      {activeSources.length > 0 && (
+      {/* ⇣ TRAK prikažemo samo, ko je bilo kaj izbrano V TEJ SEJI (activeSources ni null) */}
+      {activeSources !== null && activeSources.length > 0 && (
         <div className="px-4 md:px-8 lg:px-16 pb-2">
-          <div className="flex items-center justify-between gap-3
-                          rounded-lg border border-amber-200/60 dark:border-amber-800/50
-                          bg-amber-50/90 dark:bg-amber-900/20
-                          text-amber-900 dark:text-amber-200
-                          px-3 py-2">
+          <div className="flex items-center justify-between gap-3 rounded-lg border border-amber-200/60 dark:border-amber-800/50 bg-amber-50/90 dark:bg-amber-900/20 text-amber-900 dark:text-amber-200 px-3 py-2">
             <div className="min-w-0 text-[13px]">
               <span className="font-medium">Prikazani viri:</span>{' '}
               <span className="truncate">{activeLabel}</span>
             </div>
             <div className="shrink-0 flex items-center gap-2">
-              <button
-                type="button"
-                onClick={toggleFilters}
-                className="hidden sm:inline text-[13px] underline decoration-amber-600/70 hover:decoration-amber-600"
-              >
+              <button type="button" onClick={toggleFilters} className="hidden sm:inline text-[13px] underline decoration-amber-600/70 hover:decoration-amber-600">
                 Uredi
               </button>
-              <button
-                type="button"
-                onClick={clearFilters}
-                className="text-[13px] px-2.5 py-1 rounded-md
-                           bg-amber-600 text-white hover:bg-amber-500"
-              >
+              <button type="button" onClick={clearFilters} className="text-[13px] px-2.5 py-1 rounded-md bg-amber-600 text-white hover:bg-amber-500">
                 Pokaži vse
               </button>
             </div>
