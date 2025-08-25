@@ -32,7 +32,7 @@ async function loadNews(forceFresh: boolean): Promise<NewsItem[] | null> {
   }
 }
 
-// >>> NOVO: enoten “most” do Headerja (banner “Prikazani viri …”)
+// Bridge: enoten signal za Header (banner “Prikazani viri …”)
 function emitFilterUpdate(sources: string[]) {
   try { sessionStorage.setItem('filters_interacted', '1') } catch {}
   try { localStorage.setItem('selectedSources', JSON.stringify(sources)) } catch {}
@@ -181,6 +181,20 @@ export default function Home({ initialNews }: Props) {
     return () => window.removeEventListener('refresh-news', onRefresh as EventListener)
   }, [freshNews, hasNew])
 
+  // >>> NOVO: sinhronizacija z Headerjem (filters:update)
+  useEffect(() => {
+    const onFiltersUpdate = (e: Event) => {
+      const arr = (e as CustomEvent).detail?.sources
+      if (!Array.isArray(arr)) return
+      startTransition(() => {
+        setFilter(arr.length ? arr[0] : 'Vse')  // podpiramo en vir; [] = Vse
+        setDisplayCount(20)
+      })
+    }
+    window.addEventListener('filters:update', onFiltersUpdate as EventListener)
+    return () => window.removeEventListener('filters:update', onFiltersUpdate as EventListener)
+  }, [])
+
   // Data shaping
   const sortedNews = useMemo(
     () => [...news].sort((a, b) => new Date(b.pubDate).getTime() - new Date(a.pubDate).getTime()),
@@ -190,13 +204,13 @@ export default function Home({ initialNews }: Props) {
     deferredFilter === 'Vse' ? sortedNews : sortedNews.filter((a) => a.source === deferredFilter)
   const visibleNews = filteredNews.slice(0, displayCount)
 
-  // >>> POPRAVEK: oddaj signal za Header
+  // Izbor iz menija (oddamo signal)
   const onPick = (s: string) =>
     startTransition(() => {
       setFilter(s)
       setDisplayCount(20)
       setMenuOpen(false)
-      emitFilterUpdate([s])          // <<< dodano
+      emitFilterUpdate([s])
     })
 
   const resetFilter = () =>
@@ -204,7 +218,7 @@ export default function Home({ initialNews }: Props) {
       setFilter('Vse')
       setDisplayCount(20)
       setMenuOpen(false)
-      emitFilterUpdate([])           // <<< dodano
+      emitFilterUpdate([])
     })
 
   const handleLoadMore = () => setDisplayCount((p) => p + 20)
@@ -332,7 +346,6 @@ export default function Home({ initialNews }: Props) {
         <hr className="max-w-6xl mx-auto mt-4 border-t border-gray-200 dark:border-gray-700" />
       </main>
 
-      {/* Small UX helper */}
       <BackToTop threshold={200} />
 
       <Footer />
