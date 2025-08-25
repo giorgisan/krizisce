@@ -3,7 +3,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 
-type Item = { name: string; url?: string } // url je neobvezen – nič več ga ne uporabljamo za odpiranje
+type Item = { name: string; url?: string }  // url ni več uporabljen za odpiranje
 
 type Props = {
   items: Item[]
@@ -18,16 +18,7 @@ export default function SourcesMenu({ items, className = '' }: Props) {
   const btnRef = useRef<HTMLButtonElement | null>(null)
   const panelRef = useRef<HTMLDivElement | null>(null)
 
-  // --- HELPER: preberi/zapiši + emit ---
-  const emitFiltersUpdate = (sources: string[]) => {
-    try {
-      localStorage.setItem('selectedSources', JSON.stringify(sources))
-    } catch {}
-    try {
-      window.dispatchEvent(new CustomEvent('filters:update', { detail: { sources } }))
-    } catch {}
-  }
-
+  // ---- helpers -------------------------------------------------------------
   const loadSelected = () => {
     try {
       const raw = localStorage.getItem('selectedSources')
@@ -36,15 +27,20 @@ export default function SourcesMenu({ items, className = '' }: Props) {
     } catch {}
   }
 
-  // poravnava panela pod header
+  const emitFiltersUpdate = (sources: string[]) => {
+    try { localStorage.setItem('selectedSources', JSON.stringify(sources)) } catch {}
+    try { sessionStorage.setItem('filters_interacted', '1') } catch {}
+    try { window.dispatchEvent(new CustomEvent('filters:update', { detail: { sources } })) } catch {}
+  }
+
   const computeTop = () => {
     const header = btnRef.current?.closest('header')
     const rect = header?.getBoundingClientRect()
-    const t = (rect?.bottom ?? 56) + window.scrollY
+    const t = (rect?.bottom ?? 56) + (typeof window !== 'undefined' ? window.scrollY : 0)
     setTop(t)
   }
 
-  // poslušaj globalni toggle iz Headerja
+  // globalni toggle iz Headerja
   useEffect(() => {
     const onToggle = () => {
       computeTop()
@@ -57,15 +53,17 @@ export default function SourcesMenu({ items, className = '' }: Props) {
 
   useEffect(() => {
     computeTop()
-    window.addEventListener('resize', computeTop)
-    window.addEventListener('scroll', computeTop, { passive: true })
+    const onResize = () => computeTop()
+    const onScroll = () => computeTop()
+    window.addEventListener('resize', onResize)
+    window.addEventListener('scroll', onScroll, { passive: true })
     return () => {
-      window.removeEventListener('resize', computeTop)
-      window.removeEventListener('scroll', computeTop)
+      window.removeEventListener('resize', onResize)
+      window.removeEventListener('scroll', onScroll)
     }
   }, [])
 
-  // zapri na klik izven in na ESC
+  // zapiranje
   useEffect(() => {
     if (!open) return
     const onDocClick = (e: MouseEvent) => {
@@ -81,7 +79,7 @@ export default function SourcesMenu({ items, className = '' }: Props) {
     }
   }, [open])
 
-  // spremeni izbor (multi-select)
+  // spremembe
   const toggleSource = (name: string) => {
     setSelected((prev) => {
       const next = prev.includes(name) ? prev.filter((s) => s !== name) : [...prev, name]
@@ -98,28 +96,23 @@ export default function SourcesMenu({ items, className = '' }: Props) {
 
   return (
     <div className={`relative ${className}`}>
-      {/* Lokalni “samostojni” gumb – NI obvezen, ker poslušamo toggle-filters;
-          pusti ga, če to komponento uporabljaš še kje drugje. */}
+      {/* lokalni gumb (poleg globalnega toggle-filters) */}
       <button
         ref={btnRef}
         type="button"
         aria-haspopup="menu"
         aria-expanded={open}
         aria-label="Viri novic"
-        onClick={() => {
-          computeTop()
-          loadSelected()
-          setOpen((v) => !v)
-        }}
-        className="relative h-10 w-10 rounded-md
+        onClick={() => { computeTop(); loadSelected(); setOpen((v) => !v) }}
+        className="relative h-10 w-10 rounded-md grid place-items-center
                    text-black/55 dark:text-white/65
                    hover:text-black/90 dark:hover:text-white/90
-                   hover:bg-black/[0.04] dark:hover:bg-white/[0.06]
-                   transition grid place-items-center"
+                   hover:bg-black/[0.04] dark:hover:bg-white/[0.06] transition"
       >
-        {/* Ikona lijaka */}
+        {/* lijak */}
         <svg viewBox="0 0 24 24" className="h-5 w-5" aria-hidden="true">
-          <path d="M3 5h18l-7 8v5l-4 2v-7L3 5z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" fill="none" />
+          <path d="M3 5h18l-7 8v5l-4 2v-7L3 5z"
+                stroke="currentColor" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" fill="none" />
         </svg>
       </button>
 
@@ -133,55 +126,36 @@ export default function SourcesMenu({ items, className = '' }: Props) {
           className="fixed inset-x-0 z-50 animate-fadeInUp"
           style={{ top }}
         >
-          <div
-            className="mx-auto w-full max-w-6xl
-                       rounded-b-2xl border border-gray-200/70 dark:border-gray-700/70
-                       bg-white/75 dark:bg-gray-900/70 backdrop-blur-xl shadow-xl"
-          >
-            {/* glava */}
+          <div className="mx-auto w-full max-w-6xl rounded-b-2xl
+                          border border-gray-200/70 dark:border-gray-700/70
+                          bg-white/75 dark:bg-gray-900/70 backdrop-blur-xl shadow-xl">
             <div className="px-4 sm:px-6 py-3 flex items-center justify-between">
-              <p className="text-sm font-semibold text-gray-700 dark:text-gray-200">
-                Filtriraj vire
-              </p>
-              <button
-                onClick={() => setOpen(false)}
-                aria-label="Zapri"
-                className="h-9 w-9 inline-flex items-center justify-center rounded-md hover:bg-black/5 dark:hover:bg-white/5"
-              >
-                <svg viewBox="0 0 24 24" width="20" height="20">
-                  <path d="M6 6l12 12M18 6l-12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-                </svg>
+              <p className="text-sm font-semibold text-gray-700 dark:text-gray-200">Filtriraj vire</p>
+              <button onClick={() => setOpen(false)} aria-label="Zapri"
+                      className="h-9 w-9 inline-flex items-center justify-center rounded-md hover:bg-black/5 dark:hover:bg-white/5">
+                <svg viewBox="0 0 24 24" width="20" height="20"><path d="M6 6l12 12M18 6l-12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
               </button>
             </div>
 
-            {/* vsebina */}
             <div className="px-4 sm:px-6 pb-4 max-h-[70vh] overflow-y-auto scrollbar-hide">
               {/* Pokaži vse */}
               <button
                 onClick={clearAll}
-                className="block w-full text-left mb-3 px-3 py-2 rounded-md
-                           bg-amber-600 text-white hover:bg-amber-500 transition"
+                className="block w-full text-left mb-3 px-3 py-2 rounded-md bg-amber-600 text-white hover:bg-amber-500 transition"
               >
                 Pokaži vse
               </button>
 
-              {/* mreža virov (checkboxi) */}
+              {/* mreža virov */}
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5">
                 {items.map((it) => {
                   const checked = selected.includes(it.name)
                   return (
-                    <label
-                      key={it.name}
-                      className={`flex items-center gap-2 px-3 py-2 rounded-md cursor-pointer transition
-                        ${checked ? 'bg-black/5 dark:bg-white/10' : 'hover:bg-black/5 dark:hover:bg-white/5'}
-                        text-gray-800 dark:text-gray-200`}
-                    >
-                      <input
-                        type="checkbox"
-                        className="h-4 w-4"
-                        checked={checked}
-                        onChange={() => toggleSource(it.name)}
-                      />
+                    <label key={it.name}
+                           className={`flex items-center gap-2 px-3 py-2 rounded-md cursor-pointer transition
+                                       ${checked ? 'bg-black/5 dark:bg-white/10' : 'hover:bg-black/5 dark:hover:bg-white/5'}
+                                       text-gray-800 dark:text-gray-200`}>
+                      <input type="checkbox" className="h-4 w-4" checked={checked} onChange={() => toggleSource(it.name)} />
                       <span className="text-sm truncate">{it.name}</span>
                     </label>
                   )
