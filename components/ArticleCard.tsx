@@ -204,7 +204,7 @@ export default function ArticleCard({ news }: Props) {
               bg-white/80 dark:bg-gray-900/80 backdrop-blur transition-opacity duration-150 transform-gpu
               opacity-100 md:opacity-0
             "
-            style={eyeHover ? { transform: 'translateY(0) scale(1.40)', opacity: 1 } : undefined}
+            style={eyeHover ? { transform: 'translateY(0) scale(1.30)', opacity: 1 } : undefined}
           >
             <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
               <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12Z" stroke="currentColor" strokeWidth="2" fill="none" />
