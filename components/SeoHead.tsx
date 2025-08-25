@@ -15,7 +15,7 @@ export default function SeoHead({
   title = 'Križišče',
   description = 'Agregator najnovejših novic iz slovenskih medijev. Članki so last izvornih portalov.',
   url = 'https://krizisce.si/',
-  image = '/logos/default-news.jpg',
+  image = 'logos/logo.png',
   jsonLd,
 }: Props) {
   const fullTitle = title === 'Križišče' ? 'Križišče' : `${title} · Križišče`
