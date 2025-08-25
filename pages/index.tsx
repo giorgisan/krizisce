@@ -17,7 +17,7 @@ import Header from '@/components/Header'
 import { SOURCES } from '@/lib/sources'
 import ArticleCard from '@/components/ArticleCard'
 import SeoHead from '@/components/SeoHead'
-import BackToTop from '@/components/BackToTop' // ⬅️ optional helper
+import BackToTop from '@/components/BackToTop'
 
 // Fetch helper for client polling / first-visit refresh
 async function loadNews(forceFresh: boolean): Promise<NewsItem[] | null> {
@@ -30,6 +30,13 @@ async function loadNews(forceFresh: boolean): Promise<NewsItem[] | null> {
   } catch {
     return null
   }
+}
+
+// >>> NOVO: enoten “most” do Headerja (banner “Prikazani viri …”)
+function emitFilterUpdate(sources: string[]) {
+  try { sessionStorage.setItem('filters_interacted', '1') } catch {}
+  try { localStorage.setItem('selectedSources', JSON.stringify(sources)) } catch {}
+  try { window.dispatchEvent(new CustomEvent('filters:update', { detail: { sources } })) } catch {}
 }
 
 type Props = { initialNews: NewsItem[] }
@@ -183,11 +190,13 @@ export default function Home({ initialNews }: Props) {
     deferredFilter === 'Vse' ? sortedNews : sortedNews.filter((a) => a.source === deferredFilter)
   const visibleNews = filteredNews.slice(0, displayCount)
 
+  // >>> POPRAVEK: oddaj signal za Header
   const onPick = (s: string) =>
     startTransition(() => {
       setFilter(s)
       setDisplayCount(20)
       setMenuOpen(false)
+      emitFilterUpdate([s])          // <<< dodano
     })
 
   const resetFilter = () =>
@@ -195,6 +204,7 @@ export default function Home({ initialNews }: Props) {
       setFilter('Vse')
       setDisplayCount(20)
       setMenuOpen(false)
+      emitFilterUpdate([])           // <<< dodano
     })
 
   const handleLoadMore = () => setDisplayCount((p) => p + 20)
