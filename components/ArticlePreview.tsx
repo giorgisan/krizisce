@@ -1,3 +1,4 @@
+// components/ArticlePreview.tsx
 'use client'
 
 import { useEffect, useRef, useState, MouseEvent } from 'react'
@@ -46,9 +47,12 @@ function trackClick(source: string, url: string) {
       const blob = new Blob([payload], { type: 'application/json' })
       navigator.sendBeacon(endpoint, blob)
     } else {
-      // @ts-expect-error keepalive tip
-      fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: payload, keepalive: true })
-        .catch(() => {})
+      fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: payload,
+        keepalive: true,
+      }).catch(() => {})
     }
   } catch {}
 }
