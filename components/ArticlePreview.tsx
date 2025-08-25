@@ -5,7 +5,6 @@ import { useEffect, useRef, useState, MouseEvent } from 'react'
 import { createPortal } from 'react-dom'
 import DOMPurify from 'dompurify'
 import { preloadPreview, peekPreview } from '@/lib/previewPrefetch'
-import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 
 interface Props { url: string; onClose: () => void }
 
@@ -227,10 +226,9 @@ export default function ArticlePreview({ url, onClose }: Props) {
   const [loading, setLoading] = useState<boolean>(true)
   const [error, setError] = useState<string | null>(null)
 
-  // animacija & izvor zapiranja
-  const [isVisible, setIsVisible] = useState(true)
-  const [closeOrigin, setCloseOrigin] = useState<{ x: number; y: number } | null>(null)
-  const prefersReducedMotion = useReducedMotion()
+  // lahka animacija: instant vstop (≈140ms), hitro zapiranje (≈160ms)
+  const [entered, setEntered] = useState(false)
+  const [closing, setClosing] = useState(false)
 
   const overlayRef = useRef<HTMLDivElement>(null)
   const modalRef = useRef<HTMLDivElement>(null)
@@ -264,7 +262,7 @@ export default function ArticlePreview({ url, onClose }: Props) {
     return () => { alive = false }
   }, [url])
 
-  // fokus trap + lock scroll + anti-underline v ozadju
+  // fokus trap + lock scroll + anti-underline v ozadju + sproži enter animacijo
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') startClose()
@@ -284,7 +282,10 @@ export default function ArticlePreview({ url, onClose }: Props) {
     const prevOverflow = document.body.style.overflow
     document.body.style.overflow = 'hidden'
     document.body.classList.add('modal-open', 'preview-open')
-    setTimeout(() => closeRef.current?.focus(), 0)
+    setTimeout(() => {
+      closeRef.current?.focus()
+      setEntered(true) // sproži vstopno animacijo
+    }, 0)
 
     return () => {
       document.removeEventListener('keydown', handleKeyDown)
@@ -293,21 +294,11 @@ export default function ArticlePreview({ url, onClose }: Props) {
     }
   }, [])
 
-  const startClose = (origin?: { x: number; y: number }) => {
-    if (origin) setCloseOrigin(origin)
-    else {
-      // če nimamo koordinat klika, vzemi center modala
-      const rect = modalRef.current?.getBoundingClientRect()
-      if (rect) setCloseOrigin({ x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 })
-    }
-    setIsVisible(false) // sproži exit animacijo
-  }
-
-  const handleOverlayMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (e.target === overlayRef.current) {
-      setCloseOrigin({ x: e.clientX, y: e.clientY })
-      setIsVisible(false)
-    }
+  const startClose = () => {
+    if (closing) return
+    setClosing(true)
+    // počakaj, da se izteče kratka zapiralna animacija (160 ms), nato onClose
+    setTimeout(() => onClose(), 170)
   }
 
   const openSourceAndTrack = (e: MouseEvent<HTMLAnchorElement>) => {
@@ -319,10 +310,6 @@ export default function ArticlePreview({ url, onClose }: Props) {
 
   if (typeof document === 'undefined') return null
 
-  const clipOrigin = closeOrigin ? `${closeOrigin.x}px ${closeOrigin.y}px` : '50% 50%'
-  const enterDur = prefersReducedMotion ? 0 : 0.4
-  const exitDur = prefersReducedMotion ? 0 : 0.45
-
   return createPortal(
     <>
       {/* trd override za ozadje med modalom */}
@@ -332,119 +319,98 @@ export default function ArticlePreview({ url, onClose }: Props) {
         body.preview-open a:focus { text-decoration: none !important; }
         body.preview-open .group:hover { transform: none !important; }
         body.preview-open .group:hover * { text-decoration: none !important; }
+
+        /* Vstop/izstop animacije – lahke, GPU transform + opacity */
+        .ap-enter { opacity: 0; transform: translateY(6px) scale(.985); filter: none; }
+        .ap-enter.ap-enter-active { opacity: 1; transform: translateY(0) scale(1); transition: opacity 140ms ease-out, transform 140ms ease-out; }
+
+        .ap-exit { opacity: 1; transform: translateY(0) scale(1); }
+        .ap-exit.ap-exit-active { opacity: 0; transform: translateY(4px) scale(.985); filter: blur(3px); transition: opacity 160ms ease, transform 160ms ease, filter 160ms ease; }
       `}</style>
       {/* tipografski skin */}
       <style>{PREVIEW_TYPO_CSS}</style>
 
-      <AnimatePresence onExitComplete={onClose}>
-        {isVisible && (
-          <motion.div
-            ref={overlayRef}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
-            role="dialog"
-            aria-modal="true"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1, transition: { duration: enterDur } }}
-            exit={{ opacity: 0, transition: { duration: exitDur } }}
-            onMouseDown={handleOverlayMouseDown}
-          >
-            <motion.div
-              ref={modalRef}
-              className="bg-white dark:bg-gray-900 rounded-xl shadow-2xl w-full max-w-2xl mx-4 max-h-[80vh] overflow-y-auto border border-gray-200/10 transform"
-              initial={{
-                opacity: 0,
-                y: 12,
-                scale: 0.98,
-                filter: 'blur(6px)',
-                clipPath: 'circle(0% at 50% 50%)',
-              }}
-              animate={{
-                opacity: 1,
-                y: 0,
-                scale: 1,
-                filter: 'blur(0px)',
-                clipPath: 'circle(140% at 50% 50%)',
-                transition: { ease: [0.2, 0.8, 0.2, 1], duration: enterDur },
-              }}
-              exit={{
-                opacity: 0,
-                scale: 0.95,
-                filter: 'blur(10px)',
-                clipPath: `circle(0% at ${clipOrigin})`,
-                transition: { ease: [0.4, 0, 0.2, 1], duration: exitDur },
-              }}
-            >
-              {/* Header */}
-              <div className="sticky top-0 z-10 flex items-center justify-between gap-3 px-5 py-4 border-b border-gray-200/20 bg-white/80 dark:bg-gray-900/80 backdrop-blur rounded-t-xl">
-                <div className="min-w-0 flex-1">
-                  <div className="text-xs text-gray-500 dark:text-gray-400 truncate">{site}</div>
-                  <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">
-                    {title || 'Predogled'}
-                  </h3>
+      <div
+        ref={overlayRef}
+        className={`fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm transition-opacity duration-150 ${closing ? 'opacity-0' : 'opacity-100'}`}
+        role="dialog"
+        aria-modal="true"
+        onMouseDown={(e) => { if (e.target === e.currentTarget) startClose() }}
+      >
+        <div
+          ref={modalRef}
+          className={`bg-white dark:bg-gray-900 rounded-xl shadow-2xl w-full max-w-2xl mx-4 max-h-[80vh] overflow-y-auto border border-gray-200/10
+            ${!entered ? 'ap-enter' : ''} ${entered && !closing ? 'ap-enter ap-enter-active' : ''} ${closing ? 'ap-exit ap-exit-active' : ''}`}
+        >
+          {/* Header */}
+          <div className="sticky top-0 z-10 flex items-center justify-between gap-3 px-5 py-4 border-b border-gray-200/20 bg-white/80 dark:bg-gray-900/80 backdrop-blur rounded-t-xl">
+            <div className="min-w-0 flex-1">
+              <div className="text-xs text-gray-500 dark:text-gray-400 truncate">{site}</div>
+              <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">
+                {title || 'Predogled'}
+              </h3>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <a
+                href={url}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={openSourceAndTrack}
+                className="no-underline inline-flex items-center justify-center rounded-lg px-3 py-1.5 text-sm bg-orange-700/80 text-white hover:bg-amber-600"
+              >
+                Odpri cel članek
+              </a>
+              <button
+                ref={closeRef}
+                onClick={startClose}
+                aria-label="Zapri predogled"
+                className="inline-flex h-8 px-2 items-center justify-center rounded-lg text-sm bg-gray-100/70 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200"
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+
+          {/* Body */}
+          <div className="px-5 py-5">
+            {loading && (
+              <div className="flex items-center justify-center py-10">
+                <div className="w-12 h-12 rounded-full bg-gray-300 dark:bg-gray-700 animate-zenPulse" />
+              </div>
+            )}
+            {error && <p className="text-sm text-red-500">{error}</p>}
+
+            {!loading && !error && (
+              <div className="preview-typo max-w-none text-gray-900 dark:text-gray-100">
+                <div className="relative">
+                  <div dangerouslySetInnerHTML={{ __html: content }} />
+                  <div className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-white dark:from-gray-900 to-transparent" />
                 </div>
-                <div className="flex items-center gap-2 shrink-0">
+
+                <div className="mt-5 flex flex-col items-center gap-2">
                   <a
                     href={url}
                     target="_blank"
                     rel="noopener noreferrer"
                     onClick={openSourceAndTrack}
-                    className="no-underline inline-flex items-center justify-center rounded-lg px-3 py-1.5 text-sm bg-orange-700/80 text-white hover:bg-amber-600"
+                    className="no-underline inline-flex justify-center rounded-md px-5 py-2 dark:bg-gray-700 text-white text-sm dark:hover:bg-gray-600 whitespace-nowrap"
                   >
-                    Odpri cel članek
+                    Za ogled celotnega članka, obiščite spletno stran
                   </a>
+
                   <button
-                    ref={closeRef}
-                    onClick={() => startClose()}
-                    aria-label="Zapri predogled"
-                    className="inline-flex h-8 px-2 items-center justify-center rounded-lg text-sm bg-gray-100/70 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200"
+                    type="button"
+                    onClick={startClose}
+                    className="inline-flex justify-center rounded-md px-4 py-2 bg-gray-100/80 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 text-sm"
                   >
-                    ✕
+                    Zapri predogled
                   </button>
                 </div>
               </div>
-
-              {/* Body */}
-              <div className="px-5 py-5">
-                {loading && (
-                  <div className="flex items-center justify-center py-10">
-                    <div className="w-12 h-12 rounded-full bg-gray-300 dark:bg-gray-700 animate-zenPulse" />
-                  </div>
-                )}
-                {error && <p className="text-sm text-red-500">{error}</p>}
-
-                {!loading && !error && (
-                  <div className="preview-typo max-w-none text-gray-900 dark:text-gray-100">
-                    <div className="relative">
-                      <div dangerouslySetInnerHTML={{ __html: content }} />
-                      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-white dark:from-gray-900 to-transparent" />
-                    </div>
-
-                    <div className="mt-5 flex flex-col items-center gap-2">
-                      <a
-                        href={url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        onClick={openSourceAndTrack}
-                        className="no-underline inline-flex justify-center rounded-md px-5 py-2 dark:bg-gray-700 text-white text-sm dark:hover:bg-gray-600 whitespace-nowrap"
-                      >
-                        Za ogled celotnega članka, obiščite spletno stran
-                      </a>
-
-                      <button
-                        type="button"
-                        onClick={() => startClose()}
-                        className="inline-flex justify-center rounded-md px-4 py-2 bg-gray-100/80 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 text-sm"
-                      >
-                        Zapri predogled
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+            )}
+          </div>
+        </div>
+      </div>
     </>,
     document.body
   )
