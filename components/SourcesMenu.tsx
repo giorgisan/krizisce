@@ -1,7 +1,9 @@
 // components/SourcesMenu.tsx
+'use client'
+
 import { useEffect, useRef, useState } from 'react'
 
-type Item = { name: string; url: string }
+type Item = { name: string; url?: string } // url je neobvezen – nič več ga ne uporabljamo za odpiranje
 
 type Props = {
   items: Item[]
@@ -11,18 +13,47 @@ type Props = {
 export default function SourcesMenu({ items, className = '' }: Props) {
   const [open, setOpen] = useState(false)
   const [top, setTop] = useState<number>(0)
+  const [selected, setSelected] = useState<string[]>([])
 
   const btnRef = useRef<HTMLButtonElement | null>(null)
   const panelRef = useRef<HTMLDivElement | null>(null)
 
-  // izračunaj top = spodnji rob headerja (panel se poravna pod header)
+  // --- HELPER: preberi/zapiši + emit ---
+  const emitFiltersUpdate = (sources: string[]) => {
+    try {
+      localStorage.setItem('selectedSources', JSON.stringify(sources))
+    } catch {}
+    try {
+      window.dispatchEvent(new CustomEvent('filters:update', { detail: { sources } }))
+    } catch {}
+  }
+
+  const loadSelected = () => {
+    try {
+      const raw = localStorage.getItem('selectedSources')
+      const arr = raw ? JSON.parse(raw) : []
+      if (Array.isArray(arr)) setSelected(arr)
+    } catch {}
+  }
+
+  // poravnava panela pod header
   const computeTop = () => {
-    // najbližji <header> gumbovemu elementu
     const header = btnRef.current?.closest('header')
     const rect = header?.getBoundingClientRect()
     const t = (rect?.bottom ?? 56) + window.scrollY
     setTop(t)
   }
+
+  // poslušaj globalni toggle iz Headerja
+  useEffect(() => {
+    const onToggle = () => {
+      computeTop()
+      loadSelected()
+      setOpen((v) => !v)
+    }
+    window.addEventListener('toggle-filters', onToggle as EventListener)
+    return () => window.removeEventListener('toggle-filters', onToggle as EventListener)
+  }, [])
 
   useEffect(() => {
     computeTop()
@@ -39,13 +70,9 @@ export default function SourcesMenu({ items, className = '' }: Props) {
     if (!open) return
     const onDocClick = (e: MouseEvent) => {
       const t = e.target as Node
-      if (!panelRef.current?.contains(t) && !btnRef.current?.contains(t)) {
-        setOpen(false)
-      }
+      if (!panelRef.current?.contains(t)) setOpen(false)
     }
-    const onEsc = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setOpen(false)
-    }
+    const onEsc = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false) }
     document.addEventListener('mousedown', onDocClick)
     document.addEventListener('keydown', onEsc)
     return () => {
@@ -54,9 +81,25 @@ export default function SourcesMenu({ items, className = '' }: Props) {
     }
   }, [open])
 
+  // spremeni izbor (multi-select)
+  const toggleSource = (name: string) => {
+    setSelected((prev) => {
+      const next = prev.includes(name) ? prev.filter((s) => s !== name) : [...prev, name]
+      emitFiltersUpdate(next)
+      return next
+    })
+  }
+
+  const clearAll = () => {
+    setSelected([])
+    emitFiltersUpdate([])
+    setOpen(false)
+  }
+
   return (
     <div className={`relative ${className}`}>
-      {/* Gumb (ostane isti, lahko pa zamenjaš ikono po želji) */}
+      {/* Lokalni “samostojni” gumb – NI obvezen, ker poslušamo toggle-filters;
+          pusti ga, če to komponento uporabljaš še kje drugje. */}
       <button
         ref={btnRef}
         type="button"
@@ -65,41 +108,37 @@ export default function SourcesMenu({ items, className = '' }: Props) {
         aria-label="Viri novic"
         onClick={() => {
           computeTop()
+          loadSelected()
           setOpen((v) => !v)
         }}
         className="relative h-10 w-10 rounded-md
                    text-black/55 dark:text-white/65
                    hover:text-black/90 dark:hover:text-white/90
-                   hover:bg-black/[0.04] dark:hover:bg-white/[0.06] transition grid place-items-center"
+                   hover:bg-black/[0.04] dark:hover:bg-white/[0.06]
+                   transition grid place-items-center"
       >
-        {/* 3 krogci – subtilen “oribiting” efekt */}
-        <span className="relative block h-5 w-5">
-          <span className="absolute inset-0 animate-spin-slow">
-            <span className="absolute left-1/2 top-0 -translate-x-1/2 h-1.5 w-1.5 rounded-full bg-current/80" />
-            <span className="absolute right-0 top-1/2 -translate-y-1/2 h-1.5 w-1.5 rounded-full bg-current/70" />
-            <span className="absolute left-1/2 bottom-0 -translate-x-1/2 h-1.5 w-1.5 rounded-full bg-current/60" />
-          </span>
-        </span>
+        {/* Ikona lijaka */}
+        <svg viewBox="0 0 24 24" className="h-5 w-5" aria-hidden="true">
+          <path d="M3 5h18l-7 8v5l-4 2v-7L3 5z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" fill="none" />
+        </svg>
       </button>
 
-      {/* MEGA DROPDOWN – širok panel pod headerjem, brez backdropa */}
+      {/* PANEL */}
       {open && (
         <div
           ref={panelRef}
           role="menu"
-          aria-label="Viri novic"
+          aria-label="Filtriraj vire"
           tabIndex={-1}
-          // fixed + full width + poravnava pod headerjem
           className="fixed inset-x-0 z-50 animate-fadeInUp"
           style={{ top }}
         >
           <div
             className="mx-auto w-full max-w-6xl
                        rounded-b-2xl border border-gray-200/70 dark:border-gray-700/70
-                       bg-white/75 dark:bg-gray-900/70 backdrop-blur-xl
-                       shadow-xl"
+                       bg-white/75 dark:bg-gray-900/70 backdrop-blur-xl shadow-xl"
           >
-            {/* glava panela */}
+            {/* glava */}
             <div className="px-4 sm:px-6 py-3 flex items-center justify-between">
               <p className="text-sm font-semibold text-gray-700 dark:text-gray-200">
                 Filtriraj vire
@@ -115,54 +154,43 @@ export default function SourcesMenu({ items, className = '' }: Props) {
               </button>
             </div>
 
-            {/* seznam virov – “brez ozadja preko novic”: panel ima svojo nežno podlago, strani pa ne zatemnimo */}
+            {/* vsebina */}
             <div className="px-4 sm:px-6 pb-4 max-h-[70vh] overflow-y-auto scrollbar-hide">
-              {/* “Pokaži vse” */}
-              <a
-                href="/"
-                onClick={() => setOpen(false)}
-                className="block w-full text-left mb-2 px-3 py-2 rounded-md
-                           bg-brand text-white hover:bg-brand-hover transition"
+              {/* Pokaži vse */}
+              <button
+                onClick={clearAll}
+                className="block w-full text-left mb-3 px-3 py-2 rounded-md
+                           bg-amber-600 text-white hover:bg-amber-500 transition"
               >
                 Pokaži vse
-              </a>
+              </button>
 
-              {/* mreža virov */}
+              {/* mreža virov (checkboxi) */}
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5">
-                {items.map((it) => (
-                  <a
-                    key={it.name}
-                    href={it.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    onClick={() => setOpen(false)}
-                    className="flex items-center gap-2 px-3 py-2 rounded-md
-                               hover:bg-black/5 dark:hover:bg-white/5
-                               text-gray-800 dark:text-gray-200 transition"
-                  >
-                    <span className="grid h-7 w-7 place-items-center rounded-full bg-black/5 dark:bg-white/10 text-[10px] font-bold text-gray-700 dark:text-gray-200">
-                      {it.name.slice(0, 2)}
-                    </span>
-                    <span className="text-sm">{it.name}</span>
-                    <span className="ml-auto text-xs text-gray-400">↗</span>
-                  </a>
-                ))}
+                {items.map((it) => {
+                  const checked = selected.includes(it.name)
+                  return (
+                    <label
+                      key={it.name}
+                      className={`flex items-center gap-2 px-3 py-2 rounded-md cursor-pointer transition
+                        ${checked ? 'bg-black/5 dark:bg-white/10' : 'hover:bg-black/5 dark:hover:bg-white/5'}
+                        text-gray-800 dark:text-gray-200`}
+                    >
+                      <input
+                        type="checkbox"
+                        className="h-4 w-4"
+                        checked={checked}
+                        onChange={() => toggleSource(it.name)}
+                      />
+                      <span className="text-sm truncate">{it.name}</span>
+                    </label>
+                  )
+                })}
               </div>
             </div>
           </div>
         </div>
       )}
-
-      {/* lokalni stil za animacijo ikon in odtenke (lahko pustiš tudi v globals.css) */}
-      <style jsx>{`
-        .animate-spin-slow {
-          animation: spin 6s linear infinite;
-        }
-        @keyframes spin {
-          from { transform: rotate(0deg); }
-          to   { transform: rotate(360deg); }
-        }
-      `}</style>
     </div>
   )
 }
