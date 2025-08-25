@@ -72,7 +72,7 @@ export default function Header() {
           </div>
         </Link>
 
-        {/* Desno: refresh + tema + hamburger */}
+        {/* Desno: refresh + tema + filter */}
         <div className="flex items-center gap-1.5 sm:gap-2">
           {/* Refresh */}
           <button
@@ -157,21 +157,30 @@ export default function Header() {
             </button>
           )}
 
-          {/* Hamburger (SIDRO za dropdown) */}
+          {/* Filter (namesto hamburgerja) */}
           <button
             id="filters-trigger"
             type="button"
             onClick={toggleFilters}
-            aria-label="Odpri filter"
+            aria-label="Filtriraj vire"
             title="Filtriraj vire"
-            className="inline-flex h-10 w-10 items-center justify-center rounded-md
-                       text-black/45 dark:text-white/55
-                       hover:text-black/85 dark:hover:text-white/85
-                       hover:bg-black/[0.04] dark:hover:bg-white/[0.06] transition"
+            aria-haspopup="dialog"
+            className="inline-flex items-center gap-2
+                       h-10 px-3 rounded-full border
+                       border-gray-300/70 dark:border-gray-600/60
+                       text-[13px] font-medium
+                       text-gray-800 dark:text-gray-100
+                       bg-white/70 dark:bg-gray-900/70 backdrop-blur
+                       hover:bg-white/90 dark:hover:bg-gray-900/90
+                       focus:outline-none focus:ring-2 focus:ring-amber-500
+                       transition"
           >
-            <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
-              <path d="M3 6h18M3 12h18M3 18h18" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+            {/* Funnel ikona */}
+            <svg viewBox="0 0 24 24" className="h-5 w-5" aria-hidden="true">
+              <path d="M3 5h18l-7 8v4l-4 2v-6L3 5z" fill="currentColor" />
             </svg>
+            {/* Label skrij na zelo majhnih zaslonih, pokaži od sm naprej */}
+            <span className="hidden sm:inline">Viri</span>
           </button>
         </div>
       </div>
