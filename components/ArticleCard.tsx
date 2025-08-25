@@ -199,12 +199,12 @@ export default function ArticleCard({ news }: Props) {
             onFocus={handleEyeFocus}
             aria-label="Predogled"
             className="
-              eye-zoom peer absolute top-2 right-2 h-8 w-8 grid place-items-center rounded-full
+              eye-zoom peer absolute top-2 right-2 h-11 w-11 grid place-items-center rounded-full
               ring-1 ring-black/10 dark:ring-white/10 text-gray-700 dark:text-gray-200
               bg-white/80 dark:bg-gray-900/80 backdrop-blur transition-opacity duration-150 transform-gpu
               opacity-100 md:opacity-0
             "
-            style={eyeHover ? { transform: 'translateY(0) scale(1.22)', opacity: 1 } : undefined}
+            style={eyeHover ? { transform: 'translateY(0) scale(1.40)', opacity: 1 } : undefined}
           >
             <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
               <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12Z" stroke="currentColor" strokeWidth="2" fill="none" />
