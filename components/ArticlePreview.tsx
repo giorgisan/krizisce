@@ -328,7 +328,7 @@ export default function ArticlePreview({ url, onClose }: Props) {
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={openSourceAndTrack}
-                className="no-underline inline-flex items-center justify-center rounded-lg px-3 py-1.5 text-sm bg-orange-700/80 text-white hover:bg-amber-600"
+                className="no-underline inline-flex items-center justify-center rounded-lg px-3 py-1.5 text-sm bg-orange-400/80 text-white hover:bg-amber-600"
               >
                 Odpri cel članek
               </a>
