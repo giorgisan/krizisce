@@ -7,12 +7,22 @@ import { useTheme } from 'next-themes'
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/router'
 
+// NOVO: sodoben filter (chips + popover/bottom-sheet)
+import FilterControl from '@/components/FilterControl'
+import { sourceColors } from '@/lib/sources'
+
 export default function Header() {
   const router = useRouter()
   const { theme, resolvedTheme, setTheme } = useTheme()
   const [mounted, setMounted] = useState(false)
   const [hasNew, setHasNew] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
+
+  // seznam virov iz tvojega liba
+  const ALL_SOURCES = Object.keys(sourceColors || {})
+
+  // lokalno stanje izbranih virov (lahko ga ignoriraš in poslušaš samo dogodek 'filters:update')
+  const [selected, setSelected] = useState<string[]>([])
 
   useEffect(() => setMounted(true), [])
 
@@ -35,8 +45,15 @@ export default function Header() {
     window.dispatchEvent(new CustomEvent('refresh-news'))
   }
 
-  const toggleFilters = () =>
-    window.dispatchEvent(new CustomEvent('toggle-filters'))
+  // KO uporabnik spremeni filtre v FilterControl ↓
+  const handleFiltersChange = (next: string[]) => {
+    setSelected(next)
+    // Broadcast, da lahko tvoj feed filtrira brez dodatnih povezav
+    try {
+      window.dispatchEvent(new CustomEvent('filters:update', { detail: { sources: next } }))
+      localStorage.setItem('selectedSources', JSON.stringify(next))
+    } catch {}
+  }
 
   const onBrandClick: React.MouseEventHandler<HTMLAnchorElement> = (e) => {
     if (router.pathname === '/') {
@@ -50,7 +67,7 @@ export default function Header() {
       id="site-header"
       className="sticky top-0 z-40 bg-[#FAFAFA]/95 dark:bg-gray-900/70 backdrop-blur-md border-b border-gray-200 dark:border-gray-700 shadow-sm"
     >
-      <div className="py-2 px-4 md:px-8 lg:px-16 flex items-center justify-between">
+      <div className="py-2 px-4 md:px-8 lg:px-16 flex items-center justify-between gap-3">
         {/* Levo: Brand */}
         <Link href="/" onClick={onBrandClick} className="flex items-center gap-3 min-w-0">
           <Image
@@ -72,8 +89,8 @@ export default function Header() {
           </div>
         </Link>
 
-        {/* Desno: refresh + tema + filter */}
-        <div className="flex items-center gap-1.5 sm:gap-2">
+        {/* Desno: refresh + tema */}
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
           {/* Refresh */}
           <button
             type="button"
@@ -92,22 +109,10 @@ export default function Header() {
               aria-hidden="true"
               className={refreshing ? 'animate-spin' : ''}
             >
-              <path
-                d="M16.023 9.348h4.992V4.356M7.5 15.75H2.508v4.992"
-                stroke="currentColor"
-                strokeWidth="1.8"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                fill="none"
-              />
-              <path
-                d="M5.598 8.52a8.25 8.25 0 0113.434-1.908M18.432 16.98A8.25 8.25 0 016.75 19.5"
-                stroke="currentColor"
-                strokeWidth="1.8"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                fill="none"
-              />
+              <path d="M16.023 9.348h4.992V4.356M7.5 15.75H2.508v4.992"
+                    stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+              <path d="M5.598 8.52a8.25 8.25 0 0113.434-1.908M18.432 16.98A8.25 8.25 0 016.75 19.5"
+                    stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" fill="none" />
             </svg>
             {hasNew && !refreshing && (
               <span
@@ -156,33 +161,18 @@ export default function Header() {
               </svg>
             </button>
           )}
-
-          {/* Filter (namesto hamburgerja) */}
-          <button
-            id="filters-trigger"
-            type="button"
-            onClick={toggleFilters}
-            aria-label="Filtriraj vire"
-            title="Filtriraj vire"
-            aria-haspopup="dialog"
-            className="inline-flex items-center gap-2
-                       h-10 px-3 rounded-full border
-                       border-gray-300/70 dark:border-gray-600/60
-                       text-[13px] font-medium
-                       text-gray-800 dark:text-gray-100
-                       bg-white/70 dark:bg-gray-900/70 backdrop-blur
-                       hover:bg-white/90 dark:hover:bg-gray-900/90
-                       focus:outline-none focus:ring-2 focus:ring-amber-500
-                       transition"
-          >
-            {/* Funnel ikona */}
-            <svg viewBox="0 0 24 24" className="h-5 w-5" aria-hidden="true">
-              <path d="M3 5h18l-7 8v4l-4 2v-6L3 5z" fill="currentColor" />
-            </svg>
-            {/* Label skrij na zelo majhnih zaslonih, pokaži od sm naprej */}
-            <span className="hidden sm:inline">Viri</span>
-          </button>
         </div>
+      </div>
+
+      {/* NOVO: moderni filter – chips + gumb “Viri” (zamenja stari hamburger/overlay) */}
+      <div className="px-4 md:px-8 lg:px-16 pb-2">
+        <FilterControl
+          sources={ALL_SOURCES}
+          selected={selected}
+          onChange={handleFiltersChange}
+          maxInline={10}                // koliko chipov kaže v vrstici (ostalo v popoveru)
+          className="max-w-full"
+        />
       </div>
     </header>
   )
