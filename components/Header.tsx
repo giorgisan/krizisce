@@ -4,7 +4,7 @@
 import Link from 'next/link'
 import Image from 'next/image'
 import { useTheme } from 'next-themes'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/router'
 
 export default function Header() {
@@ -13,6 +13,9 @@ export default function Header() {
   const [mounted, setMounted] = useState(false)
   const [hasNew, setHasNew] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
+
+  // ⇣ NOVO: lokalni odsev aktivnih filtrov
+  const [activeSources, setActiveSources] = useState<string[]>([])
 
   useEffect(() => setMounted(true), [])
 
@@ -26,6 +29,39 @@ export default function Header() {
       window.removeEventListener('news-refreshing', onRefreshing as EventListener)
     }
   }, [])
+
+  // ⇣ NOVO: beri iz localStorage + poslušaj filters:update
+  useEffect(() => {
+    const read = () => {
+      try {
+        const raw = localStorage.getItem('selectedSources')
+        const arr = raw ? JSON.parse(raw) : []
+        if (Array.isArray(arr)) setActiveSources(arr)
+      } catch {}
+    }
+    const onFiltersUpdate = (e: Event) => {
+      const det = (e as CustomEvent).detail
+      if (det && Array.isArray(det.sources)) setActiveSources(det.sources)
+      else read()
+    }
+    read()
+    window.addEventListener('filters:update', onFiltersUpdate as EventListener)
+    window.addEventListener('storage', read as any) // če se spremeni v drugem tabu
+    window.addEventListener('focus', read as any)   // ob povratku na zavihek
+    return () => {
+      window.removeEventListener('filters:update', onFiltersUpdate as EventListener)
+      window.removeEventListener('storage', read as any)
+      window.removeEventListener('focus', read as any)
+    }
+  }, [])
+
+  const clearFilters = () => {
+    try {
+      localStorage.setItem('selectedSources', JSON.stringify([]))
+      window.dispatchEvent(new CustomEvent('filters:update', { detail: { sources: [] } }))
+      setActiveSources([])
+    } catch {}
+  }
 
   const currentTheme = (theme ?? resolvedTheme) || 'dark'
   const isDark = currentTheme === 'dark'
@@ -45,6 +81,14 @@ export default function Header() {
     }
   }
 
+  // ⇣ NOVO: prijazen povzetek (“A, B +N”)
+  const activeLabel = useMemo(() => {
+    if (!activeSources?.length) return ''
+    const shown = activeSources.slice(0, 2).join(', ')
+    const extra = activeSources.length - 2
+    return extra > 0 ? `${shown} +${extra}` : shown
+  }, [activeSources])
+
   return (
     <header
       id="site-header"
@@ -62,7 +106,7 @@ export default function Header() {
             fetchPriority="high"
             className="w-9 h-9 rounded-md"
           />
-          <div className="min-w-0 leading-tight">
+        <div className="min-w-0 leading-tight">
             <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
               Križišče
             </h1>
@@ -83,7 +127,7 @@ export default function Header() {
             className="relative inline-flex h-10 w-10 items-center justify-center rounded-md
                        text-black/60 dark:text-white/70
                        hover:text-black/90 dark:hover:text-white/90
-                       hover:bg-black/[0.04] dark:hover:bg-white/[0.06] transition"
+                       hover:bg-black/[0.04] dark:hover:bg:white/[0.06] transition"
           >
             <svg
               viewBox="0 0 24 24"
@@ -157,7 +201,7 @@ export default function Header() {
             </button>
           )}
 
-          {/* Filter trigger (lijak namesto hamburgerja) */}
+          {/* Filter trigger (lijak) */}
           <button
             id="filters-trigger"
             type="button"
@@ -182,6 +226,39 @@ export default function Header() {
           </button>
         </div>
       </div>
+
+      {/* ⇣ NOVO: trak z aktivnimi filtri (pokaži samo, če je kaj izbrano) */}
+      {activeSources.length > 0 && (
+        <div className="px-4 md:px-8 lg:px-16 pb-2">
+          <div className="flex items-center justify-between gap-3
+                          rounded-lg border border-amber-200/60 dark:border-amber-800/50
+                          bg-amber-50/90 dark:bg-amber-900/20
+                          text-amber-900 dark:text-amber-200
+                          px-3 py-2">
+            <div className="min-w-0 text-[13px]">
+              <span className="font-medium">Prikazani viri:</span>{' '}
+              <span className="truncate">{activeLabel}</span>
+            </div>
+            <div className="shrink-0 flex items-center gap-2">
+              <button
+                type="button"
+                onClick={toggleFilters}
+                className="hidden sm:inline text-[13px] underline decoration-amber-600/70 hover:decoration-amber-600"
+              >
+                Uredi
+              </button>
+              <button
+                type="button"
+                onClick={clearFilters}
+                className="text-[13px] px-2.5 py-1 rounded-md
+                           bg-amber-600 text-white hover:bg-amber-500"
+              >
+                Pokaži vse
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </header>
   )
 }
