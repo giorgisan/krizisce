@@ -199,7 +199,7 @@ export default function ArticleCard({ news }: Props) {
             onFocus={handleEyeFocus}
             aria-label="Predogled"
             className="
-              eye-zoom peer absolute top-2 right-2 h-11 w-11 grid place-items-center rounded-full
+              eye-zoom peer absolute top-2 right-2 h-9 w-9 grid place-items-center rounded-full
               ring-1 ring-black/10 dark:ring-white/10 text-gray-700 dark:text-gray-200
               bg-white/80 dark:bg-gray-900/80 backdrop-blur transition-opacity duration-150 transform-gpu
               opacity-100 md:opacity-0
