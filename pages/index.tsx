@@ -1,10 +1,13 @@
 // pages/index.tsx
+'use client'
+
 import React, {
   useEffect,
   useMemo,
   useState,
   useDeferredValue,
   startTransition,
+  useRef,
 } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 
@@ -17,13 +20,21 @@ import ArticleCard from '@/components/ArticleCard'
 import SeoHead from '@/components/SeoHead'
 import BackToTop from '@/components/BackToTop'
 
-// Fetch helper for client polling / first-visit refresh
+// -------------------- Helpers & constants --------------------
+const POLL_MS = 60_000
+const HIDDEN_POLL_MS = 5 * 60_000
+const POLL_MAX_BACKOFF = 5
+
+function timeout(ms: number) {
+  return new Promise((_, rej) => setTimeout(() => rej(new Error('Request timeout')), ms))
+}
+
 async function loadNews(forceFresh: boolean, signal?: AbortSignal): Promise<NewsItem[] | null> {
   try {
-    const res = await fetch(`/api/news${forceFresh ? '?forceFresh=1' : ''}`, {
-      cache: 'no-store',
-      signal,
-    })
+    const res = await Promise.race([
+      fetch(`/api/news${forceFresh ? '?forceFresh=1' : ''}`, { cache: 'no-store', signal }),
+      timeout(12_000),
+    ]) as Response
     const fresh: NewsItem[] = await res.json()
     return Array.isArray(fresh) && fresh.length ? fresh : null
   } catch {
@@ -31,11 +42,16 @@ async function loadNews(forceFresh: boolean, signal?: AbortSignal): Promise<News
   }
 }
 
-// Bridge: enoten signal za Header (banner “Prikazani viri …”)
 function emitFilterUpdate(sources: string[]) {
   try { sessionStorage.setItem('filters_interacted', '1') } catch {}
   try { localStorage.setItem('selectedSources', JSON.stringify(sources)) } catch {}
   try { window.dispatchEvent(new CustomEvent('filters:update', { detail: { sources } })) } catch {}
+}
+
+const ric = (cb: () => void) => {
+  if (typeof (window as any).requestIdleCallback === 'function') {
+    ;(window as any).requestIdleCallback(cb, { timeout: 500 })
+  } else setTimeout(cb, 0)
 }
 
 type Props = { initialNews: NewsItem[] }
@@ -46,15 +62,11 @@ export default function Home({ initialNews }: Props) {
   const deferredFilter = useDeferredValue(filter)
   const [displayCount, setDisplayCount] = useState<number>(20)
 
-  // Dropdown (kept for future use; trigger je v Header)
   const [menuOpen, setMenuOpen] = useState(false)
   const [pos, setPos] = useState<{ top: number; right: number }>({ top: 0, right: 0 })
 
   useEffect(() => {
-    const handler = () => {
-      computeDropdownPos()
-      setMenuOpen((s) => !s)
-    }
+    const handler = () => { ric(() => computeDropdownPos()); setMenuOpen((s) => !s) }
     window.addEventListener('toggle-filters', handler as EventListener)
     return () => window.removeEventListener('toggle-filters', handler as EventListener)
   }, [])
@@ -74,22 +86,19 @@ export default function Home({ initialNews }: Props) {
   }
 
   useEffect(() => {
-    computeDropdownPos()
-    const onResize = () => computeDropdownPos()
-    const onScroll = () => menuOpen && computeDropdownPos()
+    if (!menuOpen) return
+    const onResize = () => ric(() => computeDropdownPos())
+    const onScroll = () => ric(() => menuOpen && computeDropdownPos())
     window.addEventListener('resize', onResize)
     window.addEventListener('scroll', onScroll, { passive: true })
+    ric(() => computeDropdownPos())
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setMenuOpen(false) }
+    document.addEventListener('keydown', onKey)
     return () => {
       window.removeEventListener('resize', onResize)
       window.removeEventListener('scroll', onScroll)
+      document.removeEventListener('keydown', onKey)
     }
-  }, [menuOpen])
-
-  useEffect(() => {
-    if (!menuOpen) return
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setMenuOpen(false) }
-    document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
   }, [menuOpen])
 
   // ---------- Instant refresh on first visit ----------
@@ -98,58 +107,68 @@ export default function Home({ initialNews }: Props) {
   useEffect(() => {
     const ctrl = new AbortController()
     ;(async () => {
-      const fresh = await loadNews(true, ctrl.signal) // no-store
+      const fresh = await loadNews(true, ctrl.signal)
       if (fresh && fresh.length) {
-        const latestFresh   = fresh[0].publishedAt || new Date(fresh[0].pubDate).getTime()
-        const latestInitial = (initialNews[0]?.publishedAt) || new Date(initialNews[0]?.pubDate || 0).getTime()
+        const latestFresh = fresh[0]?.publishedAt || 0
+        const latestInitial = initialNews[0]?.publishedAt || 0
         if (latestFresh > latestInitial) {
-          startTransition(() => {
-            setNews(fresh)
-            setDisplayCount(20)
-          })
+          startTransition(() => { setNews(fresh); setDisplayCount(20) })
         }
       }
       setBootRefreshed(true)
     })()
-    return () => { ctrl.abort() }
+    return () => ctrl.abort()
   }, [initialNews])
   // ----------------------------------------------------
 
-  // “green-dot” polling kicks in after the first refresh pass
+  // polling (z backoff + visibility)
   const [freshNews, setFreshNews] = useState<NewsItem[] | null>(null)
   const [hasNew, setHasNew] = useState(false)
+  const missCountRef = useRef(0)
+  const timerRef = useRef<number | null>(null)
 
   useEffect(() => {
     if (!bootRefreshed) return
 
-    let timer = 0
-    const run = async () => {
+    const runCheck = async () => {
       const ctrl = new AbortController()
-      try {
-        const fresh = await loadNews(true, ctrl.signal)
-        if (!fresh || fresh.length === 0) {
-          setHasNew(false)
-          window.dispatchEvent(new CustomEvent('news-has-new', { detail: false }))
-          return
-        }
-        const latestFresh = fresh[0].publishedAt || new Date(fresh[0].pubDate).getTime()
-        const base = (news[0] ?? initialNews[0])
-        const latestCurrent = (base?.publishedAt) || new Date(base?.pubDate || 0).getTime()
-        const newer = latestFresh > latestCurrent
-        setFreshNews(fresh)
-        setHasNew(newer)
-        window.dispatchEvent(new CustomEvent('news-has-new', { detail: newer }))
-      } finally {
-        // nič – fetch se konča sam; če se komponenta unmounta, interval se počisti
+      const fresh = await loadNews(true, ctrl.signal)
+      if (!fresh || fresh.length === 0) {
+        setHasNew(false)
+        window.dispatchEvent(new CustomEvent('news-has-new', { detail: false }))
+        missCountRef.current = Math.min(5, missCountRef.current + 1)
+        return
       }
+      const latestFresh = fresh[0]?.publishedAt || 0
+      const latestCurrent = (news[0] ?? initialNews[0])?.publishedAt || 0
+      const newer = latestFresh > latestCurrent
+      setFreshNews(fresh)
+      setHasNew(newer)
+      window.dispatchEvent(new CustomEvent('news-has-new', { detail: newer }))
+      missCountRef.current = newer ? 0 : Math.min(5, missCountRef.current + 1)
     }
 
-    run()
-    timer = window.setInterval(run, 60_000)
-    return () => { window.clearInterval(timer) }
+    const schedule = () => {
+      const hidden = document.visibilityState === 'hidden'
+      const base = hidden ? HIDDEN_POLL_MS : POLL_MS
+      const extra = missCountRef.current * 10_000
+      const delay = base + extra
+      if (timerRef.current) window.clearInterval(timerRef.current)
+      timerRef.current = window.setInterval(runCheck, delay) as unknown as number
+    }
+
+    runCheck()
+    schedule()
+
+    const onVis = () => { if (document.visibilityState === 'visible') runCheck(); schedule() }
+    document.addEventListener('visibilitychange', onVis)
+    return () => {
+      if (timerRef.current) window.clearInterval(timerRef.current)
+      document.removeEventListener('visibilitychange', onVis)
+    }
   }, [news, initialNews, bootRefreshed])
 
-  // Handle manual refresh signal from the header button
+  // manual refresh
   useEffect(() => {
     const onRefresh = () => {
       window.dispatchEvent(new CustomEvent('news-refreshing', { detail: true }))
@@ -158,18 +177,13 @@ export default function Home({ initialNews }: Props) {
           window.dispatchEvent(new CustomEvent('news-refreshing', { detail: false }))
           setHasNew(false)
           window.dispatchEvent(new CustomEvent('news-has-new', { detail: false }))
+          missCountRef.current = 0
         }
         if (freshNews && hasNew) {
-          setNews(freshNews)
-          setDisplayCount(20)
-          finish()
+          setNews(freshNews); setDisplayCount(20); finish()
         } else {
-          const ctrl = new AbortController()
-          loadNews(true, ctrl.signal).then((fresh) => {
-            if (fresh && fresh.length) {
-              setNews(fresh)
-              setDisplayCount(20)
-            }
+          loadNews(true).then((fresh) => {
+            if (fresh && fresh.length) { setNews(fresh); setDisplayCount(20) }
             finish()
           })
         }
@@ -179,13 +193,13 @@ export default function Home({ initialNews }: Props) {
     return () => window.removeEventListener('refresh-news', onRefresh as EventListener)
   }, [freshNews, hasNew])
 
-  // >>> sinhronizacija z Headerjem (filters:update)
+  // sync s Headerjem (filters:update)
   useEffect(() => {
     const onFiltersUpdate = (e: Event) => {
       const arr = (e as CustomEvent).detail?.sources
       if (!Array.isArray(arr)) return
       startTransition(() => {
-        setFilter(arr.length ? arr[0] : 'Vse')  // podpiramo en vir; [] = Vse
+        setFilter(arr.length ? arr[0] : 'Vse')
         setDisplayCount(20)
       })
     }
@@ -193,33 +207,25 @@ export default function Home({ initialNews }: Props) {
     return () => window.removeEventListener('filters:update', onFiltersUpdate as EventListener)
   }, [])
 
-  // Data shaping — SORT izključno po publishedAt
+  // data shaping
   const sortedNews = useMemo(
     () => [...news].sort((a, b) => (b.publishedAt || 0) - (a.publishedAt || 0)),
     [news]
   )
-  const filteredNews =
-    deferredFilter === 'Vse' ? sortedNews : sortedNews.filter((a) => a.source === deferredFilter)
-  const visibleNews = filteredNews.slice(0, displayCount)
+  const filteredNews = useMemo(
+    () => (deferredFilter === 'Vse' ? sortedNews : sortedNews.filter((a) => a.source === deferredFilter)),
+    [sortedNews, deferredFilter]
+  )
+  const visibleNews = useMemo(() => filteredNews.slice(0, displayCount), [filteredNews, displayCount])
 
-  // Izbor iz menija (oddamo signal)
-  const onPick = (s: string) =>
-    startTransition(() => {
-      setFilter(s)
-      setDisplayCount(20)
-      setMenuOpen(false)
-      emitFilterUpdate([s])
-    })
-
-  const resetFilter = () =>
-    startTransition(() => {
-      setFilter('Vse')
-      setDisplayCount(20)
-      setMenuOpen(false)
-      emitFilterUpdate([])
-    })
-
+  const onPick = (s: string) => startTransition(() => { setFilter(s); setDisplayCount(20); setMenuOpen(false); emitFilterUpdate([s]) })
+  const resetFilter = () => startTransition(() => { setFilter('Vse'); setDisplayCount(20); setMenuOpen(false); emitFilterUpdate([]) })
   const handleLoadMore = () => setDisplayCount((p) => p + 20)
+
+  const prefersReducedMotion =
+    typeof window !== 'undefined' &&
+    window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+  const motionDuration = prefersReducedMotion ? 0.01 : 0.2
 
   return (
     <>
@@ -230,7 +236,7 @@ export default function Home({ initialNews }: Props) {
         description="Agregator najnovejših novic iz slovenskih medijev. Članki so last izvornih portalov."
       />
 
-      {/* DROPDOWN (kept for future re-enable) */}
+      {/* DROPDOWN */}
       <AnimatePresence>
         {menuOpen && (
           <>
@@ -242,6 +248,7 @@ export default function Home({ initialNews }: Props) {
               transition={{ duration: 0.05 }}
               className="fixed inset-0 z-30 bg-transparent"
               onClick={() => setMenuOpen(false)}
+              aria-hidden
             />
             <motion.div
               key="filter-dropdown"
@@ -252,40 +259,19 @@ export default function Home({ initialNews }: Props) {
               className="fixed z-40"
               style={{ top: pos.top, right: pos.right }}
               onClick={(e) => e.stopPropagation()}
+              role="dialog"
+              aria-label="Filtriraj vire"
             >
-              <div
-                className="w-[86vw] max-w-[22rem]
-                           rounded-xl border border-gray-200/70 dark:border-gray-700/70
-                           bg-white/80 dark:bg-gray-900/75 backdrop-blur-xl
-                           shadow-xl overflow-hidden"
-                role="menu"
-                aria-label="Filtriraj vire"
-              >
+              <div className="w-[86vw] max-w-[22rem] rounded-xl border border-gray-200/70 dark:border-gray-700/70 bg-white/80 dark:bg-gray-900/75 backdrop-blur-xl shadow-xl overflow-hidden">
                 <div className="px-4 py-2 flex items-center justify-between">
-                  <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">
-                    Filtriraj vire
-                  </span>
-                  <button
-                    aria-label="Zapri"
-                    onClick={() => setMenuOpen(false)}
-                    className="h-8 w-8 inline-flex items-center justify-center rounded-md hover:bg-black/5 dark:hover:bg:white/5"
-                  >
-                    <svg viewBox="0 0 24 24" width="18" height="18">
-                      <path d="M6 6l12 12M18 6l-12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-                    </svg>
+                  <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">Filtriraj vire</span>
+                  <button aria-label="Zapri" onClick={() => setMenuOpen(false)} className="h-8 w-8 inline-flex items-center justify-center rounded-md hover:bg-black/5 dark:hover:bg-white/5">
+                    <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M6 6l12 12M18 6l-12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>
                   </button>
                 </div>
-
                 <div className="px-2 pb-2 max-h-[70vh] overflow-y-auto scrollbar-hide">
                   <div className="space-y-1">
-                    <button
-                      onClick={resetFilter}
-                      className="w-full text-left px-3 py-2 rounded-md
-                                 bg-brand text-white hover:bg-brand-hover transition"
-                    >
-                      Pokaži vse
-                    </button>
-
+                    <button onClick={resetFilter} className="w-full text-left px-3 py-2 rounded-md bg-brand text-white hover:bg-brand-hover transition">Pokaži vse</button>
                     {SOURCES.filter((s) => s !== 'Vse').map((source, idx) => (
                       <motion.button
                         key={source}
@@ -293,9 +279,7 @@ export default function Home({ initialNews }: Props) {
                         initial={{ opacity: 0, y: 3 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.12, delay: 0.01 * idx }}
-                        className="w-full text-left px-3 py-2 rounded-md
-                                   hover:bg-black/5 dark:hover:bg-white/5
-                                   text-gray-800 dark:text-gray-200 transition"
+                        className="w-full text-left px-3 py-2 rounded-md hover:bg-black/5 dark:hover:bg-white/5 text-gray-800 dark:text-gray-200 transition"
                       >
                         {source}
                       </motion.button>
@@ -320,7 +304,7 @@ export default function Home({ initialNews }: Props) {
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
-              transition={{ duration: 0.2 }}
+              transition={{ duration: motionDuration }}
               className="grid gap-6 grid-cols-2 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5"
             >
               {visibleNews.map((article) => (
@@ -332,10 +316,7 @@ export default function Home({ initialNews }: Props) {
 
         {displayCount < filteredNews.length && (
           <div className="text-center mt-8 mb-10">
-            <button
-              onClick={handleLoadMore}
-              className="px-5 py-2 bg-brand text-white rounded-full hover:bg-brand-hover transition"
-            >
+            <button onClick={handleLoadMore} className="px-5 py-2 bg-brand text-white rounded-full hover:bg-brand-hover transition">
               Naloži več
             </button>
           </div>
@@ -345,7 +326,6 @@ export default function Home({ initialNews }: Props) {
       </main>
 
       <BackToTop threshold={200} />
-
       <Footer />
     </>
   )
