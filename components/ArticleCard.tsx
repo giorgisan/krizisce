@@ -27,10 +27,10 @@ function formatDisplayTime(publishedAt?: number, iso?: string) {
   if (!ms) return ''
   const diff = Date.now() - ms
   const min = Math.floor(diff / 60_000)
-  const hr  = Math.floor(min / 60)
+  const hr = Math.floor(min / 60)
   if (diff < 60_000) return 'pred nekaj sekundami'
-  if (min < 60)     return `pred ${min} min`
-  if (hr  < 24)     return `pred ${hr} h`
+  if (min < 60) return `pred ${min} min`
+  if (hr < 24) return `pred ${hr} h`
   const d = new Date(ms)
   const date = new Intl.DateTimeFormat('sl-SI', { day: 'numeric', month: 'short' }).format(d)
   const time = new Intl.DateTimeFormat('sl-SI', { hour: '2-digit', minute: '2-digit' }).format(d)
@@ -39,31 +39,36 @@ function formatDisplayTime(publishedAt?: number, iso?: string) {
 
 export default function ArticleCard({ news }: Props) {
   const formattedDate = formatDisplayTime(news.publishedAt, news.isoDate)
+
   const sourceColor = useMemo(() => {
     const colors = require('@/lib/sources').sourceColors as Record<string, string>
     return colors[news.source] || '#fc9c6c'
   }, [news.source])
 
-  // --- 2-stopenjski prikaz slike: najprej PROXY, če pade → DIRECT, če spet pade → fallback ---
-  type Stage = 'proxy' | 'direct' | 'none'
-  const [stage, setStage] = useState<Stage>(news.image ? 'proxy' : 'none')
+  // ---- Slike: proxy → direct → fallback ----
+  const rawImg = news.image ?? null
+  const [useProxy, setUseProxy] = useState<boolean>(!!rawImg)
+  const [useFallback, setUseFallback] = useState<boolean>(!rawImg)
 
-  const src = useMemo(() => {
-    if (!news.image) return null
-    if (stage === 'proxy') return proxiedImage(news.image, 640, 360, 1)
-    if (stage === 'direct') return news.image
-    return null
-  }, [stage, news.image])
+  const currentSrc = useMemo(() => {
+    if (!rawImg) return null
+    return useProxy ? proxiedImage(rawImg, 640, 360, 1) : rawImg
+  }, [rawImg, useProxy])
 
-  const onImgError = () => {
-    setStage((prev) => (prev === 'proxy' ? 'direct' : 'none'))
+  const handleImgError = () => {
+    // 1) če smo padli na proxy-u, poskusi še direkten URL
+    if (rawImg && useProxy) {
+      setUseProxy(false)
+      return
+    }
+    // 2) sicer prikaži fallback
+    if (!useFallback) setUseFallback(true)
   }
 
+  // Preload za LCP
   const [showPreview, setShowPreview] = useState(false)
   const cardRef = useRef<HTMLAnchorElement>(null)
   const [priority, setPriority] = useState(false)
-
-  // Mark as priority if initially close to viewport
   useEffect(() => {
     const el = cardRef.current
     if (!el) return
@@ -71,24 +76,23 @@ export default function ArticleCard({ news }: Props) {
     if (rect.top < (window.innerHeight || 0) * 0.9) setPriority(true)
   }, [])
 
-  // Preload best-fit image for LCP (proxy varianto)
   useEffect(() => {
-    if (!priority || !news.image) return
+    if (!priority || !rawImg) return
     const el = cardRef.current
     const rectW = Math.max(1, Math.round(el?.getBoundingClientRect().width || 480))
     const dpr   = (typeof window !== 'undefined' && window.devicePixelRatio) || 1
     const targetW = Math.min(1280, Math.round(rectW * dpr))
     const targetH = Math.round(targetW / ASPECT)
     const link = document.createElement('link')
-    link.rel = 'preload'
-    link.as = 'image'
-    link.href = proxiedImage(news.image, targetW, targetH, dpr)
+    link.rel  = 'preload'
+    link.as   = 'image'
+    link.href = proxiedImage(rawImg, targetW, targetH, dpr)
     link.crossOrigin = 'anonymous'
     document.head.appendChild(link)
     return () => { document.head.removeChild(link) }
-  }, [priority, news.image])
+  }, [priority, rawImg])
 
-  // Click logging
+  // Klik log
   const logClick = () => {
     try {
       const payload = JSON.stringify({ source: news.source, url: news.link })
@@ -108,18 +112,10 @@ export default function ArticleCard({ news }: Props) {
   }
   const handleAuxClick = (e: MouseEvent<HTMLAnchorElement>) => { if (e.button === 1) logClick() }
 
-  // Prefetch predogled
+  // Prefetch za preview
   const preloadedRef = useRef(false)
-  const doPrefetch = () => {
-    if (!preloadedRef.current && canPrefetch()) {
-      preloadedRef.current = true
-      preloadPreview(news.link).catch(() => {})
-    }
-  }
+  const doPrefetch = () => { if (!preloadedRef.current && canPrefetch()) { preloadedRef.current = true; preloadPreview(news.link).catch(() => {}) } }
   const [eyeHover, setEyeHover] = useState(false)
-  const hoverTimer = useRef<number | null>(null)
-  const handleCardEnter = () => { if (hoverTimer.current) window.clearTimeout(hoverTimer.current); hoverTimer.current = window.setTimeout(() => doPrefetch(), 120) }
-  const handleCardLeave = () => { if (hoverTimer.current) { window.clearTimeout(hoverTimer.current); hoverTimer.current = null } }
 
   return (
     <>
@@ -130,36 +126,35 @@ export default function ArticleCard({ news }: Props) {
         rel="noopener noreferrer"
         onClick={handleClick}
         onAuxClick={handleAuxClick}
-        onMouseEnter={handleCardEnter}
-        onMouseLeave={handleCardLeave}
+        onMouseEnter={() => { setEyeHover(true); doPrefetch() }}
+        onMouseLeave={() => setEyeHover(false)}
         onFocus={doPrefetch}
         className="cv-auto group block no-underline bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden transition-all duration-200 hover:scale-[1.02] hover:shadow-lg hover:bg-gray-100 dark:hover:bg-gray-700"
       >
         {/* Media */}
         <div className="relative w-full aspect-[16/9] overflow-hidden">
-          {!src ? (
+          {useFallback || !currentSrc ? (
             <div className="absolute inset-0 flex items-center justify-center">
               <div className="absolute inset-0 bg-gradient-to-br from-gray-200 via-gray-300 to-gray-200 dark:from-gray-700 dark:via-gray-800 dark:to-gray-700" />
               <span className="relative z-10 text-sm font-medium text-gray-700 dark:text-gray-300">Ni slike</span>
             </div>
           ) : (
             <Image
-              src={src}
+              src={currentSrc}
               alt={news.title}
               fill
               className="absolute inset-0 h-full w-full object-cover"
               sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
               priority={priority}
-              onError={onImgError}
+              onError={handleImgError}
+              // ker ne uporabljaš Vercel image optimizerja, se vse servira kot navaden <img>
+              unoptimized
             />
           )}
 
           {/* Oko (predogled) */}
           <button
             onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowPreview(true) }}
-            onMouseEnter={() => { setEyeHover(true); doPrefetch() }}
-            onMouseLeave={() => setEyeHover(false)}
-            onFocus={doPrefetch}
             aria-label="Predogled"
             className="eye-zoom peer absolute top-2 right-2 h-8 w-8 grid place-items-center rounded-full ring-1 ring-black/10 dark:ring-white/10 text-gray-700 dark:text-gray-200 bg-white/80 dark:bg-gray-900/80 backdrop-blur transition-opacity duration-150 transform-gpu opacity-100 md:opacity-0"
             style={eyeHover ? { transform: 'translateY(0) scale(1.30)', opacity: 1 } : undefined}
