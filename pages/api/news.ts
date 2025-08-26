@@ -1,4 +1,3 @@
-// pages/api/news.ts
 import type { NextApiRequest, NextApiResponse } from 'next'
 import fetchRSSFeeds from '@/lib/fetchRSSFeeds'
 import supabase from '@/lib/supabase'
@@ -6,7 +5,7 @@ import supabase from '@/lib/supabase'
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
     const forceFresh = req.query.forceFresh === '1'
-    // If not forcing a refresh, attempt to serve cached news from Supabase
+    // poskusi prebrati iz Supabase, če ne zahtevamo svežih podatkov
     if (!forceFresh) {
       const { data, error } = await supabase
         .from('news')
@@ -18,21 +17,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(200).json(data as any)
       }
     }
-    // Otherwise fetch fresh news
+    // sicer preberi sveže novice in jih upsert-aj
     const fresh = await fetchRSSFeeds({ forceFresh: true })
-    // Prepare payload for Supabase: convert camelCase fields to lowercase column names
     const payload = fresh.map((item) => ({
       ...item,
       isodate: item.isoDate,
       pubdate: item.pubDate,
     }))
     const { error: insertError } = await supabase.from('news').upsert(payload, { onConflict: 'link' })
-    if (insertError) {
-      console.error('Supabase insert error:', insertError)
-    }
+    if (insertError) console.error('Supabase insert error:', insertError)
     res.setHeader('Cache-Control', 'no-store, max-age=0, must-revalidate')
     return res.status(200).json(fresh)
-  } catch (e: any) {
+  } catch (e) {
     console.error('Failed to fetch news:', e)
     return res.status(500).json({ error: 'Failed to fetch news' })
   }
