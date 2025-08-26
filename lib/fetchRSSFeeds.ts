@@ -5,88 +5,83 @@ import { feeds } from './sources'
 
 type FetchOpts = { forceFresh?: boolean }
 
-// rss-parser: izpostavimo še media:thumbnail, media:group, ohranimo array-je
-const parser: Parser = new (Parser as any)({
+// Pomaga absolutizirati URL-je (//, /pot …) glede na link članka
+function absolutize(src: string | undefined | null, baseHref: string): string | null {
+  if (!src) return null
+  try {
+    // //example.com/a.jpg → https:
+    if (src.startsWith('//')) return new URL(`https:${src}`).toString()
+    // /img/a.jpg → https://host/img/a.jpg
+    const url = new URL(src, baseHref)
+    return url.toString()
+  } catch {
+    return null
+  }
+}
+
+const parser: Parser = new Parser({
+  // Razširimo polja, ki jih rss-parser sploh prenese v item
   customFields: {
     item: [
-      ['isoDate', 'content:encoded', 'media:content', 'media:thumbnail', 'media:group', 'enclosure'],
-      { 'media:content': ['url', 'medium', 'width', 'height'], keepArray: true },
-      { 'media:thumbnail': ['url', 'width', 'height'], keepArray: true },
-      { 'media:group': ['media:content', 'media:thumbnail'], keepArray: true },
-      { enclosure: ['url', 'type', 'length'] },
+      'isoDate',
+      'content:encoded',
+      'media:content',
+      'media:thumbnail',
+      ['media:group', 'mediaGroup'], // nekateri dajo group znotraj arraya
+      'enclosure',
+      'image',
     ],
   },
 })
 
-// poskusi normalizirati protokol ( //img -> https://img )
-function normalizeUrl(u?: string | null): string | null {
-  if (!u || typeof u !== 'string') return null
-  if (u.startsWith('//')) return 'https:' + u
-  return u
-}
-
-// izberi najboljšo izmed več variant (po širini/višini, sicer prva)
-function pickBest(arr: any[]): string | null {
-  let best: { url: string; score: number } | null = null
-  for (const it of arr) {
-    const url = normalizeUrl(it?.url || it?.$?.url || it)
-    if (!url) continue
-    const w = Number(it?.width || it?.$?.width || 0)
-    const h = Number(it?.height || it?.$?.height || 0)
-    const score = (w || 0) * (h || 0) || Math.max(w, h) || 1
-    if (!best || score > best.score) best = { url, score }
-  }
-  return best?.url ?? null
-}
-
-// poišči sliko v media:group, media:content, media:thumbnail, enclosure ali <img> v HTML
-function extractImage(item: any): string | null {
-  // 1) media:group
-  const group = item['media:group']
-  if (group) {
-    const gContents = Array.isArray(group?.['media:content'])
-      ? group['media:content']
-      : (group?.['media:content'] ? [group['media:content']] : [])
-    const gThumbs = Array.isArray(group?.['media:thumbnail'])
-      ? group['media:thumbnail']
-      : (group?.['media:thumbnail'] ? [group['media:thumbnail']] : [])
-    const fromGroup = pickBest([...(gContents || []), ...(gThumbs || [])])
-    if (fromGroup) return fromGroup
-  }
-
-  // 2) media:content (lahko array ali objekt)
-  const mc = item['media:content']
-  if (Array.isArray(mc)) {
-    const best = pickBest(mc)
-    if (best) return best
-  } else if (typeof mc === 'object' && mc) {
-    const one = normalizeUrl(mc?.url || mc?.$?.url)
-    if (one) return one
-  }
-
-  // 3) media:thumbnail
-  const mt = item['media:thumbnail']
-  if (Array.isArray(mt)) {
-    const best = pickBest(mt)
-    if (best) return best
-  } else if (typeof mt === 'object' && mt) {
-    const one = normalizeUrl(mt?.url || mt?.$?.url)
-    if (one) return one
-  }
-
-  // 4) enclosure (image/*)
-  if (item.enclosure?.url) {
-    const t = (item.enclosure.type || '').toLowerCase()
-    if (!t || t.startsWith('image/')) {
-      const u = normalizeUrl(item.enclosure.url)
-      if (u) return u
+// Poskusi pobrati sliko iz čim več tipičnih mest
+function extractImage(item: any, baseHref: string): string | null {
+  // 1) <media:group><media:content .../></media:group>
+  const mg = item.mediaGroup
+  if (mg) {
+    const arr = Array.isArray(mg['media:content']) ? mg['media:content'] : [mg['media:content']]
+    for (const c of arr.filter(Boolean)) {
+      const cand = c?.url ?? c?.$?.url
+      const abs = absolutize(cand, baseHref)
+      if (abs) return abs
     }
   }
 
-  // 5) prvi <img src="..."> v content/encoded
-  const html = (item['content:encoded'] || item.content || '') as string
+  // 2) <media:content url="...">
+  if (item['media:content']) {
+    const mc = item['media:content']
+    const cand = mc?.url ?? mc?.$?.url
+    const abs = absolutize(cand, baseHref)
+    if (abs) return abs
+  }
+
+  // 3) <media:thumbnail url="...">
+  if (item['media:thumbnail']) {
+    const mt = item['media:thumbnail']
+    const cand = mt?.url ?? mt?.$?.url
+    const abs = absolutize(cand, baseHref)
+    if (abs) return abs
+  }
+
+  // 4) <enclosure url="...">
+  if (item.enclosure?.url) {
+    const abs = absolutize(item.enclosure.url, baseHref)
+    if (abs) return abs
+  }
+
+  // 5) content / content:encoded – prvi <img src="...">
+  const html = (item['content:encoded'] ?? item.content ?? '') as string
   const m = html.match(/<img[^>]+src=["']([^"']+)["']/i)
-  if (m?.[1]) return normalizeUrl(m[1])
+  if (m?.[1]) {
+    const abs = absolutize(m[1], baseHref)
+    if (abs) return abs
+  }
+
+  // 6) nekatere feed knjižnice dodajo .image
+  if (item.image?.url) {
+    const abs = absolutize(item.image.url, baseHref)
+    if (abs) return abs
+  }
 
   return null
 }
@@ -117,21 +112,22 @@ export default async function fetchRSSFeeds(opts: FetchOpts = {}): Promise<NewsI
         } as any)
 
         const xml = await res.text()
-        const feed = await (parser as any).parseString(xml)
+        const feed = await parser.parseString(xml)
         if (!feed.items?.length) return []
 
-        const items: NewsItem[] = feed.items.slice(0, 20).map((item: any) => {
-          const iso = item.isoDate ?? item.pubDate ?? new Date().toISOString()
+        const items: NewsItem[] = feed.items.slice(0, 25).map((item: any) => {
+          const iso = (item.isoDate ?? item.pubDate ?? new Date().toISOString()) as string
           const publishedAt = toUnixMs(iso)
+          const link = item.link ?? ''
           return {
             title: item.title ?? '',
-            link: item.link ?? '',
+            link,
             pubDate: item.pubDate ?? iso,
             isoDate: iso,
             content: item['content:encoded'] ?? item.content ?? '',
             contentSnippet: item.contentSnippet ?? '',
             source,
-            image: extractImage(item) ?? null,
+            image: extractImage(item, link),
             publishedAt,
           }
         })
