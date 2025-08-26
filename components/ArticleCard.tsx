@@ -14,30 +14,24 @@ import dynamic from 'next/dynamic'
 import Image from 'next/image'
 import { proxiedImage } from '@/lib/img'
 import { preloadPreview, canPrefetch } from '@/lib/previewPrefetch'
-import { sourceColors } from '@/lib/sources'
 
 interface Props { news: NewsItem }
 
 type PreviewProps = { url: string; onClose: () => void }
-const ArticlePreview = dynamic(
-  () => import('./ArticlePreview'),
-  { ssr: false }
-) as ComponentType<PreviewProps>
+const ArticlePreview = dynamic(() => import('./ArticlePreview'), { ssr: false }) as ComponentType<PreviewProps>
 
+const FALLBACK_SRC = '/default-news.jpg'
 const ASPECT = 16 / 9
 
-// Relative time for recent items; absolute date+time otherwise.
 function formatDisplayTime(publishedAt?: number, iso?: string) {
   const ms = publishedAt ?? (iso ? Date.parse(iso) : 0)
   if (!ms) return ''
   const diff = Date.now() - ms
   const min = Math.floor(diff / 60_000)
-  const hr  = Math.floor(min / 60)
-
+  const hr = Math.floor(min / 60)
   if (diff < 60_000) return 'pred nekaj sekundami'
-  if (min < 60)     return `pred ${min} min`
-  if (hr  < 24)     return `pred ${hr} h`
-
+  if (min < 60) return `pred ${min} min`
+  if (hr < 24) return `pred ${hr} h`
   const d = new Date(ms)
   const date = new Intl.DateTimeFormat('sl-SI', { day: 'numeric', month: 'short' }).format(d)
   const time = new Intl.DateTimeFormat('sl-SI', { hour: '2-digit', minute: '2-digit' }).format(d)
@@ -45,28 +39,22 @@ function formatDisplayTime(publishedAt?: number, iso?: string) {
 }
 
 export default function ArticleCard({ news }: Props) {
-  // 1) Fast, stable derived values
-  const formattedDate = useMemo(
-    () => formatDisplayTime(news.publishedAt, news.isoDate),
-    [news.publishedAt, news.isoDate]
-  )
-  const sourceColor = sourceColors[news.source] ?? '#fc9c6c'
+  const formattedDate = formatDisplayTime(news.publishedAt, news.isoDate)
+  const sourceColor = useMemo(() => {
+    const colors = require('@/lib/sources').sourceColors as Record<string, string>
+    return colors[news.source] || '#fc9c6c'
+  }, [news.source])
 
-  // 2) Image handling
   const [imgSrc] = useState<string | null>(news.image ?? null)
   const [useFallback, setUseFallback] = useState<boolean>(!news.image)
+
   const onImgError = () => { if (!useFallback) setUseFallback(true) }
 
-  const proxiedSrc = useMemo(
-    () => (imgSrc ? proxiedImage(imgSrc, 640, 360, 1) : null),
-    [imgSrc]
-  )
+  const proxiedSrc = useMemo(() => (imgSrc ? proxiedImage(imgSrc, 640, 360, 1) : null), [imgSrc])
 
   const [showPreview, setShowPreview] = useState(false)
   const cardRef = useRef<HTMLAnchorElement>(null)
   const [priority, setPriority] = useState(false)
-
-  // Mark as priority if initially close to viewport
   useEffect(() => {
     const el = cardRef.current
     if (!el) return
@@ -74,7 +62,6 @@ export default function ArticleCard({ news }: Props) {
     if (rect.top < (window.innerHeight || 0) * 0.9) setPriority(true)
   }, [])
 
-  // Preload best-fit image for LCP (with safe cleanup)
   useEffect(() => {
     if (!priority || !imgSrc) return
     const el = cardRef.current
@@ -82,18 +69,15 @@ export default function ArticleCard({ news }: Props) {
     const dpr   = (typeof window !== 'undefined' && window.devicePixelRatio) || 1
     const targetW = Math.min(1280, Math.round(rectW * dpr))
     const targetH = Math.round(targetW / ASPECT)
-
-    let link: HTMLLinkElement | null = document.createElement('link')
-    link.rel = 'preload'
-    link.as = 'image'
+    const link = document.createElement('link')
+    link.rel  = 'preload'
+    link.as   = 'image'
     link.href = proxiedImage(imgSrc, targetW, targetH, dpr)
     link.crossOrigin = 'anonymous'
     document.head.appendChild(link)
-
-    return () => { if (link) { document.head.removeChild(link); link = null } }
+    return () => { document.head.removeChild(link) }
   }, [priority, imgSrc])
 
-  // 3) Click logging
   const logClick = () => {
     try {
       const payload = JSON.stringify({ source: news.source, url: news.link })
@@ -101,51 +85,27 @@ export default function ArticleCard({ news }: Props) {
         const blob = new Blob([payload], { type: 'application/json' })
         navigator.sendBeacon('/api/click', blob)
       } else {
-        fetch('/api/click', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: payload,
-          keepalive: true,
-        })
+        fetch('/api/click', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: payload, keepalive: true })
       }
     } catch {}
   }
-
   const handleClick = (e: MouseEvent<HTMLAnchorElement>) => {
     if (e.metaKey || e.ctrlKey || e.button === 1) return
     e.preventDefault()
     window.open(news.link, '_blank')
     logClick()
   }
-  const handleAuxClick = (e: MouseEvent<HTMLAnchorElement>) => {
-    if (e.button === 1) logClick()
-  }
+  const handleAuxClick = (e: MouseEvent<HTMLAnchorElement>) => { if (e.button === 1) logClick() }
 
-  // 4) Intent-based preview prefetch (network-aware)
   const preloadedRef = useRef(false)
-  const doPrefetch = () => {
-    if (preloadedRef.current || !canPrefetch()) return
-    preloadedRef.current = true
-    preloadPreview(news.link).catch(() => {})
-  }
-
+  const doPrefetch = () => { if (!preloadedRef.current && canPrefetch()) { preloadedRef.current = true; preloadPreview(news.link).catch(() => {}) } }
   const [eyeHover, setEyeHover] = useState(false)
-  const hoverTimer = useRef<number | null>(null)
-
   const handleEyeEnter = () => { setEyeHover(true); doPrefetch() }
   const handleEyeLeave = () => setEyeHover(false)
   const handleEyeFocus = () => doPrefetch()
-
-  const handleCardEnter = () => {
-    if (hoverTimer.current) window.clearTimeout(hoverTimer.current)
-    hoverTimer.current = window.setTimeout(() => doPrefetch(), 120)
-  }
-  const handleCardLeave = () => {
-    if (hoverTimer.current) {
-      window.clearTimeout(hoverTimer.current)
-      hoverTimer.current = null
-    }
-  }
+  const hoverTimer = useRef<number | null>(null)
+  const handleCardEnter = () => { if (hoverTimer.current) window.clearTimeout(hoverTimer.current); hoverTimer.current = window.setTimeout(() => doPrefetch(), 120) }
+  const handleCardLeave = () => { if (hoverTimer.current) { window.clearTimeout(hoverTimer.current); hoverTimer.current = null } }
   const handleCardFocus = () => doPrefetch()
 
   return (
@@ -167,9 +127,7 @@ export default function ArticleCard({ news }: Props) {
           {useFallback || !proxiedSrc ? (
             <div className="absolute inset-0 flex items-center justify-center">
               <div className="absolute inset-0 bg-gradient-to-br from-gray-200 via-gray-300 to-gray-200 dark:from-gray-700 dark:via-gray-800 dark:to-gray-700" />
-              <span className="relative z-10 text-sm font-medium text-gray-700 dark:text-gray-300">
-                Ni slike
-              </span>
+              <span className="relative z-10 text-sm font-medium text-gray-700 dark:text-gray-300">Ni slike</span>
             </div>
           ) : (
             <Image
@@ -186,22 +144,11 @@ export default function ArticleCard({ news }: Props) {
           {/* Oko (predogled) */}
           <button
             onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowPreview(true) }}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault()
-                e.stopPropagation()
-                setShowPreview(true)
-              }
-            }}
             onMouseEnter={handleEyeEnter}
             onMouseLeave={handleEyeLeave}
             onFocus={handleEyeFocus}
             aria-label="Predogled"
-            aria-pressed={showPreview || undefined}
-            className="eye-zoom peer absolute top-2 right-2 h-8 w-8 grid place-items-center rounded-full
-                       ring-1 ring-black/10 dark:ring-white/10 text-gray-700 dark:text-gray-200
-                       bg-white/80 dark:bg-gray-900/80 backdrop-blur transition-opacity duration-150 transform-gpu
-                       opacity-100 md:opacity-0"
+            className="eye-zoom peer absolute top-2 right-2 h-8 w-8 grid place-items-center rounded-full ring-1 ring-black/10 dark:ring-white/10 text-gray-700 dark:text-gray-200 bg-white/80 dark:bg-gray-900/80 backdrop-blur transition-opacity duration-150 transform-gpu opacity-100 md:opacity-0"
             style={eyeHover ? { transform: 'translateY(0) scale(1.30)', opacity: 1 } : undefined}
           >
             <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
@@ -209,19 +156,12 @@ export default function ArticleCard({ news }: Props) {
               <circle cx="12" cy="12" r="3.5" stroke="currentColor" strokeWidth="2" fill="none" />
             </svg>
           </button>
-
-          {/* Tooltip */}
-          <span
-            className="hidden md:block pointer-events-none absolute top-2 right-[calc(0.5rem+2rem+8px)]
-                       rounded-md px-2 py-1 text-xs font-medium bg-black/60 text-white backdrop-blur-sm drop-shadow-lg
-                       opacity-0 -translate-x-1 transition-opacity transition-transform duration-150
-                       md:peer-hover:opacity-100 md:peer-hover:translate-x-0"
-          >
+          <span className="hidden md:block pointer-events-none absolute top-2 right-[calc(0.5rem+2rem+8px)] rounded-md px-2 py-1 text-xs font-medium bg-black/60 text-white backdrop-blur-sm drop-shadow-lg opacity-0 -translate-x-1 transition-opacity transition-transform duration-150 md:peer-hover:opacity-100 md:peer-hover:translate-x-0">
             Predogled&nbsp;novice
           </span>
         </div>
 
-        {/* Content */}
+        {/* Besedilo */}
         <div className="p-2.5 min-h-[10rem] sm:min-h-[10rem] md:min-h-[9.75rem] lg:min-h-[9.5rem] xl:min-h-[9.5rem] overflow-hidden">
           <div className="mb-1 grid grid-cols-[1fr_auto] items-baseline gap-x-2">
             <span className="truncate text-[12px] font-medium tracking-[0.01em]" style={{ color: sourceColor }}>
@@ -229,21 +169,12 @@ export default function ArticleCard({ news }: Props) {
             </span>
             <span className="text-[11px] text-gray-500 dark:text-gray-400">{formattedDate}</span>
           </div>
-          <h3 className="line-clamp-3 text-[15px] font-semibold leading-tight text-gray-900 dark:text-gray-100">
-            {news.title}
-          </h3>
-          <p className="mt-1 line-clamp-3 text-[13px] text-gray-700 dark:text-gray-300">
-            {news.contentSnippet}
-          </p>
+          <h3 className="line-clamp-3 text-[15px] font-semibold leading-tight text-gray-900 dark:text-gray-100">{news.title}</h3>
+          <p className="mt-1 line-clamp-3 text-[13px] text-gray-700 dark:text-gray-300">{news.contentSnippet}</p>
         </div>
       </a>
 
-      {showPreview && (
-        <ArticlePreview
-          url={news.link}
-          onClose={() => setShowPreview(false)}
-        />
-      )}
+      {showPreview && <ArticlePreview url={news.link} onClose={() => setShowPreview(false)} />}
     </>
   )
 }
