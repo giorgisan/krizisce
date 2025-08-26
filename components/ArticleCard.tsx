@@ -20,7 +20,8 @@ interface Props { news: NewsItem }
 type PreviewProps = { url: string; onClose: () => void }
 const ArticlePreview = dynamic(() => import('./ArticlePreview'), { ssr: false }) as ComponentType<PreviewProps>
 
-const FALLBACK_SRC = '/logos/default-news.jpg'
+// Default fallback image stored in /public/default-news.jpg
+const FALLBACK_SRC = '/default-news.jpg'
 const ASPECT = 16 / 9
 
 function formatDate(iso: string) {
@@ -32,13 +33,11 @@ function formatDate(iso: string) {
 
 export default function ArticleCard({ news }: Props) {
   const formattedDate = formatDate(news.isoDate)
-
   const sourceColor = useMemo(() => {
     const colors = require('@/lib/sources').sourceColors as Record<string, string>
     return colors[news.source] || '#fc9c6c'
   }, [news.source])
-
-  // image state
+  // image state: start with provided image or null
   const [imgSrc, setImgSrc] = useState<string | null>(news.image || null)
   const [useFallback, setUseFallback] = useState<boolean>(!news.image)
   const onImgError = () => {
@@ -47,10 +46,8 @@ export default function ArticleCard({ news }: Props) {
       setUseFallback(true)
     }
   }
-
   const [showPreview, setShowPreview] = useState(false)
-
-  // LCP hint: prve kartice → eager + preload
+  // LCP hint: preload first cards
   const cardRef = useRef<HTMLAnchorElement>(null)
   const [priority, setPriority] = useState(false)
   useEffect(() => {
@@ -60,46 +57,46 @@ export default function ArticleCard({ news }: Props) {
     const vp = window.innerHeight || 0
     if (rect.top < vp * 0.9) setPriority(true)
   }, [])
-
-  // Preload slike z dejansko širino kartice × DPR (varčnejše na mobile)
+  // Preload image at proper dimensions
   useEffect(() => {
     if (!priority || !imgSrc) return
     const el = cardRef.current
-    const rectW = Math.max(1, Math.round((el?.getBoundingClientRect().width || 480)))
+    const rectW = Math.max(1, Math.round(el?.getBoundingClientRect().width || 480))
     const dpr = (typeof window !== 'undefined' && window.devicePixelRatio) || 1
     const targetW = Math.min(1280, Math.round(rectW * dpr))
     const targetH = Math.round(targetW / ASPECT)
-
     const link = document.createElement('link')
     link.rel = 'preload'
     link.as = 'image'
     link.href = proxiedImage(imgSrc, targetW, targetH, dpr)
     link.crossOrigin = 'anonymous'
     document.head.appendChild(link)
-    return () => { document.head.removeChild(link) }
+    return () => {
+      document.head.removeChild(link)
+    }
   }, [priority, imgSrc])
-
   // click logging
   const logClick = () => {
-    try {
-      const payload = JSON.stringify({ source: news.source, url: news.link })
-      if ('sendBeacon' in navigator) {
-        const blob = new Blob([payload], { type: 'application/json' })
-        navigator.sendBeacon('/api/click', blob)
-      } else {
-        fetch('/api/click', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: payload, keepalive: true })
-      }
-    } catch {}
-  }
+  try {
+    const payload = JSON.stringify({ source: news.source, url: news.link })
+    if ('sendBeacon' in navigator) {
+      const blob = new Blob([payload], { type: 'application/json' })
+      navigator.sendBeacon('/api/click', blob)
+    } else {
+      fetch('/api/click', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: payload, keepalive: true })
+    }
+  } catch {}
+}
   const handleClick = (e: MouseEvent<HTMLAnchorElement>) => {
     if (e.metaKey || e.ctrlKey || e.button === 1) return
     e.preventDefault()
     window.open(news.link, '_blank')
     logClick()
   }
-  const handleAuxClick = (e: MouseEvent<HTMLAnchorElement>) => { if (e.button === 1) logClick() }
-
-  // ---------- INTENT-BASED PREFETCH ----------
+  const handleAuxClick = (e: MouseEvent<HTMLAnchorElement>) => {
+    if (e.button === 1) logClick()
+  }
+  // prefetch preview when user shows intent
   const preloadedRef = useRef(false)
   const doPrefetch = () => {
     if (preloadedRef.current) return
@@ -107,24 +104,25 @@ export default function ArticleCard({ news }: Props) {
     preloadedRef.current = true
     preloadPreview(news.link).catch(() => {})
   }
-
-  // 1) hover/focus na OČESE
   const [eyeHover, setEyeHover] = useState(false)
-  const handleEyeEnter = () => { setEyeHover(true); doPrefetch() }
+  const handleEyeEnter = () => {
+    setEyeHover(true)
+    doPrefetch()
+  }
   const handleEyeLeave = () => setEyeHover(false)
   const handleEyeFocus = () => doPrefetch()
-
-  // 2) kratek hover na KARTICO (120 ms)
   const hoverTimer = useRef<number | null>(null)
   const handleCardEnter = () => {
     if (hoverTimer.current) window.clearTimeout(hoverTimer.current)
     hoverTimer.current = window.setTimeout(() => doPrefetch(), 120)
   }
   const handleCardLeave = () => {
-    if (hoverTimer.current) { window.clearTimeout(hoverTimer.current); hoverTimer.current = null }
+    if (hoverTimer.current) {
+      window.clearTimeout(hoverTimer.current)
+      hoverTimer.current = null
+    }
   }
   const handleCardFocus = () => doPrefetch()
-
   return (
     <>
       <a
@@ -159,10 +157,13 @@ export default function ArticleCard({ news }: Props) {
               onError={onImgError}
             />
           )}
-
           {/* Oko (Predogled) */}
           <button
-            onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowPreview(true) }}
+            onClick={(e) => {
+              e.preventDefault()
+              e.stopPropagation()
+              setShowPreview(true)
+            }}
             onMouseEnter={handleEyeEnter}
             onMouseLeave={handleEyeLeave}
             onFocus={handleEyeFocus}
@@ -180,7 +181,6 @@ export default function ArticleCard({ news }: Props) {
               <circle cx="12" cy="12" r="3.5" stroke="currentColor" strokeWidth="2" fill="none" />
             </svg>
           </button>
-
           {/* Tooltip */}
           <span
             className="
@@ -193,8 +193,7 @@ export default function ArticleCard({ news }: Props) {
             Predogled&nbsp;novice
           </span>
         </div>
-
-        {/* TEXT – enaka višina & skladna tipografija */}
+        {/* TEXT */}
         <div className="p-2.5 min-h-[10rem] sm:min-h-[10rem] md:min-h-[9.75rem] lg:min-h-[9.5rem] xl:min-h-[9.5rem] overflow-hidden">
           <div className="mb-1 grid grid-cols-[1fr_auto] items-baseline gap-x-2">
             <span
@@ -208,20 +207,17 @@ export default function ArticleCard({ news }: Props) {
               {formattedDate}
             </span>
           </div>
-
           <h2
             className="text-sm font-semibold leading-snug tracking-[-0.005em] line-clamp-3 mb-1 text-gray-900 dark:text-white"
             title={news.title}
           >
             {news.title}
           </h2>
-
           <p className="text-gray-600 dark:text-gray-400 text-sm leading-tight line-clamp-4">
             {news.contentSnippet || '\u00A0'}
           </p>
         </div>
       </a>
-
       {showPreview && <ArticlePreview url={news.link} onClose={() => setShowPreview(false)} />}
     </>
   )
