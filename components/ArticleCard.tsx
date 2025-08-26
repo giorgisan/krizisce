@@ -11,7 +11,8 @@ import {
   ComponentType,
 } from 'react'
 import dynamic from 'next/dynamic'
-import { proxiedImage, buildSrcSet } from '@/lib/img'
+import Image from 'next/image'
+import { proxiedImage } from '@/lib/img'
 import { preloadPreview, canPrefetch } from '@/lib/previewPrefetch'
 
 interface Props { news: NewsItem }
@@ -124,33 +125,6 @@ export default function ArticleCard({ news }: Props) {
   }
   const handleCardFocus = () => doPrefetch()
 
-  // 3) IntersectionObserver (≥ 60% v viewportu)
-  useEffect(() => {
-    const el = cardRef.current; if (!el) return
-    if (preloadedRef.current) return
-    const io = new IntersectionObserver((entries) => {
-      for (const e of entries) {
-        if (e.isIntersecting && e.intersectionRatio >= 0.6) {
-          doPrefetch(); io.disconnect(); break
-        }
-      }
-    }, { threshold: [0, 0.6, 1] })
-    io.observe(el)
-    return () => io.disconnect()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-
-  // responsive src/srcset
-  const widths = [256, 320, 480, 640, 768, 1024]
-  const sizes = '(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw'
-  const dpr = (typeof window !== 'undefined' && window.devicePixelRatio) || 1
-
-  // KLJUČNO (mobile-first): v "src" daj manjšega — 480px
-  const baseW = 480
-  const baseH = Math.round(baseW / ASPECT)
-  const mainSrc = imgSrc ? proxiedImage(imgSrc, baseW, baseH, dpr) : FALLBACK_SRC
-  const srcSet = imgSrc ? buildSrcSet(imgSrc, widths, ASPECT) : undefined
-
   return (
     <>
       <a
@@ -175,18 +149,13 @@ export default function ArticleCard({ news }: Props) {
               </span>
             </div>
           ) : (
-            <img
-              src={mainSrc}
-              srcSet={srcSet}
-              sizes={sizes}
+            <Image
+              src={imgSrc!}
               alt={news.title}
-              width={1600}
-              height={900}
+              fill
               className="absolute inset-0 h-full w-full object-cover"
-              referrerPolicy="no-referrer"
-              loading={priority ? 'eager' : 'lazy'}
-              decoding={priority ? 'sync' : 'async'}
-              fetchPriority={priority ? 'high' : 'auto'}
+              sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
+              priority={priority}
               onError={onImgError}
             />
           )}
