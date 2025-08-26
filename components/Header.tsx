@@ -17,18 +17,55 @@ export default function Header() {
   // null = v tej seji še ni bilo interakcije; [] = resetirano; ['RTVSLO'] = aktiven filter
   const [activeSources, setActiveSources] = useState<string[] | null>(null)
 
-  // >>> ura: osvežuje se vsako minuto, prikazana samo na širših zaslonih
-  const [time, setTime] = useState(() =>
-    new Intl.DateTimeFormat('sl-SI', { hour: '2-digit', minute: '2-digit' }).format(new Date())
+  // ---------- Ura (estetska, poravnana na minuto, skrita na <sm) ----------
+  function fmt(now: Date, withDay = false) {
+    const opts: Intl.DateTimeFormatOptions = withDay
+      ? { weekday: 'short', hour: '2-digit', minute: '2-digit' }
+      : { hour: '2-digit', minute: '2-digit' }
+    return new Intl.DateTimeFormat('sl-SI', opts).format(now)
+  }
+  const [clock, setClock] = useState(() => fmt(new Date()))
+  const [clockFull, setClockFull] = useState(() =>
+    new Intl.DateTimeFormat('sl-SI', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    }).format(new Date())
   )
+
   useEffect(() => {
-    const timer = setInterval(() => {
-      setTime(
-        new Intl.DateTimeFormat('sl-SI', { hour: '2-digit', minute: '2-digit' }).format(new Date())
+    // poravnaj na naslednjo minuto, nato interval 60s
+    const tick = () => {
+      const now = new Date()
+      setClock(fmt(now))
+      setClockFull(
+        new Intl.DateTimeFormat('sl-SI', {
+          weekday: 'long',
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+        }).format(now)
       )
-    }, 60_000)
-    return () => clearInterval(timer)
+    }
+    const now = new Date()
+    const msToNextMinute = (60 - now.getSeconds()) * 1000 - now.getMilliseconds()
+    const align = window.setTimeout(() => {
+      tick()
+      const id = window.setInterval(tick, 60_000)
+      ;(window as any).__clockInt__ = id
+    }, Math.max(0, msToNextMinute))
+
+    return () => {
+      window.clearTimeout(align)
+      if ((window as any).__clockInt__) window.clearInterval((window as any).__clockInt__)
+    }
   }, [])
+  // -----------------------------------------------------------------------
 
   useEffect(() => setMounted(true), [])
 
@@ -43,7 +80,7 @@ export default function Header() {
     }
   }, [])
 
-  // ---- BRIDGE: prestrezi localStorage.setItem('selectedSources', ... ) in oddaj filters:update
+  // ---- BRIDGE: prestrezi localStorage.setItem('selectedSources', ...) in oddaj filters:update
   useEffect(() => {
     try {
       const origSetItem = localStorage.setItem.bind(localStorage)
@@ -110,9 +147,6 @@ export default function Header() {
     window.dispatchEvent(new CustomEvent('refresh-news'))
   }
 
-  const toggleFilters = () =>
-    window.dispatchEvent(new CustomEvent('toggle-filters'))
-
   const onBrandClick: React.MouseEventHandler<HTMLAnchorElement> = (e) => {
     if (router.pathname === '/') {
       e.preventDefault()
@@ -139,7 +173,7 @@ export default function Header() {
             src="/logo.png"
             alt="Križišče"
             width={36}
-            height= {36}
+            height={36}
             priority
             fetchPriority="high"
             className="w-9 h-9 rounded-md"
@@ -154,11 +188,22 @@ export default function Header() {
           </div>
         </Link>
 
-        {/* Desno: ura (prikazana samo >=sm), refresh + tema + filter trigger */}
+        {/* Desno: ura (>=sm), refresh + tema + filter trigger */}
         <div className="flex items-center gap-1.5 sm:gap-2">
-          {/* ura je skrita na mobilnih (sm:hidden) in prikazana na širših sm:inline */}
-          <span className="hidden sm:inline-block text-[13px] text-gray-500 dark:text-gray-400">
-            {time}
+          {/* Ura — skrita na mobilnih, z mono/tabular številkami; na md doda kratek dan */}
+          <span
+            className="hidden sm:inline-flex items-center rounded-md px-2 h-8
+                       font-mono tabular-nums text-[13px]
+                       text-gray-600 dark:text-gray-300
+                       bg-black/[0.03] dark:bg-white/[0.06] backdrop-blur
+                       ring-1 ring-black/5 dark:ring-white/10"
+            title={clockFull}
+            aria-label={clockFull}
+          >
+            <span className="hidden md:inline pr-1 mr-1 border-r border-gray-200/60 dark:border-white/15">
+              {new Intl.DateTimeFormat('sl-SI', { weekday: 'short' }).format(new Date())}
+            </span>
+            {clock}
           </span>
 
           {/* Refresh */}
