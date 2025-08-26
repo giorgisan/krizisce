@@ -7,6 +7,7 @@ import React, {
   useState,
   useDeferredValue,
   startTransition,
+  useRef,
 } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 
@@ -19,13 +20,31 @@ import ArticleCard from '@/components/ArticleCard'
 import SeoHead from '@/components/SeoHead'
 import BackToTop from '@/components/BackToTop'
 
+// -------------------- Helpers & constants --------------------
+const POLL_MS = 60_000
+const HIDDEN_POLL_MS = 5 * 60_000 // ko je zavihek skrit, redkeje preverjamo
+const POLL_MAX_BACKOFF = 5 // do 5x zapored brez novic -> povečamo interval
+
+function timeout(ms: number) {
+  return new Promise((_, rej) => {
+    const t = setTimeout(() => {
+      clearTimeout(t)
+      rej(new Error('Request timeout'))
+    }, ms)
+  })
+}
+
 // Fetch helper for client polling / first-visit refresh
-async function loadNews(forceFresh: boolean): Promise<NewsItem[] | null> {
+async function loadNews(forceFresh: boolean, signal?: AbortSignal): Promise<NewsItem[] | null> {
   try {
-    const res = await fetch(`/api/news${forceFresh ? '?forceFresh=1' : ''}`, {
-      cache: 'no-store',
-    })
-    const fresh: NewsItem[] = await res.json()
+    const res = await Promise.race([
+      fetch(`/api/news${forceFresh ? '?forceFresh=1' : ''}`, {
+        cache: 'no-store',
+        signal,
+      }),
+      timeout(12_000),
+    ])
+    const fresh: NewsItem[] = await (res as Response).json()
     return Array.isArray(fresh) && fresh.length ? fresh : null
   } catch {
     return null
@@ -37,6 +56,15 @@ function emitFilterUpdate(sources: string[]) {
   try { sessionStorage.setItem('filters_interacted', '1') } catch {}
   try { localStorage.setItem('selectedSources', JSON.stringify(sources)) } catch {}
   try { window.dispatchEvent(new CustomEvent('filters:update', { detail: { sources } })) } catch {}
+}
+
+// rIC (requestIdleCallback) polyfill
+const ric = (cb: () => void) => {
+  if (typeof (window as any).requestIdleCallback === 'function') {
+    ;(window as any).requestIdleCallback(cb, { timeout: 500 })
+  } else {
+    setTimeout(cb, 0)
+  }
 }
 
 type Props = { initialNews: NewsItem[] }
@@ -53,7 +81,7 @@ export default function Home({ initialNews }: Props) {
 
   useEffect(() => {
     const handler = () => {
-      computeDropdownPos()
+      ric(() => computeDropdownPos())
       setMenuOpen((s) => !s)
     }
     window.addEventListener('toggle-filters', handler as EventListener)
@@ -75,32 +103,31 @@ export default function Home({ initialNews }: Props) {
   }
 
   useEffect(() => {
-    computeDropdownPos()
-    const onResize = () => computeDropdownPos()
-    const onScroll = () => menuOpen && computeDropdownPos()
+    if (!menuOpen) return
+    const onResize = () => ric(() => computeDropdownPos())
+    const onScroll = () => ric(() => menuOpen && computeDropdownPos())
+
     window.addEventListener('resize', onResize)
     window.addEventListener('scroll', onScroll, { passive: true })
+    ric(() => computeDropdownPos())
+
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setMenuOpen(false) }
+    document.addEventListener('keydown', onKey)
+
     return () => {
       window.removeEventListener('resize', onResize)
       window.removeEventListener('scroll', onScroll)
+      document.removeEventListener('keydown', onKey)
     }
-  }, [menuOpen])
-
-  useEffect(() => {
-    if (!menuOpen) return
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setMenuOpen(false) }
-    document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
   }, [menuOpen])
 
   // ---------- Instant refresh on first visit ----------
   const [bootRefreshed, setBootRefreshed] = useState(false)
 
   useEffect(() => {
-    let cancelled = false
+    const ctrl = new AbortController()
     ;(async () => {
-      const fresh = await loadNews(true) // no-store
-      if (cancelled) return
+      const fresh = await loadNews(true, ctrl.signal) // no-store
       if (fresh && fresh.length) {
         const latestFresh   = new Date(fresh[0].pubDate).getTime()
         const latestInitial = new Date(initialNews[0]?.pubDate || 0).getTime()
@@ -113,7 +140,7 @@ export default function Home({ initialNews }: Props) {
       }
       setBootRefreshed(true)
     })()
-    return () => { cancelled = true }
+    return () => ctrl.abort()
   }, [initialNews])
   // ----------------------------------------------------
 
@@ -121,34 +148,59 @@ export default function Home({ initialNews }: Props) {
   const [freshNews, setFreshNews] = useState<NewsItem[] | null>(null)
   const [hasNew, setHasNew] = useState(false)
 
+  // backoff state
+  const missCountRef = useRef(0)
+  const timerRef = useRef<number | null>(null)
+
   useEffect(() => {
     if (!bootRefreshed) return
 
-    let cancelled = false
-    const checkFresh = async () => {
-      const fresh = await loadNews(true)
+    const runCheck = async () => {
+      const ctrl = new AbortController()
+      const fresh = await loadNews(true, ctrl.signal)
+
       if (!fresh || fresh.length === 0) {
-        if (!cancelled) {
-          setHasNew(false)
-          window.dispatchEvent(new CustomEvent('news-has-new', { detail: false }))
-        }
+        setHasNew(false)
+        window.dispatchEvent(new CustomEvent('news-has-new', { detail: false }))
+        missCountRef.current = Math.min(POLL_MAX_BACKOFF, missCountRef.current + 1)
         return
       }
+
       const latestFresh = new Date(fresh[0].pubDate).getTime()
       const latestCurrent = new Date((news[0] ?? initialNews[0])?.pubDate || 0).getTime()
       const newer = latestFresh > latestCurrent
-      if (!cancelled) {
-        setFreshNews(fresh)
-        setHasNew(newer)
-        window.dispatchEvent(new CustomEvent('news-has-new', { detail: newer }))
-      }
+
+      setFreshNews(fresh)
+      setHasNew(newer)
+      window.dispatchEvent(new CustomEvent('news-has-new', { detail: newer }))
+      // če so nove, resetiramo backoff
+      missCountRef.current = newer ? 0 : Math.min(POLL_MAX_BACKOFF, missCountRef.current + 1)
     }
 
-    checkFresh()
-    const timer = window.setInterval(checkFresh, 60_000)
+    const schedule = () => {
+      const hidden = document.visibilityState === 'hidden'
+      const base = hidden ? HIDDEN_POLL_MS : POLL_MS
+      const extra = missCountRef.current * 10_000 // nežen backoff (0s,10s,20s,...)
+      const delay = base + extra
+
+      if (timerRef.current) window.clearInterval(timerRef.current)
+      timerRef.current = window.setInterval(runCheck, delay) as unknown as number
+    }
+
+    // prvi zagon + spremembe vidnosti
+    runCheck()
+    schedule()
+
+    const onVis = () => {
+      // ob prehodu v visible, takoj preverimo in na novo “schedule”
+      if (document.visibilityState === 'visible') runCheck()
+      schedule()
+    }
+    document.addEventListener('visibilitychange', onVis)
+
     return () => {
-      cancelled = true
-      window.clearInterval(timer)
+      if (timerRef.current) window.clearInterval(timerRef.current)
+      document.removeEventListener('visibilitychange', onVis)
     }
   }, [news, initialNews, bootRefreshed])
 
@@ -161,6 +213,7 @@ export default function Home({ initialNews }: Props) {
           window.dispatchEvent(new CustomEvent('news-refreshing', { detail: false }))
           setHasNew(false)
           window.dispatchEvent(new CustomEvent('news-has-new', { detail: false }))
+          missCountRef.current = 0 // reset backoff
         }
         if (freshNews && hasNew) {
           setNews(freshNews)
@@ -195,16 +248,24 @@ export default function Home({ initialNews }: Props) {
     return () => window.removeEventListener('filters:update', onFiltersUpdate as EventListener)
   }, [])
 
-  // Data shaping
+  // -------------------- Data shaping (memoized) --------------------
   const sortedNews = useMemo(
     () => [...news].sort((a, b) => new Date(b.pubDate).getTime() - new Date(a.pubDate).getTime()),
     [news]
   )
-  const filteredNews =
-    deferredFilter === 'Vse' ? sortedNews : sortedNews.filter((a) => a.source === deferredFilter)
-  const visibleNews = filteredNews.slice(0, displayCount)
 
-  // Izbor iz menija (oddamo signal)
+  const filteredNews = useMemo(() => {
+    return deferredFilter === 'Vse'
+      ? sortedNews
+      : sortedNews.filter((a) => a.source === deferredFilter)
+  }, [sortedNews, deferredFilter])
+
+  const visibleNews = useMemo(
+    () => filteredNews.slice(0, displayCount),
+    [filteredNews, displayCount]
+  )
+
+  // -------------------- Handlers --------------------
   const onPick = (s: string) =>
     startTransition(() => {
       setFilter(s)
@@ -222,6 +283,14 @@ export default function Home({ initialNews }: Props) {
     })
 
   const handleLoadMore = () => setDisplayCount((p) => p + 20)
+
+  // -------------------- Render --------------------
+  // spoštujmo prefers-reduced-motion: ob izklopu animacije skrajšamo trajanje
+  const prefersReducedMotion =
+    typeof window !== 'undefined' &&
+    window.matchMedia &&
+    window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  const motionDuration = prefersReducedMotion ? 0.01 : 0.2
 
   return (
     <>
@@ -244,6 +313,7 @@ export default function Home({ initialNews }: Props) {
               transition={{ duration: 0.05 }}
               className="fixed inset-0 z-30 bg-transparent"
               onClick={() => setMenuOpen(false)}
+              aria-hidden
             />
             <motion.div
               key="filter-dropdown"
@@ -254,14 +324,14 @@ export default function Home({ initialNews }: Props) {
               className="fixed z-40"
               style={{ top: pos.top, right: pos.right }}
               onClick={(e) => e.stopPropagation()}
+              role="dialog"
+              aria-label="Filtriraj vire"
             >
               <div
                 className="w-[86vw] max-w-[22rem]
                            rounded-xl border border-gray-200/70 dark:border-gray-700/70
                            bg-white/80 dark:bg-gray-900/75 backdrop-blur-xl
                            shadow-xl overflow-hidden"
-                role="menu"
-                aria-label="Filtriraj vire"
               >
                 <div className="px-4 py-2 flex items-center justify-between">
                   <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">
@@ -272,7 +342,7 @@ export default function Home({ initialNews }: Props) {
                     onClick={() => setMenuOpen(false)}
                     className="h-8 w-8 inline-flex items-center justify-center rounded-md hover:bg-black/5 dark:hover:bg-white/5"
                   >
-                    <svg viewBox="0 0 24 24" width="18" height="18">
+                    <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
                       <path d="M6 6l12 12M18 6l-12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
                     </svg>
                   </button>
@@ -322,7 +392,7 @@ export default function Home({ initialNews }: Props) {
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
-              transition={{ duration: 0.2 }}
+              transition={{ duration: motionDuration }}
               className="grid gap-6 grid-cols-2 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5"
             >
               {visibleNews.map((article) => (
