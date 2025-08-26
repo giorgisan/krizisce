@@ -3,10 +3,10 @@ const nextConfig = {
   reactStrictMode: true,
   // enable image optimization; remote patterns for news sources and images.weserv
   images: {
-    // Allow images from all subdomains of media sources. Without these patterns Next.js
-    // blocks remote images from unknown subdomains which causes many missing images.
+    // Allow images from all subdomains of media sources and weserv proxy
     remotePatterns: [
       { protocol: 'https', hostname: '**.rtvslo.si' },
+      { protocol: 'https', hostname: '**.rtvcdn.si' },   // <--- dodano za RTV slike
       { protocol: 'https', hostname: '**.24ur.com' },
       { protocol: 'https', hostname: '**.siol.net' },
       { protocol: 'https', hostname: '**.zurnal24.si' },
