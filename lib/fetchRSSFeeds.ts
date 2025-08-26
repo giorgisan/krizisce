@@ -5,18 +5,61 @@ import { feeds } from './sources'
 
 type FetchOpts = { forceFresh?: boolean }
 
+// Dodamo še media:thumbnail, media:group, content:encoded
 const parser: Parser = new Parser({
-  customFields: { item: ['media:content', 'enclosure', 'isoDate', 'content:encoded'] },
+  customFields: {
+    item: [
+      'media:content',
+      'media:thumbnail',
+      'media:group',
+      'enclosure',
+      'content:encoded',
+      'isoDate',
+    ],
+  },
 })
 
-// poskusi najti sliko v media:content, enclosure ali prvi <img>
-function extractImage(item: any): string | null {
-  if (typeof item['media:content'] === 'object') {
-    if (item['media:content']?.url) return item['media:content'].url
-    if (item['media:content']?.$?.url) return item['media:content'].$.url
+// Helperji za varno branje URL-ja iz object/array struktur
+function pickUrl(v: any): string | null {
+  if (!v) return null
+  if (typeof v === 'string') return v
+  if (typeof v?.url === 'string') return v.url
+  if (typeof v?.$?.url === 'string') return v.$.url
+  return null
+}
+function firstUrl(v: any): string | null {
+  if (!v) return null
+  if (Array.isArray(v)) {
+    for (const it of v) {
+      const u = pickUrl(it)
+      if (u) return u
+    }
+    return null
   }
-  if (item.enclosure?.url) return item.enclosure.url
-  const match = (item.content || item['content:encoded'] || '').match(/<img[^>]+src="([^">]+)"/)
+  return pickUrl(v)
+}
+
+// Poskusi po vrstnem redu: media:group > media:content/thumbnail, media:content, media:thumbnail, enclosure, prvi <img>
+function extractImage(item: any): string | null {
+  const g = item['media:group']
+  if (g) {
+    const fromGroupContent = firstUrl((g as any)['media:content'])
+    if (fromGroupContent) return fromGroupContent
+    const fromGroupThumb = firstUrl((g as any)['media:thumbnail'])
+    if (fromGroupThumb) return fromGroupThumb
+  }
+
+  const mContent = firstUrl(item['media:content'])
+  if (mContent) return mContent
+
+  const mThumb = firstUrl(item['media:thumbnail'])
+  if (mThumb) return mThumb
+
+  const enc = pickUrl(item.enclosure)
+  if (enc) return enc
+
+  const html = item['content:encoded'] || item.content || ''
+  const match = String(html).match(/<img[^>]+src=(?:"|')([^"']+)(?:"|')/i)
   return match?.[1] ?? null
 }
 
@@ -26,9 +69,7 @@ function toUnixMs(d?: string | null) {
   const ms = Date.parse(d)
   if (!Number.isNaN(ms)) return ms
   try {
-    const cleaned = d
-      .replace(/,\s*/, ', ')
-      .replace(/\s+GMT[+-]\d{4}/i, '')
+    const cleaned = d.replace(/,\s*/, ', ').replace(/\s+GMT[+-]\d{4}/i, '')
     const ms2 = Date.parse(cleaned)
     return Number.isNaN(ms2) ? 0 : ms2
   } catch {
