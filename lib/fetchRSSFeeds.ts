@@ -5,64 +5,88 @@ import { feeds } from './sources'
 
 type FetchOpts = { forceFresh?: boolean }
 
-// RSS parserju eksplicitno izpostavimo še thumbnail-e in media:group
-const parser: Parser = new Parser({
+// rss-parser: izpostavimo še media:thumbnail, media:group, ohranimo array-je
+const parser: Parser = new (Parser as any)({
   customFields: {
     item: [
-      'media:content',
-      'media:thumbnail',
-      'media:group',
-      'enclosure',
-      'isoDate',
-      'content:encoded',
+      ['isoDate', 'content:encoded', 'media:content', 'media:thumbnail', 'media:group', 'enclosure'],
+      { 'media:content': ['url', 'medium', 'width', 'height'], keepArray: true },
+      { 'media:thumbnail': ['url', 'width', 'height'], keepArray: true },
+      { 'media:group': ['media:content', 'media:thumbnail'], keepArray: true },
+      { enclosure: ['url', 'type', 'length'] },
     ],
   },
 })
 
-// robustno izlušči URL slike iz različnih struktur (object/array)
-function pickUrl(v: any): string | null {
-  if (!v) return null
-  if (typeof v === 'string') return v || null
-  if (Array.isArray(v)) {
-    for (const it of v) {
-      const u = pickUrl(it)
-      if (u) return u
-    }
-    return null
-  }
-  // rss-parser pogosto da podatke kot { url } ali { $: { url } } ali { '@_url': ... }
-  return v.url || v.href || v.src || v['@_url'] || v?.$?.url || null
+// poskusi normalizirati protokol ( //img -> https://img )
+function normalizeUrl(u?: string | null): string | null {
+  if (!u || typeof u !== 'string') return null
+  if (u.startsWith('//')) return 'https:' + u
+  return u
 }
 
-// poskusi najti sliko v media:content, media:group, media:thumbnail, enclosure ali <img ...>
-function extractImage(item: any): string | null {
-  // 1) media:group > media:content/thumbnail
-  const g = item['media:group']
-  const gUrl =
-    pickUrl(g?.['media:content']) ||
-    pickUrl(g?.['media:thumbnail']) ||
-    pickUrl(g)
-  if (gUrl) return gUrl
+// izberi najboljšo izmed več variant (po širini/višini, sicer prva)
+function pickBest(arr: any[]): string | null {
+  let best: { url: string; score: number } | null = null
+  for (const it of arr) {
+    const url = normalizeUrl(it?.url || it?.$?.url || it)
+    if (!url) continue
+    const w = Number(it?.width || it?.$?.width || 0)
+    const h = Number(it?.height || it?.$?.height || 0)
+    const score = (w || 0) * (h || 0) || Math.max(w, h) || 1
+    if (!best || score > best.score) best = { url, score }
+  }
+  return best?.url ?? null
+}
 
-  // 2) media:content (tudi array)
-  const mc = pickUrl(item['media:content'])
-  if (mc) return mc
+// poišči sliko v media:group, media:content, media:thumbnail, enclosure ali <img> v HTML
+function extractImage(item: any): string | null {
+  // 1) media:group
+  const group = item['media:group']
+  if (group) {
+    const gContents = Array.isArray(group?.['media:content'])
+      ? group['media:content']
+      : (group?.['media:content'] ? [group['media:content']] : [])
+    const gThumbs = Array.isArray(group?.['media:thumbnail'])
+      ? group['media:thumbnail']
+      : (group?.['media:thumbnail'] ? [group['media:thumbnail']] : [])
+    const fromGroup = pickBest([...(gContents || []), ...(gThumbs || [])])
+    if (fromGroup) return fromGroup
+  }
+
+  // 2) media:content (lahko array ali objekt)
+  const mc = item['media:content']
+  if (Array.isArray(mc)) {
+    const best = pickBest(mc)
+    if (best) return best
+  } else if (typeof mc === 'object' && mc) {
+    const one = normalizeUrl(mc?.url || mc?.$?.url)
+    if (one) return one
+  }
 
   // 3) media:thumbnail
-  const mt = pickUrl(item['media:thumbnail'])
-  if (mt) return mt
+  const mt = item['media:thumbnail']
+  if (Array.isArray(mt)) {
+    const best = pickBest(mt)
+    if (best) return best
+  } else if (typeof mt === 'object' && mt) {
+    const one = normalizeUrl(mt?.url || mt?.$?.url)
+    if (one) return one
+  }
 
   // 4) enclosure (image/*)
-  if (item.enclosure?.type?.startsWith?.('image/') && item.enclosure?.url) {
-    return item.enclosure.url
+  if (item.enclosure?.url) {
+    const t = (item.enclosure.type || '').toLowerCase()
+    if (!t || t.startsWith('image/')) {
+      const u = normalizeUrl(item.enclosure.url)
+      if (u) return u
+    }
   }
-  const enc = pickUrl(item.enclosure)
-  if (enc) return enc
 
-  // 5) prvi <img> v content/content:encoded
-  const html = (item['content:encoded'] ?? item.content ?? '') as string
-  const m = html.match(/<img[^>]+src=["']([^"'>]+)["']/i)
-  if (m?.[1]) return m[1]
+  // 5) prvi <img src="..."> v content/encoded
+  const html = (item['content:encoded'] || item.content || '') as string
+  const m = html.match(/<img[^>]+src=["']([^"']+)["']/i)
+  if (m?.[1]) return normalizeUrl(m[1])
 
   return null
 }
@@ -93,7 +117,7 @@ export default async function fetchRSSFeeds(opts: FetchOpts = {}): Promise<NewsI
         } as any)
 
         const xml = await res.text()
-        const feed = await parser.parseString(xml)
+        const feed = await (parser as any).parseString(xml)
         if (!feed.items?.length) return []
 
         const items: NewsItem[] = feed.items.slice(0, 20).map((item: any) => {
@@ -107,7 +131,7 @@ export default async function fetchRSSFeeds(opts: FetchOpts = {}): Promise<NewsI
             content: item['content:encoded'] ?? item.content ?? '',
             contentSnippet: item.contentSnippet ?? '',
             source,
-            image: extractImage(item),
+            image: extractImage(item) ?? null,
             publishedAt,
           }
         })
