@@ -3,16 +3,19 @@ const nextConfig = {
   reactStrictMode: true,
   // enable image optimization; remote patterns for news sources and images.weserv
   images: {
+    // Allow images from all subdomains of media sources. Without these patterns Next.js
+    // blocks remote images from unknown subdomains which causes many missing images.
     remotePatterns: [
-      { protocol: 'https', hostname: 'images.weserv.nl', pathname: '/**' },
-      { protocol: 'https', hostname: 'img.rtvslo.si', pathname: '/**' },
-      { protocol: 'https', hostname: 'www.24ur.com', pathname: '/**' },
-      { protocol: 'https', hostname: 'siol.net', pathname: '/**' },
-      { protocol: 'https', hostname: 'www.zurnal24.si', pathname: '/**' },
-      { protocol: 'https', hostname: 'www.slovenskenovice.si', pathname: '/**' },
-      { protocol: 'https', hostname: 'www.delo.si', pathname: '/**' },
-      { protocol: 'https', hostname: 'n1info.si', pathname: '/**' },
-      { protocol: 'https', hostname: 'novice.svet24.si', pathname: '/**' },
+      { protocol: 'https', hostname: '**.rtvslo.si' },
+      { protocol: 'https', hostname: '**.24ur.com' },
+      { protocol: 'https', hostname: '**.siol.net' },
+      { protocol: 'https', hostname: '**.zurnal24.si' },
+      { protocol: 'https', hostname: '**.slovenskenovice.si' },
+      { protocol: 'https', hostname: '**.delo.si' },
+      { protocol: 'https', hostname: '**.n1info.si' },
+      { protocol: 'https', hostname: '**.svet24.si' },
+      // keep weserv proxy for thumbnails/preloads if needed
+      { protocol: 'https', hostname: 'images.weserv.nl' },
     ],
   },
   async headers() {
