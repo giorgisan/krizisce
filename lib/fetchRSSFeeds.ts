@@ -6,17 +6,24 @@ import { feeds } from './sources'
 type FetchOpts = { forceFresh?: boolean }
 
 const parser: Parser = new Parser({
-  customFields: { item: ['media:content', 'enclosure', 'isoDate'] },
+  // DODANO: 'content:encoded' (in priporočljivo še 'media:thumbnail')
+  customFields: { item: ['media:content', 'media:thumbnail', 'enclosure', 'isoDate', 'content:encoded'] },
 })
 
-// poskusi najti sliko v media:content, enclosure ali prvi <img>
+// poskusi najti sliko v media:content, media:thumbnail, enclosure ali prvi <img>
 function extractImage(item: any): string | null {
   if (typeof item['media:content'] === 'object') {
     if (item['media:content']?.url) return item['media:content'].url
     if (item['media:content']?.$?.url) return item['media:content'].$.url
   }
+  const thumb = item['media:thumbnail']
+  if (thumb) {
+    if (typeof thumb === 'object' && thumb.url) return thumb.url
+    if (typeof thumb === 'object' && thumb.$?.url) return thumb.$.url
+  }
   if (item.enclosure?.url) return item.enclosure.url
-  const match = (item.content || item['content:encoded'] || '').match(/<img[^>]+src="([^">]+)"/)
+  const html = (item['content:encoded'] || item.content || '') as string
+  const match = html.match(/<img[^>]+src=["']([^"'>]+)["']/i)
   return match?.[1] ?? null
 }
 
