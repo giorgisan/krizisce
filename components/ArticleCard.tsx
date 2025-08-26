@@ -4,6 +4,7 @@
 import { NewsItem } from '@/types'
 import {
   MouseEvent,
+  KeyboardEvent,
   useMemo,
   useRef,
   useState,
@@ -37,16 +38,20 @@ export default function ArticleCard({ news }: Props) {
     return colors[news.source] || '#fc9c6c'
   }, [news.source])
 
-  // image state
+  // ----- IMAGE STATE -----
   const [imgSrc, setImgSrc] = useState<string | null>(news.image || null)
   const [useFallback, setUseFallback] = useState<boolean>(!news.image)
+  const [imgLoaded, setImgLoaded] = useState<boolean>(false) // ⬅ fade-in + skeleton
+
   const onImgError = () => {
     if (!useFallback) {
       setImgSrc(FALLBACK_SRC)
       setUseFallback(true)
+      setImgLoaded(true) // fallback je instant
     }
   }
 
+  // ----- PREVIEW -----
   const [showPreview, setShowPreview] = useState(false)
 
   // LCP hint: prve kartice → eager + preload
@@ -64,7 +69,7 @@ export default function ArticleCard({ news }: Props) {
   useEffect(() => {
     if (!priority || !imgSrc) return
     const el = cardRef.current
-    const rectW = Math.max(1, Math.round((el?.getBoundingClientRect().width || 480)))
+    const rectW = Math.max(1, Math.round(el?.getBoundingClientRect().width || 480))
     const dpr = (typeof window !== 'undefined' && window.devicePixelRatio) || 1
     const targetW = Math.min(1280, Math.round(rectW * dpr))
     const targetH = Math.round(targetW / ASPECT)
@@ -78,7 +83,7 @@ export default function ArticleCard({ news }: Props) {
     return () => { document.head.removeChild(link) }
   }, [priority, imgSrc])
 
-  // click logging
+  // ----- CLICK LOGGING -----
   const logClick = () => {
     try {
       const payload = JSON.stringify({ source: news.source, url: news.link })
@@ -86,17 +91,39 @@ export default function ArticleCard({ news }: Props) {
         const blob = new Blob([payload], { type: 'application/json' })
         navigator.sendBeacon('/api/click', blob)
       } else {
-        fetch('/api/click', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: payload, keepalive: true })
+        fetch('/api/click', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: payload,
+          keepalive: true,
+        })
       }
     } catch {}
   }
+
   const handleClick = (e: MouseEvent<HTMLAnchorElement>) => {
+    // meta/ctrl ali srednji klik prepustimo privzetemu vedenju (že odpre nov zavihek)
     if (e.metaKey || e.ctrlKey || e.button === 1) return
     e.preventDefault()
     window.open(news.link, '_blank')
     logClick()
   }
-  const handleAuxClick = (e: MouseEvent<HTMLAnchorElement>) => { if (e.button === 1) logClick() }
+
+  const handleAuxClick = (e: MouseEvent<HTMLAnchorElement>) => {
+    if (e.button === 1) {
+      // middle-click: naj odpre (privzeto), mi pa zabeležimo
+      logClick()
+    }
+  }
+
+  // ⬇️ NOVO: tipkovnica (Enter/Space)
+  const handleKeyDown = (e: KeyboardEvent<HTMLAnchorElement>) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault()
+      window.open(news.link, '_blank')
+      logClick()
+    }
+  }
 
   // ---------- INTENT-BASED PREFETCH ----------
   const preloadedRef = useRef(false)
@@ -160,13 +187,24 @@ export default function ArticleCard({ news }: Props) {
         rel="noopener noreferrer"
         onClick={handleClick}
         onAuxClick={handleAuxClick}
+        onKeyDown={handleKeyDown}        // ⬅️ tipkovnica (Enter/Space)
         onMouseEnter={handleCardEnter}
         onMouseLeave={handleCardLeave}
         onFocus={handleCardFocus}
+        aria-label={news.title}
         className="cv-auto group block no-underline bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden transition-all duration-200 hover:scale-[1.02] hover:shadow-lg hover:bg-gray-100 dark:hover:bg-gray-700"
       >
         {/* MEDIA */}
         <div className="relative w-full aspect-[16/9] overflow-hidden">
+          {/* Skeleton: prikaz do onLoad (ni CLS) */}
+          {!useFallback && (
+            <div
+              className={`absolute inset-0 transition-opacity duration-300 ${imgLoaded ? 'opacity-0' : 'opacity-100'}`}
+            >
+              <div className="h-full w-full animate-pulse bg-gradient-to-br from-gray-200 via-gray-300 to-gray-200 dark:from-gray-700 dark:via-gray-800 dark:to-gray-700" />
+            </div>
+          )}
+
           {useFallback ? (
             <div className="absolute inset-0 flex items-center justify-center">
               <div className="absolute inset-0 bg-gradient-to-br from-gray-200 via-gray-300 to-gray-200 dark:from-gray-700 dark:via-gray-800 dark:to-gray-700" />
@@ -182,11 +220,12 @@ export default function ArticleCard({ news }: Props) {
               alt={news.title}
               width={1600}
               height={900}
-              className="absolute inset-0 h-full w-full object-cover"
+              className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-300 ${imgLoaded ? 'opacity-100' : 'opacity-0'} group-hover:scale-[1.01]`}
               referrerPolicy="no-referrer"
               loading={priority ? 'eager' : 'lazy'}
               decoding={priority ? 'sync' : 'async'}
               fetchPriority={priority ? 'high' : 'auto'}
+              onLoad={() => setImgLoaded(true)}    // ⬅️ fade-in
               onError={onImgError}
             />
           )}
