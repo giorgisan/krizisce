@@ -11,62 +11,43 @@ type Props = {
   jsonLd?: object
 }
 
-function toAbsolute(input: string, base: string) {
-  try {
-    // Podpira relativne in absolutne poti
-    return new URL(input, base).toString()
-  } catch {
-    return input
-  }
-}
-
 export default function SeoHead({
   title = 'Križišče',
   description = 'Agregator najnovejših novic iz slovenskih medijev. Članki so last izvornih portalov.',
   url = 'https://krizisce.si/',
-  image = 'logos/logo.png', // ohranimo tvoj privzet image
+  image = 'logos/logo.png',
   jsonLd,
 }: Props) {
   const fullTitle = title === 'Križišče' ? 'Križišče' : `${title} · Križišče`
-  const canonical = toAbsolute(url, url)
-  const ogImage = toAbsolute(image, url)
+  const ogImage = image.startsWith('http') ? image : new URL(image, url).toString()
 
   const fallbackJsonLd = {
     '@context': 'https://schema.org',
     '@type': 'WebSite',
     name: 'Križišče',
     alternateName: 'krizisce.si',
-    url: canonical,
+    url,
     description,
     publisher: {
       '@type': 'Organization',
       name: 'Križišče',
-      url: canonical,
-      logo: toAbsolute('/logos/logo.png', canonical),
+      url,
+      logo: new URL('/logos/logo.png', url).toString(),
     },
     potentialAction: {
       '@type': 'SearchAction',
-      target: `${canonical}?q={search_term_string}`,
+      target: `${url}?q={search_term_string}`,
       'query-input': 'required name=search_term_string',
     },
   }
 
   return (
     <Head>
-      {/* Osnovno */}
+      {/* Title + canonical */}
       <title>{fullTitle}</title>
-      <link rel="canonical" href={canonical} />
+      <link rel="canonical" href={url} />
 
-      {/* Varni “perf” namigi – globalno pomagajo nalaganju */}
-      <meta httpEquiv="x-dns-prefetch-control" content="on" />
-      <link rel="dns-prefetch" href="https://images.weserv.nl" />
-      <link rel="preconnect" href="https://images.weserv.nl" crossOrigin="anonymous" />
-
-      {/* Uporabno za mobilne UX barve in pravilno skaliranje */}
-      <meta name="theme-color" content="#111827" />
-      <meta name="viewport" content="width=device-width, initial-scale=1" />
-
-      {/* Meta opis */}
+      {/* Meta description */}
       <meta name="description" content={description} />
 
       {/* Open Graph */}
@@ -74,9 +55,8 @@ export default function SeoHead({
       <meta property="og:site_name" content="Križišče" />
       <meta property="og:title" content={fullTitle} />
       <meta property="og:description" content={description} />
-      <meta property="og:url" content={canonical} />
+      <meta property="og:url" content={url} />
       <meta property="og:image" content={ogImage} />
-      <meta property="og:image:secure_url" content={ogImage} />
       <meta property="og:image:width" content="1200" />
       <meta property="og:image:height" content="630" />
       <meta property="og:image:alt" content="Križišče – predogledna slika" />
@@ -95,7 +75,7 @@ export default function SeoHead({
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd ?? fallbackJsonLd) }}
       />
 
-      {/* Preload logotipa v headerju (ohranjam tvoj asset) */}
+      {/* Preload logotipa v headerju */}
       <link rel="preload" href="/logo.png" as="image" />
     </Head>
   )
