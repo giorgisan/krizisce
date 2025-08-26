@@ -6,7 +6,7 @@ import { feeds } from './sources'
 type FetchOpts = { forceFresh?: boolean }
 
 const parser: Parser = new Parser({
-  customFields: { item: ['media:content', 'enclosure', 'isoDate', 'content:encoded'] },
+  customFields: { item: ['media:content', 'enclosure', 'isoDate'] },
 })
 
 // poskusi najti sliko v media:content, enclosure ali prvi <img>
@@ -18,22 +18,6 @@ function extractImage(item: any): string | null {
   if (item.enclosure?.url) return item.enclosure.url
   const match = (item.content || item['content:encoded'] || '').match(/<img[^>]+src="([^">]+)"/)
   return match?.[1] ?? null
-}
-
-// robustno v Unix ms
-function toUnixMs(d?: string | null) {
-  if (!d) return 0
-  const ms = Date.parse(d)
-  if (!Number.isNaN(ms)) return ms
-  try {
-    const cleaned = d
-      .replace(/,\s*/, ', ')
-      .replace(/\s+GMT[+-]\d{4}/i, '')
-    const ms2 = Date.parse(cleaned)
-    return Number.isNaN(ms2) ? 0 : ms2
-  } catch {
-    return 0
-  }
 }
 
 export default async function fetchRSSFeeds(opts: FetchOpts = {}): Promise<NewsItem[]> {
@@ -51,15 +35,16 @@ export default async function fetchRSSFeeds(opts: FetchOpts = {}): Promise<NewsI
         const feed = await parser.parseString(xml)
         if (!feed.items?.length) return []
 
-        const items: NewsItem[] = feed.items.slice(0, 20).map((item: any) => {
-          const iso = item.isoDate ?? item.pubDate ?? new Date().toISOString()
-          const publishedAt = toUnixMs(iso)
+        const items: NewsItem[] = feed.items.slice(0, 20).map((item) => {
+          const iso = (item as any).isoDate ?? item.pubDate ?? new Date().toISOString()
+          const publishedAt = Date.parse(iso) || Date.now()
+
           return {
             title: item.title ?? '',
             link: item.link ?? '',
             pubDate: item.pubDate ?? iso,
             isoDate: iso,
-            content: item['content:encoded'] ?? item.content ?? '',
+            content: (item as any)['content:encoded'] ?? item.content ?? '',
             contentSnippet: item.contentSnippet ?? '',
             source,
             image: extractImage(item) ?? null,
@@ -75,6 +60,6 @@ export default async function fetchRSSFeeds(opts: FetchOpts = {}): Promise<NewsI
   )
 
   const flat = results.flat()
-  flat.sort((a, b) => (b.publishedAt || 0) - (a.publishedAt || 0))
+  flat.sort((a, b) => b.publishedAt - a.publishedAt)
   return flat
 }
