@@ -1,45 +1,60 @@
+// pages/api/news.ts
 import type { NextApiRequest, NextApiResponse } from 'next'
 import fetchRSSFeeds from '@/lib/fetchRSSFeeds'
 import supabase from '@/lib/supabase'
+import type { NewsItem } from '@/types'
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
     const forceFresh = req.query.forceFresh === '1'
 
-    // poskusi branje iz Supabase, če ni prisila
+    // 1) najprej poskusi iz Supabase (če ni prisile)
     if (!forceFresh) {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('news')
         .select('*')
-        .order('isodate', { ascending: false })
+        .order('publishedat', { ascending: false }) // <-- novi stolpec
         .limit(100)
-      if (data?.length) {
+
+      if (!error && data?.length) {
+        // vrnemo v obliki NewsItem[] (camelCase)
+        const payload: NewsItem[] = data.map((r: any) => ({
+          title: r.title,
+          link: r.link,
+          source: r.source,
+          image: r.image ?? null,
+          contentSnippet: r.contentsnippet ?? '',
+          pubDate: r.pubdate ?? undefined,
+          isoDate: r.isodate ?? undefined,
+          publishedAt: typeof r.publishedat === 'number'
+            ? r.publishedat
+            : (r.publishedat ? Date.parse(r.publishedat) : 0),
+        }))
         res.setHeader('Cache-Control', 's-maxage=60, stale-while-revalidate=300')
-        return res.status(200).json(data)
+        return res.status(200).json(payload)
       }
     }
 
-    // naloži sveže novice
+    // 2) sicer naloži sveže iz RSS
     const fresh = await fetchRSSFeeds({ forceFresh: true })
 
-    // pripravi podatke: pretvori isoDate, pubDate, contentSnippet; odstrani content
-    const payload = fresh.map(({ isoDate, pubDate, contentSnippet, content, ...rest }) => ({
+    // 3) pripravi zapis za Supabase (snake_case polja)
+    const payload = fresh.map(({ isoDate, pubDate, contentSnippet, publishedAt, ...rest }) => ({
       ...rest,
       isodate: isoDate,
       pubdate: pubDate,
       contentsnippet: contentSnippet,
+      publishedat: publishedAt, // shranimo Unix ms (BIGINT)
     }))
 
     const { error: upsertError } = await supabase
       .from('news')
       .upsert(payload, { onConflict: 'link' })
 
-    if (upsertError) {
-      console.error('Supabase upsert error:', upsertError)
-    }
+    if (upsertError) console.error('Supabase upsert error:', upsertError)
 
     res.setHeader('Cache-Control', 'no-store, max-age=0, must-revalidate')
-    return res.status(200).json(fresh)
+    return res.status(200).json(fresh) // že vsebuje publishedAt
   } catch (error) {
     console.error('Failed to fetch news:', error)
     return res.status(500).json({ error: 'Failed to fetch news' })
