@@ -41,20 +41,20 @@ export default function ArticleCard({ news }: Props) {
   // ----- IMAGE STATE -----
   const [imgSrc, setImgSrc] = useState<string | null>(news.image || null)
   const [useFallback, setUseFallback] = useState<boolean>(!news.image)
-  const [imgLoaded, setImgLoaded] = useState<boolean>(false) // ⬅ fade-in + skeleton
+  const [imgLoaded, setImgLoaded] = useState<boolean>(false) // fade-in + skeleton
 
   const onImgError = () => {
     if (!useFallback) {
       setImgSrc(FALLBACK_SRC)
       setUseFallback(true)
-      setImgLoaded(true) // fallback je instant
+      setImgLoaded(true) // fallback instant
     }
   }
 
   // ----- PREVIEW -----
   const [showPreview, setShowPreview] = useState(false)
 
-  // LCP hint: prve kartice → eager + preload
+  // LCP hint: prve kartice → eager + preload (zmernejši prag)
   const cardRef = useRef<HTMLAnchorElement>(null)
   const [priority, setPriority] = useState(false)
   useEffect(() => {
@@ -62,7 +62,8 @@ export default function ArticleCard({ news }: Props) {
     if (!el) return
     const rect = el.getBoundingClientRect()
     const vp = window.innerHeight || 0
-    if (rect.top < vp * 0.9) setPriority(true)
+    // nižje od 0.9 -> zmanjšamo število "eager/high" hkrati
+    if (rect.top < vp * 0.5) setPriority(true)
   }, [])
 
   // Preload slike z dejansko širino kartice × DPR (varčnejše na mobile)
@@ -78,7 +79,7 @@ export default function ArticleCard({ news }: Props) {
     link.rel = 'preload'
     link.as = 'image'
     link.href = proxiedImage(imgSrc, targetW, targetH, dpr)
-    link.crossOrigin = 'anonymous'
+    // crossOrigin je lahko odveč; pustimo ga stran, da ne uvajamo CORS variacij
     document.head.appendChild(link)
     return () => { document.head.removeChild(link) }
   }, [priority, imgSrc])
@@ -102,7 +103,6 @@ export default function ArticleCard({ news }: Props) {
   }
 
   const handleClick = (e: MouseEvent<HTMLAnchorElement>) => {
-    // meta/ctrl ali srednji klik prepustimo privzetemu vedenju (že odpre nov zavihek)
     if (e.metaKey || e.ctrlKey || e.button === 1) return
     e.preventDefault()
     window.open(news.link, '_blank')
@@ -110,13 +110,9 @@ export default function ArticleCard({ news }: Props) {
   }
 
   const handleAuxClick = (e: MouseEvent<HTMLAnchorElement>) => {
-    if (e.button === 1) {
-      // middle-click: naj odpre (privzeto), mi pa zabeležimo
-      logClick()
-    }
+    if (e.button === 1) logClick()
   }
 
-  // ⬇️ NOVO: tipkovnica (Enter/Space)
   const handleKeyDown = (e: KeyboardEvent<HTMLAnchorElement>) => {
     if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault()
@@ -187,7 +183,7 @@ export default function ArticleCard({ news }: Props) {
         rel="noopener noreferrer"
         onClick={handleClick}
         onAuxClick={handleAuxClick}
-        onKeyDown={handleKeyDown}        // ⬅️ tipkovnica (Enter/Space)
+        onKeyDown={handleKeyDown}
         onMouseEnter={handleCardEnter}
         onMouseLeave={handleCardLeave}
         onFocus={handleCardFocus}
@@ -196,18 +192,16 @@ export default function ArticleCard({ news }: Props) {
       >
         {/* MEDIA */}
         <div className="relative w-full aspect-[16/9] overflow-hidden">
-          {/* Skeleton: prikaz do onLoad (ni CLS) */}
+          {/* Skeleton: brez animacije (nižji CPU), izgine ob onLoad */}
           {!useFallback && (
             <div
               className={`absolute inset-0 transition-opacity duration-300 ${imgLoaded ? 'opacity-0' : 'opacity-100'}`}
-            >
-              <div className="h-full w-full animate-pulse bg-gradient-to-br from-gray-200 via-gray-300 to-gray-200 dark:from-gray-700 dark:via-gray-800 dark:to-gray-700" />
-            </div>
+              style={{ background: 'linear-gradient(135deg, #374151 0%, #4B5563 100%)' }}
+            />
           )}
 
           {useFallback ? (
-            <div className="absolute inset-0 flex items-center justify-center">
-              <div className="absolute inset-0 bg-gradient-to-br from-gray-200 via-gray-300 to-gray-200 dark:from-gray-700 dark:via-gray-800 dark:to-gray-700" />
+            <div className="absolute inset-0 flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #e5e7eb 0%, #d1d5db 100%)' }}>
               <span className="relative z-10 text-sm font-medium text-gray-700 dark:text-gray-300">
                 Ni slike
               </span>
@@ -223,9 +217,9 @@ export default function ArticleCard({ news }: Props) {
               className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-300 ${imgLoaded ? 'opacity-100' : 'opacity-0'} group-hover:scale-[1.01]`}
               referrerPolicy="no-referrer"
               loading={priority ? 'eager' : 'lazy'}
-              decoding={priority ? 'sync' : 'async'}
-              fetchPriority={priority ? 'high' : 'auto'}
-              onLoad={() => setImgLoaded(true)}    // ⬅️ fade-in
+              decoding="async"                 // ⬅ vedno async (TBT↓)
+              fetchPriority={priority ? 'high' : 'low'} // ⬅ ne “auto”
+              onLoad={() => setImgLoaded(true)}
               onError={onImgError}
             />
           )}
