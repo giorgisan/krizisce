@@ -1,4 +1,3 @@
-// components/ArticleCard.tsx
 'use client'
 
 import { NewsItem } from '@/types'
@@ -20,7 +19,6 @@ interface Props { news: NewsItem }
 type PreviewProps = { url: string; onClose: () => void }
 const ArticlePreview = dynamic(() => import('./ArticlePreview'), { ssr: false }) as ComponentType<PreviewProps>
 
-// Default fallback image stored in /public/default-news.jpg
 const FALLBACK_SRC = '/default-news.jpg'
 const ASPECT = 16 / 9
 
@@ -37,17 +35,24 @@ export default function ArticleCard({ news }: Props) {
     const colors = require('@/lib/sources').sourceColors as Record<string, string>
     return colors[news.source] || '#fc9c6c'
   }, [news.source])
-  // image state: start with provided image or null
-  const [imgSrc, setImgSrc] = useState<string | null>(news.image || null)
+
+  // uporabimo sliko, če obstaja, sicer null (bo prikazan fallback)
+  const [imgSrc] = useState<string | null>(news.image ?? null)
+  // ali naj pokažemo fallback
   const [useFallback, setUseFallback] = useState<boolean>(!news.image)
+
+  // ko proxirana slika javlja napako, preklopimo na fallback
   const onImgError = () => {
-    if (!useFallback) {
-      setImgSrc(FALLBACK_SRC)
-      setUseFallback(true)
-    }
+    if (!useFallback) setUseFallback(true)
   }
+
+  // izračunaj proxirano pot; s tem zagotovimo nalaganje prek ene domene
+  const proxiedSrc = useMemo(() => {
+    if (!imgSrc) return null
+    return proxiedImage(imgSrc, 640, 360, 1)
+  }, [imgSrc])
+
   const [showPreview, setShowPreview] = useState(false)
-  // LCP hint: preload first cards
   const cardRef = useRef<HTMLAnchorElement>(null)
   const [priority, setPriority] = useState(false)
   useEffect(() => {
@@ -57,7 +62,8 @@ export default function ArticleCard({ news }: Props) {
     const vp = window.innerHeight || 0
     if (rect.top < vp * 0.9) setPriority(true)
   }, [])
-  // Preload image at proper dimensions
+
+  // preload proxirane slike za LCP
   useEffect(() => {
     if (!priority || !imgSrc) return
     const el = cardRef.current
@@ -75,18 +81,19 @@ export default function ArticleCard({ news }: Props) {
       document.head.removeChild(link)
     }
   }, [priority, imgSrc])
-  // click logging
+
+  // beleženje klikov (ostaja enako)
   const logClick = () => {
-  try {
-    const payload = JSON.stringify({ source: news.source, url: news.link })
-    if ('sendBeacon' in navigator) {
-      const blob = new Blob([payload], { type: 'application/json' })
-      navigator.sendBeacon('/api/click', blob)
-    } else {
-      fetch('/api/click', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: payload, keepalive: true })
-    }
-  } catch {}
-}
+    try {
+      const payload = JSON.stringify({ source: news.source, url: news.link })
+      if ('sendBeacon' in navigator) {
+        const blob = new Blob([payload], { type: 'application/json' })
+        navigator.sendBeacon('/api/click', blob)
+      } else {
+        fetch('/api/click', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: payload, keepalive: true })
+      }
+    } catch {}
+  }
   const handleClick = (e: MouseEvent<HTMLAnchorElement>) => {
     if (e.metaKey || e.ctrlKey || e.button === 1) return
     e.preventDefault()
@@ -96,7 +103,8 @@ export default function ArticleCard({ news }: Props) {
   const handleAuxClick = (e: MouseEvent<HTMLAnchorElement>) => {
     if (e.button === 1) logClick()
   }
-  // prefetch preview when user shows intent
+
+  // prefetch preview, ko uporabnik pokaže namen
   const preloadedRef = useRef(false)
   const doPrefetch = () => {
     if (preloadedRef.current) return
@@ -123,6 +131,7 @@ export default function ArticleCard({ news }: Props) {
     }
   }
   const handleCardFocus = () => doPrefetch()
+
   return (
     <>
       <a
@@ -137,9 +146,9 @@ export default function ArticleCard({ news }: Props) {
         onFocus={handleCardFocus}
         className="cv-auto group block no-underline bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden transition-all duration-200 hover:scale-[1.02] hover:shadow-lg hover:bg-gray-100 dark:hover:bg-gray-700"
       >
-        {/* MEDIA */}
+        {/* MEDIJSKA PREDSTAVA */}
         <div className="relative w-full aspect-[16/9] overflow-hidden">
-          {useFallback ? (
+          {useFallback || !proxiedSrc ? (
             <div className="absolute inset-0 flex items-center justify-center">
               <div className="absolute inset-0 bg-gradient-to-br from-gray-200 via-gray-300 to-gray-200 dark:from-gray-700 dark:via-gray-800 dark:to-gray-700" />
               <span className="relative z-10 text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -148,7 +157,7 @@ export default function ArticleCard({ news }: Props) {
             </div>
           ) : (
             <Image
-              src={imgSrc!}
+              src={proxiedSrc}
               alt={news.title}
               fill
               className="absolute inset-0 h-full w-full object-cover"
@@ -157,7 +166,7 @@ export default function ArticleCard({ news }: Props) {
               onError={onImgError}
             />
           )}
-          {/* Oko (Predogled) */}
+          {/* Oko (predogled) */}
           <button
             onClick={(e) => {
               e.preventDefault()
@@ -181,7 +190,7 @@ export default function ArticleCard({ news }: Props) {
               <circle cx="12" cy="12" r="3.5" stroke="currentColor" strokeWidth="2" fill="none" />
             </svg>
           </button>
-          {/* Tooltip */}
+          {/* tooltip */}
           <span
             className="
               hidden md:block pointer-events-none absolute top-2 right-[calc(0.5rem+2rem+8px)]
@@ -193,32 +202,26 @@ export default function ArticleCard({ news }: Props) {
             Predogled&nbsp;novice
           </span>
         </div>
-        {/* TEXT */}
+        {/* besedilo */}
         <div className="p-2.5 min-h-[10rem] sm:min-h-[10rem] md:min-h-[9.75rem] lg:min-h-[9.5rem] xl:min-h-[9.5rem] overflow-hidden">
           <div className="mb-1 grid grid-cols-[1fr_auto] items-baseline gap-x-2">
-            <span
-              className="truncate text-[12px] font-medium tracking-[0.01em]"
-              style={{ color: sourceColor }}
-              title={news.source}
-            >
+            <span className="truncate text-[12px] font-medium tracking-[0.01em]" style={{ color: sourceColor }}>
               {news.source}
             </span>
-            <span className="text-[11px] text-gray-400 dark:text-gray-500 tabular-nums whitespace-nowrap leading-none">
-              {formattedDate}
-            </span>
+            <span className="text-[11px] text-gray-500 dark:text-gray-400">{formattedDate}</span>
           </div>
-          <h2
-            className="text-sm font-semibold leading-snug tracking-[-0.005em] line-clamp-3 mb-1 text-gray-900 dark:text-white"
-            title={news.title}
-          >
-            {news.title}
-          </h2>
-          <p className="text-gray-600 dark:text-gray-400 text-sm leading-tight line-clamp-4">
-            {news.contentSnippet || '\u00A0'}
-          </p>
+          <h3 className="line-clamp-3 text-[15px] font-semibold leading-tight text-gray-900 dark:text-gray-100">{news.title}</h3>
+          <p className="mt-1 line-clamp-3 text-[13px] text-gray-700 dark:text-gray-300">{news.contentSnippet}</p>
         </div>
       </a>
-      {showPreview && <ArticlePreview url={news.link} onClose={() => setShowPreview(false)} />}
+
+      {/* modalni predogled članka */}
+      {showPreview && (
+        <ArticlePreview
+          url={news.link}
+          onClose={() => setShowPreview(false)}
+        />
+      )}
     </>
   )
 }
