@@ -1,10 +1,9 @@
-// pages/api/news.ts
 import type { NextApiRequest, NextApiResponse } from 'next'
 import fetchRSSFeeds from '@/lib/fetchRSSFeeds'
 import supabase from '@/lib/supabase'
 import type { NewsItem } from '@/types'
 
-// odstrani UTM/track parametre in hash; ohrani semantične parametre
+// kanonizacija URL (odstrani utm, fbclid ...)
 function canonicalizeLink(href: string): string {
   try {
     const u = new URL(href)
@@ -24,7 +23,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   try {
     const forceFresh = req.query.forceFresh === '1'
 
-    // 1) poskusi iz Supabase (če ni prisile)
+    // 1) poskus iz Supabase (če ni prisile)
     if (!forceFresh) {
       const { data, error } = await supabase
         .from('news')
@@ -32,7 +31,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         .order('publishedat', { ascending: false })
         .limit(100)
 
-      res.setHeader('x-news-supabase-read', error ? 'error' : String(data?.length ?? 0))
+      res.setHeader('x-supa-read', error ? `error:${error.message}` : String(data?.length ?? 0))
 
       if (!error && data?.length) {
         const payload: NewsItem[] = data.map((r: any) => ({
@@ -43,20 +42,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           contentSnippet: r.contentsnippet ?? '',
           pubDate: r.pubdate ?? undefined,
           isoDate: r.isodate ?? undefined,
-          publishedAt:
-            typeof r.publishedat === 'number'
-              ? r.publishedat
-              : (r.publishedat ? Date.parse(r.publishedat) : 0),
+          publishedAt: r.publishedat != null ? Number(r.publishedat) : 0,
         }))
         res.setHeader('Cache-Control', 's-maxage=60, stale-while-revalidate=300')
         return res.status(200).json(payload)
       }
     }
 
-    // 2) fetch svežih novic
+    // 2) svež RSS
     const fresh = await fetchRSSFeeds({ forceFresh: true })
 
-    // 3) pripravi payload (ključno: link_canonical)
+    // 3) payload za bazo
     const payload = fresh.map(({ isoDate, pubDate, contentSnippet, publishedAt, link, ...rest }) => ({
       ...rest,
       link,
@@ -67,24 +63,22 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       publishedat: publishedAt,
     }))
 
-    // 4) upsert po link_canonical (imaš unique index)
-    const upsert = await supabase
+    // 4) upsert po link_canonical (mora biti UNIQUE + NOT NULL)
+    const up = await supabase
       .from('news')
       .upsert(payload, { onConflict: 'link_canonical' })
-      .select('id')
+      .select('id') // forsira returning za diagnostiko
 
-    res.setHeader('x-news-upsert-status', upsert.error ? 'error' : 'ok')
-    res.setHeader('x-news-upsert-count', String(upsert.data?.length ?? 0))
+    res.setHeader('x-supa-upsert', up.error ? `error:${up.error.message}` : `ok:${up.data?.length ?? 0}`)
 
-    if (upsert.error) {
-      // vrni v body, da takoj vidiš kaj se dogaja (tudi na produkciji)
-      return res.status(200).json({ fresh, dbError: upsert.error.message })
+    if (up.error) {
+      // jasno pokažemo napako v body-ju
+      return res.status(200).json({ fresh, dbError: up.error.message })
     }
 
-    // 5) odgovor
     res.setHeader('Cache-Control', 'public, s-maxage=30, stale-while-revalidate=120')
     return res.status(200).json(fresh)
-  } catch (error: any) {
-    return res.status(500).json({ error: 'Failed to fetch news', detail: String(error?.message ?? error) })
+  } catch (e: any) {
+    return res.status(500).json({ error: 'Failed to fetch news', detail: String(e?.message ?? e) })
   }
 }
