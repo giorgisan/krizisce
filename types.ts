@@ -3,11 +3,11 @@ export type NewsItem = {
   title: string
   link: string
   source: string
-  image: string | null
-  content: string
-  contentSnippet: string
-  isoDate: string
-  pubDate: string
-  /** Normaliziran čas objave (unix ms) – uporabljaj za sort in logiko */
+  image?: string | null
+  contentSnippet?: string
+  content?: string
+  pubDate?: string
+  isoDate?: string
+  /** Normaliziran čas objave (Unix ms). UI naj uporablja to polje. */
   publishedAt: number
 }
