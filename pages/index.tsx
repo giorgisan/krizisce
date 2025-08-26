@@ -7,7 +7,6 @@ import React, {
   useState,
   useDeferredValue,
   startTransition,
-  useRef,
 } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 
@@ -19,13 +18,6 @@ import { SOURCES } from '@/lib/sources'
 import ArticleCard from '@/components/ArticleCard'
 import SeoHead from '@/components/SeoHead'
 import BackToTop from '@/components/BackToTop'
-
-// ----------------------------------------------------
-// Konstante (ne spreminjajo obnašanja – le centralizirano)
-// ----------------------------------------------------
-const INITIAL_DISPLAY = 20
-const LOAD_STEP = 20
-const POLL_INTERVAL_MS = 60_000
 
 // Fetch helper for client polling / first-visit refresh
 async function loadNews(forceFresh: boolean): Promise<NewsItem[] | null> {
@@ -42,15 +34,9 @@ async function loadNews(forceFresh: boolean): Promise<NewsItem[] | null> {
 
 // Bridge: enoten signal za Header (banner “Prikazani viri …”)
 function emitFilterUpdate(sources: string[]) {
-  try {
-    sessionStorage.setItem('filters_interacted', '1')
-  } catch {}
-  try {
-    localStorage.setItem('selectedSources', JSON.stringify(sources))
-  } catch {}
-  try {
-    window.dispatchEvent(new CustomEvent('filters:update', { detail: { sources } }))
-  } catch {}
+  try { sessionStorage.setItem('filters_interacted', '1') } catch {}
+  try { localStorage.setItem('selectedSources', JSON.stringify(sources)) } catch {}
+  try { window.dispatchEvent(new CustomEvent('filters:update', { detail: { sources } })) } catch {}
 }
 
 type Props = { initialNews: NewsItem[] }
@@ -59,41 +45,11 @@ export default function Home({ initialNews }: Props) {
   const [news, setNews] = useState<NewsItem[]>(initialNews)
   const [filter, setFilter] = useState<string>('Vse')
   const deferredFilter = useDeferredValue(filter)
-  const [displayCount, setDisplayCount] = useState<number>(INITIAL_DISPLAY)
+  const [displayCount, setDisplayCount] = useState<number>(20)
 
   // Dropdown state (kept for future use; the trigger is in Header)
   const [menuOpen, setMenuOpen] = useState(false)
   const [pos, setPos] = useState<{ top: number; right: number }>({ top: 0, right: 0 })
-
-  // rAF-throttle za computeDropdownPos (manj layout meritev med hitrim scrollom)
-  const rafId = useRef<number | null>(null)
-  const queued = useRef(false)
-
-  const computeDropdownPos = () => {
-    if (rafId.current) {
-      queued.current = true
-      return
-    }
-    rafId.current = requestAnimationFrame(() => {
-      const trigger = document.getElementById('filters-trigger')
-      const header = document.getElementById('site-header')
-      const triggerRect = trigger?.getBoundingClientRect()
-      const headerRect = header?.getBoundingClientRect()
-
-      const topFromTrigger = (triggerRect?.bottom ?? 56) + 8
-      const topFromHeader = (headerRect?.bottom ?? 56) + 8
-      const top = Math.max(topFromHeader, topFromTrigger)
-
-      const right = Math.max(0, window.innerWidth - (triggerRect?.right ?? window.innerWidth))
-      setPos({ top, right })
-
-      rafId.current = null
-      if (queued.current) {
-        queued.current = false
-        computeDropdownPos()
-      }
-    })
-  }
 
   useEffect(() => {
     const handler = () => {
@@ -104,28 +60,35 @@ export default function Home({ initialNews }: Props) {
     return () => window.removeEventListener('toggle-filters', handler as EventListener)
   }, [])
 
+  const computeDropdownPos = () => {
+    const trigger = document.getElementById('filters-trigger')
+    const header = document.getElementById('site-header')
+    const triggerRect = trigger?.getBoundingClientRect()
+    const headerRect = header?.getBoundingClientRect()
+
+    const topFromTrigger = (triggerRect?.bottom ?? 56) + 8
+    const topFromHeader = (headerRect?.bottom ?? 56) + 8
+    const top = Math.max(topFromHeader, topFromTrigger)
+
+    const right = Math.max(0, window.innerWidth - (triggerRect?.right ?? window.innerWidth))
+    setPos({ top, right })
+  }
+
   useEffect(() => {
     computeDropdownPos()
     const onResize = () => computeDropdownPos()
-    const onScroll = () => {
-      if (menuOpen) computeDropdownPos()
-    }
+    const onScroll = () => menuOpen && computeDropdownPos()
     window.addEventListener('resize', onResize)
     window.addEventListener('scroll', onScroll, { passive: true })
     return () => {
       window.removeEventListener('resize', onResize)
       window.removeEventListener('scroll', onScroll)
-      if (rafId.current) cancelAnimationFrame(rafId.current)
-      rafId.current = null
-      queued.current = false
     }
   }, [menuOpen])
 
   useEffect(() => {
     if (!menuOpen) return
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setMenuOpen(false)
-    }
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setMenuOpen(false) }
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
   }, [menuOpen])
@@ -139,20 +102,18 @@ export default function Home({ initialNews }: Props) {
       const fresh = await loadNews(true) // no-store
       if (cancelled) return
       if (fresh && fresh.length) {
-        const latestFresh = new Date(fresh[0].pubDate).getTime()
+        const latestFresh   = new Date(fresh[0].pubDate).getTime()
         const latestInitial = new Date(initialNews[0]?.pubDate || 0).getTime()
         if (latestFresh > latestInitial) {
           startTransition(() => {
             setNews(fresh)
-            setDisplayCount(INITIAL_DISPLAY)
+            setDisplayCount(20)
           })
         }
       }
       setBootRefreshed(true)
     })()
-    return () => {
-      cancelled = true
-    }
+    return () => { cancelled = true }
   }, [initialNews])
   // ----------------------------------------------------
 
@@ -184,7 +145,7 @@ export default function Home({ initialNews }: Props) {
     }
 
     checkFresh()
-    const timer = window.setInterval(checkFresh, POLL_INTERVAL_MS)
+    const timer = window.setInterval(checkFresh, 60_000)
     return () => {
       cancelled = true
       window.clearInterval(timer)
@@ -203,13 +164,13 @@ export default function Home({ initialNews }: Props) {
         }
         if (freshNews && hasNew) {
           setNews(freshNews)
-          setDisplayCount(INITIAL_DISPLAY)
+          setDisplayCount(20)
           finish()
         } else {
           loadNews(true).then((fresh) => {
             if (fresh && fresh.length) {
               setNews(fresh)
-              setDisplayCount(INITIAL_DISPLAY)
+              setDisplayCount(20)
             }
             finish()
           })
@@ -220,14 +181,14 @@ export default function Home({ initialNews }: Props) {
     return () => window.removeEventListener('refresh-news', onRefresh as EventListener)
   }, [freshNews, hasNew])
 
-  // >>> sinhronizacija z Headerjem (filters:update)
+  // >>> NOVO: sinhronizacija z Headerjem (filters:update)
   useEffect(() => {
     const onFiltersUpdate = (e: Event) => {
       const arr = (e as CustomEvent).detail?.sources
       if (!Array.isArray(arr)) return
       startTransition(() => {
-        setFilter(arr.length ? arr[0] : 'Vse') // podpiramo en vir; [] = Vse
-        setDisplayCount(INITIAL_DISPLAY)
+        setFilter(arr.length ? arr[0] : 'Vse')  // podpiramo en vir; [] = Vse
+        setDisplayCount(20)
       })
     }
     window.addEventListener('filters:update', onFiltersUpdate as EventListener)
@@ -247,7 +208,7 @@ export default function Home({ initialNews }: Props) {
   const onPick = (s: string) =>
     startTransition(() => {
       setFilter(s)
-      setDisplayCount(INITIAL_DISPLAY)
+      setDisplayCount(20)
       setMenuOpen(false)
       emitFilterUpdate([s])
     })
@@ -255,12 +216,12 @@ export default function Home({ initialNews }: Props) {
   const resetFilter = () =>
     startTransition(() => {
       setFilter('Vse')
-      setDisplayCount(INITIAL_DISPLAY)
+      setDisplayCount(20)
       setMenuOpen(false)
       emitFilterUpdate([])
     })
 
-  const handleLoadMore = () => setDisplayCount((p) => p + LOAD_STEP)
+  const handleLoadMore = () => setDisplayCount((p) => p + 20)
 
   return (
     <>
