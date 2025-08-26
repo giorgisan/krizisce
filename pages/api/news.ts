@@ -4,7 +4,6 @@ import type { NewsItem } from '@/types'
 import fetchRSSFeeds from '@/lib/fetchRSSFeeds'
 import supabase from '@/lib/supabase'
 
-// (opcijsko) kanoniziraj URL za dedup (odstrani utm, fbclid, hash)
 function canonicalizeLink(href: string): string {
   try {
     const u = new URL(href)
@@ -39,12 +38,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           link: r.link,
           source: r.source,
           image: r.image ?? null,
-          // UI bere kratki povzetek iz contentsnippet
           contentSnippet: r.contentsnippet ?? '',
-          // ISO/pubDate (če obstajata) pustimo za kompatibilnost
           isoDate: r.isodate ?? undefined,
           pubDate: r.pubdate ?? undefined,
-          // glavno za sortiranje
           publishedAt:
             typeof r.publishedat === 'number'
               ? r.publishedat
@@ -55,11 +51,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
     }
 
-    // 2) naloži svež RSS nabor
+    // 2) svež RSS
     const fresh = await fetchRSSFeeds({ forceFresh: true })
 
-    // 3) pripravi payload izključno s stolpci, ki jih tabela dejansko ima
-    //    (link, title, isodate, pubdate, source, image, contentsnippet, summary?, publishedat, link_canonical?)
+    // 3) payload z allowlist polji (brez content ipd.)
     const payloadForDb = fresh.map(({ isoDate, pubDate, contentSnippet, publishedAt, link, title, source, image }) => ({
       link,
       title,
@@ -68,18 +63,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       source,
       image: image ?? null,
       contentsnippet: contentSnippet ?? null,
-      summary: null,                 // stolpec obstaja in je NULLable
-      publishedat: publishedAt || 0, // BIGINT (Unix ms)
+      summary: null,
+      publishedat: publishedAt || 0,
       link_canonical: canonicalizeLink(link),
     }))
 
-    // 4) upsert (po 'link' – ohrani kompatibilnost z obstoječo UNIQUE(link))
+    // 4) upsert po 'link'
     const { data: upsertData, error: upsertError } = await supabase
       .from('news')
       .upsert(payloadForDb, { onConflict: 'link' })
 
     if (upsertError) {
-      // v debug režimu vrnemo neposredno napako, sicer samo logiramo
       if (debug) {
         res.setHeader('Cache-Control', 'no-store, max-age=0, must-revalidate')
         return res.status(200).json({ ok: false, upsertError })
@@ -90,7 +84,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     res.setHeader('Cache-Control', 'no-store, max-age=0, must-revalidate')
 
     if (debug) {
-      const inserted = Array.isArray(upsertData) ? upsertData.length : 0
+      // 🔧 TS-safe: če je null, vzemi dolžino praznega arraya (0)
+      const inserted = (upsertData ?? []).length
       return res.status(200).json({
         ok: true,
         inserted,
@@ -98,7 +93,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       })
     }
 
-    // 5) vrni svež nabor (že vsebuje publishedAt)
+    // 5) vrni svež nabor
     return res.status(200).json(fresh)
   } catch (error) {
     console.error('Failed to fetch news:', error)
