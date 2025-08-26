@@ -6,7 +6,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   try {
     const forceFresh = req.query.forceFresh === '1'
 
-    // če ni svežega zahtevka, poskusi prebrati iz baze
+    // najprej poskusi prebrati iz Supabase (če ni forceFresh)
     if (!forceFresh) {
       const { data } = await supabase
         .from('news')
@@ -19,14 +19,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
     }
 
-    // sicer preberi sveže in vstavi
+    // naloži sveže novice
     const fresh = await fetchRSSFeeds({ forceFresh: true })
 
-    // pripravimo podatke: odstranimo camelCase in dodamo snake_case ključe
-    const payload = fresh.map(({ isoDate, pubDate, ...rest }) => ({
+    // zgradi payload: pretvori isoDate -> isodate, pubDate -> pubdate,
+    // contentSnippet -> contentsnippet, ostala polja pusti nespremenjena
+    const payload = fresh.map(({ isoDate, pubDate, contentSnippet, ...rest }) => ({
       ...rest,
       isodate: isoDate,
       pubdate: pubDate,
+      contentsnippet: contentSnippet,
     }))
 
     const { error: upsertError } = await supabase
@@ -35,7 +37,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     if (upsertError) {
       console.error('Supabase upsert error:', upsertError)
-      // napaka se zapiše, a še vedno vrnemo sveže novice
     }
 
     res.setHeader('Cache-Control', 'no-store, max-age=0, must-revalidate')
