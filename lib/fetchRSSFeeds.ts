@@ -5,7 +5,7 @@ import { feeds } from './sources'
 
 type FetchOpts = { forceFresh?: boolean }
 
-// Dodamo še media:thumbnail, media:group, content:encoded
+// razširimo polja, ki jih SLO viri pogosto uporabljajo
 const parser: Parser = new Parser({
   customFields: {
     item: [
@@ -19,7 +19,7 @@ const parser: Parser = new Parser({
   },
 })
 
-// Helperji za varno branje URL-ja iz object/array struktur
+// helperji za varno branje url iz object/array struktur
 function pickUrl(v: any): string | null {
   if (!v) return null
   if (typeof v === 'string') return v
@@ -39,7 +39,7 @@ function firstUrl(v: any): string | null {
   return pickUrl(v)
 }
 
-// Poskusi po vrstnem redu: media:group > media:content/thumbnail, media:content, media:thumbnail, enclosure, prvi <img>
+// poskusi: media:group→media:content/thumbnail, media:content, media:thumbnail, enclosure, prvi <img>
 function extractImage(item: any): string | null {
   const g = item['media:group']
   if (g) {
