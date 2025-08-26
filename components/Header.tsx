@@ -17,6 +17,19 @@ export default function Header() {
   // null = v tej seji še ni bilo interakcije; [] = resetirano; ['RTVSLO'] = aktiven filter
   const [activeSources, setActiveSources] = useState<string[] | null>(null)
 
+  // >>> ura: osvežuje se vsako minuto, prikazana samo na širših zaslonih
+  const [time, setTime] = useState(() =>
+    new Intl.DateTimeFormat('sl-SI', { hour: '2-digit', minute: '2-digit' }).format(new Date())
+  )
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setTime(
+        new Intl.DateTimeFormat('sl-SI', { hour: '2-digit', minute: '2-digit' }).format(new Date())
+      )
+    }, 60_000)
+    return () => clearInterval(timer)
+  }, [])
+
   useEffect(() => setMounted(true), [])
 
   useEffect(() => {
@@ -126,7 +139,7 @@ export default function Header() {
             src="/logo.png"
             alt="Križišče"
             width={36}
-            height={36}
+            height= {36}
             priority
             fetchPriority="high"
             className="w-9 h-9 rounded-md"
@@ -141,8 +154,13 @@ export default function Header() {
           </div>
         </Link>
 
-        {/* Desno: refresh + tema + filter trigger */}
+        {/* Desno: ura (prikazana samo >=sm), refresh + tema + filter trigger */}
         <div className="flex items-center gap-1.5 sm:gap-2">
+          {/* ura je skrita na mobilnih (sm:hidden) in prikazana na širših sm:inline */}
+          <span className="hidden sm:inline-block text-[13px] text-gray-500 dark:text-gray-400">
+            {time}
+          </span>
+
           {/* Refresh */}
           <button
             type="button"
