@@ -6,7 +6,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   try {
     const forceFresh = req.query.forceFresh === '1'
 
-    // najprej poskusi prebrati iz Supabase (če ni forceFresh)
+    // preberi iz baze, če ni forceFresh
     if (!forceFresh) {
       const { data } = await supabase
         .from('news')
@@ -19,16 +19,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
     }
 
-    // naloži sveže novice
+    // sicer naloži sveže novice
     const fresh = await fetchRSSFeeds({ forceFresh: true })
 
-    // zgradi payload: pretvori isoDate -> isodate, pubDate -> pubdate,
-    // contentSnippet -> contentsnippet, ostala polja pusti nespremenjena
-    const payload = fresh.map(({ isoDate, pubDate, contentSnippet, ...rest }) => ({
+    // pripravi podatke: odstrani 'content', pretvori isoDate, pubDate in contentSnippet
+    const payload = fresh.map(({ isoDate, pubDate, contentSnippet, content, summary, ...rest }) => ({
       ...rest,
       isodate: isoDate,
       pubdate: pubDate,
       contentsnippet: contentSnippet,
+      summary,
     }))
 
     const { error: upsertError } = await supabase
