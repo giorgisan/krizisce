@@ -5,7 +5,7 @@ import { feeds } from './sources'
 
 type FetchOpts = { forceFresh?: boolean }
 
-// razširimo polja, ki jih SLO viri pogosto uporabljajo
+// RSS parserju eksplicitno izpostavimo še thumbnail-e in media:group
 const parser: Parser = new Parser({
   customFields: {
     item: [
@@ -13,22 +13,16 @@ const parser: Parser = new Parser({
       'media:thumbnail',
       'media:group',
       'enclosure',
-      'content:encoded',
       'isoDate',
+      'content:encoded',
     ],
   },
 })
 
-// helperji za varno branje url iz object/array struktur
+// robustno izlušči URL slike iz različnih struktur (object/array)
 function pickUrl(v: any): string | null {
   if (!v) return null
-  if (typeof v === 'string') return v
-  if (typeof v?.url === 'string') return v.url
-  if (typeof v?.$?.url === 'string') return v.$.url
-  return null
-}
-function firstUrl(v: any): string | null {
-  if (!v) return null
+  if (typeof v === 'string') return v || null
   if (Array.isArray(v)) {
     for (const it of v) {
       const u = pickUrl(it)
@@ -36,31 +30,41 @@ function firstUrl(v: any): string | null {
     }
     return null
   }
-  return pickUrl(v)
+  // rss-parser pogosto da podatke kot { url } ali { $: { url } } ali { '@_url': ... }
+  return v.url || v.href || v.src || v['@_url'] || v?.$?.url || null
 }
 
-// poskusi: media:group→media:content/thumbnail, media:content, media:thumbnail, enclosure, prvi <img>
+// poskusi najti sliko v media:content, media:group, media:thumbnail, enclosure ali <img ...>
 function extractImage(item: any): string | null {
+  // 1) media:group > media:content/thumbnail
   const g = item['media:group']
-  if (g) {
-    const fromGroupContent = firstUrl((g as any)['media:content'])
-    if (fromGroupContent) return fromGroupContent
-    const fromGroupThumb = firstUrl((g as any)['media:thumbnail'])
-    if (fromGroupThumb) return fromGroupThumb
+  const gUrl =
+    pickUrl(g?.['media:content']) ||
+    pickUrl(g?.['media:thumbnail']) ||
+    pickUrl(g)
+  if (gUrl) return gUrl
+
+  // 2) media:content (tudi array)
+  const mc = pickUrl(item['media:content'])
+  if (mc) return mc
+
+  // 3) media:thumbnail
+  const mt = pickUrl(item['media:thumbnail'])
+  if (mt) return mt
+
+  // 4) enclosure (image/*)
+  if (item.enclosure?.type?.startsWith?.('image/') && item.enclosure?.url) {
+    return item.enclosure.url
   }
-
-  const mContent = firstUrl(item['media:content'])
-  if (mContent) return mContent
-
-  const mThumb = firstUrl(item['media:thumbnail'])
-  if (mThumb) return mThumb
-
   const enc = pickUrl(item.enclosure)
   if (enc) return enc
 
-  const html = item['content:encoded'] || item.content || ''
-  const match = String(html).match(/<img[^>]+src=(?:"|')([^"']+)(?:"|')/i)
-  return match?.[1] ?? null
+  // 5) prvi <img> v content/content:encoded
+  const html = (item['content:encoded'] ?? item.content ?? '') as string
+  const m = html.match(/<img[^>]+src=["']([^"'>]+)["']/i)
+  if (m?.[1]) return m[1]
+
+  return null
 }
 
 // robustno v Unix ms
@@ -103,7 +107,7 @@ export default async function fetchRSSFeeds(opts: FetchOpts = {}): Promise<NewsI
             content: item['content:encoded'] ?? item.content ?? '',
             contentSnippet: item.contentSnippet ?? '',
             source,
-            image: extractImage(item) ?? null,
+            image: extractImage(item),
             publishedAt,
           }
         })
