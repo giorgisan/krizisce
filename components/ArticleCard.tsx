@@ -1,3 +1,4 @@
+// components/ArticleCard.tsx
 'use client'
 
 import { NewsItem } from '@/types'
@@ -22,11 +23,29 @@ const ArticlePreview = dynamic(() => import('./ArticlePreview'), { ssr: false })
 const FALLBACK_SRC = '/default-news.jpg'
 const ASPECT = 16 / 9
 
+/**
+ * Formatiraj datum: za novice <24 ur prikazujemo relativen čas (pred X min/h),
+ * sicer vrnemo absoluten datum in uro.
+ */
 function formatDate(iso: string) {
-  const d = new Date(iso)
-  const date = new Intl.DateTimeFormat('sl-SI', { day: 'numeric', month: 'short' }).format(d)
-  const time = new Intl.DateTimeFormat('sl-SI', { hour: '2-digit', minute: '2-digit' }).format(d)
-  return `${date}, ${time}`
+  const date = new Date(iso)
+  const now  = new Date()
+  const diffMs  = now.getTime() - date.getTime()
+  const diffSec = Math.floor(diffMs / 1000)
+  const diffMin = Math.floor(diffSec / 60)
+  const diffHr  = Math.floor(diffMin / 60)
+
+  // manj kot minuta
+  if (diffSec < 60) return 'pred nekaj sekundami'
+  // do 60 minut
+  if (diffMin < 60) return `pred ${diffMin} min`
+  // do 24 ur
+  if (diffHr < 24) return `pred ${diffHr} h`
+
+  // sicer absolutni prikaz
+  const datePart = new Intl.DateTimeFormat('sl-SI', { day: 'numeric', month: 'short' }).format(date)
+  const timePart = new Intl.DateTimeFormat('sl-SI', { hour: '2-digit', minute: '2-digit' }).format(date)
+  return `${datePart}, ${timePart}`
 }
 
 export default function ArticleCard({ news }: Props) {
@@ -68,12 +87,12 @@ export default function ArticleCard({ news }: Props) {
     if (!priority || !imgSrc) return
     const el = cardRef.current
     const rectW = Math.max(1, Math.round(el?.getBoundingClientRect().width || 480))
-    const dpr = (typeof window !== 'undefined' && window.devicePixelRatio) || 1
+    const dpr   = (typeof window !== 'undefined' && window.devicePixelRatio) || 1
     const targetW = Math.min(1280, Math.round(rectW * dpr))
     const targetH = Math.round(targetW / ASPECT)
     const link = document.createElement('link')
-    link.rel = 'preload'
-    link.as = 'image'
+    link.rel  = 'preload'
+    link.as   = 'image'
     link.href = proxiedImage(imgSrc, targetW, targetH, dpr)
     link.crossOrigin = 'anonymous'
     document.head.appendChild(link)
