@@ -24,7 +24,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   try {
     const forceFresh = req.query.forceFresh === '1'
 
-    // 1) preberi iz Supabase (če ni prisile)
+    // 1) poskusi iz Supabase (če ni prisile)
     if (!forceFresh) {
       const { data, error } = await supabase
         .from('news')
@@ -32,7 +32,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         .order('publishedat', { ascending: false })
         .limit(100)
 
-      res.setHeader('x-news-supabase-read', error ? 'error' : (data?.length ?? 0).toString())
+      res.setHeader('x-news-supabase-read', error ? 'error' : String(data?.length ?? 0))
 
       if (!error && data?.length) {
         const payload: NewsItem[] = data.map((r: any) => ({
@@ -53,30 +53,31 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
     }
 
-    // 2) svež RSS
+    // 2) fetch svežih novic
     const fresh = await fetchRSSFeeds({ forceFresh: true })
 
-    // 3) payload za bazo – POMEMBNO: dodamo link_canonical
+    // 3) pripravi payload (ključno: link_canonical)
     const payload = fresh.map(({ isoDate, pubDate, contentSnippet, publishedAt, link, ...rest }) => ({
       ...rest,
-      link, // original
-      link_canonical: canonicalizeLink(link),  // <-- KLJUČNO
-      isodate: isoDate,                        // timestamptz
-      pubdate: pubDate,                        // timestamptz | null
-      contentsnippet: contentSnippet,          // text | null
-      publishedat: publishedAt,                // bigint (unix ms)
+      link,
+      link_canonical: canonicalizeLink(link),
+      isodate: isoDate,
+      pubdate: pubDate,
+      contentsnippet: contentSnippet,
+      publishedat: publishedAt,
     }))
 
-    // 4) upsert po link_canonical (imaš unique indeks)
+    // 4) upsert po link_canonical (imaš unique index)
     const upsert = await supabase
       .from('news')
       .upsert(payload, { onConflict: 'link_canonical' })
-      .select('id') // prisili commit in vrne število vrstic
+      .select('id')
 
     res.setHeader('x-news-upsert-status', upsert.error ? 'error' : 'ok')
-    res.setHeader('x-news-upsert-count', upsert.data ? String(upsert.data.length) : '0')
+    res.setHeader('x-news-upsert-count', String(upsert.data?.length ?? 0))
+
     if (upsert.error) {
-      // vrnemo info tudi v body, da lažje debuggaš
+      // vrni v body, da takoj vidiš kaj se dogaja (tudi na produkciji)
       return res.status(200).json({ fresh, dbError: upsert.error.message })
     }
 
@@ -84,7 +85,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     res.setHeader('Cache-Control', 'public, s-maxage=30, stale-while-revalidate=120')
     return res.status(200).json(fresh)
   } catch (error: any) {
-    console.error('Failed to fetch news:', error)
     return res.status(500).json({ error: 'Failed to fetch news', detail: String(error?.message ?? error) })
   }
 }
