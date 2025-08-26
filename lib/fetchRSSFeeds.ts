@@ -6,25 +6,46 @@ import { feeds } from './sources'
 type FetchOpts = { forceFresh?: boolean }
 
 const parser: Parser = new Parser({
-  // DODANO: 'content:encoded' (in priporočljivo še 'media:thumbnail')
-  customFields: { item: ['media:content', 'media:thumbnail', 'enclosure', 'isoDate', 'content:encoded'] },
+  customFields: { item: ['media:content', 'enclosure', 'isoDate', 'content:encoded'] },
 })
 
-// poskusi najti sliko v media:content, media:thumbnail, enclosure ali prvi <img>
-function extractImage(item: any): string | null {
-  if (typeof item['media:content'] === 'object') {
-    if (item['media:content']?.url) return item['media:content'].url
-    if (item['media:content']?.$?.url) return item['media:content'].$.url
+/** Absolutizira URL glede na base (ponavadi item.link). Če je že absoluten, vrne nespremenjeno. */
+function toAbsolute(u: string | undefined | null, base?: string): string | null {
+  if (!u) return null
+  try {
+    // če je relativna pot, new URL(u, base) naredi absolutni URL
+    return new URL(u, base).toString()
+  } catch {
+    return null
   }
-  const thumb = item['media:thumbnail']
-  if (thumb) {
-    if (typeof thumb === 'object' && thumb.url) return thumb.url
-    if (typeof thumb === 'object' && thumb.$?.url) return thumb.$.url
+}
+
+/** Poskusi najti sliko v media:content, enclosure ali prvem <img>, ter jo absolutiziraj. */
+function extractImage(item: any, baseLink?: string): string | null {
+  // media:content
+  const mc = item['media:content']
+  if (typeof mc === 'object') {
+    const u = mc?.url ?? mc?.$?.url
+    const abs = toAbsolute(u, baseLink)
+    if (abs) return abs
   }
-  if (item.enclosure?.url) return item.enclosure.url
-  const html = (item['content:encoded'] || item.content || '') as string
-  const match = html.match(/<img[^>]+src=["']([^"'>]+)["']/i)
-  return match?.[1] ?? null
+
+  // enclosure
+  const enc = item.enclosure?.url
+  {
+    const abs = toAbsolute(enc, baseLink)
+    if (abs) return abs
+  }
+
+  // prvi <img src="..."> v content:encoded ali content
+  const html = (item['content:encoded'] as string) || (item.content as string) || ''
+  const m = html.match(/<img[^>]+src=["']([^"'>]+)["']/i)
+  if (m?.[1]) {
+    const abs = toAbsolute(m[1], baseLink)
+    if (abs) return abs
+  }
+
+  return null
 }
 
 export default async function fetchRSSFeeds(opts: FetchOpts = {}): Promise<NewsItem[]> {
@@ -45,16 +66,17 @@ export default async function fetchRSSFeeds(opts: FetchOpts = {}): Promise<NewsI
         const items: NewsItem[] = feed.items.slice(0, 20).map((item) => {
           const iso = (item as any).isoDate ?? item.pubDate ?? new Date().toISOString()
           const publishedAt = Date.parse(iso) || Date.now()
+          const link = item.link ?? ''
 
           return {
             title: item.title ?? '',
-            link: item.link ?? '',
+            link,
             pubDate: item.pubDate ?? iso,
             isoDate: iso,
             content: (item as any)['content:encoded'] ?? item.content ?? '',
             contentSnippet: item.contentSnippet ?? '',
             source,
-            image: extractImage(item) ?? null,
+            image: extractImage(item, link), // <-- absolutizirano
             publishedAt,
           }
         })
