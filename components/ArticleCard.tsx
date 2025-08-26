@@ -20,7 +20,6 @@ interface Props { news: NewsItem }
 type PreviewProps = { url: string; onClose: () => void }
 const ArticlePreview = dynamic(() => import('./ArticlePreview'), { ssr: false }) as ComponentType<PreviewProps>
 
-const FALLBACK_SRC = '/default-news.jpg'
 const ASPECT = 16 / 9
 
 function formatDisplayTime(publishedAt?: number, iso?: string) {
@@ -45,12 +44,24 @@ export default function ArticleCard({ news }: Props) {
     return colors[news.source] || '#fc9c6c'
   }, [news.source])
 
+  // --- slika: najprej poskusimo preko proxija, če pade → direktni URL
   const [imgSrc] = useState<string | null>(news.image ?? null)
+  const [triedDirect, setTriedDirect] = useState(false)
   const [useFallback, setUseFallback] = useState<boolean>(!news.image)
 
-  const onImgError = () => { if (!useFallback) setUseFallback(true) }
+  const proxiedSrc = useMemo(
+    () => (imgSrc && !triedDirect ? proxiedImage(imgSrc, 640, 360, 1) : null),
+    [imgSrc, triedDirect]
+  )
 
-  const proxiedSrc = useMemo(() => (imgSrc ? proxiedImage(imgSrc, 640, 360, 1) : null), [imgSrc])
+  const onImgError = () => {
+    if (!triedDirect && imgSrc) {
+      // proxy je padel → še en poskus z direktnim URL-jem
+      setTriedDirect(true)
+    } else if (!useFallback) {
+      setUseFallback(true)
+    }
+  }
 
   const [showPreview, setShowPreview] = useState(false)
   const cardRef = useRef<HTMLAnchorElement>(null)
@@ -62,8 +73,9 @@ export default function ArticleCard({ news }: Props) {
     if (rect.top < (window.innerHeight || 0) * 0.9) setPriority(true)
   }, [])
 
+  // LCP preload – če smo še na proxiju, preloadaj proxirano različico
   useEffect(() => {
-    if (!priority || !imgSrc) return
+    if (!priority || !imgSrc || triedDirect) return
     const el = cardRef.current
     const rectW = Math.max(1, Math.round(el?.getBoundingClientRect().width || 480))
     const dpr   = (typeof window !== 'undefined' && window.devicePixelRatio) || 1
@@ -76,8 +88,9 @@ export default function ArticleCard({ news }: Props) {
     link.crossOrigin = 'anonymous'
     document.head.appendChild(link)
     return () => { document.head.removeChild(link) }
-  }, [priority, imgSrc])
+  }, [priority, imgSrc, triedDirect])
 
+  // --- beleženje klikov (enako kot prej)
   const logClick = () => {
     try {
       const payload = JSON.stringify({ source: news.source, url: news.link })
@@ -97,6 +110,7 @@ export default function ArticleCard({ news }: Props) {
   }
   const handleAuxClick = (e: MouseEvent<HTMLAnchorElement>) => { if (e.button === 1) logClick() }
 
+  // --- prefetch predogleda
   const preloadedRef = useRef(false)
   const doPrefetch = () => { if (!preloadedRef.current && canPrefetch()) { preloadedRef.current = true; preloadPreview(news.link).catch(() => {}) } }
   const [eyeHover, setEyeHover] = useState(false)
@@ -124,14 +138,15 @@ export default function ArticleCard({ news }: Props) {
       >
         {/* Media */}
         <div className="relative w-full aspect-[16/9] overflow-hidden">
-          {useFallback || !proxiedSrc ? (
+          {useFallback || (!proxiedSrc && (!imgSrc || triedDirect)) ? (
             <div className="absolute inset-0 flex items-center justify-center">
               <div className="absolute inset-0 bg-gradient-to-br from-gray-200 via-gray-300 to-gray-200 dark:from-gray-700 dark:via-gray-800 dark:to-gray-700" />
               <span className="relative z-10 text-sm font-medium text-gray-700 dark:text-gray-300">Ni slike</span>
             </div>
           ) : (
             <Image
-              src={proxiedSrc}
+              key={triedDirect ? `direct-${news.link}` : `proxy-${news.link}`}
+              src={triedDirect ? (imgSrc as string) : (proxiedSrc as string)}
               alt={news.title}
               fill
               className="absolute inset-0 h-full w-full object-cover"
