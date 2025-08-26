@@ -8,7 +8,7 @@ const parser: Parser = new Parser({
   customFields: { item: ['media:content', 'enclosure', 'isoDate'] },
 })
 
-// Robust image extraction: tries media:content, enclosure, then first <img> in content
+// poskusi najti sliko v media:content, enclosure ali prvi <img>
 function extractImage(item: any): string | null {
   if (typeof item['media:content'] === 'object') {
     if (item['media:content']?.url) return item['media:content'].url
@@ -16,8 +16,7 @@ function extractImage(item: any): string | null {
   }
   if (item.enclosure?.url) return item.enclosure.url
   const match = (item.content || item['content:encoded'] || '').match(/<img[^>]+src="([^">]+)"/)
-  if (match?.[1]) return match[1]
-  return null
+  return match?.[1] ?? null
 }
 
 export default async function fetchRSSFeeds(opts: FetchOpts = {}): Promise<NewsItem[]> {
@@ -31,10 +30,7 @@ export default async function fetchRSSFeeds(opts: FetchOpts = {}): Promise<NewsI
         } as any)
         const xml = await res.text()
         const feed = await parser.parseString(xml)
-        if (!feed.items?.length) {
-          console.warn(`⚠️ Vir "${source}" ni vrnil nobenih člankov.`)
-          return []
-        }
+        if (!feed.items?.length) return []
         const items: NewsItem[] = feed.items.slice(0, 20).map((item) => {
           const isoDate = (item as any).isoDate ?? item.pubDate ?? new Date().toISOString()
           return {
@@ -45,20 +41,16 @@ export default async function fetchRSSFeeds(opts: FetchOpts = {}): Promise<NewsI
             content: (item as any)['content:encoded'] ?? item.content ?? '',
             contentSnippet: item.contentSnippet ?? '',
             source,
-            // If no image is found, store null so that the component can show a fallback
             image: extractImage(item) ?? null,
           }
         })
         return items
-      } catch (error) {
-        console.error(`❌ Napaka pri viru "${source}":`, error)
+      } catch {
         return []
       }
     }),
   )
   const flatResults = results.flat()
-  flatResults.sort(
-    (a, b) => new Date(b.isoDate).getTime() - new Date(a.isoDate).getTime(),
-  )
+  flatResults.sort((a, b) => new Date(b.isoDate).getTime() - new Date(a.isoDate).getTime())
   return flatResults
 }
