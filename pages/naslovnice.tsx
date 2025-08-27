@@ -19,7 +19,6 @@ export default function NaslovnicePage() {
 
     const load = async () => {
       try {
-        // ⬅️ brez argumentov: fetchRSSFeeds() vrne isti format kot na /
         const data = await fetchRSSFeeds()
         if (!isMounted) return
         setAllNews(data ?? [])
@@ -40,31 +39,37 @@ export default function NaslovnicePage() {
   const headlines = useMemo(() => {
     if (!allNews) return []
 
-    // za vsak vir ohrani prvo (najbolj svežo) novico
+    // izberi prvo (najbolj svežo) za vsak vir
     const bySource = new Map<string, NewsItem>()
-    for (const item of allNews) {
+    for (let i = 0; i < allNews.length; i++) {
+      const item = allNews[i]
       if (!bySource.has(item.source)) {
         bySource.set(item.source, item)
       }
     }
 
-    // izločimo dvojnike po URL-ju in uredimo po datumu
-    const seenUrls = new Set<string>()
-    const unique: NewsItem[] = []
-    for (const n of bySource.values()) {
-      if (!seenUrls.has(n.link)) {
-        seenUrls.add(n.link)
-        unique.push(n)
+    // pretvori v array (brez for..of nad iteratorjem)
+    const picked = Array.from(bySource.values())
+
+    // izloči dvojnike po URL-ju
+    const seen = new Set<string>()
+    const deduped: NewsItem[] = []
+    for (let i = 0; i < picked.length; i++) {
+      const n = picked[i]
+      if (!seen.has(n.link)) {
+        seen.add(n.link)
+        deduped.push(n)
       }
     }
 
-    unique.sort((a, b) => {
+    // uredi po datumu (novejše najprej)
+    deduped.sort((a, b) => {
       const da = new Date(a.isoDate ?? a.pubDate ?? 0).getTime()
       const db = new Date(b.isoDate ?? b.pubDate ?? 0).getTime()
       return db - da
     })
 
-    return unique
+    return deduped
   }, [allNews])
 
   return (
