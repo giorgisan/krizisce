@@ -1,18 +1,29 @@
 // lib/featured.ts
-import { feeds, headlineFeeds, SOURCES, SourceName } from './sources'
+import { feeds, SOURCES, SourceName } from './sources'
 import type { NewsItem } from '@/types'
 
-// Pomagalna funkcija – prebere RSS prek tvojega obstoječega API-ja /api/news,
-// da ne uvajamo novih parserjev. Nato filtrira po viru in vzame 1. item.
-async function getFromRssViaApi(source: Exclude<SourceName, 'Vse'>, feedUrl?: string): Promise<NewsItem | null> {
+/**
+ * Vmesna (stabilna) rešitev:
+ * - ne uporablja headlineFeeds (da ne kockamo z buildom),
+ * - za vsak vir vzame 1. (najbolj svežo) novico, prebrano prek /api/news,
+ * - ko boš želel “prave naslovnice”, lahko dodava headlineFeeds ali scraping
+ *   brez sprememb front-enda (ostane /api/headlines).
+ */
+
+// Preberi vse novice prek API-ja in vrni 1 najnovejšo za izbrani vir
+async function getFromRssViaApi(
+  source: Exclude<SourceName, 'Vse'>,
+): Promise<NewsItem | null> {
   try {
-    // /api/news že vrača vse vire; filtriramo na clientu API-ja
-    const res = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL ?? ''}/api/news`, { cache: 'no-store' })
+    // /api/headlines handler bo nastavil NEXT_PUBLIC_BASE_URL na absoluten host
+    const base = process.env.NEXT_PUBLIC_BASE_URL ?? ''
+    const url = base ? `${base}/api/news` : '/api/news'
+
+    const res = await fetch(url, { cache: 'no-store' })
     if (!res.ok) throw new Error('API /api/news failed')
     const all: NewsItem[] = await res.json()
 
     const filtered = all.filter((n) => n.source === source)
-    // že so sortirane po datumu v tvojem API-ju; če ne, sort še enkrat:
     filtered.sort((a, b) => {
       const da = new Date(a.isoDate ?? a.pubDate ?? 0).getTime()
       const db = new Date(b.isoDate ?? b.pubDate ?? 0).getTime()
@@ -26,16 +37,15 @@ async function getFromRssViaApi(source: Exclude<SourceName, 'Vse'>, feedUrl?: st
   }
 }
 
+// Vrni po 1 novico na vir (fallback: najnovejša iz navadnega RSS prek API-ja)
 export async function getFeaturedOnePerSource(): Promise<NewsItem[]> {
-  // Greva čez vse vire (brez 'Vse')
   const sources = SOURCES.filter((s): s is Exclude<SourceName, 'Vse'> => s !== 'Vse')
 
   const results: NewsItem[] = []
   for (const src of sources) {
-    const headlineUrl = headlineFeeds[src]
-    // 1) če imamo “headline” RSS: poskusi iz njega,
-    // 2) sicer vzemi 1. iz navadnega RSS (prek /api/news)
-    const picked = await getFromRssViaApi(src, headlineUrl ?? feeds[src])
+    // trenutno ignoriramo headlineFeeds (da build uspe)
+    // če želiš, jih dodava kasneje – API ostane enak
+    const picked = await getFromRssViaApi(src)
     if (picked) results.push(picked)
   }
 
