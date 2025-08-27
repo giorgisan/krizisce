@@ -9,17 +9,6 @@ import Footer from '@/components/Footer'
 import ArticleCard from '@/components/ArticleCard'
 import SeoHead from '@/components/SeoHead'
 
-/**
- * Minimalna logika "naslovnic":
- * - naložimo vse novice (isti fetch kot na /)
- * - za vsak vir (news.source) vzamemo prvo (najbolj svežo) novico
- * - opcijsko izločimo dvojnike po URL-ju
- *
- * Če boš želel kasneje bolj natančno "front-page" logiko,
- * lahko v lib/sources.ts dodaš npr. `headlineFeed` za posamezen vir
- * in tukaj posebej prebereš te vire. Zaenkrat pa MVP deluje brez sprememb drugod.
- */
-
 export default function NaslovnicePage() {
   const [allNews, setAllNews] = useState<NewsItem[] | null>(null)
   const [loading, setLoading] = useState(true)
@@ -30,7 +19,8 @@ export default function NaslovnicePage() {
 
     const load = async () => {
       try {
-        const data = await fetchRSSFeeds(false)
+        // ⬅️ brez argumentov: fetchRSSFeeds() vrne isti format kot na /
+        const data = await fetchRSSFeeds()
         if (!isMounted) return
         setAllNews(data ?? [])
       } catch (e: any) {
@@ -50,7 +40,7 @@ export default function NaslovnicePage() {
   const headlines = useMemo(() => {
     if (!allNews) return []
 
-    // ohranimo samo prvo (najbolj svežo) novico za vsak vir
+    // za vsak vir ohrani prvo (najbolj svežo) novico
     const bySource = new Map<string, NewsItem>()
     for (const item of allNews) {
       if (!bySource.has(item.source)) {
@@ -58,9 +48,9 @@ export default function NaslovnicePage() {
       }
     }
 
-    // izločimo dvojnike po URL-ju (za vsak slučaj)
+    // izločimo dvojnike po URL-ju in uredimo po datumu
     const seenUrls = new Set<string>()
-    const unique = []
+    const unique: NewsItem[] = []
     for (const n of bySource.values()) {
       if (!seenUrls.has(n.link)) {
         seenUrls.add(n.link)
@@ -68,7 +58,6 @@ export default function NaslovnicePage() {
       }
     }
 
-    // uredi po datumu (novejše najprej)
     unique.sort((a, b) => {
       const da = new Date(a.isoDate ?? a.pubDate ?? 0).getTime()
       const db = new Date(b.isoDate ?? b.pubDate ?? 0).getTime()
@@ -95,13 +84,8 @@ export default function NaslovnicePage() {
           Po ena izpostavljena (najbolj sveža) novica za vsak vir.
         </p>
 
-        {loading && (
-          <div className="text-gray-400">Nalaganje naslovnic …</div>
-        )}
-
-        {error && (
-          <div className="text-red-400">{error}</div>
-        )}
+        {loading && <div className="text-gray-400">Nalaganje naslovnic …</div>}
+        {error && <div className="text-red-400">{error}</div>}
 
         {!loading && !error && headlines.length === 0 && (
           <div className="text-gray-400">Trenutno ni podatkov.</div>
