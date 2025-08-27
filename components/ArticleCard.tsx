@@ -56,12 +56,7 @@ export default function ArticleCard({ news }: Props) {
   }, [rawImg, useProxy])
 
   const handleImgError = () => {
-    // 1) če smo padli na proxy-u, poskusi še direkten URL
-    if (rawImg && useProxy) {
-      setUseProxy(false)
-      return
-    }
-    // 2) sicer prikaži fallback
+    if (rawImg && useProxy) { setUseProxy(false); return }
     if (!useFallback) setUseFallback(true)
   }
 
@@ -92,17 +87,21 @@ export default function ArticleCard({ news }: Props) {
     return () => { document.head.removeChild(link) }
   }, [priority, rawImg])
 
-  // Klik log
-  const logClick = () => {
+  // ---- API beacons ----
+  const sendBeacon = (payload: any) => {
     try {
-      const payload = JSON.stringify({ source: news.source, url: news.link })
+      const json = JSON.stringify(payload)
       if ('sendBeacon' in navigator) {
-        const blob = new Blob([payload], { type: 'application/json' })
-        navigator.sendBeacon('/api/click', blob)
+        navigator.sendBeacon('/api/click', new Blob([json], { type: 'application/json' }))
       } else {
-        fetch('/api/click', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: payload, keepalive: true })
+        fetch('/api/click', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: json, keepalive: true })
       }
     } catch {}
+  }
+
+  // Klik na članek (obdržiš)
+  const logClick = () => {
+    sendBeacon({ source: news.source, url: news.link, action: 'open' })
   }
   const handleClick = (e: MouseEvent<HTMLAnchorElement>) => {
     if (e.metaKey || e.ctrlKey || e.button === 1) return
@@ -112,11 +111,53 @@ export default function ArticleCard({ news }: Props) {
   }
   const handleAuxClick = (e: MouseEvent<HTMLAnchorElement>) => { if (e.button === 1) logClick() }
 
-  // Prefetch za preview
-  const preloadedRef = useRef(false)
-  const doPrefetch = () => { if (!preloadedRef.current && canPrefetch()) { preloadedRef.current = true; preloadPreview(news.link).catch(() => {}) } }
+  // ---- Predogled: open/close tracking ----
+  const previewOpenedAtRef = useRef<number | null>(null)
 
-  // ---- Oko: vidnost (kartica) + zoom (gumb) ----
+  useEffect(() => {
+    if (showPreview) {
+      previewOpenedAtRef.current = Date.now()
+      sendBeacon({
+        source: news.source,
+        url: news.link,
+        action: 'preview_open',
+        meta: {
+          dpr: typeof window !== 'undefined' ? window.devicePixelRatio : 1,
+          vw: typeof window !== 'undefined' ? window.innerWidth : null,
+          vh: typeof window !== 'undefined' ? window.innerHeight : null,
+        },
+      })
+    } else if (previewOpenedAtRef.current) {
+      const duration = Date.now() - previewOpenedAtRef.current
+      previewOpenedAtRef.current = null
+      sendBeacon({
+        source: news.source,
+        url: news.link,
+        action: 'preview_close',
+        meta: { duration_ms: duration },
+      })
+    }
+  }, [showPreview, news.source, news.link])
+
+  // če user zapusti stran z odprtim previewjem
+  useEffect(() => {
+    const onUnload = () => {
+      if (previewOpenedAtRef.current) {
+        const duration = Date.now() - previewOpenedAtRef.current
+        sendBeacon({
+          source: news.source,
+          url: news.link,
+          action: 'preview_close',
+          meta: { duration_ms: duration, closed_by: 'unload' },
+        })
+        previewOpenedAtRef.current = null
+      }
+    }
+    window.addEventListener('beforeunload', onUnload)
+    return () => window.removeEventListener('beforeunload', onUnload)
+  }, [news.source, news.link])
+
+  // ---- Oko: vidnost (kartica) + nežen zoom (gumb) ----
   const [eyeVisible, setEyeVisible] = useState(false) // karta hover/fokus
   const [eyeHover, setEyeHover] = useState(false)      // hover nad gumbom
 
@@ -129,9 +170,9 @@ export default function ArticleCard({ news }: Props) {
         rel="noopener noreferrer"
         onClick={handleClick}
         onAuxClick={handleAuxClick}
-        onMouseEnter={() => { setEyeVisible(true); doPrefetch() }}
+        onMouseEnter={() => { setEyeVisible(true); if (canPrefetch()) preloadPreview(news.link).catch(() => {}) }}
         onMouseLeave={() => setEyeVisible(false)}
-        onFocus={() => { setEyeVisible(true); doPrefetch() }}
+        onFocus={() => { setEyeVisible(true); if (canPrefetch()) preloadPreview(news.link).catch(() => {}) }}
         onBlur={() => setEyeVisible(false)}
         className="cv-auto group block no-underline bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden transition-all duration-200 hover:scale-[1.02] hover:shadow-lg hover:bg-gray-100 dark:hover:bg-gray-700"
       >
@@ -163,12 +204,11 @@ export default function ArticleCard({ news }: Props) {
             onFocus={() => setEyeHover(true)}
             onBlur={() => setEyeHover(false)}
             aria-label="Predogled"
-            className={`eye-zoom peer absolute top-2 right-2 h-8 w-8 grid place-items-center rounded-full
+            className={`peer absolute top-2 right-2 h-8 w-8 grid place-items-center rounded-full
                         ring-1 ring-black/10 dark:ring-white/10 text-gray-700 dark:text-gray-200
                         bg-white/80 dark:bg-gray-900/80 backdrop-blur
-                        transition-opacity transition-transform duration-150 transform-gpu
-                        ${eyeVisible ? 'opacity-100' : 'opacity-0'}
-                        md:opacity-0 md:group-hover:opacity-100`}
+                        transition-opacity duration-150 transform-gpu
+                        ${eyeVisible ? 'opacity-100' : 'opacity-0'} md:opacity-0 md:group-hover:opacity-100`}
             style={{ transform: eyeHover ? 'translateY(0) scale(1.30)' : 'translateY(0) scale(1)' }}
           >
             <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
@@ -178,10 +218,12 @@ export default function ArticleCard({ news }: Props) {
           </button>
 
           {/* Tooltip */}
-          <span className="hidden md:block pointer-events-none absolute top-2 right-[calc(0.5rem+2rem+8px)]
-                           rounded-md px-2 py-1 text-xs font-medium bg-black/60 text-white backdrop-blur-sm drop-shadow-lg
-                           opacity-0 -translate-x-1 transition-opacity transition-transform duration-150
-                           md:peer-hover:opacity-100 md:peer-hover:translate-x-0">
+          <span
+            className="hidden md:block pointer-events-none absolute top-2 right-[calc(0.5rem+2rem+8px)]
+                       rounded-md px-2 py-1 text-xs font-medium bg-black/60 text-white backdrop-blur-sm drop-shadow-lg
+                       opacity-0 -translate-x-1 transition-opacity transition-transform duration-150
+                       peer-hover:opacity-100 peer-hover:translate-x-0"
+          >
             Predogled&nbsp;novice
           </span>
         </div>
