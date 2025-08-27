@@ -115,7 +115,10 @@ export default function ArticleCard({ news }: Props) {
   // Prefetch za preview
   const preloadedRef = useRef(false)
   const doPrefetch = () => { if (!preloadedRef.current && canPrefetch()) { preloadedRef.current = true; preloadPreview(news.link).catch(() => {}) } }
-  const [eyeHover, setEyeHover] = useState(false)
+
+  // ---- Oko: vidnost (kartica) + zoom (gumb) ----
+  const [eyeVisible, setEyeVisible] = useState(false) // karta hover/fokus
+  const [eyeHover, setEyeHover] = useState(false)      // hover nad gumbom
 
   return (
     <>
@@ -126,9 +129,10 @@ export default function ArticleCard({ news }: Props) {
         rel="noopener noreferrer"
         onClick={handleClick}
         onAuxClick={handleAuxClick}
-        onMouseEnter={() => { setEyeHover(true); doPrefetch() }}
-        onMouseLeave={() => setEyeHover(false)}
-        onFocus={doPrefetch}
+        onMouseEnter={() => { setEyeVisible(true); doPrefetch() }}
+        onMouseLeave={() => setEyeVisible(false)}
+        onFocus={() => { setEyeVisible(true); doPrefetch() }}
+        onBlur={() => setEyeVisible(false)}
         className="cv-auto group block no-underline bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden transition-all duration-200 hover:scale-[1.02] hover:shadow-lg hover:bg-gray-100 dark:hover:bg-gray-700"
       >
         {/* Media */}
@@ -147,7 +151,6 @@ export default function ArticleCard({ news }: Props) {
               sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
               priority={priority}
               onError={handleImgError}
-              // ker ne uporabljaš Vercel image optimizerja, se vse servira kot navaden <img>
               unoptimized
             />
           )}
@@ -155,16 +158,30 @@ export default function ArticleCard({ news }: Props) {
           {/* Oko (predogled) */}
           <button
             onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowPreview(true) }}
+            onMouseEnter={() => setEyeHover(true)}
+            onMouseLeave={() => setEyeHover(false)}
+            onFocus={() => setEyeHover(true)}
+            onBlur={() => setEyeHover(false)}
             aria-label="Predogled"
-            className="eye-zoom peer absolute top-2 right-2 h-8 w-8 grid place-items-center rounded-full ring-1 ring-black/10 dark:ring-white/10 text-gray-700 dark:text-gray-200 bg-white/80 dark:bg-gray-900/80 backdrop-blur transition-opacity duration-150 transform-gpu opacity-100 md:opacity-0"
-            style={eyeHover ? { transform: 'translateY(0) scale(1.30)', opacity: 1 } : undefined}
+            className={`eye-zoom peer absolute top-2 right-2 h-8 w-8 grid place-items-center rounded-full
+                        ring-1 ring-black/10 dark:ring-white/10 text-gray-700 dark:text-gray-200
+                        bg-white/80 dark:bg-gray-900/80 backdrop-blur
+                        transition-opacity transition-transform duration-150 transform-gpu
+                        ${eyeVisible ? 'opacity-100' : 'opacity-0'}
+                        md:opacity-0 md:group-hover:opacity-100`}
+            style={{ transform: eyeHover ? 'translateY(0) scale(1.30)' : 'translateY(0) scale(1)' }}
           >
             <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
               <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12Z" stroke="currentColor" strokeWidth="2" fill="none" />
               <circle cx="12" cy="12" r="3.5" stroke="currentColor" strokeWidth="2" fill="none" />
             </svg>
           </button>
-          <span className="hidden md:block pointer-events-none absolute top-2 right-[calc(0.5rem+2rem+8px)] rounded-md px-2 py-1 text-xs font-medium bg-black/60 text-white backdrop-blur-sm drop-shadow-lg opacity-0 -translate-x-1 transition-opacity transition-transform duration-150 md:peer-hover:opacity-100 md:peer-hover:translate-x-0">
+
+          {/* Tooltip */}
+          <span className="hidden md:block pointer-events-none absolute top-2 right-[calc(0.5rem+2rem+8px)]
+                           rounded-md px-2 py-1 text-xs font-medium bg-black/60 text-white backdrop-blur-sm drop-shadow-lg
+                           opacity-0 -translate-x-1 transition-opacity transition-transform duration-150
+                           md:peer-hover:opacity-100 md:peer-hover:translate-x-0">
             Predogled&nbsp;novice
           </span>
         </div>
