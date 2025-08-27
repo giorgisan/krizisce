@@ -39,6 +39,7 @@ function formatDisplayTime(publishedAt?: number, iso?: string) {
 export default function ArticleCard({ news }: Props) {
   const formattedDate = formatDisplayTime(news.publishedAt, news.isoDate)
 
+  // barva vira
   const sourceColor = useMemo(() => {
     const colors = require('@/lib/sources').sourceColors as Record<string, string>
     return colors[news.source] || '#fc9c6c'
@@ -50,7 +51,9 @@ export default function ArticleCard({ news }: Props) {
 
   const proxySrc = useMemo(() => {
     if (!rawImg) return null
-    return proxiedImage(rawImg, 640, 360, (typeof window !== 'undefined' && window.devicePixelRatio) || 1)
+    const dpr = (typeof window !== 'undefined' && window.devicePixelRatio) || 1
+    const w = 640, h = Math.round(640 / ASPECT)
+    return proxiedImage(rawImg, w, h, dpr)
   }, [rawImg])
 
   const onImgError = () => {
@@ -58,7 +61,7 @@ export default function ArticleCard({ news }: Props) {
     setMode('none')
   }
 
-  // Preload za LCP (za vidne kartice)
+  // Preload za LCP (za kartice, ki so skoraj v viewportu)
   const cardRef = useRef<HTMLAnchorElement>(null)
   const [priority, setPriority] = useState(false)
   useEffect(() => {
@@ -99,9 +102,17 @@ export default function ArticleCard({ news }: Props) {
   }
   const handleAuxClick = (e: MouseEvent<HTMLAnchorElement>) => { if (e.button === 1) logClick() }
 
+  // ✅ Preview modal state
+  const [showPreview, setShowPreview] = useState(false)
+
   // Prefetch za preview
   const preloadedRef = useRef(false)
-  const doPrefetch = () => { if (!preloadedRef.current && canPrefetch()) { preloadedRef.current = true; preloadPreview(news.link).catch(() => {}) } }
+  const doPrefetch = () => {
+    if (!preloadedRef.current && canPrefetch()) {
+      preloadedRef.current = true
+      preloadPreview(news.link).catch(() => {})
+    }
+  }
   const [eyeHover, setEyeHover] = useState(false)
 
   return (
@@ -134,10 +145,11 @@ export default function ArticleCard({ news }: Props) {
               sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
               priority={priority}
               onError={onImgError}
+              // ne uporabljamo Vercel optimizerja za remote → naj bo unoptimized
               unoptimized
             />
           ) : (
-            // Direktna slika – zavestno <img> (ne <Image>), da obidemo domain allowlist
+            // Direktna slika – <img> da obidemo Next Image domain allowlist
             <img
               src={rawImg}
               alt={news.title}
