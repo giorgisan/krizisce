@@ -20,21 +20,6 @@ function absURL(base: string, href?: string) {
   try { return new URL(href, base).toString() } catch { return undefined }
 }
 
-function sameHost(a: string, b: string) {
-  try {
-    const A = new URL(a).hostname.replace(/^www\./, '')
-    const B = new URL(b).hostname.replace(/^www\./, '')
-    return A === B
-  } catch { return false }
-}
-
-function scoreByClass(cls: string): number {
-  const low = (cls || '').toLowerCase()
-  let s = 0
-  for (const hint of CLASS_HINTS) if (low.includes(hint)) s += 10
-  return s
-}
-
 function cleanText(t?: string) {
   return (t ?? '').replace(/\s+/g, ' ').trim()
 }
@@ -43,6 +28,18 @@ function pickBest(cands: Candidate[]): Candidate | null {
   if (!cands.length) return null
   cands.sort((a, b) => b.score - a.score)
   return cands[0]
+}
+
+/** per-site selektorji za glavni članek */
+const BOOST_SELECTORS: Record<string, string> = {
+  RTVSLO: 'section.main-story a[href]',
+  '24ur': '.article-hero a[href], .main-article a[href]',
+  'Siol.net': '.main-article a[href], .hero a[href]',
+  Delo: 'article.main a[href], .main-article a[href]',
+  Zurnal24: '.main-article a[href], .featured-article a[href]',
+  'Slovenske novice': '.main-article a[href], .hero a[href]',
+  N1: 'article a[href].c-card', // že lepo dela
+  Svet24: '.main-article a[href], .hero a[href]'
 }
 
 export async function scrapeFeatured(source: string): Promise<NewsItem | null> {
@@ -60,81 +57,60 @@ export async function scrapeFeatured(source: string): Promise<NewsItem | null> {
     if (!res.ok) throw new Error(`fetch ${source} homepage failed`)
     const html = await res.text()
     const $ = cheerio.load(html)
-
     const origin = new URL(homepage).origin
+
+    /** 1) booster selektor */
+    const sel = BOOST_SELECTORS[source]
+    if (sel) {
+      const a = $(sel).first()
+      if (a.length) {
+        const href = absURL(origin, a.attr('href'))
+        if (href) {
+          const title = cleanText(a.text()) || cleanText(a.attr('title'))
+          const img = absURL(origin, a.find('img').attr('src') || a.find('img').attr('data-src'))
+          return {
+            title: title || 'Naslovnica',
+            link: href,
+            source,
+            image: img ?? null,
+            contentSnippet: '',
+            isoDate: undefined,
+            pubDate: undefined,
+            publishedAt: undefined
+          }
+        }
+      }
+    }
+
+    /** 2) fallback: generične heuristike */
     const candidates: Candidate[] = []
-
-    // 1) Glavni bloki
-    $('section, article, div').each((i, el) => {
+    $('article, section, div').each((i, el) => {
       const $el = $(el)
-      const cls = $el.attr('class') ?? ''
+      const a = $el.find('a[href]').first()
+      if (!a.length) return
+      const href = absURL(origin, a.attr('href'))
+      if (!href) return
+
+      const title =
+        cleanText($el.find('h1,h2,h3').first().text()) ||
+        cleanText(a.text()) ||
+        cleanText(a.attr('title'))
+
+      if (!title) return
+      const img = absURL(origin, $el.find('img').attr('src') || $el.find('img').attr('data-src'))
       let score = 0
-
-      score += scoreByClass(cls)
-
-      const titleEl = $el.find('h1, h2, h3').first()
-      if (titleEl.length) score += 6
-
-      const imgEl = $el.find('img').first()
-      if (imgEl.length) score += 8
-
-      const aEl = $el.find('a[href]').first()
-      if (!aEl.length) return
-      const href = absURL(origin, aEl.attr('href'))
-      if (!href || !sameHost(origin, href)) return
-      if (href.startsWith('javascript:') || href.endsWith('#')) return
-
-      const anchorTitle = cleanText(aEl.text())
-      if (anchorTitle.length > 20) score += 4
-
+      const cls = $el.attr('class') ?? ''
+      for (const hint of CLASS_HINTS) if (cls.toLowerCase().includes(hint)) score += 10
+      if (img) score += 8
+      if (title.length > 20) score += 6
       score += Math.max(0, 20 - Math.floor(i / 20))
-
-      const title =
-        cleanText(titleEl.text()) ||
-        cleanText($el.find('a[title]').attr('title')) ||
-        (anchorTitle.length > 10 ? anchorTitle : undefined)
-
-      let img =
-        absURL(origin, imgEl.attr('src')) ||
-        absURL(origin, imgEl.attr('data-src')) ||
-        absURL(origin, (imgEl.attr('srcset') || '').split(' ')[0])
-
-      if (img && /\.svg($|\?)/i.test(img)) img = undefined
-
-      candidates.push({ href, title, img, score })
-    })
-
-    // 2) Veliki <picture> bloki
-    $('picture').each((i, el) => {
-      const $pic = $(el)
-      const aEl = $pic.closest('a[href]')
-      if (!aEl.length) return
-      const href = absURL(origin, aEl.attr('href'))
-      if (!href || !sameHost(origin, href)) return
-
-      const imgEl = $pic.find('img').first()
-      let img =
-        absURL(origin, imgEl.attr('src')) ||
-        absURL(origin, imgEl.attr('data-src')) ||
-        absURL(origin, (imgEl.attr('srcset') || '').split(' ')[0])
-
-      const title =
-        cleanText(aEl.attr('title')) ||
-        cleanText(aEl.text()) ||
-        cleanText($pic.closest('section,article,div').find('h1,h2,h3').first().text())
-
-      const cls = ($pic.closest('section,article,div').attr('class')) ?? ''
-      let score = 12 + scoreByClass(cls) + Math.max(0, 15 - Math.floor(i / 10))
-      if (title) score += 6
-      if (img) score += 6
 
       candidates.push({ href, title, img, score })
     })
 
     const best = pickBest(candidates)
     if (!best) return null
-
-    const item: NewsItem = {
+    return {
       title: best.title || 'Naslovnica',
       link: best.href,
       source,
@@ -144,7 +120,6 @@ export async function scrapeFeatured(source: string): Promise<NewsItem | null> {
       pubDate: undefined,
       publishedAt: undefined
     }
-    return item
   } catch (e) {
     console.error('scrapeFeatured error', source, e)
     return null
