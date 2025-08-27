@@ -12,10 +12,8 @@ type ApiPayload =
   | { error: string }
   | { title: string; site: string; image?: string | null; html: string; url: string }
 
-// Kolikšen delež besedila prikažemo
 const TEXT_PERCENT = 0.80
 
-// Tipografski “skin” za modal – brez odvisnosti od @tailwindcss/typography
 const PREVIEW_TYPO_CSS = `
   .preview-typo { font-size: 0.98rem; line-height: 1.68; }
   .preview-typo > *:first-child { margin-top: 0 !important; }
@@ -43,8 +41,7 @@ function trackClick(source: string, url: string) {
     const payload = JSON.stringify({ source, url, from: 'preview' })
     const endpoint = '/api/click'
     if ('sendBeacon' in navigator) {
-      const blob = new Blob([payload], { type: 'application/json' })
-      navigator.sendBeacon(endpoint, blob)
+      navigator.sendBeacon(endpoint, new Blob([payload], { type: 'application/json' }))
     } else {
       fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: payload, keepalive: true as any })
         .catch(() => {})
@@ -52,7 +49,7 @@ function trackClick(source: string, url: string) {
   } catch {}
 }
 
-/** Absolutizira URL (podpira tudi protokol-relativne //...) glede na baseUrl. */
+/** Absolutizira URL (podpira tudi protokol-relativne //...). */
 function absolutize(raw: string, baseUrl: string): string {
   try {
     const fixed = raw.startsWith('//') ? (new URL(baseUrl).protocol + raw) : raw
@@ -60,45 +57,41 @@ function absolutize(raw: string, baseUrl: string): string {
   } catch { return raw }
 }
 
-/** Normalizacijski ključ iz src, da lahko zanesljivo prepoznamo dvojnike. */
-function imageKeyFromSrc(src: string | null | undefined): string {
-  if (!src) return ''
-  let pathname = ''
-  try {
-    pathname = new URL(src, typeof location !== 'undefined' ? location.origin : 'http://localhost').pathname.toLowerCase()
-  } catch {
-    pathname = (src.split('#')[0] || '').split('?')[0].toLowerCase()
-  }
-  return pathname
-    .replace(/(-|_)?\d{2,4}x\d{2,4}(?=\.)/g, '') // -800x533
-    .replace(/(-|_)?\d{2,4}x(?=\.)/g, '')        // -800x
-    .replace(/@2x(?=\.)/g, '')
-    .replace(/-scaled(?=\.)/g, '')
-    .replace(/\.(webp|jpeg)$/g, '.jpg')
-}
-
-/** “Stem” datoteke brez razširitve in dimenzijskih sufiksov. */
-function basenameStem(pathname: string): string {
-  const last = pathname.split('/').pop() || ''
+/** Ime datoteke iz src (brez poti in razširitve). */
+function filenameStem(src: string): string {
+  const clean = (src.split('#')[0] || '').split('?')[0]
+  const last = clean.split('/').pop() || ''
   return last
-    .replace(/\.[a-z0-9]+$/, '')
-    .replace(/(-|_)?\d{2,4}x\d{2,4}$/g, '')
-    .replace(/(-|_)?\d{2,4}x$/g, '')
-    .replace(/@2x$/g, '')
-    .replace(/-scaled$/g, '')
+    .replace(/\.[a-z0-9]+$/i, '')
+    .replace(/(-|_)?\d{2,4}x\d{2,4}$/i, '')
+    .replace(/(-|_)?\d{2,4}x$/i, '')
+    .replace(/@2x$/i, '')
+    .replace(/-scaled$/i, '')
+    .toLowerCase()
 }
 
-/** Client-side clean + polish: absolutiziraj URL-je, lazy, odstrani dvojnike,
- *  utrdi rel, in (če znan) odstrani prvi heading, ki se ujema z naslovom. */
+/** “Fingerprint” brez številk in ločil, za mehkejše ujemanje. */
+function softFingerprint(stem: string): string {
+  return stem.replace(/[^a-z]+/g, '')
+}
+
+/** Najdaljši skupni prefiks (za hitro primerjavo podobnosti). */
+function lcp(a: string, b: string): number {
+  const n = Math.min(a.length, b.length)
+  let i = 0
+  while (i < n && a[i] === b[i]) i++
+  return i
+}
+
+/** Čiščenje: absolutiziraj URL-je, utrdi rel, odstrani dvojnike slik (natančno + mehko ujemanje). */
 function cleanPreviewHTML(html: string, baseUrl: string, knownTitle?: string): string {
   try {
     const wrap = document.createElement('div')
     wrap.innerHTML = html
 
-    // odstrani šum
     wrap.querySelectorAll('noscript,script,style,iframe,form').forEach(n => n.remove())
 
-    // odvečen naslov (če se ujema)
+    // podvojen naslov?
     if (knownTitle) {
       const h = wrap.querySelector('h1, h2, h3')
       if (h) {
@@ -119,7 +112,7 @@ function cleanPreviewHTML(html: string, baseUrl: string, knownTitle?: string): s
       a.setAttribute('target', '_blank')
     })
 
-    // slike (tudi tiste v <picture>)
+    // slike
     const imgs = Array.from(wrap.querySelectorAll<HTMLImageElement>('img'))
     if (!imgs.length) return wrap.innerHTML
 
@@ -133,41 +126,44 @@ function cleanPreviewHTML(html: string, baseUrl: string, knownTitle?: string): s
     first.setAttribute('loading', 'lazy'); first.setAttribute('decoding', 'async')
     first.setAttribute('referrerpolicy', 'no-referrer')
 
-    const firstKey  = imageKeyFromSrc(firstAbs || firstRaw)
-    const firstStem = basenameStem(firstKey)
+    const firstStem = filenameStem(firstAbs || firstRaw)
+    const firstSoft = softFingerprint(firstStem)
 
-    // 1) odstrani NATAČNE dvojnike po ključu
-    const seen = new Set<string>(firstKey ? [firstKey] : [])
-    wrap.querySelectorAll('img').forEach(img => {
+    // zabeleži natančne ključe tudi za ostale
+    const seenExact = new Set<string>()
+    if (firstAbs) seenExact.add(firstAbs.split('#')[0].split('?')[0].toLowerCase())
+
+    wrap.querySelectorAll('img').forEach((img, idx) => {
+      // absolutiziraj + standardni atributi
       const raw = img.getAttribute('src') || img.getAttribute('data-src') || img.getAttribute('data-original') || ''
-      if (raw) {
-        const abs = absolutize(raw, baseUrl)
-        img.setAttribute('src', abs)
-      }
+      if (raw) img.setAttribute('src', absolutize(raw, baseUrl))
       img.removeAttribute('data-src'); img.removeAttribute('data-original')
       img.removeAttribute('srcset'); img.removeAttribute('sizes')
       img.setAttribute('loading', 'lazy'); img.setAttribute('decoding', 'async')
       img.setAttribute('referrerpolicy', 'no-referrer')
 
-      const key = imageKeyFromSrc(img.getAttribute('src') || '')
-      if (!key) return
-      if (seen.has(key) && img !== first) {
-        ;(img.closest('figure, picture') || img).remove()
-      } else {
-        seen.add(key)
-      }
-    })
+      const srcAbs = img.getAttribute('src') || ''
+      if (!srcAbs) return
 
-    // 2) odstrani VSE kasnejše slike z zelo podobnim stemom kot hero
-    wrap.querySelectorAll('img').forEach((img, idx) => {
-      if (idx === 0) return
-      const key = imageKeyFromSrc(img.getAttribute('src') || '')
-      if (!key) return
-      const st  = basenameStem(key)
-      const similar =
-        st === firstStem ||
-        (firstStem && st && (st.startsWith(firstStem.slice(0, 10)) || firstStem.startsWith(st.slice(0, 10))))
-      if (similar) (img.closest('figure, picture') || img).remove()
+      const exactKey = srcAbs.split('#')[0].split('?')[0].toLowerCase()
+      const stem = filenameStem(srcAbs)
+      const soft = softFingerprint(stem)
+
+      // Natančen duplikat?
+      if (idx > 0 && (seenExact.has(exactKey))) {
+        ;(img.closest('figure, picture') || img).remove()
+        return
+      }
+      seenExact.add(exactKey)
+
+      // Mehko ujemanje s prvim (istega imena/crop variacije/cache poti)
+      if (idx > 0) {
+        const pref = lcp(soft, firstSoft)
+        const similarity = (pref / Math.max(1, Math.max(soft.length, firstSoft.length)))
+        if (stem === firstStem || similarity >= 0.7) {
+          ;(img.closest('figure, picture') || img).remove()
+        }
+      }
     })
 
     return wrap.innerHTML
@@ -300,7 +296,6 @@ export default function ArticlePreview({ url, onClose }: Props) {
 
   return createPortal(
     <>
-      {/* trd override za ozadje med modalom */}
       <style>{`
         body.preview-open a,
         body.preview-open a:hover,
@@ -308,7 +303,6 @@ export default function ArticlePreview({ url, onClose }: Props) {
         body.preview-open .group:hover { transform: none !important; }
         body.preview-open .group:hover * { text-decoration: none !important; }
       `}</style>
-      {/* tipografski skin */}
       <style>{PREVIEW_TYPO_CSS}</style>
 
       <div
