@@ -1,88 +1,89 @@
-// lib/fetchRSSFeeds.ts
 import Parser from 'rss-parser'
 import type { NewsItem } from '../types'
 import { feeds } from './sources'
 
 type FetchOpts = { forceFresh?: boolean }
 
-// Pomaga absolutizirati URL-je (//, /pot …) glede na link članka
+// Sanitize + absolutizacija na osnovi linka članka
 function absolutize(src: string | undefined | null, baseHref: string): string | null {
   if (!src) return null
+  if (/^(data:|javascript:)/i.test(src)) return null
   try {
-    // //example.com/a.jpg → https:
     if (src.startsWith('//')) return new URL(`https:${src}`).toString()
-    // /img/a.jpg → https://host/img/a.jpg
-    const url = new URL(src, baseHref)
-    return url.toString()
-  } catch {
-    return null
-  }
+    if (/^https?:\/\//i.test(src)) return src
+    return new URL(src, baseHref).toString()
+  } catch { return null }
 }
 
 const parser: Parser = new Parser({
-  // Razširimo polja, ki jih rss-parser sploh prenese v item
   customFields: {
     item: [
       'isoDate',
       'content:encoded',
       'media:content',
       'media:thumbnail',
-      ['media:group', 'mediaGroup'], // nekateri dajo group znotraj arraya
+      'media:group',
       'enclosure',
+      'enclosures',
       'image',
     ],
   },
 })
 
+function pickUrl(v: any): string | null {
+  if (!v) return null
+  if (typeof v === 'string') return v
+  if (typeof v?.url === 'string') return v.url
+  if (typeof v?.$?.url === 'string') return v.$.url
+  return null
+}
+function firstUrl(v: any): string | null {
+  if (!v) return null
+  if (Array.isArray(v)) {
+    for (const it of v) {
+      const u = pickUrl(it)
+      if (u) return u
+    }
+    return null
+  }
+  return pickUrl(v)
+}
+
 // Poskusi pobrati sliko iz čim več tipičnih mest
 function extractImage(item: any, baseHref: string): string | null {
-  // 1) <media:group><media:content .../></media:group>
-  const mg = item.mediaGroup
-  if (mg) {
-    const arr = Array.isArray(mg['media:content']) ? mg['media:content'] : [mg['media:content']]
-    for (const c of arr.filter(Boolean)) {
-      const cand = c?.url ?? c?.$?.url
-      const abs = absolutize(cand, baseHref)
-      if (abs) return abs
-    }
+  const candidates: Array<string | null | undefined> = []
+
+  // media:group lahko pride kot objekt ali array
+  const groups = Array.isArray(item['media:group'])
+    ? item['media:group']
+    : item['media:group'] ? [item['media:group']] : []
+
+  for (const g of groups) {
+    candidates.push(firstUrl(g?.['media:content']))
+    candidates.push(firstUrl(g?.['media:thumbnail']))
   }
 
-  // 2) <media:content url="...">
-  if (item['media:content']) {
-    const mc = item['media:content']
-    const cand = mc?.url ?? mc?.$?.url
-    const abs = absolutize(cand, baseHref)
-    if (abs) return abs
-  }
+  // media:content / media:thumbnail lahko sta array/objekt
+  candidates.push(firstUrl(item['media:content']))
+  candidates.push(firstUrl(item['media:thumbnail']))
 
-  // 3) <media:thumbnail url="...">
-  if (item['media:thumbnail']) {
-    const mt = item['media:thumbnail']
-    const cand = mt?.url ?? mt?.$?.url
-    const abs = absolutize(cand, baseHref)
-    if (abs) return abs
-  }
+  // enclosure/enclosures
+  candidates.push(firstUrl(item.enclosures || item.enclosure))
 
-  // 4) <enclosure url="...">
-  if (item.enclosure?.url) {
-    const abs = absolutize(item.enclosure.url, baseHref)
-    if (abs) return abs
-  }
-
-  // 5) content / content:encoded – prvi <img src="...">
+  // content / content:encoded – podpri data-src, src in srcset
   const html = (item['content:encoded'] ?? item.content ?? '') as string
-  const m = html.match(/<img[^>]+src=["']([^"']+)["']/i)
-  if (m?.[1]) {
-    const abs = absolutize(m[1], baseHref)
+  let m = html.match(/<img[^>]+(?:data-src|src)=(?:"|')([^"']+)(?:"|')/i)
+  if (m?.[1]) candidates.push(m[1])
+  const srcset = html.match(/<img[^>]+srcset=(?:"|')([^"']+)(?:"|')/i)?.[1]
+  if (srcset) candidates.push(srcset.split(',')[0]?.trim().split(/\s+/)[0])
+
+  // nekateri dodajo .image.url
+  if (item.image?.url) candidates.push(item.image.url)
+
+  for (const c of candidates) {
+    const abs = absolutize(c || undefined, baseHref)
     if (abs) return abs
   }
-
-  // 6) nekatere feed knjižnice dodajo .image
-  if (item.image?.url) {
-    const abs = absolutize(item.image.url, baseHref)
-    if (abs) return abs
-  }
-
   return null
 }
 
