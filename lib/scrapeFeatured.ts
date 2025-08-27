@@ -28,7 +28,7 @@ const ARTICLE_PATTERNS: Record<string, RegExp[]> = {
   RTVSLO: [ /\/\d{6,}(?:[\/?#]|$)/ ],                    // …/755779
   'Siol.net': [ /-\d{5,}(?:[\/?#]|$)/, /^\/novice\// ],   // …-670620 ali /novice/…
   '24ur':   [ /\.html(?:[?#]|$)/ ],
-  Delo:     [ /^\/novice\//, /-\d{5,}(?:[\/?#]|$)/ ],
+  Delo:     [ /^\/novice\// ],                            // Delo “hero” je tipično pod /novice/…
   Zurnal24: [ /-\d{5,}(?:[\/?#]|$)/ ],
   'Slovenske novice': [ /^\/(novice|kronika|slovenija|svet)\// ],
   N1:       [ /^\/.+/ ],
@@ -65,8 +65,9 @@ function pickBest(cands: Candidate[]) {
   return cands[0]
 }
 
-/** —————————————————————  BOOST: RTV in Siol  ———————————————————— */
+/** —————————————————————  BOOST: RTV, Siol, Delo  ———————————————————— */
 function boostRTV($: cheerio.CheerioAPI, origin: string): Candidate | null {
+  // Blok z napisom "Aktualno" → prva člankasta povezava (…/755779)
   const blok = $('section:contains("Aktualno"), div:contains("Aktualno")').first()
   const a = blok.find('a[href]').filter((_, el) => {
     const href = $(el).attr('href') || ''
@@ -93,16 +94,17 @@ function boostRTV($: cheerio.CheerioAPI, origin: string): Candidate | null {
 }
 
 function boostSiol($: cheerio.CheerioAPI, origin: string): Candidate | null {
-  const a = $('a[href]').filter((_, el) => {
+  // Prvi A z /novice/ ali ID v slugu, ki je v bloku s sliko in h1/h2
+  const a = $('main a[href]').filter((_, el) => {
     const href = $(el).attr('href') || ''
     return urlLooksLikeArticle('Siol.net', href)
-  }).first()
+  }).has('h1,h2,img,picture').first()
   if (!a.length) return null
 
   const hrefAbs = absURL(origin, a.attr('href'))
   if (!hrefAbs) return null
 
-  const wrap = a.closest('article,section,div')
+  const wrap = a.closest('article,section,div,main')
   const title =
     clean(wrap.find('h1,h2').first().text()) ||
     clean(a.attr('title')) ||
@@ -114,6 +116,29 @@ function boostSiol($: cheerio.CheerioAPI, origin: string): Candidate | null {
   )
 
   let score = 36 + articleLikeScore('Siol.net', hrefAbs)
+  return { href: hrefAbs, title, img, score }
+}
+
+function boostDelo($: cheerio.CheerioAPI, origin: string): Candidate | null {
+  // Delo: v <main> prvi A, ki kaže v /novice/... in je v bloku z naslovom + sliko
+  const a = $('main a[href^="/novice/"]').has('h1,h2,img,picture').first()
+  if (!a.length) return null
+
+  const hrefAbs = absURL(origin, a.attr('href'))
+  if (!hrefAbs) return null
+
+  const wrap = a.closest('article,section,div,main')
+  const title =
+    clean(wrap.find('h1,h2').first().text()) ||
+    clean(a.attr('title')) ||
+    clean(a.text())
+  const img = absURL(origin,
+    wrap.find('img').first().attr('src') ||
+    wrap.find('img').first().attr('data-src') ||
+    (wrap.find('img').first().attr('srcset') || '').split(' ')[0]
+  )
+
+  let score = 38 + articleLikeScore('Delo', hrefAbs)
   return { href: hrefAbs, title, img, score }
 }
 
@@ -135,7 +160,7 @@ export async function scrapeFeatured(source: string): Promise<NewsItem | null> {
     const $ = cheerio.load(html)
     const origin = new URL(homepage).origin
 
-    // 1) ciljana pravila za RTV in Siol
+    // 1) ciljana pravila
     if (source === 'RTVSLO') {
       const c = boostRTV($, origin)
       if (c) return {
@@ -146,7 +171,7 @@ export async function scrapeFeatured(source: string): Promise<NewsItem | null> {
         contentSnippet: '',
         isoDate: undefined,
         pubDate: undefined,
-        publishedAt: undefined, // <-- zaradi tipa NewsItem
+        publishedAt: undefined,
       }
     }
     if (source === 'Siol.net') {
@@ -159,7 +184,20 @@ export async function scrapeFeatured(source: string): Promise<NewsItem | null> {
         contentSnippet: '',
         isoDate: undefined,
         pubDate: undefined,
-        publishedAt: undefined, // <-- zaradi tipa NewsItem
+        publishedAt: undefined,
+      }
+    }
+    if (source === 'Delo') {
+      const c = boostDelo($, origin)
+      if (c) return {
+        title: c.title || 'Naslovnica',
+        link: c.href,
+        source,
+        image: c.img ?? null,
+        contentSnippet: '',
+        isoDate: undefined,
+        pubDate: undefined,
+        publishedAt: undefined,
       }
     }
 
@@ -176,7 +214,7 @@ export async function scrapeFeatured(source: string): Promise<NewsItem | null> {
 
       if (!urlLooksLikeArticle(source, raw) && clean($a.text()).length < 25) return
 
-      const wrap = $a.closest('article,section,div')
+      const wrap = $a.closest('article,section,div,main')
       const title =
         clean(wrap.find('h1,h2,h3').first().text()) ||
         clean($a.attr('title')) ||
@@ -210,7 +248,7 @@ export async function scrapeFeatured(source: string): Promise<NewsItem | null> {
       contentSnippet: '',
       isoDate: undefined,
       pubDate: undefined,
-      publishedAt: undefined, // <-- zaradi tipa NewsItem
+      publishedAt: undefined,
     }
   } catch (e) {
     console.error('scrapeFeatured error', source, e)
