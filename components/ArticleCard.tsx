@@ -16,7 +16,6 @@ import { proxiedImage } from '@/lib/img'
 import { preloadPreview, canPrefetch } from '@/lib/previewPrefetch'
 
 interface Props { news: NewsItem }
-
 type PreviewProps = { url: string; onClose: () => void }
 const ArticlePreview = dynamic(() => import('./ArticlePreview'), { ssr: false }) as ComponentType<PreviewProps>
 
@@ -44,6 +43,18 @@ export default function ArticleCard({ news }: Props) {
     const colors = require('@/lib/sources').sourceColors as Record<string, string>
     return colors[news.source] || '#fc9c6c'
   }, [news.source])
+
+  // --- detect touch / coarse pointer ---
+  const [isTouch, setIsTouch] = useState(false)
+  useEffect(() => {
+    try {
+      const coarse = typeof window !== 'undefined' && window.matchMedia?.('(pointer: coarse)').matches
+      const touchCap = typeof navigator !== 'undefined' && (navigator.maxTouchPoints || (navigator as any).msMaxTouchPoints) > 0
+      setIsTouch(!!coarse || !!touchCap || 'ontouchstart' in window)
+    } catch {
+      setIsTouch(false)
+    }
+  }, [])
 
   // ---- Slike: proxy → direct → fallback ----
   const rawImg = news.image ?? null
@@ -154,7 +165,7 @@ export default function ArticleCard({ news }: Props) {
     return () => window.removeEventListener('beforeunload', onUnload)
   }, [news.source, news.link])
 
-  // ---- Prefetch preview on hover/focus ----
+  // ---- Prefetch preview ----
   const preloadedRef = useRef(false)
   const triggerPrefetch = () => {
     if (!preloadedRef.current && canPrefetch()) {
@@ -164,8 +175,9 @@ export default function ArticleCard({ news }: Props) {
   }
 
   // ---- Oko: vidnost (kartica) + nežen zoom (gumb) ----
-  const [eyeVisible, setEyeVisible] = useState(false) // karta hover/fokus
+  const [eyeVisible, setEyeVisible] = useState(false) // hover/focus za miškin svet
   const [eyeHover, setEyeHover]   = useState(false)    // hover nad gumbom
+  const showEye = isTouch ? true : eyeVisible          // <- na touch vedno vidno
 
   return (
     <>
@@ -180,6 +192,7 @@ export default function ArticleCard({ news }: Props) {
         onMouseLeave={() => setEyeVisible(false)}
         onFocus={() => { setEyeVisible(true); triggerPrefetch() }}
         onBlur={() => setEyeVisible(false)}
+        onTouchStart={() => { /* na dotik vedno prefetchamo */ triggerPrefetch() }}
         className="cv-auto group block no-underline bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden transition-all duration-200 hover:scale-[1.02] hover:shadow-lg hover:bg-gray-100 dark:hover:bg-gray-700"
       >
         {/* Media */}
@@ -214,7 +227,8 @@ export default function ArticleCard({ news }: Props) {
                         ring-1 ring-black/10 dark:ring-white/10 text-gray-700 dark:text-gray-200
                         bg-white/80 dark:bg-gray-900/80 backdrop-blur
                         transition-opacity duration-150 transform-gpu
-                        ${eyeVisible ? 'opacity-100' : 'opacity-0'} md:opacity-0 md:group-hover:opacity-100`}
+                        ${showEye ? 'opacity-100' : 'opacity-0'}
+                        ${isTouch ? '' : 'md:opacity-0 md:group-hover:opacity-100'}`}
             style={{ transform: eyeHover ? 'translateY(0) scale(1.30)' : 'translateY(0) scale(1)' }}
           >
             <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
@@ -223,15 +237,17 @@ export default function ArticleCard({ news }: Props) {
             </svg>
           </button>
 
-          {/* Tooltip */}
-          <span
-            className="hidden md:block pointer-events-none absolute top-2 right-[calc(0.5rem+2rem+8px)]
-                       rounded-md px-2 py-1 text-xs font-medium bg-black/60 text-white backdrop-blur-sm drop-shadow-lg
-                       opacity-0 -translate-x-1 transition-opacity transition-transform duration-150
-                       peer-hover:opacity-100 peer-hover:translate-x-0"
-          >
-            Predogled&nbsp;novice
-          </span>
+          {/* Tooltip – na touch ga skrijemo */}
+          {!isTouch && (
+            <span
+              className="hidden md:block pointer-events-none absolute top-2 right-[calc(0.5rem+2rem+8px)]
+                         rounded-md px-2 py-1 text-xs font-medium bg-black/60 text-white backdrop-blur-sm drop-shadow-lg
+                         opacity-0 -translate-x-1 transition-opacity transition-transform duration-150
+                         peer-hover:opacity-100 peer-hover:translate-x-0"
+            >
+              Predogled&nbsp;novice
+            </span>
+          )}
         </div>
 
         {/* Besedilo */}
