@@ -13,7 +13,12 @@ import {
 import dynamic from 'next/dynamic'
 import Image from 'next/image'
 import { proxiedImage } from '@/lib/img'
-import { preloadPreview, canPrefetch } from '@/lib/previewPrefetch'
+import {
+  preloadPreview,
+  canPrefetch,
+  cancelPreview,
+  debouncePrefetch,
+} from '@/lib/previewPrefetch'
 
 interface Props { news: NewsItem }
 
@@ -27,10 +32,10 @@ function formatDisplayTime(publishedAt?: number, iso?: string) {
   if (!ms) return ''
   const diff = Date.now() - ms
   const min = Math.floor(diff / 60_000)
-  const hr = Math.floor(min / 60)
+  const hr  = Math.floor(min / 60)
   if (diff < 60_000) return 'pred nekaj sekundami'
-  if (min < 60) return `pred ${min} min`
-  if (hr < 24) return `pred ${hr} h`
+  if (min < 60)     return `pred ${min} min`
+  if (hr  < 24)     return `pred ${hr} h`
   const d = new Date(ms)
   const date = new Intl.DateTimeFormat('sl-SI', { day: 'numeric', month: 'short' }).format(d)
   const time = new Intl.DateTimeFormat('sl-SI', { hour: '2-digit', minute: '2-digit' }).format(d)
@@ -99,10 +104,8 @@ export default function ArticleCard({ news }: Props) {
     } catch {}
   }
 
-  // Klik na članek (obdržiš)
-  const logClick = () => {
-    sendBeacon({ source: news.source, url: news.link, action: 'open' })
-  }
+  // Klik na članek
+  const logClick = () => { sendBeacon({ source: news.source, url: news.link, action: 'open' }) }
   const handleClick = (e: MouseEvent<HTMLAnchorElement>) => {
     if (e.metaKey || e.ctrlKey || e.button === 1) return
     e.preventDefault()
@@ -157,6 +160,19 @@ export default function ArticleCard({ news }: Props) {
     return () => window.removeEventListener('beforeunload', onUnload)
   }, [news.source, news.link])
 
+  // ---- Prefetch preview: debounce + cancel ----
+  const preloadedRef = useRef(false)
+  const debouncedPrefetch = useMemo(
+    () => debouncePrefetch((url: string) => {
+      if (!preloadedRef.current && canPrefetch()) {
+        preloadedRef.current = true
+        preloadPreview(url).catch(() => {})
+      }
+    }, 120),
+    []
+  )
+  const doPrefetch = () => debouncedPrefetch(news.link)
+
   // ---- Oko: vidnost (kartica) + nežen zoom (gumb) ----
   const [eyeVisible, setEyeVisible] = useState(false) // karta hover/fokus
   const [eyeHover, setEyeHover] = useState(false)      // hover nad gumbom
@@ -170,10 +186,10 @@ export default function ArticleCard({ news }: Props) {
         rel="noopener noreferrer"
         onClick={handleClick}
         onAuxClick={handleAuxClick}
-        onMouseEnter={() => { setEyeVisible(true); if (canPrefetch()) preloadPreview(news.link).catch(() => {}) }}
-        onMouseLeave={() => setEyeVisible(false)}
-        onFocus={() => { setEyeVisible(true); if (canPrefetch()) preloadPreview(news.link).catch(() => {}) }}
-        onBlur={() => setEyeVisible(false)}
+        onMouseEnter={() => { setEyeVisible(true); doPrefetch() }}
+        onMouseLeave={() => { setEyeVisible(false); cancelPreview(news.link) }}
+        onFocus={() => { setEyeVisible(true); doPrefetch() }}
+        onBlur={() => { setEyeVisible(false); cancelPreview(news.link) }}
         className="cv-auto group block no-underline bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden transition-all duration-200 hover:scale-[1.02] hover:shadow-lg hover:bg-gray-100 dark:hover:bg-gray-700"
       >
         {/* Media */}
