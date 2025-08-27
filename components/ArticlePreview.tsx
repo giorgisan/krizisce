@@ -52,53 +52,64 @@ function trackClick(source: string, url: string) {
   } catch {}
 }
 
+/** Absolutizira URL (podpira tudi protokol-relativne //...) glede na baseUrl. */
 function absolutize(raw: string, baseUrl: string): string {
-  try { return new URL(raw, baseUrl).toString() } catch { return raw }
+  try {
+    const fixed = raw.startsWith('//') ? (new URL(baseUrl).protocol + raw) : raw
+    return new URL(fixed, baseUrl).toString()
+  } catch { return raw }
 }
+
+/** Normalizacijski ključ iz src, da lahko zanesljivo prepoznamo dvojnike. */
 function imageKeyFromSrc(src: string | null | undefined): string {
   if (!src) return ''
   let pathname = ''
   try {
-    const u = new URL(src, typeof location !== 'undefined' ? location.origin : 'http://localhost')
-    pathname = u.pathname.toLowerCase()
+    pathname = new URL(src, typeof location !== 'undefined' ? location.origin : 'http://localhost').pathname.toLowerCase()
   } catch {
     pathname = (src.split('#')[0] || '').split('?')[0].toLowerCase()
   }
-  pathname = pathname.replace(/(-|\_)?\d{2,4}x\d{2,4}(?=\.)/g, '')
-  pathname = pathname.replace(/(-|\_)?\d{2,4}x(?=\.)/g, '')
-  pathname = pathname.replace(/-scaled(?=\.)/g, '')
-  pathname = pathname.replace(/\.(webp|jpeg)$/g, '.jpg')
   return pathname
+    .replace(/(-|_)?\d{2,4}x\d{2,4}(?=\.)/g, '') // -800x533
+    .replace(/(-|_)?\d{2,4}x(?=\.)/g, '')        // -800x
+    .replace(/@2x(?=\.)/g, '')
+    .replace(/-scaled(?=\.)/g, '')
+    .replace(/\.(webp|jpeg)$/g, '.jpg')
 }
+
+/** “Stem” datoteke brez razširitve in dimenzijskih sufiksov. */
 function basenameStem(pathname: string): string {
   const last = pathname.split('/').pop() || ''
   return last
     .replace(/\.[a-z0-9]+$/, '')
-    .replace(/(-|\_)?\d{2,4}x\d{2,4}$/g, '')
-    .replace(/(-|\_)?\d{2,4}x$/g, '')
+    .replace(/(-|_)?\d{2,4}x\d{2,4}$/g, '')
+    .replace(/(-|_)?\d{2,4}x$/g, '')
+    .replace(/@2x$/g, '')
     .replace(/-scaled$/g, '')
 }
 
-/** Client-side clean + polish: absolutiziraj URL-je, lazy, odstrani dvojnike, utrdi rel,
- *  in (če znan) odstrani prvi heading, ki se ujema z naslovom v headerju modala. */
+/** Client-side clean + polish: absolutiziraj URL-je, lazy, odstrani dvojnike,
+ *  utrdi rel, in (če znan) odstrani prvi heading, ki se ujema z naslovom. */
 function cleanPreviewHTML(html: string, baseUrl: string, knownTitle?: string): string {
   try {
     const wrap = document.createElement('div')
     wrap.innerHTML = html
 
-    wrap.querySelectorAll('noscript,script,style,iframe,form').forEach((n) => n.remove())
+    // odstrani šum
+    wrap.querySelectorAll('noscript,script,style,iframe,form').forEach(n => n.remove())
 
-    // odpravi podvojeni naslov (če je enak iz glave modala)
+    // odvečen naslov (če se ujema)
     if (knownTitle) {
-      const firstHeading = wrap.querySelector('h1, h2, h3')
-      if (firstHeading) {
-        const a = (firstHeading.textContent || '').trim().toLowerCase()
+      const h = wrap.querySelector('h1, h2, h3')
+      if (h) {
+        const a = (h.textContent || '').trim().toLowerCase()
         const b = knownTitle.trim().toLowerCase()
-        if (a && b && a === b) firstHeading.remove()
+        if (a && a === b) h.remove()
       }
     }
 
-    wrap.querySelectorAll('a').forEach((a) => {
+    // povezave
+    wrap.querySelectorAll('a').forEach(a => {
       const href = a.getAttribute('href')
       if (href) a.setAttribute('href', absolutize(href, baseUrl))
       const rel = (a.getAttribute('rel') || '').split(/\s+/)
@@ -108,60 +119,56 @@ function cleanPreviewHTML(html: string, baseUrl: string, knownTitle?: string): s
       a.setAttribute('target', '_blank')
     })
 
-    const imgs = Array.from(wrap.querySelectorAll('img'))
-    if (imgs.length === 0) return wrap.innerHTML
+    // slike (tudi tiste v <picture>)
+    const imgs = Array.from(wrap.querySelectorAll<HTMLImageElement>('img'))
+    if (!imgs.length) return wrap.innerHTML
 
+    // prvi (hero)
     const first = imgs[0]
-    const firstRaw = first.getAttribute('src') || first.getAttribute('data-src') || ''
-    const firstSrcAbs = firstRaw ? absolutize(firstRaw, baseUrl) : ''
-    if (firstSrcAbs) first.setAttribute('src', firstSrcAbs)
-    first.removeAttribute('data-src')
+    const firstRaw = first.getAttribute('src') || first.getAttribute('data-src') || first.getAttribute('data-original') || ''
+    const firstAbs = firstRaw ? absolutize(firstRaw, baseUrl) : ''
+    if (firstAbs) first.setAttribute('src', firstAbs)
+    first.removeAttribute('data-src'); first.removeAttribute('data-original')
     first.removeAttribute('srcset'); first.removeAttribute('sizes')
-    first.setAttribute('loading', 'lazy')
-    first.setAttribute('decoding', 'async')
+    first.setAttribute('loading', 'lazy'); first.setAttribute('decoding', 'async')
     first.setAttribute('referrerpolicy', 'no-referrer')
 
-    const firstKey = imageKeyFromSrc(firstSrcAbs || firstRaw)
+    const firstKey  = imageKeyFromSrc(firstAbs || firstRaw)
     const firstStem = basenameStem(firstKey)
 
-    const seen = new Set<string>()
-    wrap.querySelectorAll('img').forEach((img) => {
-      const raw = img.getAttribute('src') || img.getAttribute('data-src') || ''
+    // 1) odstrani NATAČNE dvojnike po ključu
+    const seen = new Set<string>(firstKey ? [firstKey] : [])
+    wrap.querySelectorAll('img').forEach(img => {
+      const raw = img.getAttribute('src') || img.getAttribute('data-src') || img.getAttribute('data-original') || ''
       if (raw) {
         const abs = absolutize(raw, baseUrl)
         img.setAttribute('src', abs)
-        img.removeAttribute('data-src')
       }
-      img.setAttribute('loading', 'lazy')
-      img.setAttribute('decoding', 'async')
-      img.setAttribute('referrerpolicy', 'no-referrer')
+      img.removeAttribute('data-src'); img.removeAttribute('data-original')
       img.removeAttribute('srcset'); img.removeAttribute('sizes')
+      img.setAttribute('loading', 'lazy'); img.setAttribute('decoding', 'async')
+      img.setAttribute('referrerpolicy', 'no-referrer')
 
       const key = imageKeyFromSrc(img.getAttribute('src') || '')
       if (!key) return
-      if (seen.has(key)) {
+      if (seen.has(key) && img !== first) {
         ;(img.closest('figure, picture') || img).remove()
       } else {
         seen.add(key)
       }
     })
 
-    // odstrani prvo kasnejšo sliko s podobnim stemom kot hero
-    const rest = Array.from(wrap.querySelectorAll('img')).slice(1)
-    for (const img of rest) {
-      const raw = img.getAttribute('src') || ''
-      const key = imageKeyFromSrc(raw)
-      if (!key) continue
-      const stem = basenameStem(key)
+    // 2) odstrani VSE kasnejše slike z zelo podobnim stemom kot hero
+    wrap.querySelectorAll('img').forEach((img, idx) => {
+      if (idx === 0) return
+      const key = imageKeyFromSrc(img.getAttribute('src') || '')
+      if (!key) return
+      const st  = basenameStem(key)
       const similar =
-        stem === firstStem ||
-        stem.startsWith(firstStem.slice(0, 8)) ||
-        firstStem.startsWith(stem.slice(0, 8))
-      if (similar) {
-        ;(img.closest('figure, picture') || img).remove()
-        break
-      }
-    }
+        st === firstStem ||
+        (firstStem && st && (st.startsWith(firstStem.slice(0, 10)) || firstStem.startsWith(st.slice(0, 10))))
+      if (similar) (img.closest('figure, picture') || img).remove()
+    })
 
     return wrap.innerHTML
   } catch {
@@ -181,7 +188,7 @@ function countWords(text: string): number { return wordSpans(text).length }
 
 function truncateHTMLByWordsPercent(html: string, percent = 0.76): string {
   const src = document.createElement('div'); src.innerHTML = html
-  src.querySelectorAll('header,nav,footer,aside,.share,.social,.related,.tags').forEach((n) => n.remove())
+  src.querySelectorAll('header,nav,footer,aside,.share,.social,.related,.tags').forEach(n => n.remove())
   const out = src.cloneNode(true) as HTMLDivElement
 
   const totalWords = countWords(out.textContent || '')
