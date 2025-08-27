@@ -1,3 +1,4 @@
+// components/ArticleCard.tsx
 'use client'
 
 import { NewsItem } from '@/types'
@@ -39,7 +40,6 @@ function formatDisplayTime(publishedAt?: number, iso?: string) {
 export default function ArticleCard({ news }: Props) {
   const formattedDate = formatDisplayTime(news.publishedAt, news.isoDate)
 
-  // barva vira
   const sourceColor = useMemo(() => {
     const colors = require('@/lib/sources').sourceColors as Record<string, string>
     return colors[news.source] || '#fc9c6c'
@@ -47,21 +47,26 @@ export default function ArticleCard({ news }: Props) {
 
   // ---- Slike: proxy → direct → fallback ----
   const rawImg = news.image ?? null
-  const [mode, setMode] = useState<'proxy' | 'direct' | 'none'>(rawImg ? 'proxy' : 'none')
+  const [useProxy, setUseProxy] = useState<boolean>(!!rawImg)
+  const [useFallback, setUseFallback] = useState<boolean>(!rawImg)
 
-  const proxySrc = useMemo(() => {
+  const currentSrc = useMemo(() => {
     if (!rawImg) return null
-    const dpr = (typeof window !== 'undefined' && window.devicePixelRatio) || 1
-    const w = 640, h = Math.round(640 / ASPECT)
-    return proxiedImage(rawImg, w, h, dpr)
-  }, [rawImg])
+    return useProxy ? proxiedImage(rawImg, 640, 360, 1) : rawImg
+  }, [rawImg, useProxy])
 
-  const onImgError = () => {
-    if (mode === 'proxy' && rawImg) { setMode('direct'); return }
-    setMode('none')
+  const handleImgError = () => {
+    // 1) če smo padli na proxy-u, poskusi še direkten URL
+    if (rawImg && useProxy) {
+      setUseProxy(false)
+      return
+    }
+    // 2) sicer prikaži fallback
+    if (!useFallback) setUseFallback(true)
   }
 
-  // Preload za LCP (za kartice, ki so skoraj v viewportu)
+  // Preload za LCP
+  const [showPreview, setShowPreview] = useState(false)
   const cardRef = useRef<HTMLAnchorElement>(null)
   const [priority, setPriority] = useState(false)
   useEffect(() => {
@@ -72,15 +77,20 @@ export default function ArticleCard({ news }: Props) {
   }, [])
 
   useEffect(() => {
-    if (!priority || !rawImg || !proxySrc) return
+    if (!priority || !rawImg) return
+    const el = cardRef.current
+    const rectW = Math.max(1, Math.round(el?.getBoundingClientRect().width || 480))
+    const dpr   = (typeof window !== 'undefined' && window.devicePixelRatio) || 1
+    const targetW = Math.min(1280, Math.round(rectW * dpr))
+    const targetH = Math.round(targetW / ASPECT)
     const link = document.createElement('link')
     link.rel  = 'preload'
     link.as   = 'image'
-    link.href = proxySrc
+    link.href = proxiedImage(rawImg, targetW, targetH, dpr)
     link.crossOrigin = 'anonymous'
     document.head.appendChild(link)
     return () => { document.head.removeChild(link) }
-  }, [priority, rawImg, proxySrc])
+  }, [priority, rawImg])
 
   // Klik log
   const logClick = () => {
@@ -102,17 +112,9 @@ export default function ArticleCard({ news }: Props) {
   }
   const handleAuxClick = (e: MouseEvent<HTMLAnchorElement>) => { if (e.button === 1) logClick() }
 
-  // ✅ Preview modal state
-  const [showPreview, setShowPreview] = useState(false)
-
   // Prefetch za preview
   const preloadedRef = useRef(false)
-  const doPrefetch = () => {
-    if (!preloadedRef.current && canPrefetch()) {
-      preloadedRef.current = true
-      preloadPreview(news.link).catch(() => {})
-    }
-  }
+  const doPrefetch = () => { if (!preloadedRef.current && canPrefetch()) { preloadedRef.current = true; preloadPreview(news.link).catch(() => {}) } }
   const [eyeHover, setEyeHover] = useState(false)
 
   return (
@@ -131,33 +133,22 @@ export default function ArticleCard({ news }: Props) {
       >
         {/* Media */}
         <div className="relative w-full aspect-[16/9] overflow-hidden">
-          {mode === 'none' || !rawImg ? (
+          {useFallback || !currentSrc ? (
             <div className="absolute inset-0 flex items-center justify-center">
               <div className="absolute inset-0 bg-gradient-to-br from-gray-200 via-gray-300 to-gray-200 dark:from-gray-700 dark:via-gray-800 dark:to-gray-700" />
               <span className="relative z-10 text-sm font-medium text-gray-700 dark:text-gray-300">Ni slike</span>
             </div>
-          ) : mode === 'proxy' ? (
+          ) : (
             <Image
-              src={proxySrc!}
+              src={currentSrc}
               alt={news.title}
               fill
               className="absolute inset-0 h-full w-full object-cover"
               sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
               priority={priority}
-              onError={onImgError}
-              // ne uporabljamo Vercel optimizerja za remote → naj bo unoptimized
+              onError={handleImgError}
+              // ker ne uporabljaš Vercel image optimizerja, se vse servira kot navaden <img>
               unoptimized
-            />
-          ) : (
-            // Direktna slika – <img> da obidemo Next Image domain allowlist
-            <img
-              src={rawImg}
-              alt={news.title}
-              className="absolute inset-0 h-full w-full object-cover"
-              loading={priority ? 'eager' : 'lazy'}
-              decoding="async"
-              onError={onImgError}
-              referrerPolicy="no-referrer-when-downgrade"
             />
           )}
 
@@ -191,7 +182,6 @@ export default function ArticleCard({ news }: Props) {
         </div>
       </a>
 
-      {/* Lazy modal */}
       {showPreview && <ArticlePreview url={news.link} onClose={() => setShowPreview(false)} />}
     </>
   )
