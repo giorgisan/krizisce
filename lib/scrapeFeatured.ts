@@ -9,22 +9,19 @@ type Cand = { href: string; title?: string; img?: string }
 
 const clean = (t?: string) => (t ?? '').replace(/\s+/g, ' ').trim()
 
-function absURL(base: string, href?: string) {
+function absURL(base: string, href?: string | null) {
   if (!href) return undefined
-  // podpiraj tudi //cdn… oblike
   if (href.startsWith('//')) return `https:${href}`
   try { return new URL(href, base).toString() } catch { return undefined }
 }
 
 function pickFromSrcset(srcset?: string | null) {
   if (!srcset) return undefined
-  // vzemi prvi kandidat
   const first = srcset.split(',')[0]?.trim().split(' ')[0]
   return first || undefined
 }
 
-function pickImage($scope: cheerio.Cheerio, origin: string) {
-  // zaporedje možnih virov
+function pickImage($scope: cheerio.Cheerio<any>, origin: string) {
   const img = $scope.find('img').first()
   const pic = $scope.find('picture img').first()
   const fromImg =
@@ -38,7 +35,7 @@ function pickImage($scope: cheerio.Cheerio, origin: string) {
   return fromImg || fromPic
 }
 
-function pickHeading($scope: cheerio.Cheerio) {
+function pickHeading($scope: cheerio.Cheerio<any>) {
   return (
     clean($scope.find('h1,h2,h3').first().text()) ||
     clean($scope.find('[class*="title"],[class*="naslov"]').first().text())
@@ -61,8 +58,8 @@ function boostRTV($: cheerio.CheerioAPI, origin: string): Cand | null {
   const title = pickHeading(wrap) || clean(a.attr('title')) || clean(a.text())
   const img =
     absURL(origin, a.attr('data-large')) ||
-    pickImage(a as any, origin) ||
-    pickImage(wrap as any, origin)
+    pickImage(a as unknown as cheerio.Cheerio<any>, origin) ||
+    pickImage(wrap as unknown as cheerio.Cheerio<any>, origin)
 
   return { href, title, img }
 }
@@ -75,7 +72,6 @@ function boost24ur($: cheerio.CheerioAPI, origin: string): Cand | null {
   const linkEl = imgWrap.closest('a')
   let href = linkEl.attr('href')
   if (!href) {
-    // rezervni: poskusi sosednji overlay z linkom
     const overlayLink = imgWrap.parent().find('a[href]').first()
     href = overlayLink.attr('href')
   }
@@ -83,12 +79,12 @@ function boost24ur($: cheerio.CheerioAPI, origin: string): Cand | null {
 
   const title =
     clean(imgWrap.find('img').attr('alt')) ||
-    pickHeading(imgWrap.parent()) ||
+    pickHeading(imgWrap.parent() as unknown as cheerio.Cheerio<any>) ||
     clean(linkEl.text())
 
   const img =
-    pickImage(imgWrap as any, origin) ||
-    pickImage(imgWrap.parent() as any, origin)
+    pickImage(imgWrap as unknown as cheerio.Cheerio<any>, origin) ||
+    pickImage(imgWrap.parent() as unknown as cheerio.Cheerio<any>, origin)
 
   return { href: absURL(origin, href)!, title, img }
 }
@@ -106,7 +102,7 @@ function boostSiol($: cheerio.CheerioAPI, origin: string): Cand | null {
   const wrap = a.closest('article,section,div,main')
   const title =
     clean(node.attr('alt')) ||
-    pickHeading(wrap) ||
+    pickHeading(wrap as unknown as cheerio.Cheerio<any>) ||
     clean(a.attr('title')) ||
     clean(a.text())
 
@@ -114,7 +110,7 @@ function boostSiol($: cheerio.CheerioAPI, origin: string): Cand | null {
     absURL(origin, node.attr('src')) ||
     absURL(origin, node.attr('data-src')) ||
     absURL(origin, pickFromSrcset(node.attr('srcset'))) ||
-    pickImage(wrap as any, origin)
+    pickImage(wrap as unknown as cheerio.Cheerio<any>, origin)
 
   return { href, title, img }
 }
@@ -128,9 +124,11 @@ function boostSlovenske($: cheerio.CheerioAPI, origin: string): Cand | null {
   if (!a.length) return null
 
   const href = absURL(origin, a.attr('href'))
-  const title = pickHeading(article) || clean(a.attr('title')) || clean(a.text())
-  // pri njih zna biti img lazy kot background drugje v članku — poberi iz article-a
-  const img = pickImage(article as any, origin)
+  const title =
+    pickHeading(article as unknown as cheerio.Cheerio<any>) ||
+    clean(a.attr('title')) ||
+    clean(a.text())
+  const img = pickImage(article as unknown as cheerio.Cheerio<any>, origin)
 
   return href ? { href, title, img } : null
 }
@@ -150,7 +148,10 @@ function boostDelo($: cheerio.CheerioAPI, origin: string): Cand | null {
   if (!href) return null
 
   const wrap = a.closest('article,section,div,main')
-  const title = pickHeading(wrap) || clean(a.attr('title')) || clean(a.text())
+  const title =
+    pickHeading(wrap as unknown as cheerio.Cheerio<any>) ||
+    clean(a.attr('title')) ||
+    clean(a.text())
 
   return { href, title, img }
 }
@@ -164,12 +165,15 @@ function boostZurnal($: cheerio.CheerioAPI, origin: string): Cand | null {
   if (!href) return null
 
   const wrap = a.closest('article,section,div')
-  const title = clean(imgEl.attr('alt')) || pickHeading(wrap) || clean(a.text())
+  const title =
+    clean(imgEl.attr('alt')) ||
+    pickHeading(wrap as unknown as cheerio.Cheerio<any>) ||
+    clean(a.text())
   const img =
     absURL(origin, imgEl.attr('src')) ||
     absURL(origin, imgEl.attr('data-src')) ||
     absURL(origin, pickFromSrcset(imgEl.attr('srcset'))) ||
-    pickImage(wrap as any, origin)
+    pickImage(wrap as unknown as cheerio.Cheerio<any>, origin)
 
   return { href, title, img }
 }
@@ -183,17 +187,20 @@ function boostN1($: cheerio.CheerioAPI, origin: string): Cand | null {
   if (!href) return null
 
   const wrap = a.closest('article,section,div')
-  const title = clean(imgEl.attr('alt')) || pickHeading(wrap) || clean(a.text())
+  const title =
+    clean(imgEl.attr('alt')) ||
+    pickHeading(wrap as unknown as cheerio.Cheerio<any>) ||
+    clean(a.text())
   const img =
     absURL(origin, imgEl.attr('src')) ||
     absURL(origin, imgEl.attr('data-src')) ||
     absURL(origin, pickFromSrcset(imgEl.attr('srcset'))) ||
-    pickImage(wrap as any, origin)
+    pickImage(wrap as unknown as cheerio.Cheerio<any>, origin)
 
   return { href, title, img }
 }
 
-/** Svet24: prvi hero <article> z <picture> img (tvoj CSS path), link v parent <a> */
+/** Svet24: prvi hero <article> z <picture> img (ali .object-cover) */
 function boostSvet24($: cheerio.CheerioAPI, origin: string): Cand | null {
   let imgEl = $('body > main article a picture img').first()
   if (!imgEl.length) imgEl = $('img.object-cover').first()
@@ -204,12 +211,15 @@ function boostSvet24($: cheerio.CheerioAPI, origin: string): Cand | null {
   if (!href) return null
 
   const wrap = a.closest('article,section,div')
-  const title = clean(imgEl.attr('alt')) || pickHeading(wrap) || clean(a.text())
+  const title =
+    clean(imgEl.attr('alt')) ||
+    pickHeading(wrap as unknown as cheerio.Cheerio<any>) ||
+    clean(a.text())
   const img =
     absURL(origin, imgEl.attr('src')) ||
     absURL(origin, imgEl.attr('data-src')) ||
     absURL(origin, pickFromSrcset(imgEl.attr('srcset'))) ||
-    pickImage(wrap as any, origin)
+    pickImage(wrap as unknown as cheerio.Cheerio<any>, origin)
 
   return { href, title, img }
 }
