@@ -1,7 +1,7 @@
 // components/ArticlePreview.tsx
 'use client'
 
-import { useEffect, useRef, useState, MouseEvent } from 'react'
+import { useEffect, useRef, useState, useMemo, useCallback, MouseEvent } from 'react'
 import { createPortal } from 'react-dom'
 import DOMPurify from 'dompurify'
 import { preloadPreview, peekPreview } from '@/lib/previewPrefetch'
@@ -37,6 +37,23 @@ const PREVIEW_TYPO_CSS = `
   .preview-typo hr { margin: 1.1rem 0; opacity: .25; }
   .preview-typo a { text-decoration: underline; text-underline-offset: 2px; }
 `
+
+/* --- Ikone (inline SVG, brez dodatnih odvisnosti) --- */
+function IconShareIOS(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" {...props}>
+      <path fill="currentColor" d="M12 3c.4 0 .8.16 1.06.44l3 3a1.5 1.5 0 1 1-2.12 2.12L13.5 7.12V14a1.5 1.5 0 1 1-3 0V7.12L9.06 8.56A1.5 1.5 0 0 1 6.94 6.44l3-3C10.2 3.16 10.6 3 11 3h1z"/>
+      <path fill="currentColor" d="M5 10.5A2.5 2.5 0 0 0 2.5 13v6A2.5 2.5 0 0 0 5 21.5h14A2.5 2.5 0 0 0 21.5 19v-6A2.5 2.5 0 0 0 19 10.5h-2a1.5 1.5 0 1 0 0 3h2V19H5v-5.5h2a1.5 1.5 0 1 0 0-3H5z"/>
+    </svg>
+  )
+}
+function IconCheck(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" {...props}>
+      <path fill="currentColor" d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z" />
+    </svg>
+  )
+}
 
 function trackClick(source: string, url: string) {
   try {
@@ -210,21 +227,36 @@ function truncateHTMLByWordsPercent(html: string, percent = 0.76): string {
 }
 
 export default function ArticlePreview({ url, onClose }: Props) {
+  // data
   const [content, setContent] = useState<string>('')
   const [title, setTitle] = useState<string>('')
   const [site, setSite] = useState<string>('')
-
   const [loading, setLoading] = useState<boolean>(true)
   const [error, setError] = useState<string | null>(null)
 
-  // SHARE state
+  // share UI
   const [shareOpen, setShareOpen] = useState(false)
   const [copied, setCopied] = useState(false)
   const shareBtnRef = useRef<HTMLButtonElement>(null)
   const shareMenuRef = useRef<HTMLDivElement>(null)
 
+  // modal infra
   const modalRef = useRef<HTMLDivElement>(null)
   const closeRef = useRef<HTMLButtonElement>(null)
+
+  // precompute share links (hitreje, brez re-render stroškov)
+  const { encodedUrl, encodedTitle, shareLinks } = useMemo(() => {
+    const encodedUrl   = encodeURIComponent(url)
+    const encodedTitle = encodeURIComponent(title || site || 'Križišče')
+    const items = [
+      { key: 'x',  label: 'X (Twitter)', href: `https://twitter.com/intent/tweet?url=${encodedUrl}&text=${encodedTitle}` },
+      { key: 'fb', label: 'Facebook',    href: `https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}` },
+      { key: 'li', label: 'LinkedIn',    href: `https://www.linkedin.com/sharing/share-offsite/?url=${encodedUrl}` },
+      { key: 'wa', label: 'WhatsApp',    href: `https://api.whatsapp.com/send?text=${encodedTitle}%20${encodedUrl}` },
+      { key: 'tg', label: 'Telegram',    href: `https://t.me/share/url?url=${encodedUrl}&text=${encodedTitle}` },
+    ]
+    return { encodedUrl, encodedTitle, shareLinks: items }
+  }, [url, title, site])
 
   // cache-first → clean → trunc → sanitize
   useEffect(() => {
@@ -303,64 +335,52 @@ export default function ArticlePreview({ url, onClose }: Props) {
     return () => document.removeEventListener('mousedown', onDocClick as any)
   }, [shareOpen])
 
-  const openSourceAndTrack = (e: MouseEvent<HTMLAnchorElement>) => {
+  const openSourceAndTrack = useCallback((e: MouseEvent<HTMLAnchorElement>) => {
     e.preventDefault()
     const source = site || (() => { try { return new URL(url).hostname } catch { return 'unknown' } })()
     trackClick(source, url)
     window.open(url, '_blank', 'noopener,noreferrer')
-  }
+  }, [site, url])
 
   // SHARE handlers
-  const handleShareClick = async () => {
-    // Web Share API (native) — deluje na HTTPS in podprtih brskalnikih
-    // MDN: Web Share API & navigator.share
+  const handleShareClick = useCallback(async () => {
     const shareData: ShareData = {
       title: title || 'Članek',
       text: title ? `${title}${site ? ` – ${site}` : ''}` : site || 'Križišče',
       url,
     }
+    // 1) najprej poskusi native share (če je podprt)
     try {
-      // canShare je “nice to have” (nekateri brskalniki ga nimajo)
       if (navigator.share && (typeof navigator.canShare !== 'function' || navigator.canShare(shareData))) {
-        await navigator.share(shareData)
+        // hitro: ne čakamo na rezultat; event loop bo naredil svoje
+        navigator.share(shareData).catch(() => { /* preklic: ni error, ni nič */ })
         return
       }
     } catch {
-      // uporabnik je zaprl/preklical — pademo na fallback meni
+      // če gre karkoli narobe, pokažemo fallback
     }
+    // 2) fallback takoj
     setShareOpen((v) => !v)
-  }
+  }, [title, site, url])
 
-  const copyToClipboard = async () => {
+  const copyToClipboard = useCallback(async () => {
     try {
       await navigator.clipboard.writeText(url)
       setCopied(true)
-      setTimeout(() => setCopied(false), 1800)
+      setTimeout(() => setCopied(false), 1500)
     } catch {
-      // legacy fallback
       const ta = document.createElement('textarea')
       ta.value = url
       ta.style.position = 'fixed'
       ta.style.opacity = '0'
       document.body.appendChild(ta)
       ta.select()
-      try { document.execCommand('copy'); setCopied(true); setTimeout(() => setCopied(false), 1800) } catch {}
+      try { document.execCommand('copy'); setCopied(true); setTimeout(() => setCopied(false), 1500) } catch {}
       document.body.removeChild(ta)
     }
-  }
+  }, [url])
 
   if (typeof document === 'undefined') return null
-
-  const encodedUrl   = encodeURIComponent(url)
-  const encodedTitle = encodeURIComponent(title || site || 'Križišče')
-
-  const shareLinks = [
-    { key: 'x',        label: 'X (Twitter)', href: `https://twitter.com/intent/tweet?url=${encodedUrl}&text=${encodedTitle}` },
-    { key: 'fb',       label: 'Facebook',    href: `https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}` },
-    { key: 'li',       label: 'LinkedIn',    href: `https://www.linkedin.com/sharing/share-offsite/?url=${encodedUrl}` },
-    { key: 'wa',       label: 'WhatsApp',    href: `https://api.whatsapp.com/send?text=${encodedTitle}%20${encodedUrl}` },
-    { key: 'tg',       label: 'Telegram',    href: `https://t.me/share/url?url=${encodedUrl}&text=${encodedTitle}` },
-  ]
 
   return createPortal(
     <>
@@ -371,6 +391,9 @@ export default function ArticlePreview({ url, onClose }: Props) {
         body.preview-open a:focus { text-decoration: none !important; }
         body.preview-open .group:hover { transform: none !important; }
         body.preview-open .group:hover * { text-decoration: none !important; }
+        @media (prefers-reduced-motion: reduce) {
+          .anim-soft { transition: none !important; }
+        }
       `}</style>
       {/* tipografski skin */}
       <style>{PREVIEW_TYPO_CSS}</style>
@@ -402,39 +425,48 @@ export default function ArticlePreview({ url, onClose }: Props) {
                 onClick={handleShareClick}
                 aria-haspopup="menu"
                 aria-expanded={shareOpen}
-                className="inline-flex items-center justify-center rounded-lg px-3 h-8 text-sm bg-gray-100/70 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200"
+                className="inline-flex items-center justify-center rounded-lg px-3 h-8 text-sm bg-gray-100/70 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 anim-soft"
                 title="Deli"
               >
-                🔗 <span className="ml-1 hidden sm:inline">Deli</span>
+                <IconShareIOS className="mr-1" />
+                <span className="hidden sm:inline">Deli</span>
               </button>
 
-              {/* Fallback share menu */}
+              {/* Fallback share menu (hitro, sodobno, A11y) */}
               {shareOpen && (
                 <div
                   ref={shareMenuRef}
                   role="menu"
-                  className="absolute right-24 top-0 mt-10 w-56 rounded-xl border border-gray-200/20 bg-white/95 dark:bg-gray-900/95 shadow-xl backdrop-blur p-2"
+                  className="absolute right-24 top-0 mt-10 w-64 rounded-2xl border border-gray-200/20 bg-white/95 dark:bg-gray-900/95 shadow-2xl backdrop-blur p-2 anim-soft transition-all duration-150 ease-out origin-top-right"
+                  style={{ willChange: 'opacity, transform' }}
                 >
                   <button
                     onClick={copyToClipboard}
-                    className="w-full text-left px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-sm"
+                    className="w-full flex items-center gap-2 justify-start px-3 py-2 rounded-xl bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 text-sm anim-soft"
                     role="menuitem"
                   >
+                    <span className={`inline-flex items-center justify-center w-5`}>
+                      {copied ? <IconCheck /> : '⧉'}
+                    </span>
                     {copied ? 'Kopirano!' : 'Kopiraj povezavo'}
                   </button>
-                  <div className="my-1 h-px bg-gray-200/30 dark:bg-gray-700/60" />
-                  {shareLinks.map((s) => (
-                    <a
-                      key={s.key}
-                      href={s.href}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      role="menuitem"
-                      className="block px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-sm"
-                    >
-                      {s.label}
-                    </a>
-                  ))}
+
+                  <div className="my-2 h-px bg-gray-200/60 dark:bg-gray-700/60" />
+
+                  <div className="grid grid-cols-2 gap-1">
+                    {shareLinks.map((s) => (
+                      <a
+                        key={s.key}
+                        href={s.href}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        role="menuitem"
+                        className="block px-3 py-2 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 text-sm anim-soft"
+                      >
+                        {s.label}
+                      </a>
+                    ))}
+                  </div>
                 </div>
               )}
 
@@ -444,7 +476,7 @@ export default function ArticlePreview({ url, onClose }: Props) {
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={openSourceAndTrack}
-                className="no-underline inline-flex items-center justify-center rounded-lg px-3 py-1.5 text-sm bg-orange-300 text-white hover:bg-amber-600"
+                className="no-underline inline-flex items-center justify-center rounded-lg px-3 py-1.5 text-sm bg-orange-300 text-white hover:bg-amber-600 anim-soft"
               >
                 Odpri cel članek
               </a>
@@ -454,7 +486,7 @@ export default function ArticlePreview({ url, onClose }: Props) {
                 ref={closeRef}
                 onClick={onClose}
                 aria-label="Zapri predogled"
-                className="inline-flex h-8 px-2 items-center justify-center rounded-lg text-sm bg-gray-100/70 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200"
+                className="inline-flex h-8 px-2 items-center justify-center rounded-lg text-sm bg-gray-100/70 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 anim-soft"
               >
                 ✕
               </button>
@@ -483,7 +515,7 @@ export default function ArticlePreview({ url, onClose }: Props) {
                     target="_blank"
                     rel="noopener noreferrer"
                     onClick={openSourceAndTrack}
-                    className="no-underline inline-flex justify-center rounded-md px-5 py-2 dark:bg-gray-700 text-white text-sm dark:hover:bg-gray-600 whitespace-nowrap"
+                    className="no-underline inline-flex justify-center rounded-md px-5 py-2 dark:bg-gray-700 text-white text-sm dark:hover:bg-gray-600 whitespace-nowrap anim-soft"
                   >
                     Za ogled celotnega članka, obiščite spletno stran
                   </a>
@@ -491,7 +523,7 @@ export default function ArticlePreview({ url, onClose }: Props) {
                   <button
                     type="button"
                     onClick={onClose}
-                    className="inline-flex justify-center rounded-md px-4 py-2 bg-gray-100/80 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 text-sm"
+                    className="inline-flex justify-center rounded-md px-4 py-2 bg-gray-100/80 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 text-sm anim-soft"
                   >
                     Zapri predogled
                   </button>
