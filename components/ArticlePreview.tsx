@@ -239,6 +239,7 @@ export default function ArticlePreview({ url, onClose }: Props) {
   const [content, setContent] = useState<string>('')
   const [title, setTitle] = useState<string>('')
   const [site, setSite] = useState<string>('')
+
   const [loading, setLoading] = useState<boolean>(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -252,20 +253,29 @@ export default function ArticlePreview({ url, onClose }: Props) {
   const modalRef = useRef<HTMLDivElement>(null)
   const closeRef = useRef<HTMLButtonElement>(null)
 
+  // ali je naprava "touch" (coarse pointer)? -> na teh napravah preferiramo native share
+  const coarsePointerRef = useRef<boolean>(false)
+  useEffect(() => {
+    try { coarsePointerRef.current = window.matchMedia('(pointer: coarse)').matches } catch {}
+  }, [])
+
+  const supportsWebShare = typeof navigator !== 'undefined' && 'share' in navigator && window.isSecureContext
+  const preferNativeShare = supportsWebShare && coarsePointerRef.current
+
   // precompute share links
-  const { encodedUrl, encodedTitle, encodedViaTitle, shareLinks } = useMemo(() => {
+  const { shareLinks } = useMemo(() => {
     const encodedUrl   = encodeURIComponent(url)
     const baseTitle    = (title || site || 'Križišče')
-    const encodedTitle = encodeURIComponent(baseTitle)
     const encodedViaTitle = encodeURIComponent(baseTitle + VIA_TEXT)
-    const items = [
-      { key: 'x',  label: 'X (Twitter)', href: `https://twitter.com/intent/tweet?url=${encodedUrl}&text=${encodedViaTitle}` },
-      { key: 'fb', label: 'Facebook',    href: `https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}` }, // FB ignorira text
-      { key: 'li', label: 'LinkedIn',    href: `https://www.linkedin.com/sharing/share-offsite/?url=${encodedUrl}` }, // LI ignorira text
-      { key: 'wa', label: 'WhatsApp',    href: `https://api.whatsapp.com/send?text=${encodedViaTitle}%20${encodedUrl}` },
-      { key: 'tg', label: 'Telegram',    href: `https://t.me/share/url?url=${encodedUrl}&text=${encodedViaTitle}` },
-    ]
-    return { encodedUrl, encodedTitle, encodedViaTitle, shareLinks: items }
+    return {
+      shareLinks: [
+        { key: 'x',  label: 'X (Twitter)', href: `https://twitter.com/intent/tweet?url=${encodedUrl}&text=${encodedViaTitle}` },
+        { key: 'fb', label: 'Facebook',    href: `https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}` },
+        { key: 'li', label: 'LinkedIn',    href: `https://www.linkedin.com/sharing/share-offsite/?url=${encodedUrl}` },
+        { key: 'wa', label: 'WhatsApp',    href: `https://api.whatsapp.com/send?text=${encodedViaTitle}%20${encodedUrl}` },
+        { key: 'tg', label: 'Telegram',    href: `https://t.me/share/url?url=${encodedUrl}&text=${encodedViaTitle}` },
+      ],
+    }
   }, [url, title, site])
 
   // cache-first → clean → trunc → sanitize
@@ -352,25 +362,27 @@ export default function ArticlePreview({ url, onClose }: Props) {
     window.open(url, '_blank', 'noopener,noreferrer')
   }, [site, url])
 
-  // SHARE handlers
-  const handleShareClick = useCallback(async () => {
-    const shareData: ShareData = {
-      title: (title || site || 'Članek') + VIA_TEXT,
-      text: (title ? `${title}${site ? ` – ${site}` : ''}` : (site || 'Križišče')) + VIA_TEXT,
-      url,
-    }
-    // 1) poskusi native share
-    try {
-      if (navigator.share && (typeof navigator.canShare !== 'function' || navigator.canShare(shareData))) {
-        await navigator.share(shareData)       // <- počakamo
-        return                                // uspeh, nič več
+  // SHARE: instantno na desktopu (fallback), native le na telefonu/tablici
+  const handleShareClick = useCallback(() => {
+    if (preferNativeShare) {
+      const shareData: ShareData = {
+        title: (title || site || 'Članek') + VIA_TEXT,
+        text: (title ? `${title}${site ? ` – ${site}` : ''}` : (site || 'Križišče')) + VIA_TEXT,
+        url,
       }
-    } catch (err) {
-      // Če uporabnik prekliče ali brskalnik vrže napako, pademo na fallback spodaj.
+      try {
+        // ne čakamo (brez await), UI ostane takoj odziven
+        // če uporabnik prekliče, ne delamo nič – ostane modal
+        // fallback lahko odpre ročno z drugim klikom
+        (navigator as any).share(shareData).catch(() => {})
+        return
+      } catch {
+        // če share vrže napako, prikažemo fallback
+      }
     }
-    // 2) fallback takoj, brez zamika
-    setShareOpen(true)
-  }, [title, site, url])
+    // desktop ali napaka -> takoj odpri lokalni meni
+    setShareOpen((v) => !v)
+  }, [preferNativeShare, title, site, url])
 
   const copyToClipboard = useCallback(async () => {
     try {
