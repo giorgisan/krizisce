@@ -12,10 +12,10 @@ type ApiPayload =
   | { error: string }
   | { title: string; site: string; image?: string | null; html: string; url: string }
 
-// Kolikšen delež besedila prikažemo
-const TEXT_PERCENT = 0.80
+// Kolikšen delež besedila prikažemo (po besedah)
+const TEXT_PERCENT = 0.85
 
-// Tipografski “skin” za modal – brez odvisnosti od @tailwindcss/typography
+// Tipografski “skin” za modal – brez @tailwindcss/typography
 const PREVIEW_TYPO_CSS = `
   .preview-typo { font-size: 0.98rem; line-height: 1.68; }
   .preview-typo > *:first-child { margin-top: 0 !important; }
@@ -55,6 +55,8 @@ function trackClick(source: string, url: string) {
 function absolutize(raw: string, baseUrl: string): string {
   try { return new URL(raw, baseUrl).toString() } catch { return raw }
 }
+
+/** Normaliziran ključ za sliko – uporabi se za deduplikacijo. */
 function imageKeyFromSrc(src: string | null | undefined): string {
   if (!src) return ''
   let pathname = ''
@@ -70,6 +72,7 @@ function imageKeyFromSrc(src: string | null | undefined): string {
   pathname = pathname.replace(/\.(webp|jpeg)$/g, '.jpg')
   return pathname
 }
+
 function basenameStem(pathname: string): string {
   const last = pathname.split('/').pop() || ''
   return last
@@ -79,27 +82,43 @@ function basenameStem(pathname: string): string {
     .replace(/-scaled$/g, '')
 }
 
-/** Client-side clean + polish: absolutiziraj URL-je, lazy, odstrani dvojnike, utrdi rel,
- *  in (če znan) odstrani prvi heading, ki se ujema z naslovom v headerju modala. */
+/** Pobere absolutni src iz src | data-* | srcset (prvi kandidat). */
+function getAbsImgSrc(img: HTMLImageElement, baseUrl: string): string {
+  const raw =
+    img.getAttribute('src') ||
+    img.getAttribute('data-src') ||
+    img.getAttribute('data-original') ||
+    img.getAttribute('data-lazy-src') ||
+    ''
+
+  let candidate = raw
+  if (!candidate) {
+    const srcset = img.getAttribute('srcset') || ''
+    const first = srcset.split(',').map(s => s.trim().split(' ')[0]).find(Boolean)
+    if (first) candidate = first
+  }
+  try { return new URL(candidate, baseUrl).toString() } catch { return candidate }
+}
+
+/** Ne-agresivno čiščenje: absolutiziraj URL-je, utrdi <a>, lazy, dedupe le EXAKTNE iste slike. */
 function cleanPreviewHTML(html: string, baseUrl: string, knownTitle?: string): string {
   try {
     const wrap = document.createElement('div')
     wrap.innerHTML = html
 
-    wrap.querySelectorAll('noscript,script,style,iframe,form').forEach((n) => n.remove())
+    // šum
+    wrap.querySelectorAll('noscript,script,style,iframe,form').forEach(n => n.remove())
 
-    // odpravi podvojeni naslov (če je enak iz glave modala)
+    // odstrani podvojeni naslov (če se natančno ujema)
     if (knownTitle) {
-      const firstHeading = wrap.querySelector('h1, h2, h3')
-      if (firstHeading) {
-        const a = (firstHeading.textContent || '').trim().toLowerCase()
-        const b = knownTitle.trim().toLowerCase()
-        if (a && b && a === b) firstHeading.remove()
+      const h = wrap.querySelector('h1, h2, h3')
+      if (h && (h.textContent || '').trim().toLowerCase() === knownTitle.trim().toLowerCase()) {
+        h.remove()
       }
     }
 
-    // utrdi vse <a>
-    wrap.querySelectorAll('a').forEach((a) => {
+    // <a>
+    wrap.querySelectorAll('a').forEach(a => {
       const href = a.getAttribute('href')
       if (href) a.setAttribute('href', absolutize(href, baseUrl))
       const rel = (a.getAttribute('rel') || '').split(/\s+/)
@@ -109,56 +128,35 @@ function cleanPreviewHTML(html: string, baseUrl: string, knownTitle?: string): s
       a.setAttribute('target', '_blank')
     })
 
-    // --- deduplikacija slik (hero ostane, kasnejše podvojitve stran) ---
-    const imgs = Array.from(wrap.querySelectorAll('img'))
-    if (imgs.length > 0) {
-      // 1) normaliziraj hero
-      const first = imgs[0]
-      const firstRaw = first.getAttribute('src') || first.getAttribute('data-src') || ''
-      const firstAbs = absolutize(firstRaw, baseUrl)
-      if (firstAbs) first.setAttribute('src', firstAbs)
-      first.removeAttribute('data-src')
-      first.removeAttribute('srcset'); first.removeAttribute('sizes')
-      first.setAttribute('loading', 'lazy')
-      first.setAttribute('decoding', 'async')
-      first.setAttribute('referrerpolicy', 'no-referrer')
-
-      const firstKey  = imageKeyFromSrc(firstAbs || firstRaw)
-      const firstStem = basenameStem(firstKey)
-
-      // 2) “seen” že vsebuje hero; vse podobne kasneje odstranimo
-      const seen = new Set<string>()
-      if (firstKey) seen.add(firstKey)
-
-      Array.from(wrap.querySelectorAll('img')).slice(1).forEach((img) => {
-        const raw = img.getAttribute('src') || img.getAttribute('data-src') || ''
-        if (!raw) { (img.closest('figure, picture') || img).remove(); return }
-
-        const abs = absolutize(raw, baseUrl)
+    // <img> – dedupe samo po enakem normaliziranem ključu
+    const seen = new Set<string>()
+    wrap.querySelectorAll('img').forEach(img => {
+      const abs = getAbsImgSrc(img as HTMLImageElement, baseUrl)
+      if (abs) {
         img.setAttribute('src', abs)
         img.removeAttribute('data-src')
-        img.removeAttribute('srcset'); img.removeAttribute('sizes')
-        img.setAttribute('loading', 'lazy')
-        img.setAttribute('decoding', 'async')
-        img.setAttribute('referrerpolicy', 'no-referrer')
+        img.removeAttribute('srcset')
+        img.removeAttribute('sizes')
+      }
+      img.setAttribute('loading', 'lazy')
+      img.setAttribute('decoding', 'async')
+      img.setAttribute('referrerpolicy', 'no-referrer')
 
-        const key  = imageKeyFromSrc(abs)
-        const stem = basenameStem(key)
+      const key = imageKeyFromSrc(abs || '')
+      if (!key) return
 
-        const duplicate =
-          !key ||
-          seen.has(key) ||
-          stem === firstStem ||
-          stem.startsWith(firstStem.slice(0, 10)) ||
-          firstStem.startsWith(stem.slice(0, 10))
-
-        if (duplicate) {
-          (img.closest('figure, picture') || img).remove()
-        } else {
-          seen.add(key)
+      if (seen.has(key)) {
+        // odstrani samo <img>; če je parent prazen, ga počisti
+        const holder = img.closest('picture') || img
+        const parent = holder.parentElement
+        holder.remove()
+        if (parent && parent.tagName.toLowerCase() === 'figure' && parent.childElementCount === 0) {
+          parent.remove()
         }
-      })
-    }
+      } else {
+        seen.add(key)
+      }
+    })
 
     return wrap.innerHTML
   } catch {
@@ -166,6 +164,7 @@ function cleanPreviewHTML(html: string, baseUrl: string, knownTitle?: string): s
   }
 }
 
+/** ES5-kompatibilno iskanje “besed”. */
 function wordSpans(text: string): Array<{ start: number; end: number }> {
   const spans: Array<{ start: number; end: number }> = []
   const re =
@@ -176,32 +175,31 @@ function wordSpans(text: string): Array<{ start: number; end: number }> {
 }
 function countWords(text: string): number { return wordSpans(text).length }
 
-function truncateHTMLByWordsPercent(html: string, percent = 0.76): string {
+/** Trunkacija: če je članek kratek, ne reži; sicer reži po besedah. */
+function truncateHTMLByWordsPercent(html: string, percent = TEXT_PERCENT): string {
   const src = document.createElement('div'); src.innerHTML = html
-  src.querySelectorAll('header,nav,footer,aside,.share,.social,.related,.tags').forEach((n) => n.remove())
+  src.querySelectorAll('header,nav,footer,aside,.share,.social,.related,.tags').forEach(n => n.remove())
   const out = src.cloneNode(true) as HTMLDivElement
 
   const totalWords = countWords(out.textContent || '')
-  if (totalWords === 0) return out.innerHTML
+  // nič trunkacije pri kratkih člankih (npr. < 180 besed)
+  if (totalWords < 180) return out.innerHTML
+
   const target = Math.max(1, Math.floor(totalWords * percent))
   let used = 0
   const walker = document.createTreeWalker(out, NodeFilter.SHOW_TEXT)
   let node: Node | null = walker.nextNode()
 
   while (node) {
-    const text = (node.textContent || '')
-    const trimmed = text.trim()
-    if (!trimmed) { node = walker.nextNode(); continue }
+    const text = node.textContent || ''
+    if (!text.trim()) { node = walker.nextNode(); continue }
 
     const spans = wordSpans(text)
-    const localWords = spans.length
     const remain = target - used
+    if (spans.length <= remain) { used += spans.length; node = walker.nextNode(); continue }
 
-    if (localWords <= remain) { used += localWords; node = walker.nextNode(); continue }
-
-    const cutoffSpan = spans[Math.max(0, remain - 1)]
-    const cutoffIndex = cutoffSpan ? cutoffSpan.end : 0
-    ;(node as Text).textContent = text.slice(0, cutoffIndex).trimEnd()
+    const cut = spans[Math.max(0, remain - 1)]
+    ;(node as Text).textContent = text.slice(0, cut ? cut.end : 0).trimEnd()
 
     const range = document.createRange()
     range.setStartAfter(node)
