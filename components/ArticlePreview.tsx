@@ -1,7 +1,14 @@
 // components/ArticlePreview.tsx
 'use client'
 
-import { useEffect, useRef, useState, useMemo, useCallback, MouseEvent } from 'react'
+import React, {
+  useEffect,
+  useRef,
+  useState,
+  useMemo,
+  useCallback,
+  MouseEvent as ReactMouseEvent,
+} from 'react'
 import { createPortal } from 'react-dom'
 import DOMPurify from 'dompurify'
 import { preloadPreview, peekPreview } from '@/lib/previewPrefetch'
@@ -12,8 +19,11 @@ type ApiPayload =
   | { error: string }
   | { title: string; site: string; image?: string | null; html: string; url: string }
 
+// Kolikšen delež besedila prikažemo
 const TEXT_PERCENT = 0.80
+const VIA_TEXT = ' — via Križišče (krizisce.si)'
 
+// Tipografski “skin” za modal – brez odvisnosti od @tailwindcss/typography
 const PREVIEW_TYPO_CSS = `
   .preview-typo { font-size: 0.98rem; line-height: 1.68; }
   .preview-typo > *:first-child { margin-top: 0 !important; }
@@ -36,7 +46,7 @@ const PREVIEW_TYPO_CSS = `
   .preview-typo a { text-decoration: underline; text-underline-offset: 2px; }
 `
 
-/* Ikone (inline SVG) */
+/* --- Ikone (inline SVG, brez odvisnosti) --- */
 function IconShareIOS(props: React.SVGProps<SVGSVGElement>) {
   return (
     <svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" {...props}>
@@ -94,12 +104,15 @@ function basenameStem(pathname: string): string {
     .replace(/-scaled$/g, '')
 }
 
+/** Client-side clean + polish */
 function cleanPreviewHTML(html: string, baseUrl: string, knownTitle?: string): string {
   try {
     const wrap = document.createElement('div')
     wrap.innerHTML = html
+
     wrap.querySelectorAll('noscript,script,style,iframe,form').forEach((n) => n.remove())
 
+    // odstrani podvojen naslov
     if (knownTitle) {
       const firstHeading = wrap.querySelector('h1, h2, h3')
       if (firstHeading) {
@@ -109,6 +122,7 @@ function cleanPreviewHTML(html: string, baseUrl: string, knownTitle?: string): s
       }
     }
 
+    // absolutiziraj + utrdi <a>
     wrap.querySelectorAll('a').forEach((a) => {
       const href = a.getAttribute('href')
       if (href) a.setAttribute('href', absolutize(href, baseUrl))
@@ -119,6 +133,7 @@ function cleanPreviewHTML(html: string, baseUrl: string, knownTitle?: string): s
       a.setAttribute('target', '_blank')
     })
 
+    // deduplikacija slik
     const imgs = Array.from(wrap.querySelectorAll('img'))
     if (imgs.length > 0) {
       const first = imgs[0]
@@ -140,6 +155,7 @@ function cleanPreviewHTML(html: string, baseUrl: string, knownTitle?: string): s
       Array.from(wrap.querySelectorAll('img')).slice(1).forEach((img) => {
         const raw = img.getAttribute('src') || img.getAttribute('data-src') || ''
         if (!raw) { (img.closest('figure, picture') || img).remove(); return }
+
         const abs = absolutize(raw, baseUrl)
         img.setAttribute('src', abs)
         img.removeAttribute('data-src')
@@ -219,33 +235,40 @@ function truncateHTMLByWordsPercent(html: string, percent = 0.76): string {
 }
 
 export default function ArticlePreview({ url, onClose }: Props) {
+  // data
   const [content, setContent] = useState<string>('')
   const [title, setTitle] = useState<string>('')
   const [site, setSite] = useState<string>('')
   const [loading, setLoading] = useState<boolean>(true)
   const [error, setError] = useState<string | null>(null)
 
+  // share UI
   const [shareOpen, setShareOpen] = useState(false)
   const [copied, setCopied] = useState(false)
   const shareBtnRef = useRef<HTMLButtonElement>(null)
   const shareMenuRef = useRef<HTMLDivElement>(null)
 
+  // modal infra
   const modalRef = useRef<HTMLDivElement>(null)
   const closeRef = useRef<HTMLButtonElement>(null)
 
-  const { encodedUrl, encodedTitle, shareLinks } = useMemo(() => {
+  // precompute share links
+  const { encodedUrl, encodedTitle, encodedViaTitle, shareLinks } = useMemo(() => {
     const encodedUrl   = encodeURIComponent(url)
-    const encodedTitle = encodeURIComponent(title || site || 'Križišče')
+    const baseTitle    = (title || site || 'Križišče')
+    const encodedTitle = encodeURIComponent(baseTitle)
+    const encodedViaTitle = encodeURIComponent(baseTitle + VIA_TEXT)
     const items = [
-      { key: 'x',  label: 'X (Twitter)', href: `https://twitter.com/intent/tweet?url=${encodedUrl}&text=${encodedTitle}` },
-      { key: 'fb', label: 'Facebook',    href: `https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}` },
-      { key: 'li', label: 'LinkedIn',    href: `https://www.linkedin.com/sharing/share-offsite/?url=${encodedUrl}` },
-      { key: 'wa', label: 'WhatsApp',    href: `https://api.whatsapp.com/send?text=${encodedTitle}%20${encodedUrl}` },
-      { key: 'tg', label: 'Telegram',    href: `https://t.me/share/url?url=${encodedUrl}&text=${encodedTitle}` },
+      { key: 'x',  label: 'X (Twitter)', href: `https://twitter.com/intent/tweet?url=${encodedUrl}&text=${encodedViaTitle}` },
+      { key: 'fb', label: 'Facebook',    href: `https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}` }, // FB ignorira text
+      { key: 'li', label: 'LinkedIn',    href: `https://www.linkedin.com/sharing/share-offsite/?url=${encodedUrl}` }, // LI ignorira text
+      { key: 'wa', label: 'WhatsApp',    href: `https://api.whatsapp.com/send?text=${encodedViaTitle}%20${encodedUrl}` },
+      { key: 'tg', label: 'Telegram',    href: `https://t.me/share/url?url=${encodedUrl}&text=${encodedViaTitle}` },
     ]
-    return { encodedUrl, encodedTitle, shareLinks: items }
+    return { encodedUrl, encodedTitle, encodedViaTitle, shareLinks: items }
   }, [url, title, site])
 
+  // cache-first → clean → trunc → sanitize
   useEffect(() => {
     let alive = true
     const run = async () => {
@@ -273,6 +296,7 @@ export default function ArticlePreview({ url, onClose }: Props) {
     return () => { alive = false }
   }, [url])
 
+  // fokus trap + lock scroll
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
@@ -303,8 +327,9 @@ export default function ArticlePreview({ url, onClose }: Props) {
     }
   }, [onClose, shareOpen])
 
+  // klik izven menija
   useEffect(() => {
-    const onDocClick = (e: MouseEvent | globalThis.MouseEvent) => {
+    const onDocClick = (e: globalThis.MouseEvent) => {
       if (!shareOpen) return
       const target = e.target as Node
       if (
@@ -316,33 +341,34 @@ export default function ArticlePreview({ url, onClose }: Props) {
         setShareOpen(false)
       }
     }
-    document.addEventListener('mousedown', onDocClick as any)
-    return () => document.removeEventListener('mousedown', onDocClick as any)
+    document.addEventListener('mousedown', onDocClick)
+    return () => document.removeEventListener('mousedown', onDocClick)
   }, [shareOpen])
 
-  const openSourceAndTrack = useCallback((e: MouseEvent<HTMLAnchorElement>) => {
+  const openSourceAndTrack = useCallback((e: ReactMouseEvent<HTMLAnchorElement>) => {
     e.preventDefault()
     const source = site || (() => { try { return new URL(url).hostname } catch { return 'unknown' } })()
     trackClick(source, url)
     window.open(url, '_blank', 'noopener,noreferrer')
   }, [site, url])
 
+  // SHARE handlers
   const handleShareClick = useCallback(async () => {
     const shareData: ShareData = {
-      title: title || 'Članek',
-      text: title ? `${title}${site ? ` – ${site}` : ''}` : site || 'Križišče',
+      title: (title || site || 'Članek') + VIA_TEXT,
+      text: (title ? `${title}${site ? ` – ${site}` : ''}` : (site || 'Križišče')) + VIA_TEXT,
       url,
     }
-    // Najprej native share, če obstaja
+    // 1) poskusi native share
     try {
       if (navigator.share && (typeof navigator.canShare !== 'function' || navigator.canShare(shareData))) {
-        navigator.share(shareData).catch(() => {})
-        return
+        await navigator.share(shareData)       // <- počakamo
+        return                                // uspeh, nič več
       }
-    } catch {
-      /* ignore */
+    } catch (err) {
+      // Če uporabnik prekliče ali brskalnik vrže napako, pademo na fallback spodaj.
     }
-    // Fallback takoj, brez zamika
+    // 2) fallback takoj, brez zamika
     setShareOpen(true)
   }, [title, site, url])
 
@@ -367,6 +393,7 @@ export default function ArticlePreview({ url, onClose }: Props) {
 
   return createPortal(
     <>
+      {/* trd override za ozadje med modalom */}
       <style>{`
         body.preview-open a,
         body.preview-open a:hover,
@@ -375,6 +402,7 @@ export default function ArticlePreview({ url, onClose }: Props) {
         body.preview-open .group:hover * { text-decoration: none !important; }
         @media (prefers-reduced-motion: reduce) { .anim-soft { transition: none !important; } }
       `}</style>
+      {/* tipografski skin */}
       <style>{PREVIEW_TYPO_CSS}</style>
 
       <div
@@ -411,7 +439,7 @@ export default function ArticlePreview({ url, onClose }: Props) {
                 <span className="hidden sm:inline">Deli</span>
               </button>
 
-              {/* Fallback share menu – poravnan pod gumbom, vedno viden na desktopu */}
+              {/* Fallback share menu – poravnan pod gumbom */}
               {shareOpen && (
                 <div
                   ref={shareMenuRef}
@@ -449,7 +477,7 @@ export default function ArticlePreview({ url, onClose }: Props) {
                 </div>
               )}
 
-              {/* Open source */}
+              {/* Odpri cel članek */}
               <a
                 href={url}
                 target="_blank"
@@ -460,7 +488,7 @@ export default function ArticlePreview({ url, onClose }: Props) {
                 Odpri cel članek
               </a>
 
-              {/* Close */}
+              {/* Zapri */}
               <button
                 ref={closeRef}
                 onClick={onClose}
