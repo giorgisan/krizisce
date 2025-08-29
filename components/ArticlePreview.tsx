@@ -79,8 +79,7 @@ function basenameStem(pathname: string): string {
     .replace(/-scaled$/g, '')
 }
 
-/** Client-side clean + polish: absolutiziraj URL-je, lazy, odstrani dvojnike, utrdi rel,
- *  in (če znan) odstrani prvi heading, ki se ujema z naslovom v headerju modala. */
+/** Client-side clean + polish */
 function cleanPreviewHTML(html: string, baseUrl: string, knownTitle?: string): string {
   try {
     const wrap = document.createElement('div')
@@ -88,7 +87,7 @@ function cleanPreviewHTML(html: string, baseUrl: string, knownTitle?: string): s
 
     wrap.querySelectorAll('noscript,script,style,iframe,form').forEach((n) => n.remove())
 
-    // odpravi podvojeni naslov (če je enak iz glave modala)
+    // odstrani podvojen naslov
     if (knownTitle) {
       const firstHeading = wrap.querySelector('h1, h2, h3')
       if (firstHeading) {
@@ -98,7 +97,7 @@ function cleanPreviewHTML(html: string, baseUrl: string, knownTitle?: string): s
       }
     }
 
-    // utrdi vse <a>
+    // absolutiziraj + utrdi <a>
     wrap.querySelectorAll('a').forEach((a) => {
       const href = a.getAttribute('href')
       if (href) a.setAttribute('href', absolutize(href, baseUrl))
@@ -109,10 +108,9 @@ function cleanPreviewHTML(html: string, baseUrl: string, knownTitle?: string): s
       a.setAttribute('target', '_blank')
     })
 
-    // --- deduplikacija slik (hero ostane, kasnejše podvojitve stran) ---
+    // deduplikacija slik
     const imgs = Array.from(wrap.querySelectorAll('img'))
     if (imgs.length > 0) {
-      // 1) normaliziraj hero
       const first = imgs[0]
       const firstRaw = first.getAttribute('src') || first.getAttribute('data-src') || ''
       const firstAbs = absolutize(firstRaw, baseUrl)
@@ -126,7 +124,6 @@ function cleanPreviewHTML(html: string, baseUrl: string, knownTitle?: string): s
       const firstKey  = imageKeyFromSrc(firstAbs || firstRaw)
       const firstStem = basenameStem(firstKey)
 
-      // 2) “seen” že vsebuje hero; vse podobne kasneje odstranimo
       const seen = new Set<string>()
       if (firstKey) seen.add(firstKey)
 
@@ -216,8 +213,15 @@ export default function ArticlePreview({ url, onClose }: Props) {
   const [content, setContent] = useState<string>('')
   const [title, setTitle] = useState<string>('')
   const [site, setSite] = useState<string>('')
+
   const [loading, setLoading] = useState<boolean>(true)
   const [error, setError] = useState<string | null>(null)
+
+  // SHARE state
+  const [shareOpen, setShareOpen] = useState(false)
+  const [copied, setCopied] = useState(false)
+  const shareBtnRef = useRef<HTMLButtonElement>(null)
+  const shareMenuRef = useRef<HTMLDivElement>(null)
 
   const modalRef = useRef<HTMLDivElement>(null)
   const closeRef = useRef<HTMLButtonElement>(null)
@@ -253,8 +257,10 @@ export default function ArticlePreview({ url, onClose }: Props) {
   // fokus trap + lock scroll + anti-underline v ozadju
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
-      else if (e.key === 'Tab') {
+      if (e.key === 'Escape') {
+        if (shareOpen) setShareOpen(false)
+        else onClose()
+      } else if (e.key === 'Tab') {
         const focusable = modalRef.current?.querySelectorAll<HTMLElement>(
           'a[href], button, textarea, input, select, [tabindex]:not([tabindex="-1"])'
         )
@@ -277,7 +283,25 @@ export default function ArticlePreview({ url, onClose }: Props) {
       document.body.style.overflow = prevOverflow
       document.body.classList.remove('modal-open', 'preview-open')
     }
-  }, [onClose])
+  }, [onClose, shareOpen])
+
+  // zapri share meni ob kliku izven
+  useEffect(() => {
+    const onDocClick = (e: MouseEvent | globalThis.MouseEvent) => {
+      if (!shareOpen) return
+      const target = e.target as Node
+      if (
+        shareMenuRef.current &&
+        !shareMenuRef.current.contains(target) &&
+        shareBtnRef.current &&
+        !shareBtnRef.current.contains(target)
+      ) {
+        setShareOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', onDocClick as any)
+    return () => document.removeEventListener('mousedown', onDocClick as any)
+  }, [shareOpen])
 
   const openSourceAndTrack = (e: MouseEvent<HTMLAnchorElement>) => {
     e.preventDefault()
@@ -286,7 +310,57 @@ export default function ArticlePreview({ url, onClose }: Props) {
     window.open(url, '_blank', 'noopener,noreferrer')
   }
 
+  // SHARE handlers
+  const handleShareClick = async () => {
+    // Web Share API (native) — deluje na HTTPS in podprtih brskalnikih
+    // MDN: Web Share API & navigator.share
+    const shareData: ShareData = {
+      title: title || 'Članek',
+      text: title ? `${title}${site ? ` – ${site}` : ''}` : site || 'Križišče',
+      url,
+    }
+    try {
+      // canShare je “nice to have” (nekateri brskalniki ga nimajo)
+      if (navigator.share && (typeof navigator.canShare !== 'function' || navigator.canShare(shareData))) {
+        await navigator.share(shareData)
+        return
+      }
+    } catch {
+      // uporabnik je zaprl/preklical — pademo na fallback meni
+    }
+    setShareOpen((v) => !v)
+  }
+
+  const copyToClipboard = async () => {
+    try {
+      await navigator.clipboard.writeText(url)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1800)
+    } catch {
+      // legacy fallback
+      const ta = document.createElement('textarea')
+      ta.value = url
+      ta.style.position = 'fixed'
+      ta.style.opacity = '0'
+      document.body.appendChild(ta)
+      ta.select()
+      try { document.execCommand('copy'); setCopied(true); setTimeout(() => setCopied(false), 1800) } catch {}
+      document.body.removeChild(ta)
+    }
+  }
+
   if (typeof document === 'undefined') return null
+
+  const encodedUrl   = encodeURIComponent(url)
+  const encodedTitle = encodeURIComponent(title || site || 'Križišče')
+
+  const shareLinks = [
+    { key: 'x',        label: 'X (Twitter)', href: `https://twitter.com/intent/tweet?url=${encodedUrl}&text=${encodedTitle}` },
+    { key: 'fb',       label: 'Facebook',    href: `https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}` },
+    { key: 'li',       label: 'LinkedIn',    href: `https://www.linkedin.com/sharing/share-offsite/?url=${encodedUrl}` },
+    { key: 'wa',       label: 'WhatsApp',    href: `https://api.whatsapp.com/send?text=${encodedTitle}%20${encodedUrl}` },
+    { key: 'tg',       label: 'Telegram',    href: `https://t.me/share/url?url=${encodedUrl}&text=${encodedTitle}` },
+  ]
 
   return createPortal(
     <>
@@ -319,7 +393,52 @@ export default function ArticlePreview({ url, onClose }: Props) {
                 {title || 'Predogled'}
               </h3>
             </div>
-            <div className="flex items-center gap-2 shrink-0">
+
+            <div className="flex items-center gap-2 shrink-0 relative">
+              {/* Share */}
+              <button
+                ref={shareBtnRef}
+                type="button"
+                onClick={handleShareClick}
+                aria-haspopup="menu"
+                aria-expanded={shareOpen}
+                className="inline-flex items-center justify-center rounded-lg px-3 h-8 text-sm bg-gray-100/70 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200"
+                title="Deli"
+              >
+                🔗 <span className="ml-1 hidden sm:inline">Deli</span>
+              </button>
+
+              {/* Fallback share menu */}
+              {shareOpen && (
+                <div
+                  ref={shareMenuRef}
+                  role="menu"
+                  className="absolute right-24 top-0 mt-10 w-56 rounded-xl border border-gray-200/20 bg-white/95 dark:bg-gray-900/95 shadow-xl backdrop-blur p-2"
+                >
+                  <button
+                    onClick={copyToClipboard}
+                    className="w-full text-left px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-sm"
+                    role="menuitem"
+                  >
+                    {copied ? 'Kopirano!' : 'Kopiraj povezavo'}
+                  </button>
+                  <div className="my-1 h-px bg-gray-200/30 dark:bg-gray-700/60" />
+                  {shareLinks.map((s) => (
+                    <a
+                      key={s.key}
+                      href={s.href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      role="menuitem"
+                      className="block px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-sm"
+                    >
+                      {s.label}
+                    </a>
+                  ))}
+                </div>
+              )}
+
+              {/* Open source */}
               <a
                 href={url}
                 target="_blank"
@@ -329,6 +448,8 @@ export default function ArticlePreview({ url, onClose }: Props) {
               >
                 Odpri cel članek
               </a>
+
+              {/* Close */}
               <button
                 ref={closeRef}
                 onClick={onClose}
