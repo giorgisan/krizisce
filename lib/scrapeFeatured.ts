@@ -190,33 +190,43 @@ async function boostSiol($: cheerio.CheerioAPI, origin: string): Promise<Candida
   }
 }
 
-// Delo: slika je pogosto v background-image; naslov iz h1/h2 ali iz članka
+// Delo: “hero” teaser .teaser.teaser_vertical … naslov/slug/slika/podnaslov iz blokov; fallback og:*
 async function boostDelo($: cheerio.CheerioAPI, origin: string): Promise<Candidate | null> {
-  const wrap = $('main').find('a[href^="/novice/"]').first().closest('article,section,div,main')
-  if (!wrap.length) return null
-  const a = wrap.find('a[href^="/novice/"]').first()
-  const hrefAbs = absURL(origin, a.attr('href'))
+  // vzemi prvi večji teaser blok na vrhu leve kolone
+  const teaser = $('div.teaser.teaser_vertical').first()
+  if (!teaser.length) return null
+
+  // naslovni link znotraj .block_title
+  const titleLink = teaser.find('.block.block_title h3 a.teaser_link[href^="/novice/"]').first()
+  const hrefAbs = absURL(origin, titleLink.attr('href') || teaser.find('a.teaser_link[href^="/novice/"]').first().attr('href'))
   if (!hrefAbs) return null
 
+  // naslov
   let title =
-    clean(wrap.find('h1,h2').first().text()) ||
-    clean(a.attr('title')) ||
-    clean(a.text())
+    clean(titleLink.text()) ||
+    clean(teaser.find('.block.block_title h3').first().text())
+
+  // podnaslov
+  let desc = clean(teaser.find('.block.block_subtitle .text.subtitle span').first().text())
+
+  // slika – background-image ali <img hidden>
   let img =
-    extractBgUrl(wrap.find('[style*="background-image"]').first().attr('style')) ||
-    absURL(origin, wrap.find('img').first().attr('src') || wrap.find('img').first().attr('data-src')) ||
+    extractBgUrl(teaser.find('.teaser_image[style*="background-image"]').first().attr('style')) ||
+    absURL(origin, teaser.find('.teaser_image img').first().attr('src')) ||
     undefined
 
-  let d: string | undefined
-  if (!title || !img) {
+  if (!title || !img || !desc) {
     const meta = await fetchArticleMeta(hrefAbs)
     title = title || meta.title
     img   = img   || meta.image
-    d     = meta.description
+    desc  = desc  || meta.description
   }
 
   return {
-    href: hrefAbs, title, img, desc: d,
+    href: hrefAbs,
+    title,
+    img,
+    desc,
     score: 48 + articleLikeScore('Delo', hrefAbs),
   }
 }
@@ -301,7 +311,7 @@ async function boostZurnal24($: cheerio.CheerioAPI, origin: string): Promise<Can
   }
 }
 
-// N1: featured big-card (po tvojem izseku) – robustno dopolnimo z og:*
+// N1: featured big-card – robustno dopolnimo z og:*
 async function boostN1($: cheerio.CheerioAPI, origin: string): Promise<Candidate | null> {
   const art = $('article.big-card').first()
   if (!art.length) return null
