@@ -36,10 +36,7 @@ const PREVIEW_TYPO_CSS = `
   }
   .preview-typo figure > img { margin-bottom: 0.4rem; }
   .preview-typo figcaption { font-size: 0.82rem; opacity: .75; margin-top: -0.2rem; }
-  .preview-typo blockquote {
-    margin: 0.9rem 0; padding: 0.25rem 0 0.25rem 0.9rem;
-    border-left: 3px solid rgba(255,255,255,.15); opacity: .95;
-  }
+  .preview-typo blockquote { margin: 0.9rem 0; padding: 0.25rem 0 0.25rem 0.9rem; border-left: 3px solid rgba(255,255,255,.15); opacity: .95; }
   .preview-typo hr { margin: 1.1rem 0; opacity: .25; }
   .preview-typo a { text-decoration: underline; text-underline-offset: 2px; }
 `
@@ -56,7 +53,7 @@ function IconShareIOS(props: React.SVGProps<SVGSVGElement>) {
 function IconCheck(props: React.SVGProps<SVGSVGElement>) {
   return (
     <svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" {...props}>
-      <path fill="currentColor" d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z" />
+      <path fill="currentColor" d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"/>
     </svg>
   )
 }
@@ -184,7 +181,6 @@ function cleanPreviewHTML(html: string, baseUrl: string, knownTitle?: string): s
       Array.from(wrap.querySelectorAll('img')).slice(1).forEach((img) => {
         const raw = img.getAttribute('src') || img.getAttribute('data-src') || ''
         if (!raw) { (img.closest('figure, picture') || img).remove(); return }
-
         const abs = absolutize(raw, baseUrl)
         img.setAttribute('src', abs)
         img.removeAttribute('data-src')
@@ -195,11 +191,9 @@ function cleanPreviewHTML(html: string, baseUrl: string, knownTitle?: string): s
 
         const key  = imageKeyFromSrc(abs)
         const stem = basenameStem(key)
-
         const duplicate =
           !key || seen.has(key) || stem === firstStem ||
           stem.startsWith(firstStem.slice(0,10)) || firstStem.startsWith(stem.slice(0,10))
-
         if (duplicate) { (img.closest('figure, picture') || img).remove() }
         else { seen.add(key) }
       })
@@ -248,6 +242,8 @@ function truncateHTMLByWordsPercent(html: string, percent = 0.76): string {
   return out.innerHTML
 }
 
+type NetworkKey = 'x' | 'fb' | 'li' | 'wa' | 'tg'
+
 export default function ArticlePreview({ url, onClose }: Props) {
   // data
   const [content, setContent] = useState<string>('')
@@ -259,6 +255,7 @@ export default function ArticlePreview({ url, onClose }: Props) {
   // share UI
   const [shareOpen, setShareOpen] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [notice, setNotice] = useState<string>('') // mini opomba po deljenju
   const shareBtnRef = useRef<HTMLButtonElement>(null)
   const shareMenuRef = useRef<HTMLDivElement>(null)
 
@@ -275,7 +272,7 @@ export default function ArticlePreview({ url, onClose }: Props) {
     typeof navigator !== 'undefined' && 'share' in navigator && typeof window !== 'undefined' && window.isSecureContext
   const preferNativeShare = supportsWebShare && coarsePointerRef.current
 
-  // sheet vs. popover
+  // sheet vs popover
   const [useSheet, setUseSheet] = useState(false)
   useEffect(() => {
     const mq = window.matchMedia('(max-width: 640px)')
@@ -285,29 +282,16 @@ export default function ArticlePreview({ url, onClose }: Props) {
     return () => mq.removeEventListener?.('change', set)
   }, [])
 
-  const shareLinks = useMemo(() => {
-    const baseTitle = (title || site || 'Križišče')
-    const via = `${baseTitle}${VIA_TEXT}`
-    // X: vse v text (vključno z URL), ker param 'url' ni zanesljiv
-    const xText = `${via} ${url}`
+  // seznam ikon (brez URL-jev; URL sestavimo v handlerju z zaščitami)
+  const shareButtons = useMemo(() => ([
+    { key: 'x'  as const, label: 'X',         Icon: IconX },
+    { key: 'fb' as const, label: 'Facebook',  Icon: IconFacebook },
+    { key: 'li' as const, label: 'LinkedIn',  Icon: IconLinkedIn },
+    { key: 'wa' as const, label: 'WhatsApp',  Icon: IconWhatsApp },
+    { key: 'tg' as const, label: 'Telegram',  Icon: IconTelegram },
+  ]), [])
 
-    const encodedUrl = encodeURIComponent(url)
-    const encodedViaTitle = encodeURIComponent(via)
-
-    return [
-      // ✅ X / Twitter – samo text, ki vsebuje tudi URL
-      { key: 'x',  label: 'X', href: `https://x.com/intent/post?text=${encodeURIComponent(xText)}`, Icon: IconX },
-
-      // ostala omrežja lahko ostanejo po starem
-      { key: 'fb', label: 'Facebook', href: `https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}`, Icon: IconFacebook },
-      { key: 'li', label: 'LinkedIn', href: `https://www.linkedin.com/sharing/share-offsite/?url=${encodedUrl}`, Icon: IconLinkedIn },
-      { key: 'wa', label: 'WhatsApp', href: `https://api.whatsapp.com/send?text=${encodedViaTitle}%20${encodedUrl}`, Icon: IconWhatsApp },
-      { key: 'tg', label: 'Telegram', href: `https://t.me/share/url?url=${encodedUrl}&text=${encodedViaTitle}`, Icon: IconTelegram },
-    ]
-  }, [url, title, site])
-
-
-  // load preview (cache-first → clean → trunc → sanitize)
+  // cache-first → clean → trunc → sanitize
   useEffect(() => {
     let alive = true
     const run = async () => {
@@ -362,7 +346,7 @@ export default function ArticlePreview({ url, onClose }: Props) {
 
   // klik izven menija
   useEffect(() => {
-    const onDocClick = (e: globalThis.MouseEvent) => {
+    const onDocClick = (e: MouseEvent) => {
       if (!shareOpen) return
       const target = e.target as Node
       if (
@@ -380,22 +364,58 @@ export default function ArticlePreview({ url, onClose }: Props) {
     e.preventDefault()
     const source = site || (() => { try { return new URL(url).hostname } catch { return 'unknown' } })()
     trackClick(source, url)
-    window.open(url, '_blank', 'noopener,noreferrer')
+    window.open(url, '_blank', 'noopener')
   }, [site, url])
 
-  // SHARE: instant na desktopu (popover), native le na telefonu/tablici
-  const handleShareClick = useCallback(() => {
-    if (preferNativeShare) {
-      const shareData: ShareData = {
-        title: (title || site || 'Članek') + VIA_TEXT,
-        text: (title ? `${title}${site ? ` – ${site}` : ''}` : (site || 'Križišče')) + VIA_TEXT,
-        url,
-      }
-      try { (navigator as any).share(shareData).catch(() => {}) } catch {}
-      return
+  // robusten share handler (z clipboard fallbackom)
+  const handleShare = useCallback(async (net: NetworkKey) => {
+    const baseTitle = (title || site || 'Križišče')
+    const via = `${baseTitle}${VIA_TEXT}`
+    const fullText = `${via} ${url}`
+
+    // vedno poskusimo uporabniku olajšati paste, če bi X ignoriral parametre
+    try { await navigator.clipboard.writeText(fullText) } catch {}
+
+    let shareUrl = ''
+    const encUrl = encodeURIComponent(url)
+    const encVia = encodeURIComponent(via)
+
+    switch (net) {
+      case 'x':
+        // dvojno: vse v text + še url param (za vsak primer)
+        shareUrl = `https://x.com/intent/post?text=${encodeURIComponent(fullText)}&url=${encUrl}`
+        break
+      case 'fb':
+        shareUrl = `https://www.facebook.com/sharer/sharer.php?u=${encUrl}`
+        break
+      case 'li':
+        shareUrl = `https://www.linkedin.com/sharing/share-offsite/?url=${encUrl}`
+        break
+      case 'wa':
+        shareUrl = `https://api.whatsapp.com/send?text=${encVia}%20${encUrl}`
+        break
+      case 'tg':
+        shareUrl = `https://t.me/share/url?url=${encUrl}&text=${encVia}`
+        break
     }
-    setShareOpen((v) => !v)
-  }, [preferNativeShare, title, site, url])
+
+    // iOS/Android naj raje uporabita native share (če obstaja)
+    if (preferNativeShare) {
+      try {
+        await (navigator as any).share({ title: via, text: via, url })
+        setShareOpen(false)
+        return
+      } catch {
+        // če native odpove, nadaljuj z URL-jem spodaj
+      }
+    }
+
+    // odpri v novem oknu; če je prazno, ima uporabnik že tekst v odložišču
+    window.open(shareUrl, '_blank', 'noopener')
+    setShareOpen(false)
+    setNotice('Če se objava odpre prazna, prilepi – vsebina je že v odložišču.')
+    setTimeout(() => setNotice(''), 3000)
+  }, [title, site, url, preferNativeShare])
 
   const copyToClipboard = useCallback(async () => {
     try {
@@ -452,7 +472,13 @@ export default function ArticlePreview({ url, onClose }: Props) {
               <button
                 ref={shareBtnRef}
                 type="button"
-                onClick={handleShareClick}
+                onClick={() => {
+                  if (preferNativeShare) {
+                    (navigator as any).share({ title: title || site || 'Križišče', text: (title || site || 'Križišče') + VIA_TEXT, url }).catch(()=>{})
+                  } else {
+                    setShareOpen((v) => !v)
+                  }
+                }}
                 aria-haspopup="menu"
                 aria-expanded={shareOpen}
                 className="inline-flex items-center justify-center rounded-lg px-3 h-8 text-sm bg-gray-100/70 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 anim-soft"
@@ -468,9 +494,7 @@ export default function ArticlePreview({ url, onClose }: Props) {
                   ref={shareMenuRef}
                   role="menu"
                   className={[
-                    useSheet
-                      ? 'fixed inset-x-0 bottom-0 z-50 rounded-t-2xl'
-                      : 'absolute right-0 top-full mt-2 z-50',
+                    useSheet ? 'fixed inset-x-0 bottom-0 z-50 rounded-t-2xl' : 'absolute right-0 top-full mt-2 z-50',
                     'overflow-hidden border border-gray-200/30 bg-white/95 dark:bg-gray-900/95 shadow-2xl backdrop-blur',
                   ].join(' ')}
                 >
@@ -482,7 +506,7 @@ export default function ArticlePreview({ url, onClose }: Props) {
                   )}
 
                   <div className={useSheet ? 'p-4' : 'p-3'}>
-                    {/* primary: copy */}
+                    {/* primary: copy link */}
                     <button
                       onClick={copyToClipboard}
                       className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-sm py-2.5 px-3 anim-soft"
@@ -496,22 +520,25 @@ export default function ArticlePreview({ url, onClose }: Props) {
 
                     {/* icons only */}
                     <div className="mt-3 flex items-center gap-2 sm:gap-3">
-                      {shareLinks.map(({ key, label, href, Icon }) => (
-                        <a
+                      {shareButtons.map(({ key, label, Icon }) => (
+                        <button
                           key={key}
-                          href={href}
-                          target="_blank"
-                          rel="noopener noreferrer nofollow"
-                          role="menuitem"
+                          type="button"
                           title={label}
                           aria-label={label}
+                          onClick={() => handleShare(key)}
                           className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-gray-200/50 dark:border-gray-700/60 bg-white/80 dark:bg-black/30 shadow-sm hover:bg-gray-100 dark:hover:bg-gray-800 hover:scale-[1.05] anim-soft"
-                          onClick={() => setShareOpen(false)}
                         >
                           <Icon />
-                        </a>
+                        </button>
                       ))}
                     </div>
+
+                    {notice && (
+                      <div className="mt-3 text-xs text-gray-600 dark:text-gray-300">
+                        {notice}
+                      </div>
+                    )}
 
                     {useSheet && (
                       <button
