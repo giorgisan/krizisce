@@ -44,7 +44,7 @@ const PREVIEW_TYPO_CSS = `
   .preview-typo a { text-decoration: underline; text-underline-offset: 2px; }
 `
 
-/* Ikone */
+/* Ikone (inline SVG) */
 function IconShareIOS(props: React.SVGProps<SVGSVGElement>) {
   return (
     <svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" {...props}>
@@ -142,10 +142,8 @@ function cleanPreviewHTML(html: string, baseUrl: string, knownTitle?: string): s
   try {
     const wrap = document.createElement('div')
     wrap.innerHTML = html
-
     wrap.querySelectorAll('noscript,script,style,iframe,form').forEach((n) => n.remove())
 
-    // odstrani podvojen naslov
     if (knownTitle) {
       const firstHeading = wrap.querySelector('h1, h2, h3')
       if (firstHeading) {
@@ -155,7 +153,6 @@ function cleanPreviewHTML(html: string, baseUrl: string, knownTitle?: string): s
       }
     }
 
-    // absolutiziraj + utrdi <a>
     wrap.querySelectorAll('a').forEach((a) => {
       const href = a.getAttribute('href')
       if (href) a.setAttribute('href', absolutize(href, baseUrl))
@@ -166,10 +163,8 @@ function cleanPreviewHTML(html: string, baseUrl: string, knownTitle?: string): s
       a.setAttribute('target', '_blank')
     })
 
-    // deduplikacija slik
     const imgs = Array.from(wrap.querySelectorAll('img'))
     if (imgs.length > 0) {
-      // 1) normaliziraj hero
       const first = imgs[0]
       const firstRaw = first.getAttribute('src') || first.getAttribute('data-src') || ''
       const firstAbs = absolutize(firstRaw, baseUrl)
@@ -183,7 +178,6 @@ function cleanPreviewHTML(html: string, baseUrl: string, knownTitle?: string): s
       const firstKey  = imageKeyFromSrc(firstAbs || firstRaw)
       const firstStem = basenameStem(firstKey)
 
-      // 2) kasnejše podvojitve stran
       const seen = new Set<string>()
       if (firstKey) seen.add(firstKey)
 
@@ -194,7 +188,6 @@ function cleanPreviewHTML(html: string, baseUrl: string, knownTitle?: string): s
         const abs = absolutize(raw, baseUrl)
         img.setAttribute('src', abs)
         img.removeAttribute('data-src')
-        // ✅ PRAVILNO:
         img.removeAttribute('srcset'); img.removeAttribute('sizes')
         img.setAttribute('loading', 'lazy')
         img.setAttribute('decoding', 'async')
@@ -204,30 +197,21 @@ function cleanPreviewHTML(html: string, baseUrl: string, knownTitle?: string): s
         const stem = basenameStem(key)
 
         const duplicate =
-          !key ||
-          seen.has(key) ||
-          stem === firstStem ||
-          stem.startsWith(firstStem.slice(0, 10)) ||
-          firstStem.startsWith(stem.slice(0, 10))
+          !key || seen.has(key) || stem === firstStem ||
+          stem.startsWith(firstStem.slice(0,10)) || firstStem.startsWith(stem.slice(0,10))
 
-        if (duplicate) {
-          (img.closest('figure, picture') || img).remove()
-        } else {
-          seen.add(key)
-        }
+        if (duplicate) { (img.closest('figure, picture') || img).remove() }
+        else { seen.add(key) }
       })
     }
 
     return wrap.innerHTML
-  } catch {
-    return html
-  }
+  } catch { return html }
 }
 
 function wordSpans(text: string): Array<{ start: number; end: number }> {
   const spans: Array<{ start: number; end: number }> = []
-  const re =
-    /[A-Za-z0-9À-ÖØ-öø-ÿĀ-žČŠŽčšžĆćĐđ]+(?:['’-][A-Za-z0-9À-ÖØ-öø-ÿĀ-žČŠŽčšžĆćĐđ]+)*/g
+  const re = /[A-Za-z0-9À-ÖØ-öø-ÿĀ-žČŠŽčšžĆćĐđ]+(?:['’-][A-Za-z0-9À-ÖØ-öø-ÿĀ-žČŠŽčšžĆćĐđ]+)*/g
   let m: RegExpExecArray | null
   while ((m = re.exec(text)) !== null) spans.push({ start: m.index, end: m.index + m[0].length })
   return spans
@@ -238,29 +222,23 @@ function truncateHTMLByWordsPercent(html: string, percent = 0.76): string {
   const src = document.createElement('div'); src.innerHTML = html
   src.querySelectorAll('header,nav,footer,aside,.share,.social,.related,.tags').forEach((n) => n.remove())
   const out = src.cloneNode(true) as HTMLDivElement
-
   const totalWords = countWords(out.textContent || '')
   if (totalWords === 0) return out.innerHTML
   const target = Math.max(1, Math.floor(totalWords * percent))
   let used = 0
   const walker = document.createTreeWalker(out, NodeFilter.SHOW_TEXT)
   let node: Node | null = walker.nextNode()
-
   while (node) {
     const text = (node.textContent || '')
     const trimmed = text.trim()
     if (!trimmed) { node = walker.nextNode(); continue }
-
     const spans = wordSpans(text)
     const localWords = spans.length
     const remain = target - used
-
     if (localWords <= remain) { used += localWords; node = walker.nextNode(); continue }
-
     const cutoffSpan = spans[Math.max(0, remain - 1)]
     const cutoffIndex = cutoffSpan ? cutoffSpan.end : 0
     ;(node as Text).textContent = text.slice(0, cutoffIndex).trimEnd()
-
     const range = document.createRange()
     range.setStartAfter(node)
     const last = out.lastChild
@@ -297,7 +275,7 @@ export default function ArticlePreview({ url, onClose }: Props) {
     typeof navigator !== 'undefined' && 'share' in navigator && typeof window !== 'undefined' && window.isSecureContext
   const preferNativeShare = supportsWebShare && coarsePointerRef.current
 
-  // ali naj menijski prikaz posnema bottom-sheet (mobilno) ali popover (desktop)
+  // sheet vs. popover
   const [useSheet, setUseSheet] = useState(false)
   useEffect(() => {
     const mq = window.matchMedia('(max-width: 640px)')
@@ -312,15 +290,15 @@ export default function ArticlePreview({ url, onClose }: Props) {
     const baseTitle = (title || site || 'Križišče')
     const encodedViaTitle = encodeURIComponent(baseTitle + VIA_TEXT)
     return [
-      { key: 'x',  label: 'X',        href: `https://twitter.com/intent/tweet?url=${encodedUrl}&text=${encodedViaTitle}`, Icon: IconX },
-      { key: 'fb', label: 'Facebook', href: `https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}`,                Icon: IconFacebook },
-      { key: 'li', label: 'LinkedIn', href: `https://www.linkedin.com/sharing/share-offsite/?url=${encodedUrl}`,         Icon: IconLinkedIn },
-      { key: 'wa', label: 'WhatsApp', href: `https://api.whatsapp.com/send?text=${encodedViaTitle}%20${encodedUrl}`,     Icon: IconWhatsApp },
-      { key: 'tg', label: 'Telegram', href: `https://t.me/share/url?url=${encodedUrl}&text=${encodedViaTitle}`,          Icon: IconTelegram },
+      { key: 'x',  label: 'X',        href: `https://x.com/intent/post?url=${encodedUrl}&text=${encodedViaTitle}`, Icon: IconX },
+      { key: 'fb', label: 'Facebook', href: `https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}`,          Icon: IconFacebook },
+      { key: 'li', label: 'LinkedIn', href: `https://www.linkedin.com/sharing/share-offsite/?url=${encodedUrl}`,   Icon: IconLinkedIn },
+      { key: 'wa', label: 'WhatsApp', href: `https://api.whatsapp.com/send?text=${encodedViaTitle}%20${encodedUrl}`, Icon: IconWhatsApp },
+      { key: 'tg', label: 'Telegram', href: `https://t.me/share/url?url=${encodedUrl}&text=${encodedViaTitle}`,     Icon: IconTelegram },
     ]
   }, [url, title, site])
 
-  // cache-first → clean → trunc → sanitize
+  // load preview (cache-first → clean → trunc → sanitize)
   useEffect(() => {
     let alive = true
     const run = async () => {
@@ -329,12 +307,8 @@ export default function ArticlePreview({ url, onClose }: Props) {
         let data = peekPreview(url) as ApiPayload | null
         if (!data) data = await preloadPreview(url)
         if (!alive) return
-
-        if ('error' in data) {
-          setError('Napaka pri nalaganju predogleda.'); setLoading(false); return
-        }
+        if ('error' in data) { setError('Napaka pri nalaganju predogleda.'); setLoading(false); return }
         setTitle(data.title); setSite(data.site)
-
         const cleaned = cleanPreviewHTML(data.html, url, data.title)
         const truncated = truncateHTMLByWordsPercent(cleaned, TEXT_PERCENT)
         setContent(DOMPurify.sanitize(truncated))
@@ -365,13 +339,11 @@ export default function ArticlePreview({ url, onClose }: Props) {
         } else if (document.activeElement === last) { e.preventDefault(); first.focus() }
       }
     }
-
     document.addEventListener('keydown', handleKeyDown)
     const prevOverflow = document.body.style.overflow
     document.body.style.overflow = 'hidden'
     document.body.classList.add('modal-open', 'preview-open')
     setTimeout(() => closeRef.current?.focus(), 0)
-
     return () => {
       document.removeEventListener('keydown', handleKeyDown)
       document.body.style.overflow = prevOverflow
@@ -389,9 +361,7 @@ export default function ArticlePreview({ url, onClose }: Props) {
         !shareMenuRef.current.contains(target) &&
         shareBtnRef.current &&
         !shareBtnRef.current.contains(target)
-      ) {
-        setShareOpen(false)
-      }
+      ) setShareOpen(false)
     }
     document.addEventListener('mousedown', onDocClick)
     return () => document.removeEventListener('mousedown', onDocClick)
@@ -439,7 +409,6 @@ export default function ArticlePreview({ url, onClose }: Props) {
 
   return createPortal(
     <>
-      {/* trd override za ozadje med modalom */}
       <style>{`
         body.preview-open a,
         body.preview-open a:hover,
@@ -448,7 +417,6 @@ export default function ArticlePreview({ url, onClose }: Props) {
         body.preview-open .group:hover * { text-decoration: none !important; }
         @media (prefers-reduced-motion: reduce) { .anim-soft { transition: none !important; } }
       `}</style>
-      {/* tipografski skin */}
       <style>{PREVIEW_TYPO_CSS}</style>
 
       <div
@@ -471,7 +439,7 @@ export default function ArticlePreview({ url, onClose }: Props) {
             </div>
 
             <div className="flex items-center gap-2 shrink-0 relative">
-              {/* Share */}
+              {/* Share button */}
               <button
                 ref={shareBtnRef}
                 type="button"
@@ -485,7 +453,7 @@ export default function ArticlePreview({ url, onClose }: Props) {
                 <span className="hidden sm:inline">Deli</span>
               </button>
 
-              {/* Modern share menu */}
+              {/* Share menu (ikonice-only) */}
               {shareOpen && (
                 <div
                   ref={shareMenuRef}
@@ -497,7 +465,6 @@ export default function ArticlePreview({ url, onClose }: Props) {
                     'overflow-hidden border border-gray-200/30 bg-white/95 dark:bg-gray-900/95 shadow-2xl backdrop-blur',
                   ].join(' ')}
                 >
-                  {/* Sheet header (samo v sheet načinu) */}
                   {useSheet && (
                     <div className="px-4 pt-3 pb-2">
                       <div className="mx-auto mb-2 h-1.5 w-12 rounded-full bg-gray-300 dark:bg-gray-700" />
@@ -506,7 +473,7 @@ export default function ArticlePreview({ url, onClose }: Props) {
                   )}
 
                   <div className={useSheet ? 'p-4' : 'p-3'}>
-                    {/* Primary action */}
+                    {/* primary: copy */}
                     <button
                       onClick={copyToClipboard}
                       className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-sm py-2.5 px-3 anim-soft"
@@ -518,26 +485,25 @@ export default function ArticlePreview({ url, onClose }: Props) {
                       {copied ? 'Kopirano!' : 'Kopiraj povezavo'}
                     </button>
 
-                    {/* Grid of networks */}
-                    <div className="mt-3 grid grid-cols-5 gap-2 sm:gap-3">
+                    {/* icons only */}
+                    <div className="mt-3 flex items-center gap-2 sm:gap-3">
                       {shareLinks.map(({ key, label, href, Icon }) => (
                         <a
                           key={key}
                           href={href}
                           target="_blank"
-                          rel="noopener noreferrer"
+                          rel="noopener noreferrer nofollow"
                           role="menuitem"
-                          className="group flex flex-col items-center gap-1 rounded-xl px-2 py-2 hover:bg-gray-100 dark:hover:bg-gray-800 anim-soft"
+                          title={label}
+                          aria-label={label}
+                          className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-gray-200/50 dark:border-gray-700/60 bg-white/80 dark:bg-black/30 shadow-sm hover:bg-gray-100 dark:hover:bg-gray-800 hover:scale-[1.05] anim-soft"
+                          onClick={() => setShareOpen(false)}
                         >
-                          <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-gray-200/50 dark:border-gray-700/60 bg-white/80 dark:bg-black/30 shadow-sm group-hover:scale-[1.03] anim-soft">
-                            <Icon />
-                          </span>
-                          <span className="text-xs text-gray-700 dark:text-gray-300">{label}</span>
+                          <Icon />
                         </a>
                       ))}
                     </div>
 
-                    {/* Close (sheet only) */}
                     {useSheet && (
                       <button
                         onClick={() => setShareOpen(false)}
