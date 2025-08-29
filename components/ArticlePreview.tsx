@@ -19,11 +19,9 @@ type ApiPayload =
   | { error: string }
   | { title: string; site: string; image?: string | null; html: string; url: string }
 
-// Kolikšen delež besedila prikažemo
 const TEXT_PERCENT = 0.80
 const VIA_TEXT = ' — via Križišče (krizisce.si)'
 
-// Tipografski “skin” za modal – brez odvisnosti od @tailwindcss/typography
 const PREVIEW_TYPO_CSS = `
   .preview-typo { font-size: 0.98rem; line-height: 1.68; }
   .preview-typo > *:first-child { margin-top: 0 !important; }
@@ -46,7 +44,7 @@ const PREVIEW_TYPO_CSS = `
   .preview-typo a { text-decoration: underline; text-underline-offset: 2px; }
 `
 
-/* --- Ikone (inline SVG, brez odvisnosti) --- */
+/* Ikone (minimalne, inline SVG – brez odvisnosti) */
 function IconShareIOS(props: React.SVGProps<SVGSVGElement>) {
   return (
     <svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" {...props}>
@@ -59,6 +57,41 @@ function IconCheck(props: React.SVGProps<SVGSVGElement>) {
   return (
     <svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" {...props}>
       <path fill="currentColor" d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z" />
+    </svg>
+  )
+}
+function IconX(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" {...props}>
+      <path fill="currentColor" d="M17.5 3h-3.1l-3.3 5L7 3H3l6.1 8.5L3.5 21h3.1l3.6-5.4L17 21h4l-6.7-9.2L21 3h-3.5l-3.9 5.8z"/>
+    </svg>
+  )
+}
+function IconFacebook(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" {...props}>
+      <path fill="currentColor" d="M13 21v-7h2.3l.4-3H13V9.3c0-.9.3-1.5 1.6-1.5H16V5.1C15.6 5 14.7 5 13.7 5 11.5 5 10 6.3 10 8.9V11H7.7v3H10v7h3z"/>
+    </svg>
+  )
+}
+function IconLinkedIn(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" {...props}>
+      <path fill="currentColor" d="M6.5 6.5A2.5 2.5 0 1 1 1.5 6.5a2.5 2.5 0 0 1 5 0zM2 8.8h4.9V22H2zM14.9 8.5c-2.7 0-4 1.5-4.6 2.5V8.8H5.4V22h4.9v-7c0-1.9 1-2.9 2.5-2.9 1.4 0 2.3 1 2.3 2.9V22H20v-7.7c0-3.3-1.8-5.8-5.1-5.8z"/>
+    </svg>
+  )
+}
+function IconWhatsApp(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" {...props}>
+      <path fill="currentColor" d="M12 2a10 10 0 0 0-8.7 15l-1.3 4.7 4.8-1.3A10 10 0 1 0 12 2zm5.6 14.6c-.2.6-1.2 1.1-1.7 1.2-.5.1-1 .2-1.7-.1-.4-.1-1-.3-1.8-.7-3.1-1.4-5.2-4.7-5.3-4.9-.2-.3-1.3-1.7-1.3-3.2 0-1.4.7-2.1 1-2.4.2-.2.6-.3 1-.3h.7c.2 0 .5 0 .7.6.3.7 1 2.6 1 2.8.1.2.1.4 0 .6-.1.2-.2.4-.4.6-.2.2-.4.5-.2.9.2.4.9 1.5 2 2.4 1.4 1.2 2.6 1.6 3 .1.2-.4.5-.5.8-.4.3.1 1.8.8 2.1 1 .3.2.5.4.6.6.1.5.1 1-.1 1.2z"/>
+    </svg>
+  )
+}
+function IconTelegram(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" {...props}>
+      <path fill="currentColor" d="M21.9 3.3c-.3-.2-.7-.2-1.1 0L2.8 10.6c-.7.3-.7 1.4.1 1.6l4.7 1.5 1.7 5.2c.2.7 1.1.9 1.6.3l2.6-2.8 4.3 3.1c.6.4 1.5.1 1.7-.6l3.1-14.4c.1-.5-.1-1-.6-1.2z"/>
     </svg>
   )
 }
@@ -104,15 +137,12 @@ function basenameStem(pathname: string): string {
     .replace(/-scaled$/g, '')
 }
 
-/** Client-side clean + polish */
 function cleanPreviewHTML(html: string, baseUrl: string, knownTitle?: string): string {
   try {
     const wrap = document.createElement('div')
     wrap.innerHTML = html
-
     wrap.querySelectorAll('noscript,script,style,iframe,form').forEach((n) => n.remove())
 
-    // odstrani podvojen naslov
     if (knownTitle) {
       const firstHeading = wrap.querySelector('h1, h2, h3')
       if (firstHeading) {
@@ -122,7 +152,6 @@ function cleanPreviewHTML(html: string, baseUrl: string, knownTitle?: string): s
       }
     }
 
-    // absolutiziraj + utrdi <a>
     wrap.querySelectorAll('a').forEach((a) => {
       const href = a.getAttribute('href')
       if (href) a.setAttribute('href', absolutize(href, baseUrl))
@@ -133,7 +162,6 @@ function cleanPreviewHTML(html: string, baseUrl: string, knownTitle?: string): s
       a.setAttribute('target', '_blank')
     })
 
-    // deduplikacija slik
     const imgs = Array.from(wrap.querySelectorAll('img'))
     if (imgs.length > 0) {
       const first = imgs[0]
@@ -159,7 +187,7 @@ function cleanPreviewHTML(html: string, baseUrl: string, knownTitle?: string): s
         const abs = absolutize(raw, baseUrl)
         img.setAttribute('src', abs)
         img.removeAttribute('data-src')
-        img.removeAttribute('srcset'); img.removeAttribute('sizes')
+        img.removeAttribute='srcset'; img.removeAttribute('sizes')
         img.setAttribute('loading', 'lazy')
         img.setAttribute('decoding', 'async')
         img.setAttribute('referrerpolicy', 'no-referrer')
@@ -168,30 +196,21 @@ function cleanPreviewHTML(html: string, baseUrl: string, knownTitle?: string): s
         const stem = basenameStem(key)
 
         const duplicate =
-          !key ||
-          seen.has(key) ||
-          stem === firstStem ||
-          stem.startsWith(firstStem.slice(0, 10)) ||
-          firstStem.startsWith(stem.slice(0, 10))
+          !key || seen.has(key) || stem === firstStem ||
+          stem.startsWith(firstStem.slice(0,10)) || firstStem.startsWith(stem.slice(0,10))
 
-        if (duplicate) {
-          (img.closest('figure, picture') || img).remove()
-        } else {
-          seen.add(key)
-        }
+        if (duplicate) { (img.closest('figure, picture') || img).remove() }
+        else { seen.add(key) }
       })
     }
 
     return wrap.innerHTML
-  } catch {
-    return html
-  }
+  } catch { return html }
 }
 
 function wordSpans(text: string): Array<{ start: number; end: number }> {
   const spans: Array<{ start: number; end: number }> = []
-  const re =
-    /[A-Za-z0-9À-ÖØ-öø-ÿĀ-žČŠŽčšžĆćĐđ]+(?:['’-][A-Za-z0-9À-ÖØ-öø-ÿĀ-žČŠŽčšžĆćĐđ]+)*/g
+  const re = /[A-Za-z0-9À-ÖØ-öø-ÿĀ-žČŠŽčšžĆćĐđ]+(?:['’-][A-Za-z0-9À-ÖØ-öø-ÿĀ-žČŠŽčšžĆćĐđ]+)*/g
   let m: RegExpExecArray | null
   while ((m = re.exec(text)) !== null) spans.push({ start: m.index, end: m.index + m[0].length })
   return spans
@@ -202,29 +221,23 @@ function truncateHTMLByWordsPercent(html: string, percent = 0.76): string {
   const src = document.createElement('div'); src.innerHTML = html
   src.querySelectorAll('header,nav,footer,aside,.share,.social,.related,.tags').forEach((n) => n.remove())
   const out = src.cloneNode(true) as HTMLDivElement
-
   const totalWords = countWords(out.textContent || '')
   if (totalWords === 0) return out.innerHTML
   const target = Math.max(1, Math.floor(totalWords * percent))
   let used = 0
   const walker = document.createTreeWalker(out, NodeFilter.SHOW_TEXT)
   let node: Node | null = walker.nextNode()
-
   while (node) {
     const text = (node.textContent || '')
     const trimmed = text.trim()
     if (!trimmed) { node = walker.nextNode(); continue }
-
     const spans = wordSpans(text)
     const localWords = spans.length
     const remain = target - used
-
     if (localWords <= remain) { used += localWords; node = walker.nextNode(); continue }
-
     const cutoffSpan = spans[Math.max(0, remain - 1)]
     const cutoffIndex = cutoffSpan ? cutoffSpan.end : 0
     ;(node as Text).textContent = text.slice(0, cutoffIndex).trimEnd()
-
     const range = document.createRange()
     range.setStartAfter(node)
     const last = out.lastChild
@@ -239,7 +252,6 @@ export default function ArticlePreview({ url, onClose }: Props) {
   const [content, setContent] = useState<string>('')
   const [title, setTitle] = useState<string>('')
   const [site, setSite] = useState<string>('')
-
   const [loading, setLoading] = useState<boolean>(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -253,29 +265,36 @@ export default function ArticlePreview({ url, onClose }: Props) {
   const modalRef = useRef<HTMLDivElement>(null)
   const closeRef = useRef<HTMLButtonElement>(null)
 
-  // ali je naprava "touch" (coarse pointer)? -> na teh napravah preferiramo native share
-  const coarsePointerRef = useRef<boolean>(false)
+  // prefer native share samo na “coarse pointer” napravah
+  const coarsePointerRef = useRef(false)
   useEffect(() => {
     try { coarsePointerRef.current = window.matchMedia('(pointer: coarse)').matches } catch {}
   }, [])
-
-  const supportsWebShare = typeof navigator !== 'undefined' && 'share' in navigator && window.isSecureContext
+  const supportsWebShare =
+    typeof navigator !== 'undefined' && 'share' in navigator && window.isSecureContext
   const preferNativeShare = supportsWebShare && coarsePointerRef.current
 
-  // precompute share links
-  const { shareLinks } = useMemo(() => {
-    const encodedUrl   = encodeURIComponent(url)
-    const baseTitle    = (title || site || 'Križišče')
+  // ali naj prikaz menija posnema “bottom sheet” (mobilno) ali “popover” (desktop)
+  const [useSheet, setUseSheet] = useState(false)
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 640px)')
+    const set = () => setUseSheet(mq.matches)
+    set()
+    mq.addEventListener?.('change', set)
+    return () => mq.removeEventListener?.('change', set)
+  }, [])
+
+  const shareLinks = useMemo(() => {
+    const encodedUrl = encodeURIComponent(url)
+    const baseTitle = (title || site || 'Križišče')
     const encodedViaTitle = encodeURIComponent(baseTitle + VIA_TEXT)
-    return {
-      shareLinks: [
-        { key: 'x',  label: 'X (Twitter)', href: `https://twitter.com/intent/tweet?url=${encodedUrl}&text=${encodedViaTitle}` },
-        { key: 'fb', label: 'Facebook',    href: `https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}` },
-        { key: 'li', label: 'LinkedIn',    href: `https://www.linkedin.com/sharing/share-offsite/?url=${encodedUrl}` },
-        { key: 'wa', label: 'WhatsApp',    href: `https://api.whatsapp.com/send?text=${encodedViaTitle}%20${encodedUrl}` },
-        { key: 'tg', label: 'Telegram',    href: `https://t.me/share/url?url=${encodedUrl}&text=${encodedViaTitle}` },
-      ],
-    }
+    return [
+      { key: 'x',  label: 'X',         href: `https://twitter.com/intent/tweet?url=${encodedUrl}&text=${encodedViaTitle}`,  Icon: IconX },
+      { key: 'fb', label: 'Facebook',  href: `https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}`,                 Icon: IconFacebook },
+      { key: 'li', label: 'LinkedIn',  href: `https://www.linkedin.com/sharing/share-offsite/?url=${encodedUrl}`,          Icon: IconLinkedIn },
+      { key: 'wa', label: 'WhatsApp',  href: `https://api.whatsapp.com/send?text=${encodedViaTitle}%20${encodedUrl}`,      Icon: IconWhatsApp },
+      { key: 'tg', label: 'Telegram',  href: `https://t.me/share/url?url=${encodedUrl}&text=${encodedViaTitle}`,           Icon: IconTelegram },
+    ]
   }, [url, title, site])
 
   // cache-first → clean → trunc → sanitize
@@ -287,12 +306,8 @@ export default function ArticlePreview({ url, onClose }: Props) {
         let data = peekPreview(url) as ApiPayload | null
         if (!data) data = await preloadPreview(url)
         if (!alive) return
-
-        if ('error' in data) {
-          setError('Napaka pri nalaganju predogleda.'); setLoading(false); return
-        }
+        if ('error' in data) { setError('Napaka pri nalaganju predogleda.'); setLoading(false); return }
         setTitle(data.title); setSite(data.site)
-
         const cleaned = cleanPreviewHTML(data.html, url, data.title)
         const truncated = truncateHTMLByWordsPercent(cleaned, TEXT_PERCENT)
         setContent(DOMPurify.sanitize(truncated))
@@ -323,13 +338,11 @@ export default function ArticlePreview({ url, onClose }: Props) {
         } else if (document.activeElement === last) { e.preventDefault(); first.focus() }
       }
     }
-
     document.addEventListener('keydown', handleKeyDown)
     const prevOverflow = document.body.style.overflow
     document.body.style.overflow = 'hidden'
     document.body.classList.add('modal-open', 'preview-open')
     setTimeout(() => closeRef.current?.focus(), 0)
-
     return () => {
       document.removeEventListener('keydown', handleKeyDown)
       document.body.style.overflow = prevOverflow
@@ -347,9 +360,7 @@ export default function ArticlePreview({ url, onClose }: Props) {
         !shareMenuRef.current.contains(target) &&
         shareBtnRef.current &&
         !shareBtnRef.current.contains(target)
-      ) {
-        setShareOpen(false)
-      }
+      ) setShareOpen(false)
     }
     document.addEventListener('mousedown', onDocClick)
     return () => document.removeEventListener('mousedown', onDocClick)
@@ -362,7 +373,7 @@ export default function ArticlePreview({ url, onClose }: Props) {
     window.open(url, '_blank', 'noopener,noreferrer')
   }, [site, url])
 
-  // SHARE: instantno na desktopu (fallback), native le na telefonu/tablici
+  // SHARE: instant na desktopu (popover), native le na telefonu/tablici
   const handleShareClick = useCallback(() => {
     if (preferNativeShare) {
       const shareData: ShareData = {
@@ -370,17 +381,9 @@ export default function ArticlePreview({ url, onClose }: Props) {
         text: (title ? `${title}${site ? ` – ${site}` : ''}` : (site || 'Križišče')) + VIA_TEXT,
         url,
       }
-      try {
-        // ne čakamo (brez await), UI ostane takoj odziven
-        // če uporabnik prekliče, ne delamo nič – ostane modal
-        // fallback lahko odpre ročno z drugim klikom
-        (navigator as any).share(shareData).catch(() => {})
-        return
-      } catch {
-        // če share vrže napako, prikažemo fallback
-      }
+      try { (navigator as any).share(shareData).catch(() => {}) } catch {}
+      return
     }
-    // desktop ali napaka -> takoj odpri lokalni meni
     setShareOpen((v) => !v)
   }, [preferNativeShare, title, site, url])
 
@@ -405,7 +408,6 @@ export default function ArticlePreview({ url, onClose }: Props) {
 
   return createPortal(
     <>
-      {/* trd override za ozadje med modalom */}
       <style>{`
         body.preview-open a,
         body.preview-open a:hover,
@@ -414,7 +416,6 @@ export default function ArticlePreview({ url, onClose }: Props) {
         body.preview-open .group:hover * { text-decoration: none !important; }
         @media (prefers-reduced-motion: reduce) { .anim-soft { transition: none !important; } }
       `}</style>
-      {/* tipografski skin */}
       <style>{PREVIEW_TYPO_CSS}</style>
 
       <div
@@ -437,7 +438,7 @@ export default function ArticlePreview({ url, onClose }: Props) {
             </div>
 
             <div className="flex items-center gap-2 shrink-0 relative">
-              {/* Share */}
+              {/* Share button */}
               <button
                 ref={shareBtnRef}
                 type="button"
@@ -451,40 +452,67 @@ export default function ArticlePreview({ url, onClose }: Props) {
                 <span className="hidden sm:inline">Deli</span>
               </button>
 
-              {/* Fallback share menu – poravnan pod gumbom */}
+              {/* Modern share menu */}
               {shareOpen && (
                 <div
                   ref={shareMenuRef}
                   role="menu"
-                  className="absolute right-0 top-full mt-2 z-50 min-w-[16rem] max-w-[18rem] rounded-2xl border border-gray-200/30 bg-white/95 dark:bg-gray-900/95 shadow-2xl backdrop-blur p-2 anim-soft transition-all duration-150 ease-out origin-top-right"
-                  style={{ willChange: 'opacity, transform' }}
+                  className={[
+                    useSheet
+                      ? 'fixed inset-x-0 bottom-0 z-50 rounded-t-2xl'
+                      : 'absolute right-0 top-full mt-2 z-50',
+                    'overflow-hidden border border-gray-200/30 bg-white/95 dark:bg-gray-900/95 shadow-2xl backdrop-blur',
+                  ].join(' ')}
                 >
-                  <button
-                    onClick={copyToClipboard}
-                    className="w-full flex items-center gap-2 justify-start px-3 py-2 rounded-xl bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 text-sm anim-soft"
-                    role="menuitem"
-                  >
-                    <span className="inline-flex items-center justify-center w-5">
-                      {copied ? <IconCheck /> : '⧉'}
-                    </span>
-                    {copied ? 'Kopirano!' : 'Kopiraj povezavo'}
-                  </button>
+                  {/* Sheet header (samo v sheet načinu) */}
+                  {useSheet && (
+                    <div className="px-4 pt-3 pb-2">
+                      <div className="mx-auto mb-2 h-1.5 w-12 rounded-full bg-gray-300 dark:bg-gray-700" />
+                      <div className="text-sm font-medium text-gray-700 dark:text-gray-200">Deli članek</div>
+                    </div>
+                  )}
 
-                  <div className="my-2 h-px bg-gray-200/60 dark:bg-gray-700/60" />
+                  <div className={useSheet ? 'p-4' : 'p-3'}>
+                    {/* Primary action */}
+                    <button
+                      onClick={copyToClipboard}
+                      className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-sm py-2.5 px-3 anim-soft"
+                      role="menuitem"
+                    >
+                      <span className="inline-flex h-6 w-6 items-center justify-center rounded-md bg-white/70 dark:bg-black/30 border border-gray-200/60 dark:border-gray-700/60">
+                        {copied ? <IconCheck /> : '⧉'}
+                      </span>
+                      {copied ? 'Kopirano!' : 'Kopiraj povezavo'}
+                    </button>
 
-                  <div className="grid grid-cols-2 gap-1">
-                    {shareLinks.map((s) => (
-                      <a
-                        key={s.key}
-                        href={s.href}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        role="menuitem"
-                        className="block px-3 py-2 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 text-sm anim-soft"
+                    {/* Grid of networks */}
+                    <div className="mt-3 grid grid-cols-5 gap-2 sm:gap-3">
+                      {shareLinks.map(({ key, label, href, Icon }) => (
+                        <a
+                          key={key}
+                          href={href}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          role="menuitem"
+                          className="group flex flex-col items-center gap-1 rounded-xl px-2 py-2 hover:bg-gray-100 dark:hover:bg-gray-800 anim-soft"
+                        >
+                          <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-gray-200/50 dark:border-gray-700/60 bg-white/80 dark:bg-black/30 shadow-sm group-hover:scale-[1.03] anim-soft">
+                            <Icon />
+                          </span>
+                          <span className="text-xs text-gray-700 dark:text-gray-300">{label}</span>
+                        </a>
+                      ))}
+                    </div>
+
+                    {/* Close (sheet only) */}
+                    {useSheet && (
+                      <button
+                        onClick={() => setShareOpen(false)}
+                        className="mt-3 w-full text-center text-sm text-gray-600 dark:text-gray-300 py-2 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 anim-soft"
                       >
-                        {s.label}
-                      </a>
-                    ))}
+                        Zapri
+                      </button>
+                    )}
                   </div>
                 </div>
               )}
