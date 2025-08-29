@@ -286,17 +286,26 @@ export default function ArticlePreview({ url, onClose }: Props) {
   }, [])
 
   const shareLinks = useMemo(() => {
-    const encodedUrl = encodeURIComponent(url)
     const baseTitle = (title || site || 'Križišče')
-    const encodedViaTitle = encodeURIComponent(baseTitle + VIA_TEXT)
+    const via = `${baseTitle}${VIA_TEXT}`
+    // X: vse v text (vključno z URL), ker param 'url' ni zanesljiv
+    const xText = `${via} ${url}`
+
+    const encodedUrl = encodeURIComponent(url)
+    const encodedViaTitle = encodeURIComponent(via)
+
     return [
-      { key: 'x',  label: 'X',        href: `https://x.com/intent/post?url=${encodedUrl}&text=${encodedViaTitle}`, Icon: IconX },
-      { key: 'fb', label: 'Facebook', href: `https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}`,          Icon: IconFacebook },
-      { key: 'li', label: 'LinkedIn', href: `https://www.linkedin.com/sharing/share-offsite/?url=${encodedUrl}`,   Icon: IconLinkedIn },
+      // ✅ X / Twitter – samo text, ki vsebuje tudi URL
+      { key: 'x',  label: 'X', href: `https://x.com/intent/post?text=${encodeURIComponent(xText)}`, Icon: IconX },
+
+      // ostala omrežja lahko ostanejo po starem
+      { key: 'fb', label: 'Facebook', href: `https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}`, Icon: IconFacebook },
+      { key: 'li', label: 'LinkedIn', href: `https://www.linkedin.com/sharing/share-offsite/?url=${encodedUrl}`, Icon: IconLinkedIn },
       { key: 'wa', label: 'WhatsApp', href: `https://api.whatsapp.com/send?text=${encodedViaTitle}%20${encodedUrl}`, Icon: IconWhatsApp },
-      { key: 'tg', label: 'Telegram', href: `https://t.me/share/url?url=${encodedUrl}&text=${encodedViaTitle}`,     Icon: IconTelegram },
+      { key: 'tg', label: 'Telegram', href: `https://t.me/share/url?url=${encodedUrl}&text=${encodedViaTitle}`, Icon: IconTelegram },
     ]
   }, [url, title, site])
+
 
   // load preview (cache-first → clean → trunc → sanitize)
   useEffect(() => {
