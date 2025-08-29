@@ -44,7 +44,7 @@ const PREVIEW_TYPO_CSS = `
   .preview-typo a { text-decoration: underline; text-underline-offset: 2px; }
 `
 
-/* Ikone (minimalne, inline SVG – brez odvisnosti) */
+/* Ikone */
 function IconShareIOS(props: React.SVGProps<SVGSVGElement>) {
   return (
     <svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" {...props}>
@@ -137,12 +137,15 @@ function basenameStem(pathname: string): string {
     .replace(/-scaled$/g, '')
 }
 
+/** Client-side clean + polish */
 function cleanPreviewHTML(html: string, baseUrl: string, knownTitle?: string): string {
   try {
     const wrap = document.createElement('div')
     wrap.innerHTML = html
+
     wrap.querySelectorAll('noscript,script,style,iframe,form').forEach((n) => n.remove())
 
+    // odstrani podvojen naslov
     if (knownTitle) {
       const firstHeading = wrap.querySelector('h1, h2, h3')
       if (firstHeading) {
@@ -152,6 +155,7 @@ function cleanPreviewHTML(html: string, baseUrl: string, knownTitle?: string): s
       }
     }
 
+    // absolutiziraj + utrdi <a>
     wrap.querySelectorAll('a').forEach((a) => {
       const href = a.getAttribute('href')
       if (href) a.setAttribute('href', absolutize(href, baseUrl))
@@ -162,8 +166,10 @@ function cleanPreviewHTML(html: string, baseUrl: string, knownTitle?: string): s
       a.setAttribute('target', '_blank')
     })
 
+    // deduplikacija slik
     const imgs = Array.from(wrap.querySelectorAll('img'))
     if (imgs.length > 0) {
+      // 1) normaliziraj hero
       const first = imgs[0]
       const firstRaw = first.getAttribute('src') || first.getAttribute('data-src') || ''
       const firstAbs = absolutize(firstRaw, baseUrl)
@@ -177,6 +183,7 @@ function cleanPreviewHTML(html: string, baseUrl: string, knownTitle?: string): s
       const firstKey  = imageKeyFromSrc(firstAbs || firstRaw)
       const firstStem = basenameStem(firstKey)
 
+      // 2) kasnejše podvojitve stran
       const seen = new Set<string>()
       if (firstKey) seen.add(firstKey)
 
@@ -187,7 +194,8 @@ function cleanPreviewHTML(html: string, baseUrl: string, knownTitle?: string): s
         const abs = absolutize(raw, baseUrl)
         img.setAttribute('src', abs)
         img.removeAttribute('data-src')
-        img.removeAttribute='srcset'; img.removeAttribute('sizes')
+        // ✅ PRAVILNO:
+        img.removeAttribute('srcset'); img.removeAttribute('sizes')
         img.setAttribute('loading', 'lazy')
         img.setAttribute('decoding', 'async')
         img.setAttribute('referrerpolicy', 'no-referrer')
@@ -196,21 +204,30 @@ function cleanPreviewHTML(html: string, baseUrl: string, knownTitle?: string): s
         const stem = basenameStem(key)
 
         const duplicate =
-          !key || seen.has(key) || stem === firstStem ||
-          stem.startsWith(firstStem.slice(0,10)) || firstStem.startsWith(stem.slice(0,10))
+          !key ||
+          seen.has(key) ||
+          stem === firstStem ||
+          stem.startsWith(firstStem.slice(0, 10)) ||
+          firstStem.startsWith(stem.slice(0, 10))
 
-        if (duplicate) { (img.closest('figure, picture') || img).remove() }
-        else { seen.add(key) }
+        if (duplicate) {
+          (img.closest('figure, picture') || img).remove()
+        } else {
+          seen.add(key)
+        }
       })
     }
 
     return wrap.innerHTML
-  } catch { return html }
+  } catch {
+    return html
+  }
 }
 
 function wordSpans(text: string): Array<{ start: number; end: number }> {
   const spans: Array<{ start: number; end: number }> = []
-  const re = /[A-Za-z0-9À-ÖØ-öø-ÿĀ-žČŠŽčšžĆćĐđ]+(?:['’-][A-Za-z0-9À-ÖØ-öø-ÿĀ-žČŠŽčšžĆćĐđ]+)*/g
+  const re =
+    /[A-Za-z0-9À-ÖØ-öø-ÿĀ-žČŠŽčšžĆćĐđ]+(?:['’-][A-Za-z0-9À-ÖØ-öø-ÿĀ-žČŠŽčšžĆćĐđ]+)*/g
   let m: RegExpExecArray | null
   while ((m = re.exec(text)) !== null) spans.push({ start: m.index, end: m.index + m[0].length })
   return spans
@@ -221,23 +238,29 @@ function truncateHTMLByWordsPercent(html: string, percent = 0.76): string {
   const src = document.createElement('div'); src.innerHTML = html
   src.querySelectorAll('header,nav,footer,aside,.share,.social,.related,.tags').forEach((n) => n.remove())
   const out = src.cloneNode(true) as HTMLDivElement
+
   const totalWords = countWords(out.textContent || '')
   if (totalWords === 0) return out.innerHTML
   const target = Math.max(1, Math.floor(totalWords * percent))
   let used = 0
   const walker = document.createTreeWalker(out, NodeFilter.SHOW_TEXT)
   let node: Node | null = walker.nextNode()
+
   while (node) {
     const text = (node.textContent || '')
     const trimmed = text.trim()
     if (!trimmed) { node = walker.nextNode(); continue }
+
     const spans = wordSpans(text)
     const localWords = spans.length
     const remain = target - used
+
     if (localWords <= remain) { used += localWords; node = walker.nextNode(); continue }
+
     const cutoffSpan = spans[Math.max(0, remain - 1)]
     const cutoffIndex = cutoffSpan ? cutoffSpan.end : 0
     ;(node as Text).textContent = text.slice(0, cutoffIndex).trimEnd()
+
     const range = document.createRange()
     range.setStartAfter(node)
     const last = out.lastChild
@@ -271,10 +294,10 @@ export default function ArticlePreview({ url, onClose }: Props) {
     try { coarsePointerRef.current = window.matchMedia('(pointer: coarse)').matches } catch {}
   }, [])
   const supportsWebShare =
-    typeof navigator !== 'undefined' && 'share' in navigator && window.isSecureContext
+    typeof navigator !== 'undefined' && 'share' in navigator && typeof window !== 'undefined' && window.isSecureContext
   const preferNativeShare = supportsWebShare && coarsePointerRef.current
 
-  // ali naj prikaz menija posnema “bottom sheet” (mobilno) ali “popover” (desktop)
+  // ali naj menijski prikaz posnema bottom-sheet (mobilno) ali popover (desktop)
   const [useSheet, setUseSheet] = useState(false)
   useEffect(() => {
     const mq = window.matchMedia('(max-width: 640px)')
@@ -289,11 +312,11 @@ export default function ArticlePreview({ url, onClose }: Props) {
     const baseTitle = (title || site || 'Križišče')
     const encodedViaTitle = encodeURIComponent(baseTitle + VIA_TEXT)
     return [
-      { key: 'x',  label: 'X',         href: `https://twitter.com/intent/tweet?url=${encodedUrl}&text=${encodedViaTitle}`,  Icon: IconX },
-      { key: 'fb', label: 'Facebook',  href: `https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}`,                 Icon: IconFacebook },
-      { key: 'li', label: 'LinkedIn',  href: `https://www.linkedin.com/sharing/share-offsite/?url=${encodedUrl}`,          Icon: IconLinkedIn },
-      { key: 'wa', label: 'WhatsApp',  href: `https://api.whatsapp.com/send?text=${encodedViaTitle}%20${encodedUrl}`,      Icon: IconWhatsApp },
-      { key: 'tg', label: 'Telegram',  href: `https://t.me/share/url?url=${encodedUrl}&text=${encodedViaTitle}`,           Icon: IconTelegram },
+      { key: 'x',  label: 'X',        href: `https://twitter.com/intent/tweet?url=${encodedUrl}&text=${encodedViaTitle}`, Icon: IconX },
+      { key: 'fb', label: 'Facebook', href: `https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}`,                Icon: IconFacebook },
+      { key: 'li', label: 'LinkedIn', href: `https://www.linkedin.com/sharing/share-offsite/?url=${encodedUrl}`,         Icon: IconLinkedIn },
+      { key: 'wa', label: 'WhatsApp', href: `https://api.whatsapp.com/send?text=${encodedViaTitle}%20${encodedUrl}`,     Icon: IconWhatsApp },
+      { key: 'tg', label: 'Telegram', href: `https://t.me/share/url?url=${encodedUrl}&text=${encodedViaTitle}`,          Icon: IconTelegram },
     ]
   }, [url, title, site])
 
@@ -306,8 +329,12 @@ export default function ArticlePreview({ url, onClose }: Props) {
         let data = peekPreview(url) as ApiPayload | null
         if (!data) data = await preloadPreview(url)
         if (!alive) return
-        if ('error' in data) { setError('Napaka pri nalaganju predogleda.'); setLoading(false); return }
+
+        if ('error' in data) {
+          setError('Napaka pri nalaganju predogleda.'); setLoading(false); return
+        }
         setTitle(data.title); setSite(data.site)
+
         const cleaned = cleanPreviewHTML(data.html, url, data.title)
         const truncated = truncateHTMLByWordsPercent(cleaned, TEXT_PERCENT)
         setContent(DOMPurify.sanitize(truncated))
@@ -338,11 +365,13 @@ export default function ArticlePreview({ url, onClose }: Props) {
         } else if (document.activeElement === last) { e.preventDefault(); first.focus() }
       }
     }
+
     document.addEventListener('keydown', handleKeyDown)
     const prevOverflow = document.body.style.overflow
     document.body.style.overflow = 'hidden'
     document.body.classList.add('modal-open', 'preview-open')
     setTimeout(() => closeRef.current?.focus(), 0)
+
     return () => {
       document.removeEventListener('keydown', handleKeyDown)
       document.body.style.overflow = prevOverflow
@@ -360,7 +389,9 @@ export default function ArticlePreview({ url, onClose }: Props) {
         !shareMenuRef.current.contains(target) &&
         shareBtnRef.current &&
         !shareBtnRef.current.contains(target)
-      ) setShareOpen(false)
+      ) {
+        setShareOpen(false)
+      }
     }
     document.addEventListener('mousedown', onDocClick)
     return () => document.removeEventListener('mousedown', onDocClick)
@@ -408,6 +439,7 @@ export default function ArticlePreview({ url, onClose }: Props) {
 
   return createPortal(
     <>
+      {/* trd override za ozadje med modalom */}
       <style>{`
         body.preview-open a,
         body.preview-open a:hover,
@@ -416,6 +448,7 @@ export default function ArticlePreview({ url, onClose }: Props) {
         body.preview-open .group:hover * { text-decoration: none !important; }
         @media (prefers-reduced-motion: reduce) { .anim-soft { transition: none !important; } }
       `}</style>
+      {/* tipografski skin */}
       <style>{PREVIEW_TYPO_CSS}</style>
 
       <div
@@ -438,7 +471,7 @@ export default function ArticlePreview({ url, onClose }: Props) {
             </div>
 
             <div className="flex items-center gap-2 shrink-0 relative">
-              {/* Share button */}
+              {/* Share */}
               <button
                 ref={shareBtnRef}
                 type="button"
