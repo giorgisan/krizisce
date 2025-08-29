@@ -1,3 +1,4 @@
+// lib/scrapeFeatured.ts
 import type { NewsItem } from '@/types'
 import { homepages } from './sources'
 import * as cheerio from 'cheerio'
@@ -6,6 +7,7 @@ type Candidate = {
   href: string
   title?: string
   img?: string
+  desc?: string
   score: number
 }
 
@@ -28,9 +30,9 @@ function extractBgUrl(style?: string) {
   return m?.[1]
 }
 
-/* ---------------------------------- META FROM ARTICLE ---------------------------------- */
+/* ----------------------------- META FROM ARTICLE ---------------------------- */
 
-async function fetchArticleMeta(url: string): Promise<{ title?: string; image?: string }> {
+async function fetchArticleMeta(url: string): Promise<{ title?: string; image?: string; description?: string }> {
   try {
     const res = await fetch(url, {
       headers: { 'User-Agent': 'Mozilla/5.0 (compatible; KrizisceBot/1.0; +https://krizisce.si)' },
@@ -40,23 +42,31 @@ async function fetchArticleMeta(url: string): Promise<{ title?: string; image?: 
     const html = await res.text()
     const $ = cheerio.load(html)
 
-    const ogTitle = $('meta[property="og:title"]').attr('content')
-      || $('meta[name="twitter:title"]').attr('content')
-      || clean($('h1').first().text())
-      || clean($('title').first().text())
+    const title =
+      $('meta[property="og:title"]').attr('content') ||
+      $('meta[name="twitter:title"]').attr('content') ||
+      clean($('h1').first().text()) ||
+      clean($('title').first().text())
 
-    const ogImage = $('meta[property="og:image"]').attr('content')
-      || $('meta[name="twitter:image"]').attr('content')
-      || $('meta[property="og:image:secure_url"]').attr('content')
-      || $('meta[name="twitter:image:src"]').attr('content')
+    const image =
+      $('meta[property="og:image"]').attr('content') ||
+      $('meta[name="twitter:image"]').attr('content') ||
+      $('meta[property="og:image:secure_url"]').attr('content') ||
+      $('meta[name="twitter:image:src"]').attr('content')
 
-    return { title: clean(ogTitle), image: ogImage }
+    const description =
+      $('meta[property="og:description"]').attr('content') ||
+      $('meta[name="description"]').attr('content') ||
+      $('meta[name="twitter:description"]').attr('content') ||
+      clean($('p').first().text())
+
+    return { title: clean(title), image, description: clean(description) }
   } catch {
     return {}
   }
 }
 
-/* ---------------------------------- URL HEURISTICS ---------------------------------- */
+/* -------------------------------- URL HEURISTICS ---------------------------- */
 
 const ARTICLE_PATTERNS: Record<string, RegExp[]> = {
   RTVSLO: [ /\/\d{6,}(?:[\/?#]|$)/ ],
@@ -99,68 +109,91 @@ function pickBest(cands: Candidate[]) {
   return cands[0]
 }
 
-/* ---------------------------------- BOOSTERS (site-specific) ---------------------------------- */
+/* ------------------------------- BOOSTERS ---------------------------------- */
 
-// RTV: “hero” je v sliderju .news-image-rotator; <a> ima samo sliko, naslov je na članku
+// RTV: slider .news-image-rotator – v <a> je slika, naslov vzamemo iz članka
 async function boostRTV($: cheerio.CheerioAPI, origin: string): Promise<Candidate | null> {
   const a = $('.news-image-rotator a.image-link[href]').first()
   if (!a.length) return null
   const hrefAbs = absURL(origin, a.attr('href'))
   if (!hrefAbs) return null
-
-  // naslov/slika pridemo z og:* iz članka
-  const meta = await fetchArticleMeta(hrefAbs)
-  const imgFromDom =
+  const imgDom =
     absURL(origin, a.find('img').attr('src') || a.find('img').attr('data-src')) || undefined
-
+  const meta = await fetchArticleMeta(hrefAbs)
   return {
     href: hrefAbs,
     title: meta.title,
-    img: meta.image || imgFromDom,
-    score: 50 + articleLikeScore('RTVSLO', hrefAbs),
+    img: meta.image || imgDom,
+    desc: meta.description,
+    score: 52 + articleLikeScore('RTVSLO', hrefAbs),
   }
 }
 
-// Siol: vodilni link pod <main>, običajno /novice/...; če manjka naslov/slika, doberi z og:*
-async function boostSiol($: cheerio.CheerioAPI, origin: string): Promise<Candidate | null> {
-  const a = $('main a[href]').filter((_, el) => {
-    const href = $(el).attr('href') || ''
-    return urlLooksLikeArticle('Siol.net', href)
-  }).has('h1,h2,img,picture').first()
-
-  if (!a.length) return null
+// 24ur: <div class="splash__large"> → <a.card-overlay> z <h2> in <picture>
+async function boost24ur($: cheerio.CheerioAPI, origin: string): Promise<Candidate | null> {
+  const box = $('div.splash__large').first()
+  if (!box.length) return null
+  const a = box.find('a.card-overlay[href]').first()
   const hrefAbs = absURL(origin, a.attr('href'))
   if (!hrefAbs) return null
 
-  const wrap = a.closest('article,section,div,main')
-  let title =
-    clean(wrap.find('h1,h2').first().text()) ||
-    clean(a.attr('title')) ||
-    clean(a.text())
-  let img =
-    absURL(origin, wrap.find('img').first().attr('src') || wrap.find('img').first().attr('data-src')) ||
+  const title = clean(box.find('h2').first().text())
+  const img =
+    absURL(origin, box.find('img').first().attr('src')) ||
+    absURL(origin, box.find('source').first().attr('srcset')) ||
     undefined
 
+  let t = title, i = img, d: string | undefined
+  if (!t || !i) {
+    const meta = await fetchArticleMeta(hrefAbs)
+    t = t || meta.title
+    i = i || meta.image
+    d = meta.description
+  }
+
+  return {
+    href: hrefAbs,
+    title: t,
+    img: i,
+    desc: d,
+    score: 50 + articleLikeScore('24ur', hrefAbs),
+  }
+}
+
+// Siol: <div class="fold_intro__left"> → article.card--b → h2.card__title
+async function boostSiol($: cheerio.CheerioAPI, origin: string): Promise<Candidate | null> {
+  const art = $('div.fold_intro__left article.card.card--b').first()
+  if (!art.length) return null
+  const a = art.find('a.card__link[href]').first()
+  const hrefAbs = absURL(origin, a.attr('href'))
+  if (!hrefAbs) return null
+
+  let title = clean(art.find('h2.card__title').first().text())
+  let img =
+    absURL(origin, art.find('img').first().attr('src') || art.find('picture source').first().attr('srcset')) ||
+    undefined
+
+  let d: string | undefined
   if (!title || !img) {
     const meta = await fetchArticleMeta(hrefAbs)
     title = title || meta.title
     img = img || meta.image
+    d = meta.description
   }
 
   return {
     href: hrefAbs,
     title,
     img,
-    score: 44 + articleLikeScore('Siol.net', hrefAbs),
+    desc: d,
+    score: 46 + articleLikeScore('Siol.net', hrefAbs),
   }
 }
 
-// Delo: hero slika je v inline background-image; naslov v h1/h2 v wrapperju ali iz članka
+// Delo: slika je pogosto v background-image; naslov iz h1/h2 ali iz članka
 async function boostDelo($: cheerio.CheerioAPI, origin: string): Promise<Candidate | null> {
-  // ciljaj prvi hero blok z .teaser_image ali <main> z /novice/
   const wrap = $('main').find('a[href^="/novice/"]').first().closest('article,section,div,main')
   if (!wrap.length) return null
-
   const a = wrap.find('a[href^="/novice/"]').first()
   const hrefAbs = absURL(origin, a.attr('href'))
   if (!hrefAbs) return null
@@ -169,32 +202,29 @@ async function boostDelo($: cheerio.CheerioAPI, origin: string): Promise<Candida
     clean(wrap.find('h1,h2').first().text()) ||
     clean(a.attr('title')) ||
     clean(a.text())
-
-  // slika: najprej iz inline background-image, sicer <img>, sicer og:image
   let img =
     extractBgUrl(wrap.find('[style*="background-image"]').first().attr('style')) ||
     absURL(origin, wrap.find('img').first().attr('src') || wrap.find('img').first().attr('data-src')) ||
     undefined
 
+  let d: string | undefined
   if (!title || !img) {
     const meta = await fetchArticleMeta(hrefAbs)
     title = title || meta.title
     img   = img   || meta.image
+    d     = meta.description
   }
 
   return {
-    href: hrefAbs,
-    title,
-    img,
-    score: 46 + articleLikeScore('Delo', hrefAbs),
+    href: hrefAbs, title, img, desc: d,
+    score: 48 + articleLikeScore('Delo', hrefAbs),
   }
 }
 
-// Slovenske novice: naslov je v .article_teaser__title_text; slika je lazy → vzemimo og:image s članka
+// Slovenske novice: naslov v .article_teaser__title_text, slika lazy → dopolni z og:*
 async function boostSlovenskeNovice($: cheerio.CheerioAPI, origin: string): Promise<Candidate | null> {
   const box = $('.article_teaser.article_teaser__vertical_overlay').first()
   if (!box.length) return null
-
   const a = box.find('a.article_teaser__title_link[href]').first()
   const hrefAbs = absURL(origin, a.attr('href'))
   if (!hrefAbs) return null
@@ -205,21 +235,101 @@ async function boostSlovenskeNovice($: cheerio.CheerioAPI, origin: string): Prom
     extractBgUrl(box.find('[style*="background-image"]').first().attr('style')) ||
     undefined
 
+  let d: string | undefined
   if (!title || !img) {
     const meta = await fetchArticleMeta(hrefAbs)
     title = title || meta.title
     img   = img   || meta.image
+    d     = meta.description
   }
 
   return {
-    href: hrefAbs,
-    title,
-    img,
-    score: 42 + articleLikeScore('Slovenske novice', hrefAbs),
+    href: hrefAbs, title, img, desc: d,
+    score: 44 + articleLikeScore('Slovenske novice', hrefAbs),
   }
 }
 
-/* ---------------------------------- PUBLIC: scrapeFeatured ---------------------------------- */
+// Svet24: prvi "feature" article z data-upscore-object-id (hero grid)
+async function boostSvet24($: cheerio.CheerioAPI, origin: string): Promise<Candidate | null> {
+  const art = $('article[data-upscore-object-id]').first()
+  if (!art.length) return null
+
+  const a = art.find('a[href]').first()
+  const hrefAbs = absURL(origin, a.attr('href'))
+  if (!hrefAbs) return null
+
+  let title = clean(art.find('h3').first().text())
+  let img = absURL(origin, art.find('img').first().attr('src') || art.find('source').first().attr('srcset')) || undefined
+
+  let d: string | undefined
+  if (!title || !img) {
+    const meta = await fetchArticleMeta(hrefAbs)
+    title = title || meta.title
+    img   = img   || meta.image
+    d     = meta.description
+  }
+
+  return {
+    href: hrefAbs, title, img, desc: d,
+    score: 44 + articleLikeScore('Svet24', hrefAbs),
+  }
+}
+
+// Žurnal24: hero card --slovenija card--01
+async function boostZurnal24($: cheerio.CheerioAPI, origin: string): Promise<Candidate | null> {
+  const art = $('article.card.card--slovenija.card--01').first()
+  if (!art.length) return null
+
+  const a = art.find('a.card__link[href]').first()
+  const hrefAbs = absURL(origin, a.attr('href'))
+  if (!hrefAbs) return null
+
+  let title = clean(art.find('h2.card__title').first().text()) || clean(art.find('.card__title_highlight').first().text())
+  let img = absURL(origin, art.find('img.card__img').first().attr('src') || art.find('source').first().attr('srcset')) || undefined
+
+  let d: string | undefined
+  if (!title || !img) {
+    const meta = await fetchArticleMeta(hrefAbs)
+    title = title || meta.title
+    img   = img   || meta.image
+    d     = meta.description
+  }
+
+  return {
+    href: hrefAbs, title, img, desc: d,
+    score: 44 + articleLikeScore('Zurnal24', hrefAbs),
+  }
+}
+
+// N1: featured big-card (po tvojem izseku) – robustno dopolnimo z og:*
+async function boostN1($: cheerio.CheerioAPI, origin: string): Promise<Candidate | null> {
+  const art = $('article.big-card').first()
+  if (!art.length) return null
+  const a = art.find('a.thumbnail[href], h3 a[href]').first()
+  const hrefAbs = absURL(origin, a.attr('href'))
+  if (!hrefAbs) return null
+
+  let title = clean(art.find('h3 a').first().text()) || clean(art.find('[data-testid="article-title"]').first().text())
+  let img =
+    absURL(origin, art.find('img').first().attr('src')) ||
+    extractBgUrl(art.find('[style*="background-image"]').first().attr('style')) ||
+    undefined
+
+  let d: string | undefined
+  if (!title || !img) {
+    const meta = await fetchArticleMeta(hrefAbs)
+    title = title || meta.title
+    img   = img   || meta.image
+    d     = meta.description
+  }
+
+  return {
+    href: hrefAbs, title, img, desc: d,
+    score: 46 + articleLikeScore('N1', hrefAbs),
+  }
+}
+
+/* ------------------------------- PUBLIC ------------------------------------ */
 
 export async function scrapeFeatured(source: string): Promise<NewsItem | null> {
   const homepage = homepages[source]
@@ -239,52 +349,33 @@ export async function scrapeFeatured(source: string): Promise<NewsItem | null> {
     const origin = new URL(homepage).origin
 
     // 1) ciljani boosterji
-    if (source === 'RTVSLO') {
-      const c = await boostRTV($, origin)
-      if (c) return {
-        title: c.title || 'Naslovnica',
-        link: c.href,
-        source,
-        image: c.img ?? null,
-        contentSnippet: '',
-        isoDate: undefined, pubDate: undefined, publishedAt: undefined,
-      }
+    const boosters: Record<string, (q: cheerio.CheerioAPI, origin: string) => Promise<Candidate | null>> = {
+      RTVSLO: boostRTV,
+      '24ur': boost24ur,
+      'Siol.net': boostSiol,
+      Delo: boostDelo,
+      'Slovenske novice': boostSlovenskeNovice,
+      Svet24: boostSvet24,
+      Zurnal24: boostZurnal24,
+      N1: boostN1,
     }
-    if (source === 'Siol.net') {
-      const c = await boostSiol($, origin)
-      if (c) return {
-        title: c.title || 'Naslovnica',
-        link: c.href,
-        source,
-        image: c.img ?? null,
-        contentSnippet: '',
-        isoDate: undefined, pubDate: undefined, publishedAt: undefined,
-      }
-    }
-    if (source === 'Delo') {
-      const c = await boostDelo($, origin)
-      if (c) return {
-        title: c.title || 'Naslovnica',
-        link: c.href,
-        source,
-        image: c.img ?? null,
-        contentSnippet: '',
-        isoDate: undefined, pubDate: undefined, publishedAt: undefined,
-      }
-    }
-    if (source === 'Slovenske novice') {
-      const c = await boostSlovenskeNovice($, origin)
-      if (c) return {
-        title: c.title || 'Naslovnica',
-        link: c.href,
-        source,
-        image: c.img ?? null,
-        contentSnippet: '',
-        isoDate: undefined, pubDate: undefined, publishedAt: undefined,
+
+    const fn = boosters[source]
+    if (fn) {
+      const c = await fn($, origin)
+      if (c) {
+        return {
+          title: c.title || 'Naslovnica',
+          link: c.href,
+          source,
+          image: c.img ?? null,
+          contentSnippet: c.desc ?? '',
+          isoDate: undefined, pubDate: undefined, publishedAt: undefined,
+        }
       }
     }
 
-    // 2) generična heuristika (za ostale + “safety net”)
+    // 2) generična heuristika (s safety-net meta fallbackom)
     const candidates: Candidate[] = []
 
     $('a[href]').each((i, el) => {
@@ -321,13 +412,15 @@ export async function scrapeFeatured(source: string): Promise<NewsItem | null> {
     const best = pickBest(candidates)
     if (!best) return null
 
-    // Če manjka naslov/slika, ju poskusi dobiti iz članka
+    // meta fallback
     let title = best.title
     let img = best.img
+    let desc: string | undefined
     if (!title || !img) {
       const meta = await fetchArticleMeta(best.href)
       title = title || meta.title
       img   = img   || meta.image
+      desc  = meta.description
     }
 
     return {
@@ -335,7 +428,7 @@ export async function scrapeFeatured(source: string): Promise<NewsItem | null> {
       link: best.href,
       source,
       image: img ?? null,
-      contentSnippet: '',
+      contentSnippet: desc ?? '',
       isoDate: undefined, pubDate: undefined, publishedAt: undefined,
     }
   } catch (e) {
