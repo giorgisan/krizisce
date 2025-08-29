@@ -12,10 +12,8 @@ type ApiPayload =
   | { error: string }
   | { title: string; site: string; image?: string | null; html: string; url: string }
 
-// Kolikšen delež besedila prikažemo
 const TEXT_PERCENT = 0.80
 
-// Tipografski “skin” za modal – brez odvisnosti od @tailwindcss/typography
 const PREVIEW_TYPO_CSS = `
   .preview-typo { font-size: 0.98rem; line-height: 1.68; }
   .preview-typo > *:first-child { margin-top: 0 !important; }
@@ -38,7 +36,7 @@ const PREVIEW_TYPO_CSS = `
   .preview-typo a { text-decoration: underline; text-underline-offset: 2px; }
 `
 
-/* --- Ikone (inline SVG, brez dodatnih odvisnosti) --- */
+/* Ikone (inline SVG) */
 function IconShareIOS(props: React.SVGProps<SVGSVGElement>) {
   return (
     <svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" {...props}>
@@ -96,15 +94,12 @@ function basenameStem(pathname: string): string {
     .replace(/-scaled$/g, '')
 }
 
-/** Client-side clean + polish */
 function cleanPreviewHTML(html: string, baseUrl: string, knownTitle?: string): string {
   try {
     const wrap = document.createElement('div')
     wrap.innerHTML = html
-
     wrap.querySelectorAll('noscript,script,style,iframe,form').forEach((n) => n.remove())
 
-    // odstrani podvojen naslov
     if (knownTitle) {
       const firstHeading = wrap.querySelector('h1, h2, h3')
       if (firstHeading) {
@@ -114,7 +109,6 @@ function cleanPreviewHTML(html: string, baseUrl: string, knownTitle?: string): s
       }
     }
 
-    // absolutiziraj + utrdi <a>
     wrap.querySelectorAll('a').forEach((a) => {
       const href = a.getAttribute('href')
       if (href) a.setAttribute('href', absolutize(href, baseUrl))
@@ -125,7 +119,6 @@ function cleanPreviewHTML(html: string, baseUrl: string, knownTitle?: string): s
       a.setAttribute('target', '_blank')
     })
 
-    // deduplikacija slik
     const imgs = Array.from(wrap.querySelectorAll('img'))
     if (imgs.length > 0) {
       const first = imgs[0]
@@ -147,7 +140,6 @@ function cleanPreviewHTML(html: string, baseUrl: string, knownTitle?: string): s
       Array.from(wrap.querySelectorAll('img')).slice(1).forEach((img) => {
         const raw = img.getAttribute('src') || img.getAttribute('data-src') || ''
         if (!raw) { (img.closest('figure, picture') || img).remove(); return }
-
         const abs = absolutize(raw, baseUrl)
         img.setAttribute('src', abs)
         img.removeAttribute('data-src')
@@ -227,24 +219,20 @@ function truncateHTMLByWordsPercent(html: string, percent = 0.76): string {
 }
 
 export default function ArticlePreview({ url, onClose }: Props) {
-  // data
   const [content, setContent] = useState<string>('')
   const [title, setTitle] = useState<string>('')
   const [site, setSite] = useState<string>('')
   const [loading, setLoading] = useState<boolean>(true)
   const [error, setError] = useState<string | null>(null)
 
-  // share UI
   const [shareOpen, setShareOpen] = useState(false)
   const [copied, setCopied] = useState(false)
   const shareBtnRef = useRef<HTMLButtonElement>(null)
   const shareMenuRef = useRef<HTMLDivElement>(null)
 
-  // modal infra
   const modalRef = useRef<HTMLDivElement>(null)
   const closeRef = useRef<HTMLButtonElement>(null)
 
-  // precompute share links (hitreje, brez re-render stroškov)
   const { encodedUrl, encodedTitle, shareLinks } = useMemo(() => {
     const encodedUrl   = encodeURIComponent(url)
     const encodedTitle = encodeURIComponent(title || site || 'Križišče')
@@ -258,7 +246,6 @@ export default function ArticlePreview({ url, onClose }: Props) {
     return { encodedUrl, encodedTitle, shareLinks: items }
   }, [url, title, site])
 
-  // cache-first → clean → trunc → sanitize
   useEffect(() => {
     let alive = true
     const run = async () => {
@@ -286,7 +273,6 @@ export default function ArticlePreview({ url, onClose }: Props) {
     return () => { alive = false }
   }, [url])
 
-  // fokus trap + lock scroll + anti-underline v ozadju
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
@@ -317,7 +303,6 @@ export default function ArticlePreview({ url, onClose }: Props) {
     }
   }, [onClose, shareOpen])
 
-  // zapri share meni ob kliku izven
   useEffect(() => {
     const onDocClick = (e: MouseEvent | globalThis.MouseEvent) => {
       if (!shareOpen) return
@@ -342,25 +327,23 @@ export default function ArticlePreview({ url, onClose }: Props) {
     window.open(url, '_blank', 'noopener,noreferrer')
   }, [site, url])
 
-  // SHARE handlers
   const handleShareClick = useCallback(async () => {
     const shareData: ShareData = {
       title: title || 'Članek',
       text: title ? `${title}${site ? ` – ${site}` : ''}` : site || 'Križišče',
       url,
     }
-    // 1) najprej poskusi native share (če je podprt)
+    // Najprej native share, če obstaja
     try {
       if (navigator.share && (typeof navigator.canShare !== 'function' || navigator.canShare(shareData))) {
-        // hitro: ne čakamo na rezultat; event loop bo naredil svoje
-        navigator.share(shareData).catch(() => { /* preklic: ni error, ni nič */ })
+        navigator.share(shareData).catch(() => {})
         return
       }
     } catch {
-      // če gre karkoli narobe, pokažemo fallback
+      /* ignore */
     }
-    // 2) fallback takoj
-    setShareOpen((v) => !v)
+    // Fallback takoj, brez zamika
+    setShareOpen(true)
   }, [title, site, url])
 
   const copyToClipboard = useCallback(async () => {
@@ -384,18 +367,14 @@ export default function ArticlePreview({ url, onClose }: Props) {
 
   return createPortal(
     <>
-      {/* trd override za ozadje med modalom */}
       <style>{`
         body.preview-open a,
         body.preview-open a:hover,
         body.preview-open a:focus { text-decoration: none !important; }
         body.preview-open .group:hover { transform: none !important; }
         body.preview-open .group:hover * { text-decoration: none !important; }
-        @media (prefers-reduced-motion: reduce) {
-          .anim-soft { transition: none !important; }
-        }
+        @media (prefers-reduced-motion: reduce) { .anim-soft { transition: none !important; } }
       `}</style>
-      {/* tipografski skin */}
       <style>{PREVIEW_TYPO_CSS}</style>
 
       <div
@@ -432,12 +411,12 @@ export default function ArticlePreview({ url, onClose }: Props) {
                 <span className="hidden sm:inline">Deli</span>
               </button>
 
-              {/* Fallback share menu (hitro, sodobno, A11y) */}
+              {/* Fallback share menu – poravnan pod gumbom, vedno viden na desktopu */}
               {shareOpen && (
                 <div
                   ref={shareMenuRef}
                   role="menu"
-                  className="absolute right-24 top-0 mt-10 w-64 rounded-2xl border border-gray-200/20 bg-white/95 dark:bg-gray-900/95 shadow-2xl backdrop-blur p-2 anim-soft transition-all duration-150 ease-out origin-top-right"
+                  className="absolute right-0 top-full mt-2 z-50 min-w-[16rem] max-w-[18rem] rounded-2xl border border-gray-200/30 bg-white/95 dark:bg-gray-900/95 shadow-2xl backdrop-blur p-2 anim-soft transition-all duration-150 ease-out origin-top-right"
                   style={{ willChange: 'opacity, transform' }}
                 >
                   <button
@@ -445,7 +424,7 @@ export default function ArticlePreview({ url, onClose }: Props) {
                     className="w-full flex items-center gap-2 justify-start px-3 py-2 rounded-xl bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 text-sm anim-soft"
                     role="menuitem"
                   >
-                    <span className={`inline-flex items-center justify-center w-5`}>
+                    <span className="inline-flex items-center justify-center w-5">
                       {copied ? <IconCheck /> : '⧉'}
                     </span>
                     {copied ? 'Kopirano!' : 'Kopiraj povezavo'}
