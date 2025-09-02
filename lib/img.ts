@@ -10,7 +10,11 @@ function stripProtocol(u: string) {
   }
 }
 
-/** Vrni proxied URL preko images.weserv.nl z željeno širino/višino. */
+/** Vrni proxied URL preko images.weserv.nl z željeno širino/višino.
+ *
+ *  Parametra `il=1` (interlaced) in `q=75` (kakovost) zmanjšata velikost slik,
+ *  `we=1` prepreči nepotrebno povečavo, `af=1` pa poskrbi za nekaj ostrine.
+ */
 export function proxiedImage(url: string, w: number, h?: number, dpr = 1) {
   // relativne slike (npr. /logos/...) ne proxiamo
   if (url.startsWith('/')) return url;
@@ -18,8 +22,6 @@ export function proxiedImage(url: string, w: number, h?: number, dpr = 1) {
   const wp = Math.round(w * dpr);
   const hp = h ? Math.round(h * dpr) : undefined;
 
-  // Fit: cover, format: WebP tam kjer je podprt (we=1), interlace=on (il), dpr
-  // images.weserv.nl sprejme ?url=<host/path>&w=&h=&fit=cover&dpr=
   const params = new URLSearchParams({
     url: clean,
     w: String(wp),
@@ -27,15 +29,15 @@ export function proxiedImage(url: string, w: number, h?: number, dpr = 1) {
     dpr: String(Math.max(1, Math.min(3, Math.round(dpr)))),
   });
   if (hp) params.set('h', String(hp));
-  // poskusno webp, če ga brskalnik sprejme (we) – če parameter ni podprt, ga servis ignorira
-  params.set('we', '1');
-  // malo “nativne” ostrine/opt (odvisno od servisa; ignorirano, če ne obstaja)
-  params.set('af', '1');
+  params.set('we', '1');        // brez povečave
+  params.set('af', '1');        // adaptive filter (ostrina)
+  params.set('il', '1');        // progressive/interlaced
+  params.set('q', '75');        // kakovost (manjša = manjši prenos)
 
   return `https://images.weserv.nl/?${params.toString()}`;
 }
 
-/** Zgradi srcset za tipične širine kartic. */
+/** Zgradi srcset za podane širine in razmerje stranic. */
 export function buildSrcSet(url: string, widths: number[], aspect: number) {
   const hFromW = (w: number) => Math.round(w / aspect);
   return widths.map((w) => `${proxiedImage(url, w, hFromW(w))} ${w}w`).join(', ');
