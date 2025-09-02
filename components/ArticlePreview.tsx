@@ -399,6 +399,24 @@ export default function ArticlePreview({ url, onClose }: Props) {
     setShareOpen((v) => !v)
   }, [preferNativeShare, title, site, url])
 
+  // helper za odpiranje delilnih URL-jev
+  const openShareWindow = useCallback((href: string) => {
+    try { window.open(href, '_blank', 'noopener,noreferrer') } catch {}
+  }, [])
+
+  // generiraj URL-je za deljenje v omrežja
+  const shareLinks = useMemo(() => {
+    const encodedUrl   = encodeURIComponent(url)
+    const encodedTitle = encodeURIComponent(title || site || '')
+    return {
+      x:  `https://twitter.com/intent/tweet?url=${encodedUrl}&text=${encodedTitle}`,
+      fb: `https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}`,
+      li: `https://www.linkedin.com/shareArticle?url=${encodedUrl}&title=${encodedTitle}`,
+      wa: `https://api.whatsapp.com/send?text=${encodedTitle}%20${encodedUrl}`,
+      tg: `https://t.me/share/url?url=${encodedUrl}&text=${encodedTitle}`,
+    }
+  }, [url, title, site])
+
   const copyToClipboard = useCallback(async () => {
     try {
       await navigator.clipboard.writeText(url)
@@ -501,7 +519,7 @@ export default function ArticlePreview({ url, onClose }: Props) {
                     {/* icons only */}
                     <div className="mt-3 flex items-center gap-2 sm:gap-3">
                       {[
-                        { key: 'x', label: 'X', Icon: IconX },
+                        { key: 'x',  label: 'X',        Icon: IconX },
                         { key: 'fb', label: 'Facebook', Icon: IconFacebook },
                         { key: 'li', label: 'LinkedIn', Icon: IconLinkedIn },
                         { key: 'wa', label: 'WhatsApp', Icon: IconWhatsApp },
@@ -512,7 +530,10 @@ export default function ArticlePreview({ url, onClose }: Props) {
                           type="button"
                           title={label}
                           aria-label={label}
-                          onClick={() => setShareOpen(false)}
+                          onClick={() => {
+                            openShareWindow(shareLinks[key as keyof typeof shareLinks])
+                            setShareOpen(false)
+                          }}
                           className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-gray-200/50 dark:border-gray-700/60 bg-white/80 dark:bg-black/30 shadow-sm hover:bg-gray-100 dark:hover:bg-gray-800 hover:scale-[1.05] anim-soft"
                         >
                           <Icon />
@@ -584,7 +605,7 @@ export default function ArticlePreview({ url, onClose }: Props) {
                     Za ogled celotnega članka, obiščite spletno stran
                   </a>
 
-                  <button
+                    <button
                     type="button"
                     onClick={onClose}
                     className="inline-flex justify-center rounded-md px-4 py-2 bg-gray-100/80 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 text-sm anim-soft"
