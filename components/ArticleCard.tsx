@@ -197,7 +197,7 @@ export default function ArticleCard({ news }: Props) {
         onMouseLeave={() => setEyeVisible(false)}
         onFocus={() => { setEyeVisible(true); triggerPrefetch() }}
         onBlur={() => setEyeVisible(false)}
-        onTouchStart={() => { /* na dotik vedno prefetchamo */ triggerPrefetch() }}
+        onTouchStart={() => { triggerPrefetch() }}
         className="cv-auto group block no-underline bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden transition-all duration-200 hover:scale-[1.02] hover:shadow-lg hover:bg-gray-100 dark:hover:bg-gray-700"
       >
         {/* Media */}
@@ -217,6 +217,11 @@ export default function ArticleCard({ news }: Props) {
               onError={handleImgError}
               loading={priority ? 'eager' : 'lazy'}
               fetchPriority={priority ? 'high' : 'auto'}
+              decoding="async"
+              width={640}
+              height={360}
+              referrerPolicy="no-referrer"
+              crossOrigin="anonymous"
             />
           )}
 
