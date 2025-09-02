@@ -273,15 +273,22 @@ export default function Home({ initialNews }: Props) {
       {/* MAIN */}
       <main className="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white px-4 md:px-8 lg:px-16 pt-5 lg:pt-6 pb-24">
         {visibleNews.length === 0 ? (
-          // Skeleton loader
-          <div className="grid gap-6 grid-cols-2 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5 mt-10">
+          // Skeleton loader z fade-in
+          <MotionDiv
+            key="skeletons"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.3 }}
+            className="grid gap-6 grid-cols-2 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5 mt-10"
+          >
             {Array.from({ length: 10 }).map((_, i) => (
               <div
                 key={i}
                 className="h-40 bg-gray-200 dark:bg-gray-800 animate-pulse rounded-xl"
               />
             ))}
-          </div>
+          </MotionDiv>
         ) : (
           <AnimatePresence mode="wait">
             <MotionDiv
