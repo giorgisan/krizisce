@@ -11,7 +11,6 @@ import {
   ComponentType,
 } from 'react'
 import dynamic from 'next/dynamic'
-import Image from 'next/image'
 import { proxiedImage, buildSrcSet } from '@/lib/img'
 import { preloadPreview, canPrefetch } from '@/lib/previewPrefetch'
 
@@ -20,7 +19,6 @@ type PreviewProps = { url: string; onClose: () => void }
 const ArticlePreview = dynamic(() => import('./ArticlePreview'), { ssr: false }) as ComponentType<PreviewProps>
 
 const ASPECT = 16 / 9
-// Širine, za katere ustvarimo srcset; prilagodite po želji.
 const IMAGE_WIDTHS = [320, 480, 640, 960, 1280]
 
 function formatDisplayTime(publishedAt?: number, iso?: string) {
@@ -63,13 +61,11 @@ export default function ArticleCard({ news }: Props) {
   const [useProxy, setUseProxy]   = useState<boolean>(!!rawImg)
   const [useFallback, setUseFallback] = useState<boolean>(!rawImg)
 
-  // Osnovni vir (privzeto 640 px širine, 360 px višine pri razmerju 16:9)
   const currentSrc = useMemo(() => {
     if (!rawImg) return null
     return useProxy ? proxiedImage(rawImg, 640, 360, 1) : rawImg
   }, [rawImg, useProxy])
 
-  // SrcSet za odzivne slike; uporablja enake proporce (ASPECT) in različne širine.
   const srcSet = useMemo(() => {
     if (!rawImg) return ''
     return buildSrcSet(rawImg, IMAGE_WIDTHS, ASPECT)
@@ -212,16 +208,15 @@ export default function ArticleCard({ news }: Props) {
               <span className="relative z-10 text-sm font-medium text-gray-700 dark:text-gray-300">Ni slike</span>
             </div>
           ) : (
-            <Image
+            <img
               src={currentSrc}
               srcSet={srcSet}
               alt={news.title}
-              fill
               className="absolute inset-0 h-full w-full object-cover"
               sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
-              priority={priority}
               onError={handleImgError}
-              unoptimized
+              loading={priority ? 'eager' : 'lazy'}
+              fetchpriority={priority ? 'high' : 'auto'}
             />
           )}
 
