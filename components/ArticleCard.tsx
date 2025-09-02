@@ -12,7 +12,7 @@ import {
 } from 'react'
 import dynamic from 'next/dynamic'
 import Image from 'next/image'
-import { proxiedImage } from '@/lib/img'
+import { proxiedImage, buildSrcSet } from '@/lib/img'
 import { preloadPreview, canPrefetch } from '@/lib/previewPrefetch'
 
 interface Props { news: NewsItem }
@@ -20,17 +20,19 @@ type PreviewProps = { url: string; onClose: () => void }
 const ArticlePreview = dynamic(() => import('./ArticlePreview'), { ssr: false }) as ComponentType<PreviewProps>
 
 const ASPECT = 16 / 9
+// Širine, za katere ustvarimo srcset; prilagodite po želji.
+const IMAGE_WIDTHS = [320, 480, 640, 960, 1280]
 
 function formatDisplayTime(publishedAt?: number, iso?: string) {
   const ms = publishedAt ?? (iso ? Date.parse(iso) : 0)
   if (!ms) return ''
   const diff = Date.now() - ms
-  const min = Math.floor(diff / 60_000)
-  const hr  = Math.floor(min / 60)
+  const min  = Math.floor(diff / 60_000)
+  const hr   = Math.floor(min / 60)
   if (diff < 60_000) return 'pred nekaj sekundami'
-  if (min < 60)     return `pred ${min} min`
-  if (hr  < 24)     return `pred ${hr} h`
-  const d = new Date(ms)
+  if (min  < 60)     return `pred ${min} min`
+  if (hr   < 24)     return `pred ${hr} h`
+  const d    = new Date(ms)
   const date = new Intl.DateTimeFormat('sl-SI', { day: 'numeric', month: 'short' }).format(d)
   const time = new Intl.DateTimeFormat('sl-SI', { hour: '2-digit', minute: '2-digit' }).format(d)
   return `${date}, ${time}`
@@ -44,11 +46,11 @@ export default function ArticleCard({ news }: Props) {
     return colors[news.source] || '#fc9c6c'
   }, [news.source])
 
-  // --- detect touch / coarse pointer ---
+  // --- zaznavanje dotika / coarse pointer ---
   const [isTouch, setIsTouch] = useState(false)
   useEffect(() => {
     try {
-      const coarse = typeof window !== 'undefined' && window.matchMedia?.('(pointer: coarse)').matches
+      const coarse   = typeof window !== 'undefined' && window.matchMedia?.('(pointer: coarse)').matches
       const touchCap = typeof navigator !== 'undefined' && (navigator.maxTouchPoints || (navigator as any).msMaxTouchPoints) > 0
       setIsTouch(!!coarse || !!touchCap || 'ontouchstart' in window)
     } catch {
@@ -58,13 +60,20 @@ export default function ArticleCard({ news }: Props) {
 
   // ---- Slike: proxy → direct → fallback ----
   const rawImg = news.image ?? null
-  const [useProxy, setUseProxy] = useState<boolean>(!!rawImg)
+  const [useProxy, setUseProxy]   = useState<boolean>(!!rawImg)
   const [useFallback, setUseFallback] = useState<boolean>(!rawImg)
 
+  // Osnovni vir (privzeto 640 px širine, 360 px višine pri razmerju 16:9)
   const currentSrc = useMemo(() => {
     if (!rawImg) return null
     return useProxy ? proxiedImage(rawImg, 640, 360, 1) : rawImg
   }, [rawImg, useProxy])
+
+  // SrcSet za odzivne slike; uporablja enake proporce (ASPECT) in različne širine.
+  const srcSet = useMemo(() => {
+    if (!rawImg) return ''
+    return buildSrcSet(rawImg, IMAGE_WIDTHS, ASPECT)
+  }, [rawImg])
 
   const handleImgError = () => {
     if (rawImg && useProxy) { setUseProxy(false); return }
@@ -83,15 +92,15 @@ export default function ArticleCard({ news }: Props) {
 
   useEffect(() => {
     if (!priority || !rawImg) return
-    const el = cardRef.current
-    const rectW = Math.max(1, Math.round(el?.getBoundingClientRect().width || 480))
-    const dpr   = (typeof window !== 'undefined' && window.devicePixelRatio) || 1
+    const el     = cardRef.current
+    const rectW  = Math.max(1, Math.round(el?.getBoundingClientRect().width || 480))
+    const dpr    = (typeof window !== 'undefined' && window.devicePixelRatio) || 1
     const targetW = Math.min(1280, Math.round(rectW * dpr))
     const targetH = Math.round(targetW / ASPECT)
-    const link = document.createElement('link')
-    link.rel  = 'preload'
-    link.as   = 'image'
-    link.href = proxiedImage(rawImg, targetW, targetH, dpr)
+    const link    = document.createElement('link')
+    link.rel      = 'preload'
+    link.as       = 'image'
+    link.href     = proxiedImage(rawImg, targetW, targetH, dpr)
     link.crossOrigin = 'anonymous'
     document.head.appendChild(link)
     return () => { document.head.removeChild(link) }
@@ -128,12 +137,12 @@ export default function ArticleCard({ news }: Props) {
       previewOpenedAtRef.current = Date.now()
       sendBeacon({
         source: news.source,
-        url: news.link,
+        url:    news.link,
         action: 'preview_open',
         meta: {
           dpr: typeof window !== 'undefined' ? window.devicePixelRatio : 1,
-          vw: typeof window !== 'undefined' ? window.innerWidth : null,
-          vh: typeof window !== 'undefined' ? window.innerHeight : null,
+          vw:  typeof window !== 'undefined' ? window.innerWidth  : null,
+          vh:  typeof window !== 'undefined' ? window.innerHeight : null,
         },
       })
     } else if (previewOpenedAtRef.current) {
@@ -141,7 +150,7 @@ export default function ArticleCard({ news }: Props) {
       previewOpenedAtRef.current = null
       sendBeacon({
         source: news.source,
-        url: news.link,
+        url:    news.link,
         action: 'preview_close',
         meta: { duration_ms: duration },
       })
@@ -154,7 +163,7 @@ export default function ArticleCard({ news }: Props) {
         const duration = Date.now() - previewOpenedAtRef.current
         sendBeacon({
           source: news.source,
-          url: news.link,
+          url:    news.link,
           action: 'preview_close',
           meta: { duration_ms: duration, closed_by: 'unload' },
         })
@@ -175,9 +184,9 @@ export default function ArticleCard({ news }: Props) {
   }
 
   // ---- Oko: vidnost (kartica) + nežen zoom (gumb) ----
-  const [eyeVisible, setEyeVisible] = useState(false) // hover/focus za miškin svet
-  const [eyeHover, setEyeHover]   = useState(false)    // hover nad gumbom
-  const showEye = isTouch ? true : eyeVisible          // <- na touch vedno vidno
+  const [eyeVisible, setEyeVisible] = useState(false)
+  const [eyeHover,   setEyeHover]   = useState(false)
+  const showEye = isTouch ? true : eyeVisible
 
   return (
     <>
@@ -205,6 +214,7 @@ export default function ArticleCard({ news }: Props) {
           ) : (
             <Image
               src={currentSrc}
+              srcSet={srcSet}
               alt={news.title}
               fill
               className="absolute inset-0 h-full w-full object-cover"
@@ -241,9 +251,9 @@ export default function ArticleCard({ news }: Props) {
           {!isTouch && (
             <span
               className="hidden md:block pointer-events-none absolute top-2 right-[calc(0.5rem+2rem+8px)]
-                         rounded-md px-2 py-1 text-xs font-medium bg-black/60 text-white backdrop-blur-sm drop-shadow-lg
-                         opacity-0 -translate-x-1 transition-opacity transition-transform duration-150
-                         peer-hover:opacity-100 peer-hover:translate-x-0"
+                             rounded-md px-2 py-1 text-xs font-medium bg-black/60 text-white backdrop-blur-sm drop-shadow-lg
+                             opacity-0 -translate-x-1 transition-opacity transition-transform duration-150
+                             peer-hover:opacity-100 peer-hover:translate-x-0"
             >
               Predogled&nbsp;novice
             </span>
