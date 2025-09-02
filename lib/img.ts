@@ -2,43 +2,48 @@
 /** Če je absolutni URL, vrne domeno brez protokola (za images.weserv.nl); relativne poti vrnemo takšne kot so. */
 function stripProtocol(u: string) {
   try {
-    const url = new URL(u);
-    return url.host + url.pathname + url.search;
+    const url = new URL(u)
+    return url.host + url.pathname + url.search
   } catch {
     // verjetno relativna pot (/logos/..), vrni kot je
-    return u;
+    return u
   }
 }
 
 /** Vrni proxied URL preko images.weserv.nl z željeno širino/višino.
  *
- *  Parametra `il=1` (interlaced) in `q=75` (kakovost) zmanjšata velikost slik,
- *  `we=1` prepreči nepotrebno povečavo, `af=1` pa poskrbi za nekaj ostrine.
+ *  Parametri:
+ *  - `il=1` (interlaced/progressive) izboljša percepcijo nalaganja,
+ *  - `q=65` zniža kakovost JPEG/WebP na 65 % (manj KB),
+ *  - `output=webp` pretvori izhod v WebP format (še manjši od JPEG),
+ *  - `we=1` prepreči nepotrebno povečavo,
+ *  - `af=1` uporabi adaptivni filter za ostrejšo sliko pri stiskanju PNG.
  */
 export function proxiedImage(url: string, w: number, h?: number, dpr = 1) {
   // relativne slike (npr. /logos/...) ne proxiamo
-  if (url.startsWith('/')) return url;
-  const clean = stripProtocol(url);
-  const wp = Math.round(w * dpr);
-  const hp = h ? Math.round(h * dpr) : undefined;
+  if (url.startsWith('/')) return url
+  const clean = stripProtocol(url)
+  const wp = Math.round(w * dpr)
+  const hp = h ? Math.round(h * dpr) : undefined
 
   const params = new URLSearchParams({
     url: clean,
     w: String(wp),
     fit: 'cover',
     dpr: String(Math.max(1, Math.min(3, Math.round(dpr)))),
-  });
-  if (hp) params.set('h', String(hp));
-  params.set('we', '1');        // brez povečave
-  params.set('af', '1');        // adaptive filter (ostrina)
-  params.set('il', '1');        // progressive/interlaced
-  params.set('q', '75');        // kakovost (manjša = manjši prenos)
+  })
+  if (hp) params.set('h', String(hp))
+  params.set('we', '1')     // brez povečave
+  params.set('af', '1')     // adaptive filter (ostrina)
+  params.set('il', '1')     // progressive/interlaced
+  params.set('q', '65')     // kakovost (manjša = manjši prenos)
+  params.set('output', 'webp') // pretvori v WebP format
 
-  return `https://images.weserv.nl/?${params.toString()}`;
+  return `https://images.weserv.nl/?${params.toString()}`
 }
 
 /** Zgradi srcset za podane širine in razmerje stranic. */
 export function buildSrcSet(url: string, widths: number[], aspect: number) {
-  const hFromW = (w: number) => Math.round(w / aspect);
-  return widths.map((w) => `${proxiedImage(url, w, hFromW(w))} ${w}w`).join(', ');
+  const hFromW = (w: number) => Math.round(w / aspect)
+  return widths.map((w) => `${proxiedImage(url, w, hFromW(w))} ${w}w`).join(', ')
 }
