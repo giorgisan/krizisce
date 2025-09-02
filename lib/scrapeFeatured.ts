@@ -111,23 +111,48 @@ function pickBest(cands: Candidate[]) {
 
 /* ------------------------------- BOOSTERS ---------------------------------- */
 
+
 // RTV: slider .news-image-rotator – v <a> je slika, naslov vzamemo iz članka
 async function boostRTV($: cheerio.CheerioAPI, origin: string): Promise<Candidate | null> {
+  // v sliderju izberemo prvi <a.image-link> element
   const a = $('.news-image-rotator a.image-link[href]').first()
   if (!a.length) return null
+
   const hrefAbs = absURL(origin, a.attr('href'))
   if (!hrefAbs) return null
+
+  // Znotraj <a> poiščemo <img src> ali <img data-src>
+  const imgFromImgTag = a.find('img').attr('src') || a.find('img').attr('data-src')
+  // RTV novejše predloge dodajajo sliko v atribut data-large
+  const imgFromDataLarge = a.attr('data-large')
+  // RTV dodaja tudi data-large-srcset; vzamemo največji vnos (zadnji)
+  const dataLargeSrcset = a.attr('data-large-srcset')
+  let imgFromSrcset: string | undefined = undefined
+  if (dataLargeSrcset) {
+    const parts = dataLargeSrcset.split(',').map((p) => p.trim())
+    const last = parts[parts.length - 1]
+    // vsak vnos je oblike "<url> <width>w"
+    const urlPart = last.split(' ')[0]
+    imgFromSrcset = urlPart
+  }
+
+  // izberemo prvi veljaven URL in ga absolutiziramo
   const imgDom =
-    absURL(origin, a.find('img').attr('src') || a.find('img').attr('data-src')) || undefined
+    absURL(origin, imgFromImgTag || imgFromDataLarge || imgFromSrcset) || undefined
+
+  // pridobimo OpenGraph podatke iz članka (naslov, opis, og:image)
   const meta = await fetchArticleMeta(hrefAbs)
+
   return {
     href: hrefAbs,
     title: meta.title,
+    // če meta.image ne obstaja, uporabimo sliko iz DOM-a
     img: meta.image || imgDom,
     desc: meta.description,
     score: 52 + articleLikeScore('RTVSLO', hrefAbs),
   }
 }
+
 
 // 24ur: <div class="splash__large"> → <a.card-overlay> z <h2> in <picture>
 async function boost24ur($: cheerio.CheerioAPI, origin: string): Promise<Candidate | null> {
