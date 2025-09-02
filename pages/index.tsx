@@ -9,7 +9,20 @@ import React, {
   startTransition,
   useRef,
 } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import dynamic from 'next/dynamic'
+
+const AnimatePresence = dynamic(
+  () => import('framer-motion').then((mod) => mod.AnimatePresence),
+  { ssr: false }
+)
+const MotionDiv = dynamic(
+  () => import('framer-motion').then((mod) => mod.motion.div),
+  { ssr: false }
+)
+const MotionButton = dynamic(
+  () => import('framer-motion').then((mod) => mod.motion.button),
+  { ssr: false }
+)
 
 import { NewsItem } from '@/types'
 import fetchRSSFeeds from '@/lib/fetchRSSFeeds'
@@ -240,7 +253,7 @@ export default function Home({ initialNews }: Props) {
       <AnimatePresence>
         {menuOpen && (
           <>
-            <motion.div
+            <MotionDiv
               key="clickaway"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -250,7 +263,7 @@ export default function Home({ initialNews }: Props) {
               onClick={() => setMenuOpen(false)}
               aria-hidden
             />
-            <motion.div
+            <MotionDiv
               key="filter-dropdown"
               initial={{ opacity: 0, y: -6 }}
               animate={{ opacity: 1, y: 0 }}
@@ -273,7 +286,7 @@ export default function Home({ initialNews }: Props) {
                   <div className="space-y-1">
                     <button onClick={resetFilter} className="w-full text-left px-3 py-2 rounded-md bg-brand text-white hover:bg-brand-hover transition">Pokaži vse</button>
                     {SOURCES.filter((s) => s !== 'Vse').map((source, idx) => (
-                      <motion.button
+                      <MotionButton
                         key={source}
                         onClick={() => onPick(source)}
                         initial={{ opacity: 0, y: 3 }}
@@ -282,12 +295,12 @@ export default function Home({ initialNews }: Props) {
                         className="w-full text-left px-3 py-2 rounded-md hover:bg-black/5 dark:hover:bg-white/5 text-gray-800 dark:text-gray-200 transition"
                       >
                         {source}
-                      </motion.button>
+                      </MotionButton>
                     ))}
                   </div>
                 </div>
               </div>
-            </motion.div>
+            </MotionDiv>
           </>
         )}
       </AnimatePresence>
@@ -299,7 +312,7 @@ export default function Home({ initialNews }: Props) {
           </p>
         ) : (
           <AnimatePresence mode="wait">
-            <motion.div
+            <MotionDiv
               key={deferredFilter}
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
@@ -310,7 +323,7 @@ export default function Home({ initialNews }: Props) {
               {visibleNews.map((article) => (
                 <ArticleCard key={article.link} news={article} />
               ))}
-            </motion.div>
+            </MotionDiv>
           </AnimatePresence>
         )}
 
