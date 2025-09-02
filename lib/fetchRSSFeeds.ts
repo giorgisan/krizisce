@@ -2,6 +2,7 @@
 import Parser from 'rss-parser'
 import type { NewsItem } from '../types'
 import { feeds } from './sources'
+import { proxiedImage } from './img'  // <– dodali uvoz
 
 type FetchOpts = { forceFresh?: boolean }
 
@@ -119,6 +120,14 @@ export default async function fetchRSSFeeds(opts: FetchOpts = {}): Promise<NewsI
           const iso = (item.isoDate ?? item.pubDate ?? new Date().toISOString()) as string
           const publishedAt = toUnixMs(iso)
           const link = item.link ?? ''
+
+          // pobrano sliko zmanjšamo preko proxiedImage (WebP, q=65, progressive),
+          // da v bazi shranimo že “lahko” različico
+          const rawImage = extractImage(item, link)
+          const optimizedImage = rawImage
+            ? proxiedImage(rawImage, 640, 360, 1)
+            : null
+
           return {
             title: item.title ?? '',
             link,
@@ -127,7 +136,7 @@ export default async function fetchRSSFeeds(opts: FetchOpts = {}): Promise<NewsI
             content: item['content:encoded'] ?? item.content ?? '',
             contentSnippet: item.contentSnippet ?? '',
             source,
-            image: extractImage(item, link),
+            image: optimizedImage, // <– zdaj je shranjen optimiziran URL
             publishedAt,
           }
         })
