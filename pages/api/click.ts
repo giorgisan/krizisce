@@ -26,14 +26,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const userAgent = req.headers['user-agent']?.toString() ?? 'unknown'
 
-    const { error } = await supabase.from('clicks').insert({
-      source,
-      url,
-      action,
-      meta,
-      user_agent: userAgent,
-      // created_at naj nastavi DB default NOW() (če imaš stolpec)
-    })
+    const { error } = await supabase.from('clicks').insert(
+      {
+        source,
+        url,
+        action,
+        meta,
+        user_agent: userAgent,
+        // created_at naj nastavi DB default NOW() (če imaš stolpec)
+      },
+      { returning: 'minimal' } // ne vračaj polnih vrstic, zmanjša obremenitev
+    )
 
     if (error) {
       console.error('❌ Supabase insert error (click):', error)
