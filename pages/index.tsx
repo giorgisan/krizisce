@@ -36,7 +36,6 @@ import BackToTop from '@/components/BackToTop'
 // -------------------- Helpers & constants --------------------
 const POLL_MS = 60_000
 const HIDDEN_POLL_MS = 5 * 60_000
-const POLL_MAX_BACKOFF = 5
 
 function timeout(ms: number) {
   return new Promise((_, rej) => setTimeout(() => rej(new Error('Request timeout')), ms))
@@ -70,7 +69,7 @@ const ric = (cb: () => void) => {
 type Props = { initialNews: NewsItem[] }
 
 export default function Home({ initialNews }: Props) {
-  const [news, setNews] = useState<NewsItem[]>(initialNews)
+  const [news, setNews] = useState<NewsItem[]>(initialNews || [])
   const [filter, setFilter] = useState<string>('Vse')
   const deferredFilter = useDeferredValue(filter)
   const [displayCount, setDisplayCount] = useState<number>(20)
@@ -78,6 +77,7 @@ export default function Home({ initialNews }: Props) {
   const [menuOpen, setMenuOpen] = useState(false)
   const [pos, setPos] = useState<{ top: number; right: number }>({ top: 0, right: 0 })
 
+  // ---------- Dropdown handling ----------
   useEffect(() => {
     const handler = () => { ric(() => computeDropdownPos()); setMenuOpen((s) => !s) }
     window.addEventListener('toggle-filters', handler as EventListener)
@@ -114,9 +114,7 @@ export default function Home({ initialNews }: Props) {
     }
   }, [menuOpen])
 
-  // ---------- Instant refresh on first visit ----------
-  const [bootRefreshed, setBootRefreshed] = useState(false)
-
+  // ---------- Background refresh on first visit ----------
   useEffect(() => {
     const ctrl = new AbortController()
     ;(async () => {
@@ -128,37 +126,30 @@ export default function Home({ initialNews }: Props) {
           startTransition(() => { setNews(fresh); setDisplayCount(20) })
         }
       }
-      setBootRefreshed(true)
     })()
     return () => ctrl.abort()
   }, [initialNews])
-  // ----------------------------------------------------
 
-  // polling (z backoff + visibility)
-  const [freshNews, setFreshNews] = useState<NewsItem[] | null>(null)
-  const [hasNew, setHasNew] = useState(false)
+  // ---------- Polling (interval check) ----------
   const missCountRef = useRef(0)
   const timerRef = useRef<number | null>(null)
 
   useEffect(() => {
-    if (!bootRefreshed) return
-
     const runCheck = async () => {
       const ctrl = new AbortController()
       const fresh = await loadNews(true, ctrl.signal)
       if (!fresh || fresh.length === 0) {
-        setHasNew(false)
-        window.dispatchEvent(new CustomEvent('news-has-new', { detail: false }))
         missCountRef.current = Math.min(5, missCountRef.current + 1)
         return
       }
       const latestFresh = fresh[0]?.publishedAt || 0
       const latestCurrent = (news[0] ?? initialNews[0])?.publishedAt || 0
-      const newer = latestFresh > latestCurrent
-      setFreshNews(fresh)
-      setHasNew(newer)
-      window.dispatchEvent(new CustomEvent('news-has-new', { detail: newer }))
-      missCountRef.current = newer ? 0 : Math.min(5, missCountRef.current + 1)
+      if (latestFresh > latestCurrent) {
+        startTransition(() => { setNews(fresh); setDisplayCount(20) })
+        missCountRef.current = 0
+      } else {
+        missCountRef.current = Math.min(5, missCountRef.current + 1)
+      }
     }
 
     const schedule = () => {
@@ -172,41 +163,15 @@ export default function Home({ initialNews }: Props) {
 
     runCheck()
     schedule()
-
     const onVis = () => { if (document.visibilityState === 'visible') runCheck(); schedule() }
     document.addEventListener('visibilitychange', onVis)
     return () => {
       if (timerRef.current) window.clearInterval(timerRef.current)
       document.removeEventListener('visibilitychange', onVis)
     }
-  }, [news, initialNews, bootRefreshed])
+  }, [news, initialNews])
 
-  // manual refresh
-  useEffect(() => {
-    const onRefresh = () => {
-      window.dispatchEvent(new CustomEvent('news-refreshing', { detail: true }))
-      startTransition(() => {
-        const finish = () => {
-          window.dispatchEvent(new CustomEvent('news-refreshing', { detail: false }))
-          setHasNew(false)
-          window.dispatchEvent(new CustomEvent('news-has-new', { detail: false }))
-          missCountRef.current = 0
-        }
-        if (freshNews && hasNew) {
-          setNews(freshNews); setDisplayCount(20); finish()
-        } else {
-          loadNews(true).then((fresh) => {
-            if (fresh && fresh.length) { setNews(fresh); setDisplayCount(20) }
-            finish()
-          })
-        }
-      })
-    }
-    window.addEventListener('refresh-news', onRefresh as EventListener)
-    return () => window.removeEventListener('refresh-news', onRefresh as EventListener)
-  }, [freshNews, hasNew])
-
-  // sync s Headerjem (filters:update)
+  // ---------- Filters ----------
   useEffect(() => {
     const onFiltersUpdate = (e: Event) => {
       const arr = (e as CustomEvent).detail?.sources
@@ -220,7 +185,7 @@ export default function Home({ initialNews }: Props) {
     return () => window.removeEventListener('filters:update', onFiltersUpdate as EventListener)
   }, [])
 
-  // data shaping
+  // ---------- Data shaping ----------
   const sortedNews = useMemo(
     () => [...news].sort((a, b) => (b.publishedAt || 0) - (a.publishedAt || 0)),
     [news]
@@ -305,11 +270,18 @@ export default function Home({ initialNews }: Props) {
         )}
       </AnimatePresence>
 
+      {/* MAIN */}
       <main className="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white px-4 md:px-8 lg:px-16 pt-5 lg:pt-6 pb-24">
         {visibleNews.length === 0 ? (
-          <p className="text-gray-500 dark:text-gray-400 text-center w-full mt-10">
-            Ni novic za izbrani vir ali napaka pri nalaganju.
-          </p>
+          // Skeleton loader
+          <div className="grid gap-6 grid-cols-2 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5 mt-10">
+            {Array.from({ length: 10 }).map((_, i) => (
+              <div
+                key={i}
+                className="h-40 bg-gray-200 dark:bg-gray-800 animate-pulse rounded-xl"
+              />
+            ))}
+          </div>
         ) : (
           <AnimatePresence mode="wait">
             <MotionDiv
