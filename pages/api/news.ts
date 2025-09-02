@@ -69,10 +69,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       link_canonical: canonicalizeLink(link),
     }))
 
-    // 4) upsert po 'link' – ne vračaj reprezentacije vrstic
+    // 4) upsert po 'link' – brez parametra 'returning'
     const { error: upsertError } = await supabase
       .from('news')
-      .upsert(payloadForDb, { onConflict: 'link', returning: 'minimal' })
+      .upsert(payloadForDb, { onConflict: 'link' })
 
     if (upsertError) {
       if (debug) {
