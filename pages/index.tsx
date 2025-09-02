@@ -121,14 +121,21 @@ export default function Home({ initialNews }: Props) {
       const fresh = await loadNews(true, ctrl.signal)
       if (fresh && fresh.length) {
         const latestFresh = fresh[0]?.publishedAt || 0
-        const latestInitial = initialNews[0]?.publishedAt || 0
-        if (latestFresh > latestInitial) {
-          startTransition(() => { setNews(fresh); setDisplayCount(20) })
+        const latestCurrent = news[0]?.publishedAt || 0
+        if (latestFresh > latestCurrent) {
+          // združi nove + obstoječe, brez duplikatov
+          const merged = [...fresh, ...news].reduce((acc: NewsItem[], item) => {
+            if (!acc.find((x) => x.link === item.link)) acc.push(item)
+            return acc
+          }, [])
+          startTransition(() => {
+            setNews(merged.sort((a, b) => (b.publishedAt || 0) - (a.publishedAt || 0)))
+          })
         }
       }
     })()
     return () => ctrl.abort()
-  }, [initialNews])
+  }, [])
 
   // ---------- Polling (interval check) ----------
   const missCountRef = useRef(0)
@@ -143,9 +150,15 @@ export default function Home({ initialNews }: Props) {
         return
       }
       const latestFresh = fresh[0]?.publishedAt || 0
-      const latestCurrent = (news[0] ?? initialNews[0])?.publishedAt || 0
+      const latestCurrent = news[0]?.publishedAt || 0
       if (latestFresh > latestCurrent) {
-        startTransition(() => { setNews(fresh); setDisplayCount(20) })
+        const merged = [...fresh, ...news].reduce((acc: NewsItem[], item) => {
+          if (!acc.find((x) => x.link === item.link)) acc.push(item)
+          return acc
+        }, [])
+        startTransition(() => {
+          setNews(merged.sort((a, b) => (b.publishedAt || 0) - (a.publishedAt || 0)))
+        })
         missCountRef.current = 0
       } else {
         missCountRef.current = Math.min(5, missCountRef.current + 1)
@@ -169,7 +182,7 @@ export default function Home({ initialNews }: Props) {
       if (timerRef.current) window.clearInterval(timerRef.current)
       document.removeEventListener('visibilitychange', onVis)
     }
-  }, [news, initialNews])
+  }, [news])
 
   // ---------- Filters ----------
   useEffect(() => {
