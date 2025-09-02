@@ -6,8 +6,12 @@ import Header from '@/components/Header'
 import Footer from '@/components/Footer'
 import SeoHead from '@/components/SeoHead'
 import { NewsItem } from '@/types'
+import { proxiedImage, buildSrcSet } from '@/lib/img'
 
-// Velika kartica – ostane enaka
+const ASPECT = 16 / 9
+const IMAGE_WIDTHS = [320, 480, 640, 960, 1280]
+
+// Velika kartica – optimizirana za slike
 function HeadlineCard({ news }: { news: NewsItem }) {
   const onClick = async () => {
     window.open(news.link, '_blank')
@@ -22,29 +26,56 @@ function HeadlineCard({ news }: { news: NewsItem }) {
     }
   }
 
-  const img =
+  // Določimo vir slike (image/enclosure/thumbnail)
+  const rawImg =
     (news as any).image ||
     (news as any).enclosure?.url ||
     (news as any).thumbnail ||
     null
+
+  // Proxy in fallback logika
+  const [useProxy, setUseProxy]   = useState<boolean>(!!rawImg)
+  const [useFallback, setUseFallback] = useState<boolean>(!rawImg)
+
+  const currentSrc = useMemo(() => {
+    if (!rawImg) return null
+    return useProxy ? proxiedImage(rawImg, 640, 360, 1) : rawImg
+  }, [rawImg, useProxy])
+
+  const srcSet = useMemo(() => {
+    if (!rawImg) return ''
+    return buildSrcSet(rawImg, IMAGE_WIDTHS, ASPECT)
+  }, [rawImg])
+
+  const handleImgError = () => {
+    // ob napaki proksija poskusi neposredno
+    if (rawImg && useProxy) { setUseProxy(false); return }
+    if (!useFallback) setUseFallback(true)
+  }
 
   return (
     <article
       onClick={onClick}
       className="group cursor-pointer rounded-2xl overflow-hidden border border-gray-800 hover:border-gray-700 hover:shadow-lg transition-all duration-200 bg-gray-900/40"
     >
-      {img ? (
-        <div className="aspect-[16/9] w-full overflow-hidden">
-          <img
-            src={img}
-            alt={news.title ?? 'Naslovnica'}
-            className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-300"
-            loading="lazy"
-            referrerPolicy="no-referrer"
-          />
+      {useFallback || !currentSrc ? (
+        <div className="aspect-[16/9] w-full bg-gray-800 flex items-center justify-center">
+          <span className="text-sm text-gray-500">Ni slike</span>
         </div>
       ) : (
-        <div className="aspect-[16/9] w-full bg-gray-800" />
+        <div className="aspect-[16/9] w-full overflow-hidden">
+          <img
+            src={currentSrc}
+            srcSet={srcSet}
+            alt={news.title ?? 'Naslovnica'}
+            className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-300"
+            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+            loading="lazy"
+            fetchPriority="auto"
+            referrerPolicy="no-referrer"
+            onError={handleImgError}
+          />
+        </div>
       )}
       <div className="p-4 sm:p-5">
         <div className="text-xs uppercase tracking-wide text-gray-400 mb-2">
@@ -54,7 +85,9 @@ function HeadlineCard({ news }: { news: NewsItem }) {
           {news.title}
         </h2>
         {news.contentSnippet && (
-          <p className="mt-2 text-sm text-gray-300 line-clamp-3">{news.contentSnippet}</p>
+          <p className="mt-2 text-sm text-gray-300 line-clamp-3">
+            {news.contentSnippet}
+          </p>
         )}
         <div className="mt-3 text-xs text-gray-400">
           {new Date(news.isoDate || news.pubDate || Date.now()).toLocaleString('sl-SI')}
