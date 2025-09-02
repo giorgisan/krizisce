@@ -4,6 +4,7 @@ import type { NewsItem } from '@/types'
 import fetchRSSFeeds from '@/lib/fetchRSSFeeds'
 import supabase from '@/lib/supabase'
 
+// odstrani UTM parametre in nepotrebne ključke
 function canonicalizeLink(href: string): string {
   try {
     const u = new URL(href)
@@ -28,7 +29,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (!forceFresh) {
       const { data, error } = await supabase
         .from('news')
-        .select('*')
+        .select('link,title,source,image,contentsnippet,isodate,pubdate,publishedat') // izberi le potrebne stolpce
         .order('publishedat', { ascending: false })
         .limit(100)
 
@@ -68,10 +69,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       link_canonical: canonicalizeLink(link),
     }))
 
-    // 4) upsert po 'link'
-    const { data: upsertData, error: upsertError } = await supabase
+    // 4) upsert po 'link' – ne vračaj reprezentacije vrstic
+    const { error: upsertError } = await supabase
       .from('news')
-      .upsert(payloadForDb, { onConflict: 'link' })
+      .upsert(payloadForDb, { onConflict: 'link', returning: 'minimal' })
 
     if (upsertError) {
       if (debug) {
@@ -84,8 +85,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     res.setHeader('Cache-Control', 'no-store, max-age=0, must-revalidate')
 
     if (debug) {
-      // 🔧 TS-safe: če je null, vzemi dolžino praznega arraya (0)
-      const inserted = (upsertData ?? []).length
+      // TS-safe: vložimo št. vrstic, ki smo jih poskušali upsertati
+      const inserted = payloadForDb.length
       return res.status(200).json({
         ok: true,
         inserted,
