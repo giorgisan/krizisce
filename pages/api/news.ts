@@ -4,7 +4,6 @@ import type { NewsItem } from '@/types'
 import fetchRSSFeeds from '@/lib/fetchRSSFeeds'
 import supabase from '@/lib/supabase'
 
-// odstrani UTM parametre in nepotrebne ključke
 function canonicalizeLink(href: string): string {
   try {
     const u = new URL(href)
@@ -25,11 +24,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const forceFresh = req.query.forceFresh === '1'
     const debug = req.query.debug === '1'
 
-    // 1) poskusi iz Supabase, če ni prisile
+    // 1) beri iz Supabase (anon key ima SELECT policy)
     if (!forceFresh) {
       const { data, error } = await supabase
         .from('news')
-        .select('link,title,source,image,contentsnippet,isodate,pubdate,publishedat') // izberi le potrebne stolpce
+        .select('link,title,source,image,contentsnippet,isodate,pubdate,publishedat')
         .order('publishedat', { ascending: false })
         .limit(100)
 
@@ -52,10 +51,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
     }
 
-    // 2) svež RSS
+    // 2) fetchaj svež RSS in upsertaj (potreben je service_role key)
     const fresh = await fetchRSSFeeds({ forceFresh: true })
 
-    // 3) payload z allowlist polji (brez content ipd.)
     const payloadForDb = fresh.map(({ isoDate, pubDate, contentSnippet, publishedAt, link, title, source, image }) => ({
       link,
       title,
@@ -69,7 +67,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       link_canonical: canonicalizeLink(link),
     }))
 
-    // 4) upsert po 'link' – brez parametra 'returning'
     const { error: upsertError } = await supabase
       .from('news')
       .upsert(payloadForDb, { onConflict: 'link' })
@@ -85,16 +82,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     res.setHeader('Cache-Control', 'no-store, max-age=0, must-revalidate')
 
     if (debug) {
-      // TS-safe: vložimo št. vrstic, ki smo jih poskušali upsertati
       const inserted = payloadForDb.length
-      return res.status(200).json({
-        ok: true,
-        inserted,
-        sample: payloadForDb.slice(0, 2),
-      })
+      return res.status(200).json({ ok: true, inserted, sample: payloadForDb.slice(0, 2) })
     }
 
-    // 5) vrni svež nabor
     return res.status(200).json(fresh)
   } catch (error) {
     console.error('Failed to fetch news:', error)
