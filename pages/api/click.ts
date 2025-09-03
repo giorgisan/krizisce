@@ -5,8 +5,8 @@ import supabase from '@/lib/supabase'
 type Body = {
   source?: string
   url?: string
-  action?: string             // npr. 'open' | 'preview_open' | 'preview_close'
-  meta?: Record<string, any>  // poljubni dodatki (duration_ms, dpr, ipd.)
+  action?: string
+  meta?: Record<string, any>
 }
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -26,14 +26,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const userAgent = req.headers['user-agent']?.toString() ?? 'unknown'
 
-    // ⚠️ Brez parametra 'returning', ker supabase-js za insert ne pozna te možnosti
     const { error } = await supabase.from('clicks').insert({
       source,
       url,
       action,
       meta,
       user_agent: userAgent,
-      // created_at naj nastavi DB default NOW() (če imaš stolpec)
     })
 
     if (error) {
