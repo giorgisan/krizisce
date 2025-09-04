@@ -12,7 +12,7 @@ import React, {
 import { createPortal } from 'react-dom'
 import DOMPurify from 'dompurify'
 import { preloadPreview, peekPreview } from '@/lib/previewPrefetch'
-import { toBlob } from 'html-to-image' // ← NEW (npm i html-to-image)
+import { toBlob } from 'html-to-image' // ← snapshot: DOM → PNG
 
 interface Props { url: string; onClose: () => void }
 
@@ -99,7 +99,7 @@ function IconTelegram(props: React.SVGProps<SVGSVGElement>) {
     </svg>
   )
 }
-// NEW: kamera ikona (majhna)
+// Kamera (majhen simbol)
 function IconCamera(props: React.SVGProps<SVGSVGElement>) {
   return (
     <svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" {...props}>
@@ -463,10 +463,9 @@ export default function ArticlePreview({ url, onClose }: Props) {
     if (!snapshotRef.current) return
     setSnapshotBusy(true)
     try {
-      // Ozadje: enako tvojemu light/dark, da PNG ni prosojen
-      const prefersDark =
-        window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
-      const backgroundColor = prefersDark ? '#111827' /* tailwind gray-900 */ : '#ffffff'
+      // Ozadje: light/dark, da PNG ni prosojen
+      const prefersDark = window.matchMedia?.('(prefers-color-scheme: dark)').matches
+      const backgroundColor = prefersDark ? '#111827' /* gray-900 */ : '#ffffff'
 
       // Render DOM → PNG blob (višji ppi za ostrino)
       const blob = await toBlob(snapshotRef.current, {
@@ -476,14 +475,19 @@ export default function ArticlePreview({ url, onClose }: Props) {
       })
       if (!blob) throw new Error('snapshot-render-failed')
 
-      // Poskusi kopirati v odložišče
+      // Poskusi kopirati v odložišče; če ni podprto → download
       try {
-        // @ts-expect-error: ClipboardItem je lahko ne-typan v TS
-        const item = new ClipboardItem({ 'image/png': blob })
-        await navigator.clipboard.write([item])
-        setCopied(true); setTimeout(() => setCopied(false), 1500)
+        const hasClipboardImage =
+          'clipboard' in navigator && typeof (window as any).ClipboardItem !== 'undefined'
+        if (hasClipboardImage) {
+          const CI = (window as any).ClipboardItem as { new (items: Record<string, Blob>): ClipboardItem }
+          const item = new CI({ 'image/png': blob })
+          await navigator.clipboard.write([item])
+          setCopied(true); setTimeout(() => setCopied(false), 1500)
+        } else {
+          downloadBlob(blob)
+        }
       } catch {
-        // Fallback: prenos PNG
         downloadBlob(blob)
       }
     } catch (err) {
