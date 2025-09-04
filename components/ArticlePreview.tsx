@@ -459,11 +459,26 @@ export default function ArticlePreview({ url, onClose }: Props) {
     URL.revokeObjectURL(link.href)
   }, [])
 
+  /** KLJUČNO: renderiramo KLON, v katerem forciramo unikaten cache-bust za vsako sliko. */
   const doSnapshot = useCallback(async (): Promise<Blob> => {
     if (!snapshotRef.current) throw new Error('no-snapshot-node')
 
-    // poskrbi, da so slike res naložene
-    await waitForImages(snapshotRef.current)
+    // delamo na klonu, da ne spreminjamo živega DOM-a in da ne “pobiramo” starih slik
+    const node = snapshotRef.current.cloneNode(true) as HTMLElement
+
+    // za ta snapshot prisilno zbustaj URL-je slik (tudi če so isti kot prej)
+    const snapBust = `${Date.now().toString(36)}${Math.random().toString(36).slice(2,6)}`
+    node.querySelectorAll('img').forEach((img) => {
+      const src = img.getAttribute('src')
+      if (src) img.setAttribute('src', withCacheBust(src, snapBust))
+      img.removeAttribute('loading')      // no lazy
+      img.setAttribute('decoding', 'sync')
+      img.setAttribute('crossorigin', 'anonymous')
+      img.setAttribute('referrerpolicy', 'no-referrer')
+    })
+
+    // poskrbi, da so slike res naložene v klonu
+    await waitForImages(node)
 
     const prefersDark = window.matchMedia?.('(prefers-color-scheme: dark)').matches
     const backgroundColor = prefersDark ? '#111827' : '#ffffff'
@@ -472,7 +487,7 @@ export default function ArticlePreview({ url, onClose }: Props) {
       ? Math.min(2, window.devicePixelRatio || 1)
       : Math.max(2, window.devicePixelRatio || 1)
 
-    const blob = await toBlob(snapshotRef.current, {
+    const blob = await toBlob(node, {
       cacheBust: true, // dodatni varnostni pas
       pixelRatio,
       backgroundColor,
@@ -624,7 +639,8 @@ export default function ArticlePreview({ url, onClose }: Props) {
             {!loading && !error && (
               <div className="preview-typo max-w-none text-gray-900 dark:text-gray-100">
                 {/* Točno to bomo zajeli */}
-                <div ref={snapshotRef} className="relative">
+                {/* KLJUČNO: key={url} prisili remount ob menjavi članka */}
+                <div key={url} ref={snapshotRef} className="relative">
                   <div dangerouslySetInnerHTML={{ __html: content }} />
                   <div className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-white dark:from-gray-900 to-transparent" />
                 </div>
