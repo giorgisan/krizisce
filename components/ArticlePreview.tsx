@@ -12,7 +12,7 @@ import React, {
 import { createPortal } from 'react-dom'
 import DOMPurify from 'dompurify'
 import { preloadPreview, peekPreview } from '@/lib/previewPrefetch'
-import { toBlob } from 'html-to-image' // ← snapshot: DOM → PNG
+import { toBlob } from 'html-to-image' // DOM → PNG
 
 interface Props { url: string; onClose: () => void }
 
@@ -22,8 +22,6 @@ type ApiPayload =
 
 const TEXT_PERCENT = 0.80
 const VIA_TEXT = ' — via Križišče (krizisce.si)'
-
-// možnost, da to v prihodnje preklopiš na false, če ne bi več želel auto-close
 const AUTO_CLOSE_ON_OPEN = true
 
 const PREVIEW_TYPO_CSS = `
@@ -99,7 +97,7 @@ function IconTelegram(props: React.SVGProps<SVGSVGElement>) {
     </svg>
   )
 }
-// Kamera (majhen simbol)
+// Fotoaparat (majhen)
 function IconCamera(props: React.SVGProps<SVGSVGElement>) {
   return (
     <svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" {...props}>
@@ -149,7 +147,6 @@ function basenameStem(pathname: string): string {
     .replace(/-scaled$/g, '')
 }
 
-/** Client-side clean + polish */
 function cleanPreviewHTML(html: string, baseUrl: string, knownTitle?: string): string {
   try {
     const wrap = document.createElement('div')
@@ -280,7 +277,8 @@ export default function ArticlePreview({ url, onClose }: Props) {
 
   // snapshot
   const [snapshotBusy, setSnapshotBusy] = useState(false)
-  // referenca na **dejanski prikazani predogled** (HTML + gradient)
+  const [snapMsg, setSnapMsg] = useState<string>('') // toast feedback
+  const snapMsgTimer = useRef<number | null>(null)
   const snapshotRef = useRef<HTMLDivElement>(null)
 
   // prefer native share samo na “coarse pointer” napravah
@@ -379,19 +377,24 @@ export default function ArticlePreview({ url, onClose }: Props) {
     return () => document.removeEventListener('mousedown', onDocClick)
   }, [shareOpen])
 
+  // helper za toast
+  const showSnapMsg = useCallback((msg: string) => {
+    setSnapMsg(msg)
+    if (snapMsgTimer.current) window.clearTimeout(snapMsgTimer.current)
+    snapMsgTimer.current = window.setTimeout(() => setSnapMsg(''), 2200)
+  }, [])
+
   // ✅ Odpri cel članek + sledi kliku + AUTO zapri modal (brez preventDefault)
   const openSourceAndTrack = useCallback((e: ReactMouseEvent<HTMLAnchorElement>) => {
     const source = site || (() => { try { return new URL(url).hostname } catch { return 'unknown' } })()
     trackClick(source, url)
     if (AUTO_CLOSE_ON_OPEN) {
-      // počakamo en frame, da brskalnik odpre nov tab, potem unmountamo modal
       requestAnimationFrame(() => onClose())
     }
   }, [site, url, onClose])
 
   // zajamemo tudi srednji klik / meta-klik, da vseeno sledimo in zapremo
   const onAuxOpen = useCallback((e: ReactMouseEvent<HTMLAnchorElement>) => {
-    // middle mouse button = 1, ali meta/ctrl za "odpri v novem zavihku"
     if (e.button === 1 || e.metaKey || e.ctrlKey) {
       const source = site || (() => { try { return new URL(url).hostname } catch { return 'unknown' } })()
       trackClick(source, url)
@@ -448,7 +451,7 @@ export default function ArticlePreview({ url, onClose }: Props) {
     }
   }, [url])
 
-  // ---------- SNAPSHOT (dejansko prikazani predogled) ----------
+  // ---------- SNAPSHOT ----------
   const downloadBlob = useCallback((blob: Blob, filename = 'article-snapshot.png') => {
     const link = document.createElement('a')
     link.href = URL.createObjectURL(blob)
@@ -459,44 +462,58 @@ export default function ArticlePreview({ url, onClose }: Props) {
     URL.revokeObjectURL(link.href)
   }, [])
 
-  const handleSnapshot = useCallback(async () => {
-    if (!snapshotRef.current) return
+  const doSnapshot = useCallback(async (): Promise<Blob> => {
+    if (!snapshotRef.current) throw new Error('no-snapshot-node')
+    const prefersDark = window.matchMedia?.('(prefers-color-scheme: dark)').matches
+    const backgroundColor = prefersDark ? '#111827' : '#ffffff'
+    const blob = await toBlob(snapshotRef.current, {
+      cacheBust: true,
+      pixelRatio: Math.max(2, window.devicePixelRatio || 1),
+      backgroundColor,
+    })
+    if (!blob) throw new Error('snapshot-render-failed')
+    return blob
+  }, [])
+
+  const handleSnapshot = useCallback(async (e?: ReactMouseEvent<HTMLButtonElement>) => {
     setSnapshotBusy(true)
     try {
-      // Ozadje: light/dark, da PNG ni prosojen
-      const prefersDark = window.matchMedia?.('(prefers-color-scheme: dark)').matches
-      const backgroundColor = prefersDark ? '#111827' /* gray-900 */ : '#ffffff'
+      const forceDownload = !!e?.altKey // Alt+klik → prisilni download
+      const blob = await doSnapshot()
 
-      // Render DOM → PNG blob (višji ppi za ostrino)
-      const blob = await toBlob(snapshotRef.current, {
-        cacheBust: true,
-        pixelRatio: Math.max(2, window.devicePixelRatio || 1),
-        backgroundColor,
-      })
-      if (!blob) throw new Error('snapshot-render-failed')
+      // feature detect
+      const canClipboard =
+        !forceDownload &&
+        'clipboard' in navigator &&
+        typeof (window as any).ClipboardItem !== 'undefined' &&
+        typeof navigator.clipboard?.write === 'function'
 
-      // Poskusi kopirati v odložišče; če ni podprto → download
-      try {
-        const hasClipboardImage =
-          'clipboard' in navigator && typeof (window as any).ClipboardItem !== 'undefined'
-        if (hasClipboardImage) {
+      if (canClipboard) {
+        try {
           const CI = (window as any).ClipboardItem as { new (items: Record<string, Blob>): ClipboardItem }
-          const item = new CI({ 'image/png': blob })
+          // dodamo še text/plain kot "fallback" za app-e, ki ne sprejmejo slike
+          const item = new CI({
+            'image/png': blob,
+            'text/plain': new Blob([`Snapshot: ${title || site || ''}`], { type: 'text/plain' }),
+          })
           await navigator.clipboard.write([item])
-          setCopied(true); setTimeout(() => setCopied(false), 1500)
-        } else {
-          downloadBlob(blob)
+          showSnapMsg('Kopirano (PNG). Alt+klik za prenos.')
+          return
+        } catch {
+          // padli smo na download
         }
-      } catch {
-        downloadBlob(blob)
       }
+
+      downloadBlob(blob)
+      showSnapMsg('PNG prenesen. (Alt+klik vedno prenese.)')
     } catch (err) {
       console.error('Snapshot failed:', err)
+      showSnapMsg('Napaka pri snapshotu.')
     } finally {
       setSnapshotBusy(false)
     }
-  }, [downloadBlob])
-  // -------------------------------------------------------------
+  }, [doSnapshot, downloadBlob, title, site, showSnapMsg])
+  // -----------------------------
 
   if (typeof document === 'undefined') return null
 
@@ -534,13 +551,13 @@ export default function ArticlePreview({ url, onClose }: Props) {
             </div>
 
             <div className="flex items-center gap-2 shrink-0 relative">
-              {/* Snapshot (majhen fotoaparat) */}
+              {/* Snapshot (fotoaparat). Namig: Alt+klik = prenos PNG */}
               <button
                 type="button"
                 onClick={handleSnapshot}
                 disabled={snapshotBusy}
-                aria-label="Kopiraj snapshot predogleda"
-                title="Kopiraj snapshot predogleda"
+                aria-label="Snapshot predogleda (kopiraj sliko)"
+                title="Snapshot (klik = kopiraj; Alt+klik = prenos)"
                 className="inline-flex items-center justify-center rounded-lg h-8 w-8 text-sm bg-gray-100/70 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 anim-soft disabled:opacity-60"
               >
                 <IconCamera />
@@ -664,7 +681,7 @@ export default function ArticlePreview({ url, onClose }: Props) {
 
             {!loading && !error && (
               <div className="preview-typo max-w-none text-gray-900 dark:text-gray-100">
-                {/* === Točno ta prikaz zajamemo v snapshot (ref spodaj) === */}
+                {/* === Točno ta prikaz zajamemo (ref spodaj) === */}
                 <div ref={snapshotRef} className="relative">
                   <div dangerouslySetInnerHTML={{ __html: content }} />
                   <div className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-white dark:from-gray-900 to-transparent" />
@@ -693,6 +710,13 @@ export default function ArticlePreview({ url, onClose }: Props) {
               </div>
             )}
           </div>
+
+          {/* Toast za snapshot feedback */}
+          {snapMsg && (
+            <div className="pointer-events-none fixed left-4 bottom-4 z-[60] rounded-lg bg-black/80 text-white text-sm px-3 py-2 shadow-lg">
+              {snapMsg}
+            </div>
+          )}
         </div>
       </div>
     </>,
