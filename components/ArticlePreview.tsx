@@ -12,7 +12,7 @@ import React, {
 import { createPortal } from 'react-dom'
 import DOMPurify from 'dompurify'
 import { preloadPreview, peekPreview } from '@/lib/previewPrefetch'
-import { toBlob } from 'html-to-image' // DOM → PNG
+import { toBlob } from 'html-to-image'
 
 interface Props { url: string; onClose: () => void }
 
@@ -46,65 +46,15 @@ const PREVIEW_TYPO_CSS = `
   .preview-typo a { text-decoration: underline; text-underline-offset: 2px; }
 `
 
-/* Ikone (inline SVG) */
-function IconShareIOS(props: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" {...props}>
-      <path fill="currentColor" d="M12 3c.4 0 .8.16 1.06.44l3 3a1.5 1.5 0 1 1-2.12 2.12L13.5 7.12V14a1.5 1.5 0 1 1-3 0V7.12L9.06 8.56A1.5 1.5 0 0 1 6.94 6.44l3-3C10.2 3.16 10.6 3 11 3h1z"/>
-      <path fill="currentColor" d="M5 10.5A2.5 2.5 0 0 0 2.5 13v6A2.5 2.5 0 0 0 5 21.5h14A2.5 2.5 0 0 0 21.5 19v-6A2.5 2.5 0 0 0 19 10.5h-2a1.5 1.5 0 1 0 0 3h2V19H5v-5.5h2a1.5 1.5 0 1 0 0-3H5z"/>
-    </svg>
-  )
-}
-function IconCheck(props: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" {...props}>
-      <path fill="currentColor" d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z" />
-    </svg>
-  )
-}
-function IconX(props: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" {...props}>
-      <path fill="currentColor" d="M17.5 3h-3.1l-3.3 5L7 3H3l6.1 8.5L3.5 21h3.1l3.6-5.4L17 21h4l-6.7-9.2L21 3h-3.5l-3.9 5.8z"/>
-    </svg>
-  )
-}
-function IconFacebook(props: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" {...props}>
-      <path fill="currentColor" d="M13 21v-7h2.3l.4-3H13V9.3c0-.9.3-1.5 1.6-1.5H16V5.1C15.6 5 14.7 5 13.7 5 11.5 5 10 6.3 10 8.9V11H7.7v3H10v7h3z"/>
-    </svg>
-  )
-}
-function IconLinkedIn(props: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" {...props}>
-      <path fill="currentColor" d="M6.5 6.5A2.5 2.5 0 1 1 1.5 6.5a2.5 2.5 0 0 1 5 0zM2 8.8h4.9V22H2zM14.9 8.5c-2.7 0-4 1.5-4.6 2.5V8.8H5.4V22h4.9v-7c0-1.9 1-2.9 2.5-2.9 1.4 0 2.3 1 2.3 2.9V22H20v-7.7c0-3.3-1.8-5.8-5.1-5.8z"/>
-    </svg>
-  )
-}
-function IconWhatsApp(props: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" {...props}>
-      <path fill="currentColor" d="M12 2a10 10 0 0 0-8.7 15l-1.3 4.7 4.8-1.3A10 10 0 1 0 12 2zm5.6 14.6c-.2.6-1.2 1.1-1.7 1.2-.5.1-1 .2-1.7-.1-.4-.1-1-.3-1.8-.7-3.1-1.4-5.2-4.7-5.3-4.9-.2-.3-1.3-1.7-1.3-3.2 0-1.4.7-2.1 1-2.4.2-.2.6-.3 1-.3h.7c.2 0 .5 0 .7.6.3.7 1 2.6 1 2.8.1.2.1.4 0 .6-.1.2-.2.4-.4.6-.2.2-.4.5-.2.9.2.4.9 1.5 2 2.4 1.4 1.2 2.6 1.6 3 .1.2-.4.5-.5.8-.4.3.1 1.8.8 2.1 1 .3.2.5.4.6.6.1.5.1 1-.1 1.2z"/>
-    </svg>
-  )
-}
-function IconTelegram(props: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" {...props}>
-      <path fill="currentColor" d="M21.9 3.3c-.3-.2-.7-.2-1.1 0L2.8 10.6c-.7.3-.7 1.4.1 1.6l4.7 1.5 1.7 5.2c.2.7 1.1.9 1.6.3l2.6-2.8 4.3 3.1c.6.4 1.5.1 1.7-.6l3.1-14.4c.1-.5-.1-1-.6-1.2z"/>
-    </svg>
-  )
-}
-// Fotoaparat (majhen)
-function IconCamera(props: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" {...props}>
-      <path fill="currentColor" d="M9 4a2 2 0 0 0-1.8 1.1L6.6 6H5a3 3 0 0 0-3 3v8a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3V9a3 3 0 0 0-3-3h-1.6l-.6-.9A2 2 0 0 0 15 4H9zm3 5a5 5 0 1 1 0 10 5 5 0 0 1 0-10zm0 2.5A2.5 2.5 0 1 0 14.5 14 2.5 2.5 0 0 0 12 11.5z"/>
-    </svg>
-  )
-}
+/* Ikone (skrajšane zaradi prostora) */
+function IconShareIOS(props: React.SVGProps<SVGSVGElement>) { return (<svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" {...props}><path fill="currentColor" d="M12 3c.4 0 .8.16 1.06.44l3 3a1.5 1.5 0 1 1-2.12 2.12L13.5 7.12V14a1.5 1.5 0 1 1-3 0V7.12L9.06 8.56A1.5 1.5 0 0 1 6.94 6.44l3-3C10.2 3.16 10.6 3 11 3h1z"/><path fill="currentColor" d="M5 10.5A2.5 2.5 0 0 0 2.5 13v6A2.5 2.5 0 0 0 5 21.5h14A2.5 2.5 0 0 0 21.5 19v-6A2.5 2.5 0 0 0 19 10.5h-2a1.5 1.5 0 1 0 0 3h2V19H5v-5.5h2a1.5 1.5 0 1 0 0-3H5z"/></svg>) }
+function IconCheck(props: React.SVGProps<SVGSVGElement>) { return (<svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" {...props}><path fill="currentColor" d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z" /></svg>) }
+function IconX(props: React.SVGProps<SVGSVGElement>) { return (<svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" {...props}><path fill="currentColor" d="M17.5 3h-3.1l-3.3 5L7 3H3l6.1 8.5L3.5 21h3.1l3.6-5.4L17 21h4l-6.7-9.2L21 3h-3.5l-3.9 5.8z"/></svg>) }
+function IconFacebook(props: React.SVGProps<SVGSVGElement>) { return (<svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" {...props}><path fill="currentColor" d="M13 21v-7h2.3l.4-3H13V9.3c0-.9.3-1.5 1.6-1.5H16V5.1C15.6 5 14.7 5 13.7 5 11.5 5 10 6.3 10 8.9V11H7.7v3H10v7h3z"/></svg>) }
+function IconLinkedIn(props: React.SVGProps<SVGSVGElement>) { return (<svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" {...props}><path fill="currentColor" d="M6.5 6.5A2.5 2.5 0 1 1 1.5 6.5a2.5 2.5 0 0 1 5 0zM2 8.8h4.9V22H2zM14.9 8.5c-2.7 0-4 1.5-4.6 2.5V8.8H5.4V22h4.9v-7c0-1.9 1-2.9 2.5-2.9 1.4 0 2.3 1 2.3 2.9V22H20v-7.7c0-3.3-1.8-5.8-5.1-5.8z"/></svg>) }
+function IconWhatsApp(props: React.SVGProps<SVGSVGElement>) { return (<svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" {...props}><path fill="currentColor" d="M12 2a10 10 0 0 0-8.7 15l-1.3 4.7 4.8-1.3A10 10 0 1 0 12 2zm5.6 14.6c-.2.6-1.2 1.1-1.7 1.2-.5.1-1 .2-1.7-.1-.4-.1-1-.3-1.8-.7-3.1-1.4-5.2-4.7-5.3-4.9-.2-.3-1.3-1.7-1.3-3.2 0-1.4.7-2.1 1-2.4.2-.2.6-.3 1-.3h.7c.2 0 .5 0 .7.6.3.7 1 2.6 1 2.8.1.2.1.4 0 .6-.1.2-.2.4-.4.6-.2.2-.4.5-.2.9.2.4.9 1.5 2 2.4 1.4 1.2 2.6 1.6 3 .1.2-.4.5-.5.8-.4.3.1 1.8.8 2.1 1 .3.2.5.4.6.6.1.5.1 1-.1 1.2z"/></svg>) }
+function IconTelegram(props: React.SVGProps<SVGSVGElement>) { return (<svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" {...props}><path fill="currentColor" d="M21.9 3.3c-.3-.2-.7-.2-1.1 0L2.8 10.6c-.7.3-.7 1.4.1 1.6l4.7 1.5 1.7 5.2c.2.7 1.1.9 1.6.3l2.6-2.8 4.3 3.1c.6.4 1.5.1 1.7-.6l3.1-14.4c.1-.5-.1-1-.6-1.2z"/></svg>) }
+function IconCamera(props: React.SVGProps<SVGSVGElement>) { return (<svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" {...props}><path fill="currentColor" d="M9 4a2 2 0 0 0-1.8 1.1L6.6 6H5a3 3 0 0 0-3 3v8a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3V9a3 3 0 0 0-3-3h-1.6l-.6-.9A2 2 0 0 0 15 4H9zm3 5a5 5 0 1 1 0 10 5 5 0 0 1 0-10zm0 2.5A2.5 2.5 0 1 0 14.5 14 2.5 2.5 0 0 0 12 11.5z"/></svg>) }
 
 function trackClick(source: string, url: string) {
   try {
@@ -123,6 +73,16 @@ function trackClick(source: string, url: string) {
 function absolutize(raw: string, baseUrl: string): string {
   try { return new URL(raw, baseUrl).toString() } catch { return raw }
 }
+
+// ---- NOVO: proxy za slike (isti origin) ----
+function proxyImageSrc(absUrl: string): string {
+  // če je že naš proxy, pusti
+  try { if (new URL(absUrl).pathname.startsWith('/api/img')) return absUrl } catch {}
+  const u = encodeURIComponent(absUrl)
+  return `/api/img?u=${u}`
+}
+// -------------------------------------------
+
 function imageKeyFromSrc(src: string | null | undefined): string {
   if (!src) return ''
   let pathname = ''
@@ -147,6 +107,7 @@ function basenameStem(pathname: string): string {
     .replace(/-scaled$/g, '')
 }
 
+/** Client-side clean + polish + PROXY IMG */
 function cleanPreviewHTML(html: string, baseUrl: string, knownTitle?: string): string {
   try {
     const wrap = document.createElement('div')
@@ -177,7 +138,10 @@ function cleanPreviewHTML(html: string, baseUrl: string, knownTitle?: string): s
       const first = imgs[0]
       const firstRaw = first.getAttribute('src') || first.getAttribute('data-src') || ''
       const firstAbs = absolutize(firstRaw, baseUrl)
-      if (firstAbs) first.setAttribute('src', firstAbs)
+      if (firstAbs) {
+        first.setAttribute('src', proxyImageSrc(firstAbs))
+        first.setAttribute('crossorigin', 'anonymous')
+      }
       first.removeAttribute('data-src')
       first.removeAttribute('srcset'); first.removeAttribute('sizes')
       first.setAttribute('loading', 'lazy')
@@ -195,7 +159,9 @@ function cleanPreviewHTML(html: string, baseUrl: string, knownTitle?: string): s
         if (!raw) { (img.closest('figure, picture') || img).remove(); return }
 
         const abs = absolutize(raw, baseUrl)
-        img.setAttribute('src', abs)
+        const prox = proxyImageSrc(abs)
+        img.setAttribute('src', prox)
+        img.setAttribute('crossorigin', 'anonymous')
         img.removeAttribute('data-src')
         img.removeAttribute('srcset'); img.removeAttribute('sizes')
         img.setAttribute('loading', 'lazy')
@@ -213,6 +179,9 @@ function cleanPreviewHTML(html: string, baseUrl: string, knownTitle?: string): s
         else { seen.add(key) }
       })
     }
+
+    // odstrani <picture> ovoje (da ne nosijo srcset/cors težav)
+    wrap.querySelectorAll('picture,source').forEach((n) => n.replaceWith(...Array.from(n.childNodes)))
 
     return wrap.innerHTML
   } catch { return html }
@@ -277,11 +246,11 @@ export default function ArticlePreview({ url, onClose }: Props) {
 
   // snapshot
   const [snapshotBusy, setSnapshotBusy] = useState(false)
-  const [snapMsg, setSnapMsg] = useState<string>('') // toast feedback
+  const [snapMsg, setSnapMsg] = useState<string>('')
   const snapMsgTimer = useRef<number | null>(null)
   const snapshotRef = useRef<HTMLDivElement>(null)
 
-  // prefer native share samo na “coarse pointer” napravah
+  // prefer native share na napravah s coarse pointerjem
   const coarsePointerRef = useRef(false)
   useEffect(() => {
     try { coarsePointerRef.current = window.matchMedia('(pointer: coarse)').matches } catch {}
@@ -384,16 +353,13 @@ export default function ArticlePreview({ url, onClose }: Props) {
     snapMsgTimer.current = window.setTimeout(() => setSnapMsg(''), 2200)
   }, [])
 
-  // ✅ Odpri cel članek + sledi kliku + AUTO zapri modal (brez preventDefault)
+  // Odpri + sledenje
   const openSourceAndTrack = useCallback((e: ReactMouseEvent<HTMLAnchorElement>) => {
     const source = site || (() => { try { return new URL(url).hostname } catch { return 'unknown' } })()
     trackClick(source, url)
-    if (AUTO_CLOSE_ON_OPEN) {
-      requestAnimationFrame(() => onClose())
-    }
+    if (AUTO_CLOSE_ON_OPEN) requestAnimationFrame(() => onClose())
   }, [site, url, onClose])
 
-  // zajamemo tudi srednji klik / meta-klik, da vseeno sledimo in zapremo
   const onAuxOpen = useCallback((e: ReactMouseEvent<HTMLAnchorElement>) => {
     if (e.button === 1 || e.metaKey || e.ctrlKey) {
       const source = site || (() => { try { return new URL(url).hostname } catch { return 'unknown' } })()
@@ -402,7 +368,7 @@ export default function ArticlePreview({ url, onClose }: Props) {
     }
   }, [site, url, onClose])
 
-  // SHARE: instant na desktopu (popover), native le na telefonu/tablici
+  // SHARE
   const handleShareClick = useCallback(() => {
     if (preferNativeShare) {
       const shareData: ShareData = {
@@ -416,12 +382,10 @@ export default function ArticlePreview({ url, onClose }: Props) {
     setShareOpen((v) => !v)
   }, [preferNativeShare, title, site, url])
 
-  // helper za odpiranje delilnih URL-jev
   const openShareWindow = useCallback((href: string) => {
     try { window.open(href, '_blank', 'noopener,noreferrer') } catch {}
   }, [])
 
-  // generiraj URL-je za deljenje v omrežja
   const shareLinks = useMemo(() => {
     const encodedUrl   = encodeURIComponent(url)
     const encodedTitle = encodeURIComponent(title || site || '')
@@ -478,10 +442,9 @@ export default function ArticlePreview({ url, onClose }: Props) {
   const handleSnapshot = useCallback(async (e?: ReactMouseEvent<HTMLButtonElement>) => {
     setSnapshotBusy(true)
     try {
-      const forceDownload = !!e?.altKey // Alt+klik → prisilni download
+      const forceDownload = !!e?.altKey
       const blob = await doSnapshot()
 
-      // feature detect
       const canClipboard =
         !forceDownload &&
         'clipboard' in navigator &&
@@ -489,23 +452,17 @@ export default function ArticlePreview({ url, onClose }: Props) {
         typeof navigator.clipboard?.write === 'function'
 
       if (canClipboard) {
-        try {
-          const CI = (window as any).ClipboardItem as { new (items: Record<string, Blob>): ClipboardItem }
-          // dodamo še text/plain kot "fallback" za app-e, ki ne sprejmejo slike
-          const item = new CI({
-            'image/png': blob,
-            'text/plain': new Blob([`Snapshot: ${title || site || ''}`], { type: 'text/plain' }),
-          })
-          await navigator.clipboard.write([item])
-          showSnapMsg('Kopirano (PNG). Alt+klik za prenos.')
-          return
-        } catch {
-          // padli smo na download
-        }
+        const CI = (window as any).ClipboardItem as { new (items: Record<string, Blob>): ClipboardItem }
+        const item = new CI({
+          'image/png': blob,
+          'text/plain': new Blob([`Snapshot: ${title || site || ''}`], { type: 'text/plain' }),
+        })
+        await navigator.clipboard.write([item])
+        showSnapMsg('Kopirano (PNG). Alt+klik za prenos.')
+      } else {
+        downloadBlob(blob)
+        showSnapMsg('PNG prenesen. (Alt+klik vedno prenese.)')
       }
-
-      downloadBlob(blob)
-      showSnapMsg('PNG prenesen. (Alt+klik vedno prenese.)')
     } catch (err) {
       console.error('Snapshot failed:', err)
       showSnapMsg('Napaka pri snapshotu.')
@@ -519,7 +476,6 @@ export default function ArticlePreview({ url, onClose }: Props) {
 
   return createPortal(
     <>
-      {/* trd override za ozadje med modalom */}
       <style>{`
         body.preview-open a,
         body.preview-open a:hover,
@@ -528,7 +484,6 @@ export default function ArticlePreview({ url, onClose }: Props) {
         body.preview-open .group:hover * { text-decoration: none !important; }
         @media (prefers-reduced-motion: reduce) { .anim-soft { transition: none !important; } }
       `}</style>
-      {/* tipografski skin */}
       <style>{PREVIEW_TYPO_CSS}</style>
 
       <div
@@ -551,7 +506,7 @@ export default function ArticlePreview({ url, onClose }: Props) {
             </div>
 
             <div className="flex items-center gap-2 shrink-0 relative">
-              {/* Snapshot (fotoaparat). Namig: Alt+klik = prenos PNG */}
+              {/* Snapshot (fotoaparat). Alt+klik = prenos PNG */}
               <button
                 type="button"
                 onClick={handleSnapshot}
@@ -563,7 +518,7 @@ export default function ArticlePreview({ url, onClose }: Props) {
                 <IconCamera />
               </button>
 
-              {/* Share button */}
+              {/* Share */}
               <button
                 ref={shareBtnRef}
                 type="button"
@@ -577,76 +532,6 @@ export default function ArticlePreview({ url, onClose }: Props) {
                 <span className="hidden sm:inline">Deli</span>
               </button>
 
-              {/* Share menu (ikonice-only) */}
-              {shareOpen && (
-                <div
-                  ref={shareMenuRef}
-                  role="menu"
-                  className={[
-                    useSheet
-                      ? 'fixed inset-x-0 bottom-0 z-50 rounded-t-2xl'
-                      : 'absolute right-0 top-full mt-2 z-50',
-                    'overflow-hidden border border-gray-200/30 bg-white/95 dark:bg-gray-900/95 shadow-2xl backdrop-blur',
-                  ].join(' ')}
-                >
-                  {useSheet && (
-                    <div className="px-4 pt-3 pb-2">
-                      <div className="mx-auto mb-2 h-1.5 w-12 rounded-full bg-gray-300 dark:bg-gray-700" />
-                      <div className="text-sm font-medium text-gray-700 dark:text-gray-200">Deli članek</div>
-                    </div>
-                  )}
-
-                  <div className={useSheet ? 'p-4' : 'p-3'}>
-                    {/* primary: copy */}
-                    <button
-                      onClick={copyToClipboard}
-                      className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-sm py-2.5 px-3 anim-soft"
-                      role="menuitem"
-                    >
-                      <span className="inline-flex h-6 w-6 items-center justify-center rounded-md bg-white/70 dark:bg-black/30 border border-gray-200/60 dark:border-gray-700/60">
-                        {copied ? <IconCheck /> : '⧉'}
-                      </span>
-                      {copied ? 'Kopirano!' : 'Kopiraj povezavo'}
-                    </button>
-
-                    {/* icons only */}
-                    <div className="mt-3 flex items-center gap-2 sm:gap-3">
-                      {[
-                        { key: 'x',  label: 'X',        Icon: IconX },
-                        { key: 'fb', label: 'Facebook', Icon: IconFacebook },
-                        { key: 'li', label: 'LinkedIn', Icon: IconLinkedIn },
-                        { key: 'wa', label: 'WhatsApp', Icon: IconWhatsApp },
-                        { key: 'tg', label: 'Telegram', Icon: IconTelegram },
-                      ].map(({ key, label, Icon }) => (
-                        <button
-                          key={key}
-                          type="button"
-                          title={label}
-                          aria-label={label}
-                          onClick={() => {
-                            openShareWindow(shareLinks[key as keyof typeof shareLinks])
-                            setShareOpen(false)
-                          }}
-                          className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-gray-200/50 dark:border-gray-700/60 bg-white/80 dark:bg-black/30 shadow-sm hover:bg-gray-100 dark:hover:bg-gray-800 hover:scale-[1.05] anim-soft"
-                        >
-                          <Icon />
-                        </button>
-                      ))}
-                    </div>
-
-                    {useSheet && (
-                      <button
-                        onClick={() => setShareOpen(false)}
-                        className="mt-3 w-full text-center text-sm text-gray-600 dark:text-gray-300 py-2 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 anim-soft"
-                      >
-                        Zapri
-                      </button>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* Odpri cel članek — auto close po kliku */}
               <a
                 href={url}
                 target="_blank"
@@ -658,7 +543,6 @@ export default function ArticlePreview({ url, onClose }: Props) {
                 Odpri cel članek
               </a>
 
-              {/* Zapri */}
               <button
                 ref={closeRef}
                 onClick={onClose}
