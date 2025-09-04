@@ -48,8 +48,6 @@ const PREVIEW_TYPO_CSS = `
 
 /* Ikone (skrajšano) */
 function IconShareIOS(props: React.SVGProps<SVGSVGElement>) { return (<svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" {...props}><path fill="currentColor" d="M12 3c.4 0 .8.16 1.06.44l3 3a1.5 1.5 0 1 1-2.12 2.12L13.5 7.12V14a1.5 1.5 0 1 1-3 0V7.12L9.06 8.56A1.5 1.5 0 0 1 6.94 6.44l3-3C10.2 3.16 10.6 3 11 3h1z"/><path fill="currentColor" d="M5 10.5A2.5 2.5 0 0 0 2.5 13v6A2.5 2.5 0 0 0 5 21.5h14A2.5 2.5 0 0 0 21.5 19v-6A2.5 2.5 0 0 0 19 10.5h-2a1.5 1.5 0 1 0 0 3h2V19H5v-5.5h2a1.5 1.5 0 1 0 0-3H5z"/></svg>) }
-function IconCheck(props: React.SVGProps<SVGSVGElement>) { return (<svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" {...props}><path fill="currentColor" d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z" /></svg>) }
-function IconX(props: React.SVGProps<SVGSVGElement>) { return (<svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" {...props}><path fill="currentColor" d="M17.5 3h-3.1l-3.3 5L7 3H3l6.1 8.5L3.5 21h3.1l3.6-5.4L17 21h4l-6.7-9.2L21 3h-3.5l-3.9 5.8z"/></svg>) }
 function IconFacebook(props: React.SVGProps<SVGSVGElement>) { return (<svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" {...props}><path fill="currentColor" d="M13 21v-7h2.3l.4-3H13V9.3c0-.9.3-1.5 1.6-1.5H16V5.1C15.6 5 14.7 5 13.7 5 11.5 5 10 6.3 10 8.9V11H7.7v3H10v7h3z"/></svg>) }
 function IconLinkedIn(props: React.SVGProps<SVGSVGElement>) { return (<svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" {...props}><path fill="currentColor" d="M6.5 6.5A2.5 2.5 0 1 1 1.5 6.5a2.5 2.5 0 0 1 5 0zM2 8.8h4.9V22H2zM14.9 8.5c-2.7 0-4 1.5-4.6 2.5V8.8H5.4V22h4.9v-7c0-1.9 1-2.9 2.5-2.9 1.4 0 2.3 1 2.3 2.9V22H20v-7.7c0-3.3-1.8-5.8-5.1-5.8z"/></svg>) }
 function IconWhatsApp(props: React.SVGProps<SVGSVGElement>) { return (<svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" {...props}><path fill="currentColor" d="M12 2a10 10 0 0 0-8.7 15l-1.3 4.7 4.8-1.3A10 10 0 1 0 12 2zm5.6 14.6c-.2.6-1.2 1.1-1.7 1.2-.5.1-1 .2-1.7-.1-.4-.1-1-.3-1.8-.7-3.1-1.4-5.2-4.7-5.3-4.9-.2-.3-1.3-1.7-1.3-3.2 0-1.4.7-2.1 1-2.4.2-.2.6-.3 1-.3h.7c.2 0 .5 0 .7.6.3.7 1 2.6 1 2.8.1.2.1.4 0 .6-.1.2-.2.4-.4.6-.2.2-.4.5-.2.9.2.4.9 1.5 2 2.4 1.4 1.2 2.6 1.6 3 .1.2-.4.5-.5.8-.4.3.1 1.8.8 2.1 1 .3.2.5.4.6.6.1.5.1 1-.1 1.2z"/></svg>) }
@@ -121,7 +119,7 @@ async function waitForImages(root: HTMLElement, timeoutMs = 5000) {
   if (imgs.length === 0) return
   await Promise.all(imgs.map(img => {
     if (img.complete && img.naturalWidth > 0) return
-    return new Promise<void>(resolve => {
+    return new Promise<void>((resolve) => {
       let done = false
       const clear = () => {
         if (done) return; done = true
@@ -459,26 +457,47 @@ export default function ArticlePreview({ url, onClose }: Props) {
     URL.revokeObjectURL(link.href)
   }, [])
 
-  /** KLJUČNO: renderiramo KLON, v katerem forciramo unikaten cache-bust za vsako sliko. */
+  /** Offscreen snapshot: klon vstavimo v skriti container, dodamo watermark, počakamo slike in renderiramo. */
   const doSnapshot = useCallback(async (): Promise<Blob> => {
     if (!snapshotRef.current) throw new Error('no-snapshot-node')
 
-    // delamo na klonu, da ne spreminjamo živega DOM-a in da ne “pobiramo” starih slik
-    const node = snapshotRef.current.cloneNode(true) as HTMLElement
+    // 1) kloniraj vsebino
+    const clone = snapshotRef.current.cloneNode(true) as HTMLElement
 
-    // za ta snapshot prisilno zbustaj URL-je slik (tudi če so isti kot prej)
+    // 2) watermark (domena + naslov)
+    const wm = document.createElement('div')
+    wm.style.cssText =
+      'display:flex;align-items:center;gap:.5rem;margin-top:.75rem;padding:.5rem .75rem;' +
+      'border-radius:10px;background:rgba(0,0,0,.55);color:#fff;font:500 12px/1.4 system-ui,-apple-system,Segoe UI,Roboto;'
+    const siteText = site || (() => { try { return new URL(url).hostname } catch { return 'krizisce.si' } })()
+    wm.textContent = `${title || 'Članek'} — ${siteText}`
+    const wrap = document.createElement('div')
+    wrap.appendChild(wm)
+    clone.appendChild(wrap)
+
+    // 3) prisili unikaten cache-bust za slike & izklopi lazy
     const snapBust = `${Date.now().toString(36)}${Math.random().toString(36).slice(2,6)}`
-    node.querySelectorAll('img').forEach((img) => {
+    clone.querySelectorAll('img').forEach((img) => {
       const src = img.getAttribute('src')
       if (src) img.setAttribute('src', withCacheBust(src, snapBust))
-      img.removeAttribute('loading')      // no lazy
+      img.removeAttribute('loading')
       img.setAttribute('decoding', 'sync')
       img.setAttribute('crossorigin', 'anonymous')
       img.setAttribute('referrerpolicy', 'no-referrer')
+      img.removeAttribute('srcset'); img.removeAttribute('sizes')
     })
 
-    // poskrbi, da so slike res naložene v klonu
-    await waitForImages(node)
+    // 4) offscreen container (renderiran, ne prikazan)
+    const offscreen = document.createElement('div')
+    const width = snapshotRef.current.offsetWidth || 640
+    offscreen.style.cssText =
+      `position:fixed;left:-99999px;top:0;width:${width}px;` + // izven ekrana
+      'pointer-events:none;contain:content;z-index:-1;'        // ne vpliva na stran
+    offscreen.appendChild(clone)
+    document.body.appendChild(offscreen)
+
+    // 5) počakaj slike v KLONU
+    await waitForImages(offscreen)
 
     const prefersDark = window.matchMedia?.('(prefers-color-scheme: dark)').matches
     const backgroundColor = prefersDark ? '#111827' : '#ffffff'
@@ -487,14 +506,19 @@ export default function ArticlePreview({ url, onClose }: Props) {
       ? Math.min(2, window.devicePixelRatio || 1)
       : Math.max(2, window.devicePixelRatio || 1)
 
-    const blob = await toBlob(node, {
-      cacheBust: true, // dodatni varnostni pas
-      pixelRatio,
-      backgroundColor,
-    })
-    if (!blob) throw new Error('snapshot-render-failed')
-    return blob
-  }, [])
+    try {
+      const blob = await toBlob(offscreen, {
+        cacheBust: true,
+        pixelRatio,
+        backgroundColor,
+      })
+      if (!blob) throw new Error('snapshot-render-failed')
+      return blob
+    } finally {
+      // 6) počisti DOM
+      offscreen.remove()
+    }
+  }, [title, site, url])
 
   const handleSnapshot = useCallback(async (e?: ReactMouseEvent<HTMLButtonElement>) => {
     setSnapshotBusy(true)
@@ -639,7 +663,6 @@ export default function ArticlePreview({ url, onClose }: Props) {
             {!loading && !error && (
               <div className="preview-typo max-w-none text-gray-900 dark:text-gray-100">
                 {/* Točno to bomo zajeli */}
-                {/* KLJUČNO: key={url} prisili remount ob menjavi članka */}
                 <div key={url} ref={snapshotRef} className="relative">
                   <div dangerouslySetInnerHTML={{ __html: content }} />
                   <div className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-white dark:from-gray-900 to-transparent" />
