@@ -23,6 +23,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   try {
     const forceFresh = req.query.forceFresh === '1'
     const debug = req.query.debug === '1'
+    const page = Math.max(parseInt(req.query.page as string) || 1, 1)
+    const limit = Math.min(parseInt(req.query.limit as string) || 100, 100)
+    const from = (page - 1) * limit
+    const to = from + limit - 1
 
     // 1) beri iz Supabase (anon key ima SELECT policy)
     if (!forceFresh) {
@@ -30,7 +34,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         .from('news')
         .select('link,title,source,image,contentsnippet,isodate,pubdate,publishedat')
         .order('publishedat', { ascending: false })
-        .limit(100)
+        .range(from, to)
 
       if (!error && Array.isArray(data) && data.length) {
         const payload: NewsItem[] = data.map((r: any) => ({
