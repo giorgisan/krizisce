@@ -12,6 +12,7 @@ import React, {
 import { createPortal } from 'react-dom'
 import DOMPurify from 'dompurify'
 import { preloadPreview, peekPreview } from '@/lib/previewPrefetch'
+import { toBlob } from 'html-to-image' // ← NEW (npm i html-to-image)
 
 interface Props { url: string; onClose: () => void }
 
@@ -95,6 +96,14 @@ function IconTelegram(props: React.SVGProps<SVGSVGElement>) {
   return (
     <svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" {...props}>
       <path fill="currentColor" d="M21.9 3.3c-.3-.2-.7-.2-1.1 0L2.8 10.6c-.7.3-.7 1.4.1 1.6l4.7 1.5 1.7 5.2c.2.7 1.1.9 1.6.3l2.6-2.8 4.3 3.1c.6.4 1.5.1 1.7-.6l3.1-14.4c.1-.5-.1-1-.6-1.2z"/>
+    </svg>
+  )
+}
+// NEW: kamera ikona (majhna)
+function IconCamera(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" {...props}>
+      <path fill="currentColor" d="M9 4a2 2 0 0 0-1.8 1.1L6.6 6H5a3 3 0 0 0-3 3v8a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3V9a3 3 0 0 0-3-3h-1.6l-.6-.9A2 2 0 0 0 15 4H9zm3 5a5 5 0 1 1 0 10 5 5 0 0 1 0-10zm0 2.5A2.5 2.5 0 1 0 14.5 14 2.5 2.5 0 0 0 12 11.5z"/>
     </svg>
   )
 }
@@ -269,6 +278,11 @@ export default function ArticlePreview({ url, onClose }: Props) {
   const modalRef = useRef<HTMLDivElement>(null)
   const closeRef = useRef<HTMLButtonElement>(null)
 
+  // snapshot
+  const [snapshotBusy, setSnapshotBusy] = useState(false)
+  // referenca na **dejanski prikazani predogled** (HTML + gradient)
+  const snapshotRef = useRef<HTMLDivElement>(null)
+
   // prefer native share samo na “coarse pointer” napravah
   const coarsePointerRef = useRef(false)
   useEffect(() => {
@@ -434,6 +448,52 @@ export default function ArticlePreview({ url, onClose }: Props) {
     }
   }, [url])
 
+  // ---------- SNAPSHOT (dejansko prikazani predogled) ----------
+  const downloadBlob = useCallback((blob: Blob, filename = 'article-snapshot.png') => {
+    const link = document.createElement('a')
+    link.href = URL.createObjectURL(blob)
+    link.download = filename
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(link.href)
+  }, [])
+
+  const handleSnapshot = useCallback(async () => {
+    if (!snapshotRef.current) return
+    setSnapshotBusy(true)
+    try {
+      // Ozadje: enako tvojemu light/dark, da PNG ni prosojen
+      const prefersDark =
+        window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
+      const backgroundColor = prefersDark ? '#111827' /* tailwind gray-900 */ : '#ffffff'
+
+      // Render DOM → PNG blob (višji ppi za ostrino)
+      const blob = await toBlob(snapshotRef.current, {
+        cacheBust: true,
+        pixelRatio: Math.max(2, window.devicePixelRatio || 1),
+        backgroundColor,
+      })
+      if (!blob) throw new Error('snapshot-render-failed')
+
+      // Poskusi kopirati v odložišče
+      try {
+        // @ts-expect-error: ClipboardItem je lahko ne-typan v TS
+        const item = new ClipboardItem({ 'image/png': blob })
+        await navigator.clipboard.write([item])
+        setCopied(true); setTimeout(() => setCopied(false), 1500)
+      } catch {
+        // Fallback: prenos PNG
+        downloadBlob(blob)
+      }
+    } catch (err) {
+      console.error('Snapshot failed:', err)
+    } finally {
+      setSnapshotBusy(false)
+    }
+  }, [downloadBlob])
+  // -------------------------------------------------------------
+
   if (typeof document === 'undefined') return null
 
   return createPortal(
@@ -470,6 +530,18 @@ export default function ArticlePreview({ url, onClose }: Props) {
             </div>
 
             <div className="flex items-center gap-2 shrink-0 relative">
+              {/* Snapshot (majhen fotoaparat) */}
+              <button
+                type="button"
+                onClick={handleSnapshot}
+                disabled={snapshotBusy}
+                aria-label="Kopiraj snapshot predogleda"
+                title="Kopiraj snapshot predogleda"
+                className="inline-flex items-center justify-center rounded-lg h-8 w-8 text-sm bg-gray-100/70 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 anim-soft disabled:opacity-60"
+              >
+                <IconCamera />
+              </button>
+
               {/* Share button */}
               <button
                 ref={shareBtnRef}
@@ -588,7 +660,8 @@ export default function ArticlePreview({ url, onClose }: Props) {
 
             {!loading && !error && (
               <div className="preview-typo max-w-none text-gray-900 dark:text-gray-100">
-                <div className="relative">
+                {/* === Točno ta prikaz zajamemo v snapshot (ref spodaj) === */}
+                <div ref={snapshotRef} className="relative">
                   <div dangerouslySetInnerHTML={{ __html: content }} />
                   <div className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-white dark:from-gray-900 to-transparent" />
                 </div>
@@ -605,7 +678,7 @@ export default function ArticlePreview({ url, onClose }: Props) {
                     Za ogled celotnega članka, obiščite spletno stran
                   </a>
 
-                    <button
+                  <button
                     type="button"
                     onClick={onClose}
                     className="inline-flex justify-center rounded-md px-4 py-2 bg-gray-100/80 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 text-sm anim-soft"
