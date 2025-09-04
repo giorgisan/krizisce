@@ -46,7 +46,7 @@ const PREVIEW_TYPO_CSS = `
   .preview-typo a { text-decoration: underline; text-underline-offset: 2px; }
 `
 
-/* Ikone (skrajšane zaradi prostora) */
+/* Ikone (skrajšano) */
 function IconShareIOS(props: React.SVGProps<SVGSVGElement>) { return (<svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" {...props}><path fill="currentColor" d="M12 3c.4 0 .8.16 1.06.44l3 3a1.5 1.5 0 1 1-2.12 2.12L13.5 7.12V14a1.5 1.5 0 1 1-3 0V7.12L9.06 8.56A1.5 1.5 0 0 1 6.94 6.44l3-3C10.2 3.16 10.6 3 11 3h1z"/><path fill="currentColor" d="M5 10.5A2.5 2.5 0 0 0 2.5 13v6A2.5 2.5 0 0 0 5 21.5h14A2.5 2.5 0 0 0 21.5 19v-6A2.5 2.5 0 0 0 19 10.5h-2a1.5 1.5 0 1 0 0 3h2V19H5v-5.5h2a1.5 1.5 0 1 0 0-3H5z"/></svg>) }
 function IconCheck(props: React.SVGProps<SVGSVGElement>) { return (<svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" {...props}><path fill="currentColor" d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z" /></svg>) }
 function IconX(props: React.SVGProps<SVGSVGElement>) { return (<svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" {...props}><path fill="currentColor" d="M17.5 3h-3.1l-3.3 5L7 3H3l6.1 8.5L3.5 21h3.1l3.6-5.4L17 21h4l-6.7-9.2L21 3h-3.5l-3.9 5.8z"/></svg>) }
@@ -56,6 +56,7 @@ function IconWhatsApp(props: React.SVGProps<SVGSVGElement>) { return (<svg viewB
 function IconTelegram(props: React.SVGProps<SVGSVGElement>) { return (<svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" {...props}><path fill="currentColor" d="M21.9 3.3c-.3-.2-.7-.2-1.1 0L2.8 10.6c-.7.3-.7 1.4.1 1.6l4.7 1.5 1.7 5.2c.2.7 1.1.9 1.6.3l2.6-2.8 4.3 3.1c.6.4 1.5.1 1.7-.6l3.1-14.4c.1-.5-.1-1-.6-1.2z"/></svg>) }
 function IconCamera(props: React.SVGProps<SVGSVGElement>) { return (<svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" {...props}><path fill="currentColor" d="M9 4a2 2 0 0 0-1.8 1.1L6.6 6H5a3 3 0 0 0-3 3v8a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3V9a3 3 0 0 0-3-3h-1.6l-.6-.9A2 2 0 0 0 15 4H9zm3 5a5 5 0 1 1 0 10 5 5 0 0 1 0-10zm0 2.5A2.5 2.5 0 1 0 14.5 14 2.5 2.5 0 0 0 12 11.5z"/></svg>) }
 
+/* Utils */
 function trackClick(source: string, url: string) {
   try {
     const payload = JSON.stringify({ source, url, from: 'preview' })
@@ -74,14 +75,21 @@ function absolutize(raw: string, baseUrl: string): string {
   try { return new URL(raw, baseUrl).toString() } catch { return raw }
 }
 
-// ---- NOVO: proxy za slike (isti origin) ----
+// --- proxy + cache-bust ---
 function proxyImageSrc(absUrl: string): string {
-  // če je že naš proxy, pusti
   try { if (new URL(absUrl).pathname.startsWith('/api/img')) return absUrl } catch {}
-  const u = encodeURIComponent(absUrl)
-  return `/api/img?u=${u}`
+  return `/api/img?u=${encodeURIComponent(absUrl)}`
 }
-// -------------------------------------------
+function withCacheBust(u: string, bust: string) {
+  try {
+    const url = new URL(u, typeof location !== 'undefined' ? location.origin : 'http://localhost')
+    url.searchParams.set('cb', bust)
+    return url.toString()
+  } catch {
+    const sep = u.includes('?') ? '&' : '?'
+    return `${u}${sep}cb=${encodeURIComponent(bust)}`
+  }
+}
 
 function imageKeyFromSrc(src: string | null | undefined): string {
   if (!src) return ''
@@ -107,8 +115,30 @@ function basenameStem(pathname: string): string {
     .replace(/-scaled$/g, '')
 }
 
-/** Client-side clean + polish + PROXY IMG */
-function cleanPreviewHTML(html: string, baseUrl: string, knownTitle?: string): string {
+/** počakaj, da se slike naložijo (da html-to-image ne vzame stare iz cache-a) */
+async function waitForImages(root: HTMLElement, timeoutMs = 5000) {
+  const imgs = Array.from(root.querySelectorAll('img'))
+  if (imgs.length === 0) return
+  await Promise.all(imgs.map(img => {
+    if (img.complete && img.naturalWidth > 0) return
+    return new Promise<void>(resolve => {
+      let done = false
+      const clear = () => {
+        if (done) return; done = true
+        img.removeEventListener('load', onload)
+        img.removeEventListener('error', onload)
+        resolve()
+      }
+      const onload = () => clear()
+      img.addEventListener('load', onload)
+      img.addEventListener('error', onload)
+      setTimeout(clear, timeoutMs)
+    })
+  }))
+}
+
+/** Client-side clean + polish + PROXY IMG + CACHE-BUST */
+function cleanPreviewHTML(html: string, baseUrl: string, knownTitle: string | undefined, bust: string): string {
   try {
     const wrap = document.createElement('div')
     wrap.innerHTML = html
@@ -139,7 +169,8 @@ function cleanPreviewHTML(html: string, baseUrl: string, knownTitle?: string): s
       const firstRaw = first.getAttribute('src') || first.getAttribute('data-src') || ''
       const firstAbs = absolutize(firstRaw, baseUrl)
       if (firstAbs) {
-        first.setAttribute('src', proxyImageSrc(firstAbs))
+        const prox = proxyImageSrc(firstAbs)
+        first.setAttribute('src', withCacheBust(prox, bust))
         first.setAttribute('crossorigin', 'anonymous')
       }
       first.removeAttribute('data-src')
@@ -158,9 +189,9 @@ function cleanPreviewHTML(html: string, baseUrl: string, knownTitle?: string): s
         const raw = img.getAttribute('src') || img.getAttribute('data-src') || ''
         if (!raw) { (img.closest('figure, picture') || img).remove(); return }
 
-        const abs = absolutize(raw, baseUrl)
+        const abs  = absolutize(raw, baseUrl)
         const prox = proxyImageSrc(abs)
-        img.setAttribute('src', prox)
+        img.setAttribute('src', withCacheBust(prox, bust))
         img.setAttribute('crossorigin', 'anonymous')
         img.removeAttribute('data-src')
         img.removeAttribute('srcset'); img.removeAttribute('sizes')
@@ -180,9 +211,8 @@ function cleanPreviewHTML(html: string, baseUrl: string, knownTitle?: string): s
       })
     }
 
-    // odstrani <picture> ovoje (da ne nosijo srcset/cors težav)
+    // odstrani <picture>/<source>, da srcset ne prepiše našega src
     wrap.querySelectorAll('picture,source').forEach((n) => n.replaceWith(...Array.from(n.childNodes)))
-
     return wrap.innerHTML
   } catch { return html }
 }
@@ -250,7 +280,10 @@ export default function ArticlePreview({ url, onClose }: Props) {
   const snapMsgTimer = useRef<number | null>(null)
   const snapshotRef = useRef<HTMLDivElement>(null)
 
-  // prefer native share na napravah s coarse pointerjem
+  // per-predogled cache-bust token (vezan na URL članka)
+  const cacheBust = useMemo(() => Math.random().toString(36).slice(2), [url])
+
+  // prefer native share samo na napravah s “coarse pointer”
   const coarsePointerRef = useRef(false)
   useEffect(() => {
     try { coarsePointerRef.current = window.matchMedia('(pointer: coarse)').matches } catch {}
@@ -269,7 +302,7 @@ export default function ArticlePreview({ url, onClose }: Props) {
     return () => mq.removeEventListener?.('change', set)
   }, [])
 
-  // cache-first → clean → trunc → sanitize
+  // cache-first → clean(+proxy+cb) → trunc → sanitize
   useEffect(() => {
     let alive = true
     const run = async () => {
@@ -284,7 +317,7 @@ export default function ArticlePreview({ url, onClose }: Props) {
         }
         setTitle(data.title); setSite(data.site)
 
-        const cleaned = cleanPreviewHTML(data.html, url, data.title)
+        const cleaned = cleanPreviewHTML(data.html, url, data.title, cacheBust)
         const truncated = truncateHTMLByWordsPercent(cleaned, TEXT_PERCENT)
         setContent(DOMPurify.sanitize(truncated))
         setLoading(false)
@@ -295,7 +328,7 @@ export default function ArticlePreview({ url, onClose }: Props) {
     }
     run()
     return () => { alive = false }
-  }, [url])
+  }, [url, cacheBust])
 
   // fokus trap + lock scroll
   useEffect(() => {
@@ -353,7 +386,7 @@ export default function ArticlePreview({ url, onClose }: Props) {
     snapMsgTimer.current = window.setTimeout(() => setSnapMsg(''), 2200)
   }, [])
 
-  // Odpri + sledenje
+  // Odpri + sledi
   const openSourceAndTrack = useCallback((e: ReactMouseEvent<HTMLAnchorElement>) => {
     const source = site || (() => { try { return new URL(url).hostname } catch { return 'unknown' } })()
     trackClick(source, url)
@@ -428,11 +461,20 @@ export default function ArticlePreview({ url, onClose }: Props) {
 
   const doSnapshot = useCallback(async (): Promise<Blob> => {
     if (!snapshotRef.current) throw new Error('no-snapshot-node')
+
+    // poskrbi, da so slike res naložene
+    await waitForImages(snapshotRef.current)
+
     const prefersDark = window.matchMedia?.('(prefers-color-scheme: dark)').matches
     const backgroundColor = prefersDark ? '#111827' : '#ffffff'
+    const isNarrow = window.matchMedia?.('(max-width: 640px)').matches
+    const pixelRatio = isNarrow
+      ? Math.min(2, window.devicePixelRatio || 1)
+      : Math.max(2, window.devicePixelRatio || 1)
+
     const blob = await toBlob(snapshotRef.current, {
-      cacheBust: true,
-      pixelRatio: Math.max(2, window.devicePixelRatio || 1),
+      cacheBust: true, // dodatni varnostni pas
+      pixelRatio,
       backgroundColor,
     })
     if (!blob) throw new Error('snapshot-render-failed')
@@ -444,6 +486,22 @@ export default function ArticlePreview({ url, onClose }: Props) {
     try {
       const forceDownload = !!e?.altKey
       const blob = await doSnapshot()
+      const isMobileUI = window.matchMedia?.('(max-width: 640px)').matches
+
+      if (isMobileUI && !forceDownload && 'share' in navigator) {
+        const file = new File([blob], 'article-snapshot.png', { type: 'image/png' })
+        const canShareFiles = (navigator as any).canShare?.({ files: [file] }) ?? false
+        if (canShareFiles) {
+          await (navigator as any).share({
+            files: [file],
+            title: title || site || 'Snapshot',
+            text: (title ? `${title}${site ? ` – ${site}` : ''}` : (site || 'Članek')),
+          })
+          showSnapMsg('Deljeno prek sistema.')
+          setSnapshotBusy(false)
+          return
+        }
+      }
 
       const canClipboard =
         !forceDownload &&
@@ -461,7 +519,7 @@ export default function ArticlePreview({ url, onClose }: Props) {
         showSnapMsg('Kopirano (PNG). Alt+klik za prenos.')
       } else {
         downloadBlob(blob)
-        showSnapMsg('PNG prenesen. (Alt+klik vedno prenese.)')
+        showSnapMsg('PNG prenesen.')
       }
     } catch (err) {
       console.error('Snapshot failed:', err)
@@ -506,7 +564,7 @@ export default function ArticlePreview({ url, onClose }: Props) {
             </div>
 
             <div className="flex items-center gap-2 shrink-0 relative">
-              {/* Snapshot (fotoaparat). Alt+klik = prenos PNG */}
+              {/* Snapshot (fotoaparat). Namig: Alt+klik = prenos PNG */}
               <button
                 type="button"
                 onClick={handleSnapshot}
@@ -565,7 +623,7 @@ export default function ArticlePreview({ url, onClose }: Props) {
 
             {!loading && !error && (
               <div className="preview-typo max-w-none text-gray-900 dark:text-gray-100">
-                {/* === Točno ta prikaz zajamemo (ref spodaj) === */}
+                {/* Točno to bomo zajeli */}
                 <div ref={snapshotRef} className="relative">
                   <div dangerouslySetInnerHTML={{ __html: content }} />
                   <div className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-white dark:from-gray-900 to-transparent" />
@@ -595,7 +653,7 @@ export default function ArticlePreview({ url, onClose }: Props) {
             )}
           </div>
 
-          {/* Toast za snapshot feedback */}
+          {/* Toast */}
           {snapMsg && (
             <div className="pointer-events-none fixed left-4 bottom-4 z-[60] rounded-lg bg-black/80 text-white text-sm px-3 py-2 shadow-lg">
               {snapMsg}
