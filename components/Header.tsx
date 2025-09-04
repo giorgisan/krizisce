@@ -132,34 +132,26 @@ export default function Header() {
       className="sticky top-0 z-40 bg-[#FAFAFA]/95 dark:bg-gray-900/70 backdrop-blur-md border-b border-gray-200 dark:border-gray-700 shadow-sm"
     >
       <div className="py-2 px-4 md:px-8 lg:px-16 flex items-center justify-between">
-        {/* Levo: Brand + Arhiv */}
-        <div className="flex items-center gap-4 min-w-0">
-          <Link href="/" onClick={onBrandClick} className="flex items-center gap-3 min-w-0">
-            <Image
-              src="/logo.png"
-              alt="Križišče"
-              width={36}
-              height={36}
-              priority
-              fetchPriority="high"
-              className="w-9 h-9 rounded-md"
-            />
-            <div className="min-w-0 leading-tight">
-              <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
-                Križišče
-              </h1>
-              <p className="text-xs sm:text-[13px] text-gray-600 dark:text-gray-400 mt-0.5">
-                Zadnje novice slovenskih medijev
-              </p>
-            </div>
-          </Link>
-          <Link
-            href="/archive"
-            className="text-sm font-medium text-gray-700 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white"
-          >
-            Arhiv
-          </Link>
-        </div>
+        {/* Levo: Brand */}
+        <Link href="/" onClick={onBrandClick} className="flex items-center gap-3 min-w-0">
+          <Image
+            src="/logo.png"
+            alt="Križišče"
+            width={36}
+            height={36}
+            priority
+            fetchPriority="high"
+            className="w-9 h-9 rounded-md"
+          />
+          <div className="min-w-0 leading-tight">
+            <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
+              Križišče
+            </h1>
+            <p className="text-xs sm:text-[13px] text-gray-600 dark:text-gray-400 mt-0.5">
+              Zadnje novice slovenskih medijev
+            </p>
+          </div>
+        </Link>
 
         {/* Desno: ura (>=sm), refresh + tema + filter trigger */}
         <div className="flex items-center gap-1.5 sm:gap-2">
