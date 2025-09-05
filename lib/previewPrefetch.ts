@@ -4,9 +4,9 @@ type Payload =
   | { error: string }
   | { title: string; site: string; image?: string | null; html: string; url: string }
 
-const TTL = 1000 * 60 * 5;     // 5 min
-const INFLIGHT_MAX = 3;        // največ hkratnih prefetchov
-const LRU_LIMIT = 200;         // zgornja meja velikosti cache-a
+const TTL = 1000 * 60 * 5      // 5 min
+const INFLIGHT_MAX = 3         // največ hkratnih prefetchov
+const LRU_LIMIT = 200          // zgornja meja cache-a
 
 type Entry = { ts: number; promise: Promise<Payload>; value?: Payload }
 const store = new Map<string, Entry>()
@@ -23,12 +23,10 @@ export function canPrefetch(): boolean {
     if (et.includes('2g') || et.includes('slow-2g')) return false
     if (typeof conn.downlink === 'number' && conn.downlink < 1) return false
     return true
-  } catch {
-    return true
-  }
+  } catch { return true }
 }
 
-/** LRU prirezovanje – združljivo z ES2015 (brez spread iteracije). */
+/** LRU prirezovanje */
 function trimLRU() {
   if (store.size <= LRU_LIMIT) return
   const toDrop = store.size - LRU_LIMIT
@@ -41,14 +39,12 @@ export function preloadPreview(articleUrl: string): Promise<Payload> {
   const key = articleUrl
   const now = Date.now()
 
-  // Svež cache? Uporabi obstoječ promise
   const cached = store.get(key)
   if (cached && now - cached.ts < TTL) return cached.promise
 
-  // Preveč hkratnih? Vrni obstoječega ali noop promise
   if (inflightCount >= INFLIGHT_MAX) {
     if (cached) return cached.promise
-    return Promise.resolve({ error: 'prefetch-skipped' } as any)
+    return Promise.resolve({ error: 'prefetch-skipped' })
   }
 
   inflightCount++
@@ -56,14 +52,16 @@ export function preloadPreview(articleUrl: string): Promise<Payload> {
   const p = (async (): Promise<Payload> => {
     try {
       const res = await fetch(`/api/preview?url=${encodeURIComponent(articleUrl)}`)
-      // Če server vrne 4xx/5xx, ne zapisuj v cache kot “value”
+      if (!res.ok) return { error: `http-${res.status}` }
+
       const data = (await res.json()) as Payload
       const e = store.get(key)
+
+      // v cache zapišemo samo, če ni napaka
       if (e && !('error' in data)) e.value = data
       return data
     } catch {
-      // Prefetch je “best-effort”: ne zapišemo napake v cache,
-      // odpiranje modala naj še vedno pokliče /api/preview normalno.
+      // prefetch je best-effort: UI naj se pri odpiranju še vedno poizkusi sveže naložiti
       return { error: 'prefetch-failed' }
     } finally {
       inflightCount = Math.max(0, inflightCount - 1)
