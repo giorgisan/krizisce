@@ -74,6 +74,29 @@ function withCacheBust(u: string, bust: string) {
   catch { const sep = u.includes('?') ? '&' : '?'; return `${u}${sep}cb=${encodeURIComponent(bust)}` }
 }
 
+/* ---- besedilni helperji (manjkali so v prejšnjem buildu) ---- */
+function wordSpans(text: string){ const spans:Array<{start:number;end:number}>=[]; const re=/[A-Za-z0-9À-ÖØ-öø-ÿĀ-žČŠŽčšžĆćĐđ]+(?:['’-][A-Za-z0-9À-ÖØ-öø-ÿĀ-žČŠŽčšžĆćĐđ]+)*/g; let m:RegExpExecArray|null; while((m=re.exec(text))!==null) spans.push({start:m.index,end:m.index+m[0].length}); return spans }
+function countWords(text:string){ return wordSpans(text).length }
+function truncateHTMLByWordsPercent(html:string, percent=0.76){
+  const src=document.createElement('div'); src.innerHTML=html
+  src.querySelectorAll('header,nav,footer,aside,.share,.social,.related,.tags').forEach((n)=>n.remove())
+  const out=src.cloneNode(true) as HTMLDivElement
+  const total=countWords(out.textContent||''); if (total===0) return out.innerHTML
+  const target=Math.max(1, Math.floor(total*percent)); let used=0
+  const w=document.createTreeWalker(out, NodeFilter.SHOW_TEXT); let node:Node|null=w.nextNode()
+  while(node){
+    const text=(node.textContent||''); const trimmed=text.trim()
+    if (!trimmed){ node=w.nextNode(); continue }
+    const spans=wordSpans(text); const local=spans.length; const remain=target-used
+    if (local<=remain){ used+=local; node=w.nextNode(); continue }
+    const cut=spans[Math.max(0, remain-1)]; const idx=cut?cut.end:0
+    ;(node as Text).textContent=text.slice(0, idx).trimEnd()
+    const range=document.createRange(); range.setStartAfter(node); const last=out.lastChild; if (last){ range.setEndAfter(last); range.deleteContents() }
+    break
+  }
+  return out.innerHTML
+}
+
 /** počakaj na slike */
 async function waitForImages(root: HTMLElement, timeoutMs = 6000) {
   const imgs = Array.from(root.querySelectorAll('img'))
@@ -197,11 +220,7 @@ export default function ArticlePreview({ url, onClose }: Props) {
 
         const cleaned = cleanAndExtract(data.html, url, data.title, cacheBust)
         const textOnly = DOMPurify.sanitize(cleaned.html)
-        const truncated = (() => {
-          const wrapper = document.createElement('div')
-          wrapper.innerHTML = textOnly
-          return truncateHTMLByWordsPercent(wrapper.innerHTML, TEXT_PERCENT)
-        })()
+        const truncated = truncateHTMLByWordsPercent(textOnly, TEXT_PERCENT)
 
         // primarni cover = iz API; fallback = prva slika iz HTML
         const primary = data.image ? withCacheBust(proxyImageSrc(data.image), cacheBust) : null
@@ -497,7 +516,7 @@ export default function ArticlePreview({ url, onClose }: Props) {
             </div>
 
             <div className="flex items-center gap-2 shrink-0 relative">
-              {/* Snapshot (fotoaparat). Namig: Alt+klik = prenos PNG */}
+              {/* Snapshot */}
               <button
                 type="button"
                 onClick={handleSnapshot}
