@@ -46,7 +46,7 @@ const PREVIEW_TYPO_CSS = `
   .preview-typo a { text-decoration: underline; text-underline-offset: 2px; }
 `
 
-/* Ikone */
+/* Ikone (skrajšano) */
 function IconShareIOS(props: React.SVGProps<SVGSVGElement>) { return (<svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" {...props}><path fill="currentColor" d="M12 3c.4 0 .8.16 1.06.44l3 3a1.5 1.5 0 1 1-2.12 2.12L13.5 7.12V14a1.5 1.5 0 1 1-3 0V7.12L9.06 8.56A1.5 1.5 0 0 1 6.94 6.44l3-3C10.2 3.16 10.6 3 11 3h1z"/><path fill="currentColor" d="M5 10.5A2.5 2.5 0 0 0 2.5 13v6A2.5 2.5 0 0 0 5 21.5h14A2.5 2.5 0 0 0 21.5 19v-6A2.5 2.5 0 0 0 19 10.5h-2a1.5 1.5 0 1 0 0 3h2V19H5v-5.5h2a1.5 1.5 0 1 0 0-3H5z"/></svg>) }
 function IconFacebook(props: React.SVGProps<SVGSVGElement>) { return (<svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" {...props}><path fill="currentColor" d="M13 21v-7h2.3l.4-3H13V9.3c0-.9.3-1.5 1.6-1.5H16V5.1C15.6 5 14.7 5 13.7 5 11.5 5 10 6.3 10 8.9V11H7.7v3H10v7h3z"/></svg>) }
 function IconLinkedIn(props: React.SVGProps<SVGSVGElement>) { return (<svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" {...props}><path fill="currentColor" d="M6.5 6.5A2.5 2.5 0 1 1 1.5 6.5a2.5 2.5 0 0 1 5 0zM2 8.8h4.9V22H2zM14.9 8.5c-2.7 0-4 1.5-4.6 2.5V8.8H5.4V22h4.9v-7c0-1.9 1-2.9 2.5-2.9 1.4 0 2.3 1 2.3 2.9V22H20v-7.7c0-3.3-1.8-5.8-5.1-5.8z"/></svg>) }
@@ -63,8 +63,7 @@ function trackClick(source: string, url: string) {
       const blob = new Blob([payload], { type: 'application/json' })
       navigator.sendBeacon(endpoint, blob)
     } else {
-      fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: payload, keepalive: true as any })
-        .catch(() => {})
+      fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: payload, keepalive: true as any }).catch(() => {})
     }
   } catch {}
 }
@@ -97,6 +96,7 @@ function truncateHTMLByWordsPercent(html:string, percent=0.76){
   return out.innerHTML
 }
 
+/** počakaj, da se slike naložijo */
 async function waitForImages(root: HTMLElement, timeoutMs = 5000) {
   const imgs = Array.from(root.querySelectorAll('img'))
   if (imgs.length === 0) return
@@ -151,7 +151,7 @@ function cleanAndExtract(
       const prox = proxyImageSrc(abs)
       const pinned = withCacheBust(prox, bust)
       img.setAttribute('src', pinned)
-      img.setAttribute('data-snap-src', pinned)   // ✨ tu označimo za snapshot
+      img.setAttribute('data-snap-src', pinned)   // <-- za snapshot
       img.removeAttribute('data-src')
       img.removeAttribute('srcset'); img.removeAttribute('sizes')
       img.setAttribute('loading', 'lazy')
@@ -205,11 +205,15 @@ export default function ArticlePreview({ url, onClose }: Props) {
     return () => mq.removeEventListener?.('change', set)
   }, [])
 
+  // cache-first → clean(+proxy+cb) → trunc → sanitize (+ cover)
   useEffect(() => {
     let alive = true
-    setCoverSnapSrc(null) // reset pri menjavi URL
+    // reset vsebine ob menjavi URL-a, da se ne “lepi”
+    setContent('')
+    setCoverSnapSrc(null)
+    setLoading(true); setError(null)
+
     const run = async () => {
-      setLoading(true); setError(null)
       try {
         let data = peekPreview(url) as ApiPayload | null
         if (!data) data = await preloadPreview(url)
@@ -221,7 +225,7 @@ export default function ArticlePreview({ url, onClose }: Props) {
         const cleaned = cleanAndExtract(data.html, url, data.title, cacheBust)
         const truncated = truncateHTMLByWordsPercent(cleaned.html, TEXT_PERCENT)
 
-        // cover: najprej image iz API, potem prva slika iz HTML
+        // cover: najprej iz API (če je), nato iz HTML; če ni → ostane null
         const fromApi = data.image ? withCacheBust(proxyImageSrc(data.image), cacheBust) : null
         setCoverSnapSrc(fromApi || cleaned.coverSnapSrc || null)
 
@@ -236,6 +240,7 @@ export default function ArticlePreview({ url, onClose }: Props) {
     return () => { alive = false }
   }, [url, cacheBust])
 
+  // fokus trap + lock scroll
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
@@ -264,6 +269,7 @@ export default function ArticlePreview({ url, onClose }: Props) {
     }
   }, [onClose, shareOpen])
 
+  // klik izven menija
   useEffect(() => {
     const onDocClick = (e: globalThis.MouseEvent) => {
       if (!shareOpen) return
@@ -297,6 +303,7 @@ export default function ArticlePreview({ url, onClose }: Props) {
     }
   }, [site, url, onClose])
 
+  // SHARE
   const handleShareClick = useCallback(() => {
     if (preferNativeShare) {
       const shareData: ShareData = {
@@ -354,6 +361,7 @@ export default function ArticlePreview({ url, onClose }: Props) {
     URL.revokeObjectURL(link.href)
   }, [])
 
+  /** Kartica: naslov + domena + (prva slika iz DOM-a) + izsek z fade-out; barve po temi. */
   const doSnapshot = useCallback(async (): Promise<Blob> => {
     const isDark =
       document.documentElement.classList.contains('dark') ||
@@ -367,9 +375,7 @@ export default function ArticlePreview({ url, onClose }: Props) {
     const root = document.createElement('div')
     root.style.cssText = `position:fixed;left:-10000px;top:0;width:${width}px;pointer-events:none;`
     const card = document.createElement('div')
-    card.style.cssText =
-      `background:${bg};color:${fg};padding:16px;border-radius:16px;border:1px solid ${shade};` +
-      'font: 500 14px/1.55 system-ui,-apple-system,Segoe UI,Roboto;'
+    card.style.cssText = `background:${bg};color:${fg};padding:16px;border-radius:16px;border:1px solid ${shade};font:500 14px/1.55 system-ui,-apple-system,Segoe UI,Roboto;`
     root.appendChild(card)
 
     const siteText = site || (() => { try { return new URL(url).hostname } catch { return 'krizisce.si' } })()
@@ -379,17 +385,14 @@ export default function ArticlePreview({ url, onClose }: Props) {
     const domainEl = document.createElement('div')
     domainEl.textContent = siteText
     domainEl.style.cssText = `color:${sub};font-size:12px;margin-bottom:10px;`
-    card.appendChild(titleEl)
-    card.appendChild(domainEl)
+    card.appendChild(titleEl); card.appendChild(domainEl)
 
-    // ✨ sliko preberemo iz ŽIVEGA DOM-a (data-snap-src), ne iz state-a
+    // PRVA SLIKA IZ ŽIVEGA DOM-a (če je ni, snapshot brez slike; ne pademo na star state)
     const domCover =
       snapshotRef.current?.querySelector<HTMLImageElement>('img[data-snap-src]')?.getAttribute('data-snap-src') ||
       snapshotRef.current?.querySelector<HTMLImageElement>('img')?.getAttribute('src') ||
       null
-    const chosenCover = domCover || coverSnapSrc
-
-    if (chosenCover) {
+    if (domCover) {
       const imgWrap = document.createElement('div')
       imgWrap.style.cssText = 'width:100%;aspect-ratio:16/9;border-radius:12px;overflow:hidden;background:#f3f4f6;margin-bottom:12px;'
       const img = new Image()
@@ -397,12 +400,13 @@ export default function ArticlePreview({ url, onClose }: Props) {
       img.loading = 'eager'
       img.crossOrigin = 'anonymous'
       img.referrerPolicy = 'no-referrer'
-      img.src = withCacheBust(chosenCover, `${Date.now().toString(36)}${Math.random().toString(36).slice(2,6)}`)
+      img.src = withCacheBust(domCover, `${Date.now().toString(36)}${Math.random().toString(36).slice(2,6)}`)
       img.style.cssText = 'width:100%;height:100%;object-fit:cover;display:block;'
       imgWrap.appendChild(img)
       card.appendChild(imgWrap)
     }
 
+    // besedilo z fade-out
     const rawText = (snapshotRef.current?.textContent || '').replace(/\s+/g, ' ').replace(/\u00A0/g, ' ').trim()
     const MAX_WORDS = 140
     const words = rawText.split(' ').filter(Boolean).slice(0, MAX_WORDS)
@@ -415,8 +419,7 @@ export default function ArticlePreview({ url, onClose }: Props) {
     bodyEl.style.cssText = 'white-space:pre-wrap;font-size:14px;line-height:1.55;padding-bottom:72px;'
     const fade = document.createElement('div')
     fade.style.cssText = `pointer-events:none;position:absolute;left:0;right:0;bottom:0;height:72px;background:linear-gradient(to top, ${bg}, rgba(0,0,0,0));`
-    textWrap.appendChild(bodyEl)
-    textWrap.appendChild(fade)
+    textWrap.appendChild(bodyEl); textWrap.appendChild(fade)
     card.appendChild(textWrap)
 
     document.body.appendChild(root)
@@ -433,7 +436,7 @@ export default function ArticlePreview({ url, onClose }: Props) {
     } finally {
       root.remove()
     }
-  }, [title, site, url, coverSnapSrc])
+  }, [title, site, url])
 
   const handleSnapshot = useCallback(async (e?: ReactMouseEvent<HTMLButtonElement>) => {
     setSnapshotBusy(true)
@@ -508,7 +511,7 @@ export default function ArticlePreview({ url, onClose }: Props) {
           className="bg-white dark:bg-gray-900 rounded-xl shadow-2xl w-full max-w-2xl mx-4 max-h-[80vh] overflow-y-auto border border-gray-200/10 transform transition-all duration-300 ease-out scale-95 opacity-0 animate-fadeInUp"
         >
           {/* Header */}
-          <div className="sticky top-0 z-10 flex items-center justify-between gap-3 px-5 py-4 border-b border-gray-200/20 bg-white/80 dark:bg-gray-900/80 backdrop-blur rounded-t-xl">
+          <div className="sticky top-0 z-10 flex items-center justify-content-between gap-3 px-5 py-4 border-b border-gray-200/20 bg-white/80 dark:bg-gray-900/80 backdrop-blur rounded-t-xl">
             <div className="min-w-0 flex-1">
               <div className="text-xs text-gray-500 dark:text-gray-400 truncate">{site}</div>
               <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">
@@ -554,7 +557,7 @@ export default function ArticlePreview({ url, onClose }: Props) {
                     <button onClick={() => openShareWindow(shareLinks.fb)} className="px-2 py-2 rounded-md bg-gray-100/70 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-sm">Facebook</button>
                     <button onClick={() => openShareWindow(shareLinks.li)} className="px-2 py-2 rounded-md bg-gray-100/70 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-sm">LinkedIn</button>
                     <button onClick={() => openShareWindow(shareLinks.wa)} className="px-2 py-2 rounded-md bg-gray-100/70 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-sm">WhatsApp</button>
-                    <button onClick={() => openShareWindow(shareLinks.tg)} className="px-2 py-2 rounded-md bg-gray-100/70 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-sm">Telegram</button>
+                    <button onClick={() => openShareWindow(shareLinks.tg)} className="px-2 py-2 rounded-md bg-gray-100/70 dark:bg-gray-800 hover:bg-gray-200 dark:hoverbg-gray-700 text-sm">Telegram</button>
                     <button onClick={copyToClipboard} className="px-2 py-2 rounded-md bg-gray-100/70 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-sm">
                       {copied ? 'Kopirano!' : 'Kopiraj povezavo'}
                     </button>
@@ -584,7 +587,7 @@ export default function ArticlePreview({ url, onClose }: Props) {
             </div>
           </div>
 
-          {/* Body (predogled) */}
+          {/* Body */}
           <div className="px-5 py-5">
             {loading && (
               <div className="flex items-center justify-center py-10">
