@@ -53,6 +53,9 @@ function IconLinkedIn(props: React.SVGProps<SVGSVGElement>) { return (<svg viewB
 function IconWhatsApp(props: React.SVGProps<SVGSVGElement>) { return (<svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" {...props}><path fill="currentColor" d="M12 2a10 10 0 0 0-8.7 15l-1.3 4.7 4.8-1.3A10 10 0 1 0 12 2zm5.6 14.6c-.2.6-1.2 1.1-1.7 1.2-.5.1-1 .2-1.7-.1-.4-.1-1-.3-1.8-.7-3.1-1.4-5.2-4.7-5.3-4.9-.2-.3-1.3-1.7-1.3-3.2 0-1.4.7-2.1 1-2.4.2-.2.6-.3 1-.3h.7c.2 0 .5 0 .7.6.3.7 1 2.6 1 2.8.1.2.1.4 0 .6-.1.2-.2.4-.4.6-.2.2-.4.5-.2.9.2.4.9 1.5 2 2.4 1.4 1.2 2.6 1.6 3 .1.2-.4.5-.5.8-.4.3.1 1.8.8 2.1 1 .3.2.5.4.6.6.1.5.1 1-.1 1.2z"/></svg>) }
 function IconTelegram(props: React.SVGProps<SVGSVGElement>) { return (<svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" {...props}><path fill="currentColor" d="M21.9 3.3c-.3-.2-.7-.2-1.1 0L2.8 10.6c-.7.3-.7 1.4.1 1.6l4.7 1.5 1.7 5.2c.2.7 1.1.9 1.6.3l2.6-2.8 4.3 3.1c.6.4 1.5.1 1.7-.6l3.1-14.4c.1-.5-.1-1-.6-1.2z"/></svg>) }
 function IconCamera(props: React.SVGProps<SVGSVGElement>) { return (<svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" {...props}><path fill="currentColor" d="M9 4a2 2 0 0 0-1.8 1.1L6.6 6H5a3 3 0 0 0-3 3v8a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3V9a3 3 0 0 0-3-3h-1.6l-.6-.9A2 2 0 0 0 15 4H9zm3 5a5 5 0 1 1 0 10 5 5 0 0 1 0-10zm0 2.5A2.5 2.5 0 1 0 14.5 14 2.5 2.5 0 0 0 12 11.5z"/></svg>) }
+/* dodatni ikoni */
+function IconX(props: React.SVGProps<SVGSVGElement>){return(<svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" {...props}><path d="M3 3l18 18M21 3L3 21" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>)}
+function IconLink(props: React.SVGProps<SVGSVGElement>){return(<svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" {...props}><path fill="none" stroke="currentColor" strokeWidth="2" d="M10.5 13.5l3-3M8 14a4 4 0 010-8h3M16 18h-3a4 4 0 010-8"/></svg>)}
 
 /* Utils */
 function trackClick(source: string, url: string) {
@@ -74,7 +77,7 @@ function withCacheBust(u: string, bust: string) {
   catch { const sep = u.includes('?') ? '&' : '?'; return `${u}${sep}cb=${encodeURIComponent(bust)}` }
 }
 
-/* ---- besedilni helperji (manjkali so v prejšnjem buildu) ---- */
+/* ---- besedilni helperji ---- */
 function wordSpans(text: string){ const spans:Array<{start:number;end:number}>=[]; const re=/[A-Za-z0-9À-ÖØ-öø-ÿĀ-žČŠŽčšžĆćĐđ]+(?:['’-][A-Za-z0-9À-ÖØ-öø-ÿĀ-žČŠŽčšžĆćĐđ]+)*/g; let m:RegExpExecArray|null; while((m=re.exec(text))!==null) spans.push({start:m.index,end:m.index+m[0].length}); return spans }
 function countWords(text:string){ return wordSpans(text).length }
 function truncateHTMLByWordsPercent(html:string, percent=0.76){
@@ -114,7 +117,7 @@ async function waitForImages(root: HTMLElement, timeoutMs = 6000) {
   }))
 }
 
-/** Očisti HTML, absolutizira linke in vrne tudi prvo najdeno sliko (če API ne poda coverja). */
+/** Očisti HTML + pobere prvo sliko (fallback). */
 function cleanAndExtract(html: string, baseUrl: string, knownTitle: string | undefined, bust: string) {
   const wrap = document.createElement('div')
   wrap.innerHTML = html
@@ -203,10 +206,7 @@ export default function ArticlePreview({ url, onClose }: Props) {
   // fetch + sanitize (+cover)
   useEffect(() => {
     let alive = true
-
-    // reset – da se stari podatki ne lepijo
-    setContent('')
-    setCoverSnapSrc(null)
+    setContent(''); setCoverSnapSrc(null)
     setLoading(true); setError(null)
 
     const run = async () => {
@@ -222,7 +222,6 @@ export default function ArticlePreview({ url, onClose }: Props) {
         const textOnly = DOMPurify.sanitize(cleaned.html)
         const truncated = truncateHTMLByWordsPercent(textOnly, TEXT_PERCENT)
 
-        // primarni cover = iz API; fallback = prva slika iz HTML
         const primary = data.image ? withCacheBust(proxyImageSrc(data.image), cacheBust) : null
         setCoverSnapSrc(primary || cleaned.firstImg || null)
 
@@ -271,10 +270,12 @@ export default function ArticlePreview({ url, onClose }: Props) {
     const onDocClick = (e: globalThis.MouseEvent) => {
       if (!shareOpen) return
       const target = e.target as Node
-      if (shareMenuRef.current && !shareMenuRef.current.contains(target) &&
-          shareBtnRef.current && !shareBtnRef.current.contains(target)) {
-        setShareOpen(false)
-      }
+      if (
+        shareMenuRef.current &&
+        !shareMenuRef.current.contains(target) &&
+        shareBtnRef.current &&
+        !shareBtnRef.current.contains(target)
+      ) setShareOpen(false)
     }
     document.addEventListener('mousedown', onDocClick)
     return () => document.removeEventListener('mousedown', onDocClick)
@@ -339,10 +340,8 @@ export default function ArticlePreview({ url, onClose }: Props) {
     } catch {
       const ta = document.createElement('textarea')
       ta.value = url
-      ta.style.position = 'fixed'
-      ta.style.opacity = '0'
-      document.body.appendChild(ta)
-      ta.select()
+      ta.style.position = 'fixed'; ta.style.opacity = '0'
+      document.body.appendChild(ta); ta.select()
       try { document.execCommand('copy'); setCopied(true); setTimeout(() => setCopied(false), 1500) } catch {}
       document.body.removeChild(ta)
     }
@@ -359,7 +358,7 @@ export default function ArticlePreview({ url, onClose }: Props) {
     URL.revokeObjectURL(link.href)
   }, [])
 
-  /** Snapshot kartica: naslov + domena + cover iz state-a + izsek z fade-out; barve po temi. */
+  /** Snapshot kartica */
   const doSnapshot = useCallback(async (): Promise<Blob> => {
     const isDark =
       document.documentElement.classList.contains('dark') ||
@@ -385,23 +384,17 @@ export default function ArticlePreview({ url, onClose }: Props) {
     domainEl.style.cssText = `color:${sub};font-size:12px;margin-bottom:10px;`
     card.appendChild(titleEl); card.appendChild(domainEl)
 
-    // ⚠️ Vedno uporabljamo cover iz state-a, ne DOM-a
     const cover = coverSnapSrc ? withCacheBust(coverSnapSrc, `${Date.now().toString(36)}${Math.random().toString(36).slice(2,6)}`) : null
     if (cover) {
       const imgWrap = document.createElement('div')
       imgWrap.style.cssText = 'width:100%;aspect-ratio:16/9;border-radius:12px;overflow:hidden;background:#f3f4f6;margin-bottom:12px;'
       const img = new Image()
-      img.decoding = 'sync'
-      img.loading = 'eager'
-      img.crossOrigin = 'anonymous'
-      img.referrerPolicy = 'no-referrer'
+      img.decoding = 'sync'; img.loading = 'eager'; img.crossOrigin = 'anonymous'; img.referrerPolicy = 'no-referrer'
       img.src = cover
       img.style.cssText = 'width:100%;height:100%;object-fit:cover;display:block;'
-      imgWrap.appendChild(img)
-      card.appendChild(imgWrap)
+      imgWrap.appendChild(img); card.appendChild(imgWrap)
     }
 
-    // izsek iz trenutnega predogleda + fade-out
     const rawText = (snapshotRef.current?.textContent || '').replace(/\s+/g, ' ').replace(/\u00A0/g, ' ').trim()
     const MAX_WORDS = 140
     const words = rawText.split(' ').filter(Boolean).slice(0, MAX_WORDS)
@@ -428,9 +421,7 @@ export default function ArticlePreview({ url, onClose }: Props) {
       })
       if (!blob) throw new Error('snapshot-render-failed')
       return blob
-    } finally {
-      root.remove()
-    }
+    } finally { root.remove() }
   }, [title, site, url, coverSnapSrc])
 
   const handleSnapshot = useCallback(async (e?: ReactMouseEvent<HTMLButtonElement>) => {
@@ -449,9 +440,7 @@ export default function ArticlePreview({ url, onClose }: Props) {
             title: title || site || 'Snapshot',
             text: (title ? `${title}${site ? ` – ${site}` : ''}` : (site || 'Članek')),
           })
-          showSnapMsg('Deljeno prek sistema.')
-          setSnapshotBusy(false)
-          return
+          showSnapMsg('Deljeno prek sistema.'); setSnapshotBusy(false); return
         }
       }
 
@@ -476,9 +465,7 @@ export default function ArticlePreview({ url, onClose }: Props) {
     } catch (err) {
       console.error('Snapshot failed:', err)
       showSnapMsg('Napaka pri snapshotu.')
-    } finally {
-      setSnapshotBusy(false)
-    }
+    } finally { setSnapshotBusy(false) }
   }, [doSnapshot, downloadBlob, title, site, showSnapMsg])
   // -----------------------------
 
@@ -542,23 +529,92 @@ export default function ArticlePreview({ url, onClose }: Props) {
                 <span className="hidden sm:inline">Deli</span>
               </button>
 
+              {/* Modern Share menu */}
               {shareOpen && (
-                <div
-                  ref={shareMenuRef}
-                  role="menu"
-                  className="absolute right-24 top-10 z-20 w-64 rounded-lg border border-gray-200/20 bg-white dark:bg-gray-900 shadow-xl p-2"
-                >
-                  <div className="grid grid-cols-3 gap-2 p-1">
-                    <button onClick={() => openShareWindow(shareLinks.x)} className="px-2 py-2 rounded-md bg-gray-100/70 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-sm">X</button>
-                    <button onClick={() => openShareWindow(shareLinks.fb)} className="px-2 py-2 rounded-md bg-gray-100/70 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-sm">Facebook</button>
-                    <button onClick={() => openShareWindow(shareLinks.li)} className="px-2 py-2 rounded-md bg-gray-100/70 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-sm">LinkedIn</button>
-                    <button onClick={() => openShareWindow(shareLinks.wa)} className="px-2 py-2 rounded-md bg-gray-100/70 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-sm">WhatsApp</button>
-                    <button onClick={() => openShareWindow(shareLinks.tg)} className="px-2 py-2 rounded-md bg-gray-100/70 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-sm">Telegram</button>
-                    <button onClick={copyToClipboard} className="px-2 py-2 rounded-md bg-gray-100/70 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-sm">
-                      {copied ? 'Kopirano!' : 'Kopiraj povezavo'}
-                    </button>
+                useSheet ? (
+                  // Mobile: bottom sheet
+                  <div ref={shareMenuRef} role="menu" aria-label="Deli"
+                       className="fixed inset-x-0 bottom-0 z-50">
+                    <div className="mx-auto w-full max-w-2xl rounded-t-2xl border border-gray-200/20 bg-white dark:bg-gray-900 shadow-2xl">
+                      <div className="flex justify-center py-2">
+                        <span className="h-1.5 w-12 rounded-full bg-gray-300 dark:bg-gray-700" />
+                      </div>
+                      <div className="px-4 pb-4">
+                        <div className="text-sm font-semibold mb-2 text-gray-900 dark:text-gray-100">Deli</div>
+                        <div className="grid grid-cols-3 gap-3">
+                          <button onClick={() => { openShareWindow(shareLinks.x); setShareOpen(false) }}
+                                  className="group flex flex-col items-center gap-2 rounded-xl p-3 bg-gray-100/70 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition">
+                            <IconX />
+                            <span className="text-xs">X</span>
+                          </button>
+                          <button onClick={() => { openShareWindow(shareLinks.fb); setShareOpen(false) }}
+                                  className="group flex flex-col items-center gap-2 rounded-xl p-3 bg-gray-100/70 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition">
+                            <IconFacebook />
+                            <span className="text-xs">Facebook</span>
+                          </button>
+                          <button onClick={() => { openShareWindow(shareLinks.li); setShareOpen(false) }}
+                                  className="group flex flex-col items-center gap-2 rounded-xl p-3 bg-gray-100/70 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition">
+                            <IconLinkedIn />
+                            <span className="text-xs">LinkedIn</span>
+                          </button>
+                          <button onClick={() => { openShareWindow(shareLinks.wa); setShareOpen(false) }}
+                                  className="group flex flex-col items-center gap-2 rounded-xl p-3 bg-gray-100/70 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition">
+                            <IconWhatsApp />
+                            <span className="text-xs">WhatsApp</span>
+                          </button>
+                          <button onClick={() => { openShareWindow(shareLinks.tg); setShareOpen(false) }}
+                                  className="group flex flex-col items-center gap-2 rounded-xl p-3 bg-gray-100/70 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition">
+                            <IconTelegram />
+                            <span className="text-xs">Telegram</span>
+                          </button>
+                          <button onClick={async () => { await copyToClipboard(); setShareOpen(false) }}
+                                  className="group flex flex-col items-center gap-2 rounded-xl p-3 bg-gray-100/70 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition">
+                            <IconLink />
+                            <span className="text-xs">{copied ? 'Kopirano!' : 'Kopiraj povezavo'}</span>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                </div>
+                ) : (
+                  // Desktop: popover
+                  <div ref={shareMenuRef} role="menu" aria-label="Deli"
+                       className="absolute right-24 top-10 z-50">
+                    <div className="relative">
+                      {/* arrow */}
+                      <div className="absolute right-6 -top-2 h-4 w-4 rotate-45 rounded-sm bg-white dark:bg-gray-900 border-l border-t border-gray-200/20" />
+                      <div className="rounded-xl border border-gray-200/20 bg-white dark:bg-gray-900 shadow-2xl p-3 w-72 backdrop-blur">
+                        <div className="text-sm font-semibold mb-2 text-gray-900 dark:text-gray-100">Deli</div>
+                        <div className="grid grid-cols-3 gap-2">
+                          <button onClick={() => { openShareWindow(shareLinks.x); setShareOpen(false) }}
+                                  className="group flex flex-col items-center gap-1.5 rounded-lg p-3 hover:bg-gray-100/80 dark:hover:bg-gray-800 transition">
+                            <IconX /><span className="text-xs">X</span>
+                          </button>
+                          <button onClick={() => { openShareWindow(shareLinks.fb); setShareOpen(false) }}
+                                  className="group flex flex-col items-center gap-1.5 rounded-lg p-3 hover:bg-gray-100/80 dark:hover:bg-gray-800 transition">
+                            <IconFacebook /><span className="text-xs">Facebook</span>
+                          </button>
+                          <button onClick={() => { openShareWindow(shareLinks.li); setShareOpen(false) }}
+                                  className="group flex flex-col items-center gap-1.5 rounded-lg p-3 hover:bg-gray-100/80 dark:hover:bg-gray-800 transition">
+                            <IconLinkedIn /><span className="text-xs">LinkedIn</span>
+                          </button>
+                          <button onClick={() => { openShareWindow(shareLinks.wa); setShareOpen(false) }}
+                                  className="group flex flex-col items-center gap-1.5 rounded-lg p-3 hover:bg-gray-100/80 dark:hover:bg-gray-800 transition">
+                            <IconWhatsApp /><span className="text-xs">WhatsApp</span>
+                          </button>
+                          <button onClick={() => { openShareWindow(shareLinks.tg); setShareOpen(false) }}
+                                  className="group flex flex-col items-center gap-1.5 rounded-lg p-3 hover:bg-gray-100/80 dark:hover:bg-gray-800 transition">
+                            <IconTelegram /><span className="text-xs">Telegram</span>
+                          </button>
+                          <button onClick={async () => { await copyToClipboard(); setShareOpen(false) }}
+                                  className="group flex flex-col items-center gap-1.5 rounded-lg p-3 hover:bg-gray-100/80 dark:hover:bg-gray-800 transition">
+                            <IconLink /><span className="text-xs">{copied ? 'Kopirano!' : 'Kopiraj povezavo'}</span>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )
               )}
 
               <a
