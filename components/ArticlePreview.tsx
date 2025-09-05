@@ -1,4 +1,3 @@
-// components/ArticlePreview.tsx
 'use client'
 
 import React, {
@@ -46,14 +45,13 @@ const PREVIEW_TYPO_CSS = `
   .preview-typo a { text-decoration: underline; text-underline-offset: 2px; }
 `
 
-/* Ikone (skrajšano) */
+/* Ikone */
 function IconShareIOS(props: React.SVGProps<SVGSVGElement>) { return (<svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" {...props}><path fill="currentColor" d="M12 3c.4 0 .8.16 1.06.44l3 3a1.5 1.5 0 1 1-2.12 2.12L13.5 7.12V14a1.5 1.5 0 1 1-3 0V7.12L9.06 8.56A1.5 1.5 0 0 1 6.94 6.44l3-3C10.2 3.16 10.6 3 11 3h1z"/><path fill="currentColor" d="M5 10.5A2.5 2.5 0 0 0 2.5 13v6A2.5 2.5 0 0 0 5 21.5h14A2.5 2.5 0 0 0 21.5 19v-6A2.5 2.5 0 0 0 19 10.5h-2a1.5 1.5 0 1 0 0 3h2V19H5v-5.5h2a1.5 1.5 0 1 0 0-3H5z"/></svg>) }
 function IconFacebook(props: React.SVGProps<SVGSVGElement>) { return (<svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" {...props}><path fill="currentColor" d="M13 21v-7h2.3l.4-3H13V9.3c0-.9.3-1.5 1.6-1.5H16V5.1C15.6 5 14.7 5 13.7 5 11.5 5 10 6.3 10 8.9V11H7.7v3H10v7h3z"/></svg>) }
 function IconLinkedIn(props: React.SVGProps<SVGSVGElement>) { return (<svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" {...props}><path fill="currentColor" d="M6.5 6.5A2.5 2.5 0 1 1 1.5 6.5a2.5 2.5 0 0 1 5 0zM2 8.8h4.9V22H2zM14.9 8.5c-2.7 0-4 1.5-4.6 2.5V8.8H5.4V22h4.9v-7c0-1.9 1-2.9 2.5-2.9 1.4 0 2.3 1 2.3 2.9V22H20v-7.7c0-3.3-1.8-5.8-5.1-5.8z"/></svg>) }
 function IconWhatsApp(props: React.SVGProps<SVGSVGElement>) { return (<svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" {...props}><path fill="currentColor" d="M12 2a10 10 0 0 0-8.7 15l-1.3 4.7 4.8-1.3A10 10 0 1 0 12 2zm5.6 14.6c-.2.6-1.2 1.1-1.7 1.2-.5.1-1 .2-1.7-.1-.4-.1-1-.3-1.8-.7-3.1-1.4-5.2-4.7-5.3-4.9-.2-.3-1.3-1.7-1.3-3.2 0-1.4.7-2.1 1-2.4.2-.2.6-.3 1-.3h.7c.2 0 .5 0 .7.6.3.7 1 2.6 1 2.8.1.2.1.4 0 .6-.1.2-.2.4-.4.6-.2.2-.4.5-.2.9.2.4.9 1.5 2 2.4 1.4 1.2 2.6 1.6 3 .1.2-.4.5-.5.8-.4.3.1 1.8.8 2.1 1 .3.2.5.4.6.6.1.5.1 1-.1 1.2z"/></svg>) }
 function IconTelegram(props: React.SVGProps<SVGSVGElement>) { return (<svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" {...props}><path fill="currentColor" d="M21.9 3.3c-.3-.2-.7-.2-1.1 0L2.8 10.6c-.7.3-.7 1.4.1 1.6l4.7 1.5 1.7 5.2c.2.7 1.1.9 1.6.3l2.6-2.8 4.3 3.1c.6.4 1.5.1 1.7-.6l3.1-14.4c.1-.5-.1-1-.6-1.2z"/></svg>) }
 function IconCamera(props: React.SVGProps<SVGSVGElement>) { return (<svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" {...props}><path fill="currentColor" d="M9 4a2 2 0 0 0-1.8 1.1L6.6 6H5a3 3 0 0 0-3 3v8a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3V9a3 3 0 0 0-3-3h-1.6l-.6-.9A2 2 0 0 0 15 4H9zm3 5a5 5 0 1 1 0 10 5 5 0 0 1 0-10zm0 2.5A2.5 2.5 0 1 0 14.5 14 2.5 2.5 0 0 0 12 11.5z"/></svg>) }
-/* dodatni ikoni */
 function IconX(props: React.SVGProps<SVGSVGElement>){return(<svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" {...props}><path d="M3 3l18 18M21 3L3 21" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>)}
 function IconLink(props: React.SVGProps<SVGSVGElement>){return(<svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" {...props}><path fill="none" stroke="currentColor" strokeWidth="2" d="M10.5 13.5l3-3M8 14a4 4 0 010-8h3M16 18h-3a4 4 0 010-8"/></svg>)}
 
@@ -100,6 +98,31 @@ function truncateHTMLByWordsPercent(html:string, percent=0.76){
   return out.innerHTML
 }
 
+/* Ključi za deduplikacijo slik */
+function imageKeyFromSrc(src: string | null | undefined): string {
+  if (!src) return ''
+  let pathname = ''
+  try {
+    const u = new URL(src, typeof location !== 'undefined' ? location.origin : 'http://localhost')
+    pathname = (u.pathname || '').toLowerCase()
+  } catch {
+    pathname = (src.split('#')[0] || '').split('?')[0].toLowerCase()
+  }
+  pathname = pathname.replace(/(-|_)?\d{2,4}x\d{2,4}(?=\.)/g, '')
+  pathname = pathname.replace(/(-|_)?\d{2,4}x(?=\.)/g, '')
+  pathname = pathname.replace(/-scaled(?=\.)/g, '')
+  pathname = pathname.replace(/\.(webp|jpeg)$/g, '.jpg')
+  return pathname
+}
+function basenameStem(pathname: string): string {
+  const last = pathname.split('/').pop() || ''
+  return last
+    .replace(/\.[a-z0-9]+$/, '')
+    .replace(/(-|_)?\d{2,4}x\d{2,4}$/g, '')
+    .replace(/(-|_)?\d{2,4}x$/g, '')
+    .replace(/-scaled$/g, '')
+}
+
 /** počakaj na slike */
 async function waitForImages(root: HTMLElement, timeoutMs = 6000) {
   const imgs = Array.from(root.querySelectorAll('img'))
@@ -117,12 +140,15 @@ async function waitForImages(root: HTMLElement, timeoutMs = 6000) {
   }))
 }
 
-/** Očisti HTML + pobere prvo sliko (fallback). */
+/** Očisti HTML + proxy + cache-bust + DEDUPE slik. */
 function cleanAndExtract(html: string, baseUrl: string, knownTitle: string | undefined, bust: string) {
   const wrap = document.createElement('div')
   wrap.innerHTML = html
+
+  // odstrani šum
   wrap.querySelectorAll('noscript,script,style,iframe,form').forEach((n) => n.remove())
 
+  // podvojen naslov na vrhu?
   if (knownTitle) {
     const h = wrap.querySelector('h1, h2, h3')
     if (h) {
@@ -131,33 +157,84 @@ function cleanAndExtract(html: string, baseUrl: string, knownTitle: string | und
     }
   }
 
+  // absolutni <a>, varni target/rel
   wrap.querySelectorAll('a').forEach((a) => {
-    const href = a.getAttribute('href'); if (href) a.setAttribute('href', absolutize(href, baseUrl))
+    const href = a.getAttribute('href')
+    if (href) a.setAttribute('href', absolutize(href, baseUrl))
     const rel = (a.getAttribute('rel') || '').split(/\s+/)
     if (!rel.includes('noopener')) rel.push('noopener')
     if (!rel.includes('noreferrer')) rel.push('noreferrer')
-    a.setAttribute('rel', rel.join(' ').trim()); a.setAttribute('target', '_blank')
+    a.setAttribute('rel', rel.join(' ').trim())
+    a.setAttribute('target', '_blank')
   })
 
-  let firstImg: string | null = null
-  wrap.querySelectorAll('img').forEach((img, idx) => {
-    const raw = img.getAttribute('src') || img.getAttribute('data-src') || ''
-    if (!raw) { (img.closest('figure, picture') || img).remove(); return }
-    const abs  = absolutize(raw, baseUrl)
-    const prox = proxyImageSrc(abs)
-    const pinned = withCacheBust(prox, bust)
-    img.setAttribute('src', pinned)
-    img.removeAttribute('data-src')
-    img.removeAttribute('srcset'); img.removeAttribute('sizes')
-    img.setAttribute('loading', 'lazy')
-    img.setAttribute('decoding', 'async')
-    img.setAttribute('referrerpolicy', 'no-referrer')
-    img.setAttribute('crossorigin', 'anonymous')
-    if (idx === 0) firstImg = pinned
-  })
+  // --- slike: prva ostane, dvojnike odstranimo ---
+  let firstImgPinned: string | null = null
+  let firstKey = ''
+  let firstStem = ''
 
+  const imgs = Array.from(wrap.querySelectorAll('img'))
+  if (imgs.length > 0) {
+    // 1) prva
+    const first = imgs[0]
+    const firstRaw = first.getAttribute('src') || first.getAttribute('data-src') || ''
+    const firstAbs = absolutize(firstRaw, baseUrl)
+    if (firstAbs) {
+      const prox = proxyImageSrc(firstAbs)
+      const pinned = withCacheBust(prox, bust)
+      first.setAttribute('src', pinned)
+      first.removeAttribute('data-src')
+      first.removeAttribute('srcset'); first.removeAttribute('sizes')
+      first.setAttribute('loading', 'lazy')
+      first.setAttribute('decoding', 'async')
+      first.setAttribute('referrerpolicy', 'no-referrer')
+      first.setAttribute('crossorigin', 'anonymous')
+      firstImgPinned = pinned
+    }
+
+    firstKey  = imageKeyFromSrc(firstAbs || firstRaw)
+    firstStem = basenameStem(firstKey)
+
+    // 2) ostale – proxy + dedupe
+    const seen = new Set<string>()
+    if (firstKey) seen.add(firstKey)
+
+    imgs.slice(1).forEach((img) => {
+      const raw = img.getAttribute('src') || img.getAttribute('data-src') || ''
+      if (!raw) { (img.closest('figure, picture') || img).remove(); return }
+
+      const abs  = absolutize(raw, baseUrl)
+      const prox = proxyImageSrc(abs)
+      const pinned = withCacheBust(prox, bust)
+      img.setAttribute('src', pinned)
+      img.removeAttribute('data-src')
+      img.removeAttribute('srcset'); img.removeAttribute('sizes')
+      img.setAttribute('loading', 'lazy')
+      img.setAttribute('decoding', 'async')
+      img.setAttribute('referrerpolicy', 'no-referrer')
+      img.setAttribute('crossorigin', 'anonymous')
+
+      const key  = imageKeyFromSrc(abs || raw)
+      const stem = basenameStem(key)
+
+      const duplicate =
+        !key ||
+        seen.has(key) ||
+        stem === firstStem ||
+        (firstStem && stem && (stem.startsWith(firstStem.slice(0,10)) || firstStem.startsWith(stem.slice(0,10))))
+
+      if (duplicate) {
+        (img.closest('figure, picture') || img).remove()
+      } else {
+        seen.add(key)
+      }
+    })
+  }
+
+  // odstrani <picture>/<source>, da srcset ne prepiše našega src
   wrap.querySelectorAll('picture,source').forEach((n) => n.replaceWith(...Array.from(n.childNodes)))
-  return { html: wrap.innerHTML, firstImg }
+
+  return { html: wrap.innerHTML, firstImg: firstImgPinned }
 }
 
 export default function ArticlePreview({ url, onClose }: Props) {
@@ -169,12 +246,13 @@ export default function ArticlePreview({ url, onClose }: Props) {
   const [loading, setLoading] = useState<boolean>(true)
   const [error, setError] = useState<string | null>(null)
 
-  // UI
+  // share UI
   const [shareOpen, setShareOpen] = useState(false)
   const [copied, setCopied] = useState(false)
   const shareBtnRef = useRef<HTMLButtonElement>(null)
   const shareMenuRef = useRef<HTMLDivElement>(null)
 
+  // modal infra
   const modalRef = useRef<HTMLDivElement>(null)
   const closeRef = useRef<HTMLButtonElement>(null)
 
@@ -187,13 +265,14 @@ export default function ArticlePreview({ url, onClose }: Props) {
   // per-url cache-bust
   const cacheBust = useMemo(() => Math.random().toString(36).slice(2), [url])
 
-  // prefer native share na coarse pointer
+  // native share preference
   const coarsePointerRef = useRef(false)
   useEffect(() => { try { coarsePointerRef.current = window.matchMedia('(pointer: coarse)').matches } catch {} }, [])
-  const supportsWebShare = typeof navigator !== 'undefined' && 'share' in navigator && typeof window !== 'undefined' && window.isSecureContext
+  const supportsWebShare =
+    typeof navigator !== 'undefined' && 'share' in navigator && typeof window !== 'undefined' && window.isSecureContext
   const preferNativeShare = supportsWebShare && coarsePointerRef.current
 
-  // sheet vs popover
+  // sheet vs. popover
   const [useSheet, setUseSheet] = useState(false)
   useEffect(() => {
     const mq = window.matchMedia('(max-width: 640px)')
@@ -236,7 +315,7 @@ export default function ArticlePreview({ url, onClose }: Props) {
     return () => { alive = false }
   }, [url, cacheBust])
 
-  // fokus + scroll lock
+  // focus + scroll lock
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
@@ -358,7 +437,7 @@ export default function ArticlePreview({ url, onClose }: Props) {
     URL.revokeObjectURL(link.href)
   }, [])
 
-  /** Snapshot kartica */
+  /** Snapshot kartica (z varnim fallbackom za Safari). */
   const doSnapshot = useCallback(async (): Promise<Blob> => {
     const isDark =
       document.documentElement.classList.contains('dark') ||
@@ -370,7 +449,7 @@ export default function ArticlePreview({ url, onClose }: Props) {
 
     const width = snapshotRef.current?.offsetWidth || 640
     const root = document.createElement('div')
-    root.style.cssText = `position:fixed;left:-10000px;top:0;width:${width}px;pointer-events:none;`
+    root.style.cssText = `position:fixed;left:-10000px;top:0;width:${width}px;pointer-events:none;z-index:-1;`
     const card = document.createElement('div')
     card.style.cssText = `background:${bg};color:${fg};padding:16px;border-radius:16px;border:1px solid ${shade};font:500 14px/1.55 system-ui,-apple-system,Segoe UI,Roboto;`
     root.appendChild(card)
@@ -440,7 +519,9 @@ export default function ArticlePreview({ url, onClose }: Props) {
             title: title || site || 'Snapshot',
             text: (title ? `${title}${site ? ` – ${site}` : ''}` : (site || 'Članek')),
           })
-          showSnapMsg('Deljeno prek sistema.'); setSnapshotBusy(false); return
+          showSnapMsg('Deljeno prek sistema.')
+          setSnapshotBusy(false)
+          return
         }
       }
 
@@ -451,13 +532,18 @@ export default function ArticlePreview({ url, onClose }: Props) {
         typeof navigator.clipboard?.write === 'function'
 
       if (canClipboard) {
-        const CI = (window as any).ClipboardItem as { new (items: Record<string, Blob>): ClipboardItem }
-        const item = new CI({
-          'image/png': blob,
-          'text/plain': new Blob([`Snapshot: ${title || site || ''}`], { type: 'text/plain' }),
-        })
-        await navigator.clipboard.write([item])
-        showSnapMsg('Kopirano (PNG). Alt+klik za prenos.')
+        try {
+          const CI = (window as any).ClipboardItem as { new (items: Record<string, Blob>): ClipboardItem }
+          const item = new CI({
+            'image/png': blob,
+            'text/plain': new Blob([`Snapshot: ${title || site || ''}`], { type: 'text/plain' }),
+          })
+          await navigator.clipboard.write([item])
+          showSnapMsg('Kopirano (PNG). Alt+klik za prenos.')
+        } catch {
+          downloadBlob(blob)
+          showSnapMsg('PNG prenesen (clipboard ni podprt).')
+        }
       } else {
         downloadBlob(blob)
         showSnapMsg('PNG prenesen.')
@@ -465,7 +551,9 @@ export default function ArticlePreview({ url, onClose }: Props) {
     } catch (err) {
       console.error('Snapshot failed:', err)
       showSnapMsg('Napaka pri snapshotu.')
-    } finally { setSnapshotBusy(false) }
+    } finally {
+      setSnapshotBusy(false)
+    }
   }, [doSnapshot, downloadBlob, title, site, showSnapMsg])
   // -----------------------------
 
@@ -539,38 +627,36 @@ export default function ArticlePreview({ url, onClose }: Props) {
                       <div className="flex justify-center py-2">
                         <span className="h-1.5 w-12 rounded-full bg-gray-300 dark:bg-gray-700" />
                       </div>
-                      <div className="px-4 pb-4">
-                        <div className="text-sm font-semibold mb-2 text-gray-900 dark:text-gray-100">Deli</div>
-                        <div className="grid grid-cols-3 gap-3">
+                      <div className="px-4 pb-4 space-y-3">
+                        {/* Primary: kopiraj povezavo */}
+                        <button
+                          onClick={async () => { await copyToClipboard(); setShareOpen(false) }}
+                          className="w-full inline-flex items-center justify-center gap-2 rounded-xl py-3 text-sm font-medium bg-gray-900 text-white dark:bg-white dark:text-gray-900 hover:opacity-90 transition"
+                        >
+                          <IconLink /> {copied ? 'Kopirano!' : 'Kopiraj povezavo'}
+                        </button>
+
+                        {/* sekundarne mreža */}
+                        <div className="grid grid-cols-5 gap-2">
                           <button onClick={() => { openShareWindow(shareLinks.x); setShareOpen(false) }}
-                                  className="group flex flex-col items-center gap-2 rounded-xl p-3 bg-gray-100/70 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition">
+                                  className="h-11 w-11 rounded-full bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 grid place-items-center transition" aria-label="Deli na X">
                             <IconX />
-                            <span className="text-xs">X</span>
                           </button>
                           <button onClick={() => { openShareWindow(shareLinks.fb); setShareOpen(false) }}
-                                  className="group flex flex-col items-center gap-2 rounded-xl p-3 bg-gray-100/70 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition">
+                                  className="h-11 w-11 rounded-full bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 grid place-items-center transition" aria-label="Deli na Facebook">
                             <IconFacebook />
-                            <span className="text-xs">Facebook</span>
                           </button>
                           <button onClick={() => { openShareWindow(shareLinks.li); setShareOpen(false) }}
-                                  className="group flex flex-col items-center gap-2 rounded-xl p-3 bg-gray-100/70 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition">
+                                  className="h-11 w-11 rounded-full bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 grid place-items-center transition" aria-label="Deli na LinkedIn">
                             <IconLinkedIn />
-                            <span className="text-xs">LinkedIn</span>
                           </button>
                           <button onClick={() => { openShareWindow(shareLinks.wa); setShareOpen(false) }}
-                                  className="group flex flex-col items-center gap-2 rounded-xl p-3 bg-gray-100/70 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition">
+                                  className="h-11 w-11 rounded-full bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 grid place-items-center transition" aria-label="Deli na WhatsApp">
                             <IconWhatsApp />
-                            <span className="text-xs">WhatsApp</span>
                           </button>
                           <button onClick={() => { openShareWindow(shareLinks.tg); setShareOpen(false) }}
-                                  className="group flex flex-col items-center gap-2 rounded-xl p-3 bg-gray-100/70 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition">
+                                  className="h-11 w-11 rounded-full bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 grid place-items-center transition" aria-label="Deli na Telegram">
                             <IconTelegram />
-                            <span className="text-xs">Telegram</span>
-                          </button>
-                          <button onClick={async () => { await copyToClipboard(); setShareOpen(false) }}
-                                  className="group flex flex-col items-center gap-2 rounded-xl p-3 bg-gray-100/70 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition">
-                            <IconLink />
-                            <span className="text-xs">{copied ? 'Kopirano!' : 'Kopiraj povezavo'}</span>
                           </button>
                         </div>
                       </div>
@@ -581,34 +667,37 @@ export default function ArticlePreview({ url, onClose }: Props) {
                   <div ref={shareMenuRef} role="menu" aria-label="Deli"
                        className="absolute right-24 top-10 z-50">
                     <div className="relative">
-                      {/* arrow */}
                       <div className="absolute right-6 -top-2 h-4 w-4 rotate-45 rounded-sm bg-white dark:bg-gray-900 border-l border-t border-gray-200/20" />
-                      <div className="rounded-xl border border-gray-200/20 bg-white dark:bg-gray-900 shadow-2xl p-3 w-72 backdrop-blur">
-                        <div className="text-sm font-semibold mb-2 text-gray-900 dark:text-gray-100">Deli</div>
-                        <div className="grid grid-cols-3 gap-2">
+                      <div className="rounded-xl border border-gray-200/20 bg-white dark:bg-gray-900 shadow-2xl p-3 w-80 backdrop-blur space-y-2">
+                        <div className="text-sm font-semibold text-gray-900 dark:text-gray-100">Deli</div>
+                        {/* Primary */}
+                        <button
+                          onClick={async () => { await copyToClipboard(); setShareOpen(false) }}
+                          className="w-full inline-flex items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-medium bg-gray-900 text-white dark:bg-white dark:text-gray-900 hover:opacity-90 transition"
+                        >
+                          <IconLink /> {copied ? 'Kopirano!' : 'Kopiraj povezavo'}
+                        </button>
+                        {/* Secondary icons */}
+                        <div className="flex items-center gap-2">
                           <button onClick={() => { openShareWindow(shareLinks.x); setShareOpen(false) }}
-                                  className="group flex flex-col items-center gap-1.5 rounded-lg p-3 hover:bg-gray-100/80 dark:hover:bg-gray-800 transition">
-                            <IconX /><span className="text-xs">X</span>
+                                  className="h-10 w-10 rounded-full bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 grid place-items-center transition" aria-label="X">
+                            <IconX />
                           </button>
                           <button onClick={() => { openShareWindow(shareLinks.fb); setShareOpen(false) }}
-                                  className="group flex flex-col items-center gap-1.5 rounded-lg p-3 hover:bg-gray-100/80 dark:hover:bg-gray-800 transition">
-                            <IconFacebook /><span className="text-xs">Facebook</span>
+                                  className="h-10 w-10 rounded-full bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 grid place-items-center transition" aria-label="Facebook">
+                            <IconFacebook />
                           </button>
                           <button onClick={() => { openShareWindow(shareLinks.li); setShareOpen(false) }}
-                                  className="group flex flex-col items-center gap-1.5 rounded-lg p-3 hover:bg-gray-100/80 dark:hover:bg-gray-800 transition">
-                            <IconLinkedIn /><span className="text-xs">LinkedIn</span>
+                                  className="h-10 w-10 rounded-full bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 grid place-items-center transition" aria-label="LinkedIn">
+                            <IconLinkedIn />
                           </button>
                           <button onClick={() => { openShareWindow(shareLinks.wa); setShareOpen(false) }}
-                                  className="group flex flex-col items-center gap-1.5 rounded-lg p-3 hover:bg-gray-100/80 dark:hover:bg-gray-800 transition">
-                            <IconWhatsApp /><span className="text-xs">WhatsApp</span>
+                                  className="h-10 w-10 rounded-full bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 grid place-items-center transition" aria-label="WhatsApp">
+                            <IconWhatsApp />
                           </button>
                           <button onClick={() => { openShareWindow(shareLinks.tg); setShareOpen(false) }}
-                                  className="group flex flex-col items-center gap-1.5 rounded-lg p-3 hover:bg-gray-100/80 dark:hover:bg-gray-800 transition">
-                            <IconTelegram /><span className="text-xs">Telegram</span>
-                          </button>
-                          <button onClick={async () => { await copyToClipboard(); setShareOpen(false) }}
-                                  className="group flex flex-col items-center gap-1.5 rounded-lg p-3 hover:bg-gray-100/80 dark:hover:bg-gray-800 transition">
-                            <IconLink /><span className="text-xs">{copied ? 'Kopirano!' : 'Kopiraj povezavo'}</span>
+                                  className="h-10 w-10 rounded-full bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 grid place-items-center transition" aria-label="Telegram">
+                            <IconTelegram />
                           </button>
                         </div>
                       </div>
