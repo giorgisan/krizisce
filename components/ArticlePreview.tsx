@@ -111,7 +111,7 @@ function basenameStem(pathname: string): string {
     .replace(/-scaled$/g, '')
 }
 
-/** počakaj, da se slike naložijo (da html-to-image ne vzame stare iz cache-a) */
+/** počakaj, da se slike naložijo */
 async function waitForImages(root: HTMLElement, timeoutMs = 5000) {
   const imgs = Array.from(root.querySelectorAll('img'))
   if (imgs.length === 0) return
@@ -133,7 +133,7 @@ async function waitForImages(root: HTMLElement, timeoutMs = 5000) {
   }))
 }
 
-/** Client-side clean + polish + PROXY IMG + CACHE-BUST */
+/** Clean + PROXY IMG + CACHE-BUST + pin `data-snap-src` */
 function cleanPreviewHTML(html: string, baseUrl: string, knownTitle: string | undefined, bust: string): string {
   try {
     const wrap = document.createElement('div')
@@ -166,7 +166,9 @@ function cleanPreviewHTML(html: string, baseUrl: string, knownTitle: string | un
       const firstAbs = absolutize(firstRaw, baseUrl)
       if (firstAbs) {
         const prox = proxyImageSrc(firstAbs)
-        first.setAttribute('src', withCacheBust(prox, bust))
+        const pinned = withCacheBust(prox, bust)
+        first.setAttribute('src', pinned)
+        first.setAttribute('data-snap-src', pinned)   // ⬅️ pin za snapshot
         first.setAttribute('crossorigin', 'anonymous')
       }
       first.removeAttribute('data-src')
@@ -187,7 +189,9 @@ function cleanPreviewHTML(html: string, baseUrl: string, knownTitle: string | un
 
         const abs  = absolutize(raw, baseUrl)
         const prox = proxyImageSrc(abs)
-        img.setAttribute('src', withCacheBust(prox, bust))
+        const pinned = withCacheBust(prox, bust)
+        img.setAttribute('src', pinned)
+        img.setAttribute('data-snap-src', pinned)     // ⬅️ pin za snapshot
         img.setAttribute('crossorigin', 'anonymous')
         img.removeAttribute('data-src')
         img.removeAttribute('srcset'); img.removeAttribute('sizes')
@@ -197,7 +201,6 @@ function cleanPreviewHTML(html: string, baseUrl: string, knownTitle: string | un
 
         const key  = imageKeyFromSrc(abs)
         const stem = basenameStem(key)
-
         const duplicate =
           !key || seen.has(key) || stem === firstStem ||
           stem.startsWith(firstStem.slice(0,10)) || firstStem.startsWith(stem.slice(0,10))
@@ -207,6 +210,7 @@ function cleanPreviewHTML(html: string, baseUrl: string, knownTitle: string | un
       })
     }
 
+    // odstrani <picture>/<source>, da srcset ne prepiše našega src
     wrap.querySelectorAll('picture,source').forEach((n) => n.replaceWith(...Array.from(n.childNodes)))
     return wrap.innerHTML
   } catch { return html }
@@ -441,18 +445,17 @@ export default function ArticlePreview({ url, onClose }: Props) {
     URL.revokeObjectURL(link.href)
   }, [])
 
-  /** VARNO: klon vstavimo “offscreen”, počakamo slike, skrijemo gradient, in posnamemo **samo klon**. */
+  /** Klon, pinani src preko data-snap-src, počakaj slike, posnemi klon. */
   const doSnapshot = useCallback(async (): Promise<Blob> => {
     if (!snapshotRef.current) throw new Error('no-snapshot-node')
 
-    // 1) kloniraj “jedro” (div s contentom)
     const clone = snapshotRef.current.cloneNode(true) as HTMLElement
 
-    // skrij “fade” overlay v klonu, da ne prekrije besedila
+    // skrij fade overlay
     const fade = clone.querySelector('[data-preview-fade], .preview-fade') as HTMLElement | null
     fade?.setAttribute('style', 'display:none !important')
 
-    // 2) watermark
+    // watermark
     const wm = document.createElement('div')
     wm.style.cssText =
       'margin-top:.75rem;padding:.5rem .75rem;border-radius:10px;background:rgba(0,0,0,.55);' +
@@ -461,37 +464,32 @@ export default function ArticlePreview({ url, onClose }: Props) {
     wm.textContent = `${title || 'Članek'} — ${siteText}`
     clone.appendChild(wm)
 
-    // 3) prisili absolute barve (da niso odvisne od teme)
+    // pin barve
     clone.style.background = '#ffffff'
     clone.style.color = '#111827'
 
-    // 4) posodobi slike (cache-bust + CORS)
+    // slike: VEDNO vzemi data-snap-src (če obstaja) + dodaj unikaten cb
     const snapBust = `${Date.now().toString(36)}${Math.random().toString(36).slice(2,6)}`
     clone.querySelectorAll('img').forEach((img) => {
-      const src = img.getAttribute('src')
-      if (src) img.setAttribute('src', withCacheBust(src, snapBust))
+      const base = img.getAttribute('data-snap-src') || img.getAttribute('src') || ''
+      if (base) img.setAttribute('src', withCacheBust(base, snapBust))
       img.removeAttribute('loading')
       img.setAttribute('decoding', 'sync')
       img.setAttribute('crossorigin', 'anonymous')
       img.setAttribute('referrerpolicy', 'no-referrer')
       img.removeAttribute('srcset'); img.removeAttribute('sizes')
-      // varnostna mreža: če se slika ne naloži, naj ima minimalno višino, da se ne “sesede” layout
       ;(img as HTMLImageElement).style.maxWidth = '100%'
     })
 
-    // 5) offscreen container – viden za layout, a izven toka in ne moti strani
+    // offscreen mount
     const offscreen = document.createElement('div')
     const width = snapshotRef.current.offsetWidth || 640
-    offscreen.style.cssText =
-      `position:fixed;left:-10000px;top:0;width:${width}px;` +
-      'pointer-events:none;opacity:1;'
+    offscreen.style.cssText = `position:fixed;left:-10000px;top:0;width:${width}px;pointer-events:none;opacity:1;`
     offscreen.appendChild(clone)
     document.body.appendChild(offscreen)
 
-    // 6) počakaj slike v KLONU
     await waitForImages(clone)
 
-    // 7) posnemi **samo klon** (ne wrapperja)
     try {
       const blob = await toBlob(clone, {
         cacheBust: true,
