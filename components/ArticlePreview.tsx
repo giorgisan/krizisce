@@ -74,30 +74,8 @@ function withCacheBust(u: string, bust: string) {
   catch { const sep = u.includes('?') ? '&' : '?'; return `${u}${sep}cb=${encodeURIComponent(bust)}` }
 }
 
-function wordSpans(text: string){ const spans:Array<{start:number;end:number}>=[]; const re=/[A-Za-z0-9À-ÖØ-öø-ÿĀ-žČŠŽčšžĆćĐđ]+(?:['’-][A-Za-z0-9À-ÖØ-öø-ÿĀ-žČŠŽčšžĆćĐđ]+)*/g; let m:RegExpExecArray|null; while((m=re.exec(text))!==null) spans.push({start:m.index,end:m.index+m[0].length}); return spans }
-function countWords(text:string){ return wordSpans(text).length }
-function truncateHTMLByWordsPercent(html:string, percent=0.76){
-  const src=document.createElement('div'); src.innerHTML=html
-  src.querySelectorAll('header,nav,footer,aside,.share,.social,.related,.tags').forEach((n)=>n.remove())
-  const out=src.cloneNode(true) as HTMLDivElement
-  const total=countWords(out.textContent||''); if (total===0) return out.innerHTML
-  const target=Math.max(1, Math.floor(total*percent)); let used=0
-  const w=document.createTreeWalker(out, NodeFilter.SHOW_TEXT); let node:Node|null=w.nextNode()
-  while(node){
-    const text=(node.textContent||''); const trimmed=text.trim()
-    if (!trimmed){ node=w.nextNode(); continue }
-    const spans=wordSpans(text); const local=spans.length; const remain=target-used
-    if (local<=remain){ used+=local; node=w.nextNode(); continue }
-    const cut=spans[Math.max(0, remain-1)]; const idx=cut?cut.end:0
-    ;(node as Text).textContent=text.slice(0, idx).trimEnd()
-    const range=document.createRange(); range.setStartAfter(node); const last=out.lastChild; if (last){ range.setEndAfter(last); range.deleteContents() }
-    break
-  }
-  return out.innerHTML
-}
-
-/** počakaj, da se slike naložijo */
-async function waitForImages(root: HTMLElement, timeoutMs = 5000) {
+/** počakaj na slike */
+async function waitForImages(root: HTMLElement, timeoutMs = 6000) {
   const imgs = Array.from(root.querySelectorAll('img'))
   if (imgs.length === 0) return
   await Promise.all(imgs.map(img => {
@@ -113,62 +91,51 @@ async function waitForImages(root: HTMLElement, timeoutMs = 5000) {
   }))
 }
 
-/** Clean + proxy + cb; označi slike z data-snap-src in vrne cover. */
-function cleanAndExtract(
-  html: string,
-  baseUrl: string,
-  knownTitle: string | undefined,
-  bust: string
-): { html: string; coverSnapSrc: string | null } {
-  try {
-    const wrap = document.createElement('div')
-    wrap.innerHTML = html
-    wrap.querySelectorAll('noscript,script,style,iframe,form').forEach((n) => n.remove())
+/** Očisti HTML, absolutizira linke in vrne tudi prvo najdeno sliko (če API ne poda coverja). */
+function cleanAndExtract(html: string, baseUrl: string, knownTitle: string | undefined, bust: string) {
+  const wrap = document.createElement('div')
+  wrap.innerHTML = html
+  wrap.querySelectorAll('noscript,script,style,iframe,form').forEach((n) => n.remove())
 
-    if (knownTitle) {
-      const h = wrap.querySelector('h1, h2, h3')
-      if (h) {
-        const a=(h.textContent||'').trim().toLowerCase(), b=knownTitle.trim().toLowerCase()
-        if (a && b && a===b) h.remove()
-      }
+  if (knownTitle) {
+    const h = wrap.querySelector('h1, h2, h3')
+    if (h) {
+      const a=(h.textContent||'').trim().toLowerCase(), b=knownTitle.trim().toLowerCase()
+      if (a && b && a===b) h.remove()
     }
-
-    wrap.querySelectorAll('a').forEach((a) => {
-      const href = a.getAttribute('href'); if (href) a.setAttribute('href', absolutize(href, baseUrl))
-      const rel = (a.getAttribute('rel') || '').split(/\s+/)
-      if (!rel.includes('noopener')) rel.push('noopener')
-      if (!rel.includes('noreferrer')) rel.push('noreferrer')
-      a.setAttribute('rel', rel.join(' ').trim())
-      a.setAttribute('target', '_blank')
-    })
-
-    let coverSnapSrc: string | null = null
-    const imgs = Array.from(wrap.querySelectorAll('img'))
-    imgs.forEach((img, idx) => {
-      const raw = img.getAttribute('src') || img.getAttribute('data-src') || ''
-      if (!raw) { (img.closest('figure, picture') || img).remove(); return }
-      const abs  = absolutize(raw, baseUrl)
-      const prox = proxyImageSrc(abs)
-      const pinned = withCacheBust(prox, bust)
-      img.setAttribute('src', pinned)
-      img.setAttribute('data-snap-src', pinned)   // <-- za snapshot
-      img.removeAttribute('data-src')
-      img.removeAttribute('srcset'); img.removeAttribute('sizes')
-      img.setAttribute('loading', 'lazy')
-      img.setAttribute('decoding', 'async')
-      img.setAttribute('referrerpolicy', 'no-referrer')
-      img.setAttribute('crossorigin', 'anonymous')
-      if (idx === 0) coverSnapSrc = pinned
-    })
-
-    wrap.querySelectorAll('picture,source').forEach((n) => n.replaceWith(...Array.from(n.childNodes)))
-    return { html: wrap.innerHTML, coverSnapSrc }
-  } catch {
-    return { html, coverSnapSrc: null }
   }
+
+  wrap.querySelectorAll('a').forEach((a) => {
+    const href = a.getAttribute('href'); if (href) a.setAttribute('href', absolutize(href, baseUrl))
+    const rel = (a.getAttribute('rel') || '').split(/\s+/)
+    if (!rel.includes('noopener')) rel.push('noopener')
+    if (!rel.includes('noreferrer')) rel.push('noreferrer')
+    a.setAttribute('rel', rel.join(' ').trim()); a.setAttribute('target', '_blank')
+  })
+
+  let firstImg: string | null = null
+  wrap.querySelectorAll('img').forEach((img, idx) => {
+    const raw = img.getAttribute('src') || img.getAttribute('data-src') || ''
+    if (!raw) { (img.closest('figure, picture') || img).remove(); return }
+    const abs  = absolutize(raw, baseUrl)
+    const prox = proxyImageSrc(abs)
+    const pinned = withCacheBust(prox, bust)
+    img.setAttribute('src', pinned)
+    img.removeAttribute('data-src')
+    img.removeAttribute('srcset'); img.removeAttribute('sizes')
+    img.setAttribute('loading', 'lazy')
+    img.setAttribute('decoding', 'async')
+    img.setAttribute('referrerpolicy', 'no-referrer')
+    img.setAttribute('crossorigin', 'anonymous')
+    if (idx === 0) firstImg = pinned
+  })
+
+  wrap.querySelectorAll('picture,source').forEach((n) => n.replaceWith(...Array.from(n.childNodes)))
+  return { html: wrap.innerHTML, firstImg }
 }
 
 export default function ArticlePreview({ url, onClose }: Props) {
+  // data
   const [content, setContent] = useState<string>('')
   const [title, setTitle] = useState<string>('')
   const [site, setSite] = useState<string>('')
@@ -176,6 +143,7 @@ export default function ArticlePreview({ url, onClose }: Props) {
   const [loading, setLoading] = useState<boolean>(true)
   const [error, setError] = useState<string | null>(null)
 
+  // UI
   const [shareOpen, setShareOpen] = useState(false)
   const [copied, setCopied] = useState(false)
   const shareBtnRef = useRef<HTMLButtonElement>(null)
@@ -184,18 +152,22 @@ export default function ArticlePreview({ url, onClose }: Props) {
   const modalRef = useRef<HTMLDivElement>(null)
   const closeRef = useRef<HTMLButtonElement>(null)
 
+  // snapshot
   const [snapshotBusy, setSnapshotBusy] = useState(false)
   const [snapMsg, setSnapMsg] = useState<string>('')
   const snapMsgTimer = useRef<number | null>(null)
   const snapshotRef = useRef<HTMLDivElement>(null)
 
+  // per-url cache-bust
   const cacheBust = useMemo(() => Math.random().toString(36).slice(2), [url])
 
+  // prefer native share na coarse pointer
   const coarsePointerRef = useRef(false)
   useEffect(() => { try { coarsePointerRef.current = window.matchMedia('(pointer: coarse)').matches } catch {} }, [])
   const supportsWebShare = typeof navigator !== 'undefined' && 'share' in navigator && typeof window !== 'undefined' && window.isSecureContext
   const preferNativeShare = supportsWebShare && coarsePointerRef.current
 
+  // sheet vs popover
   const [useSheet, setUseSheet] = useState(false)
   useEffect(() => {
     const mq = window.matchMedia('(max-width: 640px)')
@@ -205,10 +177,11 @@ export default function ArticlePreview({ url, onClose }: Props) {
     return () => mq.removeEventListener?.('change', set)
   }, [])
 
-  // cache-first → clean(+proxy+cb) → trunc → sanitize (+ cover)
+  // fetch + sanitize (+cover)
   useEffect(() => {
     let alive = true
-    // reset vsebine ob menjavi URL-a, da se ne “lepi”
+
+    // reset – da se stari podatki ne lepijo
     setContent('')
     setCoverSnapSrc(null)
     setLoading(true); setError(null)
@@ -223,13 +196,18 @@ export default function ArticlePreview({ url, onClose }: Props) {
         setTitle(data.title); setSite(data.site)
 
         const cleaned = cleanAndExtract(data.html, url, data.title, cacheBust)
-        const truncated = truncateHTMLByWordsPercent(cleaned.html, TEXT_PERCENT)
+        const textOnly = DOMPurify.sanitize(cleaned.html)
+        const truncated = (() => {
+          const wrapper = document.createElement('div')
+          wrapper.innerHTML = textOnly
+          return truncateHTMLByWordsPercent(wrapper.innerHTML, TEXT_PERCENT)
+        })()
 
-        // cover: najprej iz API (če je), nato iz HTML; če ni → ostane null
-        const fromApi = data.image ? withCacheBust(proxyImageSrc(data.image), cacheBust) : null
-        setCoverSnapSrc(fromApi || cleaned.coverSnapSrc || null)
+        // primarni cover = iz API; fallback = prva slika iz HTML
+        const primary = data.image ? withCacheBust(proxyImageSrc(data.image), cacheBust) : null
+        setCoverSnapSrc(primary || cleaned.firstImg || null)
 
-        setContent(DOMPurify.sanitize(truncated))
+        setContent(truncated)
         setLoading(false)
       } catch {
         if (!alive) return
@@ -240,9 +218,9 @@ export default function ArticlePreview({ url, onClose }: Props) {
     return () => { alive = false }
   }, [url, cacheBust])
 
-  // fokus trap + lock scroll
+  // fokus + scroll lock
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
+    const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         if (shareOpen) setShareOpen(false)
         else onClose()
@@ -257,19 +235,19 @@ export default function ArticlePreview({ url, onClose }: Props) {
         } else if (document.activeElement === last) { e.preventDefault(); first.focus() }
       }
     }
-    document.addEventListener('keydown', handleKeyDown)
+    document.addEventListener('keydown', onKey)
     const prevOverflow = document.body.style.overflow
     document.body.style.overflow = 'hidden'
     document.body.classList.add('modal-open', 'preview-open')
     setTimeout(() => closeRef.current?.focus(), 0)
     return () => {
-      document.removeEventListener('keydown', handleKeyDown)
+      document.removeEventListener('keydown', onKey)
       document.body.style.overflow = prevOverflow
       document.body.classList.remove('modal-open', 'preview-open')
     }
   }, [onClose, shareOpen])
 
-  // klik izven menija
+  // zapri meni ob kliku izven
   useEffect(() => {
     const onDocClick = (e: globalThis.MouseEvent) => {
       if (!shareOpen) return
@@ -289,6 +267,7 @@ export default function ArticlePreview({ url, onClose }: Props) {
     snapMsgTimer.current = window.setTimeout(() => setSnapMsg(''), 2200)
   }, [])
 
+  // Odpri + sledi
   const openSourceAndTrack = useCallback(() => {
     const source = site || (() => { try { return new URL(url).hostname } catch { return 'unknown' } })()
     trackClick(source, url)
@@ -361,7 +340,7 @@ export default function ArticlePreview({ url, onClose }: Props) {
     URL.revokeObjectURL(link.href)
   }, [])
 
-  /** Kartica: naslov + domena + (prva slika iz DOM-a) + izsek z fade-out; barve po temi. */
+  /** Snapshot kartica: naslov + domena + cover iz state-a + izsek z fade-out; barve po temi. */
   const doSnapshot = useCallback(async (): Promise<Blob> => {
     const isDark =
       document.documentElement.classList.contains('dark') ||
@@ -387,12 +366,9 @@ export default function ArticlePreview({ url, onClose }: Props) {
     domainEl.style.cssText = `color:${sub};font-size:12px;margin-bottom:10px;`
     card.appendChild(titleEl); card.appendChild(domainEl)
 
-    // PRVA SLIKA IZ ŽIVEGA DOM-a (če je ni, snapshot brez slike; ne pademo na star state)
-    const domCover =
-      snapshotRef.current?.querySelector<HTMLImageElement>('img[data-snap-src]')?.getAttribute('data-snap-src') ||
-      snapshotRef.current?.querySelector<HTMLImageElement>('img')?.getAttribute('src') ||
-      null
-    if (domCover) {
+    // ⚠️ Vedno uporabljamo cover iz state-a, ne DOM-a
+    const cover = coverSnapSrc ? withCacheBust(coverSnapSrc, `${Date.now().toString(36)}${Math.random().toString(36).slice(2,6)}`) : null
+    if (cover) {
       const imgWrap = document.createElement('div')
       imgWrap.style.cssText = 'width:100%;aspect-ratio:16/9;border-radius:12px;overflow:hidden;background:#f3f4f6;margin-bottom:12px;'
       const img = new Image()
@@ -400,13 +376,13 @@ export default function ArticlePreview({ url, onClose }: Props) {
       img.loading = 'eager'
       img.crossOrigin = 'anonymous'
       img.referrerPolicy = 'no-referrer'
-      img.src = withCacheBust(domCover, `${Date.now().toString(36)}${Math.random().toString(36).slice(2,6)}`)
+      img.src = cover
       img.style.cssText = 'width:100%;height:100%;object-fit:cover;display:block;'
       imgWrap.appendChild(img)
       card.appendChild(imgWrap)
     }
 
-    // besedilo z fade-out
+    // izsek iz trenutnega predogleda + fade-out
     const rawText = (snapshotRef.current?.textContent || '').replace(/\s+/g, ' ').replace(/\u00A0/g, ' ').trim()
     const MAX_WORDS = 140
     const words = rawText.split(' ').filter(Boolean).slice(0, MAX_WORDS)
@@ -436,7 +412,7 @@ export default function ArticlePreview({ url, onClose }: Props) {
     } finally {
       root.remove()
     }
-  }, [title, site, url])
+  }, [title, site, url, coverSnapSrc])
 
   const handleSnapshot = useCallback(async (e?: ReactMouseEvent<HTMLButtonElement>) => {
     setSnapshotBusy(true)
@@ -485,6 +461,7 @@ export default function ArticlePreview({ url, onClose }: Props) {
       setSnapshotBusy(false)
     }
   }, [doSnapshot, downloadBlob, title, site, showSnapMsg])
+  // -----------------------------
 
   if (typeof document === 'undefined') return null
 
@@ -511,7 +488,7 @@ export default function ArticlePreview({ url, onClose }: Props) {
           className="bg-white dark:bg-gray-900 rounded-xl shadow-2xl w-full max-w-2xl mx-4 max-h-[80vh] overflow-y-auto border border-gray-200/10 transform transition-all duration-300 ease-out scale-95 opacity-0 animate-fadeInUp"
         >
           {/* Header */}
-          <div className="sticky top-0 z-10 flex items-center justify-content-between gap-3 px-5 py-4 border-b border-gray-200/20 bg-white/80 dark:bg-gray-900/80 backdrop-blur rounded-t-xl">
+          <div className="sticky top-0 z-10 flex items-center justify-between gap-3 px-5 py-4 border-b border-gray-200/20 bg-white/80 dark:bg-gray-900/80 backdrop-blur rounded-t-xl">
             <div className="min-w-0 flex-1">
               <div className="text-xs text-gray-500 dark:text-gray-400 truncate">{site}</div>
               <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">
@@ -520,7 +497,7 @@ export default function ArticlePreview({ url, onClose }: Props) {
             </div>
 
             <div className="flex items-center gap-2 shrink-0 relative">
-              {/* Snapshot */}
+              {/* Snapshot (fotoaparat). Namig: Alt+klik = prenos PNG */}
               <button
                 type="button"
                 onClick={handleSnapshot}
@@ -557,7 +534,7 @@ export default function ArticlePreview({ url, onClose }: Props) {
                     <button onClick={() => openShareWindow(shareLinks.fb)} className="px-2 py-2 rounded-md bg-gray-100/70 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-sm">Facebook</button>
                     <button onClick={() => openShareWindow(shareLinks.li)} className="px-2 py-2 rounded-md bg-gray-100/70 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-sm">LinkedIn</button>
                     <button onClick={() => openShareWindow(shareLinks.wa)} className="px-2 py-2 rounded-md bg-gray-100/70 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-sm">WhatsApp</button>
-                    <button onClick={() => openShareWindow(shareLinks.tg)} className="px-2 py-2 rounded-md bg-gray-100/70 dark:bg-gray-800 hover:bg-gray-200 dark:hoverbg-gray-700 text-sm">Telegram</button>
+                    <button onClick={() => openShareWindow(shareLinks.tg)} className="px-2 py-2 rounded-md bg-gray-100/70 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-sm">Telegram</button>
                     <button onClick={copyToClipboard} className="px-2 py-2 rounded-md bg-gray-100/70 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-sm">
                       {copied ? 'Kopirano!' : 'Kopiraj povezavo'}
                     </button>
@@ -598,6 +575,7 @@ export default function ArticlePreview({ url, onClose }: Props) {
 
             {!loading && !error && (
               <div className="preview-typo max-w-none text-gray-900 dark:text-gray-100">
+                {/* Točno to bomo zajeli */}
                 <div key={url} ref={snapshotRef} className="relative">
                   <div dangerouslySetInnerHTML={{ __html: content }} />
                   <div className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-white dark:from-gray-900 to-transparent" />
@@ -627,6 +605,7 @@ export default function ArticlePreview({ url, onClose }: Props) {
             )}
           </div>
 
+          {/* Toast */}
           {snapMsg && (
             <div className="pointer-events-none fixed left-4 bottom-4 z-[60] rounded-lg bg-black/80 text-white text-sm px-3 py-2 shadow-lg">
               {snapMsg}
