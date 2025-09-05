@@ -46,7 +46,6 @@ const PREVIEW_TYPO_CSS = `
   .preview-typo a { text-decoration: underline; text-underline-offset: 2px; }
 `
 
-/* Ikone (skrajšano) */
 function IconShareIOS(props: React.SVGProps<SVGSVGElement>) { return (<svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" {...props}><path fill="currentColor" d="M12 3c.4 0 .8.16 1.06.44l3 3a1.5 1.5 0 1 1-2.12 2.12L13.5 7.12V14a1.5 1.5 0 1 1-3 0V7.12L9.06 8.56A1.5 1.5 0 0 1 6.94 6.44l3-3C10.2 3.16 10.6 3 11 3h1z"/><path fill="currentColor" d="M5 10.5A2.5 2.5 0 0 0 2.5 13v6A2.5 2.5 0 0 0 5 21.5h14A2.5 2.5 0 0 0 21.5 19v-6A2.5 2.5 0 0 0 19 10.5h-2a1.5 1.5 0 1 0 0 3h2V19H5v-5.5h2a1.5 1.5 0 1 0 0-3H5z"/></svg>) }
 function IconFacebook(props: React.SVGProps<SVGSVGElement>) { return (<svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" {...props}><path fill="currentColor" d="M13 21v-7h2.3l.4-3H13V9.3c0-.9.3-1.5 1.6-1.5H16V5.1C15.6 5 14.7 5 13.7 5 11.5 5 10 6.3 10 8.9V11H7.7v3H10v7h3z"/></svg>) }
 function IconLinkedIn(props: React.SVGProps<SVGSVGElement>) { return (<svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" {...props}><path fill="currentColor" d="M6.5 6.5A2.5 2.5 0 1 1 1.5 6.5a2.5 2.5 0 0 1 5 0zM2 8.8h4.9V22H2zM14.9 8.5c-2.7 0-4 1.5-4.6 2.5V8.8H5.4V22h4.9v-7c0-1.9 1-2.9 2.5-2.9 1.4 0 2.3 1 2.3 2.9V22H20v-7.7c0-3.3-1.8-5.8-5.1-5.8z"/></svg>) }
@@ -73,7 +72,6 @@ function absolutize(raw: string, baseUrl: string): string {
   try { return new URL(raw, baseUrl).toString() } catch { return raw }
 }
 
-// --- proxy + cache-bust ---
 function proxyImageSrc(absUrl: string): string {
   try { if (new URL(absUrl).pathname.startsWith('/api/img')) return absUrl } catch {}
   return `/api/img?u=${encodeURIComponent(absUrl)}`
@@ -209,7 +207,6 @@ function cleanPreviewHTML(html: string, baseUrl: string, knownTitle: string | un
       })
     }
 
-    // odstrani <picture>/<source>, da srcset ne prepiše našega src
     wrap.querySelectorAll('picture,source').forEach((n) => n.replaceWith(...Array.from(n.childNodes)))
     return wrap.innerHTML
   } catch { return html }
@@ -255,33 +252,27 @@ function truncateHTMLByWordsPercent(html: string, percent = 0.76): string {
 }
 
 export default function ArticlePreview({ url, onClose }: Props) {
-  // data
   const [content, setContent] = useState<string>('')
   const [title, setTitle] = useState<string>('')
   const [site, setSite] = useState<string>('')
   const [loading, setLoading] = useState<boolean>(true)
   const [error, setError] = useState<string | null>(null)
 
-  // share UI
   const [shareOpen, setShareOpen] = useState(false)
   const [copied, setCopied] = useState(false)
   const shareBtnRef = useRef<HTMLButtonElement>(null)
   const shareMenuRef = useRef<HTMLDivElement>(null)
 
-  // modal infra
   const modalRef = useRef<HTMLDivElement>(null)
   const closeRef = useRef<HTMLButtonElement>(null)
 
-  // snapshot
   const [snapshotBusy, setSnapshotBusy] = useState(false)
   const [snapMsg, setSnapMsg] = useState<string>('')
   const snapMsgTimer = useRef<number | null>(null)
   const snapshotRef = useRef<HTMLDivElement>(null)
 
-  // per-predogled cache-bust token (vezan na URL članka)
   const cacheBust = useMemo(() => Math.random().toString(36).slice(2), [url])
 
-  // prefer native share samo na napravah s “coarse pointer”
   const coarsePointerRef = useRef(false)
   useEffect(() => {
     try { coarsePointerRef.current = window.matchMedia('(pointer: coarse)').matches } catch {}
@@ -290,7 +281,6 @@ export default function ArticlePreview({ url, onClose }: Props) {
     typeof navigator !== 'undefined' && 'share' in navigator && typeof window !== 'undefined' && window.isSecureContext
   const preferNativeShare = supportsWebShare && coarsePointerRef.current
 
-  // sheet vs. popover
   const [useSheet, setUseSheet] = useState(false)
   useEffect(() => {
     const mq = window.matchMedia('(max-width: 640px)')
@@ -300,7 +290,6 @@ export default function ArticlePreview({ url, onClose }: Props) {
     return () => mq.removeEventListener?.('change', set)
   }, [])
 
-  // cache-first → clean(+proxy+cb) → trunc → sanitize
   useEffect(() => {
     let alive = true
     const run = async () => {
@@ -328,7 +317,6 @@ export default function ArticlePreview({ url, onClose }: Props) {
     return () => { alive = false }
   }, [url, cacheBust])
 
-  // fokus trap + lock scroll
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
@@ -359,7 +347,6 @@ export default function ArticlePreview({ url, onClose }: Props) {
     }
   }, [onClose, shareOpen])
 
-  // klik izven menija
   useEffect(() => {
     const onDocClick = (e: globalThis.MouseEvent) => {
       if (!shareOpen) return
@@ -377,14 +364,12 @@ export default function ArticlePreview({ url, onClose }: Props) {
     return () => document.removeEventListener('mousedown', onDocClick)
   }, [shareOpen])
 
-  // helper za toast
   const showSnapMsg = useCallback((msg: string) => {
     setSnapMsg(msg)
     if (snapMsgTimer.current) window.clearTimeout(snapMsgTimer.current)
     snapMsgTimer.current = window.setTimeout(() => setSnapMsg(''), 2200)
   }, [])
 
-  // Odpri + sledi
   const openSourceAndTrack = useCallback((e: ReactMouseEvent<HTMLAnchorElement>) => {
     const source = site || (() => { try { return new URL(url).hostname } catch { return 'unknown' } })()
     trackClick(source, url)
@@ -399,7 +384,6 @@ export default function ArticlePreview({ url, onClose }: Props) {
     }
   }, [site, url, onClose])
 
-  // SHARE
   const handleShareClick = useCallback(() => {
     if (preferNativeShare) {
       const shareData: ShareData = {
@@ -457,25 +441,31 @@ export default function ArticlePreview({ url, onClose }: Props) {
     URL.revokeObjectURL(link.href)
   }, [])
 
-  /** Offscreen snapshot: klon vstavimo v skriti container, dodamo watermark, počakamo slike in renderiramo. */
+  /** VARNO: klon vstavimo “offscreen”, počakamo slike, skrijemo gradient, in posnamemo **samo klon**. */
   const doSnapshot = useCallback(async (): Promise<Blob> => {
     if (!snapshotRef.current) throw new Error('no-snapshot-node')
 
-    // 1) kloniraj vsebino
+    // 1) kloniraj “jedro” (div s contentom)
     const clone = snapshotRef.current.cloneNode(true) as HTMLElement
 
-    // 2) watermark (domena + naslov)
+    // skrij “fade” overlay v klonu, da ne prekrije besedila
+    const fade = clone.querySelector('[data-preview-fade], .preview-fade') as HTMLElement | null
+    fade?.setAttribute('style', 'display:none !important')
+
+    // 2) watermark
     const wm = document.createElement('div')
     wm.style.cssText =
-      'display:flex;align-items:center;gap:.5rem;margin-top:.75rem;padding:.5rem .75rem;' +
-      'border-radius:10px;background:rgba(0,0,0,.55);color:#fff;font:500 12px/1.4 system-ui,-apple-system,Segoe UI,Roboto;'
+      'margin-top:.75rem;padding:.5rem .75rem;border-radius:10px;background:rgba(0,0,0,.55);' +
+      'color:#fff;font:500 12px/1.4 system-ui,-apple-system,Segoe UI,Roboto;'
     const siteText = site || (() => { try { return new URL(url).hostname } catch { return 'krizisce.si' } })()
     wm.textContent = `${title || 'Članek'} — ${siteText}`
-    const wrap = document.createElement('div')
-    wrap.appendChild(wm)
-    clone.appendChild(wrap)
+    clone.appendChild(wm)
 
-    // 3) prisili unikaten cache-bust za slike & izklopi lazy
+    // 3) prisili absolute barve (da niso odvisne od teme)
+    clone.style.background = '#ffffff'
+    clone.style.color = '#111827'
+
+    // 4) posodobi slike (cache-bust + CORS)
     const snapBust = `${Date.now().toString(36)}${Math.random().toString(36).slice(2,6)}`
     clone.querySelectorAll('img').forEach((img) => {
       const src = img.getAttribute('src')
@@ -485,37 +475,32 @@ export default function ArticlePreview({ url, onClose }: Props) {
       img.setAttribute('crossorigin', 'anonymous')
       img.setAttribute('referrerpolicy', 'no-referrer')
       img.removeAttribute('srcset'); img.removeAttribute('sizes')
+      // varnostna mreža: če se slika ne naloži, naj ima minimalno višino, da se ne “sesede” layout
+      ;(img as HTMLImageElement).style.maxWidth = '100%'
     })
 
-    // 4) offscreen container (renderiran, ne prikazan)
+    // 5) offscreen container – viden za layout, a izven toka in ne moti strani
     const offscreen = document.createElement('div')
     const width = snapshotRef.current.offsetWidth || 640
     offscreen.style.cssText =
-      `position:fixed;left:-99999px;top:0;width:${width}px;` + // izven ekrana
-      'pointer-events:none;contain:content;z-index:-1;'        // ne vpliva na stran
+      `position:fixed;left:-10000px;top:0;width:${width}px;` +
+      'pointer-events:none;opacity:1;'
     offscreen.appendChild(clone)
     document.body.appendChild(offscreen)
 
-    // 5) počakaj slike v KLONU
-    await waitForImages(offscreen)
+    // 6) počakaj slike v KLONU
+    await waitForImages(clone)
 
-    const prefersDark = window.matchMedia?.('(prefers-color-scheme: dark)').matches
-    const backgroundColor = prefersDark ? '#111827' : '#ffffff'
-    const isNarrow = window.matchMedia?.('(max-width: 640px)').matches
-    const pixelRatio = isNarrow
-      ? Math.min(2, window.devicePixelRatio || 1)
-      : Math.max(2, window.devicePixelRatio || 1)
-
+    // 7) posnemi **samo klon** (ne wrapperja)
     try {
-      const blob = await toBlob(offscreen, {
+      const blob = await toBlob(clone, {
         cacheBust: true,
-        pixelRatio,
-        backgroundColor,
+        pixelRatio: Math.max(2, window.devicePixelRatio || 1),
+        backgroundColor: '#ffffff',
       })
       if (!blob) throw new Error('snapshot-render-failed')
       return blob
     } finally {
-      // 6) počisti DOM
       offscreen.remove()
     }
   }, [title, site, url])
@@ -603,7 +588,7 @@ export default function ArticlePreview({ url, onClose }: Props) {
             </div>
 
             <div className="flex items-center gap-2 shrink-0 relative">
-              {/* Snapshot (fotoaparat). Namig: Alt+klik = prenos PNG */}
+              {/* Snapshot */}
               <button
                 type="button"
                 onClick={handleSnapshot}
@@ -665,7 +650,10 @@ export default function ArticlePreview({ url, onClose }: Props) {
                 {/* Točno to bomo zajeli */}
                 <div key={url} ref={snapshotRef} className="relative">
                   <div dangerouslySetInnerHTML={{ __html: content }} />
-                  <div className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-white dark:from-gray-900 to-transparent" />
+                  <div
+                    data-preview-fade
+                    className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-white dark:from-gray-900 to-transparent"
+                  />
                 </div>
 
                 <div className="mt-5 flex flex-col items-center gap-2">
