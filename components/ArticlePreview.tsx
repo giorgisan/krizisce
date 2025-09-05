@@ -46,13 +46,50 @@ const PREVIEW_TYPO_CSS = `
   .preview-typo a { text-decoration: underline; text-underline-offset: 2px; }
 `
 
-/* Ikone (skrajšano) */
-function IconShareIOS(props: React.SVGProps<SVGSVGElement>) { return (<svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" {...props}><path fill="currentColor" d="M12 3c.4 0 .8.16 1.06.44l3 3a1.5 1.5 0 1 1-2.12 2.12L13.5 7.12V14a1.5 1.5 0 1 1-3 0V7.12L9.06 8.56A1.5 1.5 0 0 1 6.94 6.44l3-3C10.2 3.16 10.6 3 11 3h1z"/><path fill="currentColor" d="M5 10.5A2.5 2.5 0 0 0 2.5 13v6A2.5 2.5 0 0 0 5 21.5h14A2.5 2.5 0 0 0 21.5 19v-6A2.5 2.5 0 0 0 19 10.5h-2a1.5 1.5 0 1 0 0 3h2V19H5v-5.5h2a1.5 1.5 0 1 0 0-3H5z"/></svg>) }
-function IconFacebook(props: React.SVGProps<SVGSVGElement>) { return (<svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" {...props}><path fill="currentColor" d="M13 21v-7h2.3l.4-3H13V9.3c0-.9.3-1.5 1.6-1.5H16V5.1C15.6 5 14.7 5 13.7 5 11.5 5 10 6.3 10 8.9V11H7.7v3H10v7h3z"/></svg>) }
-function IconLinkedIn(props: React.SVGProps<SVGSVGElement>) { return (<svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" {...props}><path fill="currentColor" d="M6.5 6.5A2.5 2.5 0 1 1 1.5 6.5a2.5 2.5 0 0 1 5 0zM2 8.8h4.9V22H2zM14.9 8.5c-2.7 0-4 1.5-4.6 2.5V8.8H5.4V22h4.9v-7c0-1.9 1-2.9 2.5-2.9 1.4 0 2.3 1 2.3 2.9V22H20v-7.7c0-3.3-1.8-5.8-5.1-5.8z"/></svg>) }
-function IconWhatsApp(props: React.SVGProps<SVGSVGElement>) { return (<svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" {...props}><path fill="currentColor" d="M12 2a10 10 0 0 0-8.7 15l-1.3 4.7 4.8-1.3A10 10 0 1 0 12 2zm5.6 14.6c-.2.6-1.2 1.1-1.7 1.2-.5.1-1 .2-1.7-.1-.4-.1-1-.3-1.8-.7-3.1-1.4-5.2-4.7-5.3-4.9-.2-.3-1.3-1.7-1.3-3.2 0-1.4.7-2.1 1-2.4.2-.2.6-.3 1-.3h.7c.2 0 .5 0 .7.6.3.7 1 2.6 1 2.8.1.2.1.4 0 .6-.1.2-.2.4-.4.6-.2.2-.4.5-.2.9.2.4.9 1.5 2 2.4 1.4 1.2 2.6 1.6 3 .1.2-.4.5-.5.8-.4.3.1 1.8.8 2.1 1 .3.2.5.4.6.6.1.5.1 1-.1 1.2z"/></svg>) }
-function IconTelegram(props: React.SVGProps<SVGSVGElement>) { return (<svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" {...props}><path fill="currentColor" d="M21.9 3.3c-.3-.2-.7-.2-1.1 0L2.8 10.6c-.7.3-.7 1.4.1 1.6l4.7 1.5 1.7 5.2c.2.7 1.1.9 1.6.3l2.6-2.8 4.3 3.1c.6.4 1.5.1 1.7-.6l3.1-14.4c.1-.5-.1-1-.6-1.2z"/></svg>) }
-function IconCamera(props: React.SVGProps<SVGSVGElement>) { return (<svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" {...props}><path fill="currentColor" d="M9 4a2 2 0 0 0-1.8 1.1L6.6 6H5a3 3 0 0 0-3 3v8a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3V9a3 3 0 0 0-3-3h-1.6l-.6-.9A2 2 0 0 0 15 4H9zm3 5a5 5 0 1 1 0 10 5 5 0 0 1 0-10zm0 2.5A2.5 2.5 0 1 0 14.5 14 2.5 2.5 0 0 0 12 11.5z"/></svg>) }
+/* Ikone */
+function IconShareIOS(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" {...props}>
+      <path fill="currentColor" d="M12 3c.4 0 .8.16 1.06.44l3 3a1.5 1.5 0 1 1-2.12 2.12L13.5 7.12V14a1.5 1.5 0 1 1-3 0V7.12L9.06 8.56A1.5 1.5 0 0 1 6.94 6.44l3-3C10.2 3.16 10.6 3 11 3h1z"/>
+      <path fill="currentColor" d="M5 10.5A2.5 2.5 0 0 0 2.5 13v6A2.5 2.5 0 0 0 5 21.5h14A2.5 2.5 0 0 0 21.5 19v-6A2.5 2.5 0 0 0 19 10.5h-2a1.5 1.5 0 1 0 0 3h2V19H5v-5.5h2a1.5 1.5 0 1 0 0-3H5z"/>
+    </svg>
+  )
+}
+function IconFacebook(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" {...props}>
+      <path fill="currentColor" d="M13 21v-7h2.3l.4-3H13V9.3c0-.9.3-1.5 1.6-1.5H16V5.1C15.6 5 14.7 5 13.7 5 11.5 5 10 6.3 10 8.9V11H7.7v3H10v7h3z"/>
+    </svg>
+  )
+}
+function IconLinkedIn(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" {...props}>
+      <path fill="currentColor" d="M6.5 6.5A2.5 2.5 0 1 1 1.5 6.5a2.5 2.5 0 0 1 5 0zM2 8.8h4.9V22H2zM14.9 8.5c-2.7 0-4 1.5-4.6 2.5V8.8H5.4V22h4.9v-7c0-1.9 1-2.9 2.5-2.9 1.4 0 2.3 1 2.3 2.9V22H20v-7.7c0-3.3-1.8-5.8-5.1-5.8z"/>
+    </svg>
+  )
+}
+function IconWhatsApp(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" {...props}>
+      <path fill="currentColor" d="M12 2a10 10 0 0 0-8.7 15l-1.3 4.7 4.8-1.3A10 10 0 1 0 12 2zm5.6 14.6c-.2.6-1.2 1.1-1.7 1.2-.5.1-1 .2-1.7-.1-.4-.1-1-.3-1.8-.7-3.1-1.4-5.2-4.7-5.3-4.9-.2-.3-1.3-1.7-1.3-3.2 0-1.4.7-2.1 1-2.4.2-.2.6-.3 1-.3h.7c.2 0 .5 0 .7.6.3.7 1 2.6 1 2.8.1.2.1.4 0 .6-.1.2-.2.4-.4.6-.2.2-.4.5-.2.9.2.4.9 1.5 2 2.4 1.4 1.2 2.6 1.6 3 .1.2-.4.5-.5.8-.4.3.1 1.8.8 2.1 1 .3.2.5.4.6.6.1.5.1 1-.1 1.2z"/>
+    </svg>
+  )
+}
+function IconTelegram(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" {...props}>
+      <path fill="currentColor" d="M21.9 3.3c-.3-.2-.7-.2-1.1 0L2.8 10.6c-.7.3-.7 1.4.1 1.6l4.7 1.5 1.7 5.2c.2.7 1.1.9 1.6.3l2.6-2.8 4.3 3.1c.6.4 1.5.1 1.7-.6l3.1-14.4c.1-.5-.1-1-.6-1.2z"/>
+    </svg>
+  )
+}
+function IconCamera(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" {...props}>
+      <path fill="currentColor" d="M9 4a2 2 0 0 0-1.8 1.1L6.6 6H5a3 3 0 0 0-3 3v8a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3V9a3 3 0 0 0-3-3h-1.6l-.6-.9A2 2 0 0 0 15 4H9zm3 5a5 5 0 1 1 0 10 5 5 0 0 1 0-10zm0 2.5A2.5 2.5 0 1 0 14.5 14 2.5 2.5 0 0 0 12 11.5z"/>
+    </svg>
+  )
+}
 
 /* Utils */
 function trackClick(source: string, url: string) {
@@ -63,8 +100,12 @@ function trackClick(source: string, url: string) {
       const blob = new Blob([payload], { type: 'application/json' })
       navigator.sendBeacon(endpoint, blob)
     } else {
-      fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: payload, keepalive: true as any })
-        .catch(() => {})
+      fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: payload,
+        keepalive: true as any,
+      }).catch(() => {})
     }
   } catch {}
 }
@@ -72,6 +113,8 @@ function trackClick(source: string, url: string) {
 function absolutize(raw: string, baseUrl: string): string {
   try { return new URL(raw, baseUrl).toString() } catch { return raw }
 }
+
+// --- proxy + cache-bust ---
 function proxyImageSrc(absUrl: string): string {
   try { if (new URL(absUrl).pathname.startsWith('/api/img')) return absUrl } catch {}
   return `/api/img?u=${encodeURIComponent(absUrl)}`
@@ -86,6 +129,7 @@ function withCacheBust(u: string, bust: string) {
     return `${u}${sep}cb=${encodeURIComponent(bust)}`
   }
 }
+
 function imageKeyFromSrc(src: string | null | undefined): string {
   if (!src) return ''
   let pathname = ''
@@ -110,7 +154,7 @@ function basenameStem(pathname: string): string {
     .replace(/-scaled$/g, '')
 }
 
-/** počakaj, da se slike naložijo */
+/** počakaj, da se slike naložijo (da html-to-image ne vzame stare iz cache-a) */
 async function waitForImages(root: HTMLElement, timeoutMs = 5000) {
   const imgs = Array.from(root.querySelectorAll('img'))
   if (imgs.length === 0) return
@@ -132,7 +176,7 @@ async function waitForImages(root: HTMLElement, timeoutMs = 5000) {
   }))
 }
 
-/** Clean + PROXY + CACHE-BUST + pin `data-snap-src` */
+/** Client-side clean + polish + PROXY IMG + CACHE-BUST + pin `data-snap-src` */
 function cleanPreviewHTML(html: string, baseUrl: string, knownTitle: string | undefined, bust: string): string {
   try {
     const wrap = document.createElement('div')
@@ -200,6 +244,7 @@ function cleanPreviewHTML(html: string, baseUrl: string, knownTitle: string | un
 
         const key  = imageKeyFromSrc(abs)
         const stem = basenameStem(key)
+
         const duplicate =
           !key || seen.has(key) || stem === firstStem ||
           stem.startsWith(firstStem.slice(0,10)) || firstStem.startsWith(stem.slice(0,10))
@@ -281,7 +326,7 @@ export default function ArticlePreview({ url, onClose }: Props) {
   // per-predogled cache-bust token (vezan na URL članka)
   const cacheBust = useMemo(() => Math.random().toString(36).slice(2), [url])
 
-  // prefer native share
+  // prefer native share samo na napravah s “coarse pointer”
   const coarsePointerRef = useRef(false)
   useEffect(() => {
     try { coarsePointerRef.current = window.matchMedia('(pointer: coarse)').matches } catch {}
@@ -300,7 +345,7 @@ export default function ArticlePreview({ url, onClose }: Props) {
     return () => mq.removeEventListener?.('change', set)
   }, [])
 
-  // cache-first → clean(+proxy+cb) → trunc → sanitize (+ fallback fresh fetch)
+  // cache-first → clean(+proxy+cb) → trunc → sanitize (+ FRESH fallback)
   useEffect(() => {
     let alive = true
     const run = async () => {
@@ -308,14 +353,17 @@ export default function ArticlePreview({ url, onClose }: Props) {
       try {
         let data: ApiPayload | null = null
 
+        // 1) peek
         const peek = peekPreview(url)
         if (peek && !('error' in peek)) data = peek
 
+        // 2) prefetch
         if (!data) {
           const pref = await preloadPreview(url)
           if (!('error' in pref)) data = pref
         }
 
+        // 3) svež fetch kot fallback
         if (!data) {
           const res = await fetch(`/api/preview?url=${encodeURIComponent(url)}`, { cache: 'no-store' })
           if (!res.ok) throw new Error(`http-${res.status}`)
@@ -470,18 +518,18 @@ export default function ArticlePreview({ url, onClose }: Props) {
     URL.revokeObjectURL(link.href)
   }, [])
 
-  /** Klon → odstrani background-image → dedup + hard reset <img> → počakaj → render. */
+  /** Klon → popravi CSS ozadja/clip-text → dedup + hard reset <img> → počakaj → renderiraj KLON. */
   const doSnapshot = useCallback(async (): Promise<Blob> => {
     if (!snapshotRef.current) throw new Error('no-snapshot-node')
 
     // 1) kloniraj vsebino
     const clone = snapshotRef.current.cloneNode(true) as HTMLElement
 
-    // skrij gradient
+    // skrij gradient na dnu
     const fade = clone.querySelector('[data-preview-fade], .preview-fade') as HTMLElement | null
-    fade?.setAttribute('style', 'display:none !important')
+    if (fade) fade.setAttribute('style', 'display:none !important')
 
-    // 2) watermark
+    // 2) watermark (domena + naslov)
     const wm = document.createElement('div')
     wm.style.cssText =
       'margin-top:.75rem;padding:.5rem .75rem;border-radius:10px;background:rgba(0,0,0,.55);' +
@@ -501,10 +549,19 @@ export default function ArticlePreview({ url, onClose }: Props) {
     offscreen.appendChild(clone)
     document.body.appendChild(offscreen)
 
-    // 4) izklopi VSE background-image, da ne prinese herojskih slik iz CSS
+    // 4) izklopi background-image, a popravi primere z background-clip:text/transparentnim tekstom
     offscreen.querySelectorAll<HTMLElement>('*').forEach((el) => {
       const cs = window.getComputedStyle(el)
-      if (cs.backgroundImage && cs.backgroundImage !== 'none') el.style.backgroundImage = 'none'
+      const hasUrlBg = cs.backgroundImage && cs.backgroundImage.includes('url(')
+      const clipText = (cs.getPropertyValue('-webkit-background-clip') === 'text') || (cs.backgroundClip === 'text')
+      const transparentText = cs.color === 'transparent' || cs.color.startsWith('rgba(0, 0, 0, 0')
+      if (hasUrlBg) el.style.backgroundImage = 'none'
+      if (clipText || (hasUrlBg && transparentText)) {
+        el.style.setProperty('-webkit-background-clip', 'initial')
+        el.style.backgroundClip = 'initial'
+        el.style.color = '#111827'
+        el.style.setProperty('-webkit-text-fill-color', '#111827')
+      }
     })
 
     // 5) slike – dedup + hard reset + svež cb
@@ -512,8 +569,8 @@ export default function ArticlePreview({ url, onClose }: Props) {
     const seen = new Set<string>()
     offscreen.querySelectorAll('img').forEach((img) => {
       const base = img.getAttribute('data-snap-src') || img.getAttribute('src') || ''
-      const key  = imageKeyFromSrc(base)
       if (!base) { img.remove(); return }
+      const key  = imageKeyFromSrc(base)
       if (seen.has(key)) { img.remove(); return }
       seen.add(key)
 
@@ -524,15 +581,15 @@ export default function ArticlePreview({ url, onClose }: Props) {
       el.setAttribute('referrerpolicy', 'no-referrer')
       el.removeAttribute('loading'); el.setAttribute('decoding', 'sync')
       el.style.maxWidth = '100%'
-      el.src = ''                    // hard reset
-      el.src = next                  // novo dejansko
+      el.src = ''   // hard reset
+      el.src = next // novo src
     })
 
     // 6) počakaj slike
     await waitForImages(offscreen)
 
     try {
-      const blob = await toBlob(offscreen, {
+      const blob = await toBlob(clone, {
         cacheBust: true,
         pixelRatio: Math.max(2, window.devicePixelRatio || 1),
         backgroundColor: '#ffffff',
@@ -627,7 +684,7 @@ export default function ArticlePreview({ url, onClose }: Props) {
             </div>
 
             <div className="flex items-center gap-2 shrink-0 relative">
-              {/* Snapshot */}
+              {/* Snapshot (fotoaparat). Namig: Alt+klik = prenos PNG */}
               <button
                 type="button"
                 onClick={handleSnapshot}
@@ -663,7 +720,7 @@ export default function ArticlePreview({ url, onClose }: Props) {
                   <div className="grid grid-cols-3 gap-2 p-1">
                     <button onClick={() => openShareWindow(shareLinks.x)} className="px-2 py-2 rounded-md bg-gray-100/70 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-sm">X</button>
                     <button onClick={() => openShareWindow(shareLinks.fb)} className="px-2 py-2 rounded-md bg-gray-100/70 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-sm">Facebook</button>
-                    <button onClick={() => openShareWindow(shareLinks.li)} className="px-2 py-2 rounded-md bg-gray-100/70 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-sm">LinkedIn</button>
+                    <button onClick={() => openShareWindow(shareLinks.li)} className="px-2 py-2 rounded-md bg-gray-100/70 dark:bg-gray-800 hover:bg-gray-200 dark:hoverbg-gray-700 text-sm">LinkedIn</button>
                     <button onClick={() => openShareWindow(shareLinks.wa)} className="px-2 py-2 rounded-md bg-gray-100/70 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-sm">WhatsApp</button>
                     <button onClick={() => openShareWindow(shareLinks.tg)} className="px-2 py-2 rounded-md bg-gray-100/70 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-sm">Telegram</button>
                     <button onClick={copyToClipboard} className="px-2 py-2 rounded-md bg-gray-100/70 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-sm">
