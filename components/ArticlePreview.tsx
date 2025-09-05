@@ -46,6 +46,7 @@ const PREVIEW_TYPO_CSS = `
   .preview-typo a { text-decoration: underline; text-underline-offset: 2px; }
 `
 
+/* Ikone (skrajšano) */
 function IconShareIOS(props: React.SVGProps<SVGSVGElement>) { return (<svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" {...props}><path fill="currentColor" d="M12 3c.4 0 .8.16 1.06.44l3 3a1.5 1.5 0 1 1-2.12 2.12L13.5 7.12V14a1.5 1.5 0 1 1-3 0V7.12L9.06 8.56A1.5 1.5 0 0 1 6.94 6.44l3-3C10.2 3.16 10.6 3 11 3h1z"/><path fill="currentColor" d="M5 10.5A2.5 2.5 0 0 0 2.5 13v6A2.5 2.5 0 0 0 5 21.5h14A2.5 2.5 0 0 0 21.5 19v-6A2.5 2.5 0 0 0 19 10.5h-2a1.5 1.5 0 1 0 0 3h2V19H5v-5.5h2a1.5 1.5 0 1 0 0-3H5z"/></svg>) }
 function IconFacebook(props: React.SVGProps<SVGSVGElement>) { return (<svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" {...props}><path fill="currentColor" d="M13 21v-7h2.3l.4-3H13V9.3c0-.9.3-1.5 1.6-1.5H16V5.1C15.6 5 14.7 5 13.7 5 11.5 5 10 6.3 10 8.9V11H7.7v3H10v7h3z"/></svg>) }
 function IconLinkedIn(props: React.SVGProps<SVGSVGElement>) { return (<svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" {...props}><path fill="currentColor" d="M6.5 6.5A2.5 2.5 0 1 1 1.5 6.5a2.5 2.5 0 0 1 5 0zM2 8.8h4.9V22H2zM14.9 8.5c-2.7 0-4 1.5-4.6 2.5V8.8H5.4V22h4.9v-7c0-1.9 1-2.9 2.5-2.9 1.4 0 2.3 1 2.3 2.9V22H20v-7.7c0-3.3-1.8-5.8-5.1-5.8z"/></svg>) }
@@ -71,7 +72,6 @@ function trackClick(source: string, url: string) {
 function absolutize(raw: string, baseUrl: string): string {
   try { return new URL(raw, baseUrl).toString() } catch { return raw }
 }
-
 function proxyImageSrc(absUrl: string): string {
   try { if (new URL(absUrl).pathname.startsWith('/api/img')) return absUrl } catch {}
   return `/api/img?u=${encodeURIComponent(absUrl)}`
@@ -86,7 +86,6 @@ function withCacheBust(u: string, bust: string) {
     return `${u}${sep}cb=${encodeURIComponent(bust)}`
   }
 }
-
 function imageKeyFromSrc(src: string | null | undefined): string {
   if (!src) return ''
   let pathname = ''
@@ -133,7 +132,7 @@ async function waitForImages(root: HTMLElement, timeoutMs = 5000) {
   }))
 }
 
-/** Clean + PROXY IMG + CACHE-BUST + pin `data-snap-src` */
+/** Clean + PROXY + CACHE-BUST + pin `data-snap-src` */
 function cleanPreviewHTML(html: string, baseUrl: string, knownTitle: string | undefined, bust: string): string {
   try {
     const wrap = document.createElement('div')
@@ -168,7 +167,7 @@ function cleanPreviewHTML(html: string, baseUrl: string, knownTitle: string | un
         const prox = proxyImageSrc(firstAbs)
         const pinned = withCacheBust(prox, bust)
         first.setAttribute('src', pinned)
-        first.setAttribute('data-snap-src', pinned)   // ⬅️ pin za snapshot
+        first.setAttribute('data-snap-src', pinned)
         first.setAttribute('crossorigin', 'anonymous')
       }
       first.removeAttribute('data-src')
@@ -191,7 +190,7 @@ function cleanPreviewHTML(html: string, baseUrl: string, knownTitle: string | un
         const prox = proxyImageSrc(abs)
         const pinned = withCacheBust(prox, bust)
         img.setAttribute('src', pinned)
-        img.setAttribute('data-snap-src', pinned)     // ⬅️ pin za snapshot
+        img.setAttribute('data-snap-src', pinned)
         img.setAttribute('crossorigin', 'anonymous')
         img.removeAttribute('data-src')
         img.removeAttribute('srcset'); img.removeAttribute('sizes')
@@ -256,27 +255,33 @@ function truncateHTMLByWordsPercent(html: string, percent = 0.76): string {
 }
 
 export default function ArticlePreview({ url, onClose }: Props) {
+  // data
   const [content, setContent] = useState<string>('')
   const [title, setTitle] = useState<string>('')
   const [site, setSite] = useState<string>('')
   const [loading, setLoading] = useState<boolean>(true)
   const [error, setError] = useState<string | null>(null)
 
+  // share UI
   const [shareOpen, setShareOpen] = useState(false)
   const [copied, setCopied] = useState(false)
   const shareBtnRef = useRef<HTMLButtonElement>(null)
   const shareMenuRef = useRef<HTMLDivElement>(null)
 
+  // modal infra
   const modalRef = useRef<HTMLDivElement>(null)
   const closeRef = useRef<HTMLButtonElement>(null)
 
+  // snapshot
   const [snapshotBusy, setSnapshotBusy] = useState(false)
   const [snapMsg, setSnapMsg] = useState<string>('')
   const snapMsgTimer = useRef<number | null>(null)
   const snapshotRef = useRef<HTMLDivElement>(null)
 
+  // per-predogled cache-bust token (vezan na URL članka)
   const cacheBust = useMemo(() => Math.random().toString(36).slice(2), [url])
 
+  // prefer native share samo na napravah s “coarse pointer”
   const coarsePointerRef = useRef(false)
   useEffect(() => {
     try { coarsePointerRef.current = window.matchMedia('(pointer: coarse)').matches } catch {}
@@ -285,6 +290,7 @@ export default function ArticlePreview({ url, onClose }: Props) {
     typeof navigator !== 'undefined' && 'share' in navigator && typeof window !== 'undefined' && window.isSecureContext
   const preferNativeShare = supportsWebShare && coarsePointerRef.current
 
+  // sheet vs. popover
   const [useSheet, setUseSheet] = useState(false)
   useEffect(() => {
     const mq = window.matchMedia('(max-width: 640px)')
@@ -294,20 +300,36 @@ export default function ArticlePreview({ url, onClose }: Props) {
     return () => mq.removeEventListener?.('change', set)
   }, [])
 
+  // cache-first → clean(+proxy+cb) → trunc → sanitize (+ FRESH fallback)
   useEffect(() => {
     let alive = true
     const run = async () => {
       setLoading(true); setError(null)
       try {
-        let data = peekPreview(url) as ApiPayload | null
-        if (!data) data = await preloadPreview(url)
-        if (!alive) return
+        let data: ApiPayload | null = null
 
-        if ('error' in data) {
-          setError('Napaka pri nalaganju predogleda.'); setLoading(false); return
+        // 1) peek
+        const peek = peekPreview(url)
+        if (peek && !('error' in peek)) data = peek
+
+        // 2) prefetch
+        if (!data) {
+          const pref = await preloadPreview(url)
+          if (!('error' in pref)) data = pref
         }
-        setTitle(data.title); setSite(data.site)
 
+        // 3) svež fetch kot fallback
+        if (!data) {
+          const res = await fetch(`/api/preview?url=${encodeURIComponent(url)}`, { cache: 'no-store' })
+          if (!res.ok) throw new Error(`http-${res.status}`)
+          const fresh = (await res.json()) as ApiPayload
+          if (!('error' in fresh)) data = fresh
+        }
+
+        if (!alive) return
+        if (!data || 'error' in data) throw new Error('preview-failed')
+
+        setTitle(data.title); setSite(data.site)
         const cleaned = cleanPreviewHTML(data.html, url, data.title, cacheBust)
         const truncated = truncateHTMLByWordsPercent(cleaned, TEXT_PERCENT)
         setContent(DOMPurify.sanitize(truncated))
@@ -321,6 +343,7 @@ export default function ArticlePreview({ url, onClose }: Props) {
     return () => { alive = false }
   }, [url, cacheBust])
 
+  // fokus trap + lock scroll
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
@@ -351,6 +374,7 @@ export default function ArticlePreview({ url, onClose }: Props) {
     }
   }, [onClose, shareOpen])
 
+  // klik izven menija
   useEffect(() => {
     const onDocClick = (e: globalThis.MouseEvent) => {
       if (!shareOpen) return
@@ -368,12 +392,14 @@ export default function ArticlePreview({ url, onClose }: Props) {
     return () => document.removeEventListener('mousedown', onDocClick)
   }, [shareOpen])
 
+  // helper za toast
   const showSnapMsg = useCallback((msg: string) => {
     setSnapMsg(msg)
     if (snapMsgTimer.current) window.clearTimeout(snapMsgTimer.current)
     snapMsgTimer.current = window.setTimeout(() => setSnapMsg(''), 2200)
   }, [])
 
+  // Odpri + sledi
   const openSourceAndTrack = useCallback((e: ReactMouseEvent<HTMLAnchorElement>) => {
     const source = site || (() => { try { return new URL(url).hostname } catch { return 'unknown' } })()
     trackClick(source, url)
@@ -388,6 +414,7 @@ export default function ArticlePreview({ url, onClose }: Props) {
     }
   }, [site, url, onClose])
 
+  // SHARE
   const handleShareClick = useCallback(() => {
     if (preferNativeShare) {
       const shareData: ShareData = {
@@ -445,17 +472,17 @@ export default function ArticlePreview({ url, onClose }: Props) {
     URL.revokeObjectURL(link.href)
   }, [])
 
-  /** Klon, pinani src preko data-snap-src, počakaj slike, posnemi klon. */
+  /** Klon vstavimo offscreen, forciramo svež src, počakamo slike, posnamemo **klon**. */
   const doSnapshot = useCallback(async (): Promise<Blob> => {
     if (!snapshotRef.current) throw new Error('no-snapshot-node')
 
     const clone = snapshotRef.current.cloneNode(true) as HTMLElement
 
-    // skrij fade overlay
+    // skrij gradient, da ne prekrije besedila
     const fade = clone.querySelector('[data-preview-fade], .preview-fade') as HTMLElement | null
     fade?.setAttribute('style', 'display:none !important')
 
-    // watermark
+    // watermark (domena + naslov)
     const wm = document.createElement('div')
     wm.style.cssText =
       'margin-top:.75rem;padding:.5rem .75rem;border-radius:10px;background:rgba(0,0,0,.55);' +
@@ -464,24 +491,26 @@ export default function ArticlePreview({ url, onClose }: Props) {
     wm.textContent = `${title || 'Članek'} — ${siteText}`
     clone.appendChild(wm)
 
-    // pin barve
+    // prisiljene barve
     clone.style.background = '#ffffff'
     clone.style.color = '#111827'
 
-    // slike: VEDNO vzemi data-snap-src (če obstaja) + dodaj unikaten cb
+    // slike: HARD RESET + nov cb (reši napačne slike pri večkratnem kliku)
     const snapBust = `${Date.now().toString(36)}${Math.random().toString(36).slice(2,6)}`
     clone.querySelectorAll('img').forEach((img) => {
       const base = img.getAttribute('data-snap-src') || img.getAttribute('src') || ''
-      if (base) img.setAttribute('src', withCacheBust(base, snapBust))
-      img.removeAttribute('loading')
-      img.setAttribute('decoding', 'sync')
-      img.setAttribute('crossorigin', 'anonymous')
-      img.setAttribute('referrerpolicy', 'no-referrer')
-      img.removeAttribute('srcset'); img.removeAttribute('sizes')
-      ;(img as HTMLImageElement).style.maxWidth = '100%'
+      const next = base ? withCacheBust(base, snapBust) : ''
+      // hard reset (zruši morebitni notranji cache)
+      const el = img as HTMLImageElement
+      el.removeAttribute('srcset'); el.removeAttribute('sizes')
+      el.setAttribute('crossorigin', 'anonymous')
+      el.setAttribute('referrerpolicy', 'no-referrer')
+      el.removeAttribute('loading'); el.setAttribute('decoding', 'sync')
+      el.style.maxWidth = '100%'
+      if (next) { el.src = ''; el.src = next }
     })
 
-    // offscreen mount
+    // offscreen container
     const offscreen = document.createElement('div')
     const width = snapshotRef.current.offsetWidth || 640
     offscreen.style.cssText = `position:fixed;left:-10000px;top:0;width:${width}px;pointer-events:none;opacity:1;`
@@ -611,6 +640,26 @@ export default function ArticlePreview({ url, onClose }: Props) {
                 <IconShareIOS className="mr-1" />
                 <span className="hidden sm:inline">Deli</span>
               </button>
+
+              {/* Share popover meni */}
+              {shareOpen && (
+                <div
+                  ref={shareMenuRef}
+                  role="menu"
+                  className="absolute right-24 top-10 z-20 w-64 rounded-lg border border-gray-200/20 bg-white dark:bg-gray-900 shadow-xl p-2"
+                >
+                  <div className="grid grid-cols-3 gap-2 p-1">
+                    <button onClick={() => openShareWindow(shareLinks.x)} className="px-2 py-2 rounded-md bg-gray-100/70 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-sm">X</button>
+                    <button onClick={() => openShareWindow(shareLinks.fb)} className="px-2 py-2 rounded-md bg-gray-100/70 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-sm">Facebook</button>
+                    <button onClick={() => openShareWindow(shareLinks.li)} className="px-2 py-2 rounded-md bg-gray-100/70 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-sm">LinkedIn</button>
+                    <button onClick={() => openShareWindow(shareLinks.wa)} className="px-2 py-2 rounded-md bg-gray-100/70 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-sm">WhatsApp</button>
+                    <button onClick={() => openShareWindow(shareLinks.tg)} className="px-2 py-2 rounded-md bg-gray-100/70 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-sm">Telegram</button>
+                    <button onClick={copyToClipboard} className="px-2 py-2 rounded-md bg-gray-100/70 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-sm">
+                      {copied ? 'Kopirano!' : 'Kopiraj povezavo'}
+                    </button>
+                  </div>
+                </div>
+              )}
 
               <a
                 href={url}
