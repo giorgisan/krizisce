@@ -68,102 +68,12 @@ function trackClick(source: string, url: string) {
     }
   } catch {}
 }
+
 function absolutize(raw: string, baseUrl: string): string { try { return new URL(raw, baseUrl).toString() } catch { return raw } }
 function proxyImageSrc(absUrl: string): string { try { if (new URL(absUrl).pathname.startsWith('/api/img')) return absUrl } catch {} return `/api/img?u=${encodeURIComponent(absUrl)}` }
 function withCacheBust(u: string, bust: string) {
   try { const url = new URL(u, typeof location !== 'undefined' ? location.origin : 'http://localhost'); url.searchParams.set('cb', bust); return url.toString() }
   catch { const sep = u.includes('?') ? '&' : '?'; return `${u}${sep}cb=${encodeURIComponent(bust)}` }
-}
-function imageKeyFromSrc(src?: string|null): string {
-  if (!src) return ''
-  let pathname = ''
-  try { const u = new URL(src, typeof location !== 'undefined' ? location.origin : 'http://localhost'); pathname = u.pathname.toLowerCase() }
-  catch { pathname = (src.split('#')[0] || '').split('?')[0].toLowerCase() }
-  pathname = pathname.replace(/(-|\_)?\d{2,4}x\d{2,4}(?=\.)/g, '')
-  pathname = pathname.replace(/(-|\_)?\d{2,4}x(?=\.)/g, '')
-  pathname = pathname.replace(/-scaled(?=\.)/g, '')
-  pathname = pathname.replace(/\.(webp|jpeg)$/g, '.jpg')
-  return pathname
-}
-function basenameStem(pathname: string): string {
-  const last = pathname.split('/').pop() || ''
-  return last.replace(/\.[a-z0-9]+$/, '').replace(/(-|\_)?\d{2,4}x\d{2,4}$/g, '').replace(/(-|\_)?\d{2,4}x$/g, '').replace(/-scaled$/g, '')
-}
-
-/** počakaj, da se slike naložijo */
-async function waitForImages(root: HTMLElement, timeoutMs = 5000) {
-  const imgs = Array.from(root.querySelectorAll('img'))
-  if (imgs.length === 0) return
-  await Promise.all(imgs.map(img => {
-    if (img.complete && img.naturalWidth > 0) return
-    return new Promise<void>((resolve) => {
-      let done = false
-      const clear = () => { if (done) return; done = true; img.removeEventListener('load', onload); img.removeEventListener('error', onload); resolve() }
-      const onload = () => clear()
-      img.addEventListener('load', onload)
-      img.addEventListener('error', onload)
-      setTimeout(clear, timeoutMs)
-    })
-  }))
-}
-
-/** Clean + PROXY + CACHE-BUST + pin `data-snap-src` */
-function cleanPreviewHTML(html: string, baseUrl: string, knownTitle: string | undefined, bust: string): string {
-  try {
-    const wrap = document.createElement('div')
-    wrap.innerHTML = html
-    wrap.querySelectorAll('noscript,script,style,iframe,form').forEach((n) => n.remove())
-
-    if (knownTitle) {
-      const h = wrap.querySelector('h1, h2, h3')
-      if (h) {
-        const a=(h.textContent||'').trim().toLowerCase(), b=knownTitle.trim().toLowerCase()
-        if (a && b && a===b) h.remove()
-      }
-    }
-
-    wrap.querySelectorAll('a').forEach((a) => {
-      const href = a.getAttribute('href'); if (href) a.setAttribute('href', absolutize(href, baseUrl))
-      const rel = (a.getAttribute('rel') || '').split(/\s+/)
-      if (!rel.includes('noopener')) rel.push('noopener'); if (!rel.includes('noreferrer')) rel.push('noreferrer')
-      a.setAttribute('rel', rel.join(' ').trim()); a.setAttribute('target', '_blank')
-    })
-
-    const imgs = Array.from(wrap.querySelectorAll('img'))
-    if (imgs.length) {
-      const first = imgs[0]
-      const firstRaw = first.getAttribute('src') || first.getAttribute('data-src') || ''
-      const firstAbs = absolutize(firstRaw, baseUrl)
-      if (firstAbs) {
-        const prox = proxyImageSrc(firstAbs)
-        const pinned = withCacheBust(prox, bust)
-        first.setAttribute('src', pinned)
-        first.setAttribute('data-snap-src', pinned)
-        first.setAttribute('crossorigin', 'anonymous')
-      }
-      first.removeAttribute('data-src'); first.removeAttribute('srcset'); first.removeAttribute('sizes')
-      first.setAttribute('loading','lazy'); first.setAttribute('decoding','async'); first.setAttribute('referrerpolicy','no-referrer')
-
-      const firstKey=imageKeyFromSrc(firstAbs||firstRaw), firstStem=basenameStem(firstKey)
-      const seen = new Set<string>(); if (firstKey) seen.add(firstKey)
-
-      Array.from(wrap.querySelectorAll('img')).slice(1).forEach((img) => {
-        const raw = img.getAttribute('src') || img.getAttribute('data-src') || ''
-        if (!raw) { (img.closest('figure,picture')||img).remove(); return }
-        const abs=absolutize(raw, baseUrl); const prox=proxyImageSrc(abs); const pinned=withCacheBust(prox,bust)
-        img.setAttribute('src', pinned); img.setAttribute('data-snap-src', pinned); img.setAttribute('crossorigin','anonymous')
-        img.removeAttribute('data-src'); img.removeAttribute('srcset'); img.removeAttribute('sizes')
-        img.setAttribute('loading','lazy'); img.setAttribute('decoding','async'); img.setAttribute('referrerpolicy','no-referrer')
-
-        const key=imageKeyFromSrc(abs), stem=basenameStem(key)
-        const duplicate = !key || seen.has(key) || stem===firstStem || stem.startsWith(firstStem.slice(0,10)) || firstStem.startsWith(stem.slice(0,10))
-        if (duplicate) { (img.closest('figure,picture')||img).remove() } else { seen.add(key) }
-      })
-    }
-
-    wrap.querySelectorAll('picture,source').forEach((n)=>n.replaceWith(...Array.from(n.childNodes)))
-    return wrap.innerHTML
-  } catch { return html }
 }
 
 function wordSpans(text: string){ const spans:Array<{start:number;end:number}>=[]; const re=/[A-Za-z0-9À-ÖØ-öø-ÿĀ-žČŠŽčšžĆćĐđ]+(?:['’-][A-Za-z0-9À-ÖØ-öø-ÿĀ-žČŠŽčšžĆćĐđ]+)*/g; let m:RegExpExecArray|null; while((m=re.exec(text))!==null) spans.push({start:m.index,end:m.index+m[0].length}); return spans }
@@ -188,242 +98,390 @@ function truncateHTMLByWordsPercent(html:string, percent=0.76){
   return out.innerHTML
 }
 
+/** Clean HTML + proxy + cb; hkrati vrne tudi cover sliko za snapshot. */
+function cleanAndExtract(html: string, baseUrl: string, knownTitle: string | undefined, bust: string) {
+  try {
+    const wrap = document.createElement('div')
+    wrap.innerHTML = html
+    wrap.querySelectorAll('noscript,script,style,iframe,form').forEach((n) => n.remove())
+
+    if (knownTitle) {
+      const h = wrap.querySelector('h1, h2, h3')
+      if (h) {
+        const a=(h.textContent||'').trim().toLowerCase(), b=knownTitle.trim().toLowerCase()
+        if (a && b && a===b) h.remove()
+      }
+    }
+
+    wrap.querySelectorAll('a').forEach((a) => {
+      const href = a.getAttribute('href'); if (href) a.setAttribute('href', absolutize(href, baseUrl))
+      const rel = (a.getAttribute('rel') || '').split(/\s+/)
+      if (!rel.includes('noopener')) rel.push('noopener')
+      if (!rel.includes('noreferrer')) rel.push('noreferrer')
+      a.setAttribute('rel', rel.join(' ').trim())
+      a.setAttribute('target', '_blank')
+    })
+
+    // images → proxy + cb; vrni prvo sliko kot cover
+    let coverSnapSrc: string | null = null
+    const imgs = Array.from(wrap.querySelectorAll('img'))
+    imgs.forEach((img, idx) => {
+      const raw = img.getAttribute('src') || img.getAttribute('data-src') || ''
+      if (!raw) { (img.closest('figure, picture') || img).remove(); return }
+      const abs  = absolutize(raw, baseUrl)
+      const prox = proxyImageSrc(abs)
+      const pinned = withCacheBust(prox, bust)
+      img.setAttribute('src', pinned)
+      img.removeAttribute('data-src')
+      img.removeAttribute('srcset'); img.removeAttribute('sizes')
+      img.setAttribute('loading', 'lazy')
+      img.setAttribute('decoding', 'async')
+      img.setAttribute('referrerpolicy', 'no-referrer')
+      img.setAttribute('crossorigin', 'anonymous')
+      if (idx === 0) coverSnapSrc = pinned
+    })
+
+    // odstrani <picture>/<source>, da srcset ne prepiše našega src
+    wrap.querySelectorAll('picture,source').forEach((n) => n.replaceWith(...Array.from(n.childNodes)))
+    return { html: wrap.innerHTML, coverSnapSrc }
+  } catch {
+    return { html, coverSnapSrc: null }
+  }
+}
+
 export default function ArticlePreview({ url, onClose }: Props) {
-  const [content, setContent] = useState(''), [title, setTitle] = useState(''), [site, setSite] = useState('')
-  const [loading, setLoading] = useState(true), [error, setError] = useState<string|null>(null)
+  // data
+  const [content, setContent] = useState<string>('')
+  const [title, setTitle] = useState<string>('')
+  const [site, setSite] = useState<string>('')
+  const [coverSnapSrc, setCoverSnapSrc] = useState<string | null>(null)
+  const [loading, setLoading] = useState<boolean>(true)
+  const [error, setError] = useState<string | null>(null)
 
-  const [shareOpen, setShareOpen] = useState(false), [copied, setCopied] = useState(false)
-  const shareBtnRef = useRef<HTMLButtonElement>(null); const shareMenuRef = useRef<HTMLDivElement>(null)
+  // share UI
+  const [shareOpen, setShareOpen] = useState(false)
+  const [copied, setCopied] = useState(false)
+  const shareBtnRef = useRef<HTMLButtonElement>(null)
+  const shareMenuRef = useRef<HTMLDivElement>(null)
 
-  const modalRef = useRef<HTMLDivElement>(null); const closeRef = useRef<HTMLButtonElement>(null)
+  // modal infra
+  const modalRef = useRef<HTMLDivElement>(null)
+  const closeRef = useRef<HTMLButtonElement>(null)
 
-  const [snapshotBusy, setSnapshotBusy] = useState(false); const [snapMsg, setSnapMsg] = useState(''); const snapMsgTimer = useRef<number|null>(null)
+  // snapshot
+  const [snapshotBusy, setSnapshotBusy] = useState(false)
+  const [snapMsg, setSnapMsg] = useState<string>('')
+  const snapMsgTimer = useRef<number | null>(null)
+
   const snapshotRef = useRef<HTMLDivElement>(null)
 
+  // per-predogled cache-bust token (vezan na URL članka)
   const cacheBust = useMemo(() => Math.random().toString(36).slice(2), [url])
 
+  // prefer native share samo na napravah s “coarse pointer”
   const coarsePointerRef = useRef(false)
-  useEffect(()=>{ try { coarsePointerRef.current = window.matchMedia('(pointer: coarse)').matches } catch {} },[])
-  const supportsWebShare = typeof navigator!=='undefined' && 'share' in navigator && typeof window!=='undefined' && window.isSecureContext
+  useEffect(() => {
+    try { coarsePointerRef.current = window.matchMedia('(pointer: coarse)').matches } catch {}
+  }, [])
+  const supportsWebShare =
+    typeof navigator !== 'undefined' && 'share' in navigator && typeof window !== 'undefined' && window.isSecureContext
   const preferNativeShare = supportsWebShare && coarsePointerRef.current
 
+  // sheet vs. popover
   const [useSheet, setUseSheet] = useState(false)
-  useEffect(()=>{ const mq=window.matchMedia('(max-width: 640px)'); const set=()=>setUseSheet(mq.matches); set(); mq.addEventListener?.('change',set); return ()=>mq.removeEventListener?.('change',set) },[])
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 640px)')
+    const set = () => setUseSheet(mq.matches)
+    set()
+    mq.addEventListener?.('change', set)
+    return () => mq.removeEventListener?.('change', set)
+  }, [])
 
+  // cache-first → clean(+proxy+cb) → trunc → sanitize (+ extract cover)
   useEffect(() => {
     let alive = true
     const run = async () => {
       setLoading(true); setError(null)
       try {
-        let data: ApiPayload | null = null
-        const peek = peekPreview(url); if (peek && !('error' in peek)) data = peek
-        if (!data) { const pref = await preloadPreview(url); if (!('error' in pref)) data = pref }
-        if (!data) {
-          const res = await fetch(`/api/preview?url=${encodeURIComponent(url)}`, { cache: 'no-store' })
-          if (!res.ok) throw new Error(`http-${res.status}`)
-          const fresh = (await res.json()) as ApiPayload
-          if (!('error' in fresh)) data = fresh
-        }
+        let data = peekPreview(url) as ApiPayload | null
+        if (!data) data = await preloadPreview(url)
+
         if (!alive) return
         if (!data || 'error' in data) throw new Error('preview-failed')
 
         setTitle(data.title); setSite(data.site)
-        const cleaned = cleanPreviewHTML(data.html, url, data.title, cacheBust)
-        const truncated = truncateHTMLByWordsPercent(cleaned, TEXT_PERCENT)
-        setContent(DOMPurify.sanitize(truncated)); setLoading(false)
-      } catch { if (!alive) return; setError('Napaka pri nalaganju predogleda.'); setLoading(false) }
-    }
-    run(); return () => { alive = false }
-  }, [url, cacheBust])
 
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') { if (shareOpen) setShareOpen(false); else onClose() }
-      else if (e.key === 'Tab') {
-        const focusable = modalRef.current?.querySelectorAll<HTMLElement>('a[href], button, textarea, input, select, [tabindex]:not([tabindex="-1"])')
-        if (!focusable || focusable.length === 0) return
-        const first = focusable[0]; const last = focusable[focusable.length-1]
-        if (e.shiftKey) { if (document.activeElement === first) { e.preventDefault(); last.focus() } }
-        else if (document.activeElement === last) { e.preventDefault(); first.focus() }
+        const cleaned = cleanAndExtract(data.html, url, data.title, cacheBust)
+        const truncated = truncateHTMLByWordsPercent(cleaned.html, TEXT_PERCENT)
+        setCoverSnapSrc(cleaned.coverSnapSrc || null)
+        setContent(DOMPurify.sanitize(truncated))
+        setLoading(false)
+      } catch {
+        if (!alive) return
+        setError('Napaka pri nalaganju predogleda.'); setLoading(false)
       }
     }
+    run()
+    return () => { alive = false }
+  }, [url, cacheBust])
+
+  // fokus trap + lock scroll
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (shareOpen) setShareOpen(false)
+        else onClose()
+      } else if (e.key === 'Tab') {
+        const focusable = modalRef.current?.querySelectorAll<HTMLElement>(
+          'a[href], button, textarea, input, select, [tabindex]:not([tabindex="-1"])'
+        )
+        if (!focusable || focusable.length === 0) return
+        const first = focusable[0]; const last = focusable[focusable.length - 1]
+        if (e.shiftKey) {
+          if (document.activeElement === first) { e.preventDefault(); last.focus() }
+        } else if (document.activeElement === last) { e.preventDefault(); first.focus() }
+      }
+    }
+
     document.addEventListener('keydown', handleKeyDown)
-    const prevOverflow = document.body.style.overflow; document.body.style.overflow='hidden'
-    document.body.classList.add('modal-open','preview-open'); setTimeout(()=>closeRef.current?.focus(),0)
-    return () => { document.removeEventListener('keydown', handleKeyDown); document.body.style.overflow=prevOverflow; document.body.classList.remove('modal-open','preview-open') }
+    const prevOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    document.body.classList.add('modal-open', 'preview-open')
+    setTimeout(() => closeRef.current?.focus(), 0)
+
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown)
+      document.body.style.overflow = prevOverflow
+      document.body.classList.remove('modal-open', 'preview-open')
+    }
   }, [onClose, shareOpen])
 
+  // klik izven menija
   useEffect(() => {
     const onDocClick = (e: globalThis.MouseEvent) => {
       if (!shareOpen) return
-      const t = e.target as Node
-      if (shareMenuRef.current && !shareMenuRef.current.contains(t) && shareBtnRef.current && !shareBtnRef.current.contains(t)) setShareOpen(false)
+      const target = e.target as Node
+      if (
+        shareMenuRef.current &&
+        !shareMenuRef.current.contains(target) &&
+        shareBtnRef.current &&
+        !shareBtnRef.current.contains(target)
+      ) {
+        setShareOpen(false)
+      }
     }
     document.addEventListener('mousedown', onDocClick)
     return () => document.removeEventListener('mousedown', onDocClick)
   }, [shareOpen])
 
+  // helper za toast
   const showSnapMsg = useCallback((msg: string) => {
-    setSnapMsg(msg); if (snapMsgTimer.current) window.clearTimeout(snapMsgTimer.current)
+    setSnapMsg(msg)
+    if (snapMsgTimer.current) window.clearTimeout(snapMsgTimer.current)
     snapMsgTimer.current = window.setTimeout(() => setSnapMsg(''), 2200)
   }, [])
 
+  // Odpri + sledi
   const openSourceAndTrack = useCallback(() => {
     const source = site || (() => { try { return new URL(url).hostname } catch { return 'unknown' } })()
-    trackClick(source, url); if (AUTO_CLOSE_ON_OPEN) requestAnimationFrame(() => onClose())
+    trackClick(source, url)
+    if (AUTO_CLOSE_ON_OPEN) requestAnimationFrame(() => onClose())
   }, [site, url, onClose])
 
   const onAuxOpen = useCallback((e: ReactMouseEvent<HTMLAnchorElement>) => {
-    if (e.button===1 || e.metaKey || e.ctrlKey) {
+    if (e.button === 1 || e.metaKey || e.ctrlKey) {
       const source = site || (() => { try { return new URL(url).hostname } catch { return 'unknown' } })()
-      trackClick(source, url); if (AUTO_CLOSE_ON_OPEN) requestAnimationFrame(() => onClose())
+      trackClick(source, url)
+      if (AUTO_CLOSE_ON_OPEN) requestAnimationFrame(() => onClose())
     }
   }, [site, url, onClose])
 
+  // SHARE
   const handleShareClick = useCallback(() => {
     if (preferNativeShare) {
-      const shareData: ShareData = { title: (title||site||'Članek')+VIA_TEXT, text: (title?`${title}${site?` – ${site}`:''}`:(site||'Križišče'))+VIA_TEXT, url }
+      const shareData: ShareData = {
+        title: (title || site || 'Članek') + VIA_TEXT,
+        text: (title ? `${title}${site ? ` – ${site}` : ''}` : (site || 'Križišče')) + VIA_TEXT,
+        url,
+      }
       try { (navigator as any).share(shareData).catch(() => {}) } catch {}
       return
     }
-    setShareOpen((v)=>!v)
+    setShareOpen((v) => !v)
   }, [preferNativeShare, title, site, url])
 
-  const openShareWindow = useCallback((href: string) => { try { window.open(href, '_blank', 'noopener,noreferrer') } catch {} }, [])
+  const openShareWindow = useCallback((href: string) => {
+    try { window.open(href, '_blank', 'noopener,noreferrer') } catch {}
+  }, [])
+
   const shareLinks = useMemo(() => {
-    const encodedUrl=encodeURIComponent(url), encodedTitle=encodeURIComponent(title||site||'')
+    const encodedUrl   = encodeURIComponent(url)
+    const encodedTitle = encodeURIComponent(title || site || '')
     return {
-      x:`https://twitter.com/intent/tweet?url=${encodedUrl}&text=${encodedTitle}`,
-      fb:`https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}`,
-      li:`https://www.linkedin.com/shareArticle?url=${encodedUrl}&title=${encodedTitle}`,
-      wa:`https://api.whatsapp.com/send?text=${encodedTitle}%20${encodedUrl}`,
-      tg:`https://t.me/share/url?url=${encodedUrl}&text=${encodedTitle}`,
+      x:  `https://twitter.com/intent/tweet?url=${encodedUrl}&text=${encodedTitle}`,
+      fb: `https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}`,
+      li: `https://www.linkedin.com/shareArticle?url=${encodedUrl}&title=${encodedTitle}`,
+      wa: `https://api.whatsapp.com/send?text=${encodedTitle}%20${encodedUrl}`,
+      tg: `https://t.me/share/url?url=${encodedUrl}&text=${encodedTitle}`,
     }
   }, [url, title, site])
 
   const copyToClipboard = useCallback(async () => {
-    try { await navigator.clipboard.writeText(url); setCopied(true); setTimeout(()=>setCopied(false),1500) }
-    catch {
-      const ta=document.createElement('textarea'); ta.value=url; ta.style.position='fixed'; ta.style.opacity='0'; document.body.appendChild(ta); ta.select()
-      try { document.execCommand('copy'); setCopied(true); setTimeout(()=>setCopied(false),1500) } catch {}
+    try {
+      await navigator.clipboard.writeText(url)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1500)
+    } catch {
+      const ta = document.createElement('textarea')
+      ta.value = url
+      ta.style.position = 'fixed'
+      ta.style.opacity = '0'
+      document.body.appendChild(ta)
+      ta.select()
+      try { document.execCommand('copy'); setCopied(true); setTimeout(() => setCopied(false), 1500) } catch {}
       document.body.removeChild(ta)
     }
   }, [url])
 
   // ---------- SNAPSHOT (TEMPLATE) ----------
-  const downloadBlob = useCallback((blob: Blob, filename='article-snapshot.png') => {
-    const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=filename; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(a.href)
+  const downloadBlob = useCallback((blob: Blob, filename = 'article-snapshot.png') => {
+    const link = document.createElement('a')
+    link.href = URL.createObjectURL(blob)
+    link.download = filename
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(link.href)
   }, [])
 
-  /** Iz DOM-a izluščimo prvo sliko in čist tekst, nato zgradimo SVOJO kartico in jo renderiramo. */
+  /** Ustvari “card” (naslov + domena + prva slika + izsek) z fade-out, barve po temi. */
   const doSnapshot = useCallback(async (): Promise<Blob> => {
-    if (!snapshotRef.current) throw new Error('no-snapshot-node')
+    // barvna shema po temi
+    const isDark =
+      document.documentElement.classList.contains('dark') ||
+      window.matchMedia?.('(prefers-color-scheme: dark)').matches
+    const bg = isDark ? '#111827' : '#ffffff'
+    const fg = isDark ? '#e5e7eb' : '#111827'
+    const sub = isDark ? 'rgba(229,231,235,.6)' : 'rgba(17,24,39,.6)'
+    const shade = isDark ? 'rgba(255,255,255,.06)' : 'rgba(0,0,0,.06)'
 
-    // 1) izlušči prvo sliko (pin je v data-snap-src)
-    const firstImg = snapshotRef.current.querySelector<HTMLImageElement>('img[data-snap-src], img')
-    const rawImg = firstImg?.getAttribute('data-snap-src') || firstImg?.getAttribute('src') || ''
-    const snapBust = `${Date.now().toString(36)}${Math.random().toString(36).slice(2,6)}`
-    const imgSrc = rawImg ? withCacheBust(rawImg, snapBust) : null
+    // širina = širina predogleda
+    const width = snapshotRef.current?.offsetWidth || 640
 
-    // 2) izlušči tekst (iz clean/sanitize vsebine)
-    const text = (snapshotRef.current.textContent || '')
-      .replace(/\s+/g, ' ')
-      .replace(/\u00A0/g, ' ')
-      .trim()
-    const MAX_WORDS = 120
-    const words = text.split(' ').filter(Boolean).slice(0, MAX_WORDS)
-    const excerpt = words.join(' ') + (words.length >= MAX_WORDS ? '…' : '')
-
-    // 3) zgradi našo kartico
-    const width = snapshotRef.current.offsetWidth || 640
+    // container
     const root = document.createElement('div')
     root.style.cssText = `position:fixed;left:-10000px;top:0;width:${width}px;pointer-events:none;`
     const card = document.createElement('div')
     card.style.cssText =
-      'background:#fff;color:#111827;padding:16px;border-radius:16px;border:1px solid rgba(0,0,0,.06);' +
+      `background:${bg};color:${fg};padding:16px;border-radius:16px;border:1px solid ${shade};` +
       'font: 500 14px/1.55 system-ui,-apple-system,Segoe UI,Roboto;'
+    root.appendChild(card)
 
-    // header: naslov + domena
+    // header
     const siteText = site || (() => { try { return new URL(url).hostname } catch { return 'krizisce.si' } })()
     const titleEl = document.createElement('div')
     titleEl.textContent = title || 'Članek'
     titleEl.style.cssText = 'font-weight:700;font-size:18px;line-height:1.3;margin:2px 0 6px;'
     const domainEl = document.createElement('div')
     domainEl.textContent = siteText
-    domainEl.style.cssText = 'opacity:.6;font-size:12px;margin-bottom:10px;'
+    domainEl.style.cssText = `color:${sub};font-size:12px;margin-bottom:10px;`
+    card.appendChild(titleEl)
+    card.appendChild(domainEl)
 
-    // slika (če obstaja)
-    let imgWrap: HTMLDivElement | null = null
-    if (imgSrc) {
-      imgWrap = document.createElement('div')
+    // slika (če obstaja; uporabimo coverSnapSrc iz stanja → ni “starih” slik)
+    if (coverSnapSrc) {
+      const imgWrap = document.createElement('div')
       imgWrap.style.cssText = 'width:100%;aspect-ratio:16/9;border-radius:12px;overflow:hidden;background:#f3f4f6;margin-bottom:12px;'
       const img = new Image()
       img.decoding = 'sync'
       img.loading = 'eager'
       img.crossOrigin = 'anonymous'
       img.referrerPolicy = 'no-referrer'
-      img.src = imgSrc
+      // še en cb za 100% svežino
+      img.src = withCacheBust(coverSnapSrc, `${Date.now().toString(36)}${Math.random().toString(36).slice(2,6)}`)
       img.style.cssText = 'width:100%;height:100%;object-fit:cover;display:block;'
       imgWrap.appendChild(img)
+      card.appendChild(imgWrap)
     }
 
-    // tekst
+    // tekst z fade-out
+    const rawText = (snapshotRef.current?.textContent || '').replace(/\s+/g, ' ').replace(/\u00A0/g, ' ').trim()
+    const MAX_WORDS = 140
+    const words = rawText.split(' ').filter(Boolean).slice(0, MAX_WORDS)
+    const excerpt = words.join(' ') + (words.length >= MAX_WORDS ? '…' : '')
+
+    const textWrap = document.createElement('div')
+    textWrap.style.cssText = 'position:relative;border-radius:12px;overflow:hidden;'
     const bodyEl = document.createElement('div')
     bodyEl.textContent = excerpt
-    bodyEl.style.cssText = 'white-space:pre-wrap;font-size:14px;line-height:1.55;'
+    bodyEl.style.cssText = 'white-space:pre-wrap;font-size:14px;line-height:1.55;padding-bottom:72px;'
+    const fade = document.createElement('div')
+    fade.style.cssText = `pointer-events:none;position:absolute;left:0;right:0;bottom:0;height:72px;background:linear-gradient(to top, ${bg}, rgba(0,0,0,0));`
+    textWrap.appendChild(bodyEl)
+    textWrap.appendChild(fade)
+    card.appendChild(textWrap)
 
-    // watermark
-    const wm = document.createElement('div')
-    wm.textContent = `${title || 'Članek'} — ${siteText}`
-    wm.style.cssText = 'margin-top:12px;padding:6px 10px;border-radius:10px;background:rgba(0,0,0,.55);color:#fff;font-size:12px;display:inline-block;'
-
-    // sestavi
-    card.appendChild(titleEl)
-    card.appendChild(domainEl)
-    if (imgWrap) card.appendChild(imgWrap)
-    card.appendChild(bodyEl)
-    card.appendChild(wm)
-    root.appendChild(card)
     document.body.appendChild(root)
-
-    // 4) počakaj sliko, če je
-    await waitForImages(root)
 
     try {
       const blob = await toBlob(card, {
         cacheBust: true,
         pixelRatio: Math.max(2, window.devicePixelRatio || 1),
-        backgroundColor: '#ffffff',
+        backgroundColor: bg,
       })
       if (!blob) throw new Error('snapshot-render-failed')
       return blob
     } finally {
       root.remove()
     }
-  }, [title, site, url])
+  }, [title, site, url, coverSnapSrc])
 
   const handleSnapshot = useCallback(async (e?: ReactMouseEvent<HTMLButtonElement>) => {
     setSnapshotBusy(true)
     try {
-      const forceDownload=!!e?.altKey
-      const blob=await doSnapshot()
-      const isMobileUI=window.matchMedia?.('(max-width: 640px)').matches
+      const forceDownload = !!e?.altKey
+      const blob = await doSnapshot()
+      const isMobileUI = window.matchMedia?.('(max-width: 640px)').matches
+
       if (isMobileUI && !forceDownload && 'share' in navigator) {
-        const file=new File([blob],'article-snapshot.png',{type:'image/png'})
-        const canShareFiles=(navigator as any).canShare?.({files:[file]}) ?? false
+        const file = new File([blob], 'article-snapshot.png', { type: 'image/png' })
+        const canShareFiles = (navigator as any).canShare?.({ files: [file] }) ?? false
         if (canShareFiles) {
-          await (navigator as any).share({ files:[file], title:title||site||'Snapshot', text:(title?`${title}${site?` – ${site}`:''}`:(site||'Članek')) })
-          showSnapMsg('Deljeno prek sistema.'); setSnapshotBusy(false); return
+          await (navigator as any).share({
+            files: [file],
+            title: title || site || 'Snapshot',
+            text: (title ? `${title}${site ? ` – ${site}` : ''}` : (site || 'Članek')),
+          })
+          showSnapMsg('Deljeno prek sistema.')
+          setSnapshotBusy(false)
+          return
         }
       }
-      const canClipboard = !forceDownload && 'clipboard' in navigator && typeof (window as any).ClipboardItem!=='undefined' && typeof navigator.clipboard?.write==='function'
+
+      const canClipboard =
+        !forceDownload &&
+        'clipboard' in navigator &&
+        typeof (window as any).ClipboardItem !== 'undefined' &&
+        typeof navigator.clipboard?.write === 'function'
+
       if (canClipboard) {
-        const CI=(window as any).ClipboardItem as { new (items: Record<string, Blob>): ClipboardItem }
-        const item=new CI({ 'image/png': blob, 'text/plain': new Blob([`Snapshot: ${title||site||''}`], {type:'text/plain'}) })
-        await navigator.clipboard.write([item]); showSnapMsg('Kopirano (PNG). Alt+klik za prenos.')
-      } else { downloadBlob(blob); showSnapMsg('PNG prenesen.') }
-    } catch (err) { console.error('Snapshot failed:', err); showSnapMsg('Napaka pri snapshotu.') }
-    finally { setSnapshotBusy(false) }
+        const CI = (window as any).ClipboardItem as { new (items: Record<string, Blob>): ClipboardItem }
+        const item = new CI({
+          'image/png': blob,
+          'text/plain': new Blob([`Snapshot: ${title || site || ''}`], { type: 'text/plain' }),
+        })
+        await navigator.clipboard.write([item])
+        showSnapMsg('Kopirano (PNG). Alt+klik za prenos.')
+      } else {
+        downloadBlob(blob)
+        showSnapMsg('PNG prenesen.')
+      }
+    } catch (err) {
+      console.error('Snapshot failed:', err)
+      showSnapMsg('Napaka pri snapshotu.')
+    } finally {
+      setSnapshotBusy(false)
+    }
   }, [doSnapshot, downloadBlob, title, site, showSnapMsg])
 
   if (typeof document === 'undefined') return null
@@ -440,48 +498,100 @@ export default function ArticlePreview({ url, onClose }: Props) {
       `}</style>
       <style>{PREVIEW_TYPO_CSS}</style>
 
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 transition-opacity duration-300" role="dialog" aria-modal="true" onClick={(e)=>{ if (e.target===e.currentTarget) onClose() }}>
-        <div ref={modalRef} className="bg-white dark:bg-gray-900 rounded-xl shadow-2xl w-full max-w-2xl mx-4 max-h-[80vh] overflow-y-auto border border-gray-200/10 transform transition-all duration-300 ease-out scale-95 opacity-0 animate-fadeInUp">
+      <div
+        className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 transition-opacity duration-300"
+        role="dialog"
+        aria-modal="true"
+        onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
+      >
+        <div
+          ref={modalRef}
+          className="bg-white dark:bg-gray-900 rounded-xl shadow-2xl w-full max-w-2xl mx-4 max-h-[80vh] overflow-y-auto border border-gray-200/10 transform transition-all duration-300 ease-out scale-95 opacity-0 animate-fadeInUp"
+        >
           {/* Header */}
           <div className="sticky top-0 z-10 flex items-center justify-between gap-3 px-5 py-4 border-b border-gray-200/20 bg-white/80 dark:bg-gray-900/80 backdrop-blur rounded-t-xl">
             <div className="min-w-0 flex-1">
               <div className="text-xs text-gray-500 dark:text-gray-400 truncate">{site}</div>
-              <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">{title || 'Predogled'}</h3>
+              <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">
+                {title || 'Predogled'}
+              </h3>
             </div>
-            <div className="flex items-center gap-2 shrink-0 relative">
-              <button type="button" onClick={handleSnapshot} disabled={snapshotBusy} aria-label="Snapshot predogleda (kopiraj sliko)" title="Snapshot (klik = kopiraj; Alt+klik = prenos)" className="inline-flex items-center justify-center rounded-lg h-8 w-8 text-sm bg-gray-100/70 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 anim-soft disabled:opacity-60"><IconCamera /></button>
 
-              <button ref={shareBtnRef} type="button" onClick={() => {
-                if (preferNativeShare) {
-                  const shareData: ShareData = { title:(title||site||'Članek')+VIA_TEXT, text:(title?`${title}${site?` – ${site}`:''}`:(site||'Križišče'))+VIA_TEXT, url }
-                  try { (navigator as any).share(shareData).catch(()=>{}) } catch {}
-                } else { setShareOpen(v=>!v) }
-              }} aria-haspopup="menu" aria-expanded={shareOpen} className="inline-flex items-center justify-center rounded-lg px-3 h-8 text-sm bg-gray-100/70 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 anim-soft" title="Deli">
-                <IconShareIOS className="mr-1" /><span className="hidden sm:inline">Deli</span>
+            <div className="flex items-center gap-2 shrink-0 relative">
+              {/* Snapshot */}
+              <button
+                type="button"
+                onClick={handleSnapshot}
+                disabled={snapshotBusy}
+                aria-label="Snapshot predogleda (kopiraj sliko)"
+                title="Snapshot (klik = kopiraj; Alt+klik = prenos)"
+                className="inline-flex items-center justify-center rounded-lg h-8 w-8 text-sm bg-gray-100/70 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 anim-soft disabled:opacity-60"
+              >
+                <IconCamera />
+              </button>
+
+              {/* Share */}
+              <button
+                ref={shareBtnRef}
+                type="button"
+                onClick={handleShareClick}
+                aria-haspopup="menu"
+                aria-expanded={shareOpen}
+                className="inline-flex items-center justify-center rounded-lg px-3 h-8 text-sm bg-gray-100/70 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 anim-soft"
+                title="Deli"
+              >
+                <IconShareIOS className="mr-1" />
+                <span className="hidden sm:inline">Deli</span>
               </button>
 
               {shareOpen && (
-                <div ref={shareMenuRef} role="menu" className="absolute right-24 top-10 z-20 w-64 rounded-lg border border-gray-200/20 bg-white dark:bg-gray-900 shadow-xl p-2">
+                <div
+                  ref={shareMenuRef}
+                  role="menu"
+                  className="absolute right-24 top-10 z-20 w-64 rounded-lg border border-gray-200/20 bg-white dark:bg-gray-900 shadow-xl p-2"
+                >
                   <div className="grid grid-cols-3 gap-2 p-1">
-                    <button onClick={()=>openShareWindow(shareLinks.x)} className="px-2 py-2 rounded-md bg-gray-100/70 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-sm">X</button>
-                    <button onClick={()=>openShareWindow(shareLinks.fb)} className="px-2 py-2 rounded-md bg-gray-100/70 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-sm">Facebook</button>
-                    <button onClick={()=>openShareWindow(shareLinks.li)} className="px-2 py-2 rounded-md bg-gray-100/70 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-sm">LinkedIn</button>
-                    <button onClick={()=>openShareWindow(shareLinks.wa)} className="px-2 py-2 rounded-md bg-gray-100/70 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-sm">WhatsApp</button>
-                    <button onClick={()=>openShareWindow(shareLinks.tg)} className="px-2 py-2 rounded-md bg-gray-100/70 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-sm">Telegram</button>
-                    <button onClick={copyToClipboard} className="px-2 py-2 rounded-md bg-gray-100/70 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-sm">{copied ? 'Kopirano!' : 'Kopiraj povezavo'}</button>
+                    <button onClick={() => openShareWindow(shareLinks.x)} className="px-2 py-2 rounded-md bg-gray-100/70 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-sm">X</button>
+                    <button onClick={() => openShareWindow(shareLinks.fb)} className="px-2 py-2 rounded-md bg-gray-100/70 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-sm">Facebook</button>
+                    <button onClick={() => openShareWindow(shareLinks.li)} className="px-2 py-2 rounded-md bg-gray-100/70 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-sm">LinkedIn</button>
+                    <button onClick={() => openShareWindow(shareLinks.wa)} className="px-2 py-2 rounded-md bg-gray-100/70 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-sm">WhatsApp</button>
+                    <button onClick={() => openShareWindow(shareLinks.tg)} className="px-2 py-2 rounded-md bg-gray-100/70 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-sm">Telegram</button>
+                    <button onClick={copyToClipboard} className="px-2 py-2 rounded-md bg-gray-100/70 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-sm">
+                      {copied ? 'Kopirano!' : 'Kopiraj povezavo'}
+                    </button>
                   </div>
                 </div>
               )}
 
-              <a href={url} target="_blank" rel="noopener noreferrer" onClick={openSourceAndTrack} onAuxClick={onAuxOpen} className="no-underline inline-flex items-center justify-center rounded-lg px-3 py-1.5 text-sm bg-orange-300 text-white hover:bg-amber-600 anim-soft">Odpri cel članek</a>
+              <a
+                href={url}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={openSourceAndTrack}
+                onAuxClick={onAuxOpen}
+                className="no-underline inline-flex items-center justify-center rounded-lg px-3 py-1.5 text-sm bg-orange-300 text-white hover:bg-amber-600 anim-soft"
+              >
+                Odpri cel članek
+              </a>
 
-              <button ref={closeRef} onClick={onClose} aria-label="Zapri predogled" className="inline-flex h-8 px-2 items-center justify-center rounded-lg text-sm bg-gray-100/70 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 anim-soft">✕</button>
+              <button
+                ref={closeRef}
+                onClick={onClose}
+                aria-label="Zapri predogled"
+                className="inline-flex h-8 px-2 items-center justify-center rounded-lg text-sm bg-gray-100/70 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 anim-soft"
+              >
+                ✕
+              </button>
             </div>
           </div>
 
-          {/* Body */}
+          {/* Body (n e  m e n j a m o ) */}
           <div className="px-5 py-5">
-            {loading && (<div className="flex items-center justify-center py-10"><div className="w-12 h-12 rounded-full bg-gray-300 dark:bg-gray-700 animate-zenPulse" /></div>)}
+            {loading && (
+              <div className="flex items-center justify-center py-10">
+                <div className="w-12 h-12 rounded-full bg-gray-300 dark:bg-gray-700 animate-zenPulse" />
+              </div>
+            )}
             {error && <p className="text-sm text-red-500">{error}</p>}
 
             {!loading && !error && (
@@ -492,14 +602,35 @@ export default function ArticlePreview({ url, onClose }: Props) {
                 </div>
 
                 <div className="mt-5 flex flex-col items-center gap-2">
-                  <a href={url} target="_blank" rel="noopener noreferrer" onClick={openSourceAndTrack} onAuxClick={onAuxOpen} className="no-underline inline-flex justify-center rounded-md px-5 py-2 dark:bg-gray-700 text-white text-sm dark:hover:bg-gray-600 whitespace-nowrap anim-soft">Za ogled celotnega članka, obiščite spletno stran</a>
-                  <button type="button" onClick={onClose} className="inline-flex justify-center rounded-md px-4 py-2 bg-gray-100/80 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 text-sm anim-soft">Zapri predogled</button>
+                  <a
+                    href={url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={openSourceAndTrack}
+                    onAuxClick={onAuxOpen}
+                    className="no-underline inline-flex justify-center rounded-md px-5 py-2 dark:bg-gray-700 text-white text-sm dark:hover:bg-gray-600 whitespace-nowrap anim-soft"
+                  >
+                    Za ogled celotnega članka, obiščite spletno stran
+                  </a>
+
+                  <button
+                    type="button"
+                    onClick={onClose}
+                    className="inline-flex justify-center rounded-md px-4 py-2 bg-gray-100/80 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 text-sm anim-soft"
+                  >
+                    Zapri predogled
+                  </button>
                 </div>
               </div>
             )}
           </div>
 
-          {snapMsg && (<div className="pointer-events-none fixed left-4 bottom-4 z-[60] rounded-lg bg-black/80 text-white text-sm px-3 py-2 shadow-lg">{snapMsg}</div>)}
+          {/* Toast */}
+          {snapMsg && (
+            <div className="pointer-events-none fixed left-4 bottom-4 z-[60] rounded-lg bg-black/80 text-white text-sm px-3 py-2 shadow-lg">
+              {snapMsg}
+            </div>
+          )}
         </div>
       </div>
     </>,
