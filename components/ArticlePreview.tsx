@@ -46,7 +46,7 @@ const PREVIEW_TYPO_CSS = `
   .preview-typo a { text-decoration: underline; text-underline-offset: 2px; }
 `
 
-/* Ikone */
+/* Ikone (skrajšano) */
 function IconShareIOS(props: React.SVGProps<SVGSVGElement>) { return (<svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" {...props}><path fill="currentColor" d="M12 3c.4 0 .8.16 1.06.44l3 3a1.5 1.5 0 1 1-2.12 2.12L13.5 7.12V14a1.5 1.5 0 1 1-3 0V7.12L9.06 8.56A1.5 1.5 0 0 1 6.94 6.44l3-3C10.2 3.16 10.6 3 11 3h1z"/><path fill="currentColor" d="M5 10.5A2.5 2.5 0 0 0 2.5 13v6A2.5 2.5 0 0 0 5 21.5h14A2.5 2.5 0 0 0 21.5 19v-6A2.5 2.5 0 0 0 19 10.5h-2a1.5 1.5 0 1 0 0 3h2V19H5v-5.5h2a1.5 1.5 0 1 0 0-3H5z"/></svg>) }
 function IconFacebook(props: React.SVGProps<SVGSVGElement>) { return (<svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" {...props}><path fill="currentColor" d="M13 21v-7h2.3l.4-3H13V9.3c0-.9.3-1.5 1.6-1.5H16V5.1C15.6 5 14.7 5 13.7 5 11.5 5 10 6.3 10 8.9V11H7.7v3H10v7h3z"/></svg>) }
 function IconLinkedIn(props: React.SVGProps<SVGSVGElement>) { return (<svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" {...props}><path fill="currentColor" d="M6.5 6.5A2.5 2.5 0 1 1 1.5 6.5a2.5 2.5 0 0 1 5 0zM2 8.8h4.9V22H2zM14.9 8.5c-2.7 0-4 1.5-4.6 2.5V8.8H5.4V22h4.9v-7c0-1.9 1-2.9 2.5-2.9 1.4 0 2.3 1 2.3 2.9V22H20v-7.7c0-3.3-1.8-5.8-5.1-5.8z"/></svg>) }
@@ -68,7 +68,6 @@ function trackClick(source: string, url: string) {
     }
   } catch {}
 }
-
 function absolutize(raw: string, baseUrl: string): string { try { return new URL(raw, baseUrl).toString() } catch { return raw } }
 function proxyImageSrc(absUrl: string): string { try { if (new URL(absUrl).pathname.startsWith('/api/img')) return absUrl } catch {} return `/api/img?u=${encodeURIComponent(absUrl)}` }
 function withCacheBust(u: string, bust: string) {
@@ -98,8 +97,30 @@ function truncateHTMLByWordsPercent(html:string, percent=0.76){
   return out.innerHTML
 }
 
-/** Clean HTML + proxy + cb; hkrati vrne tudi cover sliko za snapshot. */
-function cleanAndExtract(html: string, baseUrl: string, knownTitle: string | undefined, bust: string) {
+/** počakaj, da se slike naložijo */
+async function waitForImages(root: HTMLElement, timeoutMs = 5000) {
+  const imgs = Array.from(root.querySelectorAll('img'))
+  if (imgs.length === 0) return
+  await Promise.all(imgs.map(img => {
+    if (img.complete && img.naturalWidth > 0) return
+    return new Promise<void>((resolve) => {
+      let done = false
+      const clear = () => { if (done) return; done = true; img.removeEventListener('load', onload); img.removeEventListener('error', onload); resolve() }
+      const onload = () => clear()
+      img.addEventListener('load', onload)
+      img.addEventListener('error', onload)
+      setTimeout(clear, timeoutMs)
+    })
+  }))
+}
+
+/** Clean HTML + proxy + cb; vrne tudi prvo <img> kot cover. */
+function cleanAndExtract(
+  html: string,
+  baseUrl: string,
+  knownTitle: string | undefined,
+  bust: string
+): { html: string; coverSnapSrc: string | null } {
   try {
     const wrap = document.createElement('div')
     wrap.innerHTML = html
@@ -122,7 +143,6 @@ function cleanAndExtract(html: string, baseUrl: string, knownTitle: string | und
       a.setAttribute('target', '_blank')
     })
 
-    // images → proxy + cb; vrni prvo sliko kot cover
     let coverSnapSrc: string | null = null
     const imgs = Array.from(wrap.querySelectorAll('img'))
     imgs.forEach((img, idx) => {
@@ -141,7 +161,6 @@ function cleanAndExtract(html: string, baseUrl: string, knownTitle: string | und
       if (idx === 0) coverSnapSrc = pinned
     })
 
-    // odstrani <picture>/<source>, da srcset ne prepiše našega src
     wrap.querySelectorAll('picture,source').forEach((n) => n.replaceWith(...Array.from(n.childNodes)))
     return { html: wrap.innerHTML, coverSnapSrc }
   } catch {
@@ -172,19 +191,15 @@ export default function ArticlePreview({ url, onClose }: Props) {
   const [snapshotBusy, setSnapshotBusy] = useState(false)
   const [snapMsg, setSnapMsg] = useState<string>('')
   const snapMsgTimer = useRef<number | null>(null)
-
   const snapshotRef = useRef<HTMLDivElement>(null)
 
   // per-predogled cache-bust token (vezan na URL članka)
   const cacheBust = useMemo(() => Math.random().toString(36).slice(2), [url])
 
-  // prefer native share samo na napravah s “coarse pointer”
+  // prefer native share
   const coarsePointerRef = useRef(false)
-  useEffect(() => {
-    try { coarsePointerRef.current = window.matchMedia('(pointer: coarse)').matches } catch {}
-  }, [])
-  const supportsWebShare =
-    typeof navigator !== 'undefined' && 'share' in navigator && typeof window !== 'undefined' && window.isSecureContext
+  useEffect(() => { try { coarsePointerRef.current = window.matchMedia('(pointer: coarse)').matches } catch {} }, [])
+  const supportsWebShare = typeof navigator !== 'undefined' && 'share' in navigator && typeof window !== 'undefined' && window.isSecureContext
   const preferNativeShare = supportsWebShare && coarsePointerRef.current
 
   // sheet vs. popover
@@ -197,15 +212,15 @@ export default function ArticlePreview({ url, onClose }: Props) {
     return () => mq.removeEventListener?.('change', set)
   }, [])
 
-  // cache-first → clean(+proxy+cb) → trunc → sanitize (+ extract cover)
+  // cache-first → clean(+proxy+cb) → trunc → sanitize (+ set cover)
   useEffect(() => {
     let alive = true
+    setCoverSnapSrc(null) // ✨ pomembno: reset, da se stara slika ne prenese
     const run = async () => {
       setLoading(true); setError(null)
       try {
         let data = peekPreview(url) as ApiPayload | null
         if (!data) data = await preloadPreview(url)
-
         if (!alive) return
         if (!data || 'error' in data) throw new Error('preview-failed')
 
@@ -213,7 +228,11 @@ export default function ArticlePreview({ url, onClose }: Props) {
 
         const cleaned = cleanAndExtract(data.html, url, data.title, cacheBust)
         const truncated = truncateHTMLByWordsPercent(cleaned.html, TEXT_PERCENT)
-        setCoverSnapSrc(cleaned.coverSnapSrc || null)
+
+        // ✨ cover slika: najprej API .image, nato iz HTML
+        let cover = data.image ? withCacheBust(proxyImageSrc(data.image), cacheBust) : cleaned.coverSnapSrc
+        setCoverSnapSrc(cover || null)
+
         setContent(DOMPurify.sanitize(truncated))
         setLoading(false)
       } catch {
@@ -242,13 +261,11 @@ export default function ArticlePreview({ url, onClose }: Props) {
         } else if (document.activeElement === last) { e.preventDefault(); first.focus() }
       }
     }
-
     document.addEventListener('keydown', handleKeyDown)
     const prevOverflow = document.body.style.overflow
     document.body.style.overflow = 'hidden'
     document.body.classList.add('modal-open', 'preview-open')
     setTimeout(() => closeRef.current?.focus(), 0)
-
     return () => {
       document.removeEventListener('keydown', handleKeyDown)
       document.body.style.overflow = prevOverflow
@@ -261,12 +278,8 @@ export default function ArticlePreview({ url, onClose }: Props) {
     const onDocClick = (e: globalThis.MouseEvent) => {
       if (!shareOpen) return
       const target = e.target as Node
-      if (
-        shareMenuRef.current &&
-        !shareMenuRef.current.contains(target) &&
-        shareBtnRef.current &&
-        !shareBtnRef.current.contains(target)
-      ) {
+      if (shareMenuRef.current && !shareMenuRef.current.contains(target) &&
+          shareBtnRef.current && !shareBtnRef.current.contains(target)) {
         setShareOpen(false)
       }
     }
@@ -274,14 +287,12 @@ export default function ArticlePreview({ url, onClose }: Props) {
     return () => document.removeEventListener('mousedown', onDocClick)
   }, [shareOpen])
 
-  // helper za toast
   const showSnapMsg = useCallback((msg: string) => {
     setSnapMsg(msg)
     if (snapMsgTimer.current) window.clearTimeout(snapMsgTimer.current)
     snapMsgTimer.current = window.setTimeout(() => setSnapMsg(''), 2200)
   }, [])
 
-  // Odpri + sledi
   const openSourceAndTrack = useCallback(() => {
     const source = site || (() => { try { return new URL(url).hostname } catch { return 'unknown' } })()
     trackClick(source, url)
@@ -296,7 +307,6 @@ export default function ArticlePreview({ url, onClose }: Props) {
     }
   }, [site, url, onClose])
 
-  // SHARE
   const handleShareClick = useCallback(() => {
     if (preferNativeShare) {
       const shareData: ShareData = {
@@ -354,9 +364,7 @@ export default function ArticlePreview({ url, onClose }: Props) {
     URL.revokeObjectURL(link.href)
   }, [])
 
-  /** Ustvari “card” (naslov + domena + prva slika + izsek) z fade-out, barve po temi. */
   const doSnapshot = useCallback(async (): Promise<Blob> => {
-    // barvna shema po temi
     const isDark =
       document.documentElement.classList.contains('dark') ||
       window.matchMedia?.('(prefers-color-scheme: dark)').matches
@@ -365,10 +373,7 @@ export default function ArticlePreview({ url, onClose }: Props) {
     const sub = isDark ? 'rgba(229,231,235,.6)' : 'rgba(17,24,39,.6)'
     const shade = isDark ? 'rgba(255,255,255,.06)' : 'rgba(0,0,0,.06)'
 
-    // širina = širina predogleda
     const width = snapshotRef.current?.offsetWidth || 640
-
-    // container
     const root = document.createElement('div')
     root.style.cssText = `position:fixed;left:-10000px;top:0;width:${width}px;pointer-events:none;`
     const card = document.createElement('div')
@@ -377,7 +382,6 @@ export default function ArticlePreview({ url, onClose }: Props) {
       'font: 500 14px/1.55 system-ui,-apple-system,Segoe UI,Roboto;'
     root.appendChild(card)
 
-    // header
     const siteText = site || (() => { try { return new URL(url).hostname } catch { return 'krizisce.si' } })()
     const titleEl = document.createElement('div')
     titleEl.textContent = title || 'Članek'
@@ -388,7 +392,6 @@ export default function ArticlePreview({ url, onClose }: Props) {
     card.appendChild(titleEl)
     card.appendChild(domainEl)
 
-    // slika (če obstaja; uporabimo coverSnapSrc iz stanja → ni “starih” slik)
     if (coverSnapSrc) {
       const imgWrap = document.createElement('div')
       imgWrap.style.cssText = 'width:100%;aspect-ratio:16/9;border-radius:12px;overflow:hidden;background:#f3f4f6;margin-bottom:12px;'
@@ -397,14 +400,12 @@ export default function ArticlePreview({ url, onClose }: Props) {
       img.loading = 'eager'
       img.crossOrigin = 'anonymous'
       img.referrerPolicy = 'no-referrer'
-      // še en cb za 100% svežino
       img.src = withCacheBust(coverSnapSrc, `${Date.now().toString(36)}${Math.random().toString(36).slice(2,6)}`)
       img.style.cssText = 'width:100%;height:100%;object-fit:cover;display:block;'
       imgWrap.appendChild(img)
       card.appendChild(imgWrap)
     }
 
-    // tekst z fade-out
     const rawText = (snapshotRef.current?.textContent || '').replace(/\s+/g, ' ').replace(/\u00A0/g, ' ').trim()
     const MAX_WORDS = 140
     const words = rawText.split(' ').filter(Boolean).slice(0, MAX_WORDS)
@@ -422,6 +423,7 @@ export default function ArticlePreview({ url, onClose }: Props) {
     card.appendChild(textWrap)
 
     document.body.appendChild(root)
+    await waitForImages(card) // ✨ čakamo sliko
 
     try {
       const blob = await toBlob(card, {
@@ -585,7 +587,7 @@ export default function ArticlePreview({ url, onClose }: Props) {
             </div>
           </div>
 
-          {/* Body (n e  m e n j a m o ) */}
+          {/* Body (predogled ostane enak) */}
           <div className="px-5 py-5">
             {loading && (
               <div className="flex items-center justify-center py-10">
