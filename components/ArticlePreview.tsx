@@ -281,7 +281,7 @@ export default function ArticlePreview({ url, onClose }: Props) {
   // per-predogled cache-bust token (vezan na URL članka)
   const cacheBust = useMemo(() => Math.random().toString(36).slice(2), [url])
 
-  // prefer native share samo na napravah s “coarse pointer”
+  // prefer native share
   const coarsePointerRef = useRef(false)
   useEffect(() => {
     try { coarsePointerRef.current = window.matchMedia('(pointer: coarse)').matches } catch {}
@@ -300,7 +300,7 @@ export default function ArticlePreview({ url, onClose }: Props) {
     return () => mq.removeEventListener?.('change', set)
   }, [])
 
-  // cache-first → clean(+proxy+cb) → trunc → sanitize (+ FRESH fallback)
+  // cache-first → clean(+proxy+cb) → trunc → sanitize (+ fallback fresh fetch)
   useEffect(() => {
     let alive = true
     const run = async () => {
@@ -308,17 +308,14 @@ export default function ArticlePreview({ url, onClose }: Props) {
       try {
         let data: ApiPayload | null = null
 
-        // 1) peek
         const peek = peekPreview(url)
         if (peek && !('error' in peek)) data = peek
 
-        // 2) prefetch
         if (!data) {
           const pref = await preloadPreview(url)
           if (!('error' in pref)) data = pref
         }
 
-        // 3) svež fetch kot fallback
         if (!data) {
           const res = await fetch(`/api/preview?url=${encodeURIComponent(url)}`, { cache: 'no-store' })
           if (!res.ok) throw new Error(`http-${res.status}`)
@@ -330,6 +327,7 @@ export default function ArticlePreview({ url, onClose }: Props) {
         if (!data || 'error' in data) throw new Error('preview-failed')
 
         setTitle(data.title); setSite(data.site)
+
         const cleaned = cleanPreviewHTML(data.html, url, data.title, cacheBust)
         const truncated = truncateHTMLByWordsPercent(cleaned, TEXT_PERCENT)
         setContent(DOMPurify.sanitize(truncated))
@@ -472,17 +470,18 @@ export default function ArticlePreview({ url, onClose }: Props) {
     URL.revokeObjectURL(link.href)
   }, [])
 
-  /** Klon vstavimo offscreen, forciramo svež src, počakamo slike, posnamemo **klon**. */
+  /** Klon → odstrani background-image → dedup + hard reset <img> → počakaj → render. */
   const doSnapshot = useCallback(async (): Promise<Blob> => {
     if (!snapshotRef.current) throw new Error('no-snapshot-node')
 
+    // 1) kloniraj vsebino
     const clone = snapshotRef.current.cloneNode(true) as HTMLElement
 
-    // skrij gradient, da ne prekrije besedila
+    // skrij gradient
     const fade = clone.querySelector('[data-preview-fade], .preview-fade') as HTMLElement | null
     fade?.setAttribute('style', 'display:none !important')
 
-    // watermark (domena + naslov)
+    // 2) watermark
     const wm = document.createElement('div')
     wm.style.cssText =
       'margin-top:.75rem;padding:.5rem .75rem;border-radius:10px;background:rgba(0,0,0,.55);' +
@@ -495,32 +494,45 @@ export default function ArticlePreview({ url, onClose }: Props) {
     clone.style.background = '#ffffff'
     clone.style.color = '#111827'
 
-    // slike: HARD RESET + nov cb (reši napačne slike pri večkratnem kliku)
-    const snapBust = `${Date.now().toString(36)}${Math.random().toString(36).slice(2,6)}`
-    clone.querySelectorAll('img').forEach((img) => {
-      const base = img.getAttribute('data-snap-src') || img.getAttribute('src') || ''
-      const next = base ? withCacheBust(base, snapBust) : ''
-      // hard reset (zruši morebitni notranji cache)
-      const el = img as HTMLImageElement
-      el.removeAttribute('srcset'); el.removeAttribute('sizes')
-      el.setAttribute('crossorigin', 'anonymous')
-      el.setAttribute('referrerpolicy', 'no-referrer')
-      el.removeAttribute('loading'); el.setAttribute('decoding', 'sync')
-      el.style.maxWidth = '100%'
-      if (next) { el.src = ''; el.src = next }
-    })
-
-    // offscreen container
+    // 3) montiraj offscreen, da dobimo computed style
     const offscreen = document.createElement('div')
     const width = snapshotRef.current.offsetWidth || 640
     offscreen.style.cssText = `position:fixed;left:-10000px;top:0;width:${width}px;pointer-events:none;opacity:1;`
     offscreen.appendChild(clone)
     document.body.appendChild(offscreen)
 
-    await waitForImages(clone)
+    // 4) izklopi VSE background-image, da ne prinese herojskih slik iz CSS
+    offscreen.querySelectorAll<HTMLElement>('*').forEach((el) => {
+      const cs = window.getComputedStyle(el)
+      if (cs.backgroundImage && cs.backgroundImage !== 'none') el.style.backgroundImage = 'none'
+    })
+
+    // 5) slike – dedup + hard reset + svež cb
+    const snapBust = `${Date.now().toString(36)}${Math.random().toString(36).slice(2,6)}`
+    const seen = new Set<string>()
+    offscreen.querySelectorAll('img').forEach((img) => {
+      const base = img.getAttribute('data-snap-src') || img.getAttribute('src') || ''
+      const key  = imageKeyFromSrc(base)
+      if (!base) { img.remove(); return }
+      if (seen.has(key)) { img.remove(); return }
+      seen.add(key)
+
+      const next = withCacheBust(base, snapBust)
+      const el = img as HTMLImageElement
+      el.removeAttribute('srcset'); el.removeAttribute('sizes')
+      el.setAttribute('crossorigin', 'anonymous')
+      el.setAttribute('referrerpolicy', 'no-referrer')
+      el.removeAttribute('loading'); el.setAttribute('decoding', 'sync')
+      el.style.maxWidth = '100%'
+      el.src = ''                    // hard reset
+      el.src = next                  // novo dejansko
+    })
+
+    // 6) počakaj slike
+    await waitForImages(offscreen)
 
     try {
-      const blob = await toBlob(clone, {
+      const blob = await toBlob(offscreen, {
         cacheBust: true,
         pixelRatio: Math.max(2, window.devicePixelRatio || 1),
         backgroundColor: '#ffffff',
