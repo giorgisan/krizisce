@@ -1,43 +1,74 @@
-// lib/img.ts
-/** Če je absolutni URL, vrne domeno brez protokola (za images.weserv.nl); relativne poti vrnemo takšne kot so. */
+/** Preveri, ali gre za images.weserv.nl / wsrv.nl URL */
+function isWeserv(u: string): boolean {
+  try {
+    const { hostname } = new URL(u)
+    return hostname.endsWith('images.weserv.nl') || hostname === 'wsrv.nl'
+  } catch {
+    return false
+  }
+}
+
+/** Če je absolutni URL, vrne domeno brez protokola (legacy helper). */
 function stripProtocol(u: string) {
   try {
     const url = new URL(u)
     return url.host + url.pathname + url.search
   } catch {
-    // verjetno relativna pot (/logos/..), vrni kot je
     return u
   }
 }
 
-/** Vrni proxied URL preko images.weserv.nl z željeno širino/višino.
+/**
+ * Vrni proxied URL preko images.weserv.nl z željeno širino/višino.
  *
- *  Parametri:
- *  - `il=1` (interlaced/progressive) izboljša percepcijo nalaganja,
- *  - `q=65` zniža kakovost JPEG/WebP na 65 % (manj KB),
- *  - `output=webp` pretvori izhod v WebP format (še manjši od JPEG),
- *  - `we=1` prepreči nepotrebno povečavo,
- *  - `af=1` uporabi adaptivni filter za ostrejšo sliko pri stiskanju PNG.
+ * Parametri:
+ * - `il=1` (interlaced/progressive) izboljša percepcijo nalaganja,
+ * - `q=65` zniža kakovost JPEG/WebP na 65 % (manj KB),
+ * - `output=webp` pretvori izhod v WebP format,
+ * - `we=1` prepreči nepotrebno povečavo,
+ * - `af=1` adaptivni filter za ostrejšo sliko pri stiskanju PNG.
+ *
+ * Opomba: če dobimo že proxy-jan URL (weserv), samo posodobimo parametre,
+ * NE ustvarjamo “proxy v proxy” (double-proxy).
  */
 export function proxiedImage(url: string, w: number, h?: number, dpr = 1) {
   // relativne slike (npr. /logos/...) ne proxiamo
   if (url.startsWith('/')) return url
-  const clean = stripProtocol(url)
+
   const wp = Math.round(w * dpr)
   const hp = h ? Math.round(h * dpr) : undefined
+  const dprClamped = Math.max(1, Math.min(3, Math.round(dpr)))
 
+  if (isWeserv(url)) {
+    // URL je že na weserv – le posodobimo parametre
+    const u = new URL(url)
+    const p = u.searchParams
+    p.set('w', String(wp))
+    if (hp) p.set('h', String(hp)); else p.delete('h')
+    p.set('dpr', String(dprClamped))
+    p.set('we', '1')
+    p.set('af', '1')
+    p.set('il', '1')
+    p.set('q', '65')
+    p.set('output', 'webp')
+    u.search = p.toString()
+    return u.toString()
+  }
+
+  // Novi proxy – ohranimo PROTOKOL (https/http), ne stripamo na silo.
+  // images.weserv.nl podpira tudi polne absolute (url=https://...)
   const params = new URLSearchParams({
-    url: clean,
+    url, // poln absolute URL – naj ostane, ker včasih http->https preklop ni trivialen
     w: String(wp),
     fit: 'cover',
-    dpr: String(Math.max(1, Math.min(3, Math.round(dpr)))),
+    dpr: String(dprClamped),
+    we: '1',
+    af: '1',
+    il: '1',
+    q: '65',
+    output: 'webp',
   })
   if (hp) params.set('h', String(hp))
-  params.set('we', '1')     // brez povečave
-  params.set('af', '1')     // adaptive filter (ostrina)
-  params.set('il', '1')     // progressive/interlaced
-  params.set('q', '65')     // kakovost (manjša = manjši prenos)
-  params.set('output', 'webp') // pretvori v WebP format
 
   return `https://images.weserv.nl/?${params.toString()}`
 }
