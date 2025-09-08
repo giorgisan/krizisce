@@ -1,8 +1,6 @@
-// lib/fetchRSSFeeds.ts
 import Parser from 'rss-parser'
 import type { NewsItem } from '../types'
 import { feeds } from './sources'
-import { proxiedImage } from './img'  // <– dodali uvoz
 
 type FetchOpts = { forceFresh?: boolean }
 
@@ -10,9 +8,7 @@ type FetchOpts = { forceFresh?: boolean }
 function absolutize(src: string | undefined | null, baseHref: string): string | null {
   if (!src) return null
   try {
-    // //example.com/a.jpg → https:
     if (src.startsWith('//')) return new URL(`https:${src}`).toString()
-    // /img/a.jpg → https://host/img/a.jpg
     const url = new URL(src, baseHref)
     return url.toString()
   } catch {
@@ -21,14 +17,13 @@ function absolutize(src: string | undefined | null, baseHref: string): string | 
 }
 
 const parser: Parser = new Parser({
-  // Razširimo polja, ki jih rss-parser sploh prenese v item
   customFields: {
     item: [
       'isoDate',
       'content:encoded',
       'media:content',
       'media:thumbnail',
-      ['media:group', 'mediaGroup'], // nekateri dajo group znotraj arraya
+      ['media:group', 'mediaGroup'],
       'enclosure',
       'image',
     ],
@@ -37,7 +32,6 @@ const parser: Parser = new Parser({
 
 // Poskusi pobrati sliko iz čim več tipičnih mest
 function extractImage(item: any, baseHref: string): string | null {
-  // 1) <media:group><media:content .../></media:group>
   const mg = item.mediaGroup
   if (mg) {
     const arr = Array.isArray(mg['media:content']) ? mg['media:content'] : [mg['media:content']]
@@ -48,7 +42,6 @@ function extractImage(item: any, baseHref: string): string | null {
     }
   }
 
-  // 2) <media:content url="...">
   if (item['media:content']) {
     const mc = item['media:content']
     const cand = mc?.url ?? mc?.$?.url
@@ -56,7 +49,6 @@ function extractImage(item: any, baseHref: string): string | null {
     if (abs) return abs
   }
 
-  // 3) <media:thumbnail url="...">
   if (item['media:thumbnail']) {
     const mt = item['media:thumbnail']
     const cand = mt?.url ?? mt?.$?.url
@@ -64,13 +56,11 @@ function extractImage(item: any, baseHref: string): string | null {
     if (abs) return abs
   }
 
-  // 4) <enclosure url="...">
   if (item.enclosure?.url) {
     const abs = absolutize(item.enclosure.url, baseHref)
     if (abs) return abs
   }
 
-  // 5) content / content:encoded – prvi <img src="...">
   const html = (item['content:encoded'] ?? item.content ?? '') as string
   const m = html.match(/<img[^>]+src=["']([^"']+)["']/i)
   if (m?.[1]) {
@@ -78,7 +68,6 @@ function extractImage(item: any, baseHref: string): string | null {
     if (abs) return abs
   }
 
-  // 6) nekatere feed knjižnice dodajo .image
   if (item.image?.url) {
     const abs = absolutize(item.image.url, baseHref)
     if (abs) return abs
@@ -121,12 +110,11 @@ export default async function fetchRSSFeeds(opts: FetchOpts = {}): Promise<NewsI
           const publishedAt = toUnixMs(iso)
           const link = item.link ?? ''
 
-          // pobrano sliko zmanjšamo preko proxiedImage (WebP, q=65, progressive),
-          // da v bazi shranimo že “lahko” različico
+          // 👉 Pomembno: v news.image shranimo ORIGINALNI URL (brez proxy-ja).
+          // Proxy in srcset se izračuna v komponenti (ArticleCard.tsx),
+          // zato se izognemo double-proxy težavi.
           const rawImage = extractImage(item, link)
-          const optimizedImage = rawImage
-            ? proxiedImage(rawImage, 640, 360, 1)
-            : null
+          const finalImage = rawImage ?? null
 
           return {
             title: item.title ?? '',
@@ -136,7 +124,7 @@ export default async function fetchRSSFeeds(opts: FetchOpts = {}): Promise<NewsI
             content: item['content:encoded'] ?? item.content ?? '',
             contentSnippet: item.contentSnippet ?? '',
             source,
-            image: optimizedImage, // <– zdaj je shranjen optimiziran URL
+            image: finalImage, // ⬅️ original
             publishedAt,
           }
         })
