@@ -1,5 +1,3 @@
-// lib/previewPrefetch.ts
-
 type Payload =
   | { error: string }
   | { title: string; site: string; image?: string | null; html: string; url: string }
@@ -79,4 +77,14 @@ export function peekPreview(articleUrl: string): Payload | null {
   if (!e) return null
   if (Date.now() - e.ts > TTL) return null
   return e.value ?? null
+}
+
+/** Nežno ogrevanje katerekoli slike (na hover/focus), brez globalnega nalaganja. */
+export function warmImage(src: string) {
+  try {
+    const img = new Image()
+    ;(img as any).decoding = 'async'
+    ;(img as any).loading = 'eager'
+    img.src = src
+  } catch {}
 }
