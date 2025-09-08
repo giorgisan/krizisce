@@ -1,4 +1,3 @@
-// components/SeoHead.tsx
 import Head from 'next/head'
 
 type Props = {
@@ -77,6 +76,9 @@ export default function SeoHead({
 
       {/* Preload logotipa v headerju */}
       <link rel="preload" href="/logo.png" as="image" />
+
+      {/* Preconnect na image CDN za hitrejši prvi handshake */}
+      <link rel="preconnect" href="https://images.weserv.nl" crossOrigin="anonymous" />
     </Head>
   )
 }
