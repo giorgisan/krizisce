@@ -1,4 +1,3 @@
-// components/ArticleCard.tsx
 'use client'
 
 import { NewsItem } from '@/types'
@@ -12,7 +11,7 @@ import {
 } from 'react'
 import dynamic from 'next/dynamic'
 import { proxiedImage, buildSrcSet } from '@/lib/img'
-import { preloadPreview, canPrefetch } from '@/lib/previewPrefetch'
+import { preloadPreview, canPrefetch, warmImage } from '@/lib/previewPrefetch'
 
 interface Props { news: NewsItem }
 type PreviewProps = { url: string; onClose: () => void }
@@ -170,12 +169,22 @@ export default function ArticleCard({ news }: Props) {
     return () => window.removeEventListener('beforeunload', onUnload)
   }, [news.source, news.link])
 
-  // ---- Prefetch preview ----
+  // ---- Prefetch preview + hover warm-up slike ----
   const preloadedRef = useRef(false)
   const triggerPrefetch = () => {
     if (!preloadedRef.current && canPrefetch()) {
       preloadedRef.current = true
       preloadPreview(news.link).catch(() => {})
+
+      // Nežno ogrejemo glavno sliko samo na hover/focus/touch
+      if (rawImg && cardRef.current) {
+        const rectW = Math.max(1, Math.round(cardRef.current.getBoundingClientRect().width || 480))
+        const dpr   = (typeof window !== 'undefined' && window.devicePixelRatio) || 1
+        const targetW = Math.min(1280, Math.round(rectW * dpr))
+        const targetH = Math.round(targetW / ASPECT)
+        const url = proxiedImage(rawImg, targetW, targetH, dpr)
+        warmImage(url)
+      }
     }
   }
 
