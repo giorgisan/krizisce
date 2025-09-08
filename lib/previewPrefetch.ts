@@ -1,3 +1,5 @@
+// lib/previewPrefetch.ts
+
 type Payload =
   | { error: string }
   | { title: string; site: string; image?: string | null; html: string; url: string }
