@@ -79,6 +79,9 @@ export default function SeoHead({
 
       {/* Preconnect na image CDN za hitrejši prvi handshake */}
       <link rel="preconnect" href="https://images.weserv.nl" crossOrigin="anonymous" />
+
+      {/* Globalna politika pošiljanja Referrer-ja (po defoltu je itak podobna, a jo tu utrdimo) */}
+      <meta name="referrer" content="strict-origin-when-cross-origin" />
     </Head>
   )
 }
