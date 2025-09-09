@@ -118,7 +118,8 @@ export default function ArticleCard({ news }: Props) {
   const handleClick = (e: MouseEvent<HTMLAnchorElement>) => {
     if (e.metaKey || e.ctrlKey || e.button === 1) return
     e.preventDefault()
-    window.open(news.link, '_blank')
+    // ⚠️ brez 'noreferrer' – da pošljemo Referer; z 'noopener' za varnost
+    window.open(news.link, '_blank', 'noopener')
     logClick()
   }
   const handleAuxClick = (e: MouseEvent<HTMLAnchorElement>) => { if (e.button === 1) logClick() }
@@ -199,7 +200,8 @@ export default function ArticleCard({ news }: Props) {
         ref={cardRef}
         href={news.link}
         target="_blank"
-        rel="noopener noreferrer"
+        rel="noopener"                        // ✨ brez 'noreferrer'
+        referrerPolicy="strict-origin-when-cross-origin" // ✨ pošlji samo origin
         onClick={handleClick}
         onAuxClick={handleAuxClick}
         onMouseEnter={() => { setEyeVisible(true); triggerPrefetch() }}
