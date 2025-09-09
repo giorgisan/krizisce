@@ -156,14 +156,16 @@ function cleanAndExtract(html: string, baseUrl: string, knownTitle: string | und
     }
   }
 
+  // 🔧 Linki v predogledu: odpri v novem tabu, pošlji referer (brez 'noreferrer')
   wrap.querySelectorAll('a').forEach((a) => {
     const href = a.getAttribute('href')
     if (href) a.setAttribute('href', absolutize(href, baseUrl))
-    const rel = (a.getAttribute('rel') || '').split(/\s+/)
+    const rel = (a.getAttribute('rel') || '').split(/\s+/).filter(Boolean)
     if (!rel.includes('noopener')) rel.push('noopener')
-    if (!rel.includes('noreferrer')) rel.push('noreferrer')
-    a.setAttribute('rel', rel.join(' ').trim())
+    const filtered = rel.filter((t) => t.toLowerCase() !== 'noreferrer')
+    a.setAttribute('rel', filtered.join(' ').trim())
     a.setAttribute('target', '_blank')
+    a.setAttribute('referrerpolicy', 'strict-origin-when-cross-origin')
   })
 
   let firstImgPinned: string | null = null
@@ -681,7 +683,8 @@ export default function ArticlePreview({ url, onClose }: Props) {
               <a
                 href={url}
                 target="_blank"
-                rel="noopener noreferrer"
+                rel="noopener"
+                referrerPolicy="strict-origin-when-cross-origin"
                 onClick={openSourceAndTrack}
                 onAuxClick={onAuxOpen}
                 className="no-underline inline-flex items-center justify-center rounded-lg px-3 py-1.5 text-sm bg-orange-300 text-white hover:bg-amber-600 anim-soft"
@@ -721,7 +724,8 @@ export default function ArticlePreview({ url, onClose }: Props) {
                   <a
                     href={url}
                     target="_blank"
-                    rel="noopener noreferrer"
+                    rel="noopener"
+                    referrerPolicy="strict-origin-when-cross-origin"
                     onClick={openSourceAndTrack}
                     onAuxClick={onAuxOpen}
                     className="no-underline inline-flex justify-center rounded-md px-5 py-2 dark:bg-gray-700 text-white text-sm dark:hover:bg-gray-600 whitespace-nowrap anim-soft"
