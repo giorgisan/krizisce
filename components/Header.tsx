@@ -221,9 +221,7 @@ export default function Header() {
                 width="20"
                 height="20"
                 aria-hidden="true"
-                className={`absolute transition-all duration-500 transform ${
-                  isDark ? 'opacity-100 scale-100 rotate-0 animate-iconIn' : 'opacity-0 scale-50 -rotate-90'
-                }`}
+                className={`absolute transition-all duration-500 transform ${isDark ? 'opacity-100 scale-100 rotate-0' : 'opacity-0 scale-50 -rotate-90'}`}
               >
                 <path d="M12 4V2M12 22v-2M4.93 4.93 3.52 3.52M20.48 20.48l-1.41-1.41M4 12H2M22 12h-2M4.93 19.07 3.52 20.48M20.48 3.52l-1.41 1.41" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
                 <circle cx="12" cy="12" r="4" stroke="currentColor" strokeWidth="2" fill="none"/>
@@ -234,9 +232,7 @@ export default function Header() {
                 width="20"
                 height="20"
                 aria-hidden="true"
-                className={`absolute transition-all duration-500 transform ${
-                  !isDark ? 'opacity-100 scale-100 rotate-0 animate-iconIn' : 'opacity-0 scale-50 rotate-90'
-                }`}
+                className={`absolute transition-all duration-500 transform ${!isDark ? 'opacity-100 scale-100 rotate-0' : 'opacity-0 scale-50 rotate-90'}`}
               >
                 <path d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 0 0 9.79 9.79Z" stroke="currentColor" strokeWidth="2" fill="none"/>
               </svg>
@@ -268,6 +264,29 @@ export default function Header() {
           </button>
         </div>
       </div>
+
+      {/* NOVO: pulzirajoč trak ob svežih novicah */}
+      {hasNew && !refreshing && (
+        <div className="px-4 md:px-8 lg:px-16 pt-1 pb-2" aria-live="polite">
+          <button
+            onClick={refreshNow}
+            className="group w-full sm:w-auto mx-auto flex items-center justify-center gap-2
+                       rounded-full px-3.5 py-1.5
+                       text-[13px] font-medium
+                       bg-emerald-500/10 text-emerald-700 dark:text-emerald-300
+                       ring-1 ring-emerald-400/40 dark:ring-emerald-600/40
+                       hover:bg-emerald-500/15 transition shadow-sm"
+            title="Osveži, da prikažeš sveže novice"
+          >
+            <span className="relative inline-flex">
+              <span className="h-2.5 w-2.5 rounded-full bg-emerald-500 opacity-80"></span>
+              <span className="absolute inset-0 rounded-full bg-emerald-500 animate-ping opacity-25"></span>
+            </span>
+            <span>Na voljo so sveže novice</span>
+            <span className="opacity-70 group-hover:opacity-100">— klikni za osvežitev</span>
+          </button>
+        </div>
+      )}
 
       {/* trak – prikažemo ga, ko v tej seji obstaja aktiven izbor */}
       {activeSources !== null && activeSources.length > 0 && (
