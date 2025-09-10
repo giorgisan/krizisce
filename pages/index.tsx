@@ -31,10 +31,10 @@ function timeout(ms: number) {
 
 async function loadNews(forceFresh: boolean, signal?: AbortSignal): Promise<NewsItem[] | null> {
   try {
-    const res = await Promise.race([
+    const res = (await Promise.race([
       fetch(`/api/news${forceFresh ? '?forceFresh=1' : ''}`, { cache: 'no-store', signal }),
       timeout(12_000),
-    ]) as Response
+    ])) as Response
     const fresh: NewsItem[] = await res.json()
     return Array.isArray(fresh) && fresh.length ? fresh : null
   } catch {
@@ -54,6 +54,23 @@ const ric = (cb: () => void) => {
   } else setTimeout(cb, 0)
 }
 
+// === NOVO: stabilni čas objave (immutable) prek localStorage ===
+const LS_FIRST_SEEN = 'krizisce_first_seen_v1'
+type FirstSeenMap = Record<string, number> // link -> ms epoch
+
+function loadFirstSeen(): FirstSeenMap {
+  if (typeof window === 'undefined') return {}
+  try {
+    const raw = window.localStorage.getItem(LS_FIRST_SEEN)
+    return raw ? (JSON.parse(raw) as FirstSeenMap) : {}
+  } catch { return {} }
+}
+
+function saveFirstSeen(map: FirstSeenMap) {
+  if (typeof window === 'undefined') return
+  try { window.localStorage.setItem(LS_FIRST_SEEN, JSON.stringify(map)) } catch {}
+}
+
 type Props = { initialNews: NewsItem[] }
 
 export default function Home({ initialNews }: Props) {
@@ -64,6 +81,9 @@ export default function Home({ initialNews }: Props) {
 
   const [menuOpen, setMenuOpen] = useState(false)
   const [pos, setPos] = useState<{ top: number; right: number }>({ top: 0, right: 0 })
+
+  // first-seen mapa za stabilni čas
+  const [firstSeen, setFirstSeen] = useState<FirstSeenMap>(() => loadFirstSeen())
 
   useEffect(() => {
     const handler = () => { ric(() => computeDropdownPos()); setMenuOpen((s) => !s) }
@@ -109,9 +129,10 @@ export default function Home({ initialNews }: Props) {
     ;(async () => {
       const fresh = await loadNews(true, ctrl.signal)
       if (fresh && fresh.length) {
-        const latestFresh = fresh[0]?.publishedAt || 0
-        const latestInitial = initialNews[0]?.publishedAt || 0
-        if (latestFresh > latestInitial) {
+        // primerjamo po linkih (ne po času), da posodobljen članek ne šteje kot nov
+        const currentLinks = new Set(initialNews.map(n => n.link))
+        const hasNewLink = fresh.some(n => n.link && !currentLinks.has(n.link))
+        if (hasNewLink) {
           startTransition(() => { setNews(fresh); setDisplayCount(20) })
         }
       }
@@ -136,16 +157,18 @@ export default function Home({ initialNews }: Props) {
       if (!fresh || fresh.length === 0) {
         setHasNew(false)
         window.dispatchEvent(new CustomEvent('news-has-new', { detail: false }))
-        missCountRef.current = Math.min(5, missCountRef.current + 1)
+        missCountRef.current = Math.min(POLL_MAX_BACKOFF, missCountRef.current + 1)
         return
       }
-      const latestFresh = fresh[0]?.publishedAt || 0
-      const latestCurrent = (news[0] ?? initialNews[0])?.publishedAt || 0
-      const newer = latestFresh > latestCurrent
+
+      // NOVO: zaznajmo nove linke (ne “novejši čas”)
+      const currentLinks = new Set(news.map(n => n.link))
+      const newer = fresh.some(n => n.link && !currentLinks.has(n.link))
+
       setFreshNews(fresh)
       setHasNew(newer)
       window.dispatchEvent(new CustomEvent('news-has-new', { detail: newer }))
-      missCountRef.current = newer ? 0 : Math.min(5, missCountRef.current + 1)
+      missCountRef.current = newer ? 0 : Math.min(POLL_MAX_BACKOFF, missCountRef.current + 1)
     }
 
     const schedule = () => {
@@ -166,7 +189,7 @@ export default function Home({ initialNews }: Props) {
       if (timerRef.current) window.clearInterval(timerRef.current)
       document.removeEventListener('visibilitychange', onVis)
     }
-  }, [news, initialNews, bootRefreshed])
+  }, [news, bootRefreshed])
 
   // manual refresh
   useEffect(() => {
@@ -207,10 +230,31 @@ export default function Home({ initialNews }: Props) {
     return () => window.removeEventListener('filters:update', onFiltersUpdate as EventListener)
   }, [])
 
-  // data shaping
+  // === NOVO: obogatimo novice s "stableAt" in sproti dopolnimo firstSeen mapo ===
+  const shapedNews = useMemo(() => {
+    const map = { ...firstSeen }
+    let changed = false
+
+    const withStable = news.map(n => {
+      const published = typeof n.publishedAt === 'number' ? n.publishedAt : 0
+      const link = n.link || ''
+      if (link && map[link] == null) {
+        map[link] = published || Date.now()
+        changed = true
+      }
+      const first = map[link] ?? published
+      const stableAt = Math.min(first || Infinity, published || Infinity)
+      return { ...n, stableAt } as NewsItem & { stableAt: number }
+    })
+
+    if (changed) { setFirstSeen(map); saveFirstSeen(map) }
+    return withStable
+  }, [news, firstSeen])
+
+  // data shaping (sort + filter + paginate)
   const sortedNews = useMemo(
-    () => [...news].sort((a, b) => (b.publishedAt || 0) - (a.publishedAt || 0)),
-    [news]
+    () => [...shapedNews].sort((a, b) => (b as any).stableAt - (a as any).stableAt),
+    [shapedNews]
   )
   const filteredNews = useMemo(
     () => (deferredFilter === 'Vse' ? sortedNews : sortedNews.filter((a) => a.source === deferredFilter)),
@@ -218,8 +262,10 @@ export default function Home({ initialNews }: Props) {
   )
   const visibleNews = useMemo(() => filteredNews.slice(0, displayCount), [filteredNews, displayCount])
 
-  const onPick = (s: string) => startTransition(() => { setFilter(s); setDisplayCount(20); setMenuOpen(false); emitFilterUpdate([s]) })
-  const resetFilter = () => startTransition(() => { setFilter('Vse'); setDisplayCount(20); setMenuOpen(false); emitFilterUpdate([]) })
+  const onPick = (s: string) =>
+    startTransition(() => { setFilter(s); setDisplayCount(20); setMenuOpen(false); emitFilterUpdate([s]) })
+  const resetFilter = () =>
+    startTransition(() => { setFilter('Vse'); setDisplayCount(20); setMenuOpen(false); emitFilterUpdate([]) })
   const handleLoadMore = () => setDisplayCount((p) => p + 20)
 
   const prefersReducedMotion =
@@ -308,7 +354,7 @@ export default function Home({ initialNews }: Props) {
               className="grid gap-6 grid-cols-2 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5"
             >
               {visibleNews.map((article) => (
-                <ArticleCard key={article.link} news={article} />
+                <ArticleCard key={article.link} news={article as any} />
               ))}
             </motion.div>
           </AnimatePresence>
