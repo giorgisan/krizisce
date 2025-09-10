@@ -289,9 +289,10 @@ export default function Header() {
         </div>
       </div>
 
-      {/* Obvestilo na manjših zaslonih (tam ni sredinske vrstice) */}
+      {/* Obvestilo na manjših zaslonih (tam ni sredinske vrstice)
+          Namenoma BREZ border-t, da na mobile ne dobimo dvojnega separatorja */}
       {hasNew && !refreshing && (
-        <div className="md:hidden border-t border-gray-200 dark:border-gray-700 bg-[#FAFAFA]/95 dark:bg-gray-900/70 backdrop-blur-md">
+        <div className="md:hidden bg-[#FAFAFA]/95 dark:bg-gray-900/70 backdrop-blur-md">
           <div className="px-4 md:px-8 lg:px-16 py-1.5 flex justify-center">
             <button
               onClick={refreshNow}
