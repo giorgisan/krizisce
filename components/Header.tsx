@@ -131,7 +131,8 @@ export default function Header() {
       id="site-header"
       className="sticky top-0 z-40 bg-[#FAFAFA]/95 dark:bg-gray-900/70 backdrop-blur-md border-b border-gray-200 dark:border-gray-700 shadow-sm"
     >
-      <div className="py-2 px-4 md:px-8 lg:px-16 flex items-center justify-between">
+      {/* glavni row */}
+      <div className="py-2 px-4 md:px-8 lg:px-16 flex items-center justify-between gap-2">
         {/* Levo: Brand */}
         <Link href="/" onClick={onBrandClick} className="flex items-center gap-3 min-w-0">
           <Image
@@ -153,7 +154,29 @@ export default function Header() {
           </div>
         </Link>
 
-        {/* Desno: ura (>=sm), refresh + tema + filter trigger */}
+        {/* Sredina: obvestilo (prikaže se na širših zaslonih) */}
+        {hasNew && !refreshing && (
+          <div className="hidden md:flex flex-1 justify-center">
+            <button
+              onClick={refreshNow}
+              className="group inline-flex items-center gap-2 rounded-full px-3.5 py-1.5
+                         text-[13px] font-medium
+                         bg-emerald-500/10 text-emerald-700 dark:text-emerald-300
+                         ring-1 ring-emerald-400/40 dark:ring-emerald-600/40
+                         hover:bg-emerald-500/15 transition shadow-sm"
+              title="Osveži, da prikažeš sveže novice"
+            >
+              <span className="relative inline-flex">
+                <span className="h-2.5 w-2.5 rounded-full bg-emerald-500 opacity-80"></span>
+                <span className="absolute inset-0 rounded-full bg-emerald-500 animate-ping opacity-25"></span>
+              </span>
+              <span>Na voljo so sveže novice</span>
+              <span className="opacity-70 group-hover:opacity-100">— klikni za osvežitev</span>
+            </button>
+          </div>
+        )}
+
+        {/* Desno: ura, refresh, tema, filter trigger */}
         <div className="flex items-center gap-1.5 sm:gap-2">
           {/* Minimalna ura */}
           <span className="hidden sm:inline-block font-mono tabular-nums text-[13px] text-gray-500 dark:text-gray-400 select-none">
@@ -195,6 +218,7 @@ export default function Header() {
                 fill="none"
               />
             </svg>
+            {/* pika za nove novice (manjša na ikoni) */}
             {hasNew && !refreshing && (
               <span
                 className="absolute right-2 top-2 h-2.5 w-2.5 rounded-full bg-emerald-500 ring-2 ring-white dark:ring-gray-900 animate-pulse"
@@ -265,26 +289,27 @@ export default function Header() {
         </div>
       </div>
 
-      {/* NOVO: pulzirajoč trak ob svežih novicah */}
+      {/* Obvestilo na manjših zaslonih (tam ni sredinske vrstice) */}
       {hasNew && !refreshing && (
-        <div className="px-4 md:px-8 lg:px-16 pt-1 pb-2" aria-live="polite">
-          <button
-            onClick={refreshNow}
-            className="group w-full sm:w-auto mx-auto flex items-center justify-center gap-2
-                       rounded-full px-3.5 py-1.5
-                       text-[13px] font-medium
-                       bg-emerald-500/10 text-emerald-700 dark:text-emerald-300
-                       ring-1 ring-emerald-400/40 dark:ring-emerald-600/40
-                       hover:bg-emerald-500/15 transition shadow-sm"
-            title="Osveži, da prikažeš sveže novice"
-          >
-            <span className="relative inline-flex">
-              <span className="h-2.5 w-2.5 rounded-full bg-emerald-500 opacity-80"></span>
-              <span className="absolute inset-0 rounded-full bg-emerald-500 animate-ping opacity-25"></span>
-            </span>
-            <span>Na voljo so sveže novice</span>
-            <span className="opacity-70 group-hover:opacity-100">— klikni za osvežitev</span>
-          </button>
+        <div className="md:hidden border-t border-gray-200 dark:border-gray-700 bg-[#FAFAFA]/95 dark:bg-gray-900/70 backdrop-blur-md">
+          <div className="px-4 md:px-8 lg:px-16 py-1.5 flex justify-center">
+            <button
+              onClick={refreshNow}
+              className="group inline-flex items-center gap-2 rounded-full px-3.5 py-1.5
+                         text-[13px] font-medium
+                         bg-emerald-500/10 text-emerald-700 dark:text-emerald-300
+                         ring-1 ring-emerald-400/40 dark:ring-emerald-600/40
+                         hover:bg-emerald-500/15 transition shadow-sm"
+              title="Osveži, da prikažeš sveže novice"
+            >
+              <span className="relative inline-flex">
+                <span className="h-2.5 w-2.5 rounded-full bg-emerald-500 opacity-80"></span>
+                <span className="absolute inset-0 rounded-full bg-emerald-500 animate-ping opacity-25"></span>
+              </span>
+              <span>Na voljo so sveže novice</span>
+              <span className="opacity-70 group-hover:opacity-100">— klikni za osvežitev</span>
+            </button>
+          </div>
         </div>
       )}
 
