@@ -6,6 +6,7 @@ import Image from 'next/image'
 import { useTheme } from 'next-themes'
 import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/router'
+import { motion, AnimatePresence } from 'framer-motion'
 
 export default function Header() {
   const router = useRouter()
@@ -154,79 +155,42 @@ export default function Header() {
           </div>
         </Link>
 
-        {/* Sredina: obvestilo (prikaže se na širših zaslonih) */}
-        {hasNew && !refreshing && (
-          <div className="hidden md:flex flex-1 justify-center">
-            <button
-              onClick={refreshNow}
-              className="group inline-flex items-center gap-2 rounded-full px-3.5 py-1.5
-                         text-[13px] font-medium
-                         bg-emerald-500/10 text-emerald-700 dark:text-emerald-300
-                         ring-1 ring-emerald-400/40 dark:ring-emerald-600/40
-                         hover:bg-emerald-500/15 transition shadow-sm"
-              title="Osveži, da prikažeš sveže novice"
+        {/* Sredina: obvestilo (desktop) z animacijo */}
+        <AnimatePresence initial={false}>
+          {hasNew && !refreshing && (
+            <motion.div
+              key="banner-desktop"
+              initial={{ opacity: 0, y: -6 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -6 }}
+              transition={{ duration: 0.18, ease: 'easeOut' }}
+              className="hidden md:flex flex-1 justify-center"
             >
-              <span className="relative inline-flex">
-                <span className="h-2.5 w-2.5 rounded-full bg-emerald-500 opacity-80"></span>
-                <span className="absolute inset-0 rounded-full bg-emerald-500 animate-ping opacity-25"></span>
-              </span>
-              <span>Na voljo so sveže novice</span>
-              <span className="opacity-70 group-hover:opacity-100">— klikni za osvežitev</span>
-            </button>
-          </div>
-        )}
+              <button
+                onClick={refreshNow}
+                className="group inline-flex items-center gap-2 rounded-full px-3.5 py-1.5
+                           text-[13px] font-medium
+                           bg-emerald-500/10 text-emerald-700 dark:text-emerald-300
+                           ring-1 ring-emerald-400/40 dark:ring-emerald-600/40
+                           hover:bg-emerald-500/15 transition shadow-sm"
+                title="Osveži, da prikažeš sveže novice"
+              >
+                <span className="relative inline-flex">
+                  <span className="h-2.5 w-2.5 rounded-full bg-emerald-500 opacity-80"></span>
+                  <span className="absolute inset-0 rounded-full bg-emerald-500 animate-ping opacity-25"></span>
+                </span>
+                <span>Na voljo so sveže novice</span>
+                <span className="opacity-70 group-hover:opacity-100">— klikni za osvežitev</span>
+              </button>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
-        {/* Desno: ura, refresh, tema, filter trigger */}
+        {/* Desno: ura, tema, filter trigger (osveži ikona odstranjena) */}
         <div className="flex items-center gap-1.5 sm:gap-2">
-          {/* Minimalna ura */}
           <span className="hidden sm:inline-block font-mono tabular-nums text-[13px] text-gray-500 dark:text-gray-400 select-none">
             {time}
           </span>
-
-          {/* Refresh (skrij na desktopu, ko je banner viden) */}
-          <button
-            type="button"
-            onClick={refreshNow}
-            aria-label="Osveži novice"
-            title="Osveži"
-            className={`relative inline-flex h-10 w-10 items-center justify-center rounded-md
-                        text-black/60 dark:text-white/70
-                        hover:text-black/90 dark:hover:text-white/90
-                        hover:bg-black/[0.04] dark:hover:bg-white/[0.06] transition
-                        ${hasNew && !refreshing ? 'md:hidden' : ''}`}
-          >
-            <svg
-              viewBox="0 0 24 24"
-              width="22"
-              height="22"
-              aria-hidden="true"
-              className={refreshing ? 'animate-spin' : ''}
-            >
-              <path
-                d="M16.023 9.348h4.992V4.356M7.5 15.75H2.508v4.992"
-                stroke="currentColor"
-                strokeWidth="1.8"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                fill="none"
-              />
-              <path
-                d="M5.598 8.52a8.25 8.25 0 0113.434-1.908M18.432 16.98A8.25 8.25 0 016.75 19.5"
-                stroke="currentColor"
-                strokeWidth="1.8"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                fill="none"
-              />
-            </svg>
-            {/* pika za nove novice – samo na mobilnem, ko je banner prikazan */}
-            {hasNew && !refreshing && (
-              <span
-                className="absolute right-2 top-2 h-2.5 w-2.5 rounded-full bg-emerald-500 ring-2 ring-white dark:ring-gray-900 animate-pulse md:hidden"
-                aria-hidden="true"
-              />
-            )}
-          </button>
 
           {/* Tema toggle */}
           {mounted && (
@@ -290,30 +254,38 @@ export default function Header() {
         </div>
       </div>
 
-      {/* Obvestilo na manjših zaslonih (tam ni sredinske vrstice)
-          Namenoma BREZ border-t, da na mobile ne dobimo dvojnega separatorja */}
-      {hasNew && !refreshing && (
-        <div className="md:hidden bg-[#FAFAFA]/95 dark:bg-gray-900/70 backdrop-blur-md">
-          <div className="px-4 md:px-8 lg:px-16 py-1.5 flex justify-center">
-            <button
-              onClick={refreshNow}
-              className="group inline-flex items-center gap-2 rounded-full px-3.5 py-1.5
-                         text-[13px] font-medium
-                         bg-emerald-500/10 text-emerald-700 dark:text-emerald-300
-                         ring-1 ring-emerald-400/40 dark:ring-emerald-600/40
-                         hover:bg-emerald-500/15 transition shadow-sm"
-              title="Osveži, da prikažeš sveže novice"
-            >
-              <span className="relative inline-flex">
-                <span className="h-2.5 w-2.5 rounded-full bg-emerald-500 opacity-80"></span>
-                <span className="absolute inset-0 rounded-full bg-emerald-500 animate-ping opacity-25"></span>
-              </span>
-              <span>Na voljo so sveže novice</span>
-              <span className="opacity-70 group-hover:opacity-100">— klikni za osvežitev</span>
-            </button>
-          </div>
-        </div>
-      )}
+      {/* Obvestilo na manjših zaslonih – animiran vstop/izstop; BREZ border-t */}
+      <AnimatePresence initial={false}>
+        {hasNew && !refreshing && (
+          <motion.div
+            key="banner-mobile"
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.18, ease: 'easeOut' }}
+            className="md:hidden bg-[#FAFAFA]/95 dark:bg-gray-900/70 backdrop-blur-md"
+          >
+            <div className="px-4 md:px-8 lg:px-16 py-1.5 flex justify-center">
+              <button
+                onClick={refreshNow}
+                className="group inline-flex items-center gap-2 rounded-full px-3.5 py-1.5
+                           text-[13px] font-medium
+                           bg-emerald-500/10 text-emerald-700 dark:text-emerald-300
+                           ring-1 ring-emerald-400/40 dark:ring-emerald-600/40
+                           hover:bg-emerald-500/15 transition shadow-sm"
+                title="Osveži, da prikažeš sveže novice"
+              >
+                <span className="relative inline-flex">
+                  <span className="h-2.5 w-2.5 rounded-full bg-emerald-500 opacity-80"></span>
+                  <span className="absolute inset-0 rounded-full bg-emerald-500 animate-ping opacity-25"></span>
+                </span>
+                <span>Na voljo so sveže novice</span>
+                <span className="opacity-70 group-hover:opacity-100">— klikni za osvežitev</span>
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* trak – prikažemo ga, ko v tej seji obstaja aktiven izbor */}
       {activeSources !== null && activeSources.length > 0 && (
