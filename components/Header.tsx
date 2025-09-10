@@ -183,16 +183,17 @@ export default function Header() {
             {time}
           </span>
 
-          {/* Refresh */}
+          {/* Refresh (skrij na desktopu, ko je banner viden) */}
           <button
             type="button"
             onClick={refreshNow}
             aria-label="Osveži novice"
             title="Osveži"
-            className="relative inline-flex h-10 w-10 items-center justify-center rounded-md
-                       text-black/60 dark:text-white/70
-                       hover:text-black/90 dark:hover:text-white/90
-                       hover:bg-black/[0.04] dark:hover:bg-white/[0.06] transition"
+            className={`relative inline-flex h-10 w-10 items-center justify-center rounded-md
+                        text-black/60 dark:text-white/70
+                        hover:text-black/90 dark:hover:text-white/90
+                        hover:bg-black/[0.04] dark:hover:bg-white/[0.06] transition
+                        ${hasNew && !refreshing ? 'md:hidden' : ''}`}
           >
             <svg
               viewBox="0 0 24 24"
@@ -218,10 +219,10 @@ export default function Header() {
                 fill="none"
               />
             </svg>
-            {/* pika za nove novice (manjša na ikoni) */}
+            {/* pika za nove novice – samo na mobilnem, ko je banner prikazan */}
             {hasNew && !refreshing && (
               <span
-                className="absolute right-2 top-2 h-2.5 w-2.5 rounded-full bg-emerald-500 ring-2 ring-white dark:ring-gray-900 animate-pulse"
+                className="absolute right-2 top-2 h-2.5 w-2.5 rounded-full bg-emerald-500 ring-2 ring-white dark:ring-gray-900 animate-pulse md:hidden"
                 aria-hidden="true"
               />
             )}
