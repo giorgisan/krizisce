@@ -730,7 +730,7 @@ export default function ArticlePreview({ url, onClose }: Props) {
                     onAuxClick={onAuxOpen}
                     className="no-underline inline-flex justify-center rounded-md px-5 py-2 dark:bg-gray-700 text-white text-sm dark:hover:bg-gray-600 whitespace-nowrap anim-soft"
                   >
-                    Za ogled celotnega članka, obiščite spletno stran
+                    Za ogled celotnega članka obiščite spletno stran
                   </a>
 
                   <button
