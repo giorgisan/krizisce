@@ -291,7 +291,7 @@ export default function ArticlePreview({ url, onClose }: Props) {
         setLoading(false)
       } catch {
         if (!alive) return
-        setError('Napaka pri nalaganju predogleda.'); setLoading(false)
+        setError('Napaka pri nalaganju predogleda. Zaprite in poskusite ponovno.'); setLoading(false)
       }
     }
     run()
