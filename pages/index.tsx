@@ -42,7 +42,7 @@ async function loadNews(forceFresh: boolean, signal?: AbortSignal): Promise<News
   }
 }
 
-// --- NOVO: paged fetch za "Naloži več"
+// --- paged fetch za "Naloži več"
 type PagePayload = { items: NewsItem[]; nextCursor: number | null }
 async function fetchPage(params: { cursor?: number | null; limit?: number; source?: string | null }): Promise<PagePayload> {
   const { cursor, limit = 40, source } = params
@@ -70,7 +70,7 @@ const ric = (cb: () => void) => {
   } else setTimeout(cb, 0)
 }
 
-// === NOVO: stabilni čas objave (immutable) prek localStorage ===
+// === stabilni čas objave (immutable) prek localStorage ===
 const LS_FIRST_SEEN = 'krizisce_first_seen_v1'
 type FirstSeenMap = Record<string, number> // link -> ms epoch
 
@@ -101,7 +101,7 @@ export default function Home({ initialNews }: Props) {
   // first-seen mapa za stabilni čas
   const [firstSeen, setFirstSeen] = useState<FirstSeenMap>(() => loadFirstSeen())
 
-  // --- NOVO: pagination indikatorji
+  // pagination indikatorji
   const [hasMore, setHasMore] = useState<boolean>(true)
   const [cursor, setCursor] = useState<number | null>(null) // ms publishedAt za naslednji batch (starejši od cursor)
 
@@ -149,7 +149,6 @@ export default function Home({ initialNews }: Props) {
     ;(async () => {
       const fresh = await loadNews(true, ctrl.signal)
       if (fresh && fresh.length) {
-        // primerjamo po linkih (ne po času), da posodobljen članek ne šteje kot nov
         const currentLinks = new Set(initialNews.map(n => n.link))
         const hasNewLink = fresh.some(n => n.link && !currentLinks.has(n.link))
         if (hasNewLink) {
@@ -220,7 +219,7 @@ export default function Home({ initialNews }: Props) {
           setHasNewBanner(false)
           window.dispatchEvent(new CustomEvent('news-has-new', { detail: false }))
           missCountRef.current = 0
-          // resetiraj paginacijo (nov vrh feeda)
+          // reset paginacije
           setHasMore(true)
           setCursor(null)
           setDisplayCount(20)
@@ -255,7 +254,7 @@ export default function Home({ initialNews }: Props) {
     return () => window.removeEventListener('filters:update', onFiltersUpdate as EventListener)
   }, [])
 
-  // === NOVO: obogatimo novice s "stableAt" in sproti dopolnimo firstSeen mapo ===
+  // — obogatimo novice s "stableAt" in sproti dopolnimo firstSeen mapo —
   const shapedNews = useMemo(() => {
     const map = { ...firstSeen }
     let changed = false
@@ -287,10 +286,9 @@ export default function Home({ initialNews }: Props) {
   )
   const visibleNews = useMemo(() => filteredNews.slice(0, displayCount), [filteredNews, displayCount])
 
-  // --- Ko se spremeni filter ali news, če nimamo kurzorja, ga nastavimo na "najmanjši publishedAt med trenutno prikazanimi"
+  // minimalni publishedAt med trenutno naloženimi → za naslednjo stran gremo pod to vrednost
   useEffect(() => {
     if (!filteredNews.length) { setCursor(null); setHasMore(true); return }
-    // minimalni publishedAt med trenutno naloženimi (za naslednjo stran gremo pod to vrednost)
     const minMs = filteredNews.reduce((acc, n) => Math.min(acc, n.publishedAt || acc), filteredNews[0].publishedAt || 0)
     setCursor(minMs || null)
   }, [deferredFilter, news])
@@ -300,32 +298,30 @@ export default function Home({ initialNews }: Props) {
   const resetFilter = () =>
     startTransition(() => { setFilter('Vse'); setDisplayCount(20); setMenuOpen(false); emitFilterUpdate([]) })
 
-  // --- NOVO: realni loadMore (pridobi starejše preko API kurzorja)
+  // realni loadMore (pridobi starejše preko API kurzorja)
   const [isLoadingMore, setIsLoadingMore] = useState(false)
   const handleLoadMore = async () => {
     if (isLoadingMore || !hasMore) return
     setIsLoadingMore(true)
     try {
-      // če je filter aktiven, naj backend filtrira že pri viru
       const { items, nextCursor } = await fetchPage({
         cursor,
         limit: 40,
         source: deferredFilter,
       })
 
-      // deduplikacija po linku, da ne “požeremo” že naloženih
       const seen = new Set(news.map(n => n.link))
       const fresh = items.filter(i => !seen.has(i.link))
 
       if (fresh.length) {
         setNews(prev => [...prev, ...fresh])
-        setDisplayCount(prev => prev + fresh.length) // pokaži takoj vse nove
+        setDisplayCount(prev => prev + fresh.length)
       }
 
       setCursor(nextCursor)
       setHasMore(nextCursor != null)
     } catch {
-      // ne zapiči UI-ja, samo dovoli ponovni poskus
+      // noop
     } finally {
       setIsLoadingMore(false)
     }
@@ -334,7 +330,7 @@ export default function Home({ initialNews }: Props) {
   const prefersReducedMotion =
     typeof window !== 'undefined' &&
     window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
-  const motionDuration = prefersReducedMotion ? 0.01 : 0.2
+  const motionDuration = prefersReducedMotion ? 0.08 : 0.14
 
   return (
     <>
@@ -364,7 +360,7 @@ export default function Home({ initialNews }: Props) {
               initial={{ opacity: 0, y: -6 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -6 }}
-              transition={{ duration: 0.16 }}
+              transition={{ duration: 0.12 }}
               className="fixed z-40"
               style={{ top: pos.top, right: pos.right }}
               onClick={(e) => e.stopPropagation()}
@@ -387,8 +383,8 @@ export default function Home({ initialNews }: Props) {
                         onClick={() => onPick(source)}
                         initial={{ opacity: 0, y: 3 }}
                         animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.12, delay: 0.01 * idx }}
-                        className="w-full text-left px-3 py-2 rounded-md hover:bg-black/5 dark:hover:bg:white/5 text-gray-800 dark:text-gray-200 transition"
+                        transition={{ duration: 0.1, delay: 0.01 * idx }}
+                        className="w-full text-left px-3 py-2 rounded-md hover:bg-black/5 dark:hover:bg-white/5 text-gray-800 dark:text-gray-200 transition"
                       >
                         {source}
                       </motion.button>
@@ -407,17 +403,17 @@ export default function Home({ initialNews }: Props) {
             Ni novic za izbrani vir ali napaka pri nalaganju.
           </p>
         ) : (
-          <AnimatePresence mode="wait">
+          <AnimatePresence>
             <motion.div
               key={deferredFilter}
-              initial={{ opacity: 0, y: 10 }}
+              initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
+              exit={{ opacity: 0, y: -8 }}
               transition={{ duration: motionDuration }}
               className="grid gap-6 grid-cols-2 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5"
             >
-              {visibleNews.map((article) => (
-                <ArticleCard key={article.link} news={article as any} />
+              {visibleNews.map((article, i) => (
+                <ArticleCard key={article.link} news={article as any} priority={i === 0} />
               ))}
             </motion.div>
           </AnimatePresence>
