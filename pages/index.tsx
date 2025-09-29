@@ -398,7 +398,7 @@ export default function Home({ initialNews }: Props) {
       </AnimatePresence>
 
       <main
-        className="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white px-4 md:px-8 lg:px-16 pt-5 lg:pt-6 pb-24 transform-gpu translate-y-[var(--mob-banner-y,0px)] md:translate-y-0 transition-transform duration-150 ease-out"
+        className="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white px-4 md:px-8 lg:px-16 pt-5 lg:pt-6 pb-24 transform-gpu translate-y-[var(--mob-shift,0px)] md:translate-y-0 transition-transform duration-150 ease-out"
       >
         {visibleNews.length === 0 ? (
           <p className="text-gray-500 dark:text-gray-400 text-center w-full mt-10">
