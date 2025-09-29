@@ -13,7 +13,7 @@ import dynamic from 'next/dynamic'
 import { proxiedImage, buildSrcSet } from '@/lib/img'
 import { preloadPreview, canPrefetch, warmImage } from '@/lib/previewPrefetch'
 
-interface Props { news: NewsItem }
+interface Props { news: NewsItem; priority?: boolean }
 type PreviewProps = { url: string; onClose: () => void }
 const ArticlePreview = dynamic(() => import('./ArticlePreview'), { ssr: false }) as ComponentType<PreviewProps>
 
@@ -35,7 +35,7 @@ function formatDisplayTime(publishedAt?: number, iso?: string) {
   return `${date}, ${time}`
 }
 
-export default function ArticleCard({ news }: Props) {
+export default function ArticleCard({ news, priority = false }: Props) {
   const formattedDate = formatDisplayTime(news.publishedAt, news.isoDate)
 
   const sourceColor = useMemo(() => {
@@ -75,20 +75,14 @@ export default function ArticleCard({ news }: Props) {
     if (!useFallback) setUseFallback(true)
   }
 
-  // Preload za LCP (slika prvega zaslona)
+  // Preload za LCP – deterministično (prva kartica dobi priority=true)
   const cardRef = useRef<HTMLAnchorElement>(null)
-  const [priority, setPriority] = useState(false)
-  useEffect(() => {
-    const el = cardRef.current
-    if (!el) return
-    const rect = el.getBoundingClientRect()
-    if (rect.top < (window.innerHeight || 0) * 0.9) setPriority(true)
-  }, [])
+  const [isPriority, setIsPriority] = useState<boolean>(priority)
+  useEffect(() => { if (priority) setIsPriority(true) }, [priority])
 
   useEffect(() => {
-    if (!priority || !rawImg) return
-    const el     = cardRef.current
-    const rectW  = Math.max(1, Math.round(el?.getBoundingClientRect().width || 480))
+    if (!isPriority || !rawImg) return
+    const rectW  = Math.max(1, Math.round(cardRef.current?.getBoundingClientRect().width || 480))
     const dpr    = (typeof window !== 'undefined' && window.devicePixelRatio) || 1
     const targetW = Math.min(1280, Math.round(rectW * dpr))
     const targetH = Math.round(targetW / ASPECT)
@@ -99,7 +93,7 @@ export default function ArticleCard({ news }: Props) {
     link.crossOrigin = 'anonymous'
     document.head.appendChild(link)
     return () => { document.head.removeChild(link) }
-  }, [priority, rawImg])
+  }, [isPriority, rawImg])
 
   // ---- API beacons ----
   const sendBeacon = (payload: any) => {
@@ -118,8 +112,7 @@ export default function ArticleCard({ news }: Props) {
   const handleClick = (e: MouseEvent<HTMLAnchorElement>) => {
     if (e.metaKey || e.ctrlKey || e.button === 1) return
     e.preventDefault()
-    // ⚠️ brez 'noreferrer' – da pošljemo Referer; z 'noopener' za varnost
-    window.open(news.link, '_blank', 'noopener')
+    window.open(news.link, '_blank', 'noopener') // brez noreferrer, da pošljemo Referer
     logClick()
   }
   const handleAuxClick = (e: MouseEvent<HTMLAnchorElement>) => { if (e.button === 1) logClick() }
@@ -177,7 +170,6 @@ export default function ArticleCard({ news }: Props) {
       preloadedRef.current = true
       preloadPreview(news.link).catch(() => {})
 
-      // Nežno ogrejemo glavno sliko samo na hover/focus/touch
       if (rawImg && cardRef.current) {
         const rectW = Math.max(1, Math.round(cardRef.current.getBoundingClientRect().width || 480))
         const dpr   = (typeof window !== 'undefined' && window.devicePixelRatio) || 1
@@ -200,8 +192,8 @@ export default function ArticleCard({ news }: Props) {
         ref={cardRef}
         href={news.link}
         target="_blank"
-        rel="noopener"                        // ✨ brez 'noreferrer'
-        referrerPolicy="strict-origin-when-cross-origin" // ✨ pošlji samo origin
+        rel="noopener"
+        referrerPolicy="strict-origin-when-cross-origin"
         onClick={handleClick}
         onAuxClick={handleAuxClick}
         onMouseEnter={() => { setEyeVisible(true); triggerPrefetch() }}
@@ -224,10 +216,10 @@ export default function ArticleCard({ news }: Props) {
               srcSet={srcSet}
               alt={news.title}
               className="absolute inset-0 h-full w-full object-cover"
-              sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
+              sizes="(max-width: 640px) 100vw, (max-width: 1280px) 33vw, 20vw"
               onError={handleImgError}
-              loading={priority ? 'eager' : 'lazy'}
-              fetchPriority={priority ? 'high' : 'auto'}
+              loading={isPriority ? 'eager' : 'lazy'}
+              fetchPriority={isPriority ? 'high' : 'auto'}
               decoding="async"
               width={640}
               height={360}
