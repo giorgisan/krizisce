@@ -122,7 +122,7 @@ export default function Header() {
     return extra > 0 ? `${shown} +${extra}` : shown
   }, [activeSources])
 
-  // ==== NOVO: header višina + mobilni banner → CSS var (samo mobile) ====
+  // ==== Header višina + mobilni banner višina ===
   const hdrRef = useRef<HTMLElement | null>(null)
   const mobBannerRef = useRef<HTMLDivElement | null>(null)
 
@@ -136,24 +136,21 @@ export default function Header() {
     return () => window.removeEventListener('resize', setHdr)
   }, [])
 
-  // na mobitelu nastavimo --mob-banner-y na višino bannerja, drugače 0
+  // Ko je banner viden na mobilnem (<768px), nastavi:
+  //   --mob-shift = calc(bannerHeight - 1.25rem)  // 1.25rem == pt-5 na <md
+  // drugače 0px. S tem se grid spusti za višino bannerja MINUS osnovni padding,
+  // zato je razmik zgoraj/spodaj simetričen.
   useEffect(() => {
-    const setMobVars = () => {
-      const mq = window.matchMedia('(max-width: 767px)')
-      const isMobile = mq.matches
-      const visible = isMobile && hasNew && !refreshing
+    const updateVars = () => {
+      const isMobile = window.matchMedia('(max-width: 767px)').matches
+      const visible = hasNew && !refreshing && isMobile
       const h = (visible ? (mobBannerRef.current?.offsetHeight || 44) : 0)
-      document.documentElement.style.setProperty('--mob-banner-y', `${h}px`)
-      // Lahko bi tu nastavili še kakšno drugo var, če bi jo rabil.
+      const shift = visible ? `calc(${h}px - 1.25rem)` : '0px'
+      document.documentElement.style.setProperty('--mob-shift', shift)
     }
-    setMobVars()
-    const mq = window.matchMedia('(max-width: 767px)')
-    try { mq.addEventListener('change', setMobVars) } catch { mq.addListener(setMobVars) }
-    window.addEventListener('resize', setMobVars)
-    return () => {
-      try { mq.removeEventListener('change', setMobVars) } catch { mq.removeListener(setMobVars) }
-      window.removeEventListener('resize', setMobVars)
-    }
+    updateVars()
+    window.addEventListener('resize', updateVars)
+    return () => window.removeEventListener('resize', updateVars)
   }, [hasNew, refreshing])
 
   return (
@@ -185,7 +182,7 @@ export default function Header() {
           </div>
         </Link>
 
-        {/* Sredina: obvestilo (desktop) */}
+        {/* (desktop) obvestilo */}
         <AnimatePresence initial={false}>
           {hasNew && !refreshing && (
             <motion.div
@@ -265,7 +262,7 @@ export default function Header() {
         </div>
       </div>
 
-      {/* Mobilni banner – fixed pod headerjem; meri višino za var */}
+      {/* Mobilni banner – fixed pod headerjem; izmerimo višino v ref */}
       <AnimatePresence initial={false}>
         {hasNew && !refreshing && (
           <motion.div
