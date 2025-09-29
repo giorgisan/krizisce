@@ -18,16 +18,12 @@ export default function Header() {
   // null = v tej seji še ni bilo interakcije; [] = resetirano; ['RTVSLO'] = aktiven filter
   const [activeSources, setActiveSources] = useState<string[] | null>(null)
 
-  // >>> ura: osvežuje se vsako minuto, prikazana samo na širših zaslonih
+  // >>> ura
   const [time, setTime] = useState(() =>
     new Intl.DateTimeFormat('sl-SI', { hour: '2-digit', minute: '2-digit' }).format(new Date())
   )
   useEffect(() => {
-    const tick = () => {
-      setTime(
-        new Intl.DateTimeFormat('sl-SI', { hour: '2-digit', minute: '2-digit' }).format(new Date())
-      )
-    }
+    const tick = () => setTime(new Intl.DateTimeFormat('sl-SI', { hour: '2-digit', minute: '2-digit' }).format(new Date()))
     tick()
     const timer = setInterval(tick, 60_000)
     return () => clearInterval(timer)
@@ -67,7 +63,6 @@ export default function Header() {
       ;(localStorage as any).__origSetItem__ = origSetItem
       ;(localStorage.setItem as any) = patched
 
-      // fallback: če ob mountu že obstaja izbor in je bil ustvarjen v tej seji
       if (sessionStorage.getItem('filters_interacted') === '1') {
         const raw = localStorage.getItem('selectedSources')
         if (raw) {
@@ -87,7 +82,7 @@ export default function Header() {
     } catch {}
   }, [])
 
-  // poslušaj filters:update (od bridga ali tvojega overlay-a)
+  // poslušaj filters:update
   useEffect(() => {
     const onUpdate = (e: Event) => {
       const det = (e as CustomEvent).detail
@@ -127,17 +122,31 @@ export default function Header() {
     return extra > 0 ? `${shown} +${extra}` : shown
   }, [activeSources])
 
-  // ==== NOVO: izmeri višino headerja → CSS var za mobilni banner (brez CLS) ====
+  // ==== NOVO: header višina in banner višina → css var (za mobilni slide down brez CLS)
   const hdrRef = useRef<HTMLElement | null>(null)
+  const mobBannerRef = useRef<HTMLDivElement | null>(null)
+
   useEffect(() => {
-    const setVar = () => {
+    const setHdr = () => {
       const h = hdrRef.current?.offsetHeight || 56
       document.documentElement.style.setProperty('--hdr-h', `${h}px`)
     }
-    setVar()
-    window.addEventListener('resize', setVar)
-    return () => window.removeEventListener('resize', setVar)
+    setHdr()
+    window.addEventListener('resize', setHdr)
+    return () => window.removeEventListener('resize', setHdr)
   }, [])
+
+  // ko je banner viden, nastavi --mob-banner-y na njegovo višino; sicer 0
+  useEffect(() => {
+    const setMobY = () => {
+      const visible = hasNew && !refreshing
+      const h = (visible ? (mobBannerRef.current?.offsetHeight || 44) : 0)
+      document.documentElement.style.setProperty('--mob-banner-y', `${h}px`)
+    }
+    setMobY()
+    window.addEventListener('resize', setMobY)
+    return () => window.removeEventListener('resize', setMobY)
+  }, [hasNew, refreshing])
 
   return (
     <header
@@ -168,7 +177,7 @@ export default function Header() {
           </div>
         </Link>
 
-        {/* Sredina: obvestilo (desktop) z animacijo */}
+        {/* Sredina: obvestilo (desktop) */}
         <AnimatePresence initial={false}>
           {hasNew && !refreshing && (
             <motion.div
@@ -199,13 +208,12 @@ export default function Header() {
           )}
         </AnimatePresence>
 
-        {/* Desno: ura, tema, filter trigger (osveži ikona odstranjena) */}
+        {/* Desno: ura, tema, filter trigger */}
         <div className="flex items-center gap-1.5 sm:gap-2">
           <span className="hidden sm:inline-block font-mono tabular-nums text-[13px] text-gray-500 dark:text-gray-400 select-none">
             {time}
           </span>
 
-          {/* Tema toggle */}
           {mounted && (
             <button
               type="button"
@@ -218,30 +226,19 @@ export default function Header() {
                          hover:bg-black/[0.04] dark:hover:bg-white/[0.06] transition relative overflow-hidden"
             >
               {/* Sun */}
-              <svg
-                viewBox="0 0 24 24"
-                width="20"
-                height="20"
-                aria-hidden="true"
-                className={`absolute transition-all duration-500 transform ${isDark ? 'opacity-100 scale-100 rotate-0' : 'opacity-0 scale-50 -rotate-90'}`}
-              >
+              <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"
+                   className={`absolute transition-all duration-500 transform ${isDark ? 'opacity-100 scale-100 rotate-0' : 'opacity-0 scale-50 -rotate-90'}`}>
                 <path d="M12 4V2M12 22v-2M4.93 4.93 3.52 3.52M20.48 20.48l-1.41-1.41M4 12H2M22 12h-2M4.93 19.07 3.52 20.48M20.48 3.52l-1.41 1.41" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
                 <circle cx="12" cy="12" r="4" stroke="currentColor" strokeWidth="2" fill="none"/>
               </svg>
               {/* Moon */}
-              <svg
-                viewBox="0 0 24 24"
-                width="20"
-                height="20"
-                aria-hidden="true"
-                className={`absolute transition-all duration-500 transform ${!isDark ? 'opacity-100 scale-100 rotate-0' : 'opacity-0 scale-50 rotate-90'}`}
-              >
+              <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"
+                   className={`absolute transition-all duration-500 transform ${!isDark ? 'opacity-100 scale-100 rotate-0' : 'opacity-0 scale-50 rotate-90'}`}>
                 <path d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 0 0 9.79 9.79Z" stroke="currentColor" strokeWidth="2" fill="none"/>
               </svg>
             </button>
           )}
 
-          {/* Filter trigger */}
           <button
             id="filters-trigger"
             type="button"
@@ -254,20 +251,13 @@ export default function Header() {
                        hover:bg-black/[0.04] dark:hover:bg-white/[0.06] transition"
           >
             <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
-              <path
-                d="M3 5h18l-7 8v5l-4 2v-7L3 5z"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinejoin="round"
-                strokeLinecap="round"
-                fill="none"
-              />
+              <path d="M3 5h18l-7 8v5l-4 2v-7L3 5z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" fill="none"/>
             </svg>
           </button>
         </div>
       </div>
 
-      {/* Obvestilo na manjših zaslonih – FIX: fixed pod headerjem (brez CLS) */}
+      {/* Mobilni banner – fixed pod headerjem; izmerimo višino v ref */}
       <AnimatePresence initial={false}>
         {hasNew && !refreshing && (
           <motion.div
@@ -279,7 +269,7 @@ export default function Header() {
             className="md:hidden fixed left-0 right-0 z-40 bg-[#FAFAFA]/95 dark:bg-gray-900/70 backdrop-blur-md"
             style={{ top: 'var(--hdr-h, 56px)' }}
           >
-            <div className="px-4 md:px-8 lg:px-16 py-1.5 flex justify-center">
+            <div ref={mobBannerRef} className="px-4 md:px-8 lg:px-16 py-1.5 flex justify-center">
               <button
                 onClick={refreshNow}
                 className="group inline-flex items-center gap-2 rounded-full px-3.5 py-1.5
