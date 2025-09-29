@@ -4,7 +4,7 @@
 import Link from 'next/link'
 import Image from 'next/image'
 import { useTheme } from 'next-themes'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, useRef } from 'react'
 import { useRouter } from 'next/router'
 import { motion, AnimatePresence } from 'framer-motion'
 
@@ -127,8 +127,21 @@ export default function Header() {
     return extra > 0 ? `${shown} +${extra}` : shown
   }, [activeSources])
 
+  // ==== NOVO: izmeri višino headerja → CSS var za mobilni banner (brez CLS) ====
+  const hdrRef = useRef<HTMLElement | null>(null)
+  useEffect(() => {
+    const setVar = () => {
+      const h = hdrRef.current?.offsetHeight || 56
+      document.documentElement.style.setProperty('--hdr-h', `${h}px`)
+    }
+    setVar()
+    window.addEventListener('resize', setVar)
+    return () => window.removeEventListener('resize', setVar)
+  }, [])
+
   return (
     <header
+      ref={hdrRef}
       id="site-header"
       className="sticky top-0 z-40 bg-[#FAFAFA]/95 dark:bg-gray-900/70 backdrop-blur-md border-b border-gray-200 dark:border-gray-700 shadow-sm"
     >
@@ -254,7 +267,7 @@ export default function Header() {
         </div>
       </div>
 
-      {/* Obvestilo na manjših zaslonih – animiran vstop/izstop; BREZ border-t */}
+      {/* Obvestilo na manjših zaslonih – FIX: fixed pod headerjem (brez CLS) */}
       <AnimatePresence initial={false}>
         {hasNew && !refreshing && (
           <motion.div
@@ -263,7 +276,8 @@ export default function Header() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -8 }}
             transition={{ duration: 0.18, ease: 'easeOut' }}
-            className="md:hidden bg-[#FAFAFA]/95 dark:bg-gray-900/70 backdrop-blur-md"
+            className="md:hidden fixed left-0 right-0 z-40 bg-[#FAFAFA]/95 dark:bg-gray-900/70 backdrop-blur-md"
+            style={{ top: 'var(--hdr-h, 56px)' }}
           >
             <div className="px-4 md:px-8 lg:px-16 py-1.5 flex justify-center">
               <button
