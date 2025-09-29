@@ -97,7 +97,7 @@ export default function Header() {
     try { sessionStorage.setItem('filters_interacted', '1') } catch {}
     try { localStorage.setItem('selectedSources', JSON.stringify([])) } catch {}
     try { window.dispatchEvent(new CustomEvent('filters:update', { detail: { sources: [] } })) } catch {}
-    setActiveSources([]) // skrij trak
+    setActiveSources([])
   }
 
   const currentTheme = (theme ?? resolvedTheme) || 'dark'
@@ -122,7 +122,7 @@ export default function Header() {
     return extra > 0 ? `${shown} +${extra}` : shown
   }, [activeSources])
 
-  // ==== NOVO: header višina in banner višina → css var (za mobilni slide down brez CLS)
+  // ==== NOVO: header višina + mobilni banner → CSS var (samo mobile) ====
   const hdrRef = useRef<HTMLElement | null>(null)
   const mobBannerRef = useRef<HTMLDivElement | null>(null)
 
@@ -136,16 +136,24 @@ export default function Header() {
     return () => window.removeEventListener('resize', setHdr)
   }, [])
 
-  // ko je banner viden, nastavi --mob-banner-y na njegovo višino; sicer 0
+  // na mobitelu nastavimo --mob-banner-y na višino bannerja, drugače 0
   useEffect(() => {
-    const setMobY = () => {
-      const visible = hasNew && !refreshing
+    const setMobVars = () => {
+      const mq = window.matchMedia('(max-width: 767px)')
+      const isMobile = mq.matches
+      const visible = isMobile && hasNew && !refreshing
       const h = (visible ? (mobBannerRef.current?.offsetHeight || 44) : 0)
       document.documentElement.style.setProperty('--mob-banner-y', `${h}px`)
+      // Lahko bi tu nastavili še kakšno drugo var, če bi jo rabil.
     }
-    setMobY()
-    window.addEventListener('resize', setMobY)
-    return () => window.removeEventListener('resize', setMobY)
+    setMobVars()
+    const mq = window.matchMedia('(max-width: 767px)')
+    try { mq.addEventListener('change', setMobVars) } catch { mq.addListener(setMobVars) }
+    window.addEventListener('resize', setMobVars)
+    return () => {
+      try { mq.removeEventListener('change', setMobVars) } catch { mq.removeListener(setMobVars) }
+      window.removeEventListener('resize', setMobVars)
+    }
   }, [hasNew, refreshing])
 
   return (
@@ -257,7 +265,7 @@ export default function Header() {
         </div>
       </div>
 
-      {/* Mobilni banner – fixed pod headerjem; izmerimo višino v ref */}
+      {/* Mobilni banner – fixed pod headerjem; meri višino za var */}
       <AnimatePresence initial={false}>
         {hasNew && !refreshing && (
           <motion.div
