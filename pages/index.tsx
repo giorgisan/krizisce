@@ -42,6 +42,22 @@ async function loadNews(forceFresh: boolean, signal?: AbortSignal): Promise<News
   }
 }
 
+// --- NOVO: paged fetch za "Naloži več"
+type PagePayload = { items: NewsItem[]; nextCursor: number | null }
+async function fetchPage(params: { cursor?: number | null; limit?: number; source?: string | null }): Promise<PagePayload> {
+  const { cursor, limit = 40, source } = params
+  const qs = new URLSearchParams()
+  qs.set('paged', '1')
+  qs.set('limit', String(limit))
+  if (cursor != null) qs.set('cursor', String(cursor))
+  if (source && source !== 'Vse') qs.set('source', source)
+  const res = await fetch(`/api/news?${qs.toString()}`, { cache: 'no-store' })
+  if (!res.ok) return { items: [], nextCursor: null }
+  const data = (await res.json()) as PagePayload
+  if (!data || !Array.isArray(data.items)) return { items: [], nextCursor: null }
+  return data
+}
+
 function emitFilterUpdate(sources: string[]) {
   try { sessionStorage.setItem('filters_interacted', '1') } catch {}
   try { localStorage.setItem('selectedSources', JSON.stringify(sources)) } catch {}
@@ -84,6 +100,10 @@ export default function Home({ initialNews }: Props) {
 
   // first-seen mapa za stabilni čas
   const [firstSeen, setFirstSeen] = useState<FirstSeenMap>(() => loadFirstSeen())
+
+  // --- NOVO: pagination indikatorji
+  const [hasMore, setHasMore] = useState<boolean>(true)
+  const [cursor, setCursor] = useState<number | null>(null) // ms publishedAt za naslednji batch (starejši od cursor)
 
   useEffect(() => {
     const handler = () => { ric(() => computeDropdownPos()); setMenuOpen((s) => !s) }
@@ -144,7 +164,7 @@ export default function Home({ initialNews }: Props) {
 
   // polling (z backoff + visibility)
   const [freshNews, setFreshNews] = useState<NewsItem[] | null>(null)
-  const [hasNew, setHasNew] = useState(false)
+  const [hasNewBanner, setHasNewBanner] = useState(false)
   const missCountRef = useRef(0)
   const timerRef = useRef<number | null>(null)
 
@@ -155,18 +175,17 @@ export default function Home({ initialNews }: Props) {
       const ctrl = new AbortController()
       const fresh = await loadNews(true, ctrl.signal)
       if (!fresh || fresh.length === 0) {
-        setHasNew(false)
+        setHasNewBanner(false)
         window.dispatchEvent(new CustomEvent('news-has-new', { detail: false }))
         missCountRef.current = Math.min(POLL_MAX_BACKOFF, missCountRef.current + 1)
         return
       }
 
-      // NOVO: zaznajmo nove linke (ne “novejši čas”)
       const currentLinks = new Set(news.map(n => n.link))
       const newer = fresh.some(n => n.link && !currentLinks.has(n.link))
 
       setFreshNews(fresh)
-      setHasNew(newer)
+      setHasNewBanner(newer)
       window.dispatchEvent(new CustomEvent('news-has-new', { detail: newer }))
       missCountRef.current = newer ? 0 : Math.min(POLL_MAX_BACKOFF, missCountRef.current + 1)
     }
@@ -198,15 +217,19 @@ export default function Home({ initialNews }: Props) {
       startTransition(() => {
         const finish = () => {
           window.dispatchEvent(new CustomEvent('news-refreshing', { detail: false }))
-          setHasNew(false)
+          setHasNewBanner(false)
           window.dispatchEvent(new CustomEvent('news-has-new', { detail: false }))
           missCountRef.current = 0
+          // resetiraj paginacijo (nov vrh feeda)
+          setHasMore(true)
+          setCursor(null)
+          setDisplayCount(20)
         }
-        if (freshNews && hasNew) {
-          setNews(freshNews); setDisplayCount(20); finish()
+        if (freshNews && hasNewBanner) {
+          setNews(freshNews); finish()
         } else {
           loadNews(true).then((fresh) => {
-            if (fresh && fresh.length) { setNews(fresh); setDisplayCount(20) }
+            if (fresh && fresh.length) { setNews(fresh) }
             finish()
           })
         }
@@ -214,9 +237,9 @@ export default function Home({ initialNews }: Props) {
     }
     window.addEventListener('refresh-news', onRefresh as EventListener)
     return () => window.removeEventListener('refresh-news', onRefresh as EventListener)
-  }, [freshNews, hasNew])
+  }, [freshNews, hasNewBanner])
 
-  // sync s Headerjem (filters:update)
+  // sync s Headerjem (filters:update) – reset paginacije
   useEffect(() => {
     const onFiltersUpdate = (e: Event) => {
       const arr = (e as CustomEvent).detail?.sources
@@ -224,6 +247,8 @@ export default function Home({ initialNews }: Props) {
       startTransition(() => {
         setFilter(arr.length ? arr[0] : 'Vse')
         setDisplayCount(20)
+        setHasMore(true)
+        setCursor(null)
       })
     }
     window.addEventListener('filters:update', onFiltersUpdate as EventListener)
@@ -262,11 +287,49 @@ export default function Home({ initialNews }: Props) {
   )
   const visibleNews = useMemo(() => filteredNews.slice(0, displayCount), [filteredNews, displayCount])
 
+  // --- Ko se spremeni filter ali news, če nimamo kurzorja, ga nastavimo na "najmanjši publishedAt med trenutno prikazanimi"
+  useEffect(() => {
+    if (!filteredNews.length) { setCursor(null); setHasMore(true); return }
+    // minimalni publishedAt med trenutno naloženimi (za naslednjo stran gremo pod to vrednost)
+    const minMs = filteredNews.reduce((acc, n) => Math.min(acc, n.publishedAt || acc), filteredNews[0].publishedAt || 0)
+    setCursor(minMs || null)
+  }, [deferredFilter, news])
+
   const onPick = (s: string) =>
     startTransition(() => { setFilter(s); setDisplayCount(20); setMenuOpen(false); emitFilterUpdate([s]) })
   const resetFilter = () =>
     startTransition(() => { setFilter('Vse'); setDisplayCount(20); setMenuOpen(false); emitFilterUpdate([]) })
-  const handleLoadMore = () => setDisplayCount((p) => p + 20)
+
+  // --- NOVO: realni loadMore (pridobi starejše preko API kurzorja)
+  const [isLoadingMore, setIsLoadingMore] = useState(false)
+  const handleLoadMore = async () => {
+    if (isLoadingMore || !hasMore) return
+    setIsLoadingMore(true)
+    try {
+      // če je filter aktiven, naj backend filtrira že pri viru
+      const { items, nextCursor } = await fetchPage({
+        cursor,
+        limit: 40,
+        source: deferredFilter,
+      })
+
+      // deduplikacija po linku, da ne “požeremo” že naloženih
+      const seen = new Set(news.map(n => n.link))
+      const fresh = items.filter(i => !seen.has(i.link))
+
+      if (fresh.length) {
+        setNews(prev => [...prev, ...fresh])
+        setDisplayCount(prev => prev + fresh.length) // pokaži takoj vse nove
+      }
+
+      setCursor(nextCursor)
+      setHasMore(nextCursor != null)
+    } catch {
+      // ne zapiči UI-ja, samo dovoli ponovni poskus
+    } finally {
+      setIsLoadingMore(false)
+    }
+  }
 
   const prefersReducedMotion =
     typeof window !== 'undefined' &&
@@ -325,7 +388,7 @@ export default function Home({ initialNews }: Props) {
                         initial={{ opacity: 0, y: 3 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.12, delay: 0.01 * idx }}
-                        className="w-full text-left px-3 py-2 rounded-md hover:bg-black/5 dark:hover:bg-white/5 text-gray-800 dark:text-gray-200 transition"
+                        className="w-full text-left px-3 py-2 rounded-md hover:bg-black/5 dark:hover:bg:white/5 text-gray-800 dark:text-gray-200 transition"
                       >
                         {source}
                       </motion.button>
@@ -360,10 +423,14 @@ export default function Home({ initialNews }: Props) {
           </AnimatePresence>
         )}
 
-        {displayCount < filteredNews.length && (
+        {hasMore && (
           <div className="text-center mt-8 mb-10">
-            <button onClick={handleLoadMore} className="px-5 py-2 bg-brand text-white rounded-full hover:bg-brand-hover transition">
-              Naloži več
+            <button
+              onClick={handleLoadMore}
+              disabled={isLoadingMore}
+              className="px-5 py-2 bg-brand text-white rounded-full hover:bg-brand-hover transition disabled:opacity-60"
+            >
+              {isLoadingMore ? 'Nalagam…' : 'Naloži več'}
             </button>
           </div>
         )}
