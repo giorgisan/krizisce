@@ -1,6 +1,7 @@
 import Parser from 'rss-parser'
 import type { NewsItem } from '../types'
 import { feeds } from './sources'
+import { excludeAds } from './adFilter'
 
 type FetchOpts = { forceFresh?: boolean }
 
@@ -136,7 +137,10 @@ export default async function fetchRSSFeeds(opts: FetchOpts = {}): Promise<NewsI
     }),
   )
 
+  // --- NOVO: filtriraj oglase (prag 3 = zmeren) ---
   const flat = results.flat()
-  flat.sort((a, b) => (b.publishedAt || 0) - (a.publishedAt || 0))
-  return flat
+  const clean = excludeAds(flat, 3)
+
+  clean.sort((a, b) => (b.publishedAt || 0) - (a.publishedAt || 0))
+  return clean
 }
