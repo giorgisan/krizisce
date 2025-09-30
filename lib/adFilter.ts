@@ -1,25 +1,10 @@
 // lib/adFilter.ts
-// Hiter, lokalni filter "sponzorirano/oglas" vsebine za Križišče.
-// Deluje na NewsItem (glej spodaj minimalni tip) in vrne "isAd", "adScore", "adMatches".
-// Prag (threshold) je nastavljiv; priporočen 3.
-
-export type NewsItem = {
-  title: string
-  description?: string | null
-  contentHtml?: string | null
-  link: string
-  site?: string | null
-  categories?: string[] | null
-  author?: string | null
-  publishedAt?: string | Date | null
-  // polja, ki jih doda filter:
-  isAd?: boolean
-  adScore?: number
-  adMatches?: string[]
-}
+// Hiter, lokalni filter za sponzorirane/oglasne članke.
+// Ne spreminja objektov; samo izračuna točke in omogoča filtriranje.
 
 // --- Konfiguracija pravil ---
-// Ključne besede za SI/EN (naslov/opis/kategorije):
+
+// Ključne besede (SI/EN)
 const KEYWORDS = [
   // slovensko
   'oglasno sporočilo',
@@ -31,7 +16,7 @@ const KEYWORDS = [
   'oglasna vsebina',
   'v sodelovanju z',
   'partner vsebina',
-  'sporočilo za javnost', // po želji: lahko daš manj točk (vidi spodaj WEAK)
+  'sporočilo za javnost',
   'pr prispevek',
   // angleško
   'sponsored',
@@ -43,17 +28,17 @@ const KEYWORDS = [
   'press release'
 ]
 
-// Močne “shorthand” oznake (kričeče naslovi/oznaka):
+// Močni “shorthand” tokeni
 const STRONG_TOKENS = [
   'promo', 'oglas', 'advertorial', 'ad:', '[ad]', 'pr:', '[pr]', 'sponzorirano'
 ]
 
-// Šibkejše besede (manj točk):
+// Šibkejši “sales” izrazi (manj točk)
 const WEAK = [
   'akcija', 'popust', 'kupon', 'super cena', 'kupite', 'naročite', 'prihrani', 'ponudba'
 ]
 
-// Vzorci URL/paths, ki pogosto nosijo promo:
+// Vzorci v URL-jih
 const URL_PATTERNS = [
   /\/oglas/i,
   /\/oglasi/i,
@@ -64,12 +49,12 @@ const URL_PATTERNS = [
   /[?&]utm_campaign=promo/i
 ]
 
-// Poimenske “avtor: PR/Marketing/Uredništvo” (nekateri mediji tako označijo):
+// Avtorji, ki pogosto označujejo PR
 const AUTHOR_PATTERNS = [/^\s*pr\s*$/i, /marketing/i, /komunikacije/i, /uredništvo pr/i]
 
-// Dodatne heuristike
-const UPPERCASE_SHOUT_RATIO = 0.6  // če je >60% velikih črk v naslovu, šteje kot “kričav” naslov
-const SHORT_TITLE_MAX = 5          // zelo kratek naslov + strong token = verjetno oglas
+// Heuristike
+const UPPERCASE_SHOUT_RATIO = 0.6
+const SHORT_TITLE_MAX = 5
 
 // Teže
 const W = {
@@ -88,7 +73,8 @@ function normalize(s?: string | null): string {
   return s
     .toLowerCase()
     .normalize('NFD')
-    .replace(/\p{Diacritic}/gu, '') // odstrani šumnike, da "sporočilo" ~ "sporocilo"
+    // @ts-ignore: regexp property exists in modern runtimes
+    .replace(/\p{Diacritic}/gu, '')
     .trim()
 }
 
@@ -99,16 +85,24 @@ function uppercaseRatio(s: string): number {
   return upp.length / letters.length
 }
 
-export function scoreAd(item: NewsItem) {
+// Vzemi kategorije, če obstajajo, kot nize (nekateri feedi imajo array ali string)
+function toCategories(x: any): string[] {
+  if (!x) return []
+  if (Array.isArray(x)) return x.map((v) => String(v))
+  if (typeof x === 'string') return [x]
+  return []
+}
+
+export function scoreAd(item: any) {
   const matches: string[] = []
   let score = 0
 
-  const title = normalize(item.title)
-  const desc = normalize(item.description || '')
-  const html = normalize(item.contentHtml || '')
-  const url = item.link || ''
-  const author = normalize(item.author || '')
-  const categories = (item.categories || []).map(normalize)
+  const title = normalize(item?.title || '')
+  const desc = normalize(item?.description || item?.contentSnippet || '')
+  const html = normalize(item?.content || item?.['content:encoded'] || '')
+  const url = String(item?.link || '')
+  const author = normalize(item?.author || '')
+  const categories = toCategories(item?.categories).map(normalize)
 
   const hay = `${title}\n${desc}\n${html}`
 
@@ -147,7 +141,6 @@ export function scoreAd(item: NewsItem) {
     }
   }
 
-  // Kategorije (nekateri RSS označijo "sponsored", "oglas")
   if (categories.some(c =>
     c.includes('sponzor') || c.includes('promo') || c.includes('oglas') || c.includes('sponsored')
   )) {
@@ -155,9 +148,8 @@ export function scoreAd(item: NewsItem) {
     matches.push('category:sponsored')
   }
 
-  // Heuristike naslova
   const words = title.split(/\s+/).filter(Boolean)
-  if (uppercaseRatio(item.title || '') > UPPERCASE_SHOUT_RATIO) {
+  if (uppercaseRatio(item?.title || '') > UPPERCASE_SHOUT_RATIO) {
     score += W.SHOUT
     matches.push('shout:title_uppercase')
   }
@@ -170,27 +162,19 @@ export function scoreAd(item: NewsItem) {
 }
 
 /**
- * Filtrira oglase. Doda isAd/adScore/adMatches.
- * @param items NewsItem[]
- * @param opts.threshold prag (privzeto 3). Več = strožji filter.
+ * Hitri check, ali je članek najverjetneje oglas.
+ * @param item objekt RSS/NewsItem
+ * @param opts.threshold privzeto 3 (višje = strožje)
  */
-export function filterAds<T extends NewsItem>(items: T[], opts?: { threshold?: number }): T[] {
+export function isLikelyAd(item: any, opts?: { threshold?: number }) {
   const threshold = opts?.threshold ?? 3
-  return items.map((it) => {
-    const { score, matches } = scoreAd(it)
-    return {
-      ...it,
-      isAd: score >= threshold,
-      adScore: score,
-      adMatches: matches
-    }
-  })
+  const { score, matches } = scoreAd(item)
+  return { isAd: score >= threshold, score, matches }
 }
 
 /**
- * Vrne samo “ne-oglase” (če želiš že tukaj rezati).
+ * Vrne array brez oglasov (ne mutira elementov).
  */
-export function excludeAds<T extends NewsItem>(items: T[], opts?: { threshold?: number }): T[] {
-  const threshold = opts?.threshold ?? 3
-  return filterAds(items, { threshold }).filter(i => !i.isAd)
+export function excludeAds<T>(items: T[], threshold = 3): T[] {
+  return items.filter((it: any) => !isLikelyAd(it, { threshold }).isAd)
 }
