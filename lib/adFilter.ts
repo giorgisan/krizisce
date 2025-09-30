@@ -1,10 +1,12 @@
 // lib/adFilter.ts
-// Hiter, lokalni filter za sponzorirane/oglasne članke.
-// Ne spreminja objektov; samo izračuna točke in omogoča filtriranje.
+// Lokalni filter za sponzorirano/oglasno/PR vsebino za Križišče.
+// v2: doda detekcijo "product promo / brand PR" jezika (analitika, platforma, za profesionalce, priložnosti kapitalskih trgov ...)
 
-// --- Konfiguracija pravil ---
+// --- Nastavitve ---
+export const AD_THRESHOLD = 3            // zmeren
+export const AGGRESSIVE_PR_THRESHOLD = 4 // strožji za PR-jezik
 
-// Ključne besede (SI/EN)
+// --- Ključne besede (jasne oznake) ---
 const KEYWORDS = [
   // slovensko
   'oglasno sporočilo',
@@ -18,6 +20,8 @@ const KEYWORDS = [
   'partner vsebina',
   'sporočilo za javnost',
   'pr prispevek',
+  'partnerstvo',
+  'branded content',
   // angleško
   'sponsored',
   'sponsored content',
@@ -33,9 +37,28 @@ const STRONG_TOKENS = [
   'promo', 'oglas', 'advertorial', 'ad:', '[ad]', 'pr:', '[pr]', 'sponzorirano'
 ]
 
-// Šibkejši “sales” izrazi (manj točk)
+// Šibkejši “sales” izrazi (majhna teža)
 const WEAK = [
   'akcija', 'popust', 'kupon', 'super cena', 'kupite', 'naročite', 'prihrani', 'ponudba'
+]
+
+// PR/marketinški jezik, ki pogosto označuje produktno/biz vsebino (brez transparentne oznake)
+const PR_PHRASES = [
+  'je predstavil', 'je predstavila', 'so predstavili', 'predstavlja',
+  'platforma', 'rešitev', 'storitev', 'posodobitev', 'prenovljeno',
+  'za profesionalce', 'za menedžerje', 'za izvajalce', 'za podjetja',
+  'analitika', 'dashboard', 'upravljanje', 'orodje za', 'saas',
+  'registracija', 'prijava', 'brezplačno preizkusite', 'preizkusite brezplačno',
+  'na voljo', 'dostopno', 'paket', 'naročniški',
+  'partnerji', 'stranke', 'uporabniki', 'ekosistem',
+]
+
+// Finance-specifični PR signali
+const FINANCE_PR = [
+  'naložbe', 'naložbeni', 'investicij', 'investiraj', 'varčevanje', 'obresti',
+  'priložnosti kapitalskih trgov', 'kapitalskih trgov', 'donos', 'donosnost',
+  'odpri račun', 'odprite račun', 'sklad', 'vzajemni sklad', 'borza',
+  'do %', '% letno', 'prvo leto', 'brez vstopnih stroškov'
 ]
 
 // Vzorci v URL-jih
@@ -58,14 +81,16 @@ const SHORT_TITLE_MAX = 5
 
 // Teže
 const W = {
-  KEYWORD: 2,
+  KEYWORD: 3,
   STRONG: 3,
   URL: 2,
   AUTHOR: 2,
   WEAK: 1,
   SHOUT: 1,
   SHORT: 1,
-  CATEGORY: 2
+  CATEGORY: 2,
+  PR: 2,
+  FIN: 2
 }
 
 function normalize(s?: string | null): string {
@@ -73,7 +98,7 @@ function normalize(s?: string | null): string {
   return s
     .toLowerCase()
     .normalize('NFD')
-    // @ts-ignore: regexp property exists in modern runtimes
+    // @ts-ignore
     .replace(/\p{Diacritic}/gu, '')
     .trim()
 }
@@ -85,7 +110,6 @@ function uppercaseRatio(s: string): number {
   return upp.length / letters.length
 }
 
-// Vzemi kategorije, če obstajajo, kot nize (nekateri feedi imajo array ali string)
 function toCategories(x: any): string[] {
   if (!x) return []
   if (Array.isArray(x)) return x.map((v) => String(v))
@@ -93,17 +117,27 @@ function toCategories(x: any): string[] {
   return []
 }
 
+// Nekaj pogostih kratic, ki niso “brand shouts” (da ne kaznujemo EU, ZDA ipd.)
+const SAFE_ACRONYMS = new Set(['EU','NATO','ZDA','ZAE','STA','RTVSLO','N1','UK','ECB','IMF','WHO'])
+
+function hasSuspiciousAcronym(titleRaw: string): boolean {
+  const words = (titleRaw || '').split(/\s+/)
+  // all-caps besede dolžine 3–6, razen safe
+  return words.some(w => /^[A-ZČŠŽĆĐ]{3,6}$/.test(w) && !SAFE_ACRONYMS.has(w))
+}
+
 export function scoreAd(item: any) {
   const matches: string[] = []
   let score = 0
+  let prScore = 0 // ločen “komercialnost” signal (agresivni način)
 
-  const title = normalize(item?.title || '')
+  const titleRaw = item?.title || ''
+  const title = normalize(titleRaw)
   const desc = normalize(item?.description || item?.contentSnippet || '')
   const html = normalize(item?.content || item?.['content:encoded'] || '')
   const url = String(item?.link || '')
   const author = normalize(item?.author || '')
   const categories = toCategories(item?.categories).map(normalize)
-
   const hay = `${title}\n${desc}\n${html}`
 
   for (const k of KEYWORDS) {
@@ -124,6 +158,20 @@ export function scoreAd(item: any) {
     if (hay.includes(normalize(w))) {
       score += W.WEAK
       matches.push(`weak:${w}`)
+    }
+  }
+
+  for (const p of PR_PHRASES) {
+    if (hay.includes(normalize(p))) {
+      prScore += W.PR
+      matches.push(`pr:${p}`)
+    }
+  }
+
+  for (const p of FINANCE_PR) {
+    if (hay.includes(normalize(p))) {
+      prScore += W.FIN
+      matches.push(`fin:${p}`)
     }
   }
 
@@ -149,7 +197,7 @@ export function scoreAd(item: any) {
   }
 
   const words = title.split(/\s+/).filter(Boolean)
-  if (uppercaseRatio(item?.title || '') > UPPERCASE_SHOUT_RATIO) {
+  if (uppercaseRatio(titleRaw) > UPPERCASE_SHOUT_RATIO) {
     score += W.SHOUT
     matches.push('shout:title_uppercase')
   }
@@ -158,23 +206,31 @@ export function scoreAd(item: any) {
     matches.push('short+strong')
   }
 
-  return { score, matches }
+  if (hasSuspiciousAcronym(titleRaw)) {
+    prScore += 1
+    matches.push('pr:brand_acronym')
+  }
+
+  return { score, prScore, matches }
 }
 
 /**
- * Hitri check, ali je članek najverjetneje oglas.
- * @param item objekt RSS/NewsItem
- * @param opts.threshold privzeto 3 (višje = strožje)
+ * Vrne { isAd, score, matches }. Upošteva tudi “komercialnost” (prScore).
+ * @param opts.threshold prag za jasne oznake (privzeto AD_THRESHOLD)
+ * @param opts.aggressive če true, aktivira PR heuristiko (prScore >= AGGRESSIVE_PR_THRESHOLD)
  */
-export function isLikelyAd(item: any, opts?: { threshold?: number }) {
-  const threshold = opts?.threshold ?? 3
-  const { score, matches } = scoreAd(item)
-  return { isAd: score >= threshold, score, matches }
+export function isLikelyAd(item: any, opts?: { threshold?: number, aggressive?: boolean }) {
+  const threshold = opts?.threshold ?? AD_THRESHOLD
+  const aggressive = opts?.aggressive ?? true
+  const { score, prScore, matches } = scoreAd(item)
+  const isHardAd = score >= threshold
+  const isPR = aggressive && prScore >= AGGRESSIVE_PR_THRESHOLD
+  return { isAd: isHardAd || isPR, score: isHardAd ? score : prScore, matches, hard: isHardAd, pr: isPR }
 }
 
 /**
- * Vrne array brez oglasov (ne mutira elementov).
+ * Vrne array brez oglasov/PR.
  */
-export function excludeAds<T>(items: T[], threshold = 3): T[] {
-  return items.filter((it: any) => !isLikelyAd(it, { threshold }).isAd)
+export function excludeAds<T>(items: T[], threshold = AD_THRESHOLD, aggressive = true): T[] {
+  return items.filter((it: any) => !isLikelyAd(it, { threshold, aggressive }).isAd)
 }
