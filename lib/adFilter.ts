@@ -1,9 +1,11 @@
 // lib/adFilter.ts
-// Lokalni filter za sponzorirano/PR/oglasno vsebino (v3).
-// Dodane tarče: "vam svetuje/priporoča", "kako ..." naslovi, in sekcijski namigi (npr. siol.net/posel-danes).
+// Lokalni filter za sponzorirano/PR/oglasno vsebino (v3.2, ES5-safe).
+// - Odstranjena uporaba RegExp \p{...} in 'u' flag (zdaj dela z ES5 targetom).
+// - PR heuristika: "Brand vam svetuje/priporoča ...", "kako ...", finance-PR fraze,
+//   sekcijski namig za siol.net/novice/posel-danes, RSS kategorije (npr. "PR članek").
 
-export const AD_THRESHOLD = 3            // jasne oznake
-export const AGGRESSIVE_PR_THRESHOLD = 4 // PR jezik
+export const AD_THRESHOLD = 3            // jasne oznake (nižje = bolj občutljivo)
+export const AGGRESSIVE_PR_THRESHOLD = 4 // PR jezik (višje = manj občutljivo)
 
 // --- Jasne oznake ---
 const KEYWORDS = [
@@ -35,19 +37,17 @@ const FINANCE_PR = [
 
 // Dodatni “how-to PR” vzorci (brand -> vam svetuje/priporoča kako ...)
 const PR_VERBS_ADVICE = ['svetuje','priporoča','predlaga','prinaša nasvete']
-const HOWTO_HINTS = ['kako ','how to ']
+const HOWTO_HINTS = ['kako ', 'how to ']
 
 // Vzorci URL-jev (močni) + sekcijski namigi (šibki)
 const URL_PATTERNS_STRONG = [
-  /\/oglas/i,/\/oglasi/i,/\/promo/i,/\/promocij/i,/\/sponzor/i,/\/advert/i,/[?&]utm_campaign=promo/i
+  /\/oglas/i, /\/oglasi/i, /\/promo/i, /\/promocij/i, /\/sponzor/i, /\/advert/i, /[?&]utm_campaign=promo/i
 ]
-
-// Sekcijski namigi, ki pogosto skrivajo PR (majhna teža, kombinatorni)
 const URL_SECTION_HINTS = [
   /siol\.net\/novice\/posel-danes\//i
 ]
 
-const AUTHOR_PATTERNS = [/^\s*pr\s*$/i,/marketing/i,/komunikacije/i,/uredništvo pr/i]
+const AUTHOR_PATTERNS = [/^\s*pr\s*$/i, /marketing/i, /komunikacije/i, /uredništvo pr/i]
 
 const UPPERCASE_SHOUT_RATIO = 0.6
 const SHORT_TITLE_MAX = 5
@@ -57,9 +57,14 @@ const W = {
   WEAK: 1, SHOUT: 1, SHORT: 1, CATEGORY: 2, PR: 2, FIN: 2, HOWTO: 2, BRAND_ADVICE: 3
 }
 
+// ES5-safe odstranjevanje diakritikov (č,š,ž → c,s,z ...)
 function normalize(s?: string | null): string {
   if (!s) return ''
-  return s.toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu, '').trim()
+  // NFD razgradi znake v osnovo + kombinacijske znake; nato odstranimo kombinacije U+0300–U+036F
+  return s.toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
 }
 
 function uppercaseRatio(s: string): number {
@@ -78,7 +83,7 @@ function toCategories(x: any): string[] {
 
 // Detekcija "Brand vam svetuje ... kako ..."
 function brandAdvicePattern(titleRaw: string): boolean {
-  const t = titleRaw.trim()
+  const t = (titleRaw || '').trim()
   // Začetek z veliko začetnico (brand) + " vam|ti|nam " + (svetuje|priporoča|predlaga)
   const rx = /^[A-ZŠČŽĆĐ][^,.:!?]{1,60}\s+(vam|ti|nam)\s+(svetuje|priporoča|predlaga)\b/i
   return rx.test(t)
@@ -121,14 +126,18 @@ export function scoreAd(item: any) {
   for (const rx of URL_SECTION_HINTS) if (rx.test(url)) { prScore += W.URL_HINT; matches.push(`urlhint:${rx.source}`) }
   for (const rx of AUTHOR_PATTERNS) if (rx.test(author)) { score += W.AUTHOR; matches.push(`author:${rx.source}`) }
 
-  if (categories.some(c => c.includes('sponzor') || c.includes('promo') || c.includes('oglas') || c.includes('sponsored'))) {
+  // Kategorije v RSS: ujemi tudi "pr članek" (brez šumnikov -> "pr clanek")
+  if (categories.some(c =>
+    c.indexOf('sponzor') >= 0 || c.indexOf('promo') >= 0 || c.indexOf('oglas') >= 0 || c.indexOf('sponsored') >= 0 ||
+    c.indexOf('pr clanek') >= 0 || c === 'pr' || (c && c.indexOf('pr:') === 0)
+  )) {
     score += W.CATEGORY
-    matches.push('category:sponsored')
+    matches.push('category:sponsored/pr')
   }
 
   const words = title.split(/\s+/).filter(Boolean)
   if (uppercaseRatio(titleRaw) > UPPERCASE_SHOUT_RATIO) { score += W.SHOUT; matches.push('shout:title_uppercase') }
-  if (words.length <= SHORT_TITLE_MAX && STRONG_TOKENS.some(t => title.includes(normalize(t)))) {
+  if (words.length <= SHORT_TITLE_MAX && STRONG_TOKENS.some(t => title.indexOf(normalize(t)) >= 0)) {
     score += W.SHORT; matches.push('short+strong')
   }
 
