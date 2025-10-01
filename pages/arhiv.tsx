@@ -6,7 +6,7 @@ import Header from '@/components/Header'
 import Footer from '@/components/Footer'
 import SeoHead from '@/components/SeoHead'
 import ArticleCard from '@/components/ArticleCard'
-import { NewsItem } from '@/types' // ujemi polja: title, link, image?, source, summary, publishedAt (vidi opombo spodaj)
+import { NewsItem } from '@/types'
 
 type ApiItem = {
   id: string
@@ -25,7 +25,6 @@ type ApiPayload = {
 }
 
 function toNewsItem(a: ApiItem): NewsItem {
-  // Če imaš v NewsItem druga imena polj, prilagodi tukaj na ENEM mestu.
   return {
     title: a.title,
     link: a.link,
@@ -73,9 +72,11 @@ export default function ArchivePage() {
     if (!nextCursor || loadingMore) return
     setLoadingMore(true)
     try {
-      const res = await fetch(`/api/archive?date=${encodeURIComponent(date)}&cursor=${encodeURIComponent(nextCursor)}&limit=40`, { cache: 'no-store' })
+      const res = await fetch(
+        `/api/archive?date=${encodeURIComponent(date)}&cursor=${encodeURIComponent(nextCursor)}&limit=40`,
+        { cache: 'no-store' }
+      )
       const data: ApiPayload = await res.json()
-      // dedup po linku
       const seen = new Set(items.map(i => i.link))
       const fresh = data.items.filter(i => !seen.has(i.link))
       setItems(prev => [...prev, ...fresh])
@@ -85,9 +86,7 @@ export default function ArchivePage() {
     }
   }
 
-  useEffect(() => {
-    fetchDay(date)
-  }, [date])
+  useEffect(() => { fetchDay(date) }, [date])
 
   return (
     <>
@@ -111,7 +110,6 @@ export default function ArchivePage() {
             </div>
           </div>
 
-          {/* STATISTIKA */}
           <div className="mt-6 rounded-xl border border-gray-200/70 dark:border-gray-700/70 bg-white/70 dark:bg-gray-900/70 backdrop-blur p-4">
             <div className="flex items-center justify-between">
               <h2 className="font-medium">Objave po medijih</h2>
@@ -122,7 +120,6 @@ export default function ArchivePage() {
               <p className="mt-3 text-sm text-gray-600 dark:text-gray-400">Za izbrani dan ni podatkov.</p>
             )}
 
-            {/* mini “bar chart” brez knjižnic */}
             <div className="mt-3 space-y-2">
               {Object.entries(counts)
                 .sort((a, b) => b[1] - a[1])
@@ -142,7 +139,6 @@ export default function ArchivePage() {
             </div>
           </div>
 
-          {/* SEZNAM NOVIC */}
           <div className="mt-6">
             {loading ? (
               <p className="text-gray-500 dark:text-gray-400">Nalagam…</p>
