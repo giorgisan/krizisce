@@ -4,29 +4,16 @@ import supabase from '@/lib/supabase'
 import { PostgrestSingleResponse } from '@supabase/supabase-js'
 
 type DbRow = {
-  id?: string
-  source?: string
-  title?: string
-  link?: string
-  summary?: string | null
-  published_at?: string | null
-  publishedAt?: number | string | null
-  timestamp?: number | string | null
-  created_at?: string | null
-  createdAt?: number | string | null
-}
-
-type CleanRow = {
   id: string
   source: string
   title: string
   link: string
   summary: string | null
-  published_at: string // ISO
+  published_at: string | null
 }
 
 type Payload = {
-  items: CleanRow[]
+  items: DbRow[]
   counts: Record<string, number>
   total: number
   nextCursor: string | null
@@ -37,7 +24,7 @@ function startEndOfDay(dateISO: string) {
   const d = new Date(dateISO)
   const start = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), 0, 0, 0))
   const end = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), 23, 59, 59, 999))
-  return { start: start.toISOString(), end: end.toISOString(), startMs: +start, endMs: +end }
+  return { start: start.toISOString(), end: end.toISOString() }
 }
 
 function isToday(dateISO: string) {
@@ -46,139 +33,42 @@ function isToday(dateISO: string) {
   return ymd(new Date(dateISO)) === ymd(now)
 }
 
-function toISO(v: unknown): string | null {
-  if (typeof v === 'string' && v) {
-    const t = new Date(v)
-    return isNaN(+t) ? null : t.toISOString()
-  }
-  if (typeof v === 'number' && v > 0) {
-    const t = new Date(v)
-    return isNaN(+t) ? null : t.toISOString()
-  }
-  return null
-}
+async function fetchDayFromSupabase(dateISO: string, limit: number, cursorISO?: string | null) {
+  const { start, end } = startEndOfDay(dateISO)
 
-function normalizeRow(r: DbRow): CleanRow | null {
-  if (!r) return null
-  const id = String(r.id ?? r.link ?? '')
-  const source = String(r.source ?? 'Neznano')
-  const title = String(r.title ?? '(brez naslova)')
-  const link = String(r.link ?? '')
-  const summary = r.summary ?? null
-
-  const iso =
-    toISO(r.published_at) ??
-    toISO(r.publishedAt) ??
-    toISO(r.timestamp) ??
-    toISO(r.created_at) ??
-    toISO(r.createdAt)
-
-  if (!link || !iso) return null
-  return { id, source, title, link, summary, published_at: iso }
-}
-
-async function tryColumnRange(
-  col: string,
-  from: string | number,
-  to: string | number,
-  limit: number,
-  cursorISO?: string | null,
-  orderAsc = false
-): Promise<PostgrestSingleResponse<DbRow[]>> {
   let q = supabase
     .from('news')
-    .select('id,source,title,link,summary,published_at,publishedAt,timestamp,created_at,createdAt', { head: false })
-    .gte(col as any, from as any)
-    .lte(col as any, to as any)
-    .order(col as any, { ascending: orderAsc ? true : false })
+    .select('id,source,title,link,summary,published_at', { head: false })
+    .gte('published_at', start)
+    .lte('published_at', end)
+    .order('published_at', { ascending: false })
 
   if (cursorISO) {
-    // za ms stolpce pretvori v ms
-    const c = +new Date(cursorISO)
-    // poskusi oba scenarija (ISO in ms). PostgREST bo sprejel samo, če tip ustreza.
-    let q2 = q.lt(col as any, cursorISO as any)
-    let res = await q2.limit(limit)
-    if (res.error) {
-      q2 = supabase
-        .from('news')
-        .select('id,source,title,link,summary,published_at,publishedAt,timestamp,created_at,createdAt', { head: false })
-        .gte(col as any, from as any)
-        .lte(col as any, to as any)
-        .lt(col as any, c as any)
-        .order(col as any, { ascending: orderAsc ? true : false })
-      res = await q2.limit(limit)
-      return res
-    }
-    return res
+    q = q.lt('published_at', cursorISO)
   }
 
-  return await q.limit(limit)
+  const res: PostgrestSingleResponse<DbRow[]> = await q.limit(limit)
+  if (res.error) throw res.error
+
+  const items = (res.data ?? []).filter((x) => !!x.link && !!x.published_at)
+  return { items }
 }
 
-async function fetchDayFromSupabase(dateISO: string, limit: number, cursorISO?: string | null) {
-  const { start, end, startMs, endMs } = startEndOfDay(dateISO)
+async function fetchCountsForDay(dateISO: string) {
+  const { start, end } = startEndOfDay(dateISO)
+  const res: PostgrestSingleResponse<{ source?: string }[]> = await supabase
+    .from('news')
+    .select('source', { head: false })
+    .gte('published_at', start)
+    .lte('published_at', end)
 
-  const candidates: Array<{ col: string; from: string | number; to: string | number }> = [
-    { col: 'published_at', from: start, to: end },
-    { col: 'publishedAt', from: startMs, to: endMs },
-    { col: 'timestamp', from: startMs, to: endMs },
-    { col: 'created_at', from: start, to: end },
-    { col: 'createdAt', from: startMs, to: endMs },
-  ]
-
-  for (const c of candidates) {
-    try {
-      const res = await tryColumnRange(c.col, c.from, c.to, limit, cursorISO)
-      if (!res.error) {
-        const items = (res.data ?? []).map(normalizeRow).filter(Boolean) as CleanRow[]
-        return { items, usedCol: c.col }
-      }
-    } catch {
-      // ignore and try next column
-    }
+  if (res.error) throw res.error
+  const counts: Record<string, number> = {}
+  for (const row of res.data ?? []) {
+    const key = String(row.source ?? 'Neznano')
+    counts[key] = (counts[key] ?? 0) + 1
   }
-
-  return { items: [] as CleanRow[], usedCol: null as string | null }
-}
-
-async function fetchCountsForDay(dateISO: string, usedCol: string | null) {
-  const { start, end, startMs, endMs } = startEndOfDay(dateISO)
-
-  const tryCounts = async (col: string, from: string | number, to: string | number) => {
-    const r: PostgrestSingleResponse<{ source?: string }[]> = await supabase
-      .from('news')
-      .select('source', { head: false })
-      .gte(col as any, from as any)
-      .lte(col as any, to as any)
-    if (r.error) throw r.error
-    const counts: Record<string, number> = {}
-    for (const row of r.data ?? []) {
-      const key = String(row.source ?? 'Neznano')
-      counts[key] = (counts[key] ?? 0) + 1
-    }
-    return counts
-  }
-
-  const plans: Array<{ col: string; from: string | number; to: string | number }> = usedCol
-    ? usedCol.endsWith('_at') || usedCol === 'published_at' || usedCol === 'created_at'
-      ? [{ col: usedCol, from: start, to: end }]
-      : [{ col: usedCol, from: startMs, to: endMs }]
-    : [
-        { col: 'published_at', from: start, to: end },
-        { col: 'publishedAt', from: startMs, to: endMs },
-        { col: 'timestamp', from: startMs, to: endMs },
-        { col: 'created_at', from: start, to: end },
-        { col: 'createdAt', from: startMs, to: endMs },
-      ]
-
-  for (const p of plans) {
-    try {
-      return await tryCounts(p.col, p.from, p.to)
-    } catch {
-      // continue
-    }
-  }
-  return {}
+  return counts
 }
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse<Payload | { error: string }>) {
@@ -188,13 +78,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
 
     const limit = Math.min(Math.max(parseInt(String(rawLimit ?? '40'), 10) || 40, 10), 200)
 
-    // 1) poskusi Supabase (avtodetekcija stolpca)
-    const { items, usedCol } = await fetchDayFromSupabase(date, limit, typeof cursor === 'string' ? cursor : null)
-    let nextCursor = items.length ? items[items.length - 1].published_at : null
-    let counts = await fetchCountsForDay(date, usedCol)
-    let total = Object.values(counts).reduce((a, b) => a + b, 0)
+    // 1) Preberi iz Supabase (samo published_at)
+    const { items } = await fetchDayFromSupabase(date, limit, typeof cursor === 'string' ? cursor : null)
+    const nextCursor = items.length ? items[items.length - 1].published_at : null
+    const counts = await fetchCountsForDay(date)
+    const total = Object.values(counts).reduce((a, b) => a + b, 0)
 
-    // 2) fallback na današnji dan iz /api/news (če arhiv še prazen)
+    // 2) fallback: če danes in prazno → pokliči /api/news
     if (items.length === 0 && isToday(date)) {
       const host =
         (req.headers['x-forwarded-host'] as string) ||
@@ -206,23 +96,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
 
       if (resp && resp.ok) {
         const arr = (await resp.json()) as any[]
-        const normalized: CleanRow[] = (Array.isArray(arr) ? arr : [])
+        const filtered = (Array.isArray(arr) ? arr : [])
           .map((n) => ({
             id: String(n.link ?? n.id ?? ''),
             source: String(n.source ?? 'Neznano'),
             title: String(n.title ?? '(brez naslova)'),
             link: String(n.link ?? ''),
             summary: (n.summary as string | null) ?? null,
-            published_at: toISO(n.publishedAt ?? n.published_at ?? Date.now())!,
+            published_at: new Date(n.published_at ?? n.publishedAt ?? Date.now()).toISOString(),
           }))
           .filter((x) => !!x.link && !!x.published_at)
-
-        // filtriraj strogo po dnevu (če /api/news vrne tudi starejše)
-        const { start, end } = startEndOfDay(date)
-        const filtered = normalized.filter((x) => {
-          const t = +new Date(x.published_at)
-          return t >= +new Date(start) && t <= +new Date(end)
-        })
 
         const liveCounts: Record<string, number> = {}
         for (const r of filtered) liveCounts[r.source] = (liveCounts[r.source] ?? 0) + 1
@@ -239,7 +122,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
 
     return res.status(200).json({ items, counts, total, nextCursor })
   } catch (e: any) {
-    // raje prazno kot 500 (da se UI ne sesuje)
+    console.error('archive.ts error:', e)
     return res.status(200).json({ items: [], counts: {}, total: 0, nextCursor: null })
   }
 }
