@@ -5,47 +5,42 @@ import { feeds } from './sources'
 
 type FetchOpts = { forceFresh?: boolean }
 
-/** ====== BLANKET PRAVILA ====== */
+/** ====== BLANKET PRAVILA (urejaj po želji) ====== */
 const BLOCK_URLS: RegExp[] = [
   /siol\.net\/novice\/posel-danes\//i, // odstrani, če je preostro
 ]
 
 const BLOCK_PATTERNS: string[] = [
-  'oglasno sporočilo',
-  'promocijsko sporočilo',
-  'oglasni prispevek',
-  'komercialno sporočilo',
-  'sponzorirano',
-  'pr članek',
-  'partner vsebina',
-  'branded content',
-  'vsebino omogoča',
-  'vsebino omogoca',
-  'vam svetuje',
-  'priporoča',
-  'priporoca',
+  'oglasno sporočilo','oglasno sporocilo',
+  'promocijsko sporočilo','promocijsko sporocilo',
+  'oglasni prispevek','komercialno sporočilo','komercialno sporocilo',
+  'sponzorirano','partner vsebina','branded content',
+  'vsebino omogoča','vsebino omogoca',
+  'pr članek','pr clanek',
+  // malo PR jezika:
+  'vam svetuje','priporoča','priporoca'
 ]
 
 const BLOCK_BRANDS: string[] = [
-  'daikin',
-  'viberate',
-  'inoquant',
-  'bks naložbe',
-  'bks nalozbe',
+  'daikin','viberate','inoquant','bks naložbe','bks nalozbe'
 ]
 
-/** ====== HTML CHECK za siol.net (lovi tvoj primer) ======
- * Če ne želiš dodatnih fetch-ov, daj na false.
+/** ====== GENERIČNI HTML CHECK (za več domen) ======
+ * Če nočeš dodatnih fetchov, daj ENABLE_HTML_CHECK = false.
  */
-const ENABLE_SIOL_HTML_CHECK = true
+const ENABLE_HTML_CHECK = true
+const MAX_HTML_CHECKS = 8 // da ne prefetchamo preveč
+const HTML_CHECK_HOSTS = [
+  'siol.net','delo.si','slovenskenovice.delo.si','24ur.com','zurnal24.si','finance.si'
+]
 const HTML_MARKERS = [
-  'vsebino omogoča',    // s šumniki
-  'vsebino omogoca',    // brez šumnikov
-  'oglasno sporočilo',
-  'oglasno sporocilo',
-  'article__pr_box',    // razred iz tvojega HTML izreza
-  'advertorial',
-  'sponsored content',
+  'oglasno sporočilo','oglasno sporocilo',
+  'promocijsko sporočilo','promocijsko sporocilo',
+  'plačana objava','placana objava',
+  'sponzorirano','vsebino omogoča','vsebino omogoca',
+  'partner vsebina','advertorial','sponsored content',
+  // nekaj tipičnih classov/id:
+  'article__pr_box','sponsored-content','advertorial','partner-content','promo-box'
 ]
 
 /* ====== Pomožne ====== */
@@ -126,7 +121,7 @@ function toUnixMs(d?: string | null) {
   }
 }
 
-/** Hiter filter: URL + naslov + snippet + content */
+/** Enostaven filter: URL + naslov + snippet + content */
 function isBlockedBasic(i: { link?: string; title?: string; content?: string | null; contentSnippet?: string | null }) {
   const url = i.link || ''
   const hay = `${i.title || ''}\n${i.contentSnippet || ''}\n${i.content || ''}`.toLowerCase()
@@ -136,16 +131,20 @@ function isBlockedBasic(i: { link?: string; title?: string; content?: string | n
   return false
 }
 
-/** Dodatni HTML check za siol.net – poišče markerje v dejanski strani */
-async function hasSiolSponsorMarker(url: string): Promise<boolean> {
-  if (!ENABLE_SIOL_HTML_CHECK) return false
+let htmlChecks = 0
+async function hasSponsorMarker(url: string): Promise<boolean> {
+  if (!ENABLE_HTML_CHECK) return false
+  if (htmlChecks >= MAX_HTML_CHECKS) return false
+  let host = ''
   try {
     const u = new URL(url)
-    if (!/siol\.net$/i.test(u.hostname)) return false
+    host = u.hostname.toLowerCase()
+    if (!HTML_CHECK_HOSTS.some(h => host === h || host.endsWith(`.${h}`))) return false
   } catch {
     return false
   }
   try {
+    htmlChecks++
     const res = await fetch(url, {
       headers: { 'User-Agent': 'KrizisceBot/1.0 (+https://krizisce.si)' },
       cache: 'no-store',
@@ -202,12 +201,9 @@ export default async function fetchRSSFeeds(opts: FetchOpts = {}): Promise<NewsI
   // 1) osnovni rez
   let flat: NewsItem[] = results.flat().filter(i => !isBlockedBasic(i))
 
-  // 2) ciljano: pri siol.net še HTML-check (ujame "Vsebino omogoča …" / article__pr_box)
+  // 2) generični HTML check na izbranih domenah (omejeno število)
   const checked = await Promise.all(
-    flat.map(async (it) => {
-      if (await hasSiolSponsorMarker(it.link)) return null
-      return it
-    })
+    flat.map(async (it) => (await hasSponsorMarker(it.link)) ? null : it)
   )
   flat = checked.filter(Boolean) as NewsItem[]
 
