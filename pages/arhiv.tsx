@@ -23,6 +23,7 @@ type ApiPayload =
       counts: Record<string, number>
       total: number
       nextCursor: string | null
+      fallbackLive?: boolean
     }
   | { error: string }
 
@@ -33,7 +34,6 @@ function toNewsItem(a: ApiItem): NewsItem {
     source: a.source,
     summary: a.summary ?? '',
     publishedAt: new Date(a.published_at).getTime(),
-    image: undefined,
   } as unknown as NewsItem
 }
 
@@ -52,6 +52,7 @@ export default function ArchivePage() {
   const [loading, setLoading] = useState(false)
   const [loadingMore, setLoadingMore] = useState(false)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
+  const [fallbackLive, setFallbackLive] = useState(false)
 
   const news = useMemo(() => items.map(toNewsItem), [items])
   const total = useMemo(() => Object.values(counts).reduce((a, b) => a + b, 0), [counts])
@@ -60,24 +61,20 @@ export default function ArchivePage() {
   async function fetchDay(d: string) {
     setLoading(true)
     setErrorMsg(null)
+    setFallbackLive(false)
     try {
       const res = await fetch(`/api/archive?date=${encodeURIComponent(d)}&limit=40`, { cache: 'no-store' })
       const data: ApiPayload = await res.json().catch(() => ({ error: 'Neveljaven odgovor strežnika.' }))
       if (!res.ok || 'error' in data) {
-        setItems([])
-        setCounts({})
-        setNextCursor(null)
-        setErrorMsg('Arhiva trenutno ni mogoče naložiti.')
+        setItems([]); setCounts({}); setNextCursor(null); setErrorMsg('Arhiva trenutno ni mogoče naložiti.')
         return
       }
       setItems(Array.isArray(data.items) ? data.items : [])
       setCounts(data.counts ?? {})
       setNextCursor(data.nextCursor ?? null)
+      setFallbackLive(Boolean((data as any).fallbackLive))
     } catch {
-      setItems([])
-      setCounts({})
-      setNextCursor(null)
-      setErrorMsg('Napaka pri povezavi do arhiva.')
+      setItems([]); setCounts({}); setNextCursor(null); setErrorMsg('Napaka pri povezavi do arhiva.')
     } finally {
       setLoading(false)
       window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -86,8 +83,7 @@ export default function ArchivePage() {
 
   async function loadMore() {
     if (!nextCursor || loadingMore) return
-    setLoadingMore(true)
-    setErrorMsg(null)
+    setLoadingMore(true); setErrorMsg(null)
     try {
       const res = await fetch(
         `/api/archive?date=${encodeURIComponent(date)}&cursor=${encodeURIComponent(nextCursor)}&limit=40`,
@@ -95,8 +91,7 @@ export default function ArchivePage() {
       )
       const data: ApiPayload = await res.json().catch(() => ({ error: 'Neveljaven odgovor strežnika.' }))
       if (!res.ok || 'error' in data) {
-        setErrorMsg('Nalaganje dodatnih novic ni uspelo.')
-        return
+        setErrorMsg('Nalaganje dodatnih novic ni uspelo.'); return
       }
       const seen = new Set(items.map(i => i.link))
       const fresh = (data.items ?? []).filter(i => !seen.has(i.link))
@@ -133,9 +128,14 @@ export default function ArchivePage() {
             </div>
           </div>
 
-          {/* napaka */}
-          {errorMsg && !loading && (
+          {/* napaka ali fallback info */}
+          {!loading && errorMsg && (
             <p className="mt-4 text-sm text-red-400">{errorMsg}</p>
+          )}
+          {!loading && !errorMsg && fallbackLive && (
+            <p className="mt-4 text-sm text-amber-400">
+              Arhiv za izbrani dan je še prazen. Prikazane so trenutne novice iz živih virov (ne-shranjene).
+            </p>
           )}
 
           {/* STATISTIKA */}
