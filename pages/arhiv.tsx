@@ -193,7 +193,7 @@ export default function ArchivePage() {
                     <div className="flex-1 h-3 rounded-full bg-gray-200 dark:bg-gray-800 overflow-hidden">
                       <div
                         className="h-full bg-brand dark:bg-brand"
-                        style={{ width: `${(count / maxCount) * 100)%` }}
+                        style={{ width: `${(count / maxCount) * 100}%` }}
                         aria-hidden
                       />
                     </div>
