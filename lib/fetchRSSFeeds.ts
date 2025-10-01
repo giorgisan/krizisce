@@ -5,32 +5,25 @@ import { feeds } from './sources'
 
 type FetchOpts = { forceFresh?: boolean }
 
-/** ====== ENOSTAVEN BLOK-SEZNAM (urejaj spodaj) ======
- * BLOCK_URLS      → regexi za URL poti
- * BLOCK_PATTERNS  → fraze, ki jih ne želiš (išče v naslovu IN v content/snippet)
- * BLOCK_BRANDS    → znamke/poimenovanja, ki jih želiš skriti (išče v naslovu IN v content/snippet)
- */
+/** ====== BLANKET PRAVILA ====== */
 const BLOCK_URLS: RegExp[] = [
-  /siol\.net\/novice\/posel-danes\//i,   // če je preostro, izbriši
+  /siol\.net\/novice\/posel-danes\//i, // odstrani, če je preostro
 ]
 
 const BLOCK_PATTERNS: string[] = [
-  // jasne oznake
   'oglasno sporočilo',
   'promocijsko sporočilo',
   'oglasni prispevek',
   'komercialno sporočilo',
   'sponzorirano',
   'pr članek',
-  'branded content',
   'partner vsebina',
-  'vsebino omogoča',     // pomembno za Siol
-  'vsebino omogoca',     // varnostno brez šumnikov
-  // tipičen PR jezik
+  'branded content',
+  'vsebino omogoča',
+  'vsebino omogoca',
   'vam svetuje',
   'priporoča',
   'priporoca',
-  'kako ',               // “kako …” (pazi: lahko je široko; odstrani, če je preveč)
 ]
 
 const BLOCK_BRANDS: string[] = [
@@ -39,6 +32,20 @@ const BLOCK_BRANDS: string[] = [
   'inoquant',
   'bks naložbe',
   'bks nalozbe',
+]
+
+/** ====== HTML CHECK za siol.net (lovi tvoj primer) ======
+ * Če ne želiš dodatnih fetch-ov, daj na false.
+ */
+const ENABLE_SIOL_HTML_CHECK = true
+const HTML_MARKERS = [
+  'vsebino omogoča',    // s šumniki
+  'vsebino omogoca',    // brez šumnikov
+  'oglasno sporočilo',
+  'oglasno sporocilo',
+  'article__pr_box',    // razred iz tvojega HTML izreza
+  'advertorial',
+  'sponsored content',
 ]
 
 /* ====== Pomožne ====== */
@@ -119,16 +126,35 @@ function toUnixMs(d?: string | null) {
   }
 }
 
-/** Enostaven filter: blok po URL + naslov + vsebina/snippet */
-function isBlocked(i: { link?: string; title?: string; content?: string | null; contentSnippet?: string | null }) {
+/** Hiter filter: URL + naslov + snippet + content */
+function isBlockedBasic(i: { link?: string; title?: string; content?: string | null; contentSnippet?: string | null }) {
   const url = i.link || ''
   const hay = `${i.title || ''}\n${i.contentSnippet || ''}\n${i.content || ''}`.toLowerCase()
-
   if (BLOCK_URLS.some(rx => rx.test(url))) return true
   if (BLOCK_PATTERNS.some(k => hay.includes(k.toLowerCase()))) return true
   if (BLOCK_BRANDS.some(k => hay.includes(k.toLowerCase()))) return true
-
   return false
+}
+
+/** Dodatni HTML check za siol.net – poišče markerje v dejanski strani */
+async function hasSiolSponsorMarker(url: string): Promise<boolean> {
+  if (!ENABLE_SIOL_HTML_CHECK) return false
+  try {
+    const u = new URL(url)
+    if (!/siol\.net$/i.test(u.hostname)) return false
+  } catch {
+    return false
+  }
+  try {
+    const res = await fetch(url, {
+      headers: { 'User-Agent': 'KrizisceBot/1.0 (+https://krizisce.si)' },
+      cache: 'no-store',
+    } as any)
+    const html = (await res.text()).toLowerCase()
+    return HTML_MARKERS.some(m => html.includes(m))
+  } catch {
+    return false
+  }
 }
 
 export default async function fetchRSSFeeds(opts: FetchOpts = {}): Promise<NewsItem[]> {
@@ -173,8 +199,17 @@ export default async function fetchRSSFeeds(opts: FetchOpts = {}): Promise<NewsI
     }),
   )
 
-  // odreži oglase/PR po preprostih pravilih
-  const flat = results.flat().filter(i => !isBlocked(i))
+  // 1) osnovni rez
+  let flat: NewsItem[] = results.flat().filter(i => !isBlockedBasic(i))
+
+  // 2) ciljano: pri siol.net še HTML-check (ujame "Vsebino omogoča …" / article__pr_box)
+  const checked = await Promise.all(
+    flat.map(async (it) => {
+      if (await hasSiolSponsorMarker(it.link)) return null
+      return it
+    })
+  )
+  flat = checked.filter(Boolean) as NewsItem[]
 
   flat.sort((a, b) => (b.publishedAt || 0) - (a.publishedAt || 0))
   return flat
