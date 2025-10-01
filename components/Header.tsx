@@ -18,14 +18,13 @@ export default function Header() {
   // null = v tej seji še ni bilo interakcije; [] = resetirano; ['RTVSLO'] = aktiven filter
   const [activeSources, setActiveSources] = useState<string[] | null>(null)
 
-  // >>> ura
+  // ura
   const [time, setTime] = useState(() =>
     new Intl.DateTimeFormat('sl-SI', { hour: '2-digit', minute: '2-digit' }).format(new Date())
   )
   useEffect(() => {
     const tick = () => setTime(new Intl.DateTimeFormat('sl-SI', { hour: '2-digit', minute: '2-digit' }).format(new Date()))
-    tick()
-    const timer = setInterval(tick, 60_000)
+    const timer = setInterval(tick, 60_000); tick()
     return () => clearInterval(timer)
   }, [])
 
@@ -42,7 +41,7 @@ export default function Header() {
     }
   }, [])
 
-  // ---- BRIDGE: prestrezi localStorage.setItem('selectedSources', ... ) in oddaj filters:update
+  // prestrezi localStorage.setItem za filtre (bridge do indexa)
   useEffect(() => {
     try {
       const origSetItem = localStorage.setItem.bind(localStorage)
@@ -59,7 +58,6 @@ export default function Header() {
           }
         }
       }) as unknown as typeof localStorage.setItem
-
       ;(localStorage as any).__origSetItem__ = origSetItem
       ;(localStorage.setItem as any) = patched
 
@@ -72,7 +70,6 @@ export default function Header() {
           } catch {}
         }
       }
-
       return () => {
         try {
           const orig = (localStorage as any).__origSetItem__ as typeof localStorage.setItem | undefined
@@ -82,7 +79,6 @@ export default function Header() {
     } catch {}
   }, [])
 
-  // poslušaj filters:update
   useEffect(() => {
     const onUpdate = (e: Event) => {
       const det = (e as CustomEvent).detail
@@ -122,7 +118,6 @@ export default function Header() {
     return extra > 0 ? `${shown} +${extra}` : shown
   }, [activeSources])
 
-  // ==== Header višina + mobilni banner višina ===
   const hdrRef = useRef<HTMLElement | null>(null)
   const mobBannerRef = useRef<HTMLDivElement | null>(null)
 
@@ -149,6 +144,20 @@ export default function Header() {
     return () => window.removeEventListener('resize', updateVars)
   }, [hasNew, refreshing])
 
+  const isArchive = router.pathname === '/arhiv'
+
+  // klik na “filter”: na /arhiv preusmeri na /?filters=1 (index bo sam odprl dropdown)
+  const onFilterClick = () => {
+    if (isArchive) {
+      const u = new URL((window?.location?.href || 'http://x') as string)
+      u.pathname = '/'
+      u.searchParams.set('filters', '1')
+      router.push(u.pathname + u.search) // SPA navigacija
+      return
+    }
+    window.dispatchEvent(new CustomEvent('toggle-filters'))
+  }
+
   return (
     <header
       ref={hdrRef}
@@ -158,15 +167,7 @@ export default function Header() {
       <div className="py-2 px-4 md:px-8 lg:px-16 flex items-center justify-between gap-2">
         {/* Levo: Brand */}
         <Link href="/" onClick={onBrandClick} className="flex items-center gap-3 min-w-0">
-          <Image
-            src="/logo.png"
-            alt="Križišče"
-            width={36}
-            height={36}
-            priority
-            fetchPriority="high"
-            className="w-9 h-9 rounded-md"
-          />
+          <Image src="/logo.png" alt="Križišče" width={36} height={36} priority fetchPriority="high" className="w-9 h-9 rounded-md" />
           <div className="min-w-0 leading-tight">
             <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">Križišče</h1>
             <p className="text-xs sm:text-[13px] text-gray-600 dark:text-gray-400 mt-0.5">
@@ -175,23 +176,39 @@ export default function Header() {
           </div>
         </Link>
 
-        {/* Desno: ura, arhiv (ikona), tema, filter */}
+        {/* Desno: ura, filter, arhiv (ikona), tema */}
         <div className="flex items-center gap-1.5 sm:gap-2">
           <span className="hidden sm:inline-block font-mono tabular-nums text-[13px] text-gray-500 dark:text-gray-400 select-none">
             {time}
           </span>
 
-          {/* Arhiv ikona */}
+          {/* FILTER (na arhivu vodi na /?filters=1) */}
+          <button
+            id="filters-trigger"
+            type="button"
+            onClick={onFilterClick}
+            aria-label="Filtriraj vire"
+            title={isArchive ? 'Odpri filtre na naslovnici' : 'Filtriraj vire'}
+            className="inline-flex h-10 w-10 items-center justify-center rounded-md
+                       text-black/45 dark:text-white/55
+                       hover:text-black/85 dark:hover:text-white/85
+                       hover:bg-black/[0.04] dark:hover:bg-white/[0.06] transition"
+          >
+            <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+              <path d="M3 5h18l-7 8v5l-4 2v-7L3 5z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" fill="none"/>
+            </svg>
+          </button>
+
+          {/* ARHIV (ikona) */}
           <Link
             href="/arhiv"
             aria-label="Arhiv"
             title="Arhiv"
-            className="inline-flex h-10 w-10 items-center justify-center rounded-md
-                       text-black/60 dark:text-white/65
-                       hover:text-black/90 dark:hover:text-white/90
-                       hover:bg-black/[0.04] dark:hover:bg-white/[0.06] transition"
+            className={`inline-flex h-10 w-10 items-center justify-center rounded-md transition
+                        hover:bg-black/[0.04] dark:hover:bg-white/[0.06]
+                        ${isArchive ? 'text-brand' : 'text-black/60 dark:text-white/65 hover:text-black/90 dark:hover:text-white/90'}`}
           >
-            {/* Ikona: koledar/škatla (arhiv) */}
+            {/* Škatla/koledar */}
             <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
               <path d="M4 7h16v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7Z" stroke="currentColor" strokeWidth="2" fill="none" />
               <path d="M3 7h18l-2-3H5l-2 3Z" stroke="currentColor" strokeWidth="2" fill="none" />
@@ -199,6 +216,7 @@ export default function Header() {
             </svg>
           </Link>
 
+          {/* Tema */}
           {mounted && (
             <button
               type="button"
@@ -223,26 +241,10 @@ export default function Header() {
               </svg>
             </button>
           )}
-
-          <button
-            id="filters-trigger"
-            type="button"
-            onClick={() => window.dispatchEvent(new CustomEvent('toggle-filters'))}
-            aria-label="Filtriraj vire"
-            title="Filtriraj vire"
-            className="inline-flex h-10 w-10 items-center justify-center rounded-md
-                       text-black/45 dark:text-white/55
-                       hover:text-black/85 dark:hover:text-white/85
-                       hover:bg-black/[0.04] dark:hover:bg-white/[0.06] transition"
-          >
-            <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
-              <path d="M3 5h18l-7 8v5l-4 2v-7L3 5z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" fill="none"/>
-            </svg>
-          </button>
         </div>
       </div>
 
-      {/* Mobilni banner */}
+      {/* Mobilni banner – fixed pod headerjem */}
       <AnimatePresence initial={false}>
         {hasNew && !refreshing && (
           <motion.div
@@ -291,7 +293,7 @@ export default function Header() {
             <div className="shrink-0 flex items-center gap-2">
               <button
                 type="button"
-                onClick={() => window.dispatchEvent(new CustomEvent('toggle-filters'))}
+                onClick={onFilterClick}
                 className="hidden sm:inline text-[13px] underline decoration-amber-600/70 hover:decoration-amber-600"
               >
                 Uredi
