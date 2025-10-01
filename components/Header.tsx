@@ -136,8 +136,6 @@ export default function Header() {
     return () => window.removeEventListener('resize', setHdr)
   }, [])
 
-  // Ko je banner viden na mobilnem (<768px), nastavi:
-  //   --mob-shift = calc(bannerHeight - 1.25rem)
   useEffect(() => {
     const updateVars = () => {
       const isMobile = window.matchMedia('(max-width: 767px)').matches
@@ -151,13 +149,27 @@ export default function Header() {
     return () => window.removeEventListener('resize', updateVars)
   }, [hasNew, refreshing])
 
+  const NavLink = ({ href, label }: { href: string; label: string }) => {
+    const active = router.pathname === href
+    return (
+      <Link
+        href={href}
+        className={`px-3 py-1.5 rounded-md text-sm transition ring-1 ring-transparent
+          ${active
+            ? 'bg-brand/90 text-white ring-brand/50'
+            : 'text-gray-700 dark:text-gray-200 hover:bg-black/5 dark:hover:bg-white/5'}`}
+      >
+        {label}
+      </Link>
+    )
+  }
+
   return (
     <header
       ref={hdrRef}
       id="site-header"
       className="sticky top-0 z-40 bg-[#FAFAFA]/95 dark:bg-gray-900/70 backdrop-blur-md border-b border-gray-200 dark:border-gray-700 shadow-sm"
     >
-      {/* glavni row */}
       <div className="py-2 px-4 md:px-8 lg:px-16 flex items-center justify-between gap-2">
         {/* Levo: Brand */}
         <Link href="/" onClick={onBrandClick} className="flex items-center gap-3 min-w-0">
@@ -171,45 +183,18 @@ export default function Header() {
             className="w-9 h-9 rounded-md"
           />
           <div className="min-w-0 leading-tight">
-            <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
-              Križišče
-            </h1>
+            <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">Križišče</h1>
             <p className="text-xs sm:text-[13px] text-gray-600 dark:text-gray-400 mt-0.5">
               Zadnje novice slovenskih medijev
             </p>
           </div>
         </Link>
 
-        {/* (desktop) obvestilo */}
-        <AnimatePresence initial={false}>
-          {hasNew && !refreshing && (
-            <motion.div
-              key="banner-desktop"
-              initial={{ opacity: 0, y: -6 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -6 }}
-              transition={{ duration: 0.18, ease: 'easeOut' }}
-              className="hidden md:flex flex-1 justify-center"
-            >
-              <button
-                onClick={refreshNow}
-                className="group inline-flex items-center gap-2 rounded-full px-3.5 py-1.5
-                           text-[13px] font-medium
-                           bg-emerald-500/10 text-emerald-700 dark:text-emerald-300
-                           ring-1 ring-emerald-400/40 dark:ring-emerald-600/40
-                           hover:bg-emerald-500/15 transition shadow-sm"
-                title="Osveži, da prikažeš sveže novice"
-              >
-                <span className="relative inline-flex">
-                  <span className="h-2.5 w-2.5 rounded-full bg-emerald-500 opacity-80"></span>
-                  <span className="absolute inset-0 rounded-full bg-emerald-500 animate-ping opacity-25"></span>
-                </span>
-                <span>Na voljo so sveže novice</span>
-                <span className="opacity-70 group-hover:opacity-100">— klikni za osvežitev</span>
-              </button>
-            </motion.div>
-          )}
-        </AnimatePresence>
+        {/* Sredina: navigacija */}
+        <nav className="hidden md:flex items-center gap-2">
+          <NavLink href="/" label="Domov" />
+          <NavLink href="/arhiv" label="Arhiv" />
+        </nav>
 
         {/* Desno: ura, tema, filter trigger */}
         <div className="flex items-center gap-1.5 sm:gap-2">
@@ -228,19 +213,28 @@ export default function Header() {
                          hover:text-black/90 dark:hover:text-white/90
                          hover:bg-black/[0.04] dark:hover:bg-white/[0.06] transition relative overflow-hidden"
             >
-              {/* Sun */}
               <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"
                    className={`absolute transition-all duration-500 transform ${isDark ? 'opacity-100 scale-100 rotate-0' : 'opacity-0 scale-50 -rotate-90'}`}>
                 <path d="M12 4V2M12 22v-2M4.93 4.93 3.52 3.52M20.48 20.48l-1.41-1.41M4 12H2M22 12h-2M4.93 19.07 3.52 20.48M20.48 3.52l-1.41 1.41" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
                 <circle cx="12" cy="12" r="4" stroke="currentColor" strokeWidth="2" fill="none"/>
               </svg>
-              {/* Moon */}
               <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"
                    className={`absolute transition-all duration-500 transform ${!isDark ? 'opacity-100 scale-100 rotate-0' : 'opacity-0 scale-50 rotate-90'}`}>
                 <path d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 0 0 9.79 9.79Z" stroke="currentColor" strokeWidth="2" fill="none"/>
               </svg>
             </button>
           )}
+
+          {/* Arhiv (mobilno) */}
+          <Link
+            href="/arhiv"
+            className="md:hidden inline-flex items-center px-3 py-1.5 rounded-md text-sm
+                       bg-brand/90 text-white hover:bg-brand"
+            aria-label="Odpri arhiv"
+            title="Arhiv"
+          >
+            Arhiv
+          </Link>
 
           <button
             id="filters-trigger"
@@ -260,7 +254,7 @@ export default function Header() {
         </div>
       </div>
 
-      {/* Mobilni banner – fixed pod headerjem; izmerimo višino v ref */}
+      {/* Mobilni banner */}
       <AnimatePresence initial={false}>
         {hasNew && !refreshing && (
           <motion.div
@@ -294,7 +288,7 @@ export default function Header() {
         )}
       </AnimatePresence>
 
-      {/* trak – prikažemo ga, ko v tej seji obstaja aktiven izbor */}
+      {/* trak za aktivne filtre */}
       {activeSources !== null && activeSources.length > 0 && (
         <div className="px-4 md:px-8 lg:px-16 pb-2">
           <div className="flex items-center justify-between gap-3
@@ -307,6 +301,9 @@ export default function Header() {
               <span className="truncate">{activeLabel}</span>
             </div>
             <div className="shrink-0 flex items-center gap-2">
+              <Link href="/arhiv" className="hidden sm:inline text-[13px] underline decoration-amber-600/70 hover:decoration-amber-600">
+                Arhiv
+              </Link>
               <button
                 type="button"
                 onClick={() => window.dispatchEvent(new CustomEvent('toggle-filters'))}
