@@ -2,6 +2,7 @@
 'use client'
 
 import React, { useEffect, useMemo, useState, startTransition } from 'react'
+import Link from 'next/link'
 import Header from '@/components/Header'
 import Footer from '@/components/Footer'
 import SeoHead from '@/components/SeoHead'
@@ -44,6 +45,12 @@ function yyyymmdd(d: Date) {
   return `${y}-${m}-${dd}`
 }
 
+// lepše ime za tooltip/ARIA
+const A11y = {
+  backHome: 'Nazaj na naslovnico',
+  pickDay: 'Izberi dan'
+}
+
 export default function ArchivePage() {
   const [date, setDate] = useState<string>(() => yyyymmdd(new Date()))
   const [items, setItems] = useState<ApiItem[]>([])
@@ -55,8 +62,18 @@ export default function ArchivePage() {
   const [fallbackLive, setFallbackLive] = useState(false)
 
   const news = useMemo(() => items.map(toNewsItem), [items])
-  const total = useMemo(() => Object.values(counts).reduce((a, b) => a + b, 0), [counts])
-  const maxCount = useMemo(() => Math.max(1, ...Object.values(counts)), [counts])
+
+  // odstrani testne/eksperimentalne vire, če bi se kdaj prikazali
+  const displayCounts = useMemo(() => {
+    const entries = Object.entries(counts).filter(([k]) => k !== 'TestVir')
+    return Object.fromEntries(entries)
+  }, [counts])
+
+  const total = useMemo(
+    () => Object.values(displayCounts).reduce((a, b) => a + b, 0),
+    [displayCounts]
+  )
+  const maxCount = useMemo(() => Math.max(1, ...Object.values(displayCounts)), [displayCounts])
 
   async function fetchDay(d: string) {
     setLoading(true)
@@ -113,18 +130,36 @@ export default function ArchivePage() {
 
       <main className="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white px-4 md:px-8 lg:px-16 pb-24 pt-6">
         <section className="max-w-6xl mx-auto">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-            <h1 className="text-2xl font-semibold">Arhiv</h1>
-            <div className="flex items-center gap-3">
-              <label htmlFor="date" className="text-sm text-gray-600 dark:text-gray-300">Izberi dan</label>
-              <input
-                id="date"
-                type="date"
-                value={date}
-                max={yyyymmdd(new Date())}
-                onChange={(e) => startTransition(() => setDate(e.target.value))}
-                className="px-3 py-2 rounded-md border border-gray-300 dark:border-gray-700 bg-white/80 dark:bg-gray-800/80 backdrop-blur text-sm"
-              />
+          {/* toolbar (sticky) */}
+          <div className="sticky top-[calc(var(--hdr-h,56px)+8px)] z-10 backdrop-blur-md/0">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-lg">
+              <h1 className="text-2xl font-semibold">Arhiv</h1>
+              <div className="flex items-center gap-2">
+                <Link
+                  href="/"
+                  className="inline-flex items-center gap-2 px-3 py-2 rounded-md text-sm
+                             border border-gray-300/60 dark:border-gray-700/60
+                             bg-white/70 dark:bg-gray-800/60 hover:bg-white/90 dark:hover:bg-gray-800/80 transition"
+                  title={A11y.backHome}
+                  aria-label={A11y.backHome}
+                >
+                  <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+                    <path d="M3 12L12 3l9 9" stroke="currentColor" strokeWidth="2" fill="none"/>
+                    <path d="M5 10v10h5v-6h4v6h5V10" stroke="currentColor" strokeWidth="2" fill="none"/>
+                  </svg>
+                  Nazaj
+                </Link>
+
+                <label htmlFor="date" className="sr-only">{A11y.pickDay}</label>
+                <input
+                  id="date"
+                  type="date"
+                  value={date}
+                  max={yyyymmdd(new Date())}
+                  onChange={(e) => startTransition(() => setDate(e.target.value))}
+                  className="px-3 py-2 rounded-md border border-gray-300 dark:border-gray-700 bg-white/80 dark:bg-gray-800/80 backdrop-blur text-sm"
+                />
+              </div>
             </div>
           </div>
 
@@ -150,19 +185,19 @@ export default function ArchivePage() {
             )}
 
             <div className="mt-3 space-y-2">
-              {Object.entries(counts)
+              {Object.entries(displayCounts)
                 .sort((a, b) => b[1] - a[1])
                 .map(([source, count]) => (
                   <div key={source} className="flex items-center gap-3">
-                    <div className="w-28 shrink-0 text-sm text-gray-700 dark:text-gray-300">{source}</div>
+                    <div className="w-32 shrink-0 text-sm text-gray-700 dark:text-gray-300">{source}</div>
                     <div className="flex-1 h-3 rounded-full bg-gray-200 dark:bg-gray-800 overflow-hidden">
                       <div
                         className="h-full bg-brand dark:bg-brand"
-                        style={{ width: `${(count / maxCount) * 100}%` }}
+                        style={{ width: `${(count / maxCount) * 100)%` }}
                         aria-hidden
                       />
                     </div>
-                    <div className="w-10 text-right text-sm tabular-nums">{count}</div>
+                    <div className="w-12 text-right text-sm tabular-nums">{count}</div>
                   </div>
                 ))}
             </div>
