@@ -137,9 +137,7 @@ export default function Header() {
   }, [])
 
   // Ko je banner viden na mobilnem (<768px), nastavi:
-  //   --mob-shift = calc(bannerHeight - 1.25rem)  // 1.25rem == pt-5 na <md
-  // drugače 0px. S tem se grid spusti za višino bannerja MINUS osnovni padding,
-  // zato je razmik zgoraj/spodaj simetričen.
+  //   --mob-shift = calc(bannerHeight - 1.25rem)
   useEffect(() => {
     const updateVars = () => {
       const isMobile = window.matchMedia('(max-width: 767px)').matches
