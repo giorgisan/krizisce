@@ -1,11 +1,34 @@
+// lib/fetchRSSFeeds.ts
 import Parser from 'rss-parser'
 import type { NewsItem } from '../types'
 import { feeds } from './sources'
-import { excludeAds } from './adFilter'
 
 type FetchOpts = { forceFresh?: boolean }
 
-// Pomaga absolutizirati URL-je (//, /pot …) glede na link članka
+/** ====== ENOSTAVEN BLOK-SEZNAM ======
+ * Če hočeš kaj dodati/odstraniti, urejaj spodnja dva seznama.
+ * - BLOCK_URLS: Regex-i, ki blokirajo glede na URL poti
+ * - BLOCK_TITLES: niz, ki mora biti v naslovu (case-insensitive)
+ */
+const BLOCK_URLS: RegExp[] = [
+  /siol\.net\/novice\/posel-danes\//i, // Siol "posel-danes" rubrika (pogosto PR/oglasno)
+]
+
+const BLOCK_TITLES: string[] = [
+  'oglasno sporočilo',
+  'promocijsko sporočilo',
+  'oglasni prispevek',
+  'sponzorirano',
+  'pr članek',
+  'vam svetuje',
+  'priporoča',
+  // znamke/teme, ki jih želiš skriti:
+  'viberate',
+  // po potrebi lahko dodaš:
+  // 'glasbena analitika', 'za profesionalce', ...
+]
+
+// ====== Pomožne ======
 function absolutize(src: string | undefined | null, baseHref: string): string | null {
   if (!src) return null
   try {
@@ -27,14 +50,10 @@ const parser: Parser = new Parser({
       ['media:group', 'mediaGroup'],
       'enclosure',
       'image',
-      'categories',
-      'creator',
-      ['dc:creator', 'dcCreator']
     ],
   },
 })
 
-// Poskusi pobrati sliko iz čim več tipičnih mest
 function extractImage(item: any, baseHref: string): string | null {
   const mg = item.mediaGroup
   if (mg) {
@@ -45,42 +64,35 @@ function extractImage(item: any, baseHref: string): string | null {
       if (abs) return abs
     }
   }
-
   if (item['media:content']) {
     const mc = item['media:content']
     const cand = mc?.url ?? mc?.$?.url
     const abs = absolutize(cand, baseHref)
     if (abs) return abs
   }
-
   if (item['media:thumbnail']) {
     const mt = item['media:thumbnail']
     const cand = mt?.url ?? mt?.$?.url
     const abs = absolutize(cand, baseHref)
     if (abs) return abs
   }
-
   if (item.enclosure?.url) {
     const abs = absolutize(item.enclosure.url, baseHref)
     if (abs) return abs
   }
-
   const html = (item['content:encoded'] ?? item.content ?? '') as string
   const m = html.match(/<img[^>]+src=["']([^"']+)["']/i)
   if (m?.[1]) {
     const abs = absolutize(m[1], baseHref)
     if (abs) return abs
   }
-
   if (item.image?.url) {
     const abs = absolutize(item.image.url, baseHref)
     if (abs) return abs
   }
-
   return null
 }
 
-// robustno v Unix ms
 function toUnixMs(d?: string | null) {
   if (!d) return 0
   const ms = Date.parse(d)
@@ -92,6 +104,15 @@ function toUnixMs(d?: string | null) {
   } catch {
     return 0
   }
+}
+
+/** Enostaven filter: blokiraj po URL-ju ali po naslovu */
+function isBlocked(i: { link?: string; title?: string }) {
+  const url = i.link || ''
+  const t = (i.title || '').toLowerCase()
+  if (BLOCK_URLS.some(rx => rx.test(url))) return true
+  if (BLOCK_TITLES.some(k => t.includes(k.toLowerCase()))) return true
+  return false
 }
 
 export default async function fetchRSSFeeds(opts: FetchOpts = {}): Promise<NewsItem[]> {
@@ -113,14 +134,8 @@ export default async function fetchRSSFeeds(opts: FetchOpts = {}): Promise<NewsI
           const iso = (item.isoDate ?? item.pubDate ?? new Date().toISOString()) as string
           const publishedAt = toUnixMs(iso)
           const link = item.link ?? ''
-
-          // 👉 Shranimo ORIGINALNI URL slike.
           const rawImage = extractImage(item, link)
           const finalImage = rawImage ?? null
-
-          // Avtor & kategorije (za filtre)
-          const author = item.dcCreator || item.creator || item.author || null
-          const categories = Array.isArray(item.categories) ? item.categories : (item.categories ? [item.categories] : [])
 
           return {
             title: item.title ?? '',
@@ -132,10 +147,7 @@ export default async function fetchRSSFeeds(opts: FetchOpts = {}): Promise<NewsI
             source,
             image: finalImage,
             publishedAt,
-            // dodatna (ne nujna) polja; če NewsItem tip tega nima, TS vseeno tolerira branje (as any)
-            author,
-            categories
-          } as NewsItem
+          }
         })
 
         return items
@@ -145,10 +157,9 @@ export default async function fetchRSSFeeds(opts: FetchOpts = {}): Promise<NewsI
     }),
   )
 
-  // --- Filtriraj oglase/PR ---
-  const flat = results.flat()
-  const clean = excludeAds(flat, 3, true)
+  // ➜ ENOSTAVNO: odreži oglase/PR po URL + naslovu
+  const flat = results.flat().filter(i => !isBlocked(i))
 
-  clean.sort((a, b) => (b.publishedAt || 0) - (a.publishedAt || 0))
-  return clean
+  flat.sort((a, b) => (b.publishedAt || 0) - (a.publishedAt || 0))
+  return flat
 }
