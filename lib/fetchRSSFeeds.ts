@@ -27,6 +27,9 @@ const parser: Parser = new Parser({
       ['media:group', 'mediaGroup'],
       'enclosure',
       'image',
+      'categories',
+      'creator',
+      ['dc:creator', 'dcCreator']
     ],
   },
 })
@@ -111,11 +114,13 @@ export default async function fetchRSSFeeds(opts: FetchOpts = {}): Promise<NewsI
           const publishedAt = toUnixMs(iso)
           const link = item.link ?? ''
 
-          // 👉 Pomembno: v news.image shranimo ORIGINALNI URL (brez proxy-ja).
-          // Proxy in srcset se izračuna v komponenti (ArticleCard.tsx),
-          // zato se izognemo double-proxy težavi.
+          // 👉 Shranimo ORIGINALNI URL slike.
           const rawImage = extractImage(item, link)
           const finalImage = rawImage ?? null
+
+          // Avtor & kategorije (za filtre)
+          const author = item.dcCreator || item.creator || item.author || null
+          const categories = Array.isArray(item.categories) ? item.categories : (item.categories ? [item.categories] : [])
 
           return {
             title: item.title ?? '',
@@ -125,9 +130,12 @@ export default async function fetchRSSFeeds(opts: FetchOpts = {}): Promise<NewsI
             content: item['content:encoded'] ?? item.content ?? '',
             contentSnippet: item.contentSnippet ?? '',
             source,
-            image: finalImage, // ⬅️ original
+            image: finalImage,
             publishedAt,
-          }
+            // dodatna (ne nujna) polja; če NewsItem tip tega nima, TS vseeno tolerira branje (as any)
+            author,
+            categories
+          } as NewsItem
         })
 
         return items
@@ -137,9 +145,9 @@ export default async function fetchRSSFeeds(opts: FetchOpts = {}): Promise<NewsI
     }),
   )
 
-  // --- NOVO: filtriraj oglase (prag 3 = zmeren) ---
+  // --- Filtriraj oglase/PR ---
   const flat = results.flat()
-  const clean = excludeAds(flat, 3)
+  const clean = excludeAds(flat, 3, true)
 
   clean.sort((a, b) => (b.publishedAt || 0) - (a.publishedAt || 0))
   return clean
