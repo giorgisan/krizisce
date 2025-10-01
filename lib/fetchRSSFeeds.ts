@@ -5,30 +5,43 @@ import { feeds } from './sources'
 
 type FetchOpts = { forceFresh?: boolean }
 
-/** ====== ENOSTAVEN BLOK-SEZNAM ======
- * Če hočeš kaj dodati/odstraniti, urejaj spodnja dva seznama.
- * - BLOCK_URLS: Regex-i, ki blokirajo glede na URL poti
- * - BLOCK_TITLES: niz, ki mora biti v naslovu (case-insensitive)
+/** ====== ENOSTAVEN BLOK-SEZNAM (urejaj spodaj) ======
+ * BLOCK_URLS      → regexi za URL poti
+ * BLOCK_PATTERNS  → fraze, ki jih ne želiš (išče v naslovu IN v content/snippet)
+ * BLOCK_BRANDS    → znamke/poimenovanja, ki jih želiš skriti (išče v naslovu IN v content/snippet)
  */
 const BLOCK_URLS: RegExp[] = [
-  /siol\.net\/novice\/posel-danes\//i, // Siol "posel-danes" rubrika (pogosto PR/oglasno)
+  /siol\.net\/novice\/posel-danes\//i,   // če je preostro, izbriši
 ]
 
-const BLOCK_TITLES: string[] = [
+const BLOCK_PATTERNS: string[] = [
+  // jasne oznake
   'oglasno sporočilo',
   'promocijsko sporočilo',
   'oglasni prispevek',
+  'komercialno sporočilo',
   'sponzorirano',
   'pr članek',
+  'branded content',
+  'partner vsebina',
+  'vsebino omogoča',     // pomembno za Siol
+  'vsebino omogoca',     // varnostno brez šumnikov
+  // tipičen PR jezik
   'vam svetuje',
   'priporoča',
-  // znamke/teme, ki jih želiš skriti:
-  'viberate',
-  // po potrebi lahko dodaš:
-  // 'glasbena analitika', 'za profesionalce', ...
+  'priporoca',
+  'kako ',               // “kako …” (pazi: lahko je široko; odstrani, če je preveč)
 ]
 
-// ====== Pomožne ======
+const BLOCK_BRANDS: string[] = [
+  'daikin',
+  'viberate',
+  'inoquant',
+  'bks naložbe',
+  'bks nalozbe',
+]
+
+/* ====== Pomožne ====== */
 function absolutize(src: string | undefined | null, baseHref: string): string | null {
   if (!src) return null
   try {
@@ -106,12 +119,15 @@ function toUnixMs(d?: string | null) {
   }
 }
 
-/** Enostaven filter: blokiraj po URL-ju ali po naslovu */
-function isBlocked(i: { link?: string; title?: string }) {
+/** Enostaven filter: blok po URL + naslov + vsebina/snippet */
+function isBlocked(i: { link?: string; title?: string; content?: string | null; contentSnippet?: string | null }) {
   const url = i.link || ''
-  const t = (i.title || '').toLowerCase()
+  const hay = `${i.title || ''}\n${i.contentSnippet || ''}\n${i.content || ''}`.toLowerCase()
+
   if (BLOCK_URLS.some(rx => rx.test(url))) return true
-  if (BLOCK_TITLES.some(k => t.includes(k.toLowerCase()))) return true
+  if (BLOCK_PATTERNS.some(k => hay.includes(k.toLowerCase()))) return true
+  if (BLOCK_BRANDS.some(k => hay.includes(k.toLowerCase()))) return true
+
   return false
 }
 
@@ -157,7 +173,7 @@ export default async function fetchRSSFeeds(opts: FetchOpts = {}): Promise<NewsI
     }),
   )
 
-  // ➜ ENOSTAVNO: odreži oglase/PR po URL + naslovu
+  // odreži oglase/PR po preprostih pravilih
   const flat = results.flat().filter(i => !isBlocked(i))
 
   flat.sort((a, b) => (b.publishedAt || 0) - (a.publishedAt || 0))
