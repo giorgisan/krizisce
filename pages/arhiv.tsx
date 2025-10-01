@@ -14,15 +14,17 @@ type ApiItem = {
   title: string
   link: string
   summary?: string | null
-  published_at: string
+  published_at: string // ISO
 }
 
-type ApiPayload = {
-  items: ApiItem[]
-  counts: Record<string, number>
-  total: number
-  nextCursor: string | null
-}
+type ApiPayload =
+  | {
+      items: ApiItem[]
+      counts: Record<string, number>
+      total: number
+      nextCursor: string | null
+    }
+  | { error: string }
 
 function toNewsItem(a: ApiItem): NewsItem {
   return {
@@ -49,6 +51,7 @@ export default function ArchivePage() {
   const [nextCursor, setNextCursor] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [loadingMore, setLoadingMore] = useState(false)
+  const [errorMsg, setErrorMsg] = useState<string | null>(null)
 
   const news = useMemo(() => items.map(toNewsItem), [items])
   const total = useMemo(() => Object.values(counts).reduce((a, b) => a + b, 0), [counts])
@@ -56,12 +59,25 @@ export default function ArchivePage() {
 
   async function fetchDay(d: string) {
     setLoading(true)
+    setErrorMsg(null)
     try {
       const res = await fetch(`/api/archive?date=${encodeURIComponent(d)}&limit=40`, { cache: 'no-store' })
-      const data: ApiPayload = await res.json()
-      setItems(data.items)
-      setCounts(data.counts)
-      setNextCursor(data.nextCursor)
+      const data: ApiPayload = await res.json().catch(() => ({ error: 'Neveljaven odgovor strežnika.' }))
+      if (!res.ok || 'error' in data) {
+        setItems([])
+        setCounts({})
+        setNextCursor(null)
+        setErrorMsg('Arhiva trenutno ni mogoče naložiti.')
+        return
+      }
+      setItems(Array.isArray(data.items) ? data.items : [])
+      setCounts(data.counts ?? {})
+      setNextCursor(data.nextCursor ?? null)
+    } catch {
+      setItems([])
+      setCounts({})
+      setNextCursor(null)
+      setErrorMsg('Napaka pri povezavi do arhiva.')
     } finally {
       setLoading(false)
       window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -71,16 +87,23 @@ export default function ArchivePage() {
   async function loadMore() {
     if (!nextCursor || loadingMore) return
     setLoadingMore(true)
+    setErrorMsg(null)
     try {
       const res = await fetch(
         `/api/archive?date=${encodeURIComponent(date)}&cursor=${encodeURIComponent(nextCursor)}&limit=40`,
         { cache: 'no-store' }
       )
-      const data: ApiPayload = await res.json()
+      const data: ApiPayload = await res.json().catch(() => ({ error: 'Neveljaven odgovor strežnika.' }))
+      if (!res.ok || 'error' in data) {
+        setErrorMsg('Nalaganje dodatnih novic ni uspelo.')
+        return
+      }
       const seen = new Set(items.map(i => i.link))
-      const fresh = data.items.filter(i => !seen.has(i.link))
+      const fresh = (data.items ?? []).filter(i => !seen.has(i.link))
       setItems(prev => [...prev, ...fresh])
-      setNextCursor(data.nextCursor)
+      setNextCursor(data.nextCursor ?? null)
+    } catch {
+      setErrorMsg('Nalaganje dodatnih novic ni uspelo.')
     } finally {
       setLoadingMore(false)
     }
@@ -110,13 +133,19 @@ export default function ArchivePage() {
             </div>
           </div>
 
+          {/* napaka */}
+          {errorMsg && !loading && (
+            <p className="mt-4 text-sm text-red-400">{errorMsg}</p>
+          )}
+
+          {/* STATISTIKA */}
           <div className="mt-6 rounded-xl border border-gray-200/70 dark:border-gray-700/70 bg-white/70 dark:bg-gray-900/70 backdrop-blur p-4">
             <div className="flex items-center justify-between">
               <h2 className="font-medium">Objave po medijih</h2>
               <span className="text-sm text-gray-600 dark:text-gray-400">Skupaj: {total}</span>
             </div>
 
-            {total === 0 && !loading && (
+            {total === 0 && !loading && !errorMsg && (
               <p className="mt-3 text-sm text-gray-600 dark:text-gray-400">Za izbrani dan ni podatkov.</p>
             )}
 
@@ -139,20 +168,24 @@ export default function ArchivePage() {
             </div>
           </div>
 
+          {/* SEZNAM NOVIC */}
           <div className="mt-6">
             {loading ? (
               <p className="text-gray-500 dark:text-gray-400">Nalagam…</p>
             ) : (
               <>
-                {news.length === 0 ? (
+                {news.length === 0 && !errorMsg ? (
                   <p className="text-gray-500 dark:text-gray-400">Ni novic za ta dan.</p>
-                ) : (
+                ) : null}
+
+                {news.length > 0 && (
                   <div className="grid gap-6 grid-cols-2 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5">
                     {news.map((n, i) => (
                       <ArticleCard key={`${n.link}-${i}`} news={n as any} priority={i === 0} />
                     ))}
                   </div>
                 )}
+
                 {nextCursor && (
                   <div className="text-center mt-8">
                     <button
