@@ -149,21 +149,6 @@ export default function Header() {
     return () => window.removeEventListener('resize', updateVars)
   }, [hasNew, refreshing])
 
-  const NavLink = ({ href, label }: { href: string; label: string }) => {
-    const active = router.pathname === href
-    return (
-      <Link
-        href={href}
-        className={`px-3 py-1.5 rounded-md text-sm transition ring-1 ring-transparent
-          ${active
-            ? 'bg-brand/90 text-white ring-brand/50'
-            : 'text-gray-700 dark:text-gray-200 hover:bg-black/5 dark:hover:bg-white/5'}`}
-      >
-        {label}
-      </Link>
-    )
-  }
-
   return (
     <header
       ref={hdrRef}
@@ -190,17 +175,29 @@ export default function Header() {
           </div>
         </Link>
 
-        {/* Sredina: navigacija */}
-        <nav className="hidden md:flex items-center gap-2">
-          <NavLink href="/" label="Domov" />
-          <NavLink href="/arhiv" label="Arhiv" />
-        </nav>
-
-        {/* Desno: ura, tema, filter trigger */}
+        {/* Desno: ura, arhiv (ikona), tema, filter */}
         <div className="flex items-center gap-1.5 sm:gap-2">
           <span className="hidden sm:inline-block font-mono tabular-nums text-[13px] text-gray-500 dark:text-gray-400 select-none">
             {time}
           </span>
+
+          {/* Arhiv ikona */}
+          <Link
+            href="/arhiv"
+            aria-label="Arhiv"
+            title="Arhiv"
+            className="inline-flex h-10 w-10 items-center justify-center rounded-md
+                       text-black/60 dark:text-white/65
+                       hover:text-black/90 dark:hover:text-white/90
+                       hover:bg-black/[0.04] dark:hover:bg-white/[0.06] transition"
+          >
+            {/* Ikona: koledar/škatla (arhiv) */}
+            <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+              <path d="M4 7h16v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7Z" stroke="currentColor" strokeWidth="2" fill="none" />
+              <path d="M3 7h18l-2-3H5l-2 3Z" stroke="currentColor" strokeWidth="2" fill="none" />
+              <path d="M9 12h6" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+            </svg>
+          </Link>
 
           {mounted && (
             <button
@@ -213,28 +210,19 @@ export default function Header() {
                          hover:text-black/90 dark:hover:text-white/90
                          hover:bg-black/[0.04] dark:hover:bg-white/[0.06] transition relative overflow-hidden"
             >
+              {/* Sun */}
               <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"
                    className={`absolute transition-all duration-500 transform ${isDark ? 'opacity-100 scale-100 rotate-0' : 'opacity-0 scale-50 -rotate-90'}`}>
                 <path d="M12 4V2M12 22v-2M4.93 4.93 3.52 3.52M20.48 20.48l-1.41-1.41M4 12H2M22 12h-2M4.93 19.07 3.52 20.48M20.48 3.52l-1.41 1.41" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
                 <circle cx="12" cy="12" r="4" stroke="currentColor" strokeWidth="2" fill="none"/>
               </svg>
+              {/* Moon */}
               <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"
                    className={`absolute transition-all duration-500 transform ${!isDark ? 'opacity-100 scale-100 rotate-0' : 'opacity-0 scale-50 rotate-90'}`}>
                 <path d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 0 0 9.79 9.79Z" stroke="currentColor" strokeWidth="2" fill="none"/>
               </svg>
             </button>
           )}
-
-          {/* Arhiv (mobilno) */}
-          <Link
-            href="/arhiv"
-            className="md:hidden inline-flex items-center px-3 py-1.5 rounded-md text-sm
-                       bg-brand/90 text-white hover:bg-brand"
-            aria-label="Odpri arhiv"
-            title="Arhiv"
-          >
-            Arhiv
-          </Link>
 
           <button
             id="filters-trigger"
@@ -301,9 +289,6 @@ export default function Header() {
               <span className="truncate">{activeLabel}</span>
             </div>
             <div className="shrink-0 flex items-center gap-2">
-              <Link href="/arhiv" className="hidden sm:inline text-[13px] underline decoration-amber-600/70 hover:decoration-amber-600">
-                Arhiv
-              </Link>
               <button
                 type="button"
                 onClick={() => window.dispatchEvent(new CustomEvent('toggle-filters'))}
