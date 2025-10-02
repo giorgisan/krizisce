@@ -78,11 +78,8 @@ function fmtClock(ms: number) {
 
 // normalizacija za iskanje (brez \p{...})
 function norm(s: string) {
-  try {
-    return s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-  } catch {
-    return s.toLowerCase()
-  }
+  try { return s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '') }
+  catch { return s.toLowerCase() }
 }
 
 /* session cache */
@@ -238,9 +235,7 @@ export default function ArchivePage() {
     }
   }
 
-  function refreshNow() {
-    fetchFirstPage(date, false)
-  }
+  function refreshNow() { fetchFirstPage(date, false) }
 
   useEffect(() => {
     fetchFirstPage(date, true)
@@ -318,124 +313,122 @@ export default function ArchivePage() {
             </div>
           </div>
 
-          {/* GRAF ≈ 1/3, SEZNAM ≈ 2/3 */}
-          <div className="mt-5 space-y-5">
-            {/* GRAF */}
-            <div className="rounded-xl border border-gray-200/70 dark:border-gray-700/70 bg-white/70 dark:bg-gray-900/70 backdrop-blur p-4"
-                 style={{ maxHeight: '34vh', overflow: 'auto' }}>
-              <div className="flex items-center justify-between">
-                <h2 className="font-medium">Objave po medijih</h2>
-                <span className="text-sm text-gray-600 dark:text-gray-400">Skupaj: {total}</span>
-              </div>
-
-              <div className="mt-3 space-y-2">
-                {Object.entries(displayCounts).sort((a, b) => b[1] - a[1]).map(([source, count]) => (
-                  <div key={source} className="flex items-center gap-3">
-                    <div className="w-32 shrink-0 text-sm text-gray-700 dark:text-gray-300">{source}</div>
-                    <div className="flex-1 h-3 rounded-full bg-gray-200 dark:bg-gray-800 overflow-hidden">
-                      <div className="h-full bg-brand dark:bg-brand" style={{ width: `${(count / maxCount) * 100}%` }} aria-hidden />
-                    </div>
-                    <div className="w-12 text-right text-sm tabular-nums">{count}</div>
-                  </div>
-                ))}
-              </div>
+          {/* GRAF */}
+          <div className="mt-5 rounded-xl border border-gray-200/70 dark:border-gray-700/70 bg-white/70 dark:bg-gray-900/70 backdrop-blur p-4">
+            <div className="flex items-center justify-between">
+              <h2 className="font-medium">Objave po medijih</h2>
+              <span className="text-sm text-gray-600 dark:text-gray-400">Skupaj: {total}</span>
             </div>
 
-            {/* SEZNAM – prvih 15; tooltip na hover/focus */}
-            <div className="rounded-md border border-gray-200/70 dark:border-gray-800/70 bg-white/50 dark:bg-gray-900/40">
-              {/* pomembno: overflow-y-auto; tooltip je znotraj, zato ne bo “odsekan” po vrstici */}
-              <div className="max-h-[66vh] overflow-y-auto">
-                {loading ? (
-                  <p className="p-3 text-sm text-gray-500 dark:text-gray-400">Nalagam…</p>
-                ) : (
-                  <ul className="divide-y divide-gray-200 dark:divide-gray-800">
-                    {visibleNews.map((n, i) => {
-                      const src = (n as any).source
-                      const hex = sourceColors[src] || '#7c7c7c'
-                      const link = (n as any).link as string
-                      const it = itemByLink.get(link)
-                      const summary = (it?.summary ?? it?.contentsnippet ?? (it as any)?.description ?? (it as any)?.content ?? '').trim()
-
-                      return (
-                        <li
-                          key={`${link}-${i}`}
-                          className="grid grid-cols-[92px_78px_1fr] sm:grid-cols-[100px_84px_1fr] gap-x-3 sm:gap-x-4 px-2 sm:px-3 py-1.5"
-                        >
-                          {/* vir */}
-                          <span className="inline-flex items-center gap-1 min-w-0">
-                            <span className="inline-block w-1.5 h-1.5 rounded-full" style={{ backgroundColor: hex }} aria-hidden />
-                            <span className="truncate text-[10px] text-gray-600 dark:text-gray-400">{src}</span>
-                          </span>
-
-                          {/* čas */}
-                          <span
-                            className="text-right sm:text-left text-[10px] text-gray-500 dark:text-gray-400 tabular-nums"
-                            title={fmtClock((n as any).publishedAt ?? Date.now())}
-                          >
-                            {relativeTime((n as any).publishedAt ?? Date.now())}
-                          </span>
-
-                          {/* naslov + TOOLTIP */}
-                          <div className="relative">
-                            <a
-                              href={link}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="peer block text-[13px] leading-tight text-gray-900 dark:text-gray-100 hover:underline truncate"
-                              title={(n as any).title}
-                            >
-                              {(n as any).title}
-                            </a>
-
-                            {/* oblaček — prikaže se na hover/focus nad naslovom */}
-                            {summary && (
-                              <div
-                                className="
-                                  pointer-events-none absolute left-0 top-full mt-1 z-50 max-w-[60ch]
-                                  rounded-md bg-gray-900 text-white text-[12px] leading-snug
-                                  px-2.5 py-2 shadow-lg ring-1 ring-black/20
-                                  opacity-0 invisible translate-y-1 transition
-                                  peer-hover:opacity-100 peer-hover:visible peer-hover:translate-y-0
-                                  peer-focus-visible:opacity-100 peer-focus-visible:visible peer-focus-visible:translate-y-0
-                                "
-                                role="tooltip"
-                              >
-                                {summary}
-                              </div>
-                            )}
-                          </div>
-                        </li>
-                      )
-                    })}
-                  </ul>
-                )}
-              </div>
-
-              {/* gumbi pod seznamom (višina seznama ostane enaka) */}
-              <div className="flex items-center justify-center gap-3 px-3 py-3">
-                {!showAll && filteredNews.length > 15 && (
-                  <button
-                    onClick={async () => { await loadRestOfDay() }}
-                    disabled={loadingMore}
-                    className="px-3 py-1.5 rounded-full bg-brand text-white text-sm hover:bg-brand-hover disabled:opacity-60"
-                  >
-                    {loadingMore ? 'Nalagam vse…' : 'Naloži vse'}
-                  </button>
-                )}
-                {showAll && (
-                  <button
-                    onClick={() => setShowAll(false)}
-                    className="px-3 py-1.5 rounded-full text-sm border border-gray-300/70 dark:border-gray-700/70
-                               bg-white/70 dark:bg-gray-800/60 hover:bg-white/90 dark:hover:bg-gray-800/80"
-                  >
-                    Pokaži le prvih 15
-                  </button>
-                )}
-              </div>
+            <div className="mt-3 space-y-2">
+              {Object.entries(displayCounts).sort((a, b) => b[1] - a[1]).map(([source, count]) => (
+                <div key={source} className="flex items-center gap-3">
+                  <div className="w-32 shrink-0 text-sm text-gray-700 dark:text-gray-300">{source}</div>
+                  <div className="flex-1 h-3 rounded-full bg-gray-200 dark:bg-gray-800 overflow-hidden">
+                    <div className="h-full bg-brand dark:bg-brand" style={{ width: `${(count / maxCount) * 100}%` }} aria-hidden />
+                  </div>
+                  <div className="w-12 text-right text-sm tabular-nums">{count}</div>
+                </div>
+              ))}
             </div>
           </div>
 
-          {/* brez ločnice pred footerjem */}
+          {/* SEZNAM – fiksna višina; tooltip na hover/focus; gumb spodaj */}
+          <div className="mt-5 rounded-md border border-gray-200/70 dark:border-gray-800/70 bg-white/50 dark:bg-gray-900/40">
+            {/* naslov nad seznamom */}
+            <div className="px-3 sm:px-4 py-2 border-b border-gray-200 dark:border-gray-800">
+              <h3 className="text-sm font-medium text-gray-800 dark:text-gray-200">Zadnje novice</h3>
+            </div>
+
+            {/* fiksna višina z notranjim scrollom */}
+            <div className="h-[66vh] overflow-y-auto">
+              {loading ? (
+                <p className="p-3 text-sm text-gray-500 dark:text-gray-400">Nalagam…</p>
+              ) : (
+                <ul className="divide-y divide-gray-200 dark:divide-gray-800">
+                  {visibleNews.map((n, i) => {
+                    const src = (n as any).source
+                    const hex = sourceColors[src] || '#7c7c7c'
+                    const link = (n as any).link as string
+                    const it = itemByLink.get(link)
+                    const summary = (it?.summary ?? it?.contentsnippet ?? (it as any)?.description ?? (it as any)?.content ?? '').trim()
+
+                    return (
+                      <li
+                        key={`${link}-${i}`}
+                        className="grid grid-cols-[92px_78px_1fr] sm:grid-cols-[100px_84px_1fr] gap-x-3 sm:gap-x-4 px-2 sm:px-3 py-1.5"
+                      >
+                        {/* vir */}
+                        <span className="inline-flex items-center gap-1 min-w-0">
+                          <span className="inline-block w-1.5 h-1.5 rounded-full" style={{ backgroundColor: hex }} aria-hidden />
+                          <span className="truncate text-[10px] text-gray-600 dark:text-gray-400">{src}</span>
+                        </span>
+
+                        {/* čas */}
+                        <span
+                          className="text-right sm:text-left text-[10px] text-gray-500 dark:text-gray-400 tabular-nums"
+                          title={fmtClock((n as any).publishedAt ?? Date.now())}
+                        >
+                          {relativeTime((n as any).publishedAt ?? Date.now())}
+                        </span>
+
+                        {/* naslov + tooltip */}
+                        <div className="relative">
+                          <a
+                            href={link}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="peer block text-[13px] leading-tight text-gray-900 dark:text-gray-100 hover:underline truncate"
+                            title={(n as any).title}
+                          >
+                            {(n as any).title}
+                          </a>
+
+                          {summary && (
+                            <div
+                              className="
+                                pointer-events-none absolute left-0 top-full mt-1 z-50 max-w-[60ch]
+                                rounded-md bg-gray-900 text-white text-[12px] leading-snug
+                                px-2.5 py-2 shadow-lg ring-1 ring-black/20
+                                opacity-0 invisible translate-y-1 transition
+                                peer-hover:opacity-100 peer-hover:visible peer-hover:translate-y-0
+                                peer-focus-visible:opacity-100 peer-focus-visible:visible peer-focus-visible:translate-y-0
+                              "
+                              role="tooltip"
+                            >
+                              {summary}
+                            </div>
+                          )}
+                        </div>
+                      </li>
+                    )
+                  })}
+                </ul>
+              )}
+            </div>
+
+            {/* gumbi pod seznamom (višina ostane ista) */}
+            <div className="flex items-center justify-center gap-3 px-3 py-3">
+              {!showAll && filteredNews.length > 15 && (
+                <button
+                  onClick={async () => { await loadRestOfDay() }}
+                  disabled={loadingMore}
+                  className="px-3 py-1.5 rounded-full bg-brand text-white text-sm hover:bg-brand-hover disabled:opacity-60"
+                >
+                  {loadingMore ? 'Nalagam vse…' : 'Naloži vse novice'}
+                </button>
+              )}
+              {showAll && (
+                <button
+                  onClick={() => setShowAll(false)}
+                  className="px-3 py-1.5 rounded-full text-sm border border-gray-300/70 dark:border-gray-700/70
+                             bg-white/70 dark:bg-gray-800/60 hover:bg-white/90 dark:hover:bg-gray-800/80"
+                >
+                  Pokaži le prvih 15
+                </button>
+              )}
+            </div>
+          </div>
         </section>
       </main>
 
