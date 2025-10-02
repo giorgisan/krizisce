@@ -6,7 +6,6 @@ import Link from 'next/link'
 import Header from '@/components/Header'
 import Footer from '@/components/Footer'
 import SeoHead from '@/components/SeoHead'
-import ArticleCard from '@/components/ArticleCard'
 import { NewsItem } from '@/types'
 
 type ApiItem = {
@@ -45,10 +44,34 @@ function yyyymmdd(d: Date) {
   return `${y}-${m}-${dd}`
 }
 
-// lepše ime za tooltip/ARIA
 const A11y = {
   backHome: 'Nazaj na naslovnico',
   pickDay: 'Izberi dan'
+}
+
+// prikaz HH:mm (lokalno)
+function fmtTime(ms: number) {
+  try {
+    return new Intl.DateTimeFormat('sl-SI', {
+      hour: '2-digit',
+      minute: '2-digit'
+    }).format(new Date(ms))
+  } catch { return '' }
+}
+
+// barva značke za vir (preprosta mapa + fallback)
+const SOURCE_COLORS: Record<string, string> = {
+  'RTVSLO': 'bg-blue-600',
+  'Delo': 'bg-indigo-600',
+  '24ur': 'bg-amber-600',
+  'Siol.net': 'bg-sky-600',
+  'Zurnal24': 'bg-pink-600',
+  'Slovenske novice': 'bg-rose-600',
+  'N1': 'bg-teal-600',
+  'Svet24': 'bg-lime-600',
+}
+function badgeColor(source: string) {
+  return SOURCE_COLORS[source] ?? 'bg-gray-600'
 }
 
 export default function ArchivePage() {
@@ -203,7 +226,7 @@ export default function ArchivePage() {
             </div>
           </div>
 
-          {/* SEZNAM NOVIC */}
+          {/* SEZNAM NOVIC – vrstični, brez slik */}
           <div className="mt-6">
             {loading ? (
               <p className="text-gray-500 dark:text-gray-400">Nalagam…</p>
@@ -214,11 +237,30 @@ export default function ArchivePage() {
                 ) : null}
 
                 {news.length > 0 && (
-                  <div className="grid gap-6 grid-cols-2 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5">
+                  <ul className="divide-y divide-gray-200 dark:divide-gray-800 rounded-lg border border-gray-200/70 dark:border-gray-800/70 bg-white/60 dark:bg-gray-900/50 overflow-hidden">
                     {news.map((n, i) => (
-                      <ArticleCard key={`${n.link}-${i}`} news={n as any} priority={i === 0} />
+                      <li key={`${n.link}-${i}`} className="px-4 sm:px-5 py-3 flex items-start gap-3">
+                        <span
+                          className={`shrink-0 inline-flex items-center px-2 py-1 rounded-full text-[11px] font-medium text-white ${badgeColor(n.source)}`}
+                          title={n.source}
+                          aria-label={n.source}
+                        >
+                          {n.source}
+                        </span>
+                        <span className="shrink-0 w-14 text-sm text-gray-500 dark:text-gray-400 tabular-nums mt-0.5">
+                          {fmtTime(n.publishedAt ?? Date.now())}
+                        </span>
+                        <a
+                          href={n.link}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex-1 text-sm leading-snug text-gray-900 dark:text-gray-100 hover:underline"
+                        >
+                          {n.title}
+                        </a>
+                      </li>
                     ))}
-                  </div>
+                  </ul>
                 )}
 
                 {nextCursor && (
