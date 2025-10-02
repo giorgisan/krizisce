@@ -33,7 +33,7 @@ function toNewsItem(a: ApiItem): NewsItem {
     title: a.title,
     link: a.link,
     source: a.source,
-    // NewsItem v tvojem projektu morda nima 'summary' -> zavestno ga ignoriramo
+    // NewsItem v projektu morda nima 'summary' -> namerno ignorirano
     publishedAt: new Date(a.published_at).getTime(),
   } as unknown as NewsItem
 }
@@ -61,19 +61,23 @@ function relativeTime(ms: number) {
 function fmtClock(ms: number) {
   try {
     return new Intl.DateTimeFormat('sl-SI', { hour: '2-digit', minute: '2-digit' }).format(new Date(ms))
-  } catch { return '' }
+  } catch {
+    return ''
+  }
 }
 
 export default function ArchivePage() {
   const [date, setDate] = useState<string>(() => yyyymmdd(new Date()))
   const [search, setSearch] = useState<string>('')
+
   const [items, setItems] = useState<ApiItem[]>([])
   const [counts, setCounts] = useState<Record<string, number>>({})
-  const [nextCursor, setNextCursor] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
-  const [loadingMore, setLoadingMore] = useState(false)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
   const [fallbackLive, setFallbackLive] = useState(false)
+
+  // napredek pri autopagerju (št. “korakov” oz. strani)
+  const [pagesFetched, setPagesFetched] = useState(0)
 
   const news = useMemo(() => items.map(toNewsItem), [items])
 
@@ -92,62 +96,100 @@ export default function ArchivePage() {
   const filteredNews = useMemo(() => {
     const q = search.trim().toLowerCase()
     if (!q) return news
-    return news.filter(n => {
-      // NewsItem v tvojem projektu nima 'summary' -> zato vzamemo iz originalnega items seznama po link-u
-      const orig = items.find(it => it.link === (n as any).link)
+    return news.filter((n) => {
+      // summary iščemo na originalnem items seznamu po link-u
+      const orig = items.find((it) => it.link === (n as any).link)
       const summary = (orig?.summary ?? '') as string
       const hay = `${(n as any).title} ${summary} ${(n as any).source}`.toLowerCase()
       return hay.includes(q)
     })
   }, [news, search, items])
 
-  async function fetchDay(d: string) {
+  // Preberi VSE strani arhiva za izbrani dan (autopager)
+  async function fetchAllForDay(d: string) {
     setLoading(true)
     setErrorMsg(null)
     setFallbackLive(false)
+    setPagesFetched(0)
+
     try {
-      const res = await fetch(`/api/archive?date=${encodeURIComponent(d)}&limit=40`, { cache: 'no-store' })
-      const data: ApiPayload = await res.json().catch(() => ({ error: 'Neveljaven odgovor strežnika.' }))
-      if (!res.ok || 'error' in data) {
-        setItems([]); setCounts({}); setNextCursor(null); setErrorMsg('Arhiva trenutno ni mogoče naložiti.')
-        return
+      const seen = new Set<string>()
+      const acc: ApiItem[] = []
+
+      let cursor: string | null = null
+      let firstPageCounts: Record<string, number> = {}
+      let firstFallback = false
+
+      // varnostna meja (da ne gremo v neskončnost)
+      const MAX_PAGES = 25
+      const LIMIT = 200 // večji limit = manj klicev
+
+      for (let i = 0; i < MAX_PAGES; i++) {
+        const url =
+          cursor == null
+            ? `/api/archive?date=${encodeURIComponent(d)}&limit=${LIMIT}`
+            : `/api/archive?date=${encodeURIComponent(d)}&cursor=${encodeURIComponent(cursor)}&limit=${LIMIT}`
+
+        const res = await fetch(url, { cache: 'no-store' })
+        const data: ApiPayload = await res.json().catch(() => ({ error: 'Neveljaven odgovor strežnika.' }))
+
+        if (!res.ok || 'error' in data) {
+          setItems([])
+          setCounts({})
+          setErrorMsg('Arhiva trenutno ni mogoče naložiti.')
+          break
+        }
+
+        // counts + fallback vzamemo s prve strani
+        if (i === 0) {
+          firstPageCounts = data.counts ?? {}
+          firstFallback = Boolean((data as any).fallbackLive)
+        }
+
+        const chunk = (data.items ?? []).filter((it) => {
+          if (seen.has(it.link)) return false
+          seen.add(it.link)
+          return true
+        })
+
+        acc.push(...chunk)
+        setPagesFetched((p) => p + 1)
+
+        cursor = data.nextCursor ?? null
+        if (!cursor) {
+          // končano
+          setItems(acc)
+          setCounts(firstPageCounts)
+          setFallbackLive(firstFallback)
+          break
+        }
+
+        // mikro premor med klici (vljudno do backend-a); lahko odstraniš
+        await new Promise((r) => setTimeout(r, 50))
       }
-      setItems(Array.isArray(data.items) ? data.items : [])
-      setCounts(data.counts ?? {})
-      setNextCursor(data.nextCursor ?? null)
-      setFallbackLive(Boolean((data as any).fallbackLive))
+
+      // če po MAX_PAGES še imamo cursor, vseeno zapišemo do sedaj nabrano
+      if (cursor) {
+        setItems((prev) => (prev.length ? prev : acc))
+        setCounts((prev) => (Object.keys(prev).length ? prev : firstPageCounts))
+        setFallbackLive(firstFallback)
+        setErrorMsg('Prikazan je delni arhiv (omejitev strani dosežena).')
+      }
     } catch {
-      setItems([]); setCounts({}); setNextCursor(null); setErrorMsg('Napaka pri povezavi do arhiva.')
+      setItems([])
+      setCounts({})
+      setErrorMsg('Napaka pri povezavi do arhiva.')
     } finally {
       setLoading(false)
+      // ob menjavi dneva potisnemo na vrh
       window.scrollTo({ top: 0, behavior: 'smooth' })
     }
   }
 
-  async function loadMore() {
-    if (!nextCursor || loadingMore) return
-    setLoadingMore(true); setErrorMsg(null)
-    try {
-      const res = await fetch(
-        `/api/archive?date=${encodeURIComponent(date)}&cursor=${encodeURIComponent(nextCursor)}&limit=40`,
-        { cache: 'no-store' }
-      )
-      const data: ApiPayload = await res.json().catch(() => ({ error: 'Neveljaven odgovor strežnika.' }))
-      if (!res.ok || 'error' in data) {
-        setErrorMsg('Nalaganje dodatnih novic ni uspelo.'); return
-      }
-      const seen = new Set(items.map(i => i.link))
-      const fresh = (data.items ?? []).filter(i => !seen.has(i.link))
-      setItems(prev => [...prev, ...fresh])
-      setNextCursor(data.nextCursor ?? null)
-    } catch {
-      setErrorMsg('Nalaganje dodatnih novic ni uspelo.')
-    } finally {
-      setLoadingMore(false)
-    }
-  }
-
-  useEffect(() => { fetchDay(date) }, [date])
+  useEffect(() => {
+    fetchAllForDay(date)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [date])
 
   return (
     <>
@@ -168,13 +210,15 @@ export default function ArchivePage() {
                 aria-label="Nazaj na naslovnico"
               >
                 <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
-                  <path d="M3 12L12 3l9 9" stroke="currentColor" strokeWidth="2" fill="none"/>
-                  <path d="M5 10v10h5v-6h4v6h5V10" stroke="currentColor" strokeWidth="2" fill="none"/>
+                  <path d="M3 12L12 3l9 9" stroke="currentColor" strokeWidth="2" fill="none" />
+                  <path d="M5 10v10h5v-6h4v6h5V10" stroke="currentColor" strokeWidth="2" fill="none" />
                 </svg>
                 Nazaj
               </Link>
 
-              <label htmlFor="date" className="sr-only">Izberi dan</label>
+              <label htmlFor="date" className="sr-only">
+                Izberi dan
+              </label>
               <input
                 id="date"
                 type="date"
@@ -187,7 +231,13 @@ export default function ArchivePage() {
 
             {/* search */}
             <div className="relative w-full sm:w-80">
-              <svg className="absolute left-2.5 top-1/2 -translate-y-1/2" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+              <svg
+                className="absolute left-2.5 top-1/2 -translate-y-1/2"
+                viewBox="0 0 24 24"
+                width="16"
+                height="16"
+                aria-hidden="true"
+              >
                 <circle cx="11" cy="11" r="7" stroke="currentColor" strokeWidth="2" fill="none" />
                 <path d="M20 20l-3.2-3.2" stroke="currentColor" strokeWidth="2" />
               </svg>
@@ -204,12 +254,15 @@ export default function ArchivePage() {
           </div>
 
           {/* napaka ali fallback info */}
-          {!loading && errorMsg && (
-            <p className="mt-3 text-xs text-red-400">{errorMsg}</p>
-          )}
+          {!loading && errorMsg && <p className="mt-3 text-xs text-red-400">{errorMsg}</p>}
           {!loading && !errorMsg && fallbackLive && (
             <p className="mt-3 text-xs text-amber-400">
               Arhiv za izbrani dan je še prazen. Prikazane so trenutne novice iz živih virov (ne-shranjene).
+            </p>
+          )}
+          {loading && (
+            <p className="mt-3 text-xs text-gray-500 dark:text-gray-400">
+              Nalagam arhiv… {pagesFetched > 0 ? `(${pagesFetched})` : null}
             </p>
           )}
 
@@ -243,7 +296,7 @@ export default function ArchivePage() {
             </div>
           </div>
 
-          {/* SEZNAM NOVIC – ultra kompakten */}
+          {/* SEZNAM NOVIC – ultra kompakten, v scrollable oknu */}
           <div className="mt-5">
             {loading ? (
               <p className="text-gray-500 dark:text-gray-400">Nalagam…</p>
@@ -254,49 +307,47 @@ export default function ArchivePage() {
                 ) : null}
 
                 {news.length > 0 && (
-                  <ul className="rounded-md border border-gray-200/70 dark:border-gray-800/70 bg-white/50 dark:bg-gray-900/40 divide-y divide-gray-200 dark:divide-gray-800">
-                    {filteredNews.map((n, i) => {
-                      const hex = sourceColors[(n as any).source] || '#7c7c7c'
-                      return (
-                        <li key={`${(n as any).link}-${i}`} className="px-3 sm:px-4 py-2 flex items-center gap-2">
-                          {/* Badge: barvna pikica + vir */}
-                          <span className="shrink-0 inline-flex items-center gap-1 min-w-[68px]">
-                            <span className="inline-block w-1.5 h-1.5 rounded-full" style={{ backgroundColor: hex }} aria-hidden />
-                            <span className="text-[11px] text-gray-600 dark:text-gray-400">{(n as any).source}</span>
-                          </span>
+                  <div className="rounded-md border border-gray-200/70 dark:border-gray-800/70 bg-white/50 dark:bg-gray-900/40">
+                    <div className="max-h-[70vh] overflow-y-auto">
+                      <ul className="divide-y divide-gray-200 dark:divide-gray-800">
+                        {filteredNews.map((n, i) => {
+                          const hex = sourceColors[(n as any).source] || '#7c7c7c'
+                          return (
+                            <li key={`${(n as any).link}-${i}`} className="px-3 sm:px-4 py-2 flex items-center gap-2">
+                              {/* Badge: barvna pikica + vir */}
+                              <span className="shrink-0 inline-flex items-center gap-1 min-w-[68px]">
+                                <span
+                                  className="inline-block w-1.5 h-1.5 rounded-full"
+                                  style={{ backgroundColor: hex }}
+                                  aria-hidden
+                                />
+                                <span className="text-[11px] text-gray-600 dark:text-gray-400">
+                                  {(n as any).source}
+                                </span>
+                              </span>
 
-                          {/* Čas */}
-                          <span
-                            className="shrink-0 w-20 text-[11px] text-gray-500 dark:text-gray-400 tabular-nums"
-                            title={fmtClock((n as any).publishedAt ?? Date.now())}
-                          >
-                            {relativeTime((n as any).publishedAt ?? Date.now())}
-                          </span>
+                              {/* Čas */}
+                              <span
+                                className="shrink-0 w-20 text-[11px] text-gray-500 dark:text-gray-400 tabular-nums"
+                                title={fmtClock((n as any).publishedAt ?? Date.now())}
+                              >
+                                {relativeTime((n as any).publishedAt ?? Date.now())}
+                              </span>
 
-                          {/* Naslov */}
-                          <a
-                            href={(n as any).link}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="flex-1 text-sm leading-snug text-gray-900 dark:text-gray-100 hover:underline"
-                          >
-                            {(n as any).title}
-                          </a>
-                        </li>
-                      )
-                    })}
-                  </ul>
-                )}
-
-                {nextCursor && (
-                  <div className="text-center mt-6">
-                    <button
-                      onClick={loadMore}
-                      disabled={loadingMore}
-                      className="px-4 py-1.5 bg-brand text-white rounded-full hover:bg-brand-hover transition disabled:opacity-60 text-sm"
-                    >
-                      {loadingMore ? 'Nalagam…' : 'Naloži več'}
-                    </button>
+                              {/* Naslov */}
+                              <a
+                                href={(n as any).link}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex-1 text-sm leading-snug text-gray-900 dark:text-gray-100 hover:underline"
+                              >
+                                {(n as any).title}
+                              </a>
+                            </li>
+                          )
+                        })}
+                      </ul>
+                    </div>
                   </div>
                 )}
               </>
