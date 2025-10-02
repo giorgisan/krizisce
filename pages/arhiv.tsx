@@ -76,7 +76,6 @@ function writeCache(date: string, data: CacheShape) {
   try { sessionStorage.setItem(CACHE_KEY(date), JSON.stringify(data)) } catch {}
 }
 
-// page
 export default function ArchivePage() {
   const [date, setDate] = useState<string>(() => yyyymmdd(new Date()))
   const [search, setSearch] = useState<string>('')
@@ -291,10 +290,9 @@ export default function ArchivePage() {
           {/* NASLOV IZVEN ŠKATLE */}
           <h3 className="mt-5 mb-2 text-sm font-medium text-gray-800 dark:text-gray-200">Zadnje novice</h3>
 
-          {/* SEZNAM – nižje okno; notranji scroll; “leteči” sticky gumb; brez nativnega title na <a> */}
+          {/* SEZNAM – še malo nižje okno; notranji scroll; fade-out na dnu (dokler ni “vse”) */}
           <div className="rounded-md border border-gray-200/70 dark:border-gray-800/70 bg-white/50 dark:bg-gray-900/40">
-            {/* scroll območje – malo dodatnega spodnjega paddiga, da gumb ne pokrije zadnjih vrstic */}
-            <div className="relative h-[44vh] overflow-y-auto pb-12">
+            <div className="relative h-[38vh] overflow-y-auto">
               {loading ? (
                 <p className="p-3 text-sm text-gray-500 dark:text-gray-400">Nalagam…</p>
               ) : (
@@ -354,27 +352,38 @@ export default function ArchivePage() {
                 </ul>
               )}
 
-              {/* STICKY “leteči” gumb znotraj scrolla (brez full-width bar-a) */}
-              <div className="sticky bottom-2 w-full flex justify-center pointer-events-none">
-                {!showAll && filteredNews.length > 15 ? (
-                  <button
-                    onClick={async () => { await loadRestOfDay() }}
-                    disabled={loadingMore}
-                    className="pointer-events-auto px-4 py-1.5 rounded-full bg-brand text-white text-sm shadow-md hover:bg-brand-hover disabled:opacity-60"
-                  >
-                    {loadingMore ? 'Nalagam vse…' : 'Naloži vse novice'}
-                  </button>
-                ) : (
-                  <button
-                    onClick={() => setShowAll(false)}
-                    className="pointer-events-auto px-4 py-1.5 rounded-full text-sm border border-gray-300/70 dark:border-gray-700/70
-                               bg-white/80 dark:bg-gray-800/70 hover:bg-white dark:hover:bg-gray-800"
-                  >
-                    Pokaži le prvih 15
-                  </button>
-                )}
-              </div>
+              {/* fade-out na dnu, dokler ne prikažemo vseh */}
+              {!showAll && filteredNews.length > 15 && (
+                <div
+                  className="
+                    pointer-events-none absolute bottom-0 left-0 right-0 h-12
+                    bg-gradient-to-t from-white/90 to-transparent
+                    dark:from-gray-900/85
+                  "
+                />
+              )}
             </div>
+          </div>
+
+          {/* GUMB IZVEN BOXA */}
+          <div className="flex items-center justify-center gap-3 mt-3">
+            {!showAll && filteredNews.length > 15 ? (
+              <button
+                onClick={async () => { await loadRestOfDay() }}
+                disabled={loadingMore}
+                className="px-4 py-1.5 rounded-full bg-brand text-white text-sm shadow-md hover:bg-brand-hover disabled:opacity-60"
+              >
+                {loadingMore ? 'Nalagam vse…' : 'Naloži vse novice'}
+              </button>
+            ) : (
+              <button
+                onClick={() => setShowAll(false)}
+                className="px-4 py-1.5 rounded-full text-sm border border-gray-300/70 dark:border-gray-700/70
+                           bg-white/80 dark:bg-gray-800/70 hover:bg-white dark:hover:bg-gray-800"
+              >
+                Pokaži le prvih 15
+              </button>
+            )}
           </div>
         </section>
       </main>
