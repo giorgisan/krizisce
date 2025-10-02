@@ -76,6 +76,7 @@ function writeCache(date: string, data: CacheShape) {
   try { sessionStorage.setItem(CACHE_KEY(date), JSON.stringify(data)) } catch {}
 }
 
+// page
 export default function ArchivePage() {
   const [date, setDate] = useState<string>(() => yyyymmdd(new Date()))
   const [search, setSearch] = useState<string>('')
@@ -93,6 +94,9 @@ export default function ArchivePage() {
   const [showAll, setShowAll] = useState(false)
 
   const abortRef = useRef<AbortController | null>(null)
+  const bgAbortRef = useRef<AbortController | null>(null)
+  const bgStartedRef = useRef<boolean>(false) // da ne začnemo večkrat
+  const [bgLoading, setBgLoading] = useState(false)
 
   const news = useMemo(() => items.map(toNewsItem), [items])
   const displayCounts = useMemo(() => Object.fromEntries(Object.entries(counts).filter(([k]) => k !== 'TestVir')), [counts])
@@ -123,7 +127,10 @@ export default function ArchivePage() {
     if (abortRef.current) abortRef.current.abort()
     const controller = new AbortController(); abortRef.current = controller
 
+    // reset
     setErrorMsg(null); setShowAll(false); setLoadedAll(false); setNextCursor(null)
+    if (bgAbortRef.current) { bgAbortRef.current.abort(); bgAbortRef.current = null }
+    bgStartedRef.current = false; setBgLoading(false)
 
     let servedFromCache = false
     if (useCache) {
@@ -152,6 +159,12 @@ export default function ArchivePage() {
       setItems(sorted); setCounts(data.counts ?? {}); setNextCursor(data.nextCursor ?? null); setFallbackLive(Boolean((data as any).fallbackLive))
       setLoading(false)
       writeCache(d, { at: Date.now(), items: sorted, counts: data.counts ?? {}, fallbackLive: Boolean((data as any).fallbackLive) })
+
+      // >>> takoj začni naložitev preostanka v ozadju
+      if (data.nextCursor && !bgStartedRef.current) {
+        bgStartedRef.current = true
+        void loadRestOfDay({ background: true })
+      }
     } catch {
       if (!servedFromCache) { setItems([]); setCounts({}); setFallbackLive(false) }
       if (!controller.signal.aborted) setErrorMsg('Napaka pri povezavi do arhiva.')
@@ -159,41 +172,75 @@ export default function ArchivePage() {
     }
   }
 
-  async function loadRestOfDay() {
-    if (loadedAll || !nextCursor || loadingMore) { setShowAll(true); return }
-    setLoadingMore(true); setErrorMsg(null)
+  type LoadOpts = { background?: boolean }
+  async function loadRestOfDay(opts?: LoadOpts) {
+    const background = !!opts?.background
+    if (loadedAll || !nextCursor || (loadingMore && !background)) { if (!background) setShowAll(true); return }
+    if (!background) setLoadingMore(true); else setBgLoading(true)
+
     try {
       let cursor: string | null = nextCursor
       const LIMIT = 250
+      // za background uporabimo svoj AbortController
+      const controller = new AbortController()
+      if (background) {
+        if (bgAbortRef.current) bgAbortRef.current.abort()
+        bgAbortRef.current = controller
+      }
+
       const seen = new Set(items.map(i => i.link))
       let acc = [...items]
 
       while (cursor) {
         const url = `/api/archive?date=${encodeURIComponent(date)}&cursor=${encodeURIComponent(cursor)}&limit=${LIMIT}`
-        const res = await fetch(url, { cache: 'no-store' })
+        const res = await fetch(url, { cache: 'no-store', signal: background ? controller.signal : undefined })
         const data: ApiPayload = await res.json().catch(() => ({ error: 'Neveljaven odgovor strežnika.' }))
         if (!res.ok || 'error' in data) break
 
         const fresh = (data.items ?? []).filter(i => !seen.has(i.link))
         for (const f of fresh) seen.add(f.link)
-        if (fresh.length) acc = [...acc, ...fresh]
+        if (fresh.length) {
+          acc = [...acc, ...fresh]
+          // sproti posodabljaj, da search takoj vidi nove
+          const sorted = [...acc].sort(sortDesc)
+          setItems(sorted)
+          setNextCursor(data.nextCursor ?? null)
+          writeCache(date, { at: Date.now(), items: sorted, counts, fallbackLive })
+        }
+
         cursor = data.nextCursor ?? null
+        // sprosti UI med ozadnim nalaganjem
+        if (background) await new Promise(r => setTimeout(r, 0))
       }
 
-      acc.sort(sortDesc)
-      setItems(acc); setNextCursor(null); setLoadedAll(true); setShowAll(true)
+      setNextCursor(null)
+      setLoadedAll(true)
+      if (!background) setShowAll(true)
     } catch {
-      setErrorMsg('Nalaganje vseh novic ni uspelo.')
+      if (!opts?.background) setErrorMsg('Nalaganje vseh novic ni uspelo.')
     } finally {
-      setLoadingMore(false)
+      if (!background) setLoadingMore(false); else setBgLoading(false)
     }
   }
 
   function refreshNow() { fetchFirstPage(date, false) }
 
+  // Če uporabnik začne tipkati in še ni vse naloženo, naloži v ozadju
+  useEffect(() => {
+    const q = deferredSearch.trim()
+    if (q && !loadedAll && nextCursor && !bgStartedRef.current) {
+      bgStartedRef.current = true
+      void loadRestOfDay({ background: true })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [deferredSearch, loadedAll, nextCursor])
+
   useEffect(() => {
     fetchFirstPage(date, true)
-    return () => { if (abortRef.current) abortRef.current.abort() }
+    return () => {
+      if (abortRef.current) abortRef.current.abort()
+      if (bgAbortRef.current) bgAbortRef.current.abort()
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [date])
 
@@ -264,6 +311,11 @@ export default function ArchivePage() {
                            border border-gray-300/70 dark:border-gray-700/70 focus:outline-none
                            focus:ring-2 focus:ring-brand/50"
               />
+              {bgLoading && !loadedAll && (
+                <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[11px] text-gray-500 dark:text-gray-400">
+                  nalagam v ozadju…
+                </span>
+              )}
             </div>
           </div>
 
@@ -290,11 +342,14 @@ export default function ArchivePage() {
           {/* NASLOV IZVEN ŠKATLE */}
           <h3 className="mt-5 mb-2 text-sm font-medium text-gray-800 dark:text-gray-200">Zadnje novice</h3>
 
-          {/* SEZNAM – še malo nižje okno; notranji scroll; fade-out na dnu (dokler ni “vse”) */}
+          {/* SEZNAM – nižje okno; notranji scroll; “leteči” sticky gumb; brez nativnega title na <a> */}
           <div className="rounded-md border border-gray-200/70 dark:border-gray-800/70 bg-white/50 dark:bg-gray-900/40">
-            <div className="relative h-[38vh] overflow-y-auto">
+            {/* scroll območje – malo dodatnega spodnjega paddiga, da gumb ne pokrije zadnjih vrstic */}
+            <div className="relative h-[44vh] overflow-y-auto pb-12">
               {loading ? (
                 <p className="p-3 text-sm text-gray-500 dark:text-gray-400">Nalagam…</p>
+              ) : errorMsg ? (
+                <p className="p-3 text-sm text-red-600 dark:text-red-400">{errorMsg}</p>
               ) : (
                 <ul className="divide-y divide-gray-200 dark:divide-gray-800">
                   {visibleNews.map((n, i) => {
@@ -352,38 +407,27 @@ export default function ArchivePage() {
                 </ul>
               )}
 
-              {/* fade-out na dnu, dokler ne prikažemo vseh */}
-              {!showAll && filteredNews.length > 15 && (
-                <div
-                  className="
-                    pointer-events-none absolute bottom-0 left-0 right-0 h-12
-                    bg-gradient-to-t from-white/90 to-transparent
-                    dark:from-gray-900/85
-                  "
-                />
-              )}
+              {/* STICKY “leteči” gumb znotraj scrolla */}
+              <div className="sticky bottom-2 w-full flex justify-center pointer-events-none">
+                {!showAll && filteredNews.length > 15 ? (
+                  <button
+                    onClick={async () => { await loadRestOfDay({ background: false }) }}
+                    disabled={loadingMore}
+                    className="pointer-events-auto px-4 py-1.5 rounded-full bg-brand text-white text-sm shadow-md hover:bg-brand-hover disabled:opacity-60"
+                  >
+                    {loadingMore ? 'Nalagam vse…' : 'Naloži vse novice'}
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => setShowAll(false)}
+                    className="pointer-events-auto px-4 py-1.5 rounded-full text-sm border border-gray-300/70 dark:border-gray-700/70
+                               bg-white/80 dark:bg-gray-800/70 hover:bg-white dark:hover:bg-gray-800"
+                  >
+                    Pokaži le prvih 15
+                  </button>
+                )}
+              </div>
             </div>
-          </div>
-
-          {/* GUMB IZVEN BOXA */}
-          <div className="flex items-center justify-center gap-3 mt-3">
-            {!showAll && filteredNews.length > 15 ? (
-              <button
-                onClick={async () => { await loadRestOfDay() }}
-                disabled={loadingMore}
-                className="px-4 py-1.5 rounded-full bg-brand text-white text-sm shadow-md hover:bg-brand-hover disabled:opacity-60"
-              >
-                {loadingMore ? 'Nalagam vse…' : 'Naloži vse novice'}
-              </button>
-            ) : (
-              <button
-                onClick={() => setShowAll(false)}
-                className="px-4 py-1.5 rounded-full text-sm border border-gray-300/70 dark:border-gray-700/70
-                           bg-white/80 dark:bg-gray-800/70 hover:bg-white dark:hover:bg-gray-800"
-              >
-                Pokaži le prvih 15
-              </button>
-            )}
           </div>
         </section>
       </main>
