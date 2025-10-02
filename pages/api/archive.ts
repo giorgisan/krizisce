@@ -24,7 +24,7 @@ type ApiItem = {
   link: string
   title: string
   source: string
-  summary?: string | null
+  summary: string | null
   published_at: string | null
 }
 
@@ -38,7 +38,7 @@ type ApiOk = {
 type ApiErr = { error: string }
 
 function parseDateRange(dayISO?: string) {
-  // pričakujemo YYYY-MM-DD (lokalno). Pretvorimo v UTC interval [start, end)
+  // pričakujemo YYYY-MM-DD lokalno; pretvorimo v UTC [start, end)
   const today = new Date()
   const base = dayISO ? new Date(`${dayISO}T00:00:00`) : new Date(today.getFullYear(), today.getMonth(), today.getDate())
   const start = new Date(base)
@@ -55,8 +55,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
 
     const { start, end } = parseDateRange(dateStr)
 
-    // === ITEMS (keyset pagination by id DESC) ===
-    // izbiramo samo potrebna polja; summary poenotimo kasneje
+    /* === ITEMS (keyset pagination by id DESC) === */
     let q = supabase
       .from('news')
       .select('id, link, title, source, summary, contentsnippet, published_at, publishedat')
@@ -75,32 +74,48 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
       link: r.link,
       title: r.title,
       source: r.source,
-      // POENOTENO: vzemi summary ali contentsnippet (prazen string -> null)
-      summary: (r.summary && r.summary.trim()) ? r.summary : ((r.contentsnippet && r.contentsnippet.trim()) ? r.contentsnippet : null),
-      // ohranimo ISO (frontend ima že helperje)
+      // poenoteno polje za podnaslov (lahko je null)
+      summary: (r.summary && r.summary.trim())
+        ? r.summary
+        : ((r.contentsnippet && r.contentsnippet.trim()) ? r.contentsnippet : null),
       published_at: r.published_at,
     }))
 
     const nextCursor = rows && rows.length === limit ? String(rows[rows.length - 1].id) : null
 
-    // === COUNTS po source ===
-    // (Supabase REST podpira group; če bi kdaj nagajal, lahko to nadomestimo z RPC)
-    const { data: countRows, error: countErr } = await supabase
+    /* === COUNTS po source (brez .group()) ===
+       1) dobimo distinct source vrednosti za dan
+       2) za vsakega naredimo HEAD count poizvedbo (prenese samo header) */
+    const { data: distinctRows, error: distinctErr } = await supabase
       .from('news')
-      .select('source, count:count(*)')
+      .select('source') // ALL rows for the day (majhno polje)
       .gte('published_at', start)
       .lt('published_at', end)
-      .group('source')
 
-    if (countErr) return res.status(500).json({ error: `DB error: ${countErr.message}` })
+    if (distinctErr) return res.status(500).json({ error: `DB error: ${distinctErr.message}` })
+
+    const distinctSources = Array.from(new Set((distinctRows || []).map((r: any) => r.source).filter(Boolean)))
+
+    const entries = await Promise.all(
+      distinctSources.map(async (src) => {
+        const { count, error: cntErr } = await supabase
+          .from('news')
+          .select('id', { count: 'exact', head: true })
+          .gte('published_at', start)
+          .lt('published_at', end)
+          .eq('source', src)
+
+        if (cntErr) {
+          // če kak count pade, ga preskočimo, da ne razbije odziva
+          return [src, 0] as const
+        }
+        return [src, Number(count || 0)] as const
+      })
+    )
 
     const counts: Record<string, number> = {}
-    let total = 0
-    for (const r of (countRows as any[]) || []) {
-      const c = Number(r.count) || 0
-      counts[r.source] = c
-      total += c
-    }
+    for (const [src, c] of entries) counts[src] = c
+    const total = Object.values(counts).reduce((a, b) => a + b, 0)
 
     res.setHeader('Cache-Control', 's-maxage=30, stale-while-revalidate=60')
     return res.status(200).json({
