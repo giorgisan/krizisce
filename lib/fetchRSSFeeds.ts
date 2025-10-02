@@ -2,6 +2,7 @@
 import Parser from 'rss-parser'
 import type { NewsItem } from '../types'
 import { feeds } from './sources'
+import { excludeAds } from './adFilter'
 
 type FetchOpts = { forceFresh?: boolean }
 
