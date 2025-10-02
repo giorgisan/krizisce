@@ -32,7 +32,7 @@ type ApiPayload =
   | { items: ApiItem[]; counts: Record<string, number>; total: number; nextCursor: string | null; fallbackLive?: boolean }
   | { error: string }
 
-// ————— helpers —————
+// helpers
 function tsOf(a: ApiItem) {
   const t = (a.publishedat && Number(a.publishedat)) || (a.published_at ? Date.parse(a.published_at) : NaN)
   return Number.isFinite(t) ? Number(t) : 0
@@ -76,7 +76,7 @@ function writeCache(date: string, data: CacheShape) {
   try { sessionStorage.setItem(CACHE_KEY(date), JSON.stringify(data)) } catch {}
 }
 
-// ————— page —————
+// page
 export default function ArchivePage() {
   const [date, setDate] = useState<string>(() => yyyymmdd(new Date()))
   const [search, setSearch] = useState<string>('')
@@ -87,17 +87,14 @@ export default function ArchivePage() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
   const [fallbackLive, setFallbackLive] = useState(false)
 
-  // keyset paginacija
   const [nextCursor, setNextCursor] = useState<string | null>(null)
   const [loadedAll, setLoadedAll] = useState(false)
   const [loadingMore, setLoadingMore] = useState(false)
 
-  // “lahki” pogled: prvih 15
   const [showAll, setShowAll] = useState(false)
 
   const abortRef = useRef<AbortController | null>(null)
 
-  // derived
   const news = useMemo(() => items.map(toNewsItem), [items])
   const displayCounts = useMemo(() => Object.fromEntries(Object.entries(counts).filter(([k]) => k !== 'TestVir')), [counts])
   const total = useMemo(() => Object.values(displayCounts).reduce((a, b) => a + b, 0), [displayCounts])
@@ -121,7 +118,6 @@ export default function ArchivePage() {
 
   const visibleNews = useMemo(() => (showAll ? filteredNews : filteredNews.slice(0, 15)), [filteredNews, showAll])
 
-  // ——— enforce newest-first after each fetch/merge ———
   function sortDesc(a: ApiItem, b: ApiItem) { return tsOf(b) - tsOf(a) || String(b.id).localeCompare(String(a.id)) }
 
   async function fetchFirstPage(d: string, useCache = true) {
@@ -209,7 +205,7 @@ export default function ArchivePage() {
 
       <main className="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white px-4 md:px-8 lg:px-16 pb-20 pt-6">
         <section className="max-w-6xl mx-auto">
-          {/* toolbar */}
+          {/* orodna vrstica */}
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-2">
               <Link
@@ -295,10 +291,10 @@ export default function ArchivePage() {
           {/* NASLOV IZVEN ŠKATLE */}
           <h3 className="mt-5 mb-2 text-sm font-medium text-gray-800 dark:text-gray-200">Zadnje novice</h3>
 
-          {/* SEZNAM – fiksna nižja višina; notranji scroll; tooltip na hover/focus */}
+          {/* SEZNAM – nižje okno; notranji scroll; “leteči” sticky gumb; brez nativnega title na <a> */}
           <div className="rounded-md border border-gray-200/70 dark:border-gray-800/70 bg-white/50 dark:bg-gray-900/40">
-            {/* ni notranjega headerja */}
-            <div className="h-[52vh] overflow-y-auto">
+            {/* scroll območje – malo dodatnega spodnjega paddiga, da gumb ne pokrije zadnjih vrstic */}
+            <div className="relative h-[44vh] overflow-y-auto pb-12">
               {loading ? (
                 <p className="p-3 text-sm text-gray-500 dark:text-gray-400">Nalagam…</p>
               ) : (
@@ -324,16 +320,18 @@ export default function ArchivePage() {
                         >
                           {relativeTime((n as any).publishedAt ?? Date.now())}
                         </span>
+
+                        {/* naslov + naš tooltip (brez native title) */}
                         <div className="relative">
                           <a
                             href={link}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="peer block text-[13px] leading-tight text-gray-900 dark:text-gray-100 hover:underline truncate"
-                            title={(n as any).title}
                           >
                             {(n as any).title}
                           </a>
+
                           {summary && (
                             <div
                               className="
@@ -355,28 +353,27 @@ export default function ArchivePage() {
                   })}
                 </ul>
               )}
-            </div>
 
-            {/* gumbi pod seznamom (višina ostane ista) */}
-            <div className="flex items-center justify-center gap-3 px-3 py-3">
-              {!showAll && filteredNews.length > 15 && (
-                <button
-                  onClick={async () => { await loadRestOfDay() }}
-                  disabled={loadingMore}
-                  className="px-3 py-1.5 rounded-full bg-brand text-white text-sm hover:bg-brand-hover disabled:opacity-60"
-                >
-                  {loadingMore ? 'Nalagam vse…' : 'Naloži vse novice'}
-                </button>
-              )}
-              {showAll && (
-                <button
-                  onClick={() => setShowAll(false)}
-                  className="px-3 py-1.5 rounded-full text-sm border border-gray-300/70 dark:border-gray-700/70
-                             bg-white/70 dark:bg-gray-800/60 hover:bg-white/90 dark:hover:bg-gray-800/80"
-                >
-                  Pokaži le prvih 15
-                </button>
-              )}
+              {/* STICKY “leteči” gumb znotraj scrolla (brez full-width bar-a) */}
+              <div className="sticky bottom-2 w-full flex justify-center pointer-events-none">
+                {!showAll && filteredNews.length > 15 ? (
+                  <button
+                    onClick={async () => { await loadRestOfDay() }}
+                    disabled={loadingMore}
+                    className="pointer-events-auto px-4 py-1.5 rounded-full bg-brand text-white text-sm shadow-md hover:bg-brand-hover disabled:opacity-60"
+                  >
+                    {loadingMore ? 'Nalagam vse…' : 'Naloži vse novice'}
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => setShowAll(false)}
+                    className="pointer-events-auto px-4 py-1.5 rounded-full text-sm border border-gray-300/70 dark:border-gray-700/70
+                               bg-white/80 dark:bg-gray-800/70 hover:bg-white dark:hover:bg-gray-800"
+                  >
+                    Pokaži le prvih 15
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         </section>
