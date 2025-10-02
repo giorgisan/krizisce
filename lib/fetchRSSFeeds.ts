@@ -7,7 +7,7 @@ type FetchOpts = { forceFresh?: boolean }
 
 /** ====== BLANKET PRAVILA (urejaj po želji) ====== */
 const BLOCK_URLS: RegExp[] = [
-  /siol\.net\/novice\/posel-danes\//i, // odstrani, če je preostro
+  /siol\.net\/novice\/posel-danes\//i,
 ]
 
 const BLOCK_PATTERNS: string[] = [
@@ -17,19 +17,16 @@ const BLOCK_PATTERNS: string[] = [
   'sponzorirano','partner vsebina','branded content',
   'vsebino omogoča','vsebino omogoca',
   'pr članek','pr clanek',
-  // malo PR jezika:
-  'vam svetuje','priporoča','priporoca'
+  'vam svetuje','priporoča','priporoca',
 ]
 
 const BLOCK_BRANDS: string[] = [
   'daikin','viberate','inoquant','bks naložbe','bks nalozbe'
 ]
 
-/** ====== GENERIČNI HTML CHECK (za več domen) ======
- * Če nočeš dodatnih fetchov, daj ENABLE_HTML_CHECK = false.
- */
+/** ====== GENERIČNI HTML CHECK ====== */
 const ENABLE_HTML_CHECK = true
-const MAX_HTML_CHECKS = 8 // da ne prefetchamo preveč
+const MAX_HTML_CHECKS = 8
 const HTML_CHECK_HOSTS = [
   'siol.net','delo.si','slovenskenovice.delo.si','24ur.com','zurnal24.si','finance.si'
 ]
@@ -39,8 +36,7 @@ const HTML_MARKERS = [
   'plačana objava','placana objava',
   'sponzorirano','vsebino omogoča','vsebino omogoca',
   'partner vsebina','advertorial','sponsored content',
-  // nekaj tipičnih classov/id:
-  'article__pr_box','sponsored-content','advertorial','partner-content','promo-box'
+  'article__pr_box','sponsored-content','partner-content','promo-box'
 ]
 
 /* ====== Pomožne ====== */
@@ -131,6 +127,7 @@ function isBlockedBasic(i: { link?: string; title?: string; content?: string | n
   return false
 }
 
+/* ---- FIX 2: timeout v HTML fetchu ---- */
 let htmlChecks = 0
 async function hasSponsorMarker(url: string): Promise<boolean> {
   if (!ENABLE_HTML_CHECK) return false
@@ -140,24 +137,33 @@ async function hasSponsorMarker(url: string): Promise<boolean> {
     const u = new URL(url)
     host = u.hostname.toLowerCase()
     if (!HTML_CHECK_HOSTS.some(h => host === h || host.endsWith(`.${h}`))) return false
-  } catch {
-    return false
-  }
+  } catch { return false }
+
+  htmlChecks++
+
+  const ctrl = new AbortController()
+  const to = setTimeout(() => ctrl.abort(), 2500) // 2.5 s timeout
   try {
-    htmlChecks++
     const res = await fetch(url, {
       headers: { 'User-Agent': 'KrizisceBot/1.0 (+https://krizisce.si)' },
       cache: 'no-store',
+      signal: ctrl.signal,
     } as any)
     const html = (await res.text()).toLowerCase()
     return HTML_MARKERS.some(m => html.includes(m))
   } catch {
     return false
+  } finally {
+    clearTimeout(to)
   }
 }
 
+/** ====== GLAVNA FUNKCIJA ====== */
 export default async function fetchRSSFeeds(opts: FetchOpts = {}): Promise<NewsItem[]> {
   const { forceFresh = false } = opts
+
+  /* ---- FIX 1: resetiraj budget na vsak klic ---- */
+  htmlChecks = 0
 
   const results = await Promise.all(
     Object.entries(feeds).map(async ([source, url]) => {
@@ -201,11 +207,25 @@ export default async function fetchRSSFeeds(opts: FetchOpts = {}): Promise<NewsI
   // 1) osnovni rez
   let flat: NewsItem[] = results.flat().filter(i => !isBlockedBasic(i))
 
-  // 2) generični HTML check na izbranih domenah (omejeno število)
-  const checked = await Promise.all(
-    flat.map(async (it) => (await hasSponsorMarker(it.link)) ? null : it)
-  )
-  flat = checked.filter(Boolean) as NewsItem[]
+  /* ---- FIX 3: HTML-check deterministično, max N ---- */
+  const kept: NewsItem[] = []
+  let used = 0
+  function hostAllowed(url: string) {
+    try {
+      const h = new URL(url).hostname.toLowerCase()
+      return HTML_CHECK_HOSTS.some(x => h === x || h.endsWith(`.${x}`))
+    } catch { return false }
+  }
+
+  for (const it of flat) {
+    if (used < MAX_HTML_CHECKS && hostAllowed(it.link)) {
+      const isAd = await hasSponsorMarker(it.link)
+      used++
+      if (isAd) continue // odreži
+    }
+    kept.push(it)
+  }
+  flat = kept
 
   flat.sort((a, b) => (b.publishedAt || 0) - (a.publishedAt || 0))
   return flat
