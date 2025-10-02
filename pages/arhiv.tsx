@@ -21,7 +21,7 @@ type ApiItem = {
   source: string
   title: string
   link: string
-  summary?: string | null   // lahko je tudi description/content v API-ju (poskrbimo spodaj)
+  summary?: string | null   // lahko je tudi description/content v API-ju
   published_at: string // ISO
 }
 
@@ -70,13 +70,13 @@ function fmtClock(ms: number) {
   } catch { return '' }
 }
 
-// normalizacija za robustno iskanje (tudi brez šumnikov)
+// --- VARNO odstranjevanje diakritike (brez \p{...} in 'u' flage) ---
 function norm(s: string) {
   try {
     return s
       .toLowerCase()
-      .normalize('NFD')
-      .replace(/\p{Diacritic}/gu, '') // odstrani diakritične znake
+      .normalize('NFD')                // razdrobi znake
+      .replace(/[\u0300-\u036f]/g, '') // odstrani kombinirne naglase (šumniki ipd.)
   } catch {
     return s.toLowerCase()
   }
@@ -140,7 +140,7 @@ export default function ArchivePage() {
   )
   const maxCount = useMemo(() => Math.max(1, ...Object.values(displayCounts)), [displayCounts])
 
-  // pripravi hiter lookup za summary (uporabi alternativna polja, če summary manjka)
+  // hiter lookup za summary (poberemo tudi description/content)
   const summaryByLink = useMemo(() => {
     const m = new Map<string, string>()
     for (const it of items) {
@@ -287,7 +287,7 @@ export default function ArchivePage() {
       <Header />
       <SeoHead title="Križišče — Arhiv" description="Pregled novic po dnevih in medijih." />
 
-      <main className="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white px-4 md:px-8 lg:px-16 pb-24 pt-6">
+    <main className="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white px-4 md:px-8 lg:px-16 pb-24 pt-6">
         <section className="max-w-6xl mx-auto">
           {/* toolbar */}
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -404,8 +404,8 @@ export default function ArchivePage() {
                           key={`${(n as any).link}-${i}`}
                           className="
                             grid items-center
-                            grid-cols-[80px_64px_1fr] sm:grid-cols-[90px_72px_1fr]
-                            gap-x-2 sm:gap-x-3 px-2 sm:px-3 py-1.5
+                            grid-cols-[92px_78px_1fr] sm:grid-cols-[100px_84px_1fr]
+                            gap-x-3 sm:gap-x-4 px-2 sm:px-3 py-1.5
                           "
                         >
                           {/* vir */}
