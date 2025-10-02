@@ -28,6 +28,7 @@ type ApiItem = {
   description?: string | null
   content?: string | null
 }
+
 type ApiPayload =
   | {
       items: ApiItem[]
@@ -50,12 +51,14 @@ function toNewsItem(a: ApiItem): NewsItem {
     publishedAt: Number.isFinite(ts) ? Number(ts) : Date.now(),
   } as unknown as NewsItem
 }
+
 function yyyymmdd(d: Date) {
   const y = d.getFullYear()
   const m = `${d.getMonth() + 1}`.padStart(2, '0')
   const dd = `${d.getDate()}`.padStart(2, '0')
   return `${y}-${m}-${dd}`
 }
+
 function relativeTime(ms: number) {
   const diff = Math.max(0, Date.now() - ms)
   const m = Math.floor(diff / 60000)
@@ -66,14 +69,20 @@ function relativeTime(ms: number) {
   const d = Math.floor(h / 24)
   return `pred ${d} d`
 }
+
 function fmtClock(ms: number) {
   try {
     return new Intl.DateTimeFormat('sl-SI', { hour: '2-digit', minute: '2-digit' }).format(new Date(ms))
   } catch { return '' }
 }
+
+// normalizacija za iskanje (brez \p{...})
 function norm(s: string) {
-  try { return s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '') }
-  catch { return s.toLowerCase() }
+  try {
+    return s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+  } catch {
+    return s.toLowerCase()
+  }
 }
 
 /* session cache */
@@ -103,18 +112,19 @@ export default function ArchivePage() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
   const [fallbackLive, setFallbackLive] = useState(false)
 
-  // paginacija
+  // keyset paginacija
   const [nextCursor, setNextCursor] = useState<string | null>(null)
-  const [loadedAll, setLoadedAll] = useState(false) // ali smo potegnili cel dan
+  const [loadedAll, setLoadedAll] = useState(false)
   const [loadingMore, setLoadingMore] = useState(false)
 
-  // UI režim: pokaži le prvih 15 do klika
+  // začetni “lahki” pogled: prvih 15
   const [showAll, setShowAll] = useState(false)
 
   const abortRef = useRef<AbortController | null>(null)
 
   const news = useMemo(() => items.map(toNewsItem), [items])
 
+  // graf brez "TestVir"
   const displayCounts = useMemo(() => {
     const entries = Object.entries(counts).filter(([k]) => k !== 'TestVir')
     return Object.fromEntries(entries)
@@ -122,12 +132,14 @@ export default function ArchivePage() {
   const total = useMemo(() => Object.values(displayCounts).reduce((a, b) => a + b, 0), [displayCounts])
   const maxCount = useMemo(() => Math.max(1, ...Object.values(displayCounts)), [displayCounts])
 
-  // summary lookup
+  // lookup za iskanje/tooltip
   const itemByLink = useMemo(() => {
     const m = new Map<string, ApiItem>()
     for (const it of items) m.set(it.link, it)
     return m
   }, [items])
+
+  // debounced search
   const deferredSearch = useDeferredValue(search)
   const filteredNews = useMemo(() => {
     const q = norm(deferredSearch.trim())
@@ -145,7 +157,7 @@ export default function ArchivePage() {
 
   const visibleNews = useMemo(() => (showAll ? filteredNews : filteredNews.slice(0, 15)), [filteredNews, showAll])
 
-  /* === fetch: samo PRVA stran; preostanek šele ob kliku "Naloži vse" === */
+  /* === fetch: prva stran; vse ostalo šele na klik === */
   async function fetchFirstPage(d: string, useCache = true) {
     if (abortRef.current) abortRef.current.abort()
     const controller = new AbortController(); abortRef.current = controller
@@ -168,7 +180,7 @@ export default function ArchivePage() {
 
     setLoading(!servedFromCache)
     try {
-      const LIMIT_FIRST = 40 // potegnemo malo več, pokažemo 15
+      const LIMIT_FIRST = 40
       const url = `/api/archive?date=${encodeURIComponent(d)}&limit=${LIMIT_FIRST}`
       const res = await fetch(url, { cache: 'no-store', signal: controller.signal })
       const data: ApiPayload = await res.json().catch(() => ({ error: 'Neveljaven odgovor strežnika.' }))
@@ -201,7 +213,6 @@ export default function ArchivePage() {
       let cursor: string | null = nextCursor
       const LIMIT = 250
       const seen = new Set(items.map(i => i.link))
-      let gotAny = false
 
       while (cursor) {
         const url = `/api/archive?date=${encodeURIComponent(date)}&cursor=${encodeURIComponent(cursor)}&limit=${LIMIT}`
@@ -211,7 +222,6 @@ export default function ArchivePage() {
 
         const fresh = (data.items ?? []).filter(i => !seen.has(i.link))
         if (fresh.length) {
-          gotAny = true
           for (const f of fresh) seen.add(f.link)
           setItems(prev => [...prev, ...fresh])
         }
@@ -221,7 +231,6 @@ export default function ArchivePage() {
       setNextCursor(null)
       setLoadedAll(true)
       setShowAll(true)
-      if (!gotAny) setErrorMsg(null)
     } catch {
       setErrorMsg('Nalaganje vseh novic ni uspelo.')
     } finally {
@@ -229,7 +238,6 @@ export default function ArchivePage() {
     }
   }
 
-  // refresh gumb: ignoriraj cache
   function refreshNow() {
     fetchFirstPage(date, false)
   }
@@ -310,12 +318,6 @@ export default function ArchivePage() {
             </div>
           </div>
 
-          {/* info */}
-          {!loading && errorMsg && <p className="mt-3 text-xs text-red-400">{errorMsg}</p>}
-          {!loading && !errorMsg && fallbackLive && (
-            <p className="mt-3 text-xs text-amber-400">Arhiv za izbrani dan je še prazen. Prikazane so trenutne novice iz živih virov (ne-shranjene).</p>
-          )}
-
           {/* GRAF ≈ 1/3, SEZNAM ≈ 2/3 */}
           <div className="mt-5 space-y-5">
             {/* GRAF */}
@@ -339,8 +341,9 @@ export default function ArchivePage() {
               </div>
             </div>
 
-            {/* SEZNAM – prvih 15, summary samo na hover */}
+            {/* SEZNAM – prvih 15; tooltip na hover/focus */}
             <div className="rounded-md border border-gray-200/70 dark:border-gray-800/70 bg-white/50 dark:bg-gray-900/40">
+              {/* pomembno: overflow-y-auto; tooltip je znotraj, zato ne bo “odsekan” po vrstici */}
               <div className="max-h-[66vh] overflow-y-auto">
                 {loading ? (
                   <p className="p-3 text-sm text-gray-500 dark:text-gray-400">Nalagam…</p>
@@ -352,15 +355,11 @@ export default function ArchivePage() {
                       const link = (n as any).link as string
                       const it = itemByLink.get(link)
                       const summary = (it?.summary ?? it?.contentsnippet ?? (it as any)?.description ?? (it as any)?.content ?? '').trim()
+
                       return (
                         <li
                           key={`${link}-${i}`}
-                          className="
-                            group grid
-                            grid-cols-[92px_78px_1fr] sm:grid-cols-[100px_84px_1fr]
-                            gap-x-3 sm:gap-x-4 px-2 sm:px-3 py-1.5
-                            transition-colors hover:bg-gray-50/70 dark:hover:bg-gray-800/40
-                          "
+                          className="grid grid-cols-[92px_78px_1fr] sm:grid-cols-[100px_84px_1fr] gap-x-3 sm:gap-x-4 px-2 sm:px-3 py-1.5"
                         >
                           {/* vir */}
                           <span className="inline-flex items-center gap-1 min-w-0">
@@ -376,34 +375,35 @@ export default function ArchivePage() {
                             {relativeTime((n as any).publishedAt ?? Date.now())}
                           </span>
 
-                          {/* naslov */}
-                          <a
-                            href={link}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="block text-[13px] leading-tight text-gray-900 dark:text-gray-100 hover:underline truncate"
-                            title={(n as any).title}
-                          >
-                            {(n as any).title}
-                          </a>
+                          {/* naslov + TOOLTIP */}
+                          <div className="relative">
+                            <a
+                              href={link}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="peer block text-[13px] leading-tight text-gray-900 dark:text-gray-100 hover:underline truncate"
+                              title={(n as any).title}
+                            >
+                              {(n as any).title}
+                            </a>
 
-                          {/* summary: trdno skrit privzeto, prikaži na hover; brez layout skakanja */}
-                          {summary && (
-                            <div className="col-start-3 row-start-2 pointer-events-none select-none">
-                              <p
+                            {/* oblaček — prikaže se na hover/focus nad naslovom */}
+                            {summary && (
+                              <div
                                 className="
-                                  text-[12px] leading-snug text-gray-600 dark:text-gray-400
-                                  opacity-0 max-h-0 overflow-hidden -translate-y-0.5
-                                  transition-all duration-200 ease-out
-                                  group-hover:opacity-100 group-hover:max-h-12 group-hover:translate-y-0
-                                  line-clamp-2
+                                  pointer-events-none absolute left-0 top-full mt-1 z-50 max-w-[60ch]
+                                  rounded-md bg-gray-900 text-white text-[12px] leading-snug
+                                  px-2.5 py-2 shadow-lg ring-1 ring-black/20
+                                  opacity-0 invisible translate-y-1 transition
+                                  peer-hover:opacity-100 peer-hover:visible peer-hover:translate-y-0
+                                  peer-focus-visible:opacity-100 peer-focus-visible:visible peer-focus-visible:translate-y-0
                                 "
-                                aria-hidden="true"
+                                role="tooltip"
                               >
                                 {summary}
-                              </p>
-                            </div>
-                          )}
+                              </div>
+                            )}
+                          </div>
                         </li>
                       )
                     })}
@@ -411,7 +411,7 @@ export default function ArchivePage() {
                 )}
               </div>
 
-              {/* gumbi pod seznamom */}
+              {/* gumbi pod seznamom (višina seznama ostane enaka) */}
               <div className="flex items-center justify-center gap-3 px-3 py-3">
                 {!showAll && filteredNews.length > 15 && (
                   <button
@@ -435,7 +435,7 @@ export default function ArchivePage() {
             </div>
           </div>
 
-          {/* (namerno) brez ločnice pred footerjem */}
+          {/* brez ločnice pred footerjem */}
         </section>
       </main>
 
