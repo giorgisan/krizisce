@@ -128,7 +128,7 @@ function isBlockedBasic(i: { link?: string; title?: string; content?: string | n
   return false
 }
 
-/* ---- FIX 2: timeout v HTML fetchu ---- */
+/* ---- HTML fetch s timeoutom ---- */
 let htmlChecks = 0
 async function hasSponsorMarker(url: string): Promise<boolean> {
   if (!ENABLE_HTML_CHECK) return false
@@ -163,7 +163,7 @@ async function hasSponsorMarker(url: string): Promise<boolean> {
 export default async function fetchRSSFeeds(opts: FetchOpts = {}): Promise<NewsItem[]> {
   const { forceFresh = false } = opts
 
-  /* ---- FIX 1: resetiraj budget na vsak klic ---- */
+  // resetiraj budget HTML-checkov za vsak klic
   htmlChecks = 0
 
   const results = await Promise.all(
@@ -208,7 +208,13 @@ export default async function fetchRSSFeeds(opts: FetchOpts = {}): Promise<NewsI
   // 1) osnovni rez
   let flat: NewsItem[] = results.flat().filter(i => !isBlockedBasic(i))
 
-  /* ---- FIX 3: HTML-check deterministično, max N ---- */
+  // 1.5) dodatni RSS ad-filter (brez mreže)
+  flat = excludeAds(flat, 3, true)
+
+  // 1.6) sortiraj, da HTML-check pregleda najnovejše
+  flat.sort((a, b) => (b.publishedAt || 0) - (a.publishedAt || 0))
+
+  // 2) HTML-check deterministično, max N in samo na izbranih hostih
   const kept: NewsItem[] = []
   let used = 0
   function hostAllowed(url: string) {
@@ -228,6 +234,7 @@ export default async function fetchRSSFeeds(opts: FetchOpts = {}): Promise<NewsI
   }
   flat = kept
 
+  // zadnji sort za vsak slučaj
   flat.sort((a, b) => (b.publishedAt || 0) - (a.publishedAt || 0))
   return flat
 }
