@@ -32,7 +32,7 @@ type ApiPayload =
   | { items: ApiItem[]; counts: Record<string, number>; total: number; nextCursor: string | null; fallbackLive?: boolean }
   | { error: string }
 
-// === helpers ================================================================
+// ==== helpers ==============================================================
 function tsOf(a: ApiItem) {
   const t = (a.publishedat && Number(a.publishedat)) || (a.published_at ? Date.parse(a.published_at) : NaN)
   return Number.isFinite(t) ? Number(t) : 0
@@ -59,7 +59,7 @@ function norm(s: string) {
   try { return s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '') } catch { return s.toLowerCase() }
 }
 
-// simple highlighter (diakritično-neobčutljiv, case-insensitive)
+// preprosti highlighter (case/diakritika-insensitive)
 function highlight(text: string, q: string) {
   if (!q) return text
   const t = text ?? ''
@@ -67,11 +67,9 @@ function highlight(text: string, q: string) {
   const nq = norm(q).trim()
   if (!nq) return t
 
-  // razbij po besedah (filtriraj kratke, da ne markamo vsega)
   const tokens = Array.from(new Set(nq.split(/\s+/).filter(w => w.length >= 2)))
   if (tokens.length === 0) return t
 
-  // poiščemo intervale zadetkov v originalnem stringu
   const ranges: Array<[number, number]> = []
   for (const tok of tokens) {
     let start = 0
@@ -83,8 +81,6 @@ function highlight(text: string, q: string) {
     }
   }
   if (!ranges.length) return t
-
-  // združi prekrivanja
   ranges.sort((a,b)=>a[0]-b[0])
   const merged: Array<[number, number]> = []
   for (const r of ranges) {
@@ -92,7 +88,6 @@ function highlight(text: string, q: string) {
     else merged[merged.length-1][1] = Math.max(merged[merged.length-1][1], r[1])
   }
 
-  // zrenderaj fragment z <mark>
   const out: React.ReactNode[] = []
   let last = 0
   for (const [a,b] of merged) {
@@ -104,7 +99,7 @@ function highlight(text: string, q: string) {
   return <>{out}</>
 }
 
-// === session cache ==========================================================
+// ==== session cache ========================================================
 const CACHE_KEY = (date: string) => `krizisce:archive:${date}`
 const CACHE_TTL_MS = 10 * 60 * 1000
 type CacheShape = { at: number; items: ApiItem[]; counts: Record<string, number>; fallbackLive: boolean }
@@ -121,7 +116,7 @@ function writeCache(date: string, data: CacheShape) {
   try { sessionStorage.setItem(CACHE_KEY(date), JSON.stringify(data)) } catch {}
 }
 
-// === page ===================================================================
+// ==== page =================================================================
 export default function ArchivePage() {
   const [date, setDate] = useState<string>(() => yyyymmdd(new Date()))
   const [search, setSearch] = useState<string>('')
@@ -133,7 +128,7 @@ export default function ArchivePage() {
   const [fallbackLive, setFallbackLive] = useState(false)
 
   const [nextCursor, setNextCursor] = useState<string | null>(null)
-  const nextCursorRef = useRef<string | null>(null)     // <— pomembno!
+  const nextCursorRef = useRef<string | null>(null)
   const [loadedAll, setLoadedAll] = useState(false)
   const [loadingMore, setLoadingMore] = useState(false)
 
@@ -143,6 +138,11 @@ export default function ArchivePage() {
   const bgAbortRef = useRef<AbortController | null>(null)
   const bgStartedRef = useRef<boolean>(false)
   const [bgLoading, setBgLoading] = useState(false)
+
+  // “posodobljeno pred …”
+  const [lastUpdatedMs, setLastUpdatedMs] = useState<number | null>(null)
+  const [nowTick, setNowTick] = useState(0) // osveži prikaz "pred ..." vsakih 30 s
+  useEffect(() => { const t = setInterval(() => setNowTick(x=>x+1), 30_000); return () => clearInterval(t) }, [])
 
   const news = useMemo(() => items.map(toNewsItem), [items])
   const displayCounts = useMemo(() => Object.fromEntries(Object.entries(counts).filter(([k]) => k !== 'TestVir')), [counts])
@@ -178,7 +178,6 @@ export default function ArchivePage() {
     if (abortRef.current) abortRef.current.abort()
     const controller = new AbortController(); abortRef.current = controller
 
-    // reset
     setErrorMsg(null); setShowAll(false); setLoadedAll(false)
     setNextCursor(null); nextCursorRef.current = null
     if (bgAbortRef.current) { bgAbortRef.current.abort(); bgAbortRef.current = null }
@@ -190,6 +189,7 @@ export default function ArchivePage() {
       if (cached) {
         setItems([...cached.items].sort(sortDesc))
         setCounts(cached.counts); setFallbackLive(cached.fallbackLive)
+        setLastUpdatedMs(cached.at) // ← posodobi indikator, če je iz cache
         servedFromCache = true
       }
     }
@@ -213,12 +213,13 @@ export default function ArchivePage() {
       setFallbackLive(Boolean((data as any).fallbackLive))
 
       setNextCursor(data.nextCursor ?? null)
-      nextCursorRef.current = data.nextCursor ?? null  // <— posodobi REF
+      nextCursorRef.current = data.nextCursor ?? null
       setLoading(false)
 
+      setLastUpdatedMs(Date.now()) // ← osveženo zdaj
       writeCache(d, { at: Date.now(), items: sorted, counts: data.counts ?? {}, fallbackLive: Boolean((data as any).fallbackLive) })
 
-      // >>> takoj zaženi ozadje Z ARGUMENTOM (da ne čaka na setState)
+      // začni ozadno nalaganje takoj
       if (data.nextCursor && !bgStartedRef.current) {
         bgStartedRef.current = true
         void loadRestOfDay({ background: true, startCursor: data.nextCursor })
@@ -243,7 +244,6 @@ export default function ArchivePage() {
 
     try {
       const LIMIT = 250
-      // ločen abort za ozadje
       const controller = new AbortController()
       if (background) {
         if (bgAbortRef.current) bgAbortRef.current.abort()
@@ -265,6 +265,7 @@ export default function ArchivePage() {
           acc = [...acc, ...fresh]
           const sorted = [...acc].sort(sortDesc)
           setItems(sorted)
+          setLastUpdatedMs(Date.now()) // ← posodobljeno tudi ob ozadnem dotoku
           writeCache(date, { at: Date.now(), items: sorted, counts, fallbackLive })
         }
 
@@ -288,7 +289,7 @@ export default function ArchivePage() {
 
   function refreshNow() { fetchFirstPage(date, false) }
 
-  // če uporabnik tipka in še ni naloženo vse, začni ozadje (preko REF)
+  // auto-ozadje pri tipkanju, če še ni vse naloženo
   useEffect(() => {
     const q = deferredSearch.trim()
     if (q && !loadedAll && nextCursorRef.current && !bgStartedRef.current) {
@@ -298,14 +299,36 @@ export default function ArchivePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [deferredSearch, loadedAll])
 
+  // === Auto-osveževanje današnjega dne (vsako minuto, če je zavihek viden) ===
+  const todayStr = useMemo(() => yyyymmdd(new Date()), [])
+  const latestTsRef = useRef<number>(0)
+  useEffect(() => { latestTsRef.current = items.length ? tsOf(items[0]) : 0 }, [items])
+
   useEffect(() => {
-    fetchFirstPage(date, true)
-    return () => {
-      if (abortRef.current) abortRef.current.abort()
-      if (bgAbortRef.current) bgAbortRef.current.abort()
+    if (date !== todayStr) return
+    let timer: number | undefined
+
+    const tick = async () => {
+      if (document.hidden) return
+      try {
+        const res = await fetch(`/api/archive?date=${encodeURIComponent(date)}&limit=1`, { cache: 'no-store' })
+        const data: any = await res.json()
+        const newest = (data?.items?.length ? tsOf(data.items[0]) : 0) || 0
+        if (newest > latestTsRef.current) {
+          await fetchFirstPage(date, false)
+        }
+      } catch {}
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [date])
+
+    timer = window.setInterval(tick, 60_000)
+    void tick()
+    return () => { if (timer) clearInterval(timer) }
+  }, [date, todayStr])
+
+  // === UI ===================================================================
+  const updatedText = useMemo(() => (
+    lastUpdatedMs ? `Posodobljeno ${relativeTime(lastUpdatedMs)}` : ''
+  ), [lastUpdatedMs, nowTick])
 
   return (
     <>
@@ -357,6 +380,12 @@ export default function ArchivePage() {
                 </svg>
                 Osveži
               </button>
+
+              {updatedText && (
+                <span className="ml-2 text-xs text-gray-600 dark:text-gray-400 whitespace-nowrap">
+                  {updatedText}
+                </span>
+              )}
             </div>
 
             {/* search */}
@@ -407,7 +436,7 @@ export default function ArchivePage() {
 
           {/* SEZNAM */}
           <div className="rounded-md border border-gray-200/70 dark:border-gray-800/70 bg-white/50 dark:bg-gray-900/40">
-            <div className="relative h-[44vh] overflow-y-auto pb-8">
+            <div className="relative max-h-[44vh] overflow-y-auto pb-6">
               {loading ? (
                 <p className="p-3 text-sm text-gray-500 dark:text-gray-400">Nalagam…</p>
               ) : errorMsg ? (
