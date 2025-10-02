@@ -16,13 +16,18 @@ import SeoHead from '@/components/SeoHead'
 import { NewsItem } from '@/types'
 import { sourceColors } from '@/lib/sources'
 
+/** -------------------- API types (usklajeno s tvojo shemo) ----------------- */
 type ApiItem = {
   id: string
-  source: string
-  title: string
   link: string
-  summary?: string | null   // lahko je tudi description/content v API-ju
-  published_at: string // ISO
+  title: string
+  source: string
+  published_at?: string | null          // ISO (lahko pride iz view-a)
+  publishedat?: number | null           // bigint (fallback)
+  summary?: string | null               // <- Supabase column
+  contentsnippet?: string | null        // <- Supabase column
+  description?: string | null           // nekateri parserji
+  content?: string | null               // nekateri parserji
 }
 
 type ApiPayload =
@@ -35,12 +40,18 @@ type ApiPayload =
     }
   | { error: string }
 
+/** ------------------------------- Helpers ---------------------------------- */
 function toNewsItem(a: ApiItem): NewsItem {
+  // poskusi čim bolj zanesljivo derivirati timestamp
+  const ts =
+    (a.publishedat && Number(a.publishedat)) ||
+    (a.published_at ? Date.parse(a.published_at) : NaN)
+
   return {
     title: a.title,
     link: a.link,
     source: a.source,
-    publishedAt: new Date(a.published_at).getTime(),
+    publishedAt: Number.isFinite(ts) ? Number(ts) : Date.now(),
   } as unknown as NewsItem
 }
 
@@ -51,7 +62,7 @@ function yyyymmdd(d: Date) {
   return `${y}-${m}-${dd}`
 }
 
-// relativni čas: "pred 8 min", "pred 2 h", "pred 1 d"
+// relativni čas
 function relativeTime(ms: number) {
   const diff = Math.max(0, Date.now() - ms)
   const m = Math.floor(diff / 60000)
@@ -70,19 +81,16 @@ function fmtClock(ms: number) {
   } catch { return '' }
 }
 
-// --- VARNO odstranjevanje diakritike (brez \p{...} in 'u' flage) ---
+// varno odstrani diakritiko (brez \p{...})
 function norm(s: string) {
   try {
-    return s
-      .toLowerCase()
-      .normalize('NFD')                // razdrobi znake
-      .replace(/[\u0300-\u036f]/g, '') // odstrani kombinirne naglase (šumniki ipd.)
+    return s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
   } catch {
     return s.toLowerCase()
   }
 }
 
-/* ----------------------- Client cache (sessionStorage) ---------------------- */
+/** ----------------------- Client cache (sessionStorage) --------------------- */
 const CACHE_KEY = (date: string) => `krizisce:archive:${date}`
 const CACHE_TTL_MS = 10 * 60 * 1000 // 10 min
 
@@ -110,7 +118,7 @@ function writeCache(date: string, data: CacheShape) {
   } catch { /* ignore quota */ }
 }
 
-/* --------------------------------- Page ----------------------------------- */
+/** --------------------------------- Page ----------------------------------- */
 export default function ArchivePage() {
   const [date, setDate] = useState<string>(() => yyyymmdd(new Date()))
   const [search, setSearch] = useState<string>('')
@@ -128,7 +136,7 @@ export default function ArchivePage() {
 
   const news = useMemo(() => items.map(toNewsItem), [items])
 
-  // kompakten graf brez "TestVir"
+  // graf brez "TestVir"
   const displayCounts = useMemo(() => {
     const entries = Object.entries(counts).filter(([k]) => k !== 'TestVir')
     return Object.fromEntries(entries)
@@ -140,12 +148,13 @@ export default function ArchivePage() {
   )
   const maxCount = useMemo(() => Math.max(1, ...Object.values(displayCounts)), [displayCounts])
 
-  // hiter lookup za summary (poberemo tudi description/content)
+  /** --------- Hiter lookup za PODNASLOV: summary || contentsnippet ... ------ */
   const summaryByLink = useMemo(() => {
     const m = new Map<string, string>()
     for (const it of items) {
       const s =
-        (it as any).summary ??
+        it.summary ??
+        it.contentsnippet ??
         (it as any).description ??
         (it as any).content ??
         ''
@@ -154,12 +163,12 @@ export default function ArchivePage() {
     return m
   }, [items])
 
-  // Debounce/render-friendly search
+  // debounced search
   const deferredSearch = useDeferredValue(search)
   const filteredNews = useMemo(() => {
     const q = norm(deferredSearch.trim())
     if (!q) return news
-    return news.filter(n => {
+    return news.filter((n) => {
       const link = (n as any).link as string
       const title = (n as any).title ?? ''
       const src = (n as any).source ?? ''
@@ -169,7 +178,7 @@ export default function ArchivePage() {
     })
   }, [news, deferredSearch, summaryByLink])
 
-  /* ----------------------- Progressive autopager ------------------------ */
+  /** ----------------------- Progressive autopager ------------------------ */
   async function fetchAllForDayProgressive(d: string, useCache = true) {
     if (abortRef.current) abortRef.current.abort()
     const controller = new AbortController()
@@ -282,12 +291,13 @@ export default function ArchivePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [date])
 
+  /** --------------------------------- UI ----------------------------------- */
   return (
     <>
       <Header />
       <SeoHead title="Križišče — Arhiv" description="Pregled novic po dnevih in medijih." />
 
-    <main className="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white px-4 md:px-8 lg:px-16 pb-24 pt-6">
+      <main className="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white px-4 md:px-8 lg:px-16 pb-20 pt-6">
         <section className="max-w-6xl mx-auto">
           {/* toolbar */}
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -319,7 +329,7 @@ export default function ArchivePage() {
             </div>
 
             {/* search */}
-            <div className="relative w-full sm:w-80">
+            <div className="relative w-full sm:w-96">
               <svg className="absolute left-2.5 top-1/2 -translate-y-1/2" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
                 <circle cx="11" cy="11" r="7" stroke="currentColor" strokeWidth="2" fill="none" />
                 <path d="M20 20l-3.2-3.2" stroke="currentColor" strokeWidth="2" />
@@ -356,90 +366,91 @@ export default function ArchivePage() {
             </p>
           )}
 
-          {/* STATISTIKA */}
-          <div className="mt-5 rounded-xl border border-gray-200/70 dark:border-gray-700/70 bg-white/70 dark:bg-gray-900/70 backdrop-blur p-4">
-            <div className="flex items-center justify-between">
-              <h2 className="font-medium">Objave po medijih</h2>
-              <span className="text-sm text-gray-600 dark:text-gray-400">Skupaj: {total}</span>
-            </div>
-
-            {total === 0 && !loading && !errorMsg && (
-              <p className="mt-3 text-sm text-gray-600 dark:text-gray-400">Za izbrani dan ni podatkov.</p>
-            )}
-
-            <div className="mt-3 space-y-2">
-              {Object.entries(displayCounts)
-                .sort((a, b) => b[1] - a[1])
-                .map(([source, count]) => (
-                  <div key={source} className="flex items-center gap-3">
-                    <div className="w-32 shrink-0 text-sm text-gray-700 dark:text-gray-300">{source}</div>
-                    <div className="flex-1 h-3 rounded-full bg-gray-200 dark:bg-gray-800 overflow-hidden">
-                      <div
-                        className="h-full bg-brand dark:bg-brand"
-                        style={{ width: `${(count / maxCount) * 100}%` }}
-                        aria-hidden
-                      />
-                    </div>
-                    <div className="w-12 text-right text-sm tabular-nums">{count}</div>
-                  </div>
-                ))}
-            </div>
-          </div>
-
-          {/* SEZNAM – grid za stalno poravnavo: [vir][čas][naslov] */}
-          <div className="mt-5">
-            {news.length === 0 && !loading && !errorMsg ? (
-              <p className="text-gray-500 dark:text-gray-400">Ni novic za ta dan.</p>
-            ) : null}
-
-            {news.length > 0 && (
-              <div className="rounded-md border border-gray-200/70 dark:border-gray-800/70 bg-white/50 dark:bg-gray-900/40">
-                <div className="max-h-[55vh] overflow-y-auto">
-                  <ul className="divide-y divide-gray-200 dark:divide-gray-800">
-                    {filteredNews.map((n, i) => {
-                      const src = (n as any).source
-                      const hex = sourceColors[src] || '#7c7c7c'
-                      return (
-                        <li
-                          key={`${(n as any).link}-${i}`}
-                          className="
-                            grid items-center
-                            grid-cols-[92px_78px_1fr] sm:grid-cols-[100px_84px_1fr]
-                            gap-x-3 sm:gap-x-4 px-2 sm:px-3 py-1.5
-                          "
-                        >
-                          {/* vir */}
-                          <span className="inline-flex items-center gap-1 min-w-0">
-                            <span className="inline-block w-1.5 h-1.5 rounded-full" style={{ backgroundColor: hex }} aria-hidden />
-                            <span className="truncate text-[10px] text-gray-600 dark:text-gray-400">{src}</span>
-                          </span>
-
-                          {/* čas */}
-                          <span
-                            className="text-right sm:text-left text-[10px] text-gray-500 dark:text-gray-400 tabular-nums"
-                            title={fmtClock((n as any).publishedAt ?? Date.now())}
-                          >
-                            {relativeTime((n as any).publishedAt ?? Date.now())}
-                          </span>
-
-                          {/* naslov */}
-                          <a
-                            href={(n as any).link}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="block text-[13px] leading-tight text-gray-900 dark:text-gray-100 hover:underline truncate"
-                            title={(n as any).title}
-                          >
-                            {(n as any).title}
-                          </a>
-                        </li>
-                      )
-                    })}
-                  </ul>
-                </div>
+          {/* GRID POSTAVITEV: graf 1/3, seznam 2/3 (po višini viewporta) */}
+          <div className="mt-5 space-y-5">
+            {/* GRAF / STATISTIKA */}
+            <div
+              className="rounded-xl border border-gray-200/70 dark:border-gray-700/70 bg-white/70 dark:bg-gray-900/70 backdrop-blur p-4"
+              style={{ maxHeight: '34vh', overflow: 'auto' }}
+            >
+              <div className="flex items-center justify-between">
+                <h2 className="font-medium">Objave po medijih</h2>
+                <span className="text-sm text-gray-600 dark:text-gray-400">Skupaj: {total}</span>
               </div>
-            )}
+
+              {total === 0 && !loading && !errorMsg && (
+                <p className="mt-3 text-sm text-gray-600 dark:text-gray-400">Za izbrani dan ni podatkov.</p>
+              )}
+
+              <div className="mt-3 space-y-2">
+                {Object.entries(displayCounts)
+                  .sort((a, b) => b[1] - a[1])
+                  .map(([source, count]) => (
+                    <div key={source} className="flex items-center gap-3">
+                      <div className="w-32 shrink-0 text-sm text-gray-700 dark:text-gray-300">{source}</div>
+                      <div className="flex-1 h-3 rounded-full bg-gray-200 dark:bg-gray-800 overflow-hidden">
+                        <div
+                          className="h-full bg-brand dark:bg-brand"
+                          style={{ width: `${(count / maxCount) * 100}%` }}
+                          aria-hidden
+                        />
+                      </div>
+                      <div className="w-12 text-right text-sm tabular-nums">{count}</div>
+                    </div>
+                  ))}
+              </div>
+            </div>
+
+            {/* SEZNAM – 2/3 višine */}
+            <div className="rounded-md border border-gray-200/70 dark:border-gray-800/70 bg-white/50 dark:bg-gray-900/40">
+              <div className="max-h-[66vh] overflow-y-auto">
+                <ul className="divide-y divide-gray-200 dark:divide-gray-800">
+                  {filteredNews.map((n, i) => {
+                    const src = (n as any).source
+                    const hex = sourceColors[src] || '#7c7c7c'
+                    return (
+                      <li
+                        key={`${(n as any).link}-${i}`}
+                        className="
+                          grid items-center
+                          grid-cols-[92px_78px_1fr] sm:grid-cols-[100px_84px_1fr]
+                          gap-x-3 sm:gap-x-4 px-2 sm:px-3 py-1.5
+                        "
+                      >
+                        {/* vir */}
+                        <span className="inline-flex items-center gap-1 min-w-0">
+                          <span className="inline-block w-1.5 h-1.5 rounded-full" style={{ backgroundColor: hex }} aria-hidden />
+                          <span className="truncate text-[10px] text-gray-600 dark:text-gray-400">{src}</span>
+                        </span>
+
+                        {/* čas */}
+                        <span
+                          className="text-right sm:text-left text-[10px] text-gray-500 dark:text-gray-400 tabular-nums"
+                          title={fmtClock((n as any).publishedAt ?? Date.now())}
+                        >
+                          {relativeTime((n as any).publishedAt ?? Date.now())}
+                        </span>
+
+                        {/* naslov */}
+                        <a
+                          href={(n as any).link}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="block text-[13px] leading-tight text-gray-900 dark:text-gray-100 hover:underline truncate"
+                          title={(n as any).title}
+                        >
+                          {(n as any).title}
+                        </a>
+                      </li>
+                    )
+                  })}
+                </ul>
+              </div>
+            </div>
           </div>
+
+          {/* ločnica pred footerjem (kot na naslovnici) */}
+          <div className="mt-8 h-px bg-gray-200 dark:bg-gray-800" />
         </section>
       </main>
 
