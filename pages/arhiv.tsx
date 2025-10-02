@@ -57,7 +57,7 @@ function relativeTime(ms: number) {
   return `pred ${d} d`
 }
 
-// HH:mm v naslovu (title)
+// HH:mm v title (hover)
 function fmtClock(ms: number) {
   try {
     return new Intl.DateTimeFormat('sl-SI', { hour: '2-digit', minute: '2-digit' }).format(new Date(ms))
@@ -76,13 +76,9 @@ function hexToRgba(hex: string, alpha = 1) {
   } catch { return `rgba(120,120,120,${alpha})` }
 }
 
-const A11y = {
-  backHome: 'Nazaj na naslovnico',
-  pickDay: 'Izberi dan'
-}
-
 export default function ArchivePage() {
   const [date, setDate] = useState<string>(() => yyyymmdd(new Date()))
+  const [search, setSearch] = useState<string>('')
   const [items, setItems] = useState<ApiItem[]>([])
   const [counts, setCounts] = useState<Record<string, number>>({})
   const [nextCursor, setNextCursor] = useState<string | null>(null)
@@ -93,7 +89,7 @@ export default function ArchivePage() {
 
   const news = useMemo(() => items.map(toNewsItem), [items])
 
-  // odstrani morebitne testne vnose
+  // odstrani "TestVir" iz grafa
   const displayCounts = useMemo(() => {
     const entries = Object.entries(counts).filter(([k]) => k !== 'TestVir')
     return Object.fromEntries(entries)
@@ -104,6 +100,15 @@ export default function ArchivePage() {
     [displayCounts]
   )
   const maxCount = useMemo(() => Math.max(1, ...Object.values(displayCounts)), [displayCounts])
+
+  const filteredNews = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    if (!q) return news
+    return news.filter(n => {
+      const hay = `${n.title} ${n.summary ?? ''} ${n.source}`.toLowerCase()
+      return hay.includes(q)
+    })
+  }, [news, search])
 
   async function fetchDay(d: string) {
     setLoading(true)
@@ -161,18 +166,17 @@ export default function ArchivePage() {
       <main className="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white px-4 md:px-8 lg:px-16 pb-24 pt-6">
         <section className="max-w-6xl mx-auto">
           {/* toolbar */}
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-            <h1 className="text-2xl font-semibold">Arhiv</h1>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-2">
               <Link
                 href="/"
-                className="inline-flex items-center gap-2 px-3 py-2 rounded-md text-sm
+                className="inline-flex items-center gap-2 px-2.5 py-1.5 rounded-md text-xs
                            border border-gray-300/60 dark:border-gray-700/60
                            bg-white/70 dark:bg-gray-800/60 hover:bg-white/90 dark:hover:bg-gray-800/80 transition"
-                title={A11y.backHome}
-                aria-label={A11y.backHome}
+                title="Nazaj na naslovnico"
+                aria-label="Nazaj na naslovnico"
               >
-                <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
                   <path d="M3 12L12 3l9 9" stroke="currentColor" strokeWidth="2" fill="none"/>
                   <path d="M5 10v10h5v-6h4v6h5V10" stroke="currentColor" strokeWidth="2" fill="none"/>
                 </svg>
@@ -186,23 +190,40 @@ export default function ArchivePage() {
                 value={date}
                 max={yyyymmdd(new Date())}
                 onChange={(e) => startTransition(() => setDate(e.target.value))}
-                className="px-3 py-2 rounded-md border border-gray-300 dark:border-gray-700 bg-white/80 dark:bg-gray-800/80 backdrop-blur text-sm"
+                className="px-2.5 py-1.5 rounded-md border border-gray-300 dark:border-gray-700 bg-white/80 dark:bg-gray-800/80 backdrop-blur text-xs"
+              />
+            </div>
+
+            {/* search */}
+            <div className="relative w-full sm:w-80">
+              <svg className="absolute left-2.5 top-1/2 -translate-y-1/2" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+                <circle cx="11" cy="11" r="7" stroke="currentColor" strokeWidth="2" fill="none" />
+                <path d="M20 20l-3.2-3.2" stroke="currentColor" strokeWidth="2" />
+              </svg>
+              <input
+                type="search"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Išči po naslovu ali viru…"
+                className="w-full pl-8 pr-3 py-2 rounded-md text-sm bg-white/80 dark:bg-gray-800/70
+                           border border-gray-300/70 dark:border-gray-700/70 focus:outline-none
+                           focus:ring-2 focus:ring-brand/50"
               />
             </div>
           </div>
 
           {/* napaka ali fallback info */}
           {!loading && errorMsg && (
-            <p className="mt-4 text-sm text-red-400">{errorMsg}</p>
+            <p className="mt-3 text-xs text-red-400">{errorMsg}</p>
           )}
           {!loading && !errorMsg && fallbackLive && (
-            <p className="mt-4 text-sm text-amber-400">
+            <p className="mt-3 text-xs text-amber-400">
               Arhiv za izbrani dan je še prazen. Prikazane so trenutne novice iz živih virov (ne-shranjene).
             </p>
           )}
 
           {/* STATISTIKA */}
-          <div className="mt-6 rounded-xl border border-gray-200/70 dark:border-gray-700/70 bg-white/70 dark:bg-gray-900/70 backdrop-blur p-4">
+          <div className="mt-5 rounded-xl border border-gray-200/70 dark:border-gray-700/70 bg-white/70 dark:bg-gray-900/70 backdrop-blur p-4">
             <div className="flex items-center justify-between">
               <h2 className="font-medium">Objave po medijih</h2>
               <span className="text-sm text-gray-600 dark:text-gray-400">Skupaj: {total}</span>
@@ -231,38 +252,37 @@ export default function ArchivePage() {
             </div>
           </div>
 
-          {/* SEZNAM NOVIC – vrstični, brez slik */}
-          <div className="mt-6">
+          {/* SEZNAM NOVIC – ultra kompakten */}
+          <div className="mt-5">
             {loading ? (
               <p className="text-gray-500 dark:text-gray-400">Nalagam…</p>
             ) : (
               <>
-                {news.length === 0 && !errorMsg ? (
+                {filteredNews.length === 0 && !errorMsg ? (
                   <p className="text-gray-500 dark:text-gray-400">Ni novic za ta dan.</p>
                 ) : null}
 
-                {news.length > 0 && (
-                  <ul className="divide-y divide-gray-200 dark:divide-gray-800 rounded-lg border border-gray-200/70 dark:border-gray-800/70 bg-white/60 dark:bg-gray-900/50 overflow-hidden">
-                    {news.map((n, i) => {
+                {filteredNews.length > 0 && (
+                  <ul className="rounded-md border border-gray-200/70 dark:border-gray-800/70 bg-white/50 dark:bg-gray-900/40 divide-y divide-gray-200 dark:divide-gray-800">
+                    {filteredNews.map((n, i) => {
                       const hex = sourceColors[n.source] || '#7c7c7c'
-                      const badgeBg = hexToRgba(hex, 0.15)
-                      const badgeBorder = hexToRgba(hex, 0.35)
                       return (
-                        <li key={`${n.link}-${i}`} className="px-4 sm:px-5 py-3 flex items-start gap-3">
-                          <span
-                            className="shrink-0 inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium"
-                            style={{ backgroundColor: badgeBg, color: hex, border: `1px solid ${badgeBorder}` }}
-                            title={n.source}
-                            aria-label={n.source}
-                          >
-                            {n.source}
+                        <li key={`${n.link}-${i}`} className="px-3 sm:px-4 py-2 flex items-center gap-2">
+                          {/* Badge: barvna pikica + vir */}
+                          <span className="shrink-0 inline-flex items-center gap-1 min-w-[68px]">
+                            <span className="inline-block w-1.5 h-1.5 rounded-full" style={{ backgroundColor: hex }} aria-hidden />
+                            <span className="text-[11px] text-gray-600 dark:text-gray-400">{n.source}</span>
                           </span>
+
+                          {/* Čas */}
                           <span
-                            className="shrink-0 w-20 text-sm text-gray-500 dark:text-gray-400 tabular-nums mt-0.5"
+                            className="shrink-0 w-20 text-[11px] text-gray-500 dark:text-gray-400 tabular-nums"
                             title={fmtClock(n.publishedAt ?? Date.now())}
                           >
                             {relativeTime(n.publishedAt ?? Date.now())}
                           </span>
+
+                          {/* Naslov */}
                           <a
                             href={n.link}
                             target="_blank"
@@ -278,11 +298,11 @@ export default function ArchivePage() {
                 )}
 
                 {nextCursor && (
-                  <div className="text-center mt-8">
+                  <div className="text-center mt-6">
                     <button
                       onClick={loadMore}
                       disabled={loadingMore}
-                      className="px-5 py-2 bg-brand text-white rounded-full hover:bg-brand-hover transition disabled:opacity-60"
+                      className="px-4 py-1.5 bg-brand text-white rounded-full hover:bg-brand-hover transition disabled:opacity-60 text-sm"
                     >
                       {loadingMore ? 'Nalagam…' : 'Naloži več'}
                     </button>
