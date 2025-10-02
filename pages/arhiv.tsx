@@ -16,7 +16,6 @@ import SeoHead from '@/components/SeoHead'
 import { NewsItem } from '@/types'
 import { sourceColors } from '@/lib/sources'
 
-/** -------------------- API types (usklajeno s shemo) ----------------- */
 type ApiItem = {
   id: string
   link: string
@@ -40,7 +39,6 @@ type ApiPayload =
     }
   | { error: string }
 
-/** ------------------------------- Helpers ---------------------------------- */
 function toNewsItem(a: ApiItem): NewsItem {
   const ts =
     (a.publishedat && Number(a.publishedat)) ||
@@ -61,7 +59,6 @@ function yyyymmdd(d: Date) {
   return `${y}-${m}-${dd}`
 }
 
-// relativni čas
 function relativeTime(ms: number) {
   const diff = Math.max(0, Date.now() - ms)
   const m = Math.floor(diff / 60000)
@@ -73,14 +70,12 @@ function relativeTime(ms: number) {
   return `pred ${d} d`
 }
 
-// HH:mm v title (hover)
 function fmtClock(ms: number) {
   try {
     return new Intl.DateTimeFormat('sl-SI', { hour: '2-digit', minute: '2-digit' }).format(new Date(ms))
   } catch { return '' }
 }
 
-// varno odstrani diakritiko
 function norm(s: string) {
   try {
     return s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
@@ -89,9 +84,8 @@ function norm(s: string) {
   }
 }
 
-/** ----------------------- Client cache (sessionStorage) --------------------- */
 const CACHE_KEY = (date: string) => `krizisce:archive:${date}`
-const CACHE_TTL_MS = 10 * 60 * 1000 // 10 min
+const CACHE_TTL_MS = 10 * 60 * 1000
 
 type CacheShape = {
   at: number
@@ -110,14 +104,10 @@ function readCache(date: string): CacheShape | null {
     return parsed
   } catch { return null }
 }
-
 function writeCache(date: string, data: CacheShape) {
-  try {
-    sessionStorage.setItem(CACHE_KEY(date), JSON.stringify(data))
-  } catch { /* ignore quota */ }
+  try { sessionStorage.setItem(CACHE_KEY(date), JSON.stringify(data)) } catch {}
 }
 
-/** --------------------------------- Page ----------------------------------- */
 export default function ArchivePage() {
   const [date, setDate] = useState<string>(() => yyyymmdd(new Date()))
   const [search, setSearch] = useState<string>('')
@@ -130,51 +120,37 @@ export default function ArchivePage() {
   const [pagesFetched, setPagesFetched] = useState(0)
   const [isStaleRefresh, setIsStaleRefresh] = useState(false)
 
-  // abort za aktivne fetch-e
   const abortRef = useRef<AbortController | null>(null)
 
   const news = useMemo(() => items.map(toNewsItem), [items])
 
-  // graf brez "TestVir"
   const displayCounts = useMemo(() => {
     const entries = Object.entries(counts).filter(([k]) => k !== 'TestVir')
     return Object.fromEntries(entries)
   }, [counts])
-
-  const total = useMemo(
-    () => Object.values(displayCounts).reduce((a, b) => a + b, 0),
-    [displayCounts]
-  )
+  const total = useMemo(() => Object.values(displayCounts).reduce((a, b) => a + b, 0), [displayCounts])
   const maxCount = useMemo(() => Math.max(1, ...Object.values(displayCounts)), [displayCounts])
 
-  /** --------- Lookup za PODNASLOV: summary || contentsnippet ... ------ */
   const summaryByLink = useMemo(() => {
     const m = new Map<string, string>()
     for (const it of items) {
-      const s =
-        it.summary ??
-        it.contentsnippet ??
-        (it as any).description ??
-        (it as any).content ??
-        ''
+      const s = it.summary ?? it.contentsnippet ?? (it as any).description ?? (it as any).content ?? ''
       if (s) m.set(it.link, String(s))
     }
     return m
   }, [items])
 
-  // map za direkten dostop do itemov (za prikaz summary)
   const itemByLink = useMemo(() => {
     const m = new Map<string, ApiItem>()
     for (const it of items) m.set(it.link, it)
     return m
   }, [items])
 
-  // debounced search
   const deferredSearch = useDeferredValue(search)
   const filteredNews = useMemo(() => {
     const q = norm(deferredSearch.trim())
     if (!q) return news
-    return news.filter((n) => {
+    return news.filter(n => {
       const link = (n as any).link as string
       const title = (n as any).title ?? ''
       const src = (n as any).source ?? ''
@@ -183,9 +159,8 @@ export default function ArchivePage() {
       const hay = `${title} ${summary} ${src}`
       return norm(hay).includes(q)
     })
-  }, [news, deferredSearch, summaryByLink, itemByLink])
+  }, [news, deferredSearch, itemByLink, summaryByLink])
 
-  /** ----------------------- Progressive autopager ------------------------ */
   async function fetchAllForDayProgressive(d: string, useCache = true) {
     if (abortRef.current) abortRef.current.abort()
     const controller = new AbortController()
@@ -195,7 +170,6 @@ export default function ArchivePage() {
     setPagesFetched(0)
     setIsStaleRefresh(false)
 
-    // 1) instant paint iz cache-a
     let servedFromCache = false
     if (useCache) {
       const cached = readCache(d)
@@ -208,7 +182,6 @@ export default function ArchivePage() {
       }
     }
 
-    // 2) sveža prva stran
     setLoading(!servedFromCache)
     try {
       const LIMIT_FIRST = 150
@@ -217,23 +190,16 @@ export default function ArchivePage() {
       const firstData: ApiPayload = await firstRes.json().catch(() => ({ error: 'Neveljaven odgovor strežnika.' }))
 
       if (controller.signal.aborted) return
-
       if (!firstRes.ok || 'error' in firstData) {
-        if (!servedFromCache) {
-          setItems([]); setCounts({}); setFallbackLive(false)
-        }
+        if (!servedFromCache) { setItems([]); setCounts({}); setFallbackLive(false) }
         setErrorMsg('Arhiva trenutno ni mogoče naložiti.')
-        setLoading(false)
-        setIsStaleRefresh(false)
+        setLoading(false); setIsStaleRefresh(false)
         return
       }
 
       const seen = new Set<string>()
       const acc: ApiItem[] = []
-      const firstChunk = (firstData.items ?? []).filter(i => {
-        if (seen.has(i.link)) return false
-        seen.add(i.link); return true
-      })
+      const firstChunk = (firstData.items ?? []).filter(i => { if (seen.has(i.link)) return false; seen.add(i.link); return true })
       acc.push(...firstChunk)
 
       setItems(acc)
@@ -241,10 +207,8 @@ export default function ArchivePage() {
       setFallbackLive(Boolean((firstData as any).fallbackLive))
       setPagesFetched(1)
       setLoading(false)
-
       writeCache(d, { at: Date.now(), items: acc, counts: firstData.counts ?? {}, fallbackLive: Boolean((firstData as any).fallbackLive) })
 
-      // 3) preostanek v ozadju
       let cursor = firstData.nextCursor ?? null
       const LIMIT = 250
       const MAX_PAGES = 20
@@ -258,16 +222,9 @@ export default function ArchivePage() {
         const data: ApiPayload = await res.json().catch(() => ({ error: 'Neveljaven odgovor strežnika.' }))
 
         if (controller.signal.aborted) return
+        if (!res.ok || 'error' in data) { setErrorMsg('Prikazan je delni arhiv (napaka pri nalaganju vseh strani).'); break }
 
-        if (!res.ok || 'error' in data) {
-          setErrorMsg('Prikazan je delni arhiv (napaka pri nalaganju vseh strani).')
-          break
-        }
-
-        const chunk = (data.items ?? []).filter(i => {
-          if (seen.has(i.link)) return false
-          seen.add(i.link); return true
-        })
+        const chunk = (data.items ?? []).filter(i => { if (seen.has(i.link)) return false; seen.add(i.link); return true })
         if (chunk.length) {
           setItems(prev => {
             const next = [...prev, ...chunk]
@@ -281,12 +238,9 @@ export default function ArchivePage() {
 
       setIsStaleRefresh(false)
     } catch {
-      if (!servedFromCache) {
-        setItems([]); setCounts({}); setFallbackLive(false)
-      }
+      if (!servedFromCache) { setItems([]); setCounts({}); setFallbackLive(false) }
       if (!controller.signal.aborted) setErrorMsg('Napaka pri povezavi do arhiva.')
-      setLoading(false)
-      setIsStaleRefresh(false)
+      setLoading(false); setIsStaleRefresh(false)
     } finally {
       window.scrollTo({ top: 0, behavior: 'smooth' })
     }
@@ -298,7 +252,6 @@ export default function ArchivePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [date])
 
-  /** --------------------------------- UI ----------------------------------- */
   return (
     <>
       <Header />
@@ -354,32 +307,18 @@ export default function ArchivePage() {
           </div>
 
           {/* info vrstice */}
-          {!loading && errorMsg && (
-            <p className="mt-3 text-xs text-red-400">{errorMsg}</p>
-          )}
+          {!loading && errorMsg && <p className="mt-3 text-xs text-red-400">{errorMsg}</p>}
           {!loading && !errorMsg && fallbackLive && (
-            <p className="mt-3 text-xs text-amber-400">
-              Arhiv za izbrani dan je še prazen. Prikazane so trenutne novice iz živih virov (ne-shranjene).
-            </p>
+            <p className="mt-3 text-xs text-amber-400">Arhiv za izbrani dan je še prazen. Prikazane so trenutne novice iz živih virov (ne-shranjene).</p>
           )}
-          {isStaleRefresh && (
-            <p className="mt-3 text-[11px] text-gray-500 dark:text-gray-400">
-              Osvežujem arhiv v ozadju… {pagesFetched > 0 ? `(${pagesFetched})` : null}
-            </p>
-          )}
-          {loading && (
-            <p className="mt-3 text-xs text-gray-500 dark:text-gray-400">
-              Nalagam arhiv… {pagesFetched > 0 ? `(${pagesFetched})` : null}
-            </p>
-          )}
+          {isStaleRefresh && <p className="mt-3 text-[11px] text-gray-500 dark:text-gray-400">Osvežujem arhiv v ozadju… {pagesFetched > 0 ? `(${pagesFetched})` : null}</p>}
+          {loading && <p className="mt-3 text-xs text-gray-500 dark:text-gray-400">Nalagam arhiv… {pagesFetched > 0 ? `(${pagesFetched})` : null}</p>}
 
-          {/* GRID POSTAVITEV: graf 1/3, seznam 2/3 (po višini viewporta) */}
+          {/* GRAF ≈ 1/3, SEZNAM ≈ 2/3 */}
           <div className="mt-5 space-y-5">
-            {/* GRAF / STATISTIKA */}
-            <div
-              className="rounded-xl border border-gray-200/70 dark:border-gray-700/70 bg-white/70 dark:bg-gray-900/70 backdrop-blur p-4"
-              style={{ maxHeight: '34vh', overflow: 'auto' }}
-            >
+            {/* GRAF */}
+            <div className="rounded-xl border border-gray-200/70 dark:border-gray-700/70 bg-white/70 dark:bg-gray-900/70 backdrop-blur p-4"
+                 style={{ maxHeight: '34vh', overflow: 'auto' }}>
               <div className="flex items-center justify-between">
                 <h2 className="font-medium">Objave po medijih</h2>
                 <span className="text-sm text-gray-600 dark:text-gray-400">Skupaj: {total}</span>
@@ -390,25 +329,19 @@ export default function ArchivePage() {
               )}
 
               <div className="mt-3 space-y-2">
-                {Object.entries(displayCounts)
-                  .sort((a, b) => b[1] - a[1])
-                  .map(([source, count]) => (
-                    <div key={source} className="flex items-center gap-3">
-                      <div className="w-32 shrink-0 text-sm text-gray-700 dark:text-gray-300">{source}</div>
-                      <div className="flex-1 h-3 rounded-full bg-gray-200 dark:bg-gray-800 overflow-hidden">
-                        <div
-                          className="h-full bg-brand dark:bg-brand"
-                          style={{ width: `${(count / maxCount) * 100}%` }}
-                          aria-hidden
-                        />
-                      </div>
-                      <div className="w-12 text-right text-sm tabular-nums">{count}</div>
+                {Object.entries(displayCounts).sort((a, b) => b[1] - a[1]).map(([source, count]) => (
+                  <div key={source} className="flex items-center gap-3">
+                    <div className="w-32 shrink-0 text-sm text-gray-700 dark:text-gray-300">{source}</div>
+                    <div className="flex-1 h-3 rounded-full bg-gray-200 dark:bg-gray-800 overflow-hidden">
+                      <div className="h-full bg-brand dark:bg-brand" style={{ width: `${(count / maxCount) * 100}%` }} aria-hidden />
                     </div>
-                  ))}
+                    <div className="w-12 text-right text-sm tabular-nums">{count}</div>
+                  </div>
+                ))}
               </div>
             </div>
 
-            {/* SEZNAM – 2/3 višine; summary se pokaže na hover */}
+            {/* SEZNAM – summary na hover (robustno) */}
             <div className="rounded-md border border-gray-200/70 dark:border-gray-800/70 bg-white/50 dark:bg-gray-900/40">
               <div className="max-h-[66vh] overflow-y-auto">
                 <ul className="divide-y divide-gray-200 dark:divide-gray-800">
@@ -422,7 +355,7 @@ export default function ArchivePage() {
                       <li
                         key={`${link}-${i}`}
                         className="
-                          group grid items-center
+                          group grid
                           grid-cols-[92px_78px_1fr] sm:grid-cols-[100px_84px_1fr]
                           gap-x-3 sm:gap-x-4 px-2 sm:px-3 py-1.5
                           transition-colors hover:bg-gray-50/70 dark:hover:bg-gray-800/40
@@ -442,7 +375,7 @@ export default function ArchivePage() {
                           {relativeTime((n as any).publishedAt ?? Date.now())}
                         </span>
 
-                        {/* naslov + summary (summary se razkrije na hover, brez skakanja seznama) */}
+                        {/* naslov */}
                         <a
                           href={link}
                           target="_blank"
@@ -451,23 +384,19 @@ export default function ArchivePage() {
                           title={(n as any).title}
                         >
                           {(n as any).title}
-                          {/* summary preview */}
+                        </a>
+
+                        {/* summary – skrit po defaultu, pokaži na hover; zaseda cel 3. stolpec */}
+                        <div className="col-start-3 row-start-2 hidden group-hover:block">
                           {summary && (
-                            <span
-                              className="
-                                block text-[12px] leading-snug text-gray-600 dark:text-gray-400
-                                opacity-0 max-h-0 overflow-hidden
-                                group-hover:opacity-100 group-hover:max-h-12
-                                transition-all duration-200 ease-out mt-0.5
-                                line-clamp-2
-                              "
-                              // dodatni title za primer mobile/keyboard
+                            <p
+                              className="text-[12px] leading-snug text-gray-600 dark:text-gray-400 mt-0.5 line-clamp-2"
                               title={summary}
                             >
                               {summary}
-                            </span>
+                            </p>
                           )}
-                        </a>
+                        </div>
                       </li>
                     )
                   })}
@@ -476,7 +405,7 @@ export default function ArchivePage() {
             </div>
           </div>
 
-          {/* OPOMBA: ločnica pred footerjem je NAMERNO odstranjena */}
+          {/* ločnice pred footerjem NAMERNO NI */}
         </section>
       </main>
 
