@@ -32,7 +32,7 @@ type ApiPayload =
   | { items: ApiItem[]; counts: Record<string, number>; total: number; nextCursor: string | null; fallbackLive?: boolean }
   | { error: string }
 
-// helpers
+// === helpers ================================================================
 function tsOf(a: ApiItem) {
   const t = (a.publishedat && Number(a.publishedat)) || (a.published_at ? Date.parse(a.published_at) : NaN)
   return Number.isFinite(t) ? Number(t) : 0
@@ -59,7 +59,52 @@ function norm(s: string) {
   try { return s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '') } catch { return s.toLowerCase() }
 }
 
-// session cache
+// simple highlighter (diakritično-neobčutljiv, case-insensitive)
+function highlight(text: string, q: string) {
+  if (!q) return text
+  const t = text ?? ''
+  const nn = norm(t)
+  const nq = norm(q).trim()
+  if (!nq) return t
+
+  // razbij po besedah (filtriraj kratke, da ne markamo vsega)
+  const tokens = Array.from(new Set(nq.split(/\s+/).filter(w => w.length >= 2)))
+  if (tokens.length === 0) return t
+
+  // poiščemo intervale zadetkov v originalnem stringu
+  const ranges: Array<[number, number]> = []
+  for (const tok of tokens) {
+    let start = 0
+    while (true) {
+      const idx = nn.indexOf(tok, start)
+      if (idx === -1) break
+      ranges.push([idx, idx + tok.length])
+      start = idx + tok.length
+    }
+  }
+  if (!ranges.length) return t
+
+  // združi prekrivanja
+  ranges.sort((a,b)=>a[0]-b[0])
+  const merged: Array<[number, number]> = []
+  for (const r of ranges) {
+    if (!merged.length || r[0] > merged[merged.length-1][1]) merged.push([...r] as [number,number])
+    else merged[merged.length-1][1] = Math.max(merged[merged.length-1][1], r[1])
+  }
+
+  // zrenderaj fragment z <mark>
+  const out: React.ReactNode[] = []
+  let last = 0
+  for (const [a,b] of merged) {
+    if (a > last) out.push(t.slice(last, a))
+    out.push(<mark key={`${a}-${b}`} className="bg-yellow-200 dark:bg-yellow-600/60 rounded px-0.5">{t.slice(a,b)}</mark>)
+    last = b
+  }
+  if (last < t.length) out.push(t.slice(last))
+  return <>{out}</>
+}
+
+// === session cache ==========================================================
 const CACHE_KEY = (date: string) => `krizisce:archive:${date}`
 const CACHE_TTL_MS = 10 * 60 * 1000
 type CacheShape = { at: number; items: ApiItem[]; counts: Record<string, number>; fallbackLive: boolean }
@@ -76,7 +121,7 @@ function writeCache(date: string, data: CacheShape) {
   try { sessionStorage.setItem(CACHE_KEY(date), JSON.stringify(data)) } catch {}
 }
 
-// page
+// === page ===================================================================
 export default function ArchivePage() {
   const [date, setDate] = useState<string>(() => yyyymmdd(new Date()))
   const [search, setSearch] = useState<string>('')
@@ -88,6 +133,7 @@ export default function ArchivePage() {
   const [fallbackLive, setFallbackLive] = useState(false)
 
   const [nextCursor, setNextCursor] = useState<string | null>(null)
+  const nextCursorRef = useRef<string | null>(null)     // <— pomembno!
   const [loadedAll, setLoadedAll] = useState(false)
   const [loadingMore, setLoadingMore] = useState(false)
 
@@ -120,7 +166,6 @@ export default function ArchivePage() {
     })
   }, [news, deferredSearch, itemByLink])
 
-  // če je aktivno iskanje, nikoli ne režemo na 15
   const hasQuery = useMemo(() => deferredSearch.trim().length > 0, [deferredSearch])
   const visibleNews = useMemo(
     () => (hasQuery ? filteredNews : (showAll ? filteredNews : filteredNews.slice(0, 15))),
@@ -134,7 +179,8 @@ export default function ArchivePage() {
     const controller = new AbortController(); abortRef.current = controller
 
     // reset
-    setErrorMsg(null); setShowAll(false); setLoadedAll(false); setNextCursor(null)
+    setErrorMsg(null); setShowAll(false); setLoadedAll(false)
+    setNextCursor(null); nextCursorRef.current = null
     if (bgAbortRef.current) { bgAbortRef.current.abort(); bgAbortRef.current = null }
     bgStartedRef.current = false; setBgLoading(false)
 
@@ -162,14 +208,20 @@ export default function ArchivePage() {
       }
 
       const sorted = [...(data.items ?? [])].sort(sortDesc)
-      setItems(sorted); setCounts(data.counts ?? {}); setNextCursor(data.nextCursor ?? null); setFallbackLive(Boolean((data as any).fallbackLive))
+      setItems(sorted)
+      setCounts(data.counts ?? {})
+      setFallbackLive(Boolean((data as any).fallbackLive))
+
+      setNextCursor(data.nextCursor ?? null)
+      nextCursorRef.current = data.nextCursor ?? null  // <— posodobi REF
       setLoading(false)
+
       writeCache(d, { at: Date.now(), items: sorted, counts: data.counts ?? {}, fallbackLive: Boolean((data as any).fallbackLive) })
 
-      // → začni naložitev preostanka dneva v ozadju
+      // >>> takoj zaženi ozadje Z ARGUMENTOM (da ne čaka na setState)
       if (data.nextCursor && !bgStartedRef.current) {
         bgStartedRef.current = true
-        void loadRestOfDay({ background: true })
+        void loadRestOfDay({ background: true, startCursor: data.nextCursor })
       }
     } catch {
       if (!servedFromCache) { setItems([]); setCounts({}); setFallbackLive(false) }
@@ -178,14 +230,18 @@ export default function ArchivePage() {
     }
   }
 
-  type LoadOpts = { background?: boolean }
+  type LoadOpts = { background?: boolean; startCursor?: string | null }
   async function loadRestOfDay(opts?: LoadOpts) {
     const background = !!opts?.background
-    if (loadedAll || !nextCursor || (loadingMore && !background)) { if (!background) setShowAll(true); return }
+    let cursor: string | null = typeof opts?.startCursor !== 'undefined' ? opts!.startCursor! : nextCursorRef.current
+
+    if (loadedAll || !cursor || (loadingMore && !background)) {
+      if (!background) setShowAll(true)
+      return
+    }
     if (!background) setLoadingMore(true); else setBgLoading(true)
 
     try {
-      let cursor: string | null = nextCursor
       const LIMIT = 250
       // ločen abort za ozadje
       const controller = new AbortController()
@@ -207,18 +263,20 @@ export default function ArchivePage() {
         for (const f of fresh) seen.add(f.link)
         if (fresh.length) {
           acc = [...acc, ...fresh]
-          // sproti posodabljaj (search takoj “vleče” nove zadetke)
           const sorted = [...acc].sort(sortDesc)
           setItems(sorted)
-          setNextCursor(data.nextCursor ?? null)
           writeCache(date, { at: Date.now(), items: sorted, counts, fallbackLive })
         }
 
         cursor = data.nextCursor ?? null
+        setNextCursor(cursor)
+        nextCursorRef.current = cursor
+
         if (background) await new Promise(r => setTimeout(r, 0))
       }
 
       setNextCursor(null)
+      nextCursorRef.current = null
       setLoadedAll(true)
       if (!background) setShowAll(true)
     } catch {
@@ -230,15 +288,15 @@ export default function ArchivePage() {
 
   function refreshNow() { fetchFirstPage(date, false) }
 
-  // če uporabnik tipka in še ni naloženo vse, začni ozadje
+  // če uporabnik tipka in še ni naloženo vse, začni ozadje (preko REF)
   useEffect(() => {
     const q = deferredSearch.trim()
-    if (q && !loadedAll && nextCursor && !bgStartedRef.current) {
+    if (q && !loadedAll && nextCursorRef.current && !bgStartedRef.current) {
       bgStartedRef.current = true
-      void loadRestOfDay({ background: true })
+      void loadRestOfDay({ background: true, startCursor: nextCursorRef.current })
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [deferredSearch, loadedAll, nextCursor])
+  }, [deferredSearch, loadedAll])
 
   useEffect(() => {
     fetchFirstPage(date, true)
@@ -344,7 +402,7 @@ export default function ArchivePage() {
             </div>
           </div>
 
-          {/* NASLOV IZVEN ŠKATLE */}
+          {/* NASLOV */}
           <h3 className="mt-5 mb-2 text-sm font-medium text-gray-800 dark:text-gray-200">Zadnje novice</h3>
 
           {/* SEZNAM */}
@@ -363,7 +421,6 @@ export default function ArchivePage() {
                     const it = itemByLink.get(link)
                     const summary = (it?.summary ?? it?.contentsnippet ?? (it as any)?.description ?? (it as any)?.content ?? '').trim()
 
-                    // fade-out zadnjih treh, ko ni query-ja in ne kažeš vsega
                     const tailFade = !hasQuery && !showAll && i >= visibleNews.length - 3
 
                     return (
@@ -383,7 +440,6 @@ export default function ArchivePage() {
                           {relativeTime((n as any).publishedAt ?? Date.now())}
                         </span>
 
-                        {/* naslov + naš tooltip */}
                         <div className="relative">
                           <a
                             href={link}
@@ -391,22 +447,20 @@ export default function ArchivePage() {
                             rel="noopener noreferrer"
                             className="peer block text-[13px] leading-tight text-gray-900 dark:text-gray-100 hover:underline truncate"
                           >
-                            {(n as any).title}
+                            {hasQuery ? highlight((n as any).title, deferredSearch) : (n as any).title}
                           </a>
 
                           {summary && (
                             <div
-                              className="
-                                pointer-events-none absolute left-0 top-full mt-1 z-50 max-w-[60ch]
-                                rounded-md bg-gray-900 text-white text-[12px] leading-snug
-                                px-2.5 py-2 shadow-lg ring-1 ring-black/20
-                                opacity-0 invisible translate-y-1 transition
-                                peer-hover:opacity-100 peer-hover:visible peer-hover:translate-y-0
-                                peer-focus-visible:opacity-100 peer-focus-visible:visible peer-focus-visible:translate-y-0
-                              "
+                              className="pointer-events-none absolute left-0 top-full mt-1 z-50 max-w-[60ch]
+                                         rounded-md bg-gray-900 text-white text-[12px] leading-snug
+                                         px-2.5 py-2 shadow-lg ring-1 ring-black/20
+                                         opacity-0 invisible translate-y-1 transition
+                                         peer-hover:opacity-100 peer-hover:visible peer-hover:translate-y-0
+                                         peer-focus-visible:opacity-100 peer-focus-visible:visible peer-focus-visible:translate-y-0"
                               role="tooltip"
                             >
-                              {summary}
+                              {hasQuery ? highlight(summary, deferredSearch) : summary}
                             </div>
                           )}
                         </div>
@@ -416,7 +470,6 @@ export default function ArchivePage() {
                 </ul>
               )}
 
-              {/* gradient fade pri dnu seznama */}
               {!hasQuery && !showAll && (
                 <div
                   className="pointer-events-none absolute bottom-0 left-0 right-0 h-10
@@ -431,7 +484,7 @@ export default function ArchivePage() {
           <div className="flex justify-center mt-3 gap-2">
             {!hasQuery && !showAll && filteredNews.length > 15 ? (
               <button
-                onClick={async () => { await loadRestOfDay({ background: false }) }}
+                onClick={async () => { await loadRestOfDay({ background: false, startCursor: nextCursorRef.current }) }}
                 disabled={loadingMore}
                 className="px-4 py-1.5 rounded-full bg-brand text-white text-sm shadow-md hover:bg-brand-hover disabled:opacity-60"
               >
