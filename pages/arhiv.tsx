@@ -33,7 +33,7 @@ function toNewsItem(a: ApiItem): NewsItem {
     title: a.title,
     link: a.link,
     source: a.source,
-    summary: a.summary ?? '',
+    // NewsItem v tvojem projektu morda nima 'summary' -> zavestno ga ignoriramo
     publishedAt: new Date(a.published_at).getTime(),
   } as unknown as NewsItem
 }
@@ -62,18 +62,6 @@ function fmtClock(ms: number) {
   try {
     return new Intl.DateTimeFormat('sl-SI', { hour: '2-digit', minute: '2-digit' }).format(new Date(ms))
   } catch { return '' }
-}
-
-// pretvori HEX -> rgba(a)
-function hexToRgba(hex: string, alpha = 1) {
-  try {
-    const h = hex.replace('#', '')
-    const bigint = parseInt(h.length === 3 ? h.split('').map(c => c + c).join('') : h, 16)
-    const r = (bigint >> 16) & 255
-    const g = (bigint >> 8) & 255
-    const b = bigint & 255
-    return `rgba(${r}, ${g}, ${b}, ${alpha})`
-  } catch { return `rgba(120,120,120,${alpha})` }
 }
 
 export default function ArchivePage() {
@@ -105,10 +93,13 @@ export default function ArchivePage() {
     const q = search.trim().toLowerCase()
     if (!q) return news
     return news.filter(n => {
-      const hay = `${n.title} ${n.summary ?? ''} ${n.source}`.toLowerCase()
+      // NewsItem v tvojem projektu nima 'summary' -> zato vzamemo iz originalnega items seznama po link-u
+      const orig = items.find(it => it.link === (n as any).link)
+      const summary = (orig?.summary ?? '') as string
+      const hay = `${(n as any).title} ${summary} ${(n as any).source}`.toLowerCase()
       return hay.includes(q)
     })
-  }, [news, search])
+  }, [news, search, items])
 
   async function fetchDay(d: string) {
     setLoading(true)
@@ -258,38 +249,38 @@ export default function ArchivePage() {
               <p className="text-gray-500 dark:text-gray-400">Nalagam…</p>
             ) : (
               <>
-                {filteredNews.length === 0 && !errorMsg ? (
+                {news.length === 0 && !errorMsg ? (
                   <p className="text-gray-500 dark:text-gray-400">Ni novic za ta dan.</p>
                 ) : null}
 
-                {filteredNews.length > 0 && (
+                {news.length > 0 && (
                   <ul className="rounded-md border border-gray-200/70 dark:border-gray-800/70 bg-white/50 dark:bg-gray-900/40 divide-y divide-gray-200 dark:divide-gray-800">
                     {filteredNews.map((n, i) => {
-                      const hex = sourceColors[n.source] || '#7c7c7c'
+                      const hex = sourceColors[(n as any).source] || '#7c7c7c'
                       return (
-                        <li key={`${n.link}-${i}`} className="px-3 sm:px-4 py-2 flex items-center gap-2">
+                        <li key={`${(n as any).link}-${i}`} className="px-3 sm:px-4 py-2 flex items-center gap-2">
                           {/* Badge: barvna pikica + vir */}
                           <span className="shrink-0 inline-flex items-center gap-1 min-w-[68px]">
                             <span className="inline-block w-1.5 h-1.5 rounded-full" style={{ backgroundColor: hex }} aria-hidden />
-                            <span className="text-[11px] text-gray-600 dark:text-gray-400">{n.source}</span>
+                            <span className="text-[11px] text-gray-600 dark:text-gray-400">{(n as any).source}</span>
                           </span>
 
                           {/* Čas */}
                           <span
                             className="shrink-0 w-20 text-[11px] text-gray-500 dark:text-gray-400 tabular-nums"
-                            title={fmtClock(n.publishedAt ?? Date.now())}
+                            title={fmtClock((n as any).publishedAt ?? Date.now())}
                           >
-                            {relativeTime(n.publishedAt ?? Date.now())}
+                            {relativeTime((n as any).publishedAt ?? Date.now())}
                           </span>
 
                           {/* Naslov */}
                           <a
-                            href={n.link}
+                            href={(n as any).link}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="flex-1 text-sm leading-snug text-gray-900 dark:text-gray-100 hover:underline"
                           >
-                            {n.title}
+                            {(n as any).title}
                           </a>
                         </li>
                       )
