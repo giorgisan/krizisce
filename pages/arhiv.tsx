@@ -16,18 +16,18 @@ import SeoHead from '@/components/SeoHead'
 import { NewsItem } from '@/types'
 import { sourceColors } from '@/lib/sources'
 
-/** -------------------- API types (usklajeno s tvojo shemo) ----------------- */
+/** -------------------- API types (usklajeno s shemo) ----------------- */
 type ApiItem = {
   id: string
   link: string
   title: string
   source: string
-  published_at?: string | null          // ISO (lahko pride iz view-a)
-  publishedat?: number | null           // bigint (fallback)
-  summary?: string | null               // <- Supabase column
-  contentsnippet?: string | null        // <- Supabase column
-  description?: string | null           // nekateri parserji
-  content?: string | null               // nekateri parserji
+  published_at?: string | null
+  publishedat?: number | null
+  summary?: string | null
+  contentsnippet?: string | null
+  description?: string | null
+  content?: string | null
 }
 
 type ApiPayload =
@@ -42,7 +42,6 @@ type ApiPayload =
 
 /** ------------------------------- Helpers ---------------------------------- */
 function toNewsItem(a: ApiItem): NewsItem {
-  // poskusi čim bolj zanesljivo derivirati timestamp
   const ts =
     (a.publishedat && Number(a.publishedat)) ||
     (a.published_at ? Date.parse(a.published_at) : NaN)
@@ -81,7 +80,7 @@ function fmtClock(ms: number) {
   } catch { return '' }
 }
 
-// varno odstrani diakritiko (brez \p{...})
+// varno odstrani diakritiko
 function norm(s: string) {
   try {
     return s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
@@ -148,7 +147,7 @@ export default function ArchivePage() {
   )
   const maxCount = useMemo(() => Math.max(1, ...Object.values(displayCounts)), [displayCounts])
 
-  /** --------- Hiter lookup za PODNASLOV: summary || contentsnippet ... ------ */
+  /** --------- Lookup za PODNASLOV: summary || contentsnippet ... ------ */
   const summaryByLink = useMemo(() => {
     const m = new Map<string, string>()
     for (const it of items) {
@@ -163,6 +162,13 @@ export default function ArchivePage() {
     return m
   }, [items])
 
+  // map za direkten dostop do itemov (za prikaz summary)
+  const itemByLink = useMemo(() => {
+    const m = new Map<string, ApiItem>()
+    for (const it of items) m.set(it.link, it)
+    return m
+  }, [items])
+
   // debounced search
   const deferredSearch = useDeferredValue(search)
   const filteredNews = useMemo(() => {
@@ -172,11 +178,12 @@ export default function ArchivePage() {
       const link = (n as any).link as string
       const title = (n as any).title ?? ''
       const src = (n as any).source ?? ''
-      const summary = summaryByLink.get(link) ?? ''
+      const i = itemByLink.get(link)
+      const summary = i?.summary ?? summaryByLink.get(link) ?? ''
       const hay = `${title} ${summary} ${src}`
       return norm(hay).includes(q)
     })
-  }, [news, deferredSearch, summaryByLink])
+  }, [news, deferredSearch, summaryByLink, itemByLink])
 
   /** ----------------------- Progressive autopager ------------------------ */
   async function fetchAllForDayProgressive(d: string, useCache = true) {
@@ -401,20 +408,24 @@ export default function ArchivePage() {
               </div>
             </div>
 
-            {/* SEZNAM – 2/3 višine */}
+            {/* SEZNAM – 2/3 višine; summary se pokaže na hover */}
             <div className="rounded-md border border-gray-200/70 dark:border-gray-800/70 bg-white/50 dark:bg-gray-900/40">
               <div className="max-h-[66vh] overflow-y-auto">
                 <ul className="divide-y divide-gray-200 dark:divide-gray-800">
                   {filteredNews.map((n, i) => {
                     const src = (n as any).source
                     const hex = sourceColors[src] || '#7c7c7c'
+                    const link = (n as any).link as string
+                    const orig = itemByLink.get(link)
+                    const summary = (orig?.summary ?? summaryByLink.get(link) ?? '').trim()
                     return (
                       <li
-                        key={`${(n as any).link}-${i}`}
+                        key={`${link}-${i}`}
                         className="
-                          grid items-center
+                          group grid items-center
                           grid-cols-[92px_78px_1fr] sm:grid-cols-[100px_84px_1fr]
                           gap-x-3 sm:gap-x-4 px-2 sm:px-3 py-1.5
+                          transition-colors hover:bg-gray-50/70 dark:hover:bg-gray-800/40
                         "
                       >
                         {/* vir */}
@@ -431,15 +442,31 @@ export default function ArchivePage() {
                           {relativeTime((n as any).publishedAt ?? Date.now())}
                         </span>
 
-                        {/* naslov */}
+                        {/* naslov + summary (summary se razkrije na hover, brez skakanja seznama) */}
                         <a
-                          href={(n as any).link}
+                          href={link}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="block text-[13px] leading-tight text-gray-900 dark:text-gray-100 hover:underline truncate"
                           title={(n as any).title}
                         >
                           {(n as any).title}
+                          {/* summary preview */}
+                          {summary && (
+                            <span
+                              className="
+                                block text-[12px] leading-snug text-gray-600 dark:text-gray-400
+                                opacity-0 max-h-0 overflow-hidden
+                                group-hover:opacity-100 group-hover:max-h-12
+                                transition-all duration-200 ease-out mt-0.5
+                                line-clamp-2
+                              "
+                              // dodatni title za primer mobile/keyboard
+                              title={summary}
+                            >
+                              {summary}
+                            </span>
+                          )}
                         </a>
                       </li>
                     )
@@ -449,8 +476,7 @@ export default function ArchivePage() {
             </div>
           </div>
 
-          {/* ločnica pred footerjem (kot na naslovnici) */}
-          <div className="mt-8 h-px bg-gray-200 dark:bg-gray-800" />
+          {/* OPOMBA: ločnica pred footerjem je NAMERNO odstranjena */}
         </section>
       </main>
 
