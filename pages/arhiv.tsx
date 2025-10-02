@@ -28,61 +28,38 @@ type ApiItem = {
   description?: string | null
   content?: string | null
 }
-
 type ApiPayload =
-  | {
-      items: ApiItem[]
-      counts: Record<string, number>
-      total: number
-      nextCursor: string | null
-      fallbackLive?: boolean
-    }
+  | { items: ApiItem[]; counts: Record<string, number>; total: number; nextCursor: string | null; fallbackLive?: boolean }
   | { error: string }
 
-function toNewsItem(a: ApiItem): NewsItem {
-  const ts =
-    (a.publishedat && Number(a.publishedat)) ||
-    (a.published_at ? Date.parse(a.published_at) : NaN)
-
-  return {
-    title: a.title,
-    link: a.link,
-    source: a.source,
-    publishedAt: Number.isFinite(ts) ? Number(ts) : Date.now(),
-  } as unknown as NewsItem
+// ————— helpers —————
+function tsOf(a: ApiItem) {
+  const t = (a.publishedat && Number(a.publishedat)) || (a.published_at ? Date.parse(a.published_at) : NaN)
+  return Number.isFinite(t) ? Number(t) : 0
 }
-
+function toNewsItem(a: ApiItem): NewsItem {
+  const ts = tsOf(a)
+  return { title: a.title, link: a.link, source: a.source, publishedAt: ts || Date.now() } as unknown as NewsItem
+}
 function yyyymmdd(d: Date) {
-  const y = d.getFullYear()
-  const m = `${d.getMonth() + 1}`.padStart(2, '0')
-  const dd = `${d.getDate()}`.padStart(2, '0')
+  const y = d.getFullYear(), m = `${d.getMonth() + 1}`.padStart(2, '0'), dd = `${d.getDate()}`.padStart(2, '0')
   return `${y}-${m}-${dd}`
 }
-
 function relativeTime(ms: number) {
-  const diff = Math.max(0, Date.now() - ms)
-  const m = Math.floor(diff / 60000)
+  const diff = Math.max(0, Date.now() - ms), m = Math.floor(diff / 60000)
   if (m < 1) return 'pred <1 min'
   if (m < 60) return `pred ${m} min`
-  const h = Math.floor(m / 60)
-  if (h < 24) return `pred ${h} h`
-  const d = Math.floor(h / 24)
-  return `pred ${d} d`
+  const h = Math.floor(m / 60); if (h < 24) return `pred ${h} h`
+  const d = Math.floor(h / 24); return `pred ${d} d`
 }
-
 function fmtClock(ms: number) {
-  try {
-    return new Intl.DateTimeFormat('sl-SI', { hour: '2-digit', minute: '2-digit' }).format(new Date(ms))
-  } catch { return '' }
+  try { return new Intl.DateTimeFormat('sl-SI', { hour: '2-digit', minute: '2-digit' }).format(new Date(ms)) } catch { return '' }
 }
-
-// normalizacija za iskanje (brez \p{...})
 function norm(s: string) {
-  try { return s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '') }
-  catch { return s.toLowerCase() }
+  try { return s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '') } catch { return s.toLowerCase() }
 }
 
-/* session cache */
+// session cache
 const CACHE_KEY = (date: string) => `krizisce:archive:${date}`
 const CACHE_TTL_MS = 10 * 60 * 1000
 type CacheShape = { at: number; items: ApiItem[]; counts: Record<string, number>; fallbackLive: boolean }
@@ -99,6 +76,7 @@ function writeCache(date: string, data: CacheShape) {
   try { sessionStorage.setItem(CACHE_KEY(date), JSON.stringify(data)) } catch {}
 }
 
+// ————— page —————
 export default function ArchivePage() {
   const [date, setDate] = useState<string>(() => yyyymmdd(new Date()))
   const [search, setSearch] = useState<string>('')
@@ -114,63 +92,50 @@ export default function ArchivePage() {
   const [loadedAll, setLoadedAll] = useState(false)
   const [loadingMore, setLoadingMore] = useState(false)
 
-  // začetni “lahki” pogled: prvih 15
+  // “lahki” pogled: prvih 15
   const [showAll, setShowAll] = useState(false)
 
   const abortRef = useRef<AbortController | null>(null)
 
+  // derived
   const news = useMemo(() => items.map(toNewsItem), [items])
-
-  // graf brez "TestVir"
-  const displayCounts = useMemo(() => {
-    const entries = Object.entries(counts).filter(([k]) => k !== 'TestVir')
-    return Object.fromEntries(entries)
-  }, [counts])
+  const displayCounts = useMemo(() => Object.fromEntries(Object.entries(counts).filter(([k]) => k !== 'TestVir')), [counts])
   const total = useMemo(() => Object.values(displayCounts).reduce((a, b) => a + b, 0), [displayCounts])
   const maxCount = useMemo(() => Math.max(1, ...Object.values(displayCounts)), [displayCounts])
 
-  // lookup za iskanje/tooltip
   const itemByLink = useMemo(() => {
-    const m = new Map<string, ApiItem>()
-    for (const it of items) m.set(it.link, it)
-    return m
+    const m = new Map<string, ApiItem>(); for (const it of items) m.set(it.link, it); return m
   }, [items])
 
-  // debounced search
   const deferredSearch = useDeferredValue(search)
   const filteredNews = useMemo(() => {
-    const q = norm(deferredSearch.trim())
-    if (!q) return news
+    const q = norm(deferredSearch.trim()); if (!q) return news
     return news.filter(n => {
       const link = (n as any).link as string
-      const title = (n as any).title ?? ''
-      const src = (n as any).source ?? ''
       const it = itemByLink.get(link)
+      const title = (n as any).title ?? '', src = (n as any).source ?? ''
       const summary = (it?.summary ?? it?.contentsnippet ?? (it as any)?.description ?? (it as any)?.content ?? '') || ''
-      const hay = `${title} ${summary} ${src}`
-      return norm(hay).includes(q)
+      return norm(`${title} ${summary} ${src}`).includes(q)
     })
   }, [news, deferredSearch, itemByLink])
 
   const visibleNews = useMemo(() => (showAll ? filteredNews : filteredNews.slice(0, 15)), [filteredNews, showAll])
 
-  /* === fetch: prva stran; vse ostalo šele na klik === */
+  // ——— enforce newest-first after each fetch/merge ———
+  function sortDesc(a: ApiItem, b: ApiItem) { return tsOf(b) - tsOf(a) || String(b.id).localeCompare(String(a.id)) }
+
   async function fetchFirstPage(d: string, useCache = true) {
     if (abortRef.current) abortRef.current.abort()
     const controller = new AbortController(); abortRef.current = controller
 
-    setErrorMsg(null)
-    setShowAll(false)
-    setLoadedAll(false)
-    setNextCursor(null)
+    setErrorMsg(null); setShowAll(false); setLoadedAll(false); setNextCursor(null)
 
     let servedFromCache = false
     if (useCache) {
       const cached = readCache(d)
       if (cached) {
-        setItems(cached.items)
-        setCounts(cached.counts)
-        setFallbackLive(cached.fallbackLive)
+        setItems([...cached.items].sort(sortDesc))
+        setCounts(cached.counts); setFallbackLive(cached.fallbackLive)
         servedFromCache = true
       }
     }
@@ -185,17 +150,13 @@ export default function ArchivePage() {
       if (controller.signal.aborted) return
       if (!res.ok || 'error' in data) {
         if (!servedFromCache) { setItems([]); setCounts({}); setFallbackLive(false) }
-        setErrorMsg('Arhiva trenutno ni mogoče naložiti.')
-        setLoading(false); return
+        setErrorMsg('Arhiva trenutno ni mogoče naložiti.'); setLoading(false); return
       }
 
-      setItems(Array.isArray(data.items) ? data.items : [])
-      setCounts(data.counts ?? {})
-      setNextCursor(data.nextCursor ?? null)
-      setFallbackLive(Boolean((data as any).fallbackLive))
+      const sorted = [...(data.items ?? [])].sort(sortDesc)
+      setItems(sorted); setCounts(data.counts ?? {}); setNextCursor(data.nextCursor ?? null); setFallbackLive(Boolean((data as any).fallbackLive))
       setLoading(false)
-
-      writeCache(d, { at: Date.now(), items: data.items ?? [], counts: data.counts ?? {}, fallbackLive: Boolean((data as any).fallbackLive) })
+      writeCache(d, { at: Date.now(), items: sorted, counts: data.counts ?? {}, fallbackLive: Boolean((data as any).fallbackLive) })
     } catch {
       if (!servedFromCache) { setItems([]); setCounts({}); setFallbackLive(false) }
       if (!controller.signal.aborted) setErrorMsg('Napaka pri povezavi do arhiva.')
@@ -210,6 +171,7 @@ export default function ArchivePage() {
       let cursor: string | null = nextCursor
       const LIMIT = 250
       const seen = new Set(items.map(i => i.link))
+      let acc = [...items]
 
       while (cursor) {
         const url = `/api/archive?date=${encodeURIComponent(date)}&cursor=${encodeURIComponent(cursor)}&limit=${LIMIT}`
@@ -218,16 +180,13 @@ export default function ArchivePage() {
         if (!res.ok || 'error' in data) break
 
         const fresh = (data.items ?? []).filter(i => !seen.has(i.link))
-        if (fresh.length) {
-          for (const f of fresh) seen.add(f.link)
-          setItems(prev => [...prev, ...fresh])
-        }
+        for (const f of fresh) seen.add(f.link)
+        if (fresh.length) acc = [...acc, ...fresh]
         cursor = data.nextCursor ?? null
       }
 
-      setNextCursor(null)
-      setLoadedAll(true)
-      setShowAll(true)
+      acc.sort(sortDesc)
+      setItems(acc); setNextCursor(null); setLoadedAll(true); setShowAll(true)
     } catch {
       setErrorMsg('Nalaganje vseh novic ni uspelo.')
     } finally {
@@ -333,15 +292,13 @@ export default function ArchivePage() {
             </div>
           </div>
 
-          {/* SEZNAM – fiksna višina; tooltip na hover/focus; gumb spodaj */}
-          <div className="mt-5 rounded-md border border-gray-200/70 dark:border-gray-800/70 bg-white/50 dark:bg-gray-900/40">
-            {/* naslov nad seznamom */}
-            <div className="px-3 sm:px-4 py-2 border-b border-gray-200 dark:border-gray-800">
-              <h3 className="text-sm font-medium text-gray-800 dark:text-gray-200">Zadnje novice</h3>
-            </div>
+          {/* NASLOV IZVEN ŠKATLE */}
+          <h3 className="mt-5 mb-2 text-sm font-medium text-gray-800 dark:text-gray-200">Zadnje novice</h3>
 
-            {/* fiksna višina z notranjim scrollom */}
-            <div className="h-[66vh] overflow-y-auto">
+          {/* SEZNAM – fiksna nižja višina; notranji scroll; tooltip na hover/focus */}
+          <div className="rounded-md border border-gray-200/70 dark:border-gray-800/70 bg-white/50 dark:bg-gray-900/40">
+            {/* ni notranjega headerja */}
+            <div className="h-[52vh] overflow-y-auto">
               {loading ? (
                 <p className="p-3 text-sm text-gray-500 dark:text-gray-400">Nalagam…</p>
               ) : (
@@ -352,27 +309,21 @@ export default function ArchivePage() {
                     const link = (n as any).link as string
                     const it = itemByLink.get(link)
                     const summary = (it?.summary ?? it?.contentsnippet ?? (it as any)?.description ?? (it as any)?.content ?? '').trim()
-
                     return (
                       <li
                         key={`${link}-${i}`}
                         className="grid grid-cols-[92px_78px_1fr] sm:grid-cols-[100px_84px_1fr] gap-x-3 sm:gap-x-4 px-2 sm:px-3 py-1.5"
                       >
-                        {/* vir */}
                         <span className="inline-flex items-center gap-1 min-w-0">
                           <span className="inline-block w-1.5 h-1.5 rounded-full" style={{ backgroundColor: hex }} aria-hidden />
                           <span className="truncate text-[10px] text-gray-600 dark:text-gray-400">{src}</span>
                         </span>
-
-                        {/* čas */}
                         <span
                           className="text-right sm:text-left text-[10px] text-gray-500 dark:text-gray-400 tabular-nums"
                           title={fmtClock((n as any).publishedAt ?? Date.now())}
                         >
                           {relativeTime((n as any).publishedAt ?? Date.now())}
                         </span>
-
-                        {/* naslov + tooltip */}
                         <div className="relative">
                           <a
                             href={link}
@@ -383,7 +334,6 @@ export default function ArchivePage() {
                           >
                             {(n as any).title}
                           </a>
-
                           {summary && (
                             <div
                               className="
