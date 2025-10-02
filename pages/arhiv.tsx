@@ -7,6 +7,7 @@ import Header from '@/components/Header'
 import Footer from '@/components/Footer'
 import SeoHead from '@/components/SeoHead'
 import { NewsItem } from '@/types'
+import { sourceColors } from '@/lib/sources'
 
 type ApiItem = {
   id: string
@@ -44,34 +45,40 @@ function yyyymmdd(d: Date) {
   return `${y}-${m}-${dd}`
 }
 
-const A11y = {
-  backHome: 'Nazaj na naslovnico',
-  pickDay: 'Izberi dan'
+// relativni čas: "pred 8 min", "pred 2 h", "pred 1 d"
+function relativeTime(ms: number) {
+  const diff = Math.max(0, Date.now() - ms)
+  const m = Math.floor(diff / 60000)
+  if (m < 1) return 'pred <1 min'
+  if (m < 60) return `pred ${m} min`
+  const h = Math.floor(m / 60)
+  if (h < 24) return `pred ${h} h`
+  const d = Math.floor(h / 24)
+  return `pred ${d} d`
 }
 
-// prikaz HH:mm (lokalno)
-function fmtTime(ms: number) {
+// HH:mm v naslovu (title)
+function fmtClock(ms: number) {
   try {
-    return new Intl.DateTimeFormat('sl-SI', {
-      hour: '2-digit',
-      minute: '2-digit'
-    }).format(new Date(ms))
+    return new Intl.DateTimeFormat('sl-SI', { hour: '2-digit', minute: '2-digit' }).format(new Date(ms))
   } catch { return '' }
 }
 
-// barva značke za vir (preprosta mapa + fallback)
-const SOURCE_COLORS: Record<string, string> = {
-  'RTVSLO': 'bg-blue-600',
-  'Delo': 'bg-indigo-600',
-  '24ur': 'bg-amber-600',
-  'Siol.net': 'bg-sky-600',
-  'Zurnal24': 'bg-pink-600',
-  'Slovenske novice': 'bg-rose-600',
-  'N1': 'bg-teal-600',
-  'Svet24': 'bg-lime-600',
+// pretvori HEX -> rgba(a)
+function hexToRgba(hex: string, alpha = 1) {
+  try {
+    const h = hex.replace('#', '')
+    const bigint = parseInt(h.length === 3 ? h.split('').map(c => c + c).join('') : h, 16)
+    const r = (bigint >> 16) & 255
+    const g = (bigint >> 8) & 255
+    const b = bigint & 255
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`
+  } catch { return `rgba(120,120,120,${alpha})` }
 }
-function badgeColor(source: string) {
-  return SOURCE_COLORS[source] ?? 'bg-gray-600'
+
+const A11y = {
+  backHome: 'Nazaj na naslovnico',
+  pickDay: 'Izberi dan'
 }
 
 export default function ArchivePage() {
@@ -86,7 +93,7 @@ export default function ArchivePage() {
 
   const news = useMemo(() => items.map(toNewsItem), [items])
 
-  // odstrani testne/eksperimentalne vire, če bi se kdaj prikazali
+  // odstrani morebitne testne vnose
   const displayCounts = useMemo(() => {
     const entries = Object.entries(counts).filter(([k]) => k !== 'TestVir')
     return Object.fromEntries(entries)
@@ -153,36 +160,34 @@ export default function ArchivePage() {
 
       <main className="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white px-4 md:px-8 lg:px-16 pb-24 pt-6">
         <section className="max-w-6xl mx-auto">
-          {/* toolbar (sticky) */}
-          <div className="sticky top-[calc(var(--hdr-h,56px)+8px)] z-10 backdrop-blur-md/0">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-lg">
-              <h1 className="text-2xl font-semibold">Arhiv</h1>
-              <div className="flex items-center gap-2">
-                <Link
-                  href="/"
-                  className="inline-flex items-center gap-2 px-3 py-2 rounded-md text-sm
-                             border border-gray-300/60 dark:border-gray-700/60
-                             bg-white/70 dark:bg-gray-800/60 hover:bg-white/90 dark:hover:bg-gray-800/80 transition"
-                  title={A11y.backHome}
-                  aria-label={A11y.backHome}
-                >
-                  <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
-                    <path d="M3 12L12 3l9 9" stroke="currentColor" strokeWidth="2" fill="none"/>
-                    <path d="M5 10v10h5v-6h4v6h5V10" stroke="currentColor" strokeWidth="2" fill="none"/>
-                  </svg>
-                  Nazaj
-                </Link>
+          {/* toolbar */}
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <h1 className="text-2xl font-semibold">Arhiv</h1>
+            <div className="flex items-center gap-2">
+              <Link
+                href="/"
+                className="inline-flex items-center gap-2 px-3 py-2 rounded-md text-sm
+                           border border-gray-300/60 dark:border-gray-700/60
+                           bg-white/70 dark:bg-gray-800/60 hover:bg-white/90 dark:hover:bg-gray-800/80 transition"
+                title={A11y.backHome}
+                aria-label={A11y.backHome}
+              >
+                <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+                  <path d="M3 12L12 3l9 9" stroke="currentColor" strokeWidth="2" fill="none"/>
+                  <path d="M5 10v10h5v-6h4v6h5V10" stroke="currentColor" strokeWidth="2" fill="none"/>
+                </svg>
+                Nazaj
+              </Link>
 
-                <label htmlFor="date" className="sr-only">{A11y.pickDay}</label>
-                <input
-                  id="date"
-                  type="date"
-                  value={date}
-                  max={yyyymmdd(new Date())}
-                  onChange={(e) => startTransition(() => setDate(e.target.value))}
-                  className="px-3 py-2 rounded-md border border-gray-300 dark:border-gray-700 bg-white/80 dark:bg-gray-800/80 backdrop-blur text-sm"
-                />
-              </div>
+              <label htmlFor="date" className="sr-only">Izberi dan</label>
+              <input
+                id="date"
+                type="date"
+                value={date}
+                max={yyyymmdd(new Date())}
+                onChange={(e) => startTransition(() => setDate(e.target.value))}
+                className="px-3 py-2 rounded-md border border-gray-300 dark:border-gray-700 bg-white/80 dark:bg-gray-800/80 backdrop-blur text-sm"
+              />
             </div>
           </div>
 
@@ -238,28 +243,37 @@ export default function ArchivePage() {
 
                 {news.length > 0 && (
                   <ul className="divide-y divide-gray-200 dark:divide-gray-800 rounded-lg border border-gray-200/70 dark:border-gray-800/70 bg-white/60 dark:bg-gray-900/50 overflow-hidden">
-                    {news.map((n, i) => (
-                      <li key={`${n.link}-${i}`} className="px-4 sm:px-5 py-3 flex items-start gap-3">
-                        <span
-                          className={`shrink-0 inline-flex items-center px-2 py-1 rounded-full text-[11px] font-medium text-white ${badgeColor(n.source)}`}
-                          title={n.source}
-                          aria-label={n.source}
-                        >
-                          {n.source}
-                        </span>
-                        <span className="shrink-0 w-14 text-sm text-gray-500 dark:text-gray-400 tabular-nums mt-0.5">
-                          {fmtTime(n.publishedAt ?? Date.now())}
-                        </span>
-                        <a
-                          href={n.link}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="flex-1 text-sm leading-snug text-gray-900 dark:text-gray-100 hover:underline"
-                        >
-                          {n.title}
-                        </a>
-                      </li>
-                    ))}
+                    {news.map((n, i) => {
+                      const hex = sourceColors[n.source] || '#7c7c7c'
+                      const badgeBg = hexToRgba(hex, 0.15)
+                      const badgeBorder = hexToRgba(hex, 0.35)
+                      return (
+                        <li key={`${n.link}-${i}`} className="px-4 sm:px-5 py-3 flex items-start gap-3">
+                          <span
+                            className="shrink-0 inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium"
+                            style={{ backgroundColor: badgeBg, color: hex, border: `1px solid ${badgeBorder}` }}
+                            title={n.source}
+                            aria-label={n.source}
+                          >
+                            {n.source}
+                          </span>
+                          <span
+                            className="shrink-0 w-20 text-sm text-gray-500 dark:text-gray-400 tabular-nums mt-0.5"
+                            title={fmtClock(n.publishedAt ?? Date.now())}
+                          >
+                            {relativeTime(n.publishedAt ?? Date.now())}
+                          </span>
+                          <a
+                            href={n.link}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex-1 text-sm leading-snug text-gray-900 dark:text-gray-100 hover:underline"
+                          >
+                            {n.title}
+                          </a>
+                        </li>
+                      )
+                    })}
                   </ul>
                 )}
 
