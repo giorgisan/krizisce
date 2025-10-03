@@ -35,7 +35,7 @@ type ApiOk = {
   items: ApiItem[]
   counts: Record<string, number>
   total: number
-  nextCursor: string | null
+  nextCursor: string | null      // ISO string: published_at of last item
   fallbackLive?: boolean
 }
 type ApiErr = { error: string }
@@ -63,12 +63,12 @@ export default async function handler(
       500,
     )
 
-    // keyset po id (manjši = starejši) – še vedno uporabljamo id, ker je stabilen
-    const cursor = req.query.cursor ? Number(req.query.cursor) : null
+    // NEW: cursor = ISO published_at (string)
+    const cursor = (req.query.cursor as string) || null
 
     const { start, end } = parseDateRange(dateStr)
 
-    /* === ITEMS (id DESC v okviru dneva) === */
+    /* === ITEMS: stable order by published_at DESC, id DESC === */
     let q = supabase
       .from('news')
       .select(
@@ -76,9 +76,13 @@ export default async function handler(
       )
       .gte('published_at', start)
       .lt('published_at', end)
+      .order('published_at', { ascending: false })
       .order('id', { ascending: false })
 
-    if (cursor) q = q.lt('id', cursor)
+    if (cursor) {
+      // strictly older than last seen published_at
+      q = q.lt('published_at', cursor)
+    }
     q = q.limit(limit)
 
     const { data: rows, error } = await q
@@ -103,8 +107,9 @@ export default async function handler(
       publishedat: r.publishedat,
     }))
 
+    // NEW: cursor is the last item's published_at (string) or null
     const nextCursor =
-      rows && rows.length === limit ? String((rows as Row[])[rows.length - 1].id) : null
+      rows && rows.length === limit ? (rows as Row[])[rows.length - 1].published_at || null : null
 
     /* === COUNTS po source (brez .group()) === */
     const { data: distinctRows, error: distinctErr } = await supabase
@@ -142,7 +147,7 @@ export default async function handler(
     for (const [src, c] of entries) counts[src] = c
     const total = Object.values(counts).reduce((a, b) => a + b, 0)
 
-    // --- IMPORTANT: disable CDN caching so /arhiv je vedno svež ---
+    // IMPORTANT: disable CDN caching so /arhiv je vedno svež
     res.setHeader('Cache-Control', 'no-store')
 
     return res.status(200).json({
