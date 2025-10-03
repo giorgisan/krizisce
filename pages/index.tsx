@@ -153,6 +153,8 @@ export default function Home({ initialNews }: Props) {
         const hasNewLink = fresh.some(n => n.link && !currentLinks.has(n.link))
         if (hasNewLink) {
           startTransition(() => { setNews(fresh); setDisplayCount(20) })
+        } else {
+          // če ni novih linkov, pa so posodobitve, bomo to odkrili v pollingu
         }
       }
       setBootRefreshed(true)
@@ -164,8 +166,25 @@ export default function Home({ initialNews }: Props) {
   // polling (z backoff + visibility)
   const [freshNews, setFreshNews] = useState<NewsItem[] | null>(null)
   const [hasNewBanner, setHasNewBanner] = useState(false)
+  const [bannerMode, setBannerMode] = useState<'fresh' | 'updates'>('fresh') // NEW
   const missCountRef = useRef(0)
   const timerRef = useRef<number | null>(null)
+
+  const diffFresh = (fresh: NewsItem[], current: NewsItem[]) => {
+    const byLink = new Map(current.map(n => [n.link, n]))
+    let newLinks = 0
+    let updatedOnly = 0
+    for (const f of fresh) {
+      const old = byLink.get(f.link)
+      if (!old) { newLinks++; continue }
+      if ((old.title ?? '') !== (f.title ?? '') ||
+          (old.image ?? '') !== (f.image ?? '') ||
+          (old.contentSnippet ?? '') !== (f.contentSnippet ?? '')) {
+        updatedOnly++
+      }
+    }
+    return { newLinks, updatedOnly }
+  }
 
   useEffect(() => {
     if (!bootRefreshed) return
@@ -176,17 +195,33 @@ export default function Home({ initialNews }: Props) {
       if (!fresh || fresh.length === 0) {
         setHasNewBanner(false)
         window.dispatchEvent(new CustomEvent('news-has-new', { detail: false }))
+        window.dispatchEvent(new CustomEvent('news-banner-mode', { detail: 'fresh' }))
         missCountRef.current = Math.min(POLL_MAX_BACKOFF, missCountRef.current + 1)
         return
       }
 
-      const currentLinks = new Set(news.map(n => n.link))
-      const newer = fresh.some(n => n.link && !currentLinks.has(n.link))
+      const { newLinks, updatedOnly } = diffFresh(fresh, news)
 
       setFreshNews(fresh)
-      setHasNewBanner(newer)
-      window.dispatchEvent(new CustomEvent('news-has-new', { detail: newer }))
-      missCountRef.current = newer ? 0 : Math.min(POLL_MAX_BACKOFF, missCountRef.current + 1)
+      if (newLinks > 0) {
+        setBannerMode('fresh')
+        setHasNewBanner(true)
+        window.dispatchEvent(new CustomEvent('news-banner-mode', { detail: 'fresh' }))
+        window.dispatchEvent(new CustomEvent('news-has-new', { detail: true }))
+        missCountRef.current = 0
+      } else if (updatedOnly > 0) {
+        setBannerMode('updates')
+        setHasNewBanner(true)
+        window.dispatchEvent(new CustomEvent('news-banner-mode', { detail: 'updates' }))
+        // zaradi združljivosti ostane isti event:
+        window.dispatchEvent(new CustomEvent('news-has-new', { detail: true }))
+        missCountRef.current = 0
+      } else {
+        setHasNewBanner(false)
+        window.dispatchEvent(new CustomEvent('news-has-new', { detail: false }))
+        window.dispatchEvent(new CustomEvent('news-banner-mode', { detail: 'fresh' }))
+        missCountRef.current = Math.min(POLL_MAX_BACKOFF, missCountRef.current + 1)
+      }
     }
 
     const schedule = () => {
@@ -224,8 +259,10 @@ export default function Home({ initialNews }: Props) {
           setCursor(null)
           setDisplayCount(20)
         }
-        if (freshNews && hasNewBanner) {
-          setNews(freshNews); finish()
+        if (freshNews) {
+          // Če imamo svež paket, ga uveljavi.
+          setNews(freshNews)
+          finish()
         } else {
           loadNews(true).then((fresh) => {
             if (fresh && fresh.length) { setNews(fresh) }
@@ -236,7 +273,7 @@ export default function Home({ initialNews }: Props) {
     }
     window.addEventListener('refresh-news', onRefresh as EventListener)
     return () => window.removeEventListener('refresh-news', onRefresh as EventListener)
-  }, [freshNews, hasNewBanner])
+  }, [freshNews])
 
   // sync s Headerjem (filters:update) – reset paginacije
   useEffect(() => {
@@ -301,7 +338,7 @@ export default function Home({ initialNews }: Props) {
   // realni loadMore (pridobi starejše preko API kurzorja)
   const [isLoadingMore, setIsLoadingMore] = useState(false)
   const handleLoadMore = async () => {
-    if (isLoadingMore || !hasMore) return
+    if (isLoadingMore || !hasMore || cursor == null || cursor <= 0) return
     setIsLoadingMore(true)
     try {
       const { items, nextCursor } = await fetchPage({
@@ -318,10 +355,13 @@ export default function Home({ initialNews }: Props) {
         setDisplayCount(prev => prev + fresh.length)
       }
 
-      setCursor(nextCursor)
-      setHasMore(nextCursor != null)
-    } catch {
-      // noop
+      if (!nextCursor || nextCursor === cursor || fresh.length === 0) {
+        setHasMore(false)
+        setCursor(null)
+      } else {
+        setCursor(nextCursor)
+        setHasMore(true)
+      }
     } finally {
       setIsLoadingMore(false)
     }
