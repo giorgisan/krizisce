@@ -280,7 +280,7 @@ export default function ArchivePage() {
     setLoading(!servedFromCache)
     try {
       const LIMIT_FIRST = 40
-      const url = `/api/archive?date=${encodeURIComponent(d)}&limit=${LIMIT_FIRST}`
+      const url = `/api/archive?date=${encodeURIComponent(d)}&limit=${LIMIT_FIRST}&_t=${Date.now()}`
       const res = await fetch(url, { cache: 'no-store', signal: controller.signal })
       const data: ApiPayload = await res.json().catch(() => ({ error: 'Neveljaven odgovor strežnika.' }))
 
@@ -344,7 +344,7 @@ export default function ArchivePage() {
       let acc = [...items]
 
       while (cursor) {
-        const url = `/api/archive?date=${encodeURIComponent(date)}&cursor=${encodeURIComponent(cursor)}&limit=${LIMIT}`
+        const url = `/api/archive?date=${encodeURIComponent(date)}&cursor=${encodeURIComponent(cursor)}&limit=${LIMIT}&_t=${Date.now()}`
         const res = await fetch(url, { cache: 'no-store', signal: background ? controller.signal : undefined })
         const data: ApiPayload = await res.json().catch(() => ({ error: 'Neveljaven odgovor strežnika.' }))
         if (!res.ok || 'error' in data) break
