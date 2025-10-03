@@ -1,129 +1,114 @@
 // pages/api/news.ts
 import type { NextApiRequest, NextApiResponse } from 'next'
-import type { NewsItem } from '@/types'
-import fetchRSSFeeds from '@/lib/fetchRSSFeeds'
-import supabase from '@/lib/supabase'
+import { createClient } from '@supabase/supabase-js'
 
-function canonicalizeLink(href: string): string {
-  try {
-    const u = new URL(href)
-    const keep = new URLSearchParams()
-    u.searchParams.forEach((v, k) => {
-      if (!/^utm_/i.test(k) && !/^(fbclid|gclid|mc_cid|mc_eid)$/i.test(k)) keep.set(k, v)
-    })
-    u.search = keep.toString()
-    u.hash = ''
-    return u.toString()
-  } catch {
-    return href
-  }
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL as string
+const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string
+
+const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  auth: { persistSession: false },
+})
+
+// Row subset
+type Row = {
+  id: number
+  link: string
+  title: string
+  source: string
+  image: string | null
+  contentsnippet: string | null
+  summary: string | null
+  isodate: string | null
+  pubdate: string | null
+  published_at: string | null
+  publishedat: number | null
+  created_at: string | null
 }
 
-function rowToItem(r: any): NewsItem {
-  return {
-    title: r.title,
-    link: r.link,
-    source: r.source,
-    image: r.image ?? null,
-    contentSnippet: r.contentsnippet ?? '',
-    isoDate: r.isodate ?? undefined,
-    pubDate: r.pubdate ?? undefined,
-    publishedAt:
-      typeof r.publishedat === 'number'
-        ? r.publishedat
-        : (r.publishedat ? Date.parse(r.publishedat) : 0),
-  }
+// Client NewsItem (matches frontend)
+type NewsItem = {
+  title: string
+  link: string
+  source: string
+  image?: string | null
+  contentSnippet?: string | null
+  publishedAt: number
+  isoDate?: string | null
 }
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+// Helpers
+function rowPublishedMs(r: Row): number {
+  if (r.publishedat && Number.isFinite(Number(r.publishedat))) return Number(r.publishedat)
+  const cands = [r.published_at, r.isodate, r.pubdate, r.created_at].filter(Boolean) as string[]
+  for (const iso of cands) {
+    const ms = Date.parse(iso)
+    if (!Number.isNaN(ms)) return ms
+  }
+  return 0
+}
+
+// Cursor encoding "<ms>_<id>"
+function encodeCursor(ms: number, id: number) { return `${ms}_${id}` }
+function decodeCursor(s: string | null): { ms: number, id: number } | null {
+  if (!s) return null
+  const m = String(s).match(/^(\d+)_(\d+)$/)
+  if (!m) return null
+  return { ms: Number(m[1]), id: Number(m[2]) }
+}
+
+type PagePayload = { items: NewsItem[], nextCursor: string | null }
+
+export default async function handler(req: NextApiRequest, res: NextApiResponse<NewsItem[] | PagePayload | { error: string }>) {
   try {
-    const forceFresh = req.query.forceFresh === '1'
-    const debug = req.query.debug === '1'
-    const paged = req.query.paged === '1'
+    const paged = String(req.query.paged || '') === '1'
+    const limit = Math.min(Math.max(parseInt(String(req.query.limit ?? '40'), 10) || 40, 1), 200)
+    const source = (req.query.source as string) || null
+    const cursorRaw = (req.query.cursor as string) || null
+    const cursor = decodeCursor(cursorRaw)
 
-    // Common query params for paginated mode
-    const limit = Math.min(Math.max(parseInt(String(req.query.limit ?? '40'), 10) || 40, 1), 100)
-    const cursorParam = req.query.cursor != null ? Number(req.query.cursor) : null
-    const source = typeof req.query.source === 'string' ? req.query.source : null
-
-    // 2) Svež RSS upsert (če je zahtevano)
-    if (forceFresh) {
-      const fresh = await fetchRSSFeeds({ forceFresh: true })
-      const payloadForDb = fresh.map(({ isoDate, pubDate, contentSnippet, publishedAt, link, title, source, image }) => ({
-        link,
-        title,
-        isodate: isoDate,
-        pubdate: pubDate ?? null,
-        source,
-        image: image ?? null,
-        contentsnippet: contentSnippet ?? null,
-        summary: null,
-        publishedat: publishedAt || 0,
-        link_canonical: canonicalizeLink(link),
-      }))
-      const { error: upsertError } = await supabase
-        .from('news')
-        .upsert(payloadForDb, { onConflict: 'link' })
-
-      if (upsertError) {
-        if (debug) {
-          res.setHeader('Cache-Control', 'no-store, max-age=0, must-revalidate')
-          return res.status(200).json({ ok: false, upsertError })
-        }
-        console.error('Supabase upsert error:', upsertError)
-      }
-
-      // V "forceFresh" načinu ohranimo star API: vrnemo seznam (za tvoj refresh/polling).
-      res.setHeader('Cache-Control', 'no-store, max-age=0, must-revalidate')
-      return res.status(200).json(fresh)
-    }
-
-    // 1) Branje iz Supabase – zdaj podpira tudi paginacijo
-    let query = supabase
+    let q = supabase
       .from('news')
-      .select('link,title,source,image,contentsnippet,isodate,pubdate,publishedat')
+      .select('id, link, title, source, image, contentsnippet, summary, isodate, pubdate, published_at, publishedat, created_at')
+      .order('published_at', { ascending: false })
+      .order('id', { ascending: false })
+      .limit(limit)
 
-    if (source && source !== 'Vse') {
-      query = query.eq('source', source)
+    if (source) q = q.eq('source', source)
+
+    if (cursor) {
+      const iso = new Date(cursor.ms).toISOString()
+      const or = `and(published_at.eq.${iso},id.lt.${cursor.id}),published_at.lt.${iso}`
+      q = q.or(or)
     }
 
-    if (paged) {
-      // kurzorska paginacija: beri STAREJŠE od cursor (ali zadnje, če cursor ni podan)
-      if (cursorParam != null) {
-        query = query.lt('publishedat', cursorParam)
-      }
-      query = query.order('publishedat', { ascending: false }).limit(limit)
+    const { data, error } = await q
+    if (error) return res.status(500).json({ error: `DB error: ${error.message}` })
 
-      const { data, error } = await query
-      if (error) {
-        return res.status(200).json({ items: [], nextCursor: null })
-      }
-      const items = (data || []).map(rowToItem)
+    const items: NewsItem[] = (data || []).map((r: Row) => ({
+      title: r.title,
+      link: r.link,
+      source: r.source,
+      image: r.image,
+      contentSnippet: (r.summary && r.summary.trim()) ? r.summary : (r.contentsnippet && r.contentsnippet.trim()) ? r.contentsnippet : null,
+      publishedAt: rowPublishedMs(r),
+      isoDate: r.published_at || r.isodate || r.pubdate || r.created_at,
+    }))
 
-      // naslednji cursor = zadnji publishedat v batchu (če ga je)
-      const last = items.length ? items[items.length - 1].publishedAt : null
-      const nextCursor = items.length < limit ? null : last
-
-      res.setHeader('Cache-Control', 's-maxage=60, stale-while-revalidate=300')
-      return res.status(200).json({ items, nextCursor })
-    } else {
-      // stari način: vrni samo “prvih 100” za začetne prikaze ali fallback
-      query = query.order('publishedat', { ascending: false }).limit(100)
-
-      const { data, error } = await query
-      if (!error && Array.isArray(data) && data.length) {
-        const payload: NewsItem[] = data.map(rowToItem)
-        res.setHeader('Cache-Control', 's-maxage=60, stale-while-revalidate=300')
-        return res.status(200).json(payload)
-      }
-
-      // Če ni podatkov, poskusi svež RSS in vrni seznam (brez paginacije)
-      const fresh = await fetchRSSFeeds({ forceFresh: true })
-      res.setHeader('Cache-Control', 'no-store, max-age=0, must-revalidate')
-      return res.status(200).json(fresh)
+    // Not paged → return plain array (homepage first load)
+    if (!paged) {
+      res.setHeader('Cache-Control', 's-maxage=15, stale-while-revalidate=30')
+      return res.status(200).json(items)
     }
-  } catch (error) {
-    console.error('Failed to fetch news:', error)
-    return res.status(500).json({ error: 'Failed to fetch news' })
+
+    let nextCursor: string | null = null
+    if (data && data.length === limit) {
+      const last = data[data.length - 1] as Row
+      nextCursor = encodeCursor(rowPublishedMs(last), last.id)
+    }
+
+    res.setHeader('Cache-Control', 's-maxage=15, stale-while-revalidate=30')
+    return res.status(200).json({ items, nextCursor })
+  } catch (e: any) {
+    return res.status(500).json({ error: e?.message || 'Unexpected error' })
   }
 }
