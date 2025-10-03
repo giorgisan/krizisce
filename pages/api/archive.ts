@@ -68,7 +68,7 @@ export default async function handler(
 
     const { start, end } = parseDateRange(dateStr)
 
-    /* === ITEMS (id DESC; klient dodatno stabilno sortira po published_at/publishedat) === */
+    /* === ITEMS (id DESC v okviru dneva) === */
     let q = supabase
       .from('news')
       .select(
@@ -82,7 +82,10 @@ export default async function handler(
     q = q.limit(limit)
 
     const { data: rows, error } = await q
-    if (error) return res.status(500).json({ error: `DB error: ${error.message}` })
+    if (error) {
+      res.setHeader('Cache-Control', 'no-store')
+      return res.status(500).json({ error: `DB error: ${error.message}` })
+    }
 
     const items: ApiItem[] = (rows as Row[]).map((r) => ({
       id: String(r.id),
@@ -110,8 +113,10 @@ export default async function handler(
       .gte('published_at', start)
       .lt('published_at', end)
 
-    if (distinctErr)
+    if (distinctErr) {
+      res.setHeader('Cache-Control', 'no-store')
       return res.status(500).json({ error: `DB error: ${distinctErr.message}` })
+    }
 
     const distinctSources = Array.from(
       new Set((distinctRows || []).map((r: any) => r.source).filter(Boolean)),
@@ -137,7 +142,9 @@ export default async function handler(
     for (const [src, c] of entries) counts[src] = c
     const total = Object.values(counts).reduce((a, b) => a + b, 0)
 
-    res.setHeader('Cache-Control', 's-maxage=30, stale-while-revalidate=60')
+    // --- IMPORTANT: disable CDN caching so /arhiv je vedno svež ---
+    res.setHeader('Cache-Control', 'no-store')
+
     return res.status(200).json({
       items,
       counts,
@@ -146,6 +153,7 @@ export default async function handler(
       fallbackLive: false,
     })
   } catch (e: any) {
+    res.setHeader('Cache-Control', 'no-store')
     return res.status(500).json({ error: e?.message || 'Unexpected error' })
   }
 }
