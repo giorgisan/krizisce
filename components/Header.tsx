@@ -176,11 +176,30 @@ export default function Header() {
           </div>
         </Link>
 
-        {/* Desno: ura, filter, arhiv (ikona), tema */}
+        {/* Desno: ura, refresh-pil (desktop), filter, arhiv (ikona), tema */}
         <div className="flex items-center gap-1.5 sm:gap-2">
           <span className="hidden sm:inline-block font-mono tabular-nums text-[13px] text-gray-500 dark:text-gray-400 select-none">
             {time}
           </span>
+
+          {/* DESKTOP refresh pil */}
+          {hasNew && !refreshing && (
+            <button
+              onClick={refreshNow}
+              className="hidden md:inline-flex items-center gap-2 rounded-full px-3 py-1.5
+                         text-[13px] font-medium
+                         bg-emerald-500/10 text-emerald-700 dark:text-emerald-300
+                         ring-1 ring-emerald-400/40 dark:ring-emerald-600/40
+                         hover:bg-emerald-500/15 transition shadow-sm"
+              title="Osveži, da prikažeš sveže novice"
+            >
+              <span className="relative inline-flex">
+                <span className="h-2.5 w-2.5 rounded-full bg-emerald-500 opacity-80"></span>
+                <span className="absolute inset-0 rounded-full bg-emerald-500 animate-ping opacity-25"></span>
+              </span>
+              <span>Sveže: osveži</span>
+            </button>
+          )}
 
           {/* FILTER (na arhivu vodi na /?filters=1) */}
           <button
