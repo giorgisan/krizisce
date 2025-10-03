@@ -217,9 +217,9 @@ export default function ArchivePage() {
       <Header />
       <SeoHead title="Križišče — Arhiv" description="Pregled novic po dnevih in medijih." />
 
-      {/* Zmanjšan spodnji padding; brez min-h-screen, da ni praznine nad footerjem */}
-      <main className="bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white px-4 md:px-8 lg:px-16 pb-10 pt-6">
-        <section className="max-w-6xl mx-auto">
+      {/* Sticky-footer layout: section zapolni viewport (svh = mobile safe). */}
+      <main className="bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white px-4 md:px-8 lg:px-16 pb-8 pt-6">
+        <section className="max-w-6xl mx-auto flex flex-col gap-5 min-h-[calc(100svh-var(--hdr-h))]">
           {/* Top controls */}
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-2">
@@ -266,14 +266,14 @@ export default function ArchivePage() {
               </svg>
               <input
                 type="search" value={search} onChange={(e) => setSearch(e.target.value)}
-                placeholder="Išči po naslovu ali podnaslovu …"
+                placeholder="Išči po naslovu ali podnaslovu…"
                 className="w-full pl-8 pr-3 py-2 rounded-md text-sm bg-white/80 dark:bg-gray-800/70 border border-gray-300/70 dark:border-gray-700/70 focus:outline-none focus:ring-2 focus:ring-brand/50"
               />
             </div>
           </div>
 
           {/* Graf */}
-          <div className="mt-5 rounded-xl border border-gray-200/70 dark:border-gray-700/70 bg-white/70 dark:bg-gray-900/70 backdrop-blur p-4">
+          <div className="rounded-xl border border-gray-200/70 dark:border-gray-700/70 bg-white/70 dark:bg-gray-900/70 backdrop-blur p-4">
             <div className="flex items-center justify-between">
               <h2 className="font-medium">
                 Objave po medijih
@@ -310,60 +310,60 @@ export default function ArchivePage() {
             )}
           </div>
 
-          {/* Seznam */}
-          <h3 className="mt-5 mb-3 text-sm font-medium text-gray-800 dark:text-gray-200">Zadnje novice</h3>
-          <div className="rounded-md border border-gray-200/70 dark:border-gray-800/70 bg-white/50 dark:bg-gray-900/40">
-            {/* malce višje okno, da je manj praznine spodaj na visokih ekranih; responsivno */}
-            <div className="relative max-h-[48vh] md:max-h-[50vh] xl:max-h-[52vh] overflow-y-auto pb-6">
-              {loading ? (
-                <p className="p-3 text-sm text-gray-500 dark:text-gray-400">Nalagam…</p>
-              ) : errorMsg ? (
-                <p className="p-3 text-sm text-red-600 dark:text-red-400">{errorMsg}</p>
-              ) : (
-                <ul className="divide-y divide-gray-200 dark:divide-gray-800">
-                  {filteredNews.map((n, i) => {
-                    const src = (n as any).source
-                    const hex = sourceColors[src] || '#7c7c7c'
-                    const link = (n as any).link as string
-                    const it = items.find(it => it.link === link)
-                    const summary = (it?.summary ?? it?.contentsnippet ?? (it as any)?.description ?? (it as any)?.content ?? '').trim()
+          {/* Seznam = flex-1, h-full scroll */}
+          <div className="flex-1 flex flex-col">
+            <h3 className="mt-1 mb-2 text-sm font-medium text-gray-800 dark:text-gray-200">Zadnje novice</h3>
+            <div className="rounded-md border border-gray-200/70 dark:border-gray-800/70 bg-white/50 dark:bg-gray-900/40 flex-1 min-h-[260px]">
+              <div className="h-full overflow-y-auto pb-6">
+                {loading ? (
+                  <p className="p-3 text-sm text-gray-500 dark:text-gray-400">Nalagam…</p>
+                ) : errorMsg ? (
+                  <p className="p-3 text-sm text-red-600 dark:text-red-400">{errorMsg}</p>
+                ) : (
+                  <ul className="divide-y divide-gray-200 dark:divide-gray-800">
+                    {filteredNews.map((n, i) => {
+                      const src = (n as any).source
+                      const hex = sourceColors[src] || '#7c7c7c'
+                      const link = (n as any).link as string
+                      const it = items.find(it => it.link === link)
+                      const summary = (it?.summary ?? it?.contentsnippet ?? (it as any)?.description ?? (it as any)?.content ?? '').trim()
 
-                    return (
-                      <li key={`${link}-${i}`} className="grid grid-cols-[92px_78px_1fr] sm:grid-cols-[100px_84px_1fr] gap-x-3 sm:gap-x-4 px-2 sm:px-3 py-1.5">
-                        <button className="inline-flex items-center gap-1 min-w-0"
-                                onClick={() => setSourceFilter(curr => (curr === src ? null : src))}
-                                title={sourceFilter === src ? 'Počisti filter' : `Prikaži samo: ${src}`}>
-                          <span className="inline-block w-1.5 h-1.5 rounded-full" style={{ backgroundColor: hex }} aria-hidden />
-                          <span className="truncate text-[10px] text-gray-600 dark:text-gray-400">{src}</span>
-                        </button>
+                      return (
+                        <li key={`${link}-${i}`} className="grid grid-cols-[92px_78px_1fr] sm:grid-cols-[100px_84px_1fr] gap-x-3 sm:gap-x-4 px-2 sm:px-3 py-1.5">
+                          <button className="inline-flex items-center gap-1 min-w-0"
+                                  onClick={() => setSourceFilter(curr => (curr === src ? null : src))}
+                                  title={sourceFilter === src ? 'Počisti filter' : `Prikaži samo: ${src}`}>
+                            <span className="inline-block w-1.5 h-1.5 rounded-full" style={{ backgroundColor: hex }} aria-hidden />
+                            <span className="truncate text-[10px] text-gray-600 dark:text-gray-400">{src}</span>
+                          </button>
 
-                        <span className="text-right sm:text-left text-[10px] text-gray-500 dark:text-gray-400 tabular-nums"
-                              title={fmtClock((n as any).publishedAt ?? Date.now())}>
-                          {relativeTime((n as any).publishedAt ?? Date.now())}
-                        </span>
+                          <span className="text-right sm:text-left text-[10px] text-gray-500 dark:text-gray-400 tabular-nums"
+                                title={fmtClock((n as any).publishedAt ?? Date.now())}>
+                            {relativeTime((n as any).publishedAt ?? Date.now())}
+                          </span>
 
-                        <div className="relative">
-                          <a href={link} target="_blank" rel="noopener noreferrer"
-                             className="peer block text-[13px] leading-tight text-gray-900 dark:text-gray-100 hover:underline truncate">
-                            {search.trim() ? highlight((n as any).title, search) : (n as any).title}
-                          </a>
-                          {summary && (
-                            <div className="pointer-events-none absolute left-0 top-full mt-1 z-50 max-w-[60ch] rounded-md bg-gray-900 text-white text-[12px] leading-snug px-2.5 py-2 shadow-lg ring-1 ring-black/20 opacity-0 invisible translate-y-1 transition peer-hover:opacity-100 peer-hover:visible peer-hover:translate-y-0 peer-focus-visible:opacity-100 peer-focus-visible:visible peer-focus-visible:translate-y-0" role="tooltip">
-                              {search.trim() ? highlight(summary, search) : summary}
-                            </div>
-                          )}
-                        </div>
-                      </li>
-                    )
-                  })}
-                </ul>
-              )}
+                          <div className="relative">
+                            <a href={link} target="_blank" rel="noopener noreferrer"
+                              className="peer block text-[13px] leading-tight text-gray-900 dark:text-gray-100 hover:underline truncate">
+                              {search.trim() ? highlight((n as any).title, search) : (n as any).title}
+                            </a>
+                            {summary && (
+                              <div className="pointer-events-none absolute left-0 top-full mt-1 z-50 max-w-[60ch] rounded-md bg-gray-900 text-white text-[12px] leading-snug px-2.5 py-2 shadow-lg ring-1 ring-black/20 opacity-0 invisible translate-y-1 transition peer-hover:opacity-100 peer-hover:visible peer-hover:translate-y-0 peer-focus-visible:opacity-100 peer-focus-visible:visible peer-focus-visible:translate-y-0" role="tooltip">
+                                {search.trim() ? highlight(summary, search) : summary}
+                              </div>
+                            )}
+                          </div>
+                        </li>
+                      )
+                    })}
+                  </ul>
+                )}
+              </div>
             </div>
           </div>
 
           {/* Subtilen separator z varnim razmakom */}
-          <div className="my-8 h-px bg-gray-200/70 dark:bg-gray-700/50 rounded-full" />
-
+          <div className="my-6 h-px bg-gray-200/70 dark:bg-gray-700/50 rounded-full" />
         </section>
       </main>
 
