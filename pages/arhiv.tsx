@@ -107,6 +107,154 @@ function toNewsItem(a: ApiItem): NewsItem {
   return { title: a.title, link: a.link, source: a.source, publishedAt: tsOf(a) || Date.now() } as any
 }
 
+/* =============================================================================
+   Minimalen, sodoben DatePicker (popover) z gumbom "Danes" znotraj koledarja
+   – brez zunanjih knjižnic, podpora tipkovnici, SR oznake
+============================================================================= */
+function DatePicker({
+  value,
+  onChange,
+  max,
+}: {
+  value: string
+  onChange: (v: string) => void
+  max?: string
+}) {
+  const [open, setOpen] = useState(false)
+  const parsed = useMemo(() => new Date(value + 'T00:00:00'), [value])
+  const [view, setView] = useState<{ y: number; m: number }>(() => ({ y: parsed.getFullYear(), m: parsed.getMonth() }))
+
+  const btnRef = useRef<HTMLButtonElement | null>(null)
+  const popRef = useRef<HTMLDivElement | null>(null)
+
+  // close on click outside / esc
+  useEffect(() => {
+    function onClick(e: MouseEvent) {
+      if (!open) return
+      if (popRef.current && !popRef.current.contains(e.target as Node) && btnRef.current && !btnRef.current.contains(e.target as Node)) {
+        setOpen(false)
+      }
+    }
+    function onKey(e: KeyboardEvent) { if (e.key === 'Escape') setOpen(false) }
+    document.addEventListener('mousedown', onClick)
+    document.addEventListener('keydown', onKey)
+    return () => { document.removeEventListener('mousedown', onClick); document.removeEventListener('keydown', onKey) }
+  }, [open])
+
+  const weeks = useMemo(() => {
+    const first = new Date(view.y, view.m, 1)
+    const last = new Date(view.y, view.m + 1, 0)
+    const startWeekday = (first.getDay() + 6) % 7 // ISO start Monday
+    const daysInMonth = last.getDate()
+    const cells: Array<{ d: number; inMonth: boolean; date: Date }> = []
+    // leading
+    for (let i = 0; i < startWeekday; i++) {
+      const d = new Date(view.y, view.m, -i)
+      cells.unshift({ d: d.getDate(), inMonth: false, date: d })
+    }
+    // month days
+    for (let d = 1; d <= daysInMonth; d++) cells.push({ d, inMonth: true, date: new Date(view.y, view.m, d) })
+    // trailing to full weeks
+    while (cells.length % 7 !== 0) {
+      const nextIndex = cells.length - startWeekday + 1
+      const d = new Date(view.y, view.m, nextIndex)
+      cells.push({ d: d.getDate(), inMonth: false, date: d })
+    }
+    // chunk 7
+    const rows: typeof cells[] = []
+    for (let i = 0; i < cells.length; i += 7) rows.push(cells.slice(i, i + 7))
+    return rows
+  }, [view])
+
+  const weekdays = ['Po', 'To', 'Sr', 'Če', 'Pe', 'So', 'Ne']
+
+  const todayStr = yyyymmdd(new Date())
+  const maxStr = max || todayStr
+
+  const isDisabled = (d: Date) => yyyymmdd(d) > maxStr
+
+  return (
+    <div className="relative">
+      <button
+        ref={btnRef}
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="px-2.5 py-1.5 rounded-md border border-gray-300 dark:border-gray-700 bg-white/80 dark:bg-gray-800/80 backdrop-blur text-xs"
+        aria-haspopup="dialog"
+        aria-expanded={open}
+      >
+        {value}
+      </button>
+
+      {open && (
+        <div
+          ref={popRef}
+          role="dialog"
+          aria-label="Izberi datum"
+          className="absolute z-50 mt-2 w-72 rounded-xl border border-gray-200/70 dark:border-gray-700/70 bg-white dark:bg-gray-900 shadow-xl p-3"
+        >
+          {/* header */}
+          <div className="flex items-center justify-between mb-2">
+            <button
+              className="h-8 w-8 inline-flex items-center justify-center rounded-md hover:bg-black/5 dark:hover:bg-white/10"
+              onClick={() => setView((v) => ({ y: v.y, m: v.m - 1 }))}
+              aria-label="Prejšnji mesec"
+            >
+              ‹
+            </button>
+            <div className="text-sm font-medium">
+              {new Intl.DateTimeFormat('sl-SI', { month: 'long', year: 'numeric' }).format(new Date(view.y, view.m, 1))}
+            </div>
+            <div className="flex items-center gap-1">
+              <button
+                className="px-2 py-1 text-xs rounded-md bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700"
+                onClick={() => { const t = new Date(); setView({ y: t.getFullYear(), m: t.getMonth() }); onChange(yyyymmdd(t)); setOpen(false) }}
+              >
+                Danes
+              </button>
+              <button
+                className="h-8 w-8 inline-flex items-center justify-center rounded-md hover:bg-black/5 dark:hover:bg-white/10"
+                onClick={() => setView((v) => ({ y: v.y, m: v.m + 1 }))}
+                aria-label="Naslednji mesec"
+              >
+                ›
+              </button>
+            </div>
+          </div>
+
+          {/* grid */}
+          <div className="grid grid-cols-7 text-[11px] text-gray-500 dark:text-gray-400 mb-1">
+            {weekdays.map((w) => <div key={w} className="text-center py-1">{w}</div>)}
+          </div>
+          <div className="grid grid-cols-7 gap-1">
+            {weeks.flat().map((cell, idx) => {
+              const dStr = yyyymmdd(cell.date)
+              const selected = dStr === value
+              const disabled = isDisabled(cell.date)
+              return (
+                <button
+                  key={idx}
+                  disabled={disabled}
+                  onClick={() => { if (!disabled) { onChange(dStr); setOpen(false) } }}
+                  className={[
+                    'h-8 rounded-md text-sm',
+                    cell.inMonth ? '' : 'text-gray-400 dark:text-gray-500',
+                    selected ? 'bg-brand text-white' : 'hover:bg-black/5 dark:hover:bg-white/10',
+                    disabled ? 'opacity-40 cursor-not-allowed' : ''
+                  ].join(' ')}
+                  aria-current={selected ? 'date' : undefined}
+                >
+                  {cell.d}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ==== Component ====
 export default function ArchivePage() {
   const [date, setDate] = useState(() => yyyymmdd(new Date()))
@@ -217,7 +365,7 @@ export default function ArchivePage() {
       <Header />
       <SeoHead title="Križišče — Arhiv" description="Pregled novic po dnevih in medijih." />
 
-      {/* Sticky-footer layout: section zapolni viewport (svh = mobile safe). */}
+      {/* Sticky-footer layout */}
       <main className="bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white px-4 md:px-8 lg:px-16 pb-8 pt-6">
         <section className="max-w-6xl mx-auto flex flex-col gap-5 min-h-[calc(100svh-var(--hdr-h))]">
           {/* Top controls */}
@@ -228,14 +376,14 @@ export default function ArchivePage() {
                 Nazaj
               </Link>
 
-              <label htmlFor="date" className="sr-only">Izberi dan</label>
-              <input
-                id="date" type="date" value={date} max={yyyymmdd(new Date())}
-                onChange={(e) => startTransition(() => { setSourceFilter(null); setSearch(''); setItems([]); setDate(e.target.value) })}
-                className="px-2.5 py-1.5 rounded-md border border-gray-300 dark:border-gray-700 bg-white/80 dark:bg-gray-800/80 backdrop-blur text-xs"
+              {/* NOV: sodoben DatePicker (z gumbom Danes v popoverju) */}
+              <DatePicker
+                value={date}
+                onChange={(val) => startTransition(() => { setSourceFilter(null); setSearch(''); setItems([]); setDate(val) })}
+                max={yyyymmdd(new Date())}
               />
 
-              {/* Danes */}
+              {/* fallback “Danes” tipka tudi zunaj (hitro dejanje na mobilnih) */}
               <button
                 onClick={goToday}
                 className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs border border-gray-300/60 dark:border-gray-700/60 bg-white/70 dark:bg-gray-800/60 hover:bg-white/90 dark:hover:bg-gray-800/80 transition"
