@@ -5,14 +5,6 @@ import { createClient } from '@supabase/supabase-js'
 import fetchRSSFeeds from '@/lib/fetchRSSFeeds'
 import type { NewsItem as FeedNewsItem } from '@/types'
 
-/**
- * Stable "freshest-first" news API.
- * - Sorts by `published_at DESC` on the DB (single source of truth).
- * - Falls back to `publishedat` (ms), then `isodate/pubdate`, finally `created_at`.
- * - Supports paging with cursor = ISO timestamp string (published_at of last item).
- * - Optional filtering by source.
- */
-
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL as string
 const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY as string | undefined
@@ -51,21 +43,7 @@ export type NewsItem = {
 }
 
 type ApiNewsItem = NewsItem
-
-type DbInsert = {
-  link: string
-  title: string
-  source: string
-  image: string | null
-  contentsnippet: string | null
-  summary: string | null
-  isodate: string | null
-  pubdate: string | null
-  published_at: string
-  publishedat: number
-}
-
-type PagedOk = { items: NewsItem[]; nextCursor: string | null }
+type PagedOk = { items: NewsItem[]; nextCursor: number | null }
 type ListOk = NewsItem[]
 type Err = { error: string }
 
@@ -132,7 +110,7 @@ function feedItemToApi(item: FeedNewsItem): ApiNewsItem | null {
   }
 }
 
-function feedItemToDbRow(item: FeedNewsItem): DbInsert | null {
+function feedItemToDbRow(item: FeedNewsItem) {
   const link = (item.link || '').trim()
   const title = (item.title || '').trim()
   const source = (item.source || '').trim()
@@ -157,7 +135,7 @@ function feedItemToDbRow(item: FeedNewsItem): DbInsert | null {
 
 async function syncToSupabase(items: FeedNewsItem[]) {
   if (!supabaseWrite) return
-  const rows = items.map(feedItemToDbRow).filter((row): row is DbInsert => Boolean(row))
+  const rows = items.map(feedItemToDbRow).filter(Boolean) as any[]
   if (!rows.length) return
   const { error } = await supabaseWrite
     .from('news')
@@ -228,20 +206,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
       Math.max(parseInt(String(req.query.limit ?? (paged ? 40 : 60)), 10) || (paged ? 40 : 60), 1),
       200,
     )
-    const cursor = (req.query.cursor as string) || null        // ISO string (published_at of last item)
 
-    // Base select
+    const cursor = req.query.cursor ? Number(req.query.cursor) : null  // ms epoch
+
     let q = supabaseRead
       .from('news')
       .select('id, link, title, source, image, contentsnippet, summary, isodate, pubdate, published_at, publishedat, created_at')
-      .order('published_at', { ascending: false })  // relies on trigger keeping it non-null
-      .order('id', { ascending: false })            // tie-breaker for same second
+      .order('publishedat', { ascending: false })   // ključ: ms bigint
+      .order('id', { ascending: false })
 
     if (source && source !== 'Vse') q = q.eq('source', source)
 
-    if (cursor) {
-      // fetch strictly older than last published_at on the client
-      q = q.lt('published_at', cursor)
+    if (cursor && cursor > 0) {
+      q = q.lt('publishedat', cursor)
     }
 
     q = q.limit(limit)
@@ -252,7 +229,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
     const rows = (data || []) as Row[]
     const items = rows.map(rowToItem)
 
-    const nextCursor = rows.length === limit ? (rows[rows.length - 1].published_at || null) : null
+    const nextCursor =
+      rows.length === limit ? (rows[rows.length - 1].publishedat ? Number(rows[rows.length - 1].publishedat) : null) : null
 
     if (paged) {
       const payload: PagedOk = { items, nextCursor }
