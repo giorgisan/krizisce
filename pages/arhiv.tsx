@@ -404,17 +404,24 @@ export default function ArchivePage() {
 
     const tick = async () => {
       if (document.hidden) return
+      if (!latestTsRef.current) return // ⛳️ skip first run until we know current newest
       try {
-        const res = await fetch(`/api/archive?date=${encodeURIComponent(date)}&limit=1`, { cache: 'no-store' })
+        const res = await fetch(`/api/archive?date=${encodeURIComponent(date)}&limit=1&_t=${Date.now()}`, {
+          cache: 'no-store',
+        })
         const data: any = await res.json()
         const newest = (data?.items?.length ? tsOf(data.items[0]) : 0) || 0
-        if (newest > latestTsRef.current) { await fetchFirstPage(date, false) }
+        if (newest > latestTsRef.current) {
+          await fetchFirstPage(date, false)
+        }
       } catch {}
     }
 
     timer = window.setInterval(tick, 60_000)
-    void tick()
-    return () => { if (timer) clearInterval(timer) }
+    // ne kličimo tick() takoj – počakamo, da se items napolnijo
+    return () => {
+      if (timer) clearInterval(timer)
+    }
   }, [date, todayStr])
 
   const updatedText = useMemo(
