@@ -164,7 +164,7 @@ export default function Header() {
     window.dispatchEvent(new CustomEvent('toggle-filters'))
   }
 
-  const bannerText = bannerMode === 'updates' ? 'Na voljo so posodobitve' : 'Na voljo so sveže novice'
+  const bannerText = bannerMode === 'updates' ? 'Na voljo je posodobljena vsebina' : 'Na voljo so sveže novice'
 
   return (
     <header
