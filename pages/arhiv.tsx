@@ -45,6 +45,7 @@ function tsOf(a: ApiItem) {
     (a.published_at ? Date.parse(a.published_at) : NaN)
   return Number.isFinite(t) ? Number(t) : 0
 }
+
 function toNewsItem(a: ApiItem): NewsItem {
   const ts = tsOf(a)
   return {
@@ -54,12 +55,14 @@ function toNewsItem(a: ApiItem): NewsItem {
     publishedAt: ts || Date.now(),
   } as unknown as NewsItem
 }
+
 function yyyymmdd(d: Date) {
   const y = d.getFullYear(),
     m = `${d.getMonth() + 1}`.padStart(2, '0'),
     dd = `${d.getDate()}`.padStart(2, '0')
   return `${y}-${m}-${dd}`
 }
+
 function relativeTime(ms: number) {
   const diff = Math.max(0, Date.now() - ms),
     m = Math.floor(diff / 60000)
@@ -70,6 +73,7 @@ function relativeTime(ms: number) {
   const d = Math.floor(h / 24)
   return `pred ${d} d`
 }
+
 function fmtClock(ms: number) {
   try {
     return new Intl.DateTimeFormat('sl-SI', {
@@ -80,9 +84,11 @@ function fmtClock(ms: number) {
     return ''
   }
 }
+
 function norm(s: string) {
   try {
-    return s.toLowerCase().normalize('NFD').replace(/\u0300-\u036f/g, '')
+    // popravek: pravilni oglasti oklepaji v regexu
+    return s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
   } catch {
     return s.toLowerCase()
   }
@@ -131,6 +137,18 @@ function highlight(text: string, q: string) {
   }
   if (last < t.length) out.push(t.slice(last))
   return <>{out}</>
+}
+
+// novejši timestamp iz seznama (server-truth za "Zadnja objava …")
+function newestTs(list: ApiItem[]) {
+  if (!list?.length) return 0
+  // sortDesc bo itak posortiral, a dodatno zaščitimo:
+  let best = 0
+  for (const it of list) {
+    const t = tsOf(it)
+    if (t > best) best = t
+  }
+  return best
 }
 
 // ==== session cache ========================================================
@@ -183,7 +201,7 @@ export default function ArchivePage() {
   const bgStartedRef = useRef<boolean>(false)
   const [bgLoading, setBgLoading] = useState(false)
 
-  // “posodobljeno pred …”
+  // “zadnja objava …”
   const [lastUpdatedMs, setLastUpdatedMs] = useState<number | null>(null)
   const [nowTick, setNowTick] = useState(0)
   useEffect(() => {
@@ -257,10 +275,11 @@ export default function ArchivePage() {
     if (useCache) {
       const cached = readCache(d)
       if (cached) {
-        setItems([...cached.items].sort(sortDesc))
+        const sorted = [...cached.items].sort(sortDesc)
+        setItems(sorted)
         setCounts(cached.counts)
         setFallbackLive(cached.fallbackLive)
-        setLastUpdatedMs(cached.at)
+        setLastUpdatedMs(newestTs(sorted)) // << ključni popravki
         servedFromCache = true
       }
     }
@@ -280,6 +299,7 @@ export default function ArchivePage() {
           setItems([])
           setCounts({})
           setFallbackLive(false)
+          setLastUpdatedMs(null)
         }
         setErrorMsg('Arhiva trenutno ni mogoče naložiti.')
         setLoading(false)
@@ -295,7 +315,7 @@ export default function ArchivePage() {
       nextCursorRef.current = data.nextCursor ?? null
       setLoading(false)
 
-      setLastUpdatedMs(Date.now())
+      setLastUpdatedMs(newestTs(sorted)) // << namesto Date.now()
       writeCache(d, {
         at: Date.now(),
         items: sorted,
@@ -313,6 +333,7 @@ export default function ArchivePage() {
         setItems([])
         setCounts({})
         setFallbackLive(false)
+        setLastUpdatedMs(null)
       }
       if (!controller.signal.aborted) setErrorMsg('Napaka pri povezavi do arhiva.')
       setLoading(false)
@@ -362,7 +383,7 @@ export default function ArchivePage() {
           acc = [...acc, ...fresh]
           const sorted = [...acc].sort(sortDesc)
           setItems(sorted)
-          setLastUpdatedMs(Date.now())
+          setLastUpdatedMs(newestTs(sorted)) // << namesto Date.now()
           writeCache(date, { at: Date.now(), items: sorted, counts, fallbackLive })
         }
 
@@ -433,7 +454,7 @@ export default function ArchivePage() {
 
   // === UI ===================================================================
   const updatedText = useMemo(
-    () => (lastUpdatedMs ? `Posodobljeno ${relativeTime(lastUpdatedMs)}` : ''),
+    () => (lastUpdatedMs ? `Zadnja objava ${relativeTime(lastUpdatedMs)}` : ''),
     [lastUpdatedMs, nowTick],
   )
 
