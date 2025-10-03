@@ -505,7 +505,7 @@ export default function ArchivePage() {
                 type="search"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Išči po naslovu ali podnaslovu…"
+                placeholder="Išči po naslovu ali podnaslovu …"
                 className="w-full pl-8 pr-3 py-2 rounded-md text-sm bg-white/80 dark:bg-gray-800/70
                            border border-gray-300/70 dark:border-gray-700/70 focus:outline-none
                            focus:ring-2 focus:ring-brand/50"
