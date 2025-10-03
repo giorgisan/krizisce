@@ -38,7 +38,7 @@ type ApiOk = {
 }
 type ApiPayload = ApiOk | { error: string }
 
-// ==== small helpers ====
+// ==== helpers ====
 const yyyymmdd = (d: Date) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 
@@ -61,7 +61,7 @@ const norm = (s: string) => {
   try { return s.toLowerCase().normalize('NFD').replace(/\u0300-\u036f/g, '') } catch { return s.toLowerCase() }
 }
 
-// Highlight helper
+// Highlight
 function highlight(text: string, q: string) {
   if (!q) return text
   const t = text ?? ''
@@ -96,14 +96,13 @@ function highlight(text: string, q: string) {
   return <>{out}</>
 }
 
-// === Time resolver aligned with API (published_at first) ===
+// Resolve ms prioritizing published_at
 function tsOf(a: ApiItem) {
   const t1 = a.published_at ? Date.parse(a.published_at) : NaN
   if (Number.isFinite(t1)) return t1
   const t2 = a.publishedat != null ? Number(a.publishedat) : NaN
   return Number.isFinite(t2) ? t2 : 0
 }
-
 function toNewsItem(a: ApiItem): NewsItem {
   return { title: a.title, link: a.link, source: a.source, publishedAt: tsOf(a) || Date.now() } as any
 }
@@ -119,14 +118,14 @@ export default function ArchivePage() {
   const [search, setSearch] = useState('')
   const [sourceFilter, setSourceFilter] = useState<string | null>(null)
 
-  // minute tick for "posodobljeno"
+  // tick for "posodobljeno"
   const [, setNowTick] = useState(0)
   useEffect(() => { const t = setInterval(() => setNowTick(x => x + 1), 30_000); return () => clearInterval(t) }, [])
 
-  // stable sorting function
+  // sorting
   const sortDesc = (a: ApiItem, b: ApiItem) => tsOf(b) - tsOf(a) || Number(b.id) - Number(a.id)
 
-  // ---- Fetch all pages (no UI button) ----
+  // full fetch (loop cursors)
   const abortRef = useRef<AbortController | null>(null)
   async function fetchAll(d: string) {
     if (abortRef.current) abortRef.current.abort()
@@ -153,7 +152,6 @@ export default function ArchivePage() {
 
         if (!data.nextCursor) break
         cursor = data.nextCursor
-        // yield to UI
         await new Promise(r => setTimeout(r, 0))
       }
     } catch (e) {
@@ -163,13 +161,13 @@ export default function ArchivePage() {
     }
   }
 
-  // initial + on date change
+  // initial + date change
   useEffect(() => {
     fetchAll(date)
     return () => abortRef.current?.abort()
   }, [date])
 
-  // auto-refresh for today (visible tab)
+  // auto-refresh for today
   const todayStr = useMemo(() => yyyymmdd(new Date()), [])
   const latestTsRef = useRef<number>(0)
   useEffect(() => { latestTsRef.current = items.length ? tsOf(items[0]) : 0 }, [items])
@@ -188,14 +186,10 @@ export default function ArchivePage() {
     return () => clearInterval(timer)
   }, [date, todayStr])
 
-  // ----- derived UI state -----
+  // derived
   const updatedText = useMemo(() => lastUpdatedMs ? `Posodobljeno ${relativeTime(lastUpdatedMs)}` : '', [lastUpdatedMs])
-
-  const itemByLink = useMemo(() => {
-    const m = new Map<string, ApiItem>(); for (const it of items) m.set(it.link, it); return m
-  }, [items])
-
   const deferredSearch = useDeferredValue(search)
+
   const filteredNews = useMemo(() => {
     const q = norm(deferredSearch.trim())
     return items
@@ -213,12 +207,18 @@ export default function ArchivePage() {
   const total = useMemo(() => Object.values(displayCounts).reduce((a, b) => a + b, 0), [displayCounts])
   const maxCount = useMemo(() => Math.max(1, ...Object.values(displayCounts)), [displayCounts])
 
+  const goToday = () => {
+    const today = yyyymmdd(new Date())
+    startTransition(() => { setSourceFilter(null); setSearch(''); setItems([]); setDate(today) })
+  }
+
   return (
     <>
       <Header />
       <SeoHead title="Križišče — Arhiv" description="Pregled novic po dnevih in medijih." />
 
-      <main className="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white px-4 md:px-8 lg:px-16 pb-20 pt-6">
+      {/* Zmanjšan spodnji padding; brez min-h-screen, da ni praznine nad footerjem */}
+      <main className="bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white px-4 md:px-8 lg:px-16 pb-10 pt-6">
         <section className="max-w-6xl mx-auto">
           {/* Top controls */}
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -235,6 +235,16 @@ export default function ArchivePage() {
                 className="px-2.5 py-1.5 rounded-md border border-gray-300 dark:border-gray-700 bg-white/80 dark:bg-gray-800/80 backdrop-blur text-xs"
               />
 
+              {/* Danes */}
+              <button
+                onClick={goToday}
+                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs border border-gray-300/60 dark:border-gray-700/60 bg-white/70 dark:bg-gray-800/60 hover:bg-white/90 dark:hover:bg-gray-800/80 transition"
+                title="Skoči na današnji dan"
+              >
+                Danes
+              </button>
+
+              {/* Osveži */}
               <button
                 onClick={() => fetchAll(date)}
                 className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs border border-gray-300/60 dark:border-gray-700/60 bg-white/70 dark:bg-gray-800/60 hover:bg-white/90 dark:hover:bg-gray-800/80 transition"
@@ -245,7 +255,7 @@ export default function ArchivePage() {
                 Osveži
               </button>
 
-              {updatedText && <span className="ml-2 text-xs text-gray-600 dark:text-gray-400 whitespace-nowrap">{updatedText}</span>}
+              {lastUpdatedMs && <span className="ml-2 text-xs text-gray-600 dark:text-gray-400 whitespace-nowrap">Posodobljeno {relativeTime(lastUpdatedMs)}</span>}
             </div>
 
             {/* search */}
@@ -262,7 +272,7 @@ export default function ArchivePage() {
             </div>
           </div>
 
-          {/* Bar chart with subtle hint and clear link under it */}
+          {/* Graf */}
           <div className="mt-5 rounded-xl border border-gray-200/70 dark:border-gray-700/70 bg-white/70 dark:bg-gray-900/70 backdrop-blur p-4">
             <div className="flex items-center justify-between">
               <h2 className="font-medium">
@@ -290,7 +300,6 @@ export default function ArchivePage() {
               })}
             </div>
 
-            {/* subtle clear link below chart */}
             {sourceFilter && (
               <div className="mt-2">
                 <button onClick={() => setSourceFilter(null)}
@@ -301,10 +310,11 @@ export default function ArchivePage() {
             )}
           </div>
 
-          {/* List */}
-          <h3 className="mt-5 mb-2 text-sm font-medium text-gray-800 dark:text-gray-200">Zadnje novice</h3>
+          {/* Seznam */}
+          <h3 className="mt-5 mb-3 text-sm font-medium text-gray-800 dark:text-gray-200">Zadnje novice</h3>
           <div className="rounded-md border border-gray-200/70 dark:border-gray-800/70 bg-white/50 dark:bg-gray-900/40">
-            <div className="relative max-h-[44vh] overflow-y-auto pb-6">
+            {/* malce višje okno, da je manj praznine spodaj na visokih ekranih; responsivno */}
+            <div className="relative max-h-[48vh] md:max-h-[50vh] xl:max-h-[52vh] overflow-y-auto pb-6">
               {loading ? (
                 <p className="p-3 text-sm text-gray-500 dark:text-gray-400">Nalagam…</p>
               ) : errorMsg ? (
@@ -351,8 +361,9 @@ export default function ArchivePage() {
             </div>
           </div>
 
-          {/* Divider under list */}
-          <hr className="max-w-6xl mx-auto mt-4 border-t border-gray-200 dark:border-gray-700" />
+          {/* Subtilen separator z varnim razmakom */}
+          <div className="my-8 h-px bg-gray-200/70 dark:bg-gray-700/50 rounded-full" />
+
         </section>
       </main>
 
