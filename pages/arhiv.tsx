@@ -6,7 +6,6 @@ import React, {
   useMemo,
   useState,
   useDeferredValue,
-  startTransition,
   useRef,
 } from 'react'
 import Link from 'next/link'
@@ -39,6 +38,7 @@ function tsOf(a: ApiItem) {
 }
 function toNewsItem(a: ApiItem): NewsItem {
   const ts = tsOf(a)
+  // minimal shape used by the card-less list
   return { title: a.title, link: a.link, source: a.source, publishedAt: ts || Date.now() } as unknown as NewsItem
 }
 function yyyymmdd(d: Date) {
@@ -56,7 +56,7 @@ function fmtClock(ms: number) {
   try { return new Intl.DateTimeFormat('sl-SI', { hour: '2-digit', minute: '2-digit' }).format(new Date(ms)) } catch { return '' }
 }
 function norm(s: string) {
-  try { return s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '') } catch { return s.toLowerCase() }
+  try { return s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '') } catch { return s.toLowerCase() }
 }
 
 // preprosti highlighter (case/diakritika-insensitive)
@@ -114,6 +114,16 @@ function readCache(date: string): CacheShape | null {
 }
 function writeCache(date: string, data: CacheShape) {
   try { sessionStorage.setItem(CACHE_KEY(date), JSON.stringify(data)) } catch {}
+}
+
+// helper: build URL; za današnji datum dodamo _r param, da obidemo CDN cache
+function buildUrl(date: string, params: Record<string,string|number|undefined> = {}) {
+  const u = new URL('/api/archive', window.location.origin)
+  u.searchParams.set('date', date)
+  for (const [k,v] of Object.entries(params)) if (v !== undefined && v !== null) u.searchParams.set(k, String(v))
+  const today = yyyymmdd(new Date())
+  if (date === today) u.searchParams.set('_r', String(Date.now()))
+  return u.toString()
 }
 
 // ==== page =================================================================
@@ -174,7 +184,8 @@ export default function ArchivePage() {
 
   function sortDesc(a: ApiItem, b: ApiItem) { return tsOf(b) - tsOf(a) || String(b.id).localeCompare(String(a.id)) }
 
-  async function fetchFirstPage(d: string, useCache = true) {
+  // glavni fetch
+  async function fetchFirstPage(d: string, useCache: boolean) {
     if (abortRef.current) abortRef.current.abort()
     const controller = new AbortController(); abortRef.current = controller
 
@@ -189,7 +200,7 @@ export default function ArchivePage() {
       if (cached) {
         setItems([...cached.items].sort(sortDesc))
         setCounts(cached.counts); setFallbackLive(cached.fallbackLive)
-        setLastUpdatedMs(cached.at) // ← posodobi indikator, če je iz cache
+        setLastUpdatedMs(cached.at)
         servedFromCache = true
       }
     }
@@ -197,7 +208,7 @@ export default function ArchivePage() {
     setLoading(!servedFromCache)
     try {
       const LIMIT_FIRST = 40
-      const url = `/api/archive?date=${encodeURIComponent(d)}&limit=${LIMIT_FIRST}`
+      const url = buildUrl(d, { limit: LIMIT_FIRST })
       const res = await fetch(url, { cache: 'no-store', signal: controller.signal })
       const data: ApiPayload = await res.json().catch(() => ({ error: 'Neveljaven odgovor strežnika.' }))
 
@@ -216,7 +227,7 @@ export default function ArchivePage() {
       nextCursorRef.current = data.nextCursor ?? null
       setLoading(false)
 
-      setLastUpdatedMs(Date.now()) // ← osveženo zdaj
+      setLastUpdatedMs(Date.now())
       writeCache(d, { at: Date.now(), items: sorted, counts: data.counts ?? {}, fallbackLive: Boolean((data as any).fallbackLive) })
 
       // začni ozadno nalaganje takoj
@@ -254,7 +265,7 @@ export default function ArchivePage() {
       let acc = [...items]
 
       while (cursor) {
-        const url = `/api/archive?date=${encodeURIComponent(date)}&cursor=${encodeURIComponent(cursor)}&limit=${LIMIT}`
+        const url = buildUrl(date, { cursor, limit: LIMIT })
         const res = await fetch(url, { cache: 'no-store', signal: background ? controller.signal : undefined })
         const data: ApiPayload = await res.json().catch(() => ({ error: 'Neveljaven odgovor strežnika.' }))
         if (!res.ok || 'error' in data) break
@@ -265,7 +276,7 @@ export default function ArchivePage() {
           acc = [...acc, ...fresh]
           const sorted = [...acc].sort(sortDesc)
           setItems(sorted)
-          setLastUpdatedMs(Date.now()) // ← posodobljeno tudi ob ozadnem dotoku
+          setLastUpdatedMs(Date.now()) // posodobljeno tudi ob ozadnem dotoku
           writeCache(date, { at: Date.now(), items: sorted, counts, fallbackLive })
         }
 
@@ -287,18 +298,6 @@ export default function ArchivePage() {
     }
   }
 
-  function refreshNow() { fetchFirstPage(date, false) }
-
-  // auto-ozadje pri tipkanju, če še ni vse naloženo
-  useEffect(() => {
-    const q = deferredSearch.trim()
-    if (q && !loadedAll && nextCursorRef.current && !bgStartedRef.current) {
-      bgStartedRef.current = true
-      void loadRestOfDay({ background: true, startCursor: nextCursorRef.current })
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [deferredSearch, loadedAll])
-
   // === Auto-osveževanje današnjega dne (vsako minuto, če je zavihek viden) ===
   const todayStr = useMemo(() => yyyymmdd(new Date()), [])
   const latestTsRef = useRef<number>(0)
@@ -311,7 +310,8 @@ export default function ArchivePage() {
     const tick = async () => {
       if (document.hidden) return
       try {
-        const res = await fetch(`/api/archive?date=${encodeURIComponent(date)}&limit=1`, { cache: 'no-store' })
+        const url = buildUrl(date, { limit: 1 })
+        const res = await fetch(url, { cache: 'no-store' })
         const data: any = await res.json()
         const newest = (data?.items?.length ? tsOf(data.items[0]) : 0) || 0
         if (newest > latestTsRef.current) {
@@ -325,10 +325,27 @@ export default function ArchivePage() {
     return () => { if (timer) clearInterval(timer) }
   }, [date, todayStr])
 
+  // === initial + date-change fetch behaviour ================================
+  // – ob prvem prikazu in ob spremembi datuma vedno “potrdi izbor” in naloži sveže
+  useEffect(() => {
+    const isToday = date === todayStr
+    // Danes: vedno skip cache (takoj sveže). Preteklost: lahko iz cache.
+    fetchFirstPage(date, !isToday)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [date])
+
   // === UI ===================================================================
   const updatedText = useMemo(() => (
     lastUpdatedMs ? `Posodobljeno ${relativeTime(lastUpdatedMs)}` : ''
   ), [lastUpdatedMs, nowTick])
+
+  // Handler: sprememba datuma → takojšen fetch (brez cache) + setDate
+  const onDateChange: React.ChangeEventHandler<HTMLInputElement> = (e) => {
+    const v = e.target.value
+    setDate(v)
+    // Nemudoma naloži brez cache (potrdi izbor)
+    void fetchFirstPage(v, false)
+  }
 
   return (
     <>
@@ -361,13 +378,13 @@ export default function ArchivePage() {
                 type="date"
                 value={date}
                 max={yyyymmdd(new Date())}
-                onChange={(e) => startTransition(() => setDate(e.target.value))}
+                onChange={onDateChange}
                 className="px-2.5 py-1.5 rounded-md border border-gray-300 dark:border-gray-700 bg-white/80 dark:bg-gray-800/80 backdrop-blur text-xs"
               />
 
               {/* OSVEŽI */}
               <button
-                onClick={refreshNow}
+                onClick={() => fetchFirstPage(date, false)}
                 className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs border
                            border-gray-300/60 dark:border-gray-700/60 bg-white/70 dark:bg-gray-800/60
                            hover:bg-white/90 dark:hover:bg-gray-800/80 transition"
