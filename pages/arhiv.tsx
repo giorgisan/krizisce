@@ -16,58 +16,35 @@ import SeoHead from '@/components/SeoHead'
 import { NewsItem } from '@/types'
 import { sourceColors } from '@/lib/sources'
 
+// ==== Types from API ====
 type ApiItem = {
   id: string
   link: string
   title: string
   source: string
-  published_at?: string | null
-  publishedat?: number | null
+  published_at?: string | null   // ISO timestamptz
+  publishedat?: number | null    // bigint (ms)
   summary?: string | null
   contentsnippet?: string | null
   description?: string | null
   content?: string | null
 }
-
-type ApiPayload =
-  | {
-      items: ApiItem[]
-      counts: Record<string, number>
-      total: number
-      nextCursor: string | null
-      fallbackLive?: boolean
-    }
-  | { error: string }
-
-// ==== helpers ==============================================================
-
-// ⛳️ Uskladimo prioriteto časa z API-jem: najprej published_at (timestamptz), šele nato publishedat (bigint)
-function tsOf(a: ApiItem) {
-  const tFromPublishedAt = a.published_at ? Date.parse(a.published_at) : NaN
-  if (Number.isFinite(tFromPublishedAt)) return tFromPublishedAt
-
-  const tFromBigint = a.publishedat != null ? Number(a.publishedat) : NaN
-  return Number.isFinite(tFromBigint) ? tFromBigint : 0
+type ApiOk = {
+  items: ApiItem[]
+  counts: Record<string, number>
+  total: number
+  nextCursor: string | null      // ISO published_at
+  fallbackLive?: boolean
 }
+type ApiPayload = ApiOk | { error: string }
 
-function toNewsItem(a: ApiItem): NewsItem {
-  const ts = tsOf(a)
-  return {
-    title: a.title,
-    link: a.link,
-    source: a.source,
-    publishedAt: ts || Date.now(),
-  } as unknown as NewsItem
-}
-function yyyymmdd(d: Date) {
-  const y = d.getFullYear(),
-    m = `${d.getMonth() + 1}`.padStart(2, '0'),
-    dd = `${d.getDate()}`.padStart(2, '0')
-  return `${y}-${m}-${dd}`
-}
-function relativeTime(ms: number) {
-  const diff = Math.max(0, Date.now() - ms),
-    m = Math.floor(diff / 60000)
+// ==== small helpers ====
+const yyyymmdd = (d: Date) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+
+const relativeTime = (ms: number) => {
+  const diff = Math.max(0, Date.now() - ms)
+  const m = Math.floor(diff / 60000)
   if (m < 1) return 'pred <1 min'
   if (m < 60) return `pred ${m} min`
   const h = Math.floor(m / 60)
@@ -75,361 +52,166 @@ function relativeTime(ms: number) {
   const d = Math.floor(h / 24)
   return `pred ${d} d`
 }
-function fmtClock(ms: number) {
+const fmtClock = (ms: number) => {
   try {
-    return new Intl.DateTimeFormat('sl-SI', {
-      hour: '2-digit',
-      minute: '2-digit',
-    }).format(new Date(ms))
-  } catch {
-    return ''
-  }
+    return new Intl.DateTimeFormat('sl-SI', { hour: '2-digit', minute: '2-digit' }).format(new Date(ms))
+  } catch { return '' }
 }
-function norm(s: string) {
-  try {
-    return s.toLowerCase().normalize('NFD').replace(/\u0300-\u036f/g, '')
-  } catch {
-    return s.toLowerCase()
-  }
+const norm = (s: string) => {
+  try { return s.toLowerCase().normalize('NFD').replace(/\u0300-\u036f/g, '') } catch { return s.toLowerCase() }
 }
 
-// preprosti highlighter (case/diakritika-insensitive)
+// Highlight helper
 function highlight(text: string, q: string) {
   if (!q) return text
   const t = text ?? ''
-  const nn = norm(t)
-  const nq = norm(q).trim()
+  const nn = norm(t), nq = norm(q).trim()
   if (!nq) return t
-
   const tokens = Array.from(new Set(nq.split(/\s+/).filter((w) => w.length >= 2)))
-  if (tokens.length === 0) return t
-
+  if (!tokens.length) return t
   const ranges: Array<[number, number]> = []
   for (const tok of tokens) {
     let start = 0
     while (true) {
       const idx = nn.indexOf(tok, start)
       if (idx === -1) break
-      ranges.push([idx, idx + tok.length])
-      start = idx + tok.length
+      ranges.push([idx, idx + tok.length]); start = idx + tok.length
     }
   }
   if (!ranges.length) return t
   ranges.sort((a, b) => a[0] - b[0])
   const merged: Array<[number, number]> = []
   for (const r of ranges) {
-    if (!merged.length || r[0] > merged[merged.length - 1][1])
-      merged.push([...r] as [number, number])
+    if (!merged.length || r[0] > merged[merged.length - 1][1]) merged.push([...r] as [number, number])
     else merged[merged.length - 1][1] = Math.max(merged[merged.length - 1][1], r[1])
   }
-
   const out: React.ReactNode[] = []
   let last = 0
   for (const [a, b] of merged) {
     if (a > last) out.push(t.slice(last, a))
-    out.push(
-      <mark key={`${a}-${b}`} className="bg-yellow-200 dark:bg-yellow-600/60 rounded px-0.5">
-        {t.slice(a, b)}
-      </mark>,
-    )
+    out.push(<mark key={`${a}-${b}`} className="bg-yellow-200 dark:bg-yellow-600/60 rounded px-0.5">{t.slice(a, b)}</mark>)
     last = b
   }
   if (last < t.length) out.push(t.slice(last))
   return <>{out}</>
 }
 
-// ==== session cache ========================================================
-const CACHE_KEY = (date: string) => `krizisce:archive:${date}`
-const CACHE_TTL_MS = 10 * 60 * 1000
-type CacheShape = {
-  at: number
-  items: ApiItem[]
-  counts: Record<string, number>
-  fallbackLive: boolean
-}
-function readCache(date: string): CacheShape | null {
-  try {
-    const raw = sessionStorage.getItem(CACHE_KEY(date))
-    if (!raw) return null
-    const parsed = JSON.parse(raw) as CacheShape
-    if (!parsed?.at || Date.now() - parsed.at > CACHE_TTL_MS) return null
-    if (!Array.isArray(parsed.items)) return null
-    return parsed
-  } catch {
-    return null
-  }
-}
-function writeCache(date: string, data: CacheShape) {
-  try {
-    sessionStorage.setItem(CACHE_KEY(date), JSON.stringify(data))
-  } catch {}
+// === Time resolver aligned with API (published_at first) ===
+function tsOf(a: ApiItem) {
+  const t1 = a.published_at ? Date.parse(a.published_at) : NaN
+  if (Number.isFinite(t1)) return t1
+  const t2 = a.publishedat != null ? Number(a.publishedat) : NaN
+  return Number.isFinite(t2) ? t2 : 0
 }
 
-// ==== page =================================================================
+function toNewsItem(a: ApiItem): NewsItem {
+  return { title: a.title, link: a.link, source: a.source, publishedAt: tsOf(a) || Date.now() } as any
+}
+
+// ==== Component ====
 export default function ArchivePage() {
-  const [date, setDate] = useState<string>(() => yyyymmdd(new Date()))
-  const [search, setSearch] = useState<string>('')
-  const [sourceFilter, setSourceFilter] = useState<string | null>(null)
-
+  const [date, setDate] = useState(() => yyyymmdd(new Date()))
   const [items, setItems] = useState<ApiItem[]>([])
   const [counts, setCounts] = useState<Record<string, number>>({})
-  const [loading, setLoading] = useState(false)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
-  const [fallbackLive, setFallbackLive] = useState(false)
-
-  const [nextCursor, setNextCursor] = useState<string | null>(null)
-  const nextCursorRef = useRef<string | null>(null)
-  const [loadedAll, setLoadedAll] = useState(false)
-  const [loadingMore, setLoadingMore] = useState(false)
-
-  const abortRef = useRef<AbortController | null>(null)
-  const bgAbortRef = useRef<AbortController | null>(null)
-  const bgStartedRef = useRef<boolean>(false)
-  const [bgLoading, setBgLoading] = useState(false)
-
-  // “posodobljeno pred …”
+  const [loading, setLoading] = useState(false)
   const [lastUpdatedMs, setLastUpdatedMs] = useState<number | null>(null)
-  const [nowTick, setNowTick] = useState(0)
-  useEffect(() => {
-    const t = setInterval(() => setNowTick((x) => x + 1), 30_000)
-    return () => clearInterval(t)
-  }, [])
+  const [search, setSearch] = useState('')
+  const [sourceFilter, setSourceFilter] = useState<string | null>(null)
 
-  const news = useMemo(() => items.map(toNewsItem), [items])
-  const displayCounts = useMemo(
-    () => Object.fromEntries(Object.entries(counts).filter(([k]) => k !== 'TestVir')),
-    [counts],
-  )
-  const total = useMemo(
-    () => Object.values(displayCounts).reduce((a, b) => a + b, 0),
-    [displayCounts],
-  )
-  const maxCount = useMemo(() => Math.max(1, ...Object.values(displayCounts)), [displayCounts])
+  // minute tick for "posodobljeno"
+  const [, setNowTick] = useState(0)
+  useEffect(() => { const t = setInterval(() => setNowTick(x => x + 1), 30_000); return () => clearInterval(t) }, [])
+
+  // stable sorting function
+  const sortDesc = (a: ApiItem, b: ApiItem) => tsOf(b) - tsOf(a) || Number(b.id) - Number(a.id)
+
+  // ---- Fetch all pages (no UI button) ----
+  const abortRef = useRef<AbortController | null>(null)
+  async function fetchAll(d: string) {
+    if (abortRef.current) abortRef.current.abort()
+    const ctrl = new AbortController(); abortRef.current = ctrl
+    setLoading(true); setErrorMsg(null)
+    try {
+      const LIMIT = 250
+      let cursor: string | null = null
+      let acc: ApiItem[] = []
+      const seen = new Set<string>()
+
+      while (true) {
+        const qs = new URLSearchParams({ date: d, limit: String(LIMIT) })
+        if (cursor) qs.set('cursor', cursor)
+        qs.set('_t', String(Date.now()))
+        const res = await fetch(`/api/archive?${qs.toString()}`, { cache: 'no-store', signal: ctrl.signal })
+        const data: ApiPayload = await res.json().catch(() => ({ error: 'Neveljaven odgovor' }))
+        if (!res.ok || 'error' in data) throw new Error('Napaka pri nalaganju arhiva')
+
+        for (const it of data.items) if (!seen.has(it.link)) { seen.add(it.link); acc.push(it) }
+        setItems(acc = [...acc].sort(sortDesc))
+        setCounts(data.counts || {})
+        setLastUpdatedMs(Date.now())
+
+        if (!data.nextCursor) break
+        cursor = data.nextCursor
+        // yield to UI
+        await new Promise(r => setTimeout(r, 0))
+      }
+    } catch (e) {
+      if (!(abortRef.current?.signal.aborted)) setErrorMsg('Arhiva trenutno ni mogoče naložiti.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // initial + on date change
+  useEffect(() => {
+    fetchAll(date)
+    return () => abortRef.current?.abort()
+  }, [date])
+
+  // auto-refresh for today (visible tab)
+  const todayStr = useMemo(() => yyyymmdd(new Date()), [])
+  const latestTsRef = useRef<number>(0)
+  useEffect(() => { latestTsRef.current = items.length ? tsOf(items[0]) : 0 }, [items])
+  useEffect(() => {
+    if (date !== todayStr) return
+    const timer = setInterval(async () => {
+      if (document.hidden) return
+      if (!latestTsRef.current) return
+      try {
+        const res = await fetch(`/api/archive?date=${encodeURIComponent(date)}&limit=1&_t=${Date.now()}`, { cache: 'no-store' })
+        const data: any = await res.json()
+        const newest = (data?.items?.length ? tsOf(data.items[0]) : 0) || 0
+        if (newest > latestTsRef.current) await fetchAll(date)
+      } catch {}
+    }, 60_000)
+    return () => clearInterval(timer)
+  }, [date, todayStr])
+
+  // ----- derived UI state -----
+  const updatedText = useMemo(() => lastUpdatedMs ? `Posodobljeno ${relativeTime(lastUpdatedMs)}` : '', [lastUpdatedMs])
 
   const itemByLink = useMemo(() => {
-    const m = new Map<string, ApiItem>()
-    for (const it of items) m.set(it.link, it)
-    return m
+    const m = new Map<string, ApiItem>(); for (const it of items) m.set(it.link, it); return m
   }, [items])
 
   const deferredSearch = useDeferredValue(search)
-
   const filteredNews = useMemo(() => {
     const q = norm(deferredSearch.trim())
-    return news.filter((n) => {
-      if (sourceFilter && (n as any).source !== sourceFilter) return false
-      if (!q) return true
-      const link = (n as any).link as string
-      const it = itemByLink.get(link)
-      const title = (n as any).title ?? '',
-        src = (n as any).source ?? ''
-      const summary =
-        (it?.summary ?? it?.contentsnippet ?? (it as any)?.description ?? (it as any)?.content ??
-          '') || ''
-      return norm(`${title} ${summary} ${src}`).includes(q)
-    })
-  }, [news, deferredSearch, itemByLink, sourceFilter])
-
-  // STABILEN sort: čas (published_at), nato id
-  function sortDesc(a: ApiItem, b: ApiItem) {
-    return tsOf(b) - tsOf(a) || Number(b.id) - Number(a.id)
-  }
-
-  async function fetchFirstPage(d: string, useCache = true) {
-    if (abortRef.current) abortRef.current.abort()
-    const controller = new AbortController()
-    abortRef.current = controller
-
-    setErrorMsg(null)
-    setLoadedAll(false)
-    setNextCursor(null)
-    nextCursorRef.current = null
-    if (bgAbortRef.current) {
-      bgAbortRef.current.abort()
-      bgAbortRef.current = null
-    }
-    bgStartedRef.current = false
-    setBgLoading(false)
-
-    let servedFromCache = false
-    if (useCache) {
-      const cached = readCache(d)
-      if (cached) {
-        setItems([...cached.items].sort(sortDesc))
-        setCounts(cached.counts)
-        setFallbackLive(cached.fallbackLive)
-        setLastUpdatedMs(cached.at)
-        servedFromCache = true
-      }
-    }
-
-    setLoading(!servedFromCache)
-    try {
-      const LIMIT_FIRST = 60
-      const url = `/api/archive?date=${encodeURIComponent(d)}&limit=${LIMIT_FIRST}&_t=${Date.now()}`
-      const res = await fetch(url, { cache: 'no-store', signal: controller.signal })
-      const data: ApiPayload = await res
-        .json()
-        .catch(() => ({ error: 'Neveljaven odgovor strežnika.' }))
-
-      if (controller.signal.aborted) return
-      if (!res.ok || 'error' in data) {
-        if (!servedFromCache) {
-          setItems([])
-          setCounts({})
-          setFallbackLive(false)
-        }
-        setErrorMsg('Arhiva trenutno ni mogoče naložiti.')
-        setLoading(false)
-        return
-      }
-
-      const sorted = [...(data.items ?? [])].sort(sortDesc)
-      setItems(sorted)
-      setCounts(data.counts ?? {})
-      setFallbackLive(Boolean((data as any).fallbackLive))
-
-      setNextCursor(data.nextCursor ?? null)
-      nextCursorRef.current = data.nextCursor ?? null
-      setLoading(false)
-
-      setLastUpdatedMs(Date.now())
-      writeCache(d, {
-        at: Date.now(),
-        items: sorted,
-        counts: data.counts ?? {},
-        fallbackLive: Boolean((data as any).fallbackLive),
+    return items
+      .filter((it) => !sourceFilter || it.source === sourceFilter)
+      .filter((it) => {
+        if (!q) return true
+        const summary = (it.summary ?? it.contentsnippet ?? it.description ?? it.content ?? '') || ''
+        return norm(`${it.title} ${summary} ${it.source}`).includes(q)
       })
+      .sort(sortDesc)
+      .map(toNewsItem)
+  }, [items, deferredSearch, sourceFilter])
 
-      // OZADJE: naloži ostalo
-      if (data.nextCursor && !bgStartedRef.current) {
-        bgStartedRef.current = true
-        void loadRestOfDay({ background: true, startCursor: data.nextCursor })
-      }
-    } catch {
-      if (!servedFromCache) {
-        setItems([])
-        setCounts({})
-        setFallbackLive(false)
-      }
-      if (!controller.signal.aborted) setErrorMsg('Napaka pri povezavi do arhiva.')
-      setLoading(false)
-    }
-  }
-
-  type LoadOpts = { background?: boolean; startCursor?: string | null }
-  async function loadRestOfDay(opts?: LoadOpts) {
-    const background = !!opts?.background
-    let cursor: string | null =
-      typeof opts?.startCursor !== 'undefined' ? (opts!.startCursor as string | null) : nextCursorRef.current
-
-    if (loadedAll || !cursor || (loadingMore && !background)) {
-      return
-    }
-    if (!background) setLoadingMore(true)
-    else setBgLoading(true)
-
-    try {
-      const LIMIT = 250
-      const controller = new AbortController()
-      if (background) {
-        if (bgAbortRef.current) bgAbortRef.current.abort()
-        bgAbortRef.current = controller
-      }
-
-      const seen = new Set(items.map((i) => i.link))
-      let acc = [...items]
-
-      while (cursor) {
-        const url = `/api/archive?date=${encodeURIComponent(
-          date,
-        )}&cursor=${encodeURIComponent(cursor)}&limit=${LIMIT}&_t=${Date.now()}`
-        const res = await fetch(url, {
-          cache: 'no-store',
-          signal: background ? controller.signal : undefined,
-        })
-        const data: ApiPayload = await res
-          .json()
-          .catch(() => ({ error: 'Neveljaven odgovor strežnika.' }))
-        if (!res.ok || 'error' in data) break
-
-        const fresh = (data.items ?? []).filter((i) => !seen.has(i.link))
-        for (const f of fresh) seen.add(f.link)
-        if (fresh.length) {
-          acc = [...acc, ...fresh]
-          const sorted = [...acc].sort(sortDesc)
-          setItems(sorted)
-          setLastUpdatedMs(Date.now())
-          writeCache(date, { at: Date.now(), items: sorted, counts, fallbackLive })
-        }
-
-        cursor = data.nextCursor ?? null
-        setNextCursor(cursor)
-        nextCursorRef.current = cursor
-
-        if (background) await new Promise((r) => setTimeout(r, 0))
-      }
-
-      setNextCursor(null)
-      nextCursorRef.current = null
-      setLoadedAll(true)
-    } catch {
-      if (!opts?.background) setErrorMsg('Nalaganje vseh novic ni uspelo.')
-    } finally {
-      if (!background) setLoadingMore(false)
-      else setBgLoading(false)
-    }
-  }
-
-  function refreshNow() {
-    fetchFirstPage(date, false)
-  }
-
-  // === Auto-osveževanje današnjega dne (vsako minuto, če je zavihek viden) ===
-  const todayStr = useMemo(() => yyyymmdd(new Date()), [])
-  const latestTsRef = useRef<number>(0)
-  useEffect(() => {
-    latestTsRef.current = items.length ? tsOf(items[0]) : 0
-  }, [items])
-
-  useEffect(() => {
-    if (date !== todayStr) return
-    let timer: number | undefined
-
-    const tick = async () => {
-      if (document.hidden) return
-      if (!latestTsRef.current) return // počakaj, da vemo trenutno najnovejšo
-      try {
-        const res = await fetch(`/api/archive?date=${encodeURIComponent(date)}&limit=1&_t=${Date.now()}`, {
-          cache: 'no-store',
-        })
-        const data: any = await res.json()
-        const newest = (data?.items?.length ? tsOf(data.items[0]) : 0) || 0
-        if (newest > latestTsRef.current) {
-          await fetchFirstPage(date, false)
-        }
-      } catch {}
-    }
-
-    timer = window.setInterval(tick, 60_000)
-    return () => {
-      if (timer) clearInterval(timer)
-    }
-  }, [date, todayStr])
-
-  const updatedText = useMemo(
-    () => (lastUpdatedMs ? `Posodobljeno ${relativeTime(lastUpdatedMs)}` : ''),
-    [lastUpdatedMs, nowTick],
-  )
-
-  useEffect(() => {
-    // initial load – force fresh
-    fetchFirstPage(date, false)
-    return () => {
-      if (abortRef.current) abortRef.current.abort()
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [date])
+  const displayCounts = useMemo(() => Object.fromEntries(Object.entries(counts).filter(([k]) => k !== 'TestVir')), [counts])
+  const total = useMemo(() => Object.values(displayCounts).reduce((a, b) => a + b, 0), [displayCounts])
+  const maxCount = useMemo(() => Math.max(1, ...Object.values(displayCounts)), [displayCounts])
 
   return (
     <>
@@ -438,87 +220,49 @@ export default function ArchivePage() {
 
       <main className="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white px-4 md:px-8 lg:px-16 pb-20 pt-6">
         <section className="max-w-6xl mx-auto">
-          {/* orodna vrstica */}
+          {/* Top controls */}
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-2">
-              <Link
-                href="/"
-                className="inline-flex items-center gap-2 px-2.5 py-1.5 rounded-md text-xs
-                           border border-gray-300/60 dark:border-gray-700/60
-                           bg-white/70 dark:bg-gray-800/60 hover:bg-white/90 dark:hover:bg-gray-800/80 transition"
-                title="Nazaj na naslovnico"
-                aria-label="Nazaj na naslovnico"
-              >
-                <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
-                  <path d="M3 12L12 3l9 9" stroke="currentColor" strokeWidth="2" fill="none" />
-                  <path d="M5 10v10h5v-6h4v6h5V10" stroke="currentColor" strokeWidth="2" fill="none" />
-                </svg>
+              <Link href="/" className="inline-flex items-center gap-2 px-2.5 py-1.5 rounded-md text-xs border border-gray-300/60 dark:border-gray-700/60 bg-white/70 dark:bg-gray-800/60 hover:bg-white/90 dark:hover:bg-gray-800/80 transition" title="Nazaj na naslovnico" aria-label="Nazaj na naslovnico">
+                <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path d="M3 12L12 3l9 9" stroke="currentColor" strokeWidth="2" fill="none"/><path d="M5 10v10h5v-6h4v6h5V10" stroke="currentColor" strokeWidth="2" fill="none"/></svg>
                 Nazaj
               </Link>
 
               <label htmlFor="date" className="sr-only">Izberi dan</label>
               <input
-                id="date"
-                type="date"
-                value={date}
-                max={yyyymmdd(new Date())}
+                id="date" type="date" value={date} max={yyyymmdd(new Date())}
                 onChange={(e) => startTransition(() => { setSourceFilter(null); setSearch(''); setItems([]); setDate(e.target.value) })}
                 className="px-2.5 py-1.5 rounded-md border border-gray-300 dark:border-gray-700 bg-white/80 dark:bg-gray-800/80 backdrop-blur text-xs"
               />
 
-              {/* OSVEŽI */}
               <button
-                onClick={refreshNow}
-                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs border
-                           border-gray-300/60 dark:border-gray-700/60 bg-white/70 dark:bg-gray-800/60
-                           hover:bg-white/90 dark:hover:bg-gray-800/80 transition"
+                onClick={() => fetchAll(date)}
+                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs border border-gray-300/60 dark:border-gray-700/60 bg-white/70 dark:bg-gray-800/60 hover:bg-white/90 dark:hover:bg-gray-800/80 transition"
                 title="Osveži dan"
                 aria-label="Osveži dan"
               >
-                <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
-                  <path d="M4 4v6h6M20 20v-6h-6" stroke="currentColor" strokeWidth="2" fill="none" />
-                  <path d="M20 8a8 8 0 0 0-14-4M4 16a8 8 0 0 0 14 4" stroke="currentColor" strokeWidth="2" fill="none" />
-                </svg>
+                <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path d="M4 4v6h6M20 20v-6h-6" stroke="currentColor" strokeWidth="2" fill="none"/><path d="M20 8a8 8 0 0 0-14-4M4 16a8 8 0 0 0 14 4" stroke="currentColor" strokeWidth="2" fill="none"/></svg>
                 Osveži
               </button>
 
-              {updatedText && (
-                <span className="ml-2 text-xs text-gray-600 dark:text-gray-400 whitespace-nowrap">
-                  {updatedText}
-                </span>
-              )}
+              {updatedText && <span className="ml-2 text-xs text-gray-600 dark:text-gray-400 whitespace-nowrap">{updatedText}</span>}
             </div>
 
             {/* search */}
             <div className="relative w-full sm:w-96">
-              <svg
-                className="absolute left-2.5 top-1/2 -translate-y-1/2"
-                viewBox="0 0 24 24"
-                width="16"
-                height="16"
-                aria-hidden="true"
-              >
+              <svg className="absolute left-2.5 top-1/2 -translate-y-1/2" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
                 <circle cx="11" cy="11" r="7" stroke="currentColor" strokeWidth="2" fill="none" />
                 <path d="M20 20l-3.2-3.2" stroke="currentColor" strokeWidth="2" />
               </svg>
               <input
-                type="search"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Išči po naslovu ali podnaslovu …"
-                className="w-full pl-8 pr-3 py-2 rounded-md text-sm bg-white/80 dark:bg-gray-800/70
-                           border border-gray-300/70 dark:border-gray-700/70 focus:outline-none
-                           focus:ring-2 focus:ring-brand/50"
+                type="search" value={search} onChange={(e) => setSearch(e.target.value)}
+                placeholder="Išči po naslovu ali podnaslovu…"
+                className="w-full pl-8 pr-3 py-2 rounded-md text-sm bg-white/80 dark:bg-gray-800/70 border border-gray-300/70 dark:border-gray-700/70 focus:outline-none focus:ring-2 focus:ring-brand/50"
               />
-              {bgLoading && !loadedAll && (
-                <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[11px] text-gray-500 dark:text-gray-400">
-                  nalagam v ozadju…
-                </span>
-              )}
             </div>
           </div>
 
-          {/* GRAF */}
+          {/* Bar chart with subtle hint and clear link under it */}
           <div className="mt-5 rounded-xl border border-gray-200/70 dark:border-gray-700/70 bg-white/70 dark:bg-gray-900/70 backdrop-blur p-4">
             <div className="flex items-center justify-between">
               <h2 className="font-medium">
@@ -528,56 +272,37 @@ export default function ArchivePage() {
               <span className="text-sm text-gray-600 dark:text-gray-400">Skupaj: {total}</span>
             </div>
 
-            {/* aktivni filter chip */}
+            <div className="mt-3 space-y-2">
+              {Object.entries(displayCounts).sort((a, b) => b[1] - a[1]).map(([source, count]) => {
+                const active = sourceFilter === source
+                return (
+                  <button key={source} onClick={() => setSourceFilter(curr => (curr === source ? null : source))}
+                          className="w-full text-left group" title={active ? 'Počisti filter' : `Prikaži samo: ${source}`}>
+                    <div className="flex items-center gap-3">
+                      <div className={`w-32 shrink-0 text-sm ${active ? 'text-brand' : 'text-gray-700 dark:text-gray-300'}`}>{source}</div>
+                      <div className={`flex-1 h-3 rounded-full overflow-hidden ${active ? 'bg-brand/20 dark:bg-brand/30' : 'bg-gray-200 dark:bg-gray-800'}`}>
+                        <div className="h-full bg-brand dark:bg-brand" style={{ width: `${(count / maxCount) * 100}%` }} aria-hidden />
+                      </div>
+                      <div className={`w-12 text-right text-sm tabular-nums ${active ? 'text-brand' : ''}`}>{count}</div>
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
+
+            {/* subtle clear link below chart */}
             {sourceFilter && (
               <div className="mt-2">
-                <span className="inline-flex items-center gap-2 text-xs rounded-full px-2.5 py-1 bg-amber-100/70 dark:bg-amber-900/30 text-amber-900 dark:text-amber-200 border border-amber-300/60 dark:border-amber-800/50">
-                  Filter: <strong className="font-semibold">{sourceFilter}</strong>
-                  <button
-                    onClick={() => setSourceFilter(null)}
-                    className="ml-1 inline-flex items-center justify-center h-5 w-5 rounded-full bg-amber-500 text-white hover:bg-amber-600"
-                    title="Počisti filter"
-                    aria-label="Počisti filter"
-                  >
-                    <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path d="M6 6l12 12M18 6l-12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
-                  </button>
-                </span>
+                <button onClick={() => setSourceFilter(null)}
+                        className="text-xs text-gray-600 dark:text-gray-400 underline decoration-dotted hover:text-gray-800 dark:hover:text-gray-200">
+                  počisti filter
+                </button>
               </div>
             )}
-
-            <div className="mt-3 space-y-2">
-              {Object.entries(displayCounts)
-                .sort((a, b) => b[1] - a[1])
-                .map(([source, count]) => {
-                  const active = sourceFilter === source
-                  return (
-                    <button
-                      key={source}
-                      onClick={() => setSourceFilter(curr => (curr === source ? null : source))}
-                      className="w-full text-left group"
-                      title={active ? 'Počisti filter' : `Prikaži samo: ${source}`}
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className={`w-32 shrink-0 text-sm ${active ? 'text-brand' : 'text-gray-700 dark:text-gray-300'}`}>{source}</div>
-                        <div className={`flex-1 h-3 rounded-full overflow-hidden ${active ? 'bg-brand/20 dark:bg-brand/30' : 'bg-gray-200 dark:bg-gray-800'}`}>
-                          <div
-                            className={`h-full ${active ? 'bg-brand' : 'bg-brand dark:bg-brand'}`}
-                            style={{ width: `${(count / maxCount) * 100}%` }}
-                            aria-hidden
-                          />
-                        </div>
-                        <div className={`w-12 text-right text-sm tabular-nums ${active ? 'text-brand' : ''}`}>{count}</div>
-                      </div>
-                    </button>
-                  )
-                })}
-            </div>
           </div>
 
-          {/* NASLOV */}
+          {/* List */}
           <h3 className="mt-5 mb-2 text-sm font-medium text-gray-800 dark:text-gray-200">Zadnje novice</h3>
-
-          {/* SEZNAM – prikaži VSE (brez rezanja) v scroll oknu */}
           <div className="rounded-md border border-gray-200/70 dark:border-gray-800/70 bg-white/50 dark:bg-gray-900/40">
             <div className="relative max-h-[44vh] overflow-y-auto pb-6">
               {loading ? (
@@ -590,56 +315,30 @@ export default function ArchivePage() {
                     const src = (n as any).source
                     const hex = sourceColors[src] || '#7c7c7c'
                     const link = (n as any).link as string
-                    const it = itemByLink.get(link)
-                    const summary = (
-                      it?.summary ?? it?.contentsnippet ?? (it as any)?.description ?? (it as any)?.content ?? ''
-                    ).trim()
+                    const it = items.find(it => it.link === link)
+                    const summary = (it?.summary ?? it?.contentsnippet ?? (it as any)?.description ?? (it as any)?.content ?? '').trim()
 
                     return (
-                      <li
-                        key={`${link}-${i}`}
-                        className="grid grid-cols-[92px_78px_1fr] sm:grid-cols-[100px_84px_1fr] gap-x-3 sm:gap-x-4 px-2 sm:px-3 py-1.5"
-                      >
-                        <button
-                          className="inline-flex items-center gap-1 min-w-0"
-                          onClick={() => setSourceFilter(curr => (curr === src ? null : src))}
-                          title={sourceFilter === src ? 'Počisti filter' : `Prikaži samo: ${src}`}
-                        >
-                          <span
-                            className="inline-block w-1.5 h-1.5 rounded-full"
-                            style={{ backgroundColor: hex }}
-                            aria-hidden
-                          />
+                      <li key={`${link}-${i}`} className="grid grid-cols-[92px_78px_1fr] sm:grid-cols-[100px_84px_1fr] gap-x-3 sm:gap-x-4 px-2 sm:px-3 py-1.5">
+                        <button className="inline-flex items-center gap-1 min-w-0"
+                                onClick={() => setSourceFilter(curr => (curr === src ? null : src))}
+                                title={sourceFilter === src ? 'Počisti filter' : `Prikaži samo: ${src}`}>
+                          <span className="inline-block w-1.5 h-1.5 rounded-full" style={{ backgroundColor: hex }} aria-hidden />
                           <span className="truncate text-[10px] text-gray-600 dark:text-gray-400">{src}</span>
                         </button>
 
-                        <span
-                          className="text-right sm:text-left text-[10px] text-gray-500 dark:text-gray-400 tabular-nums"
-                          title={fmtClock((n as any).publishedAt ?? Date.now())}
-                        >
+                        <span className="text-right sm:text-left text-[10px] text-gray-500 dark:text-gray-400 tabular-nums"
+                              title={fmtClock((n as any).publishedAt ?? Date.now())}>
                           {relativeTime((n as any).publishedAt ?? Date.now())}
                         </span>
 
                         <div className="relative">
-                          <a
-                            href={link}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="peer block text-[13px] leading-tight text-gray-900 dark:text-gray-100 hover:underline truncate"
-                          >
+                          <a href={link} target="_blank" rel="noopener noreferrer"
+                             className="peer block text-[13px] leading-tight text-gray-900 dark:text-gray-100 hover:underline truncate">
                             {search.trim() ? highlight((n as any).title, search) : (n as any).title}
                           </a>
-
                           {summary && (
-                            <div
-                              className="pointer-events-none absolute left-0 top-full mt-1 z-50 max-w-[60ch]
-                                         rounded-md bg-gray-900 text-white text-[12px] leading-snug
-                                         px-2.5 py-2 shadow-lg ring-1 ring-black/20
-                                         opacity-0 invisible translate-y-1 transition
-                                         peer-hover:opacity-100 peer-hover:visible peer-hover:translate-y-0
-                                         peer-focus-visible:opacity-100 peer-focus-visible:visible peer-focus-visible:translate-y-0"
-                              role="tooltip"
-                            >
+                            <div className="pointer-events-none absolute left-0 top-full mt-1 z-50 max-w-[60ch] rounded-md bg-gray-900 text-white text-[12px] leading-snug px-2.5 py-2 shadow-lg ring-1 ring-black/20 opacity-0 invisible translate-y-1 transition peer-hover:opacity-100 peer-hover:visible peer-hover:translate-y-0 peer-focus-visible:opacity-100 peer-focus-visible:visible peer-focus-visible:translate-y-0" role="tooltip">
                               {search.trim() ? highlight(summary, search) : summary}
                             </div>
                           )}
@@ -652,21 +351,8 @@ export default function ArchivePage() {
             </div>
           </div>
 
-          {/* Ločilni trak pod seznamom */}
+          {/* Divider under list */}
           <hr className="max-w-6xl mx-auto mt-4 border-t border-gray-200 dark:border-gray-700" />
-
-          {/* GUMB – naloži vse (če je še kaj) */}
-          {nextCursorRef.current && !loadedAll && (
-            <div className="flex justify-center mt-3">
-              <button
-                onClick={async () => { await loadRestOfDay({ background: false, startCursor: nextCursorRef.current }) }}
-                disabled={loadingMore}
-                className="px-4 py-1.5 rounded-full bg-brand text-white text-sm shadow-md hover:bg-brand-hover disabled:opacity-60"
-              >
-                {loadingMore ? 'Nalagam vse…' : 'Naloži vse novice'}
-              </button>
-            </div>
-          )}
         </section>
       </main>
 
