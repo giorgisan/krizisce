@@ -56,7 +56,7 @@ function fmtClock(ms: number) {
   try { return new Intl.DateTimeFormat('sl-SI', { hour: '2-digit', minute: '2-digit' }).format(new Date(ms)) } catch { return '' }
 }
 function norm(s: string) {
-  try { return s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '') } catch { return s.toLowerCase() }
+  try { return s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '') } catch { return s.toLowerCase() }
 }
 
 // preprosti highlighter (case/diakritika-insensitive)
