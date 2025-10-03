@@ -14,6 +14,7 @@ export default function Header() {
   const [mounted, setMounted] = useState(false)
   const [hasNew, setHasNew] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
+  const [bannerMode, setBannerMode] = useState<'fresh' | 'updates'>('fresh') // NEW
 
   // null = v tej seji še ni bilo interakcije; [] = resetirano; ['RTVSLO'] = aktiven filter
   const [activeSources, setActiveSources] = useState<string[] | null>(null)
@@ -33,11 +34,17 @@ export default function Header() {
   useEffect(() => {
     const onHasNew = (e: Event) => setHasNew(Boolean((e as CustomEvent).detail))
     const onRefreshing = (e: Event) => setRefreshing(Boolean((e as CustomEvent).detail))
+    const onMode = (e: Event) => {
+      const m = (e as CustomEvent).detail === 'updates' ? 'updates' : 'fresh'
+      setBannerMode(m)
+    }
     window.addEventListener('news-has-new', onHasNew as EventListener)
     window.addEventListener('news-refreshing', onRefreshing as EventListener)
+    window.addEventListener('news-banner-mode', onMode as EventListener)
     return () => {
       window.removeEventListener('news-has-new', onHasNew as EventListener)
       window.removeEventListener('news-refreshing', onRefreshing as EventListener)
+      window.removeEventListener('news-banner-mode', onMode as EventListener)
     }
   }, [])
 
@@ -146,17 +153,18 @@ export default function Header() {
 
   const isArchive = router.pathname === '/arhiv'
 
-  // klik na “filter”: na /arhiv preusmeri na /?filters=1 (index bo sam odprl dropdown)
   const onFilterClick = () => {
     if (isArchive) {
       const u = new URL((window?.location?.href || 'http://x') as string)
       u.pathname = '/'
       u.searchParams.set('filters', '1')
-      router.push(u.pathname + u.search) // SPA navigacija
+      router.push(u.pathname + u.search)
       return
     }
     window.dispatchEvent(new CustomEvent('toggle-filters'))
   }
+
+  const bannerText = bannerMode === 'updates' ? 'Na voljo so posodobitve' : 'Na voljo so sveže novice'
 
   return (
     <header
@@ -177,7 +185,7 @@ export default function Header() {
             </div>
           </Link>
 
-          {/* Desktop sveže pil (enak tekst kot na mobilnem bannerju) */}
+          {/* Desktop pil */}
           <AnimatePresence initial={false}>
             {hasNew && !refreshing && (
               <motion.button
@@ -192,14 +200,14 @@ export default function Header() {
                            bg-emerald-500/10 text-emerald-700 dark:text-emerald-300
                            ring-1 ring-emerald-400/40 dark:ring-emerald-600/40
                            hover:bg-emerald-500/15 transition shadow-sm"
-                title="Osveži, da prikažeš sveže novice"
+                title="Osveži, da prikažeš nove spremembe"
                 aria-live="polite"
               >
                 <span className="relative inline-flex">
                   <span className="h-2.5 w-2.5 rounded-full bg-emerald-500 opacity-80"></span>
                   <span className="absolute inset-0 rounded-full bg-emerald-500 animate-ping opacity-25"></span>
                 </span>
-                <span>Na voljo so sveže novice</span>
+                <span>{bannerText}</span>
                 <span className="opacity-70">— klikni za osvežitev</span>
               </motion.button>
             )}
@@ -212,7 +220,7 @@ export default function Header() {
             {time}
           </span>
 
-          {/* FILTER (na arhivu vodi na /?filters=1) */}
+          {/* FILTER */}
           <button
             id="filters-trigger"
             type="button"
@@ -229,7 +237,7 @@ export default function Header() {
             </svg>
           </button>
 
-          {/* ARHIV (ikona) */}
+          {/* ARHIV */}
           <Link
             href="/arhiv"
             aria-label="Arhiv"
@@ -238,7 +246,6 @@ export default function Header() {
                         hover:bg-black/[0.04] dark:hover:bg-white/[0.06]
                         ${isArchive ? 'text-brand' : 'text-black/60 dark:text-white/65 hover:text-black/90 dark:hover:text-white/90'}`}
           >
-            {/* Škatla/koledar */}
             <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
               <path d="M4 7h16v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7Z" stroke="currentColor" strokeWidth="2" fill="none" />
               <path d="M3 7h18l-2-3H5l-2 3Z" stroke="currentColor" strokeWidth="2" fill="none" />
@@ -274,7 +281,7 @@ export default function Header() {
         </div>
       </div>
 
-      {/* Mobilni banner – fixed pod headerjem */}
+      {/* Mobilni banner */}
       <AnimatePresence initial={false}>
         {hasNew && !refreshing && (
           <motion.div
@@ -294,13 +301,13 @@ export default function Header() {
                            bg-emerald-500/10 text-emerald-700 dark:text-emerald-300
                            ring-1 ring-emerald-400/40 dark:ring-emerald-600/40
                            hover:bg-emerald-500/15 transition shadow-sm"
-                title="Osveži, da prikažeš sveže novice"
+                title="Osveži, da prikažeš nove spremembe"
               >
                 <span className="relative inline-flex">
                   <span className="h-2.5 w-2.5 rounded-full bg-emerald-500 opacity-80"></span>
                   <span className="absolute inset-0 rounded-full bg-emerald-500 animate-ping opacity-25"></span>
                 </span>
-                <span>Na voljo so sveže novice</span>
+                <span>{bannerText}</span>
                 <span className="opacity-70 group-hover:opacity-100">— klikni za osvežitev</span>
               </button>
             </div>
