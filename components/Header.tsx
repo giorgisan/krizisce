@@ -165,41 +165,52 @@ export default function Header() {
       className="sticky top-0 z-40 bg-[#FAFAFA]/95 dark:bg-gray-900/70 backdrop-blur-md border-b border-gray-200 dark:border-gray-700 shadow-sm"
     >
       <div className="py-2 px-4 md:px-8 lg:px-16 flex items-center justify-between gap-2">
-        {/* Levo: Brand */}
-        <Link href="/" onClick={onBrandClick} className="flex items-center gap-3 min-w-0">
-          <Image src="/logo.png" alt="Križišče" width={36} height={36} priority fetchPriority="high" className="w-9 h-9 rounded-md" />
-          <div className="min-w-0 leading-tight">
-            <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">Križišče</h1>
-            <p className="text-xs sm:text-[13px] text-gray-600 dark:text-gray-400 mt-0.5">
-              Zadnje novice slovenskih medijev
-            </p>
-          </div>
-        </Link>
+        {/* Levo: Brand + DESKTOP sveže pil */}
+        <div className="flex items-center gap-3 min-w-0">
+          <Link href="/" onClick={onBrandClick} className="flex items-center gap-3 min-w-0">
+            <Image src="/logo.png" alt="Križišče" width={36} height={36} priority fetchPriority="high" className="w-9 h-9 rounded-md" />
+            <div className="min-w-0 leading-tight">
+              <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">Križišče</h1>
+              <p className="text-xs sm:text-[13px] text-gray-600 dark:text-gray-400 mt-0.5">
+                Zadnje novice slovenskih medijev
+              </p>
+            </div>
+          </Link>
 
-        {/* Desno: ura, refresh-pil (desktop), filter, arhiv (ikona), tema */}
+          {/* Desktop sveže pil (enak tekst kot na mobilnem bannerju) */}
+          <AnimatePresence initial={false}>
+            {hasNew && !refreshing && (
+              <motion.button
+                key="fresh-pill-desktop"
+                initial={{ opacity: 0, y: -6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -6 }}
+                transition={{ duration: 0.18, ease: 'easeOut' }}
+                onClick={refreshNow}
+                className="hidden md:inline-flex items-center gap-2 rounded-full px-3.5 py-1.5
+                           text-[13px] font-medium
+                           bg-emerald-500/10 text-emerald-700 dark:text-emerald-300
+                           ring-1 ring-emerald-400/40 dark:ring-emerald-600/40
+                           hover:bg-emerald-500/15 transition shadow-sm"
+                title="Osveži, da prikažeš sveže novice"
+                aria-live="polite"
+              >
+                <span className="relative inline-flex">
+                  <span className="h-2.5 w-2.5 rounded-full bg-emerald-500 opacity-80"></span>
+                  <span className="absolute inset-0 rounded-full bg-emerald-500 animate-ping opacity-25"></span>
+                </span>
+                <span>Na voljo so sveže novice</span>
+                <span className="opacity-70">— klikni za osvežitev</span>
+              </motion.button>
+            )}
+          </AnimatePresence>
+        </div>
+
+        {/* Desno: ura, filter, arhiv (ikona), tema */}
         <div className="flex items-center gap-1.5 sm:gap-2">
           <span className="hidden sm:inline-block font-mono tabular-nums text-[13px] text-gray-500 dark:text-gray-400 select-none">
             {time}
           </span>
-
-          {/* DESKTOP refresh pil */}
-          {hasNew && !refreshing && (
-            <button
-              onClick={refreshNow}
-              className="hidden md:inline-flex items-center gap-2 rounded-full px-3 py-1.5
-                         text-[13px] font-medium
-                         bg-emerald-500/10 text-emerald-700 dark:text-emerald-300
-                         ring-1 ring-emerald-400/40 dark:ring-emerald-600/40
-                         hover:bg-emerald-500/15 transition shadow-sm"
-              title="Osveži, da prikažeš sveže novice"
-            >
-              <span className="relative inline-flex">
-                <span className="h-2.5 w-2.5 rounded-full bg-emerald-500 opacity-80"></span>
-                <span className="absolute inset-0 rounded-full bg-emerald-500 animate-ping opacity-25"></span>
-              </span>
-              <span>Sveže: osveži</span>
-            </button>
-          )}
 
           {/* FILTER (na arhivu vodi na /?filters=1) */}
           <button
