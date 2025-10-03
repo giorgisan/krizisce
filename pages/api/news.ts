@@ -2,6 +2,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next'
 import { createClient } from '@supabase/supabase-js'
 
+// --- Supabase client --------------------------------------------------------
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL as string
 const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string
 
@@ -9,106 +10,135 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: { persistSession: false },
 })
 
-// Row subset
-type Row = {
-  id: number
-  link: string
+// --- Types ------------------------------------------------------------------
+export type ApiNewsItem = {
   title: string
+  link: string
   source: string
   image: string | null
-  contentsnippet: string | null
-  summary: string | null
-  isodate: string | null
-  pubdate: string | null
-  published_at: string | null
-  publishedat: number | null
-  created_at: string | null
+  contentSnippet: string
+  isoDate: string | null
+  publishedAt: number // epoch ms
 }
 
-// Client NewsItem (matches frontend)
-type NewsItem = {
-  title: string
-  link: string
-  source: string
-  image?: string | null
-  contentSnippet?: string | null
-  publishedAt: number
-  isoDate?: string | null
+type PagedOk = { items: ApiNewsItem[]; nextCursor: number | null }
+type ListOk  = ApiNewsItem[]
+type ApiErr  = { error: string }
+
+// --- Helpers ----------------------------------------------------------------
+function clamp(n: number, lo: number, hi: number) {
+  return Math.min(hi, Math.max(lo, n))
 }
 
-// Helpers
-function rowPublishedMs(r: Row): number {
-  if (r.publishedat && Number.isFinite(Number(r.publishedat))) return Number(r.publishedat)
-  const cands = [r.published_at, r.isodate, r.pubdate, r.created_at].filter(Boolean) as string[]
-  for (const iso of cands) {
-    const ms = Date.parse(iso)
+// canonical timestamp resolver: prefer `published_at` (timestamptz), then bigint `publishedat`,
+// then `isodate` from RSS; all returned as epoch ms
+function resolveTs(row: any): number {
+  // 1) timestamptz from DB (canonical, UTC)
+  if (row?.published_at) {
+    const ms = Date.parse(String(row.published_at))
     if (!Number.isNaN(ms)) return ms
   }
-  return 0
+  // 2) bigint(ms) fallback
+  if (row?.publishedat != null) {
+    const ms = Number(row.publishedat)
+    if (Number.isFinite(ms) && ms > 0) return ms
+  }
+  // 3) RSS iso date fallback
+  if (row?.isodate) {
+    const ms = Date.parse(String(row.isodate))
+    if (!Number.isNaN(ms)) return ms
+  }
+  return Date.now()
 }
 
-// Cursor encoding "<ms>_<id>"
-function encodeCursor(ms: number, id: number) { return `${ms}_${id}` }
-function decodeCursor(s: string | null): { ms: number, id: number } | null {
-  if (!s) return null
-  const m = String(s).match(/^(\d+)_(\d+)$/)
-  if (!m) return null
-  return { ms: Number(m[1]), id: Number(m[2]) }
+function mapRow(row: any): ApiNewsItem {
+  return {
+    title: row.title,
+    link: row.link,
+    source: row.source,
+    image: row.image ?? null,
+    contentSnippet: (row.contentsnippet ?? row.summary ?? '') || '',
+    isoDate: row.published_at ?? row.isodate ?? null,
+    publishedAt: resolveTs(row),
+  }
 }
 
-type PagePayload = { items: NewsItem[], nextCursor: string | null }
+function setCaching(res: NextApiResponse, forceFresh: boolean) {
+  if (forceFresh) {
+    res.setHeader('Cache-Control', 'no-store, must-revalidate')
+  } else {
+    // short edge cache, safe because client uses cache: 'no-store' for freshness checks
+    res.setHeader('Cache-Control', 's-maxage=15, stale-while-revalidate=30')
+  }
+}
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse<NewsItem[] | PagePayload | { error: string }>) {
+// --- Handler ----------------------------------------------------------------
+export default async function handler(
+  req: NextApiRequest,
+  res: NextApiResponse<PagedOk | ListOk | ApiErr>,
+) {
+  const isPaged = typeof req.query.paged !== 'undefined'
+  const forceFresh = String(req.query.forceFresh || '') === '1'
+
   try {
-    const paged = String(req.query.paged || '') === '1'
-    const limit = Math.min(Math.max(parseInt(String(req.query.limit ?? '40'), 10) || 40, 1), 200)
-    const source = (req.query.source as string) || null
-    const cursorRaw = (req.query.cursor as string) || null
-    const cursor = decodeCursor(cursorRaw)
-
+    // common SELECT
     let q = supabase
       .from('news')
-      .select('id, link, title, source, image, contentsnippet, summary, isodate, pubdate, published_at, publishedat, created_at')
-      .order('published_at', { ascending: false })
-      .order('id', { ascending: false })
-      .limit(limit)
+      .select('id, link, title, source, image, contentsnippet, summary, isodate, published_at, publishedat')
 
-    if (source) q = q.eq('source', source)
+    // optional source filter (ignore "Vse")
+    const source = (req.query.source as string) || ''
+    if (source && source !== 'Vse') q = q.eq('source', source)
 
-    if (cursor) {
-      const iso = new Date(cursor.ms).toISOString()
-      const or = `and(published_at.eq.${iso},id.lt.${cursor.id}),published_at.lt.${iso}`
-      q = q.or(or)
+    // paging branch ----------------------------------------------------------
+    if (isPaged) {
+      const limitParam = parseInt(String(req.query.limit ?? '40'), 10)
+      const limit = clamp(Number.isFinite(limitParam) ? limitParam : 40, 1, 200)
+
+      const cursorMs = req.query.cursor != null ? Number(req.query.cursor) : null
+
+      // strict ordering: first by time, then by id (deterministic)
+      q = q.order('published_at', { ascending: false })
+           .order('id', { ascending: false })
+           .limit(limit)
+
+      // keyset: fetch strictly older than the cursor timestamp if provided
+      if (cursorMs != null && Number.isFinite(cursorMs)) {
+        const iso = new Date(cursorMs).toISOString()
+        q = q.lt('published_at', iso)
+      }
+
+      const { data: rows, error } = await q
+      if (error) {
+        setCaching(res, true)
+        return res.status(500).json({ error: `DB error: ${error.message}` })
+      }
+
+      const items = (rows ?? []).map(mapRow)
+      const nextCursor =
+        items.length === limit ? items[items.length - 1].publishedAt : null
+
+      setCaching(res, forceFresh)
+      return res.status(200).json({ items, nextCursor })
     }
 
-    const { data, error } = await q
-    if (error) return res.status(500).json({ error: `DB error: ${error.message}` })
+    // non-paged: latest batch for the homepage --------------------------------
+    const LIMIT = 120
+    q = q.order('published_at', { ascending: false })
+         .order('id', { ascending: false })
+         .limit(LIMIT)
 
-    const items: NewsItem[] = (data || []).map((r: Row) => ({
-      title: r.title,
-      link: r.link,
-      source: r.source,
-      image: r.image,
-      contentSnippet: (r.summary && r.summary.trim()) ? r.summary : (r.contentsnippet && r.contentsnippet.trim()) ? r.contentsnippet : null,
-      publishedAt: rowPublishedMs(r),
-      isoDate: r.published_at || r.isodate || r.pubdate || r.created_at,
-    }))
-
-    // Not paged → return plain array (homepage first load)
-    if (!paged) {
-      res.setHeader('Cache-Control', 's-maxage=15, stale-while-revalidate=30')
-      return res.status(200).json(items)
+    const { data: rows, error } = await q
+    if (error) {
+      setCaching(res, true)
+      return res.status(500).json({ error: `DB error: ${error.message}` })
     }
 
-    let nextCursor: string | null = null
-    if (data && data.length === limit) {
-      const last = data[data.length - 1] as Row
-      nextCursor = encodeCursor(rowPublishedMs(last), last.id)
-    }
-
-    res.setHeader('Cache-Control', 's-maxage=15, stale-while-revalidate=30')
-    return res.status(200).json({ items, nextCursor })
+    const items = (rows ?? []).map(mapRow)
+    setCaching(res, forceFresh)
+    return res.status(200).json(items)
   } catch (e: any) {
+    setCaching(res, true)
     return res.status(500).json({ error: e?.message || 'Unexpected error' })
   }
 }
