@@ -28,23 +28,28 @@ type ApiItem = {
   description?: string | null
   content?: string | null
 }
+
 type ApiPayload =
   | {
       items: ApiItem[]
       counts: Record<string, number>
       total: number
-      nextCursor: string | null    // ISO published_at string (stable cursor)
+      nextCursor: string | null
       fallbackLive?: boolean
     }
   | { error: string }
 
 // ==== helpers ==============================================================
+
+// ⛳️ Uskladimo prioriteto časa z API-jem: najprej published_at (timestamptz), šele nato publishedat (bigint)
 function tsOf(a: ApiItem) {
-  const t =
-    (a.publishedat != null && Number(a.publishedat)) ||
-    (a.published_at ? Date.parse(a.published_at) : NaN)
-  return Number.isFinite(t) ? Number(t) : 0
+  const tFromPublishedAt = a.published_at ? Date.parse(a.published_at) : NaN
+  if (Number.isFinite(tFromPublishedAt)) return tFromPublishedAt
+
+  const tFromBigint = a.publishedat != null ? Number(a.publishedat) : NaN
+  return Number.isFinite(tFromBigint) ? tFromBigint : 0
 }
+
 function toNewsItem(a: ApiItem): NewsItem {
   const ts = tsOf(a)
   return {
@@ -88,6 +93,7 @@ function norm(s: string) {
   }
 }
 
+// preprosti highlighter (case/diakritika-insensitive)
 function highlight(text: string, q: string) {
   if (!q) return text
   const t = text ?? ''
@@ -224,7 +230,7 @@ export default function ArchivePage() {
     })
   }, [news, deferredSearch, itemByLink, sourceFilter])
 
-  // STABILEN sort: čas, nato id
+  // STABILEN sort: čas (published_at), nato id
   function sortDesc(a: ApiItem, b: ApiItem) {
     return tsOf(b) - tsOf(a) || Number(b.id) - Number(a.id)
   }
@@ -417,11 +423,12 @@ export default function ArchivePage() {
   )
 
   useEffect(() => {
-    // initial load – NO cache on first visit of the day
+    // initial load – force fresh
     fetchFirstPage(date, false)
     return () => {
       if (abortRef.current) abortRef.current.abort()
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [date])
 
   return (
@@ -521,6 +528,23 @@ export default function ArchivePage() {
               <span className="text-sm text-gray-600 dark:text-gray-400">Skupaj: {total}</span>
             </div>
 
+            {/* aktivni filter chip */}
+            {sourceFilter && (
+              <div className="mt-2">
+                <span className="inline-flex items-center gap-2 text-xs rounded-full px-2.5 py-1 bg-amber-100/70 dark:bg-amber-900/30 text-amber-900 dark:text-amber-200 border border-amber-300/60 dark:border-amber-800/50">
+                  Filter: <strong className="font-semibold">{sourceFilter}</strong>
+                  <button
+                    onClick={() => setSourceFilter(null)}
+                    className="ml-1 inline-flex items-center justify-center h-5 w-5 rounded-full bg-amber-500 text-white hover:bg-amber-600"
+                    title="Počisti filter"
+                    aria-label="Počisti filter"
+                  >
+                    <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path d="M6 6l12 12M18 6l-12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
+                  </button>
+                </span>
+              </div>
+            )}
+
             <div className="mt-3 space-y-2">
               {Object.entries(displayCounts)
                 .sort((a, b) => b[1] - a[1])
@@ -553,7 +577,7 @@ export default function ArchivePage() {
           {/* NASLOV */}
           <h3 className="mt-5 mb-2 text-sm font-medium text-gray-800 dark:text-gray-200">Zadnje novice</h3>
 
-          {/* SEZNAM – prikaži VSE (brez rezanja na 15); še vedno v scroll oknu */}
+          {/* SEZNAM – prikaži VSE (brez rezanja) v scroll oknu */}
           <div className="rounded-md border border-gray-200/70 dark:border-gray-800/70 bg-white/50 dark:bg-gray-900/40">
             <div className="relative max-h-[44vh] overflow-y-auto pb-6">
               {loading ? (
@@ -631,7 +655,7 @@ export default function ArchivePage() {
           {/* Ločilni trak pod seznamom */}
           <hr className="max-w-6xl mx-auto mt-4 border-t border-gray-200 dark:border-gray-700" />
 
-          {/* GUMB – naloži vse (če bi bilo potrebno ročno) */}
+          {/* GUMB – naloži vse (če je še kaj) */}
           {nextCursorRef.current && !loadedAll && (
             <div className="flex justify-center mt-3">
               <button
