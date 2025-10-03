@@ -6,6 +6,7 @@ import React, {
   useMemo,
   useState,
   useDeferredValue,
+  startTransition,
   useRef,
 } from 'react'
 import Link from 'next/link'
@@ -28,35 +29,63 @@ type ApiItem = {
   content?: string | null
 }
 type ApiPayload =
-  | { items: ApiItem[]; counts: Record<string, number>; total: number; nextCursor: string | null; fallbackLive?: boolean }
+  | {
+      items: ApiItem[]
+      counts: Record<string, number>
+      total: number
+      nextCursor: string | null
+      fallbackLive?: boolean
+    }
   | { error: string }
 
 // ==== helpers ==============================================================
 function tsOf(a: ApiItem) {
-  const t = (a.publishedat && Number(a.publishedat)) || (a.published_at ? Date.parse(a.published_at) : NaN)
+  const t =
+    (a.publishedat != null && Number(a.publishedat)) ||
+    (a.published_at ? Date.parse(a.published_at) : NaN)
   return Number.isFinite(t) ? Number(t) : 0
 }
 function toNewsItem(a: ApiItem): NewsItem {
   const ts = tsOf(a)
-  // minimal shape used by the card-less list
-  return { title: a.title, link: a.link, source: a.source, publishedAt: ts || Date.now() } as unknown as NewsItem
+  return {
+    title: a.title,
+    link: a.link,
+    source: a.source,
+    publishedAt: ts || Date.now(),
+  } as unknown as NewsItem
 }
 function yyyymmdd(d: Date) {
-  const y = d.getFullYear(), m = `${d.getMonth() + 1}`.padStart(2, '0'), dd = `${d.getDate()}`.padStart(2, '0')
+  const y = d.getFullYear(),
+    m = `${d.getMonth() + 1}`.padStart(2, '0'),
+    dd = `${d.getDate()}`.padStart(2, '0')
   return `${y}-${m}-${dd}`
 }
 function relativeTime(ms: number) {
-  const diff = Math.max(0, Date.now() - ms), m = Math.floor(diff / 60000)
+  const diff = Math.max(0, Date.now() - ms),
+    m = Math.floor(diff / 60000)
   if (m < 1) return 'pred <1 min'
   if (m < 60) return `pred ${m} min`
-  const h = Math.floor(m / 60); if (h < 24) return `pred ${h} h`
-  const d = Math.floor(h / 24); return `pred ${d} d`
+  const h = Math.floor(m / 60)
+  if (h < 24) return `pred ${h} h`
+  const d = Math.floor(h / 24)
+  return `pred ${d} d`
 }
 function fmtClock(ms: number) {
-  try { return new Intl.DateTimeFormat('sl-SI', { hour: '2-digit', minute: '2-digit' }).format(new Date(ms)) } catch { return '' }
+  try {
+    return new Intl.DateTimeFormat('sl-SI', {
+      hour: '2-digit',
+      minute: '2-digit',
+    }).format(new Date(ms))
+  } catch {
+    return ''
+  }
 }
 function norm(s: string) {
-  try { return s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '') } catch { return s.toLowerCase() }
+  try {
+    return s.toLowerCase().normalize('NFD').replace(/\u0300-\u036f/g, '')
+  } catch {
+    return s.toLowerCase()
+  }
 }
 
 // preprosti highlighter (case/diakritika-insensitive)
@@ -67,7 +96,7 @@ function highlight(text: string, q: string) {
   const nq = norm(q).trim()
   if (!nq) return t
 
-  const tokens = Array.from(new Set(nq.split(/\s+/).filter(w => w.length >= 2)))
+  const tokens = Array.from(new Set(nq.split(/\s+/).filter((w) => w.length >= 2)))
   if (tokens.length === 0) return t
 
   const ranges: Array<[number, number]> = []
@@ -81,18 +110,23 @@ function highlight(text: string, q: string) {
     }
   }
   if (!ranges.length) return t
-  ranges.sort((a,b)=>a[0]-b[0])
+  ranges.sort((a, b) => a[0] - b[0])
   const merged: Array<[number, number]> = []
   for (const r of ranges) {
-    if (!merged.length || r[0] > merged[merged.length-1][1]) merged.push([...r] as [number,number])
-    else merged[merged.length-1][1] = Math.max(merged[merged.length-1][1], r[1])
+    if (!merged.length || r[0] > merged[merged.length - 1][1])
+      merged.push([...r] as [number, number])
+    else merged[merged.length - 1][1] = Math.max(merged[merged.length - 1][1], r[1])
   }
 
   const out: React.ReactNode[] = []
   let last = 0
-  for (const [a,b] of merged) {
+  for (const [a, b] of merged) {
     if (a > last) out.push(t.slice(last, a))
-    out.push(<mark key={`${a}-${b}`} className="bg-yellow-200 dark:bg-yellow-600/60 rounded px-0.5">{t.slice(a,b)}</mark>)
+    out.push(
+      <mark key={`${a}-${b}`} className="bg-yellow-200 dark:bg-yellow-600/60 rounded px-0.5">
+        {t.slice(a, b)}
+      </mark>,
+    )
     last = b
   }
   if (last < t.length) out.push(t.slice(last))
@@ -102,28 +136,28 @@ function highlight(text: string, q: string) {
 // ==== session cache ========================================================
 const CACHE_KEY = (date: string) => `krizisce:archive:${date}`
 const CACHE_TTL_MS = 10 * 60 * 1000
-type CacheShape = { at: number; items: ApiItem[]; counts: Record<string, number>; fallbackLive: boolean }
+type CacheShape = {
+  at: number
+  items: ApiItem[]
+  counts: Record<string, number>
+  fallbackLive: boolean
+}
 function readCache(date: string): CacheShape | null {
   try {
-    const raw = sessionStorage.getItem(CACHE_KEY(date)); if (!raw) return null
+    const raw = sessionStorage.getItem(CACHE_KEY(date))
+    if (!raw) return null
     const parsed = JSON.parse(raw) as CacheShape
     if (!parsed?.at || Date.now() - parsed.at > CACHE_TTL_MS) return null
     if (!Array.isArray(parsed.items)) return null
     return parsed
-  } catch { return null }
+  } catch {
+    return null
+  }
 }
 function writeCache(date: string, data: CacheShape) {
-  try { sessionStorage.setItem(CACHE_KEY(date), JSON.stringify(data)) } catch {}
-}
-
-// helper: build URL; za današnji datum dodamo _r param, da obidemo CDN cache
-function buildUrl(date: string, params: Record<string,string|number|undefined> = {}) {
-  const u = new URL('/api/archive', window.location.origin)
-  u.searchParams.set('date', date)
-  for (const [k,v] of Object.entries(params)) if (v !== undefined && v !== null) u.searchParams.set(k, String(v))
-  const today = yyyymmdd(new Date())
-  if (date === today) u.searchParams.set('_r', String(Date.now()))
-  return u.toString()
+  try {
+    sessionStorage.setItem(CACHE_KEY(date), JSON.stringify(data))
+  } catch {}
 }
 
 // ==== page =================================================================
@@ -151,55 +185,81 @@ export default function ArchivePage() {
 
   // “posodobljeno pred …”
   const [lastUpdatedMs, setLastUpdatedMs] = useState<number | null>(null)
-  const [nowTick, setNowTick] = useState(0) // osveži prikaz "pred ..." vsakih 30 s
-  useEffect(() => { const t = setInterval(() => setNowTick(x=>x+1), 30_000); return () => clearInterval(t) }, [])
+  const [nowTick, setNowTick] = useState(0)
+  useEffect(() => {
+    const t = setInterval(() => setNowTick((x) => x + 1), 30_000)
+    return () => clearInterval(t)
+  }, [])
 
   const news = useMemo(() => items.map(toNewsItem), [items])
-  const displayCounts = useMemo(() => Object.fromEntries(Object.entries(counts).filter(([k]) => k !== 'TestVir')), [counts])
-  const total = useMemo(() => Object.values(displayCounts).reduce((a, b) => a + b, 0), [displayCounts])
+  const displayCounts = useMemo(
+    () => Object.fromEntries(Object.entries(counts).filter(([k]) => k !== 'TestVir')),
+    [counts],
+  )
+  const total = useMemo(
+    () => Object.values(displayCounts).reduce((a, b) => a + b, 0),
+    [displayCounts],
+  )
   const maxCount = useMemo(() => Math.max(1, ...Object.values(displayCounts)), [displayCounts])
 
   const itemByLink = useMemo(() => {
-    const m = new Map<string, ApiItem>(); for (const it of items) m.set(it.link, it); return m
+    const m = new Map<string, ApiItem>()
+    for (const it of items) m.set(it.link, it)
+    return m
   }, [items])
 
   const deferredSearch = useDeferredValue(search)
 
   const filteredNews = useMemo(() => {
-    const q = norm(deferredSearch.trim()); if (!q) return news
-    return news.filter(n => {
+    const q = norm(deferredSearch.trim())
+    if (!q) return news
+    return news.filter((n) => {
       const link = (n as any).link as string
       const it = itemByLink.get(link)
-      const title = (n as any).title ?? '', src = (n as any).source ?? ''
-      const summary = (it?.summary ?? it?.contentsnippet ?? (it as any)?.description ?? (it as any)?.content ?? '') || ''
+      const title = (n as any).title ?? '',
+        src = (n as any).source ?? ''
+      const summary =
+        (it?.summary ?? it?.contentsnippet ?? (it as any)?.description ?? (it as any)?.content ??
+          '') || ''
       return norm(`${title} ${summary} ${src}`).includes(q)
     })
   }, [news, deferredSearch, itemByLink])
 
   const hasQuery = useMemo(() => deferredSearch.trim().length > 0, [deferredSearch])
   const visibleNews = useMemo(
-    () => (hasQuery ? filteredNews : (showAll ? filteredNews : filteredNews.slice(0, 15))),
-    [filteredNews, showAll, hasQuery]
+    () => (hasQuery ? filteredNews : showAll ? filteredNews : filteredNews.slice(0, 15)),
+    [filteredNews, showAll, hasQuery],
   )
 
-  function sortDesc(a: ApiItem, b: ApiItem) { return tsOf(b) - tsOf(a) || String(b.id).localeCompare(String(a.id)) }
+  // STABILEN sort: najprej po času, nato po številskem id-ju (NE po stringu!)
+  function sortDesc(a: ApiItem, b: ApiItem) {
+    return tsOf(b) - tsOf(a) || (Number(b.id) - Number(a.id))
+  }
 
-  // glavni fetch
-  async function fetchFirstPage(d: string, useCache: boolean) {
+  async function fetchFirstPage(d: string, useCache = true) {
     if (abortRef.current) abortRef.current.abort()
-    const controller = new AbortController(); abortRef.current = controller
+    const controller = new AbortController()
+    abortRef.current = controller
 
-    setErrorMsg(null); setShowAll(false); setLoadedAll(false)
-    setNextCursor(null); nextCursorRef.current = null
-    if (bgAbortRef.current) { bgAbortRef.current.abort(); bgAbortRef.current = null }
-    bgStartedRef.current = false; setBgLoading(false)
+    setErrorMsg(null)
+    setShowAll(false)
+    setLoadedAll(false)
+    setNextCursor(null)
+    nextCursorRef.current = null
+    if (bgAbortRef.current) {
+      bgAbortRef.current.abort()
+      bgAbortRef.current = null
+    }
+    bgStartedRef.current = false
+    setBgLoading(false)
 
     let servedFromCache = false
     if (useCache) {
       const cached = readCache(d)
       if (cached) {
         setItems([...cached.items].sort(sortDesc))
-        setCounts(cached.counts); setFallbackLive(cached.fallbackLive)
+        setCounts(cached.counts)
+        setFallbackLive(cached.fallbackLive)
         setLastUpdatedMs(cached.at)
         servedFromCache = true
       }
@@ -208,14 +268,22 @@ export default function ArchivePage() {
     setLoading(!servedFromCache)
     try {
       const LIMIT_FIRST = 40
-      const url = buildUrl(d, { limit: LIMIT_FIRST })
+      const url = `/api/archive?date=${encodeURIComponent(d)}&limit=${LIMIT_FIRST}`
       const res = await fetch(url, { cache: 'no-store', signal: controller.signal })
-      const data: ApiPayload = await res.json().catch(() => ({ error: 'Neveljaven odgovor strežnika.' }))
+      const data: ApiPayload = await res
+        .json()
+        .catch(() => ({ error: 'Neveljaven odgovor strežnika.' }))
 
       if (controller.signal.aborted) return
       if (!res.ok || 'error' in data) {
-        if (!servedFromCache) { setItems([]); setCounts({}); setFallbackLive(false) }
-        setErrorMsg('Arhiva trenutno ni mogoče naložiti.'); setLoading(false); return
+        if (!servedFromCache) {
+          setItems([])
+          setCounts({})
+          setFallbackLive(false)
+        }
+        setErrorMsg('Arhiva trenutno ni mogoče naložiti.')
+        setLoading(false)
+        return
       }
 
       const sorted = [...(data.items ?? [])].sort(sortDesc)
@@ -228,7 +296,12 @@ export default function ArchivePage() {
       setLoading(false)
 
       setLastUpdatedMs(Date.now())
-      writeCache(d, { at: Date.now(), items: sorted, counts: data.counts ?? {}, fallbackLive: Boolean((data as any).fallbackLive) })
+      writeCache(d, {
+        at: Date.now(),
+        items: sorted,
+        counts: data.counts ?? {},
+        fallbackLive: Boolean((data as any).fallbackLive),
+      })
 
       // začni ozadno nalaganje takoj
       if (data.nextCursor && !bgStartedRef.current) {
@@ -236,7 +309,11 @@ export default function ArchivePage() {
         void loadRestOfDay({ background: true, startCursor: data.nextCursor })
       }
     } catch {
-      if (!servedFromCache) { setItems([]); setCounts({}); setFallbackLive(false) }
+      if (!servedFromCache) {
+        setItems([])
+        setCounts({})
+        setFallbackLive(false)
+      }
       if (!controller.signal.aborted) setErrorMsg('Napaka pri povezavi do arhiva.')
       setLoading(false)
     }
@@ -245,13 +322,15 @@ export default function ArchivePage() {
   type LoadOpts = { background?: boolean; startCursor?: string | null }
   async function loadRestOfDay(opts?: LoadOpts) {
     const background = !!opts?.background
-    let cursor: string | null = typeof opts?.startCursor !== 'undefined' ? opts!.startCursor! : nextCursorRef.current
+    let cursor: string | null =
+      typeof opts?.startCursor !== 'undefined' ? (opts!.startCursor as string | null) : nextCursorRef.current
 
     if (loadedAll || !cursor || (loadingMore && !background)) {
       if (!background) setShowAll(true)
       return
     }
-    if (!background) setLoadingMore(true); else setBgLoading(true)
+    if (!background) setLoadingMore(true)
+    else setBgLoading(true)
 
     try {
       const LIMIT = 250
@@ -261,22 +340,29 @@ export default function ArchivePage() {
         bgAbortRef.current = controller
       }
 
-      const seen = new Set(items.map(i => i.link))
+      const seen = new Set(items.map((i) => i.link))
       let acc = [...items]
 
       while (cursor) {
-        const url = buildUrl(date, { cursor, limit: LIMIT })
-        const res = await fetch(url, { cache: 'no-store', signal: background ? controller.signal : undefined })
-        const data: ApiPayload = await res.json().catch(() => ({ error: 'Neveljaven odgovor strežnika.' }))
+        const url = `/api/archive?date=${encodeURIComponent(
+          date,
+        )}&cursor=${encodeURIComponent(cursor)}&limit=${LIMIT}`
+        const res = await fetch(url, {
+          cache: 'no-store',
+          signal: background ? controller.signal : undefined,
+        })
+        const data: ApiPayload = await res
+          .json()
+          .catch(() => ({ error: 'Neveljaven odgovor strežnika.' }))
         if (!res.ok || 'error' in data) break
 
-        const fresh = (data.items ?? []).filter(i => !seen.has(i.link))
+        const fresh = (data.items ?? []).filter((i) => !seen.has(i.link))
         for (const f of fresh) seen.add(f.link)
         if (fresh.length) {
           acc = [...acc, ...fresh]
           const sorted = [...acc].sort(sortDesc)
           setItems(sorted)
-          setLastUpdatedMs(Date.now()) // posodobljeno tudi ob ozadnem dotoku
+          setLastUpdatedMs(Date.now())
           writeCache(date, { at: Date.now(), items: sorted, counts, fallbackLive })
         }
 
@@ -284,7 +370,7 @@ export default function ArchivePage() {
         setNextCursor(cursor)
         nextCursorRef.current = cursor
 
-        if (background) await new Promise(r => setTimeout(r, 0))
+        if (background) await new Promise((r) => setTimeout(r, 0))
       }
 
       setNextCursor(null)
@@ -294,14 +380,31 @@ export default function ArchivePage() {
     } catch {
       if (!opts?.background) setErrorMsg('Nalaganje vseh novic ni uspelo.')
     } finally {
-      if (!background) setLoadingMore(false); else setBgLoading(false)
+      if (!background) setLoadingMore(false)
+      else setBgLoading(false)
     }
   }
+
+  function refreshNow() {
+    fetchFirstPage(date, false)
+  }
+
+  // auto-ozadje pri tipkanju, če še ni vse naloženo
+  useEffect(() => {
+    const q = deferredSearch.trim()
+    if (q && !loadedAll && nextCursorRef.current && !bgStartedRef.current) {
+      bgStartedRef.current = true
+      void loadRestOfDay({ background: true, startCursor: nextCursorRef.current })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [deferredSearch, loadedAll])
 
   // === Auto-osveževanje današnjega dne (vsako minuto, če je zavihek viden) ===
   const todayStr = useMemo(() => yyyymmdd(new Date()), [])
   const latestTsRef = useRef<number>(0)
-  useEffect(() => { latestTsRef.current = items.length ? tsOf(items[0]) : 0 }, [items])
+  useEffect(() => {
+    latestTsRef.current = items.length ? tsOf(items[0]) : 0
+  }, [items])
 
   useEffect(() => {
     if (date !== todayStr) return
@@ -310,8 +413,9 @@ export default function ArchivePage() {
     const tick = async () => {
       if (document.hidden) return
       try {
-        const url = buildUrl(date, { limit: 1 })
-        const res = await fetch(url, { cache: 'no-store' })
+        const res = await fetch(`/api/archive?date=${encodeURIComponent(date)}&limit=1`, {
+          cache: 'no-store',
+        })
         const data: any = await res.json()
         const newest = (data?.items?.length ? tsOf(data.items[0]) : 0) || 0
         if (newest > latestTsRef.current) {
@@ -322,30 +426,25 @@ export default function ArchivePage() {
 
     timer = window.setInterval(tick, 60_000)
     void tick()
-    return () => { if (timer) clearInterval(timer) }
+    return () => {
+      if (timer) clearInterval(timer)
+    }
   }, [date, todayStr])
 
-  // === initial + date-change fetch behaviour ================================
-  // – ob prvem prikazu in ob spremembi datuma vedno “potrdi izbor” in naloži sveže
+  // === UI ===================================================================
+  const updatedText = useMemo(
+    () => (lastUpdatedMs ? `Posodobljeno ${relativeTime(lastUpdatedMs)}` : ''),
+    [lastUpdatedMs, nowTick],
+  )
+
   useEffect(() => {
-    const isToday = date === todayStr
-    // Danes: vedno skip cache (takoj sveže). Preteklost: lahko iz cache.
-    fetchFirstPage(date, !isToday)
+    // initial load
+    fetchFirstPage(date, true)
+    return () => {
+      if (abortRef.current) abortRef.current.abort()
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [date])
-
-  // === UI ===================================================================
-  const updatedText = useMemo(() => (
-    lastUpdatedMs ? `Posodobljeno ${relativeTime(lastUpdatedMs)}` : ''
-  ), [lastUpdatedMs, nowTick])
-
-  // Handler: sprememba datuma → takojšen fetch (brez cache) + setDate
-  const onDateChange: React.ChangeEventHandler<HTMLInputElement> = (e) => {
-    const v = e.target.value
-    setDate(v)
-    // Nemudoma naloži brez cache (potrdi izbor)
-    void fetchFirstPage(v, false)
-  }
 
   return (
     <>
@@ -366,25 +465,27 @@ export default function ArchivePage() {
                 aria-label="Nazaj na naslovnico"
               >
                 <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
-                  <path d="M3 12L12 3l9 9" stroke="currentColor" strokeWidth="2" fill="none"/>
-                  <path d="M5 10v10h5v-6h4v6h5V10" stroke="currentColor" strokeWidth="2" fill="none"/>
+                  <path d="M3 12L12 3l9 9" stroke="currentColor" strokeWidth="2" fill="none" />
+                  <path d="M5 10v10h5v-6h4v6h5V10" stroke="currentColor" strokeWidth="2" fill="none" />
                 </svg>
                 Nazaj
               </Link>
 
-              <label htmlFor="date" className="sr-only">Izberi dan</label>
+              <label htmlFor="date" className="sr-only">
+                Izberi dan
+              </label>
               <input
                 id="date"
                 type="date"
                 value={date}
                 max={yyyymmdd(new Date())}
-                onChange={onDateChange}
+                onChange={(e) => startTransition(() => setDate(e.target.value))}
                 className="px-2.5 py-1.5 rounded-md border border-gray-300 dark:border-gray-700 bg-white/80 dark:bg-gray-800/80 backdrop-blur text-xs"
               />
 
               {/* OSVEŽI */}
               <button
-                onClick={() => fetchFirstPage(date, false)}
+                onClick={refreshNow}
                 className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs border
                            border-gray-300/60 dark:border-gray-700/60 bg-white/70 dark:bg-gray-800/60
                            hover:bg-white/90 dark:hover:bg-gray-800/80 transition"
@@ -392,8 +493,8 @@ export default function ArchivePage() {
                 aria-label="Osveži dan"
               >
                 <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
-                  <path d="M4 4v6h6M20 20v-6h-6" stroke="currentColor" strokeWidth="2" fill="none"/>
-                  <path d="M20 8a8 8 0 0 0-14-4M4 16a8 8 0 0 0 14 4" stroke="currentColor" strokeWidth="2" fill="none"/>
+                  <path d="M4 4v6h6M20 20v-6h-6" stroke="currentColor" strokeWidth="2" fill="none" />
+                  <path d="M20 8a8 8 0 0 0-14-4M4 16a8 8 0 0 0 14 4" stroke="currentColor" strokeWidth="2" fill="none" />
                 </svg>
                 Osveži
               </button>
@@ -407,7 +508,13 @@ export default function ArchivePage() {
 
             {/* search */}
             <div className="relative w-full sm:w-96">
-              <svg className="absolute left-2.5 top-1/2 -translate-y-1/2" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+              <svg
+                className="absolute left-2.5 top-1/2 -translate-y-1/2"
+                viewBox="0 0 24 24"
+                width="16"
+                height="16"
+                aria-hidden="true"
+              >
                 <circle cx="11" cy="11" r="7" stroke="currentColor" strokeWidth="2" fill="none" />
                 <path d="M20 20l-3.2-3.2" stroke="currentColor" strokeWidth="2" />
               </svg>
@@ -436,15 +543,21 @@ export default function ArchivePage() {
             </div>
 
             <div className="mt-3 space-y-2">
-              {Object.entries(displayCounts).sort((a, b) => b[1] - a[1]).map(([source, count]) => (
-                <div key={source} className="flex items-center gap-3">
-                  <div className="w-32 shrink-0 text-sm text-gray-700 dark:text-gray-300">{source}</div>
-                  <div className="flex-1 h-3 rounded-full bg-gray-200 dark:bg-gray-800 overflow-hidden">
-                    <div className="h-full bg-brand dark:bg-brand" style={{ width: `${(count / maxCount) * 100}%` }} aria-hidden />
+              {Object.entries(displayCounts)
+                .sort((a, b) => b[1] - a[1])
+                .map(([source, count]) => (
+                  <div key={source} className="flex items-center gap-3">
+                    <div className="w-32 shrink-0 text-sm text-gray-700 dark:text-gray-300">{source}</div>
+                    <div className="flex-1 h-3 rounded-full bg-gray-200 dark:bg-gray-800 overflow-hidden">
+                      <div
+                        className="h-full bg-brand dark:bg-brand"
+                        style={{ width: `${(count / maxCount) * 100}%` }}
+                        aria-hidden
+                      />
+                    </div>
+                    <div className="w-12 text-right text-sm tabular-nums">{count}</div>
                   </div>
-                  <div className="w-12 text-right text-sm tabular-nums">{count}</div>
-                </div>
-              ))}
+                ))}
             </div>
           </div>
 
@@ -465,7 +578,9 @@ export default function ArchivePage() {
                     const hex = sourceColors[src] || '#7c7c7c'
                     const link = (n as any).link as string
                     const it = itemByLink.get(link)
-                    const summary = (it?.summary ?? it?.contentsnippet ?? (it as any)?.description ?? (it as any)?.content ?? '').trim()
+                    const summary = (
+                      it?.summary ?? it?.contentsnippet ?? (it as any)?.description ?? (it as any)?.content ?? ''
+                    ).trim()
 
                     const tailFade = !hasQuery && !showAll && i >= visibleNews.length - 3
 
@@ -476,7 +591,11 @@ export default function ArchivePage() {
                                     transition-opacity ${tailFade ? 'opacity-60' : 'opacity-100'}`}
                       >
                         <span className="inline-flex items-center gap-1 min-w-0">
-                          <span className="inline-block w-1.5 h-1.5 rounded-full" style={{ backgroundColor: hex }} aria-hidden />
+                          <span
+                            className="inline-block w-1.5 h-1.5 rounded-full"
+                            style={{ backgroundColor: hex }}
+                            aria-hidden
+                          />
                           <span className="truncate text-[10px] text-gray-600 dark:text-gray-400">{src}</span>
                         </span>
                         <span
@@ -530,7 +649,9 @@ export default function ArchivePage() {
           <div className="flex justify-center mt-3 gap-2">
             {!hasQuery && !showAll && filteredNews.length > 15 ? (
               <button
-                onClick={async () => { await loadRestOfDay({ background: false, startCursor: nextCursorRef.current }) }}
+                onClick={async () => {
+                  await loadRestOfDay({ background: false, startCursor: nextCursorRef.current })
+                }}
                 disabled={loadingMore}
                 className="px-4 py-1.5 rounded-full bg-brand text-white text-sm shadow-md hover:bg-brand-hover disabled:opacity-60"
               >
