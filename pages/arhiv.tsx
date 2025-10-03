@@ -30,7 +30,7 @@ type ApiItem = {
 }
 type ApiPayload =
   | {
-      items: ApiItem*
+      items: ApiItem[]
       counts: Record<string, number>
       total: number
       nextCursor: string | null
@@ -88,6 +88,7 @@ function norm(s: string) {
   }
 }
 
+// preprosti highlighter
 function highlight(text: string, q: string) {
   if (!q) return text
   const t = text ?? ''
@@ -173,7 +174,7 @@ function writeCache(date: string, data: CacheShape) {
 export default function ArchivePage() {
   const [date, setDate] = useState<string>(() => yyyymmdd(new Date()))
   const [search, setSearch] = useState<string>('')
-  const [sourceFilter, setSourceFilter] = useState<string | null>(null) // NEW
+  const [sourceFilter, setSourceFilter] = useState<string | null>(null)
 
   const [items, setItems] = useState<ApiItem[]>([])
   const [counts, setCounts] = useState<Record<string, number>>({})
@@ -246,7 +247,7 @@ export default function ArchivePage() {
     return tsOf(b) - tsOf(a) || (Number(b.id) - Number(a.id))
   }
 
-  async function fetchFirstPage(d: string, useCache = false) { // default: LIVE first
+  async function fetchFirstPage(d: string, useCache = false) {
     if (abortRef.current) abortRef.current.abort()
     const controller = new AbortController()
     abortRef.current = controller
@@ -381,7 +382,7 @@ export default function ArchivePage() {
     fetchFirstPage(date, false) // LIVE
   }
 
-  // auto-ozadje pri tipkanju, če še ni vse naloženo
+  // auto-ozadje pri tipkanju
   useEffect(() => {
     const q = deferredSearch.trim()
     if (q && !loadedAll && nextCursorRef.current && !bgStartedRef.current) {
@@ -422,7 +423,7 @@ export default function ArchivePage() {
   )
 
   useEffect(() => {
-    // initial load — LIVE takoj (ne samo cache)
+    // initial load — LIVE takoj
     fetchFirstPage(date, false)
     return () => { if (abortRef.current) abortRef.current.abort() }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -503,7 +504,7 @@ export default function ArchivePage() {
 
             <div className="mt-3 space-y-2">
               {Object.entries(displayCounts).sort((a, b) => b[1] - a[1]).map(([source, count]) => (
-                <button key={source} onClick={() => setSourceFilter(src => src === source ? null : source)}
+                <button key={source} onClick={() => setSourceFilter(curr => curr === source ? null : source)}
                   className="w-full flex items-center gap-3 group">
                   <div className="w-32 shrink-0 text-sm text-gray-700 dark:text-gray-300 text-left">
                     {sourceFilter === source ? <strong>{source}</strong> : source}
@@ -552,7 +553,7 @@ export default function ArchivePage() {
                       <li key={`${link}-${i}`}
                         className={`grid grid-cols-[92px_78px_1fr] sm:grid-cols-[100px_84px_1fr] gap-x-3 sm:gap-x-4 px-2 sm:px-3 py-1.5
                                     transition-opacity ${tailFade ? 'opacity-60' : 'opacity-100'}`}>
-                        <button onClick={() => setSourceFilter(src => src === src ? null : src)} className="inline-flex items-center gap-1 min-w-0">
+                        <button onClick={() => setSourceFilter(curr => curr === src ? null : src)} className="inline-flex items-center gap-1 min-w-0">
                           <span className="inline-block w-1.5 h-1.5 rounded-full" style={{ backgroundColor: hex }} aria-hidden />
                           <span className="truncate text-[10px] text-gray-600 dark:text-gray-400">{src}</span>
                         </button>
@@ -564,7 +565,7 @@ export default function ArchivePage() {
                         <div className="relative">
                           <a href={link} target="_blank" rel="noopener noreferrer"
                             className="peer block text-[13px] leading-tight text-gray-900 dark:text-gray-100 hover:underline truncate">
-                            {(n as any).title}
+                            {hasQuery ? highlight((n as any).title, deferredSearch) : (n as any).title}
                           </a>
                           {summary && (
                             <div className="pointer-events-none absolute left-0 top-full mt-1 z-50 max-w-[60ch]
@@ -572,7 +573,7 @@ export default function ArchivePage() {
                                          px-2.5 py-2 shadow-lg ring-1 ring-black/20 opacity-0 invisible translate-y-1 transition
                                          peer-hover:opacity-100 peer-hover:visible peer-hover:translate-y-0"
                               role="tooltip">
-                              {summary}
+                              {hasQuery ? highlight(summary, deferredSearch) : summary}
                             </div>
                           )}
                         </div>
