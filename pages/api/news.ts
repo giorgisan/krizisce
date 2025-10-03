@@ -2,143 +2,113 @@
 import type { NextApiRequest, NextApiResponse } from 'next'
 import { createClient } from '@supabase/supabase-js'
 
-// --- Supabase client --------------------------------------------------------
+/**
+ * Stable "freshest-first" news API.
+ * - Sorts by `published_at DESC` on the DB (single source of truth).
+ * - Falls back to `publishedat` (ms), then `isodate/pubdate`, finally `created_at`.
+ * - Supports paging with cursor = ISO timestamp string (published_at of last item).
+ * - Optional filtering by source.
+ */
+
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL as string
 const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string
+const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: false } })
 
-const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-  auth: { persistSession: false },
-})
+type Row = {
+  id: number
+  link: string
+  title: string
+  source: string
+  image: string | null
+  contentsnippet: string | null
+  summary: string | null
+  isodate: string | null
+  pubdate: string | null
+  published_at: string | null          // timestamptz
+  publishedat: number | null           // bigint ms
+  created_at: string | null
+}
 
-// --- Types ------------------------------------------------------------------
-export type ApiNewsItem = {
+export type NewsItem = {
   title: string
   link: string
   source: string
-  image: string | null
-  contentSnippet: string
-  isoDate: string | null
-  publishedAt: number // epoch ms
+  image?: string | null
+  contentSnippet?: string | null
+  publishedAt: number
+  isoDate?: string | null
 }
 
-type PagedOk = { items: ApiNewsItem[]; nextCursor: number | null }
-type ListOk  = ApiNewsItem[]
-type ApiErr  = { error: string }
+type PagedOk = { items: NewsItem[]; nextCursor: string | null }
+type ListOk = NewsItem[]
+type Err = { error: string }
 
-// --- Helpers ----------------------------------------------------------------
-function clamp(n: number, lo: number, hi: number) {
-  return Math.min(hi, Math.max(lo, n))
+function toMs(s?: string | null): number {
+  if (!s) return 0
+  const v = Date.parse(s)
+  return Number.isFinite(v) ? v : 0
 }
 
-// canonical timestamp resolver: prefer `published_at` (timestamptz), then bigint `publishedat`,
-// then `isodate` from RSS; all returned as epoch ms
-function resolveTs(row: any): number {
-  // 1) timestamptz from DB (canonical, UTC)
-  if (row?.published_at) {
-    const ms = Date.parse(String(row.published_at))
-    if (!Number.isNaN(ms)) return ms
-  }
-  // 2) bigint(ms) fallback
-  if (row?.publishedat != null) {
-    const ms = Number(row.publishedat)
-    if (Number.isFinite(ms) && ms > 0) return ms
-  }
-  // 3) RSS iso date fallback
-  if (row?.isodate) {
-    const ms = Date.parse(String(row.isodate))
-    if (!Number.isNaN(ms)) return ms
-  }
-  return Date.now()
-}
+function rowToItem(r: Row): NewsItem {
+  const ms =
+    (r.publishedat && Number(r.publishedat)) ||
+    toMs(r.published_at) ||
+    toMs(r.pubdate) ||
+    toMs(r.isodate) ||
+    toMs(r.created_at) ||
+    Date.now()
 
-function mapRow(row: any): ApiNewsItem {
   return {
-    title: row.title,
-    link: row.link,
-    source: row.source,
-    image: row.image ?? null,
-    contentSnippet: (row.contentsnippet ?? row.summary ?? '') || '',
-    isoDate: row.published_at ?? row.isodate ?? null,
-    publishedAt: resolveTs(row),
+    title: r.title,
+    link: r.link,
+    source: r.source,
+    image: r.image || null,
+    contentSnippet: r.summary?.trim() || r.contentsnippet?.trim() || null,
+    publishedAt: ms,
+    isoDate: r.published_at || r.isodate || r.pubdate || null,
   }
 }
 
-function setCaching(res: NextApiResponse, forceFresh: boolean) {
-  if (forceFresh) {
-    res.setHeader('Cache-Control', 'no-store, must-revalidate')
-  } else {
-    // short edge cache, safe because client uses cache: 'no-store' for freshness checks
-    res.setHeader('Cache-Control', 's-maxage=15, stale-while-revalidate=30')
-  }
-}
-
-// --- Handler ----------------------------------------------------------------
-export default async function handler(
-  req: NextApiRequest,
-  res: NextApiResponse<PagedOk | ListOk | ApiErr>,
-) {
-  const isPaged = typeof req.query.paged !== 'undefined'
-  const forceFresh = String(req.query.forceFresh || '') === '1'
-
+export default async function handler(req: NextApiRequest, res: NextApiResponse<PagedOk | ListOk | Err>) {
   try {
-    // common SELECT
+    const paged = req.query.paged === '1'
+    const limit = Math.min(Math.max(parseInt(String(req.query.limit ?? (paged ? 40 : 60)), 10) || (paged ? 40 : 60), 1), 200)
+    const cursor = (req.query.cursor as string) || null        // ISO string (published_at of last item)
+    const source = (req.query.source as string) || null
+
+    // Base select
     let q = supabase
       .from('news')
-      .select('id, link, title, source, image, contentsnippet, summary, isodate, published_at, publishedat')
+      .select('id, link, title, source, image, contentsnippet, summary, isodate, pubdate, published_at, publishedat, created_at')
+      .order('published_at', { ascending: false })  // relies on trigger keeping it non-null
+      .order('id', { ascending: false })            // tie-breaker for same second
 
-    // optional source filter (ignore "Vse")
-    const source = (req.query.source as string) || ''
     if (source && source !== 'Vse') q = q.eq('source', source)
 
-    // paging branch ----------------------------------------------------------
-    if (isPaged) {
-      const limitParam = parseInt(String(req.query.limit ?? '40'), 10)
-      const limit = clamp(Number.isFinite(limitParam) ? limitParam : 40, 1, 200)
-
-      const cursorMs = req.query.cursor != null ? Number(req.query.cursor) : null
-
-      // strict ordering: first by time, then by id (deterministic)
-      q = q.order('published_at', { ascending: false })
-           .order('id', { ascending: false })
-           .limit(limit)
-
-      // keyset: fetch strictly older than the cursor timestamp if provided
-      if (cursorMs != null && Number.isFinite(cursorMs)) {
-        const iso = new Date(cursorMs).toISOString()
-        q = q.lt('published_at', iso)
-      }
-
-      const { data: rows, error } = await q
-      if (error) {
-        setCaching(res, true)
-        return res.status(500).json({ error: `DB error: ${error.message}` })
-      }
-
-      const items = (rows ?? []).map(mapRow)
-      const nextCursor =
-        items.length === limit ? items[items.length - 1].publishedAt : null
-
-      setCaching(res, forceFresh)
-      return res.status(200).json({ items, nextCursor })
+    if (cursor) {
+      // fetch strictly older than last published_at on the client
+      q = q.lt('published_at', cursor)
     }
 
-    // non-paged: latest batch for the homepage --------------------------------
-    const LIMIT = 120
-    q = q.order('published_at', { ascending: false })
-         .order('id', { ascending: false })
-         .limit(LIMIT)
+    q = q.limit(limit)
 
-    const { data: rows, error } = await q
-    if (error) {
-      setCaching(res, true)
-      return res.status(500).json({ error: `DB error: ${error.message}` })
+    const { data, error } = await q
+    if (error) return res.status(500).json({ error: `DB: ${error.message}` })
+
+    const rows = (data || []) as Row[]
+    const items = rows.map(rowToItem)
+
+    const nextCursor = rows.length === limit ? (rows[rows.length - 1].published_at || null) : null
+
+    if (paged) {
+      const payload: PagedOk = { items, nextCursor }
+      res.setHeader('Cache-Control', 'no-store')
+      return res.status(200).json(payload)
+    } else {
+      res.setHeader('Cache-Control', 'no-store')
+      return res.status(200).json(items)
     }
-
-    const items = (rows ?? []).map(mapRow)
-    setCaching(res, forceFresh)
-    return res.status(200).json(items)
   } catch (e: any) {
-    setCaching(res, true)
     return res.status(500).json({ error: e?.message || 'Unexpected error' })
   }
 }
