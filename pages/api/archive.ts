@@ -9,6 +9,8 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: { persistSession: false },
 })
 
+/* ======================== Types ======================== */
+
 type Row = {
   id: number
   link: string
@@ -16,7 +18,7 @@ type Row = {
   source: string
   summary: string | null
   contentsnippet: string | null
-  published_at: string | null   // timestamptz
+  published_at: string | null   // timestamptz (ISO)
   publishedat: number | null    // bigint (ms)
 }
 
@@ -35,22 +37,45 @@ type ApiOk = {
   items: ApiItem[]
   counts: Record<string, number>
   total: number
-  nextCursor: string | null      // ISO timestamp (published_at of last item)
-  fallbackLive?: boolean
+  // robusten kursor: kombinacija (published_at, id)
+  nextCursorTs: string | null
+  nextCursorId: number | null
 }
+
 type ApiErr = { error: string }
 
+/* ======================== Helpers ======================== */
+
+/**
+ * Pretvori YYYY-MM-DD (lokalni koledarski dan) v UTC ISO interval
+ * [start, end], kjer je end = 23:59:59.999 lokalno.
+ * Ne uporabljamo 'new Date("YYYY-MM-DDT00:00:00")' zaradi možnih razlik
+ * v interpretaciji; raje sestavimo datum iz delov.
+ */
 function parseDateRange(dayISO?: string) {
-  // pričakujemo YYYY-MM-DD lokalno; pretvorimo v UTC [start, end)
   const today = new Date()
-  const base = dayISO
-    ? new Date(`${dayISO}T00:00:00`)
-    : new Date(today.getFullYear(), today.getMonth(), today.getDate())
-  const start = new Date(base)
-  const end = new Date(base)
-  end.setDate(end.getDate() + 1)
-  return { start: start.toISOString(), end: end.toISOString() }
+
+  let y: number, m: number, d: number
+  if (dayISO) {
+    const [yy, mm, dd] = dayISO.split('-').map(n => parseInt(n, 10))
+    y = yy; m = mm; d = dd
+  } else {
+    y = today.getFullYear()
+    m = today.getMonth() + 1
+    d = today.getDate()
+  }
+
+  // Lokalna polnoč do lokalnega konca dneva
+  const startLocal = new Date(y, m - 1, d, 0, 0, 0, 0)
+  const endLocal   = new Date(y, m - 1, d, 23, 59, 59, 999)
+
+  return {
+    start: startLocal.toISOString(),
+    end: endLocal.toISOString(),
+  }
 }
+
+/* ======================== Handler ======================== */
 
 export default async function handler(
   req: NextApiRequest,
@@ -58,30 +83,37 @@ export default async function handler(
 ) {
   try {
     const dateStr = (req.query.date as string) || undefined
+
+    // koliko vrstic na "stran"
     const limit = Math.min(
       Math.max(parseInt(String(req.query.limit ?? '200'), 10) || 200, 1),
       500,
     )
 
-    // IMPORTANT: cursor is ISO published_at (string), not a number
-    const cursor: string | null = (req.query.cursor as string) || null
+    // robusten kursor: published_at + id (oba sta potrebna!)
+    const cursorTs: string | null = (req.query.cursor_ts as string) || null
+    const cursorId: number | null = req.query.cursor_id
+      ? Number(req.query.cursor_id)
+      : null
 
+    // interval koledarskega dneva v lokalnem času → UTC ISO
     const { start, end } = parseDateRange(dateStr)
 
-    /* === ITEMS (published_at DESC, id DESC) === */
+    /* ========== ITEMS (order: published_at DESC, id DESC) ========== */
     let q = supabase
       .from('news')
       .select(
         'id, link, title, source, summary, contentsnippet, published_at, publishedat',
       )
-      .gte('published_at', start)
-      .lt('published_at', end)
+      .gte('published_at', start)   // znotraj lokalnega dneva
+      .lte('published_at', end)     // do 23:59:59.999
       .order('published_at', { ascending: false })
       .order('id', { ascending: false })
 
-    if (cursor) {
-      // strictly older than the last visible published_at
-      q = q.lt('published_at', cursor)
+    if (cursorTs && cursorId != null) {
+      // Strogo "starejše" kot trenutni konec: (ts < cursorTs) OR (ts = cursorTs AND id < cursorId)
+      // Supabase PostgREST: .or() z and() pogojem
+      q = q.or(`published_at.lt.${cursorTs},and(published_at.eq.${cursorTs},id.lt.${cursorId})`)
     }
 
     q = q.limit(limit)
@@ -108,56 +140,41 @@ export default async function handler(
       publishedat: r.publishedat,
     }))
 
-    const nextCursor: string | null =
-      rows && rows.length === limit
-        ? ((rows as Row[])[rows.length - 1].published_at || null)
-        : null
+    // naslednji kursor (če imamo točno 'limit' rezultatov)
+    const last = (rows as Row[])[(rows || []).length - 1]
+    const nextCursorTs = rows && rows.length === limit ? (last?.published_at || null) : null
+    const nextCursorId = rows && rows.length === limit ? (last?.id ?? null) : null
 
-    /* === COUNTS po source (brez .group()) === */
-    const { data: distinctRows, error: distinctErr } = await supabase
+    /* ========== COUNTS po virih – en sam agregatni query ========== */
+    const { data: countsRows, error: countsErr } = await supabase
       .from('news')
-      .select('source')
+      .select('source, count:id', { head: false })
       .gte('published_at', start)
-      .lt('published_at', end)
+      .lte('published_at', end)
+      .group('source')
 
-    if (distinctErr) {
+    if (countsErr) {
       res.setHeader('Cache-Control', 'no-store')
-      return res.status(500).json({ error: `DB error: ${distinctErr.message}` })
+      return res.status(500).json({ error: `DB error: ${countsErr.message}` })
     }
 
-    const distinctSources = Array.from(
-      new Set((distinctRows || []).map((r: any) => r.source).filter(Boolean)),
-    )
-
-    const entries = await Promise.all(
-      distinctSources.map(async (src) => {
-        const { count, error: cntErr } = await supabase
-          .from('news')
-          .select('id', { count: 'exact', head: true })
-          .gte('published_at', start)
-          .lt('published_at', end)
-          .eq('source', src)
-
-        if (cntErr) {
-          return [src, 0] as const
-        }
-        return [src, Number(count || 0)] as const
-      }),
-    )
-
     const counts: Record<string, number> = {}
-    for (const [src, c] of entries) counts[src] = c
+    for (const r of countsRows || []) {
+      const src = (r as any).source as string
+      const cnt = Number((r as any).count || 0)
+      counts[src] = cnt
+    }
     const total = Object.values(counts).reduce((a, b) => a + b, 0)
 
-    // No CDN caching – archive must always be fresh
+    // Arhiv naj bo vedno svež
     res.setHeader('Cache-Control', 'no-store')
 
     return res.status(200).json({
       items,
       counts,
       total,
-      nextCursor,
-      fallbackLive: false,
+      nextCursorTs,
+      nextCursorId,
     })
   } catch (e: any) {
     res.setHeader('Cache-Control', 'no-store')
