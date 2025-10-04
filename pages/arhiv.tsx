@@ -46,11 +46,6 @@ function fmtDDMMYYYY(iso: string) {
   const [y, m, d] = iso.split('-')
   return `${d}/${m}/${y}`
 }
-function parseDDMMYYYY(s: string) {
-  const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(s.trim())
-  if (!m) return null
-  return `${m[3]}-${m[2]}-${m[1]}`
-}
 
 const relativeTime = (ms: number) => {
   const diff = Math.max(0, Date.now() - ms)
@@ -164,9 +159,9 @@ function CalendarPopover({ open, anchorRef, valueISO, onClose, onPickISO }: CalP
     setPos({ top: r.bottom + 6 + window.scrollY, left: r.left + window.scrollX })
   }, [open, anchorRef])
 
-  const grid: Array<{ iso: string; label: number; dim: 'prev'|'curr'|'next'; isToday: boolean }> = []
+  const grid: Array<{ iso: string; label: number; dim: 'prev'|'curr'|'next'; isToday: boolean; isFuture: boolean }> = []
   const first = startOfMonth(view)
-  const firstDow = (first.getDay() + 6) % 7 // make Monday=0
+  const firstDow = (first.getDay() + 6) % 7 // Monday=0
   const start = new Date(first)
   start.setDate(first.getDate() - firstDow)
   for (let i = 0; i < 42; i++) {
@@ -175,7 +170,7 @@ function CalendarPopover({ open, anchorRef, valueISO, onClose, onPickISO }: CalP
     const dim: 'prev'|'curr'|'next' =
       d.getMonth() < view.getMonth() ? 'prev' :
       d.getMonth() > view.getMonth() ? 'next' : 'curr'
-    grid.push({ iso, label: d.getDate(), dim, isToday: iso === todayISO })
+    grid.push({ iso, label: d.getDate(), dim, isToday: iso === todayISO, isFuture: iso > todayISO })
   }
 
   const onPick = (iso: string) => { onPickISO(iso); onClose() }
@@ -192,7 +187,7 @@ function CalendarPopover({ open, anchorRef, valueISO, onClose, onPickISO }: CalP
     >
       <div className="flex items-center justify-between mb-2">
         <button
-          className="h-8 w-8 inline-flex items-center justify-center rounded-md hover:bg-black/5 dark:hover:bg-white/5"
+          className="h-8 w-8 inline-flex items-center justify-center rounded-md hover:bg-black/5 dark:hover:bg:white/5"
           onClick={() => setView(v => addMonths(v, -1))}
           aria-label="Prejšnji mesec"
         >
@@ -217,13 +212,21 @@ function CalendarPopover({ open, anchorRef, valueISO, onClose, onPickISO }: CalP
       <div className="grid grid-cols-7 gap-1">
         {grid.map((d) => {
           const active = d.iso === valueISO
+          const disabled = d.isFuture
+          const base =
+            disabled
+              ? 'opacity-40 cursor-not-allowed pointer-events-none'
+              : active
+                  ? 'bg-brand text-white'
+                  : d.isToday
+                      ? 'ring-1 ring-brand/60'
+                      : 'hover:bg-black/5 dark:hover:bg-white/5'
           return (
             <button
               key={d.iso}
-              onClick={() => onPick(d.iso)}
-              className={`h-8 rounded-md text-sm text-center
-                         ${d.dim !== 'curr' ? 'text-gray-400 dark:text-gray-600' : ''}
-                         ${active ? 'bg-brand text-white' : d.isToday ? 'ring-1 ring-brand/60' : 'hover:bg-black/5 dark:hover:bg-white/5'}`}
+              onClick={() => !disabled && onPick(d.iso)}
+              aria-disabled={disabled}
+              className={`h-8 rounded-md text-sm text-center ${d.dim !== 'curr' ? 'text-gray-400 dark:text-gray-600' : ''} ${base}`}
             >
               {d.label}
             </button>
@@ -233,7 +236,7 @@ function CalendarPopover({ open, anchorRef, valueISO, onClose, onPickISO }: CalP
 
       <div className="mt-2 flex items-center justify-between">
         <button
-          onClick={() => onPick(todayISO)}
+          onClick={() => onPick(yyyymmdd(new Date()))}
           className="text-xs underline hover:opacity-80"
         >
           Danes
@@ -270,7 +273,7 @@ export default function ArchivePage() {
   useEffect(() => { const t = setInterval(() => setNowTick(x => x + 1), 30_000); return () => clearInterval(t) }, [])
 
   // sorting
-  const sortDesc = (a: ApiItem, b: ApiItem) => tsOf(b) - tsOf(a) || Number(b.id) - Number(a.id)
+  const sortDesc = (a: ApiItem, b: ApiItem) => tsOf(b) - tsOf(a) || Number(a.id) - Number(b.id) // tie by id asc → stabilnejši
 
   // full fetch (loop cursors)
   const abortRef = useRef<AbortController | null>(null)
@@ -337,7 +340,7 @@ export default function ArchivePage() {
   const updatedText = useMemo(() => lastUpdatedMs ? `Posodobljeno ${relativeTime(lastUpdatedMs)}` : '', [lastUpdatedMs])
   const deferredSearch = useDeferredValue(search)
 
-  const filteredNews = useMemo(() => {
+  const filtered = useMemo(() => {
     const q = norm(deferredSearch.trim())
     return items
       .filter((it) => !sourceFilter || it.source === sourceFilter)
@@ -347,8 +350,9 @@ export default function ArchivePage() {
         return norm(`${it.title} ${summary} ${it.source}`).includes(q)
       })
       .sort(sortDesc)
-      .map(toNewsItem)
   }, [items, deferredSearch, sourceFilter])
+
+  const news = useMemo(() => filtered.map(toNewsItem), [filtered])
 
   const displayCounts = useMemo(() => Object.fromEntries(Object.entries(counts).filter(([k]) => k !== 'TestVir')), [counts])
   const total = useMemo(() => Object.values(displayCounts).reduce((a, b) => a + b, 0), [displayCounts])
@@ -356,6 +360,12 @@ export default function ArchivePage() {
 
   const onPickDate = (iso: string) => {
     startTransition(() => { setSourceFilter(null); setSearch(''); setItems([]); setDate(iso) })
+  }
+
+  // time formatter for list rows
+  const timeForRow = (ms: number) => {
+    const rowDay = yyyymmdd(new Date(ms))
+    return rowDay === date ? relativeTime(ms) : fmtClock(ms)
   }
 
   return (
@@ -469,7 +479,7 @@ export default function ArchivePage() {
             )}
           </div>
 
-          {/* Seznam = fiksna, prijetna višina; mobile friendly */}
+          {/* Seznam – novi vrstni red: ČAS • NASLOV • VIR (chip desno) */}
           <div className="flex-1 flex flex-col">
             <h3 className="mt-1 mb-2 text-sm font-medium text-gray-800 dark:text-gray-200">Zadnje novice</h3>
             <div className="rounded-md border border-gray-200/70 dark:border-gray-800/70 bg-white/50 dark:bg-gray-900/40">
@@ -480,30 +490,25 @@ export default function ArchivePage() {
                   <p className="p-3 text-sm text-red-600 dark:text-red-400">{errorMsg}</p>
                 ) : (
                   <ul className="divide-y divide-gray-200 dark:divide-gray-800">
-                    {filteredNews.map((n, i) => {
-                      const src = (n as any).source
+                    {news.map((n, i) => {
+                      const src = (n as any).source as string
                       const hex = sourceColors[src] || '#7c7c7c'
                       const link = (n as any).link as string
                       const it = items.find(it => it.link === link)
                       const summary = (it?.summary ?? it?.contentsnippet ?? (it as any)?.description ?? (it as any)?.content ?? '').trim()
+                      const ts = (n as any).publishedAt ?? Date.now()
 
                       return (
-                        <li key={`${link}-${i}`} className="grid grid-cols-[92px_78px_1fr] sm:grid-cols-[100px_84px_1fr] gap-x-3 sm:gap-x-4 px-2 sm:px-3 py-1.5">
-                          <button className="inline-flex items-center gap-1 min-w-0"
-                                  onClick={() => setSourceFilter(curr => (curr === src ? null : src))}
-                                  title={sourceFilter === src ? 'Počisti filter' : `Prikaži samo: ${src}`}>
-                            <span className="inline-block w-1.5 h-1.5 rounded-full" style={{ backgroundColor: hex }} aria-hidden />
-                            <span className="truncate text-[10px] text-gray-600 dark:text-gray-400">{src}</span>
-                          </button>
-
-                          <span className="text-right sm:text-left text-[10px] text-gray-500 dark:text-gray-400 tabular-nums"
-                                title={fmtClock((n as any).publishedAt ?? Date.now())}>
-                            {relativeTime((n as any).publishedAt ?? Date.now())}
+                        <li key={`${link}-${i}`} className="grid grid-cols-[78px_1fr_96px] gap-x-3 sm:gap-x-4 px-2 sm:px-3 py-1.5 items-center">
+                          {/* ČAS (relativno za danes, HH:MM za ostalo) */}
+                          <span className="text-[10px] text-gray-500 dark:text-gray-400 tabular-nums text-right sm:text-left" title={fmtClock(ts)}>
+                            {timeForRow(ts)}
                           </span>
 
+                          {/* NASLOV */}
                           <div className="relative">
                             <a href={link} target="_blank" rel="noopener noreferrer"
-                              className="peer block text-[13px] leading-tight text-gray-900 dark:text-gray-100 hover:underline truncate">
+                               className="peer block text-[13px] leading-tight text-gray-900 dark:text-gray-100 hover:underline truncate">
                               {search.trim() ? highlight((n as any).title, search) : (n as any).title}
                             </a>
                             {summary && (
@@ -512,6 +517,17 @@ export default function ArchivePage() {
                               </div>
                             )}
                           </div>
+
+                          {/* VIR chip (toggle filter) */}
+                          <button
+                            className="justify-self-end inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] border
+                                       border-gray-300/70 dark:border-gray-700/70 text-gray-700 dark:text-gray-200 hover:bg-black/5 dark:hover:bg-white/5"
+                            onClick={() => setSourceFilter(curr => (curr === src ? null : src))}
+                            title={sourceFilter === src ? 'Počisti filter' : `Prikaži samo: ${src}`}
+                          >
+                            <span className="inline-block w-1.5 h-1.5 rounded-full" style={{ backgroundColor: hex }} aria-hidden />
+                            {src}
+                          </button>
                         </li>
                       )
                     })}
