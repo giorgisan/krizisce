@@ -1,3 +1,4 @@
+// pages/arhiv.tsx
 'use client'
 
 import React, {
@@ -177,13 +178,13 @@ function CalendarPopover({ open, anchorRef, valueISO, onClose, onPickISO }: CalP
       style={{ top: pos.top, left: pos.left }}
     >
       <div className="flex items-center justify-between mb-2">
-        <button className="h-8 w-8 inline-flex items-center justify-center rounded-md hover:bg-black/5 dark:hover:bg-white/5"
+        <button className="h-8 w-8 inline-flex items-center justify-center rounded-md hover:bg:black/5 dark:hover:bg-white/5"
                 onClick={() => setView(v => addMonths(v, -1))}
                 aria-label="Prejšnji mesec">‹</button>
         <div className="text-sm font-medium">
           {new Intl.DateTimeFormat('sl-SI', { month: 'long', year: 'numeric' }).format(view)}
         </div>
-        <button className="h-8 w-8 inline-flex items-center justify-center rounded-md hover:bg-black/5 dark:hover:bg-white/5"
+        <button className="h-8 w-8 inline-flex items-center justify-center rounded-md hover:bg:black/5 dark:hover:bg:white/5"
                 onClick={() => setView(v => addMonths(v, +1))}
                 aria-label="Naslednji mesec">›</button>
       </div>
@@ -329,7 +330,14 @@ export default function ArchivePage() {
     startTransition(() => { setSourceFilter(null); setSearch(''); setItems([]); setDate(iso) })
   }
 
-  const timeForRow = (ms: number) => (yyyymmdd(new Date(ms)) === date ? relativeTime(ms) : fmtClock(ms))
+  // >>> NEW: robust time label — ura za vse, ki niso danes
+  const isSelectedToday = date === todayStr
+  const timeForRow = (ms: number) => {
+    if (!isSelectedToday) return fmtClock(ms)
+    const rowDay = yyyymmdd(new Date(ms))
+    return rowDay === date ? relativeTime(ms) : fmtClock(ms)
+  }
+  // <<<
 
   return (
     <>
