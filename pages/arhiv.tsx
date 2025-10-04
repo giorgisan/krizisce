@@ -183,7 +183,7 @@ function CalendarPopover({ open, anchorRef, valueISO, onClose, onPickISO }: CalP
         <div className="text-sm font-medium">
           {new Intl.DateTimeFormat('sl-SI', { month: 'long', year: 'numeric' }).format(view)}
         </div>
-        <button className="h-8 w-8 inline-flex items-center justify-center rounded-md hover:bg-black/5 dark:hover:bg:white/5"
+        <button className="h-8 w-8 inline-flex items-center justify-center rounded-md hover:bg-black/5 dark:hover:bg-white/5"
                 onClick={() => setView(v => addMonths(v, +1))}
                 aria-label="Naslednji mesec">›</button>
       </div>
@@ -238,16 +238,11 @@ export default function ArchivePage() {
   const [counts, setCounts] = useState<Record<string, number>>({})
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
-  const [lastUpdatedMs, setLastUpdatedMs] = useState<number | null>(null)
   const [search, setSearch] = useState('')
   const [sourceFilter, setSourceFilter] = useState<string | null>(null)
 
   const [isDateOpen, setIsDateOpen] = useState(false)
   const dateWrapRef = useRef<HTMLDivElement | null>(null)
-
-  // “posodobljeno pred …”
-  const [, setTick] = useState(0)
-  useEffect(() => { const t = setInterval(() => setTick(x => x + 1), 30_000); return () => clearInterval(t) }, [])
 
   const sortDesc = (a: ApiItem, b: ApiItem) => tsOf(b) - tsOf(a) || Number(a.id) - Number(b.id)
 
@@ -273,7 +268,6 @@ export default function ArchivePage() {
         for (const it of data.items) if (!seen.has(it.link)) { seen.add(it.link); acc.push(it) }
         setItems(acc = [...acc].sort(sortDesc))
         setCounts(data.counts || {})
-        setLastUpdatedMs(Date.now())
 
         if (!data.nextCursor) break
         cursor = data.nextCursor
@@ -291,7 +285,7 @@ export default function ArchivePage() {
     return () => abortRef.current?.abort()
   }, [date])
 
-  // auto-refresh for today
+  // auto-refresh for today (brez oznake “posodobljeno …”)
   const todayStr = useMemo(() => yyyymmdd(new Date()), [])
   const latestTsRef = useRef<number>(0)
   useEffect(() => { latestTsRef.current = items.length ? tsOf(items[0]) : 0 }, [items])
@@ -310,7 +304,6 @@ export default function ArchivePage() {
   }, [date, todayStr])
 
   // derive
-  const updatedText = useMemo(() => lastUpdatedMs ? `Posodobljeno ${relativeTime(lastUpdatedMs)}` : '', [lastUpdatedMs])
   const deferredSearch = useDeferredValue(search)
 
   const filtered = useMemo(() => {
@@ -375,8 +368,6 @@ export default function ArchivePage() {
                 <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path d="M4 4v6h6M20 20v-6h-6" stroke="currentColor" strokeWidth="2" fill="none"/><path d="M20 8a8 8 0 0 0-14-4M4 16a8 8 0 0 0 14 4" stroke="currentColor" strokeWidth="2" fill="none"/></svg>
                 Osveži
               </button>
-
-              {updatedText && <span className="ml-2 text-xs text-gray-600 dark:text-gray-400 whitespace-nowrap">{updatedText}</span>}
             </div>
 
             {/* search */}
@@ -445,7 +436,7 @@ export default function ArchivePage() {
             </div>
 
             <div className="rounded-md border border-gray-200/70 dark:border-gray-800/70 bg-white/50 dark:bg-gray-900/40">
-              <div className="relative max-h-[56svh] overflow-y-auto pb-4">
+              <div className="relative max-h-[56svh] overflow-y-auto pb-3">
                 {loading ? (
                   <p className="p-3 text-sm text-gray-500 dark:text-gray-400">Nalagam…</p>
                 ) : errorMsg ? (
@@ -460,7 +451,7 @@ export default function ArchivePage() {
                       const summary = (it.summary ?? it.contentsnippet ?? it.description ?? it.content ?? '').trim()
 
                       return (
-                        <li key={`${link}-${i}`} className="px-2 sm:px-3 py-1.5">
+                        <li key={`${link}-${i}`} className="px-2 sm:px-3 py-1">
                           {/* mobile: stack */}
                           <div className="md:hidden">
                             <div className="flex items-center justify-between gap-3">
