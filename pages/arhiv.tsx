@@ -1,3 +1,4 @@
+// pages/arhiv.tsx
 'use client'
 
 import React, {
@@ -7,7 +8,6 @@ import React, {
   useDeferredValue,
   startTransition,
   useRef,
-  useLayoutEffect,
 } from 'react'
 import Link from 'next/link'
 import Header from '@/components/Header'
@@ -16,8 +16,7 @@ import SeoHead from '@/components/SeoHead'
 import { NewsItem } from '@/types'
 import { sourceColors } from '@/lib/sources'
 
-/* ======================== Helpers & types ======================== */
-
+// ==== Types from API ====
 type ApiItem = {
   id: string
   link: string
@@ -39,10 +38,12 @@ type ApiOk = {
 }
 type ApiPayload = ApiOk | { error: string }
 
+// ==== helpers ====
 const yyyymmdd = (d: Date) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 
-function fmtDDMMYYYY(iso: string) {
+const ddmmyyyy = (iso: string) => {
+  // show as dd/mm/yyyy (visual only)
   const [y, m, d] = iso.split('-')
   return `${d}/${m}/${y}`
 }
@@ -57,7 +58,7 @@ const relativeTime = (ms: number) => {
   const d = Math.floor(h / 24)
   return `pred ${d} d`
 }
-const fmtClock = (ms: number) => {
+const clockSL = (ms: number) => {
   try {
     return new Intl.DateTimeFormat('sl-SI', { hour: '2-digit', minute: '2-digit' }).format(new Date(ms))
   } catch { return '' }
@@ -66,7 +67,7 @@ const norm = (s: string) => {
   try { return s.toLowerCase().normalize('NFD').replace(/\u0300-\u036f/g, '') } catch { return s.toLowerCase() }
 }
 
-// highlight
+// Highlight
 function highlight(text: string, q: string) {
   if (!q) return text
   const t = text ?? ''
@@ -112,148 +113,17 @@ function toNewsItem(a: ApiItem): NewsItem {
   return { title: a.title, link: a.link, source: a.source, publishedAt: tsOf(a) || Date.now() } as any
 }
 
-/* ======================== Tiny calendar popover ======================== */
-
-type CalProps = {
-  open: boolean
-  anchorRef: React.RefObject<HTMLDivElement>
-  valueISO: string
-  onClose: () => void
-  onPickISO: (iso: string) => void
+// same-day check + displayTime (today -> relative, older -> HH:mm)
+const isSameDayISO = (ms: number, dayISO: string) => {
+  const d = new Date(ms)
+  const y = d.getFullYear(), m = d.getMonth() + 1, dd = d.getDate()
+  const [Y, M, D] = dayISO.split('-').map(Number)
+  return y === Y && m === M && dd === D
 }
-function startOfMonth(d: Date) { return new Date(d.getFullYear(), d.getMonth(), 1) }
-function addMonths(d: Date, m: number) { return new Date(d.getFullYear(), d.getMonth() + m, 1) }
+const displayTime = (ms: number, dayISO: string) =>
+  isSameDayISO(ms, dayISO) ? relativeTime(ms) : clockSL(ms)
 
-function CalendarPopover({ open, anchorRef, valueISO, onClose, onPickISO }: CalProps) {
-  const popRef = useRef<HTMLDivElement | null>(null)
-  const [view, setView] = useState<Date>(() => startOfMonth(new Date(valueISO)))
-  const todayISO = yyyymmdd(new Date())
-
-  useEffect(() => { if (open) setView(startOfMonth(new Date(valueISO))) }, [open, valueISO])
-
-  // close on escape / click outside
-  useEffect(() => {
-    if (!open) return
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
-    const onDown = (e: MouseEvent) => {
-      if (!popRef.current) return
-      if (popRef.current.contains(e.target as Node)) return
-      if (anchorRef.current?.contains(e.target as Node)) return
-      onClose()
-    }
-    document.addEventListener('keydown', onKey)
-    document.addEventListener('mousedown', onDown)
-    return () => {
-      document.removeEventListener('keydown', onKey)
-      document.removeEventListener('mousedown', onDown)
-    }
-  }, [open, onClose, anchorRef])
-
-  // position under anchor
-  const [pos, setPos] = useState<{top:number;left:number} | null>(null)
-  useLayoutEffect(() => {
-    if (!open) return
-    const el = anchorRef.current
-    if (!el) return
-    const r = el.getBoundingClientRect()
-    setPos({ top: r.bottom + 6 + window.scrollY, left: r.left + window.scrollX })
-  }, [open, anchorRef])
-
-  const grid: Array<{ iso: string; label: number; dim: 'prev'|'curr'|'next'; isToday: boolean; isFuture: boolean }> = []
-  const first = startOfMonth(view)
-  const firstDow = (first.getDay() + 6) % 7 // Monday=0
-  const start = new Date(first)
-  start.setDate(first.getDate() - firstDow)
-  for (let i = 0; i < 42; i++) {
-    const d = new Date(start); d.setDate(start.getDate() + i)
-    const iso = yyyymmdd(d)
-    const dim: 'prev'|'curr'|'next' =
-      d.getMonth() < view.getMonth() ? 'prev' :
-      d.getMonth() > view.getMonth() ? 'next' : 'curr'
-    grid.push({ iso, label: d.getDate(), dim, isToday: iso === todayISO, isFuture: iso > todayISO })
-  }
-
-  const onPick = (iso: string) => { onPickISO(iso); onClose() }
-
-  if (!open || !pos) return null
-  return (
-    <div
-      ref={popRef}
-      role="dialog"
-      aria-label="Izberi datum"
-      className="fixed z-50 rounded-lg border border-gray-300/70 dark:border-gray-700/70
-                 bg-white/95 dark:bg-gray-900/95 backdrop-blur p-3 shadow-xl w-[280px]"
-      style={{ top: pos.top, left: pos.left }}
-    >
-      <div className="flex items-center justify-between mb-2">
-        <button
-          className="h-8 w-8 inline-flex items-center justify-center rounded-md hover:bg-black/5 dark:hover:bg:white/5"
-          onClick={() => setView(v => addMonths(v, -1))}
-          aria-label="Prejšnji mesec"
-        >
-          ‹
-        </button>
-        <div className="text-sm font-medium">
-          {new Intl.DateTimeFormat('sl-SI', { month: 'long', year: 'numeric' }).format(view)}
-        </div>
-        <button
-          className="h-8 w-8 inline-flex items-center justify-center rounded-md hover:bg-black/5 dark:hover:bg-white/5"
-          onClick={() => setView(v => addMonths(v, +1))}
-          aria-label="Naslednji mesec"
-        >
-          ›
-        </button>
-      </div>
-
-      <div className="grid grid-cols-7 gap-1 text-[11px] text-gray-500 dark:text-gray-400 mb-1">
-        {['Po','To','Sr','Če','Pe','So','Ne'].map((d) => <div key={d} className="text-center">{d}</div>)}
-      </div>
-
-      <div className="grid grid-cols-7 gap-1">
-        {grid.map((d) => {
-          const active = d.iso === valueISO
-          const disabled = d.isFuture
-          const base =
-            disabled
-              ? 'opacity-40 cursor-not-allowed pointer-events-none'
-              : active
-                  ? 'bg-brand text-white'
-                  : d.isToday
-                      ? 'ring-1 ring-brand/60'
-                      : 'hover:bg-black/5 dark:hover:bg-white/5'
-          return (
-            <button
-              key={d.iso}
-              onClick={() => !disabled && onPick(d.iso)}
-              aria-disabled={disabled}
-              className={`h-8 rounded-md text-sm text-center ${d.dim !== 'curr' ? 'text-gray-400 dark:text-gray-600' : ''} ${base}`}
-            >
-              {d.label}
-            </button>
-          )
-        })}
-      </div>
-
-      <div className="mt-2 flex items-center justify-between">
-        <button
-          onClick={() => onPick(yyyymmdd(new Date()))}
-          className="text-xs underline hover:opacity-80"
-        >
-          Danes
-        </button>
-        <button
-          onClick={onClose}
-          className="text-xs px-2 py-1 rounded-md border border-gray-300/70 dark:border-gray-700/70 hover:bg-black/5 dark:hover:bg-white/5"
-        >
-          Zapri
-        </button>
-      </div>
-    </div>
-  )
-}
-
-/* ======================== Page ======================== */
-
+// ==== Component ====
 export default function ArchivePage() {
   const [date, setDate] = useState(() => yyyymmdd(new Date()))
   const [items, setItems] = useState<ApiItem[]>([])
@@ -264,16 +134,12 @@ export default function ArchivePage() {
   const [search, setSearch] = useState('')
   const [sourceFilter, setSourceFilter] = useState<string | null>(null)
 
-  // date popover state
-  const [isDateOpen, setIsDateOpen] = useState(false)
-  const dateWrapRef = useRef<HTMLDivElement | null>(null)
-
   // tick for "posodobljeno"
   const [, setNowTick] = useState(0)
   useEffect(() => { const t = setInterval(() => setNowTick(x => x + 1), 30_000); return () => clearInterval(t) }, [])
 
   // sorting
-  const sortDesc = (a: ApiItem, b: ApiItem) => tsOf(b) - tsOf(a) || Number(a.id) - Number(b.id) // tie by id asc → stabilnejši
+  const sortDesc = (a: ApiItem, b: ApiItem) => tsOf(b) - tsOf(a) || Number(b.id) - Number(a.id)
 
   // full fetch (loop cursors)
   const abortRef = useRef<AbortController | null>(null)
@@ -288,9 +154,8 @@ export default function ArchivePage() {
       const seen = new Set<string>()
 
       while (true) {
-        const qs = new URLSearchParams({ date: d, limit: String(LIMIT) })
+        const qs = new URLSearchParams({ date: d, limit: String(LIMIT), _t: String(Date.now()) })
         if (cursor) qs.set('cursor', cursor)
-        qs.set('_t', String(Date.now()))
         const res = await fetch(`/api/archive?${qs.toString()}`, { cache: 'no-store', signal: ctrl.signal })
         const data: ApiPayload = await res.json().catch(() => ({ error: 'Neveljaven odgovor' }))
         if (!res.ok || 'error' in data) throw new Error('Napaka pri nalaganju arhiva')
@@ -340,7 +205,7 @@ export default function ArchivePage() {
   const updatedText = useMemo(() => lastUpdatedMs ? `Posodobljeno ${relativeTime(lastUpdatedMs)}` : '', [lastUpdatedMs])
   const deferredSearch = useDeferredValue(search)
 
-  const filtered = useMemo(() => {
+  const filteredNews = useMemo(() => {
     const q = norm(deferredSearch.trim())
     return items
       .filter((it) => !sourceFilter || it.source === sourceFilter)
@@ -350,29 +215,19 @@ export default function ArchivePage() {
         return norm(`${it.title} ${summary} ${it.source}`).includes(q)
       })
       .sort(sortDesc)
+      .map(toNewsItem)
   }, [items, deferredSearch, sourceFilter])
-
-  const news = useMemo(() => filtered.map(toNewsItem), [filtered])
 
   const displayCounts = useMemo(() => Object.fromEntries(Object.entries(counts).filter(([k]) => k !== 'TestVir')), [counts])
   const total = useMemo(() => Object.values(displayCounts).reduce((a, b) => a + b, 0), [displayCounts])
   const maxCount = useMemo(() => Math.max(1, ...Object.values(displayCounts)), [displayCounts])
-
-  const onPickDate = (iso: string) => {
-    startTransition(() => { setSourceFilter(null); setSearch(''); setItems([]); setDate(iso) })
-  }
-
-  // time formatter for list rows
-  const timeForRow = (ms: number) => {
-    const rowDay = yyyymmdd(new Date(ms))
-    return rowDay === date ? relativeTime(ms) : fmtClock(ms)
-  }
 
   return (
     <>
       <Header />
       <SeoHead title="Križišče — Arhiv" description="Pregled novic po dnevih in medijih." />
 
+      {/* Sticky-footer layout */}
       <main className="bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white px-4 md:px-8 lg:px-16 pb-8 pt-6">
         <section className="max-w-6xl mx-auto flex flex-col gap-5 min-h-[calc(100svh-var(--hdr-h))]">
           {/* Top controls */}
@@ -383,25 +238,24 @@ export default function ArchivePage() {
                 Nazaj
               </Link>
 
-              {/* Date input (readOnly) */}
-              <div ref={dateWrapRef} className="relative">
+              {/* Datum – native input + visual dd/mm/yyyy at right */}
+              <label htmlFor="date" className="sr-only">Izberi dan</label>
+              <div className="relative">
                 <input
                   id="date"
-                  type="text"
-                  value={fmtDDMMYYYY(date)}
-                  readOnly
-                  inputMode="none"
-                  role="button"
-                  aria-haspopup="dialog"
-                  aria-expanded={isDateOpen ? 'true' : 'false'}
-                  onFocus={() => setIsDateOpen(true)}
-                  onClick={() => setIsDateOpen(true)}
-                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setIsDateOpen(true) } }}
-                  className="px-2.5 py-1.5 rounded-md border border-gray-300 dark:border-gray-700
-                             bg-white/80 dark:bg-gray-800/80 backdrop-blur text-xs cursor-pointer
-                             focus:outline-none focus:ring-2 focus:ring-brand/50 select-none w-[140px] text-center"
-                  aria-label="Izberi datum"
+                  type="date"
+                  value={date}
+                  max={yyyymmdd(new Date())}
+                  onChange={(e) => startTransition(() => { setSourceFilter(null); setSearch(''); setItems([]); setDate(e.target.value) })}
+                  className="pr-20 px-2.5 py-1.5 rounded-md border border-gray-300 dark:border-gray-700 bg-white/80 dark:bg-gray-800/80 backdrop-blur text-xs"
                 />
+                <span
+                  className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[11px] text-gray-500 dark:text-gray-400"
+                  aria-hidden
+                  title="Vizualni prikaz"
+                >
+                  {ddmmyyyy(date)}
+                </span>
               </div>
 
               {/* Osveži */}
@@ -431,15 +285,6 @@ export default function ArchivePage() {
               />
             </div>
           </div>
-
-          {/* Koledar popover */}
-          <CalendarPopover
-            open={isDateOpen}
-            anchorRef={dateWrapRef}
-            valueISO={date}
-            onClose={() => setIsDateOpen(false)}
-            onPickISO={onPickDate}
-          />
 
           {/* Graf */}
           <div className="rounded-xl border border-gray-200/70 dark:border-gray-700/70 bg-white/70 dark:bg-gray-900/70 backdrop-blur p-4">
@@ -479,34 +324,34 @@ export default function ArchivePage() {
             )}
           </div>
 
-          {/* Seznam – novi vrstni red: ČAS • NASLOV • VIR (chip desno) */}
+          {/* Seznam */}
           <div className="flex-1 flex flex-col">
             <h3 className="mt-1 mb-2 text-sm font-medium text-gray-800 dark:text-gray-200">Zadnje novice</h3>
-            <div className="rounded-md border border-gray-200/70 dark:border-gray-800/70 bg-white/50 dark:bg-gray-900/40">
-              <div className="relative h-[48svh] md:h-[52svh] overflow-y-auto pb-6">
+            <div className="rounded-md border border-gray-200/70 dark:border-gray-800/70 bg-white/50 dark:bg-gray-900/40 flex-1 min-h=[260px]">
+              <div className="h-full overflow-y-auto pb-6">
                 {loading ? (
                   <p className="p-3 text-sm text-gray-500 dark:text-gray-400">Nalagam…</p>
                 ) : errorMsg ? (
                   <p className="p-3 text-sm text-red-600 dark:text-red-400">{errorMsg}</p>
                 ) : (
                   <ul className="divide-y divide-gray-200 dark:divide-gray-800">
-                    {news.map((n, i) => {
+                    {filteredNews.map((n, i) => {
                       const src = (n as any).source as string
-                      const hex = sourceColors[src] || '#7c7c7c'
                       const link = (n as any).link as string
                       const it = items.find(it => it.link === link)
                       const summary = (it?.summary ?? it?.contentsnippet ?? (it as any)?.description ?? (it as any)?.content ?? '').trim()
-                      const ts = (n as any).publishedAt ?? Date.now()
+                      const tMs = (n as any).publishedAt ?? Date.now()
+                      const timeText = displayTime(tMs, date)
 
                       return (
-                        <li key={`${link}-${i}`} className="grid grid-cols-[78px_1fr_96px] gap-x-3 sm:gap-x-4 px-2 sm:px-3 py-1.5 items-center">
-                          {/* ČAS (relativno za danes, HH:MM za ostalo) */}
-                          <span className="text-[10px] text-gray-500 dark:text-gray-400 tabular-nums text-right sm:text-left" title={fmtClock(ts)}>
-                            {timeForRow(ts)}
+                        <li key={`${link}-${i}`} className="grid grid-cols-[60px_1fr_auto] gap-x-3 sm:gap-x-4 px-2 sm:px-3 py-1">
+                          {/* ČAS */}
+                          <span className="text-[11px] text-gray-500 dark:text-gray-400 tabular-nums self-center" title={clockSL(tMs)}>
+                            {timeText}
                           </span>
 
                           {/* NASLOV */}
-                          <div className="relative">
+                          <div className="relative min-w-0">
                             <a href={link} target="_blank" rel="noopener noreferrer"
                                className="peer block text-[13px] leading-tight text-gray-900 dark:text-gray-100 hover:underline truncate">
                               {search.trim() ? highlight((n as any).title, search) : (n as any).title}
@@ -518,14 +363,12 @@ export default function ArchivePage() {
                             )}
                           </div>
 
-                          {/* VIR chip (toggle filter) */}
+                          {/* VIR – subtilno, ena vrstica */}
                           <button
-                            className="justify-self-end inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] border
-                                       border-gray-300/70 dark:border-gray-700/70 text-gray-700 dark:text-gray-200 hover:bg-black/5 dark:hover:bg-white/5"
+                            className="ml-3 shrink-0 self-center max-w-[22ch] truncate text-[11px] text-gray-600 dark:text-gray-400 hover:underline"
                             onClick={() => setSourceFilter(curr => (curr === src ? null : src))}
                             title={sourceFilter === src ? 'Počisti filter' : `Prikaži samo: ${src}`}
                           >
-                            <span className="inline-block w-1.5 h-1.5 rounded-full" style={{ backgroundColor: hex }} aria-hidden />
                             {src}
                           </button>
                         </li>
@@ -537,7 +380,7 @@ export default function ArchivePage() {
             </div>
           </div>
 
-          {/* Subtilen separator z varnim razmakom */}
+          {/* Separator */}
           <div className="my-6 h-px bg-gray-200/70 dark:bg-gray-700/50 rounded-full" />
         </section>
       </main>
