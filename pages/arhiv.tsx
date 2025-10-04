@@ -1,4 +1,3 @@
-// pages/arhiv.tsx
 'use client'
 
 import React, {
@@ -14,18 +13,17 @@ import Link from 'next/link'
 import Header from '@/components/Header'
 import Footer from '@/components/Footer'
 import SeoHead from '@/components/SeoHead'
-import { NewsItem } from '@/types'
 import { sourceColors } from '@/lib/sources'
 
-/* ======================== Helpers & types ======================== */
+/* ======================== Types & helpers ======================== */
 
 type ApiItem = {
   id: string
   link: string
   title: string
   source: string
-  published_at?: string | null   // ISO timestamptz
-  publishedat?: number | null    // bigint (ms)
+  published_at?: string | null
+  publishedat?: number | null
   summary?: string | null
   contentsnippet?: string | null
   description?: string | null
@@ -35,7 +33,7 @@ type ApiOk = {
   items: ApiItem[]
   counts: Record<string, number>
   total: number
-  nextCursor: string | null      // ISO published_at
+  nextCursor: string | null
   fallbackLive?: boolean
 }
 type ApiPayload = ApiOk | { error: string }
@@ -43,9 +41,53 @@ type ApiPayload = ApiOk | { error: string }
 const yyyymmdd = (d: Date) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 
-function fmtDDMMYYYY(iso: string) {
+const fmtDDMMYYYY = (iso: string) => {
   const [y, m, d] = iso.split('-')
   return `${d}/${m}/${y}`
+}
+
+const norm = (s: string) => {
+  try { return s.toLowerCase().normalize('NFD').replace(/\u0300-\u036f/g, '') } catch { return s.toLowerCase() }
+}
+const highlight = (txt: string, q: string) => {
+  if (!q) return txt
+  const t = txt ?? ''
+  const nn = norm(t), nq = norm(q).trim()
+  if (!nq) return t
+  const parts = nq.split(/\s+/).filter(w => w.length >= 2)
+  if (!parts.length) return t
+  const ranges: Array<[number, number]> = []
+  parts.forEach(tok => {
+    let i = 0
+    while (true) {
+      const k = nn.indexOf(tok, i)
+      if (k === -1) break
+      ranges.push([k, k + tok.length]); i = k + tok.length
+    }
+  })
+  if (!ranges.length) return t
+  ranges.sort((a, b) => a[0] - b[0])
+  const merged: Array<[number, number]> = []
+  for (const r of ranges) {
+    if (!merged.length || r[0] > merged[merged.length - 1][1]) merged.push([...r] as [number, number])
+    else merged[merged.length - 1][1] = Math.max(merged[merged.length - 1][1], r[1])
+  }
+  const out: React.ReactNode[] = []
+  let last = 0
+  merged.forEach(([a, b], idx) => {
+    if (a > last) out.push(t.slice(last, a))
+    out.push(<mark key={`${a}-${b}-${idx}`} className="bg-yellow-200 dark:bg-yellow-600/60 rounded px-0.5">{t.slice(a, b)}</mark>)
+    last = b
+  })
+  if (last < t.length) out.push(t.slice(last))
+  return <>{out}</>
+}
+
+const tsOf = (a: ApiItem) => {
+  const t1 = a.published_at ? Date.parse(a.published_at) : NaN
+  if (Number.isFinite(t1)) return t1
+  const t2 = a.publishedat != null ? Number(a.publishedat) : NaN
+  return Number.isFinite(t2) ? t2 : 0
 }
 
 const relativeTime = (ms: number) => {
@@ -63,57 +105,8 @@ const fmtClock = (ms: number) => {
     return new Intl.DateTimeFormat('sl-SI', { hour: '2-digit', minute: '2-digit' }).format(new Date(ms))
   } catch { return '' }
 }
-const norm = (s: string) => {
-  try { return s.toLowerCase().normalize('NFD').replace(/\u0300-\u036f/g, '') } catch { return s.toLowerCase() }
-}
 
-// highlight
-function highlight(text: string, q: string) {
-  if (!q) return text
-  const t = text ?? ''
-  const nn = norm(t), nq = norm(q).trim()
-  if (!nq) return t
-  const tokens = Array.from(new Set(nq.split(/\s+/).filter((w) => w.length >= 2)))
-  if (!tokens.length) return t
-  const ranges: Array<[number, number]> = []
-  for (const tok of tokens) {
-    let start = 0
-    while (true) {
-      const idx = nn.indexOf(tok, start)
-      if (idx === -1) break
-      ranges.push([idx, idx + tok.length]); start = idx + tok.length
-    }
-  }
-  if (!ranges.length) return t
-  ranges.sort((a, b) => a[0] - b[0])
-  const merged: Array<[number, number]> = []
-  for (const r of ranges) {
-    if (!merged.length || r[0] > merged[merged.length - 1][1]) merged.push([...r] as [number, number])
-    else merged[merged.length - 1][1] = Math.max(merged[merged.length - 1][1], r[1])
-  }
-  const out: React.ReactNode[] = []
-  let last = 0
-  for (const [a, b] of merged) {
-    if (a > last) out.push(t.slice(last, a))
-    out.push(<mark key={`${a}-${b}`} className="bg-yellow-200 dark:bg-yellow-600/60 rounded px-0.5">{t.slice(a, b)}</mark>)
-    last = b
-  }
-  if (last < t.length) out.push(t.slice(last))
-  return <>{out}</>
-}
-
-// Resolve ms prioritizing published_at
-function tsOf(a: ApiItem) {
-  const t1 = a.published_at ? Date.parse(a.published_at) : NaN
-  if (Number.isFinite(t1)) return t1
-  const t2 = a.publishedat != null ? Number(a.publishedat) : NaN
-  return Number.isFinite(t2) ? t2 : 0
-}
-function toNewsItem(a: ApiItem): NewsItem {
-  return { title: a.title, link: a.link, source: a.source, publishedAt: tsOf(a) || Date.now() } as any
-}
-
-/* ======================== Tiny calendar popover ======================== */
+/* ======================== Calendar popover ======================== */
 
 type CalProps = {
   open: boolean
@@ -122,8 +115,8 @@ type CalProps = {
   onClose: () => void
   onPickISO: (iso: string) => void
 }
-function startOfMonth(d: Date) { return new Date(d.getFullYear(), d.getMonth(), 1) }
-function addMonths(d: Date, m: number) { return new Date(d.getFullYear(), d.getMonth() + m, 1) }
+const startOfMonth = (d: Date) => new Date(d.getFullYear(), d.getMonth(), 1)
+const addMonths = (d: Date, m: number) => new Date(d.getFullYear(), d.getMonth() + m, 1)
 
 function CalendarPopover({ open, anchorRef, valueISO, onClose, onPickISO }: CalProps) {
   const popRef = useRef<HTMLDivElement | null>(null)
@@ -132,7 +125,6 @@ function CalendarPopover({ open, anchorRef, valueISO, onClose, onPickISO }: CalP
 
   useEffect(() => { if (open) setView(startOfMonth(new Date(valueISO))) }, [open, valueISO])
 
-  // close on escape / click outside
   useEffect(() => {
     if (!open) return
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
@@ -150,7 +142,6 @@ function CalendarPopover({ open, anchorRef, valueISO, onClose, onPickISO }: CalP
     }
   }, [open, onClose, anchorRef])
 
-  // position under anchor
   const [pos, setPos] = useState<{top:number;left:number} | null>(null)
   useLayoutEffect(() => {
     if (!open) return
@@ -163,8 +154,7 @@ function CalendarPopover({ open, anchorRef, valueISO, onClose, onPickISO }: CalP
   const grid: Array<{ iso: string; label: number; dim: 'prev'|'curr'|'next'; isToday: boolean; isFuture: boolean }> = []
   const first = startOfMonth(view)
   const firstDow = (first.getDay() + 6) % 7 // Monday=0
-  const start = new Date(first)
-  start.setDate(first.getDate() - firstDow)
+  const start = new Date(first); start.setDate(first.getDate() - firstDow)
   for (let i = 0; i < 42; i++) {
     const d = new Date(start); d.setDate(start.getDate() + i)
     const iso = yyyymmdd(d)
@@ -187,23 +177,15 @@ function CalendarPopover({ open, anchorRef, valueISO, onClose, onPickISO }: CalP
       style={{ top: pos.top, left: pos.left }}
     >
       <div className="flex items-center justify-between mb-2">
-        <button
-          className="h-8 w-8 inline-flex items-center justify-center rounded-md hover:bg-black/5 dark:hover:bg:white/5"
-          onClick={() => setView(v => addMonths(v, -1))}
-          aria-label="Prejšnji mesec"
-        >
-          ‹
-        </button>
+        <button className="h-8 w-8 inline-flex items-center justify-center rounded-md hover:bg-black/5 dark:hover:bg-white/5"
+                onClick={() => setView(v => addMonths(v, -1))}
+                aria-label="Prejšnji mesec">‹</button>
         <div className="text-sm font-medium">
           {new Intl.DateTimeFormat('sl-SI', { month: 'long', year: 'numeric' }).format(view)}
         </div>
-        <button
-          className="h-8 w-8 inline-flex items-center justify-center rounded-md hover:bg-black/5 dark:hover:bg:white/5"
-          onClick={() => setView(v => addMonths(v, +1))}
-          aria-label="Naslednji mesec"
-        >
-          ›
-        </button>
+        <button className="h-8 w-8 inline-flex items-center justify-center rounded-md hover:bg-black/5 dark:hover:bg:white/5"
+                onClick={() => setView(v => addMonths(v, +1))}
+                aria-label="Naslednji mesec">›</button>
       </div>
 
       <div className="grid grid-cols-7 gap-1 text-[11px] text-gray-500 dark:text-gray-400 mb-1">
@@ -218,10 +200,10 @@ function CalendarPopover({ open, anchorRef, valueISO, onClose, onPickISO }: CalP
             disabled
               ? 'opacity-40 cursor-not-allowed pointer-events-none'
               : active
-                  ? 'bg-brand text-white'
-                  : d.isToday
-                      ? 'ring-1 ring-brand/60'
-                      : 'hover:bg-black/5 dark:hover:bg-white/5'
+                ? 'bg-brand text-white'
+                : d.isToday
+                  ? 'ring-1 ring-brand/60'
+                  : 'hover:bg-black/5 dark:hover:bg-white/5'
           return (
             <button
               key={d.iso}
@@ -236,16 +218,11 @@ function CalendarPopover({ open, anchorRef, valueISO, onClose, onPickISO }: CalP
       </div>
 
       <div className="mt-2 flex items-center justify-between">
-        <button
-          onClick={() => onPick(yyyymmdd(new Date()))}
-          className="text-xs underline hover:opacity-80"
-        >
+        <button onClick={() => onPick(yyyymmdd(new Date()))} className="text-xs underline hover:opacity-80">
           Danes
         </button>
-        <button
-          onClick={onClose}
-          className="text-xs px-2 py-1 rounded-md border border-gray-300/70 dark:border-gray-700/70 hover:bg-black/5 dark:hover:bg-white/5"
-        >
+        <button onClick={onClose}
+                className="text-xs px-2 py-1 rounded-md border border-gray-300/70 dark:border-gray-700/70 hover:bg-black/5 dark:hover:bg-white/5">
           Zapri
         </button>
       </div>
@@ -265,18 +242,16 @@ export default function ArchivePage() {
   const [search, setSearch] = useState('')
   const [sourceFilter, setSourceFilter] = useState<string | null>(null)
 
-  // date popover state
   const [isDateOpen, setIsDateOpen] = useState(false)
   const dateWrapRef = useRef<HTMLDivElement | null>(null)
 
-  // tick for "posodobljeno"
-  const [, setNowTick] = useState(0)
-  useEffect(() => { const t = setInterval(() => setNowTick(x => x + 1), 30_000); return () => clearInterval(t) }, [])
+  // “posodobljeno pred …”
+  const [, setTick] = useState(0)
+  useEffect(() => { const t = setInterval(() => setTick(x => x + 1), 30_000); return () => clearInterval(t) }, [])
 
-  // sorting
-  const sortDesc = (a: ApiItem, b: ApiItem) => tsOf(b) - tsOf(a) || Number(a.id) - Number(b.id) // tie by id asc → stabilnejši
+  const sortDesc = (a: ApiItem, b: ApiItem) => tsOf(b) - tsOf(a) || Number(a.id) - Number(b.id)
 
-  // full fetch (loop cursors)
+  // full-day fetch with cursor paging
   const abortRef = useRef<AbortController | null>(null)
   async function fetchAll(d: string) {
     if (abortRef.current) abortRef.current.abort()
@@ -287,7 +262,6 @@ export default function ArchivePage() {
       let cursor: string | null = null
       let acc: ApiItem[] = []
       const seen = new Set<string>()
-
       while (true) {
         const qs = new URLSearchParams({ date: d, limit: String(LIMIT) })
         if (cursor) qs.set('cursor', cursor)
@@ -312,7 +286,6 @@ export default function ArchivePage() {
     }
   }
 
-  // initial + date change
   useEffect(() => {
     fetchAll(date)
     return () => abortRef.current?.abort()
@@ -324,9 +297,8 @@ export default function ArchivePage() {
   useEffect(() => { latestTsRef.current = items.length ? tsOf(items[0]) : 0 }, [items])
   useEffect(() => {
     if (date !== todayStr) return
-    const timer = setInterval(async () => {
-      if (document.hidden) return
-      if (!latestTsRef.current) return
+    const t = setInterval(async () => {
+      if (document.hidden || !latestTsRef.current) return
       try {
         const res = await fetch(`/api/archive?date=${encodeURIComponent(date)}&limit=1&_t=${Date.now()}`, { cache: 'no-store' })
         const data: any = await res.json()
@@ -334,10 +306,10 @@ export default function ArchivePage() {
         if (newest > latestTsRef.current) await fetchAll(date)
       } catch {}
     }, 60_000)
-    return () => clearInterval(timer)
+    return () => clearInterval(t)
   }, [date, todayStr])
 
-  // derived
+  // derive
   const updatedText = useMemo(() => lastUpdatedMs ? `Posodobljeno ${relativeTime(lastUpdatedMs)}` : '', [lastUpdatedMs])
   const deferredSearch = useDeferredValue(search)
 
@@ -353,9 +325,10 @@ export default function ArchivePage() {
       .sort(sortDesc)
   }, [items, deferredSearch, sourceFilter])
 
-  const news = useMemo(() => filtered.map(toNewsItem), [filtered])
-
-  const displayCounts = useMemo(() => Object.fromEntries(Object.entries(counts).filter(([k]) => k !== 'TestVir')), [counts])
+  const displayCounts = useMemo(
+    () => Object.fromEntries(Object.entries(counts).filter(([k]) => k !== 'TestVir')),
+    [counts],
+  )
   const total = useMemo(() => Object.values(displayCounts).reduce((a, b) => a + b, 0), [displayCounts])
   const maxCount = useMemo(() => Math.max(1, ...Object.values(displayCounts)), [displayCounts])
 
@@ -363,20 +336,16 @@ export default function ArchivePage() {
     startTransition(() => { setSourceFilter(null); setSearch(''); setItems([]); setDate(iso) })
   }
 
-  // time formatter for list rows
-  const timeForRow = (ms: number) => {
-    const rowDay = yyyymmdd(new Date(ms))
-    return rowDay === date ? relativeTime(ms) : fmtClock(ms)
-  }
+  const timeForRow = (ms: number) => (yyyymmdd(new Date(ms)) === date ? relativeTime(ms) : fmtClock(ms))
 
   return (
     <>
       <Header />
       <SeoHead title="Križišče — Arhiv" description="Pregled novic po dnevih in medijih." />
 
-      <main className="bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white px-4 md:px-8 lg:px-16 pb-8 pt-6">
-        <section className="max-w-6xl mx-auto flex flex-col gap-5 min-h-[calc(100svh-var(--hdr-h))]">
-          {/* Top controls */}
+      <main className="bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white px-4 md:px-8 lg:px-16 pt-6 pb-6">
+        <section className="max-w-6xl mx-auto flex flex-col gap-5">
+          {/* Orodna vrstica */}
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-2">
               <Link href="/" className="inline-flex items-center gap-2 px-2.5 py-1.5 rounded-md text-xs border border-gray-300/60 dark:border-gray-700/60 bg-white/70 dark:bg-gray-800/60 hover:bg-white/90 dark:hover:bg-gray-800/80 transition" title="Nazaj na naslovnico" aria-label="Nazaj na naslovnico">
@@ -387,7 +356,6 @@ export default function ArchivePage() {
               {/* Date input (readOnly) */}
               <div ref={dateWrapRef} className="relative">
                 <input
-                  id="date"
                   type="text"
                   value={fmtDDMMYYYY(date)}
                   readOnly
@@ -398,25 +366,17 @@ export default function ArchivePage() {
                   onFocus={() => setIsDateOpen(true)}
                   onClick={() => setIsDateOpen(true)}
                   onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setIsDateOpen(true) } }}
-                  className="px-2.5 py-1.5 rounded-md border border-gray-300 dark:border-gray-700
-                             bg-white/80 dark:bg-gray-800/80 backdrop-blur text-xs cursor-pointer
-                             focus:outline-none focus:ring-2 focus:ring-brand/50 select-none w-[140px] text-center"
+                  className="px-2.5 py-1.5 rounded-md border border-gray-300 dark:border-gray-700 bg-white/80 dark:bg-gray-800/80 backdrop-blur text-xs cursor-pointer focus:outline-none focus:ring-2 focus:ring-brand/50 select-none w-[140px] text-center"
                   aria-label="Izberi datum"
                 />
               </div>
 
-              {/* Osveži */}
-              <button
-                onClick={() => fetchAll(date)}
-                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs border border-gray-300/60 dark:border-gray-700/60 bg-white/70 dark:bg-gray-800/60 hover:bg-white/90 dark:hover:bg-gray-800/80 transition"
-                title="Osveži dan"
-                aria-label="Osveži dan"
-              >
+              <button onClick={() => fetchAll(date)} className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs border border-gray-300/60 dark:border-gray-700/60 bg-white/70 dark:bg-gray-800/60 hover:bg-white/90 dark:hover:bg-gray-800/80 transition" title="Osveži dan" aria-label="Osveži dan">
                 <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path d="M4 4v6h6M20 20v-6h-6" stroke="currentColor" strokeWidth="2" fill="none"/><path d="M20 8a8 8 0 0 0-14-4M4 16a8 8 0 0 0 14 4" stroke="currentColor" strokeWidth="2" fill="none"/></svg>
                 Osveži
               </button>
 
-              {lastUpdatedMs && <span className="ml-2 text-xs text-gray-600 dark:text-gray-400 whitespace-nowrap">Posodobljeno {updatedText.replace('Posodobljeno ', '')}</span>}
+              {updatedText && <span className="ml-2 text-xs text-gray-600 dark:text-gray-400 whitespace-nowrap">{updatedText}</span>}
             </div>
 
             {/* search */}
@@ -434,13 +394,7 @@ export default function ArchivePage() {
           </div>
 
           {/* Koledar popover */}
-          <CalendarPopover
-            open={isDateOpen}
-            anchorRef={dateWrapRef}
-            valueISO={date}
-            onClose={() => setIsDateOpen(false)}
-            onPickISO={onPickDate}
-          />
+          <CalendarPopover open={isDateOpen} anchorRef={dateWrapRef} valueISO={date} onClose={() => setIsDateOpen(false)} onPickISO={onPickDate} />
 
           {/* Graf */}
           <div className="rounded-xl border border-gray-200/70 dark:border-gray-700/70 bg-white/70 dark:bg-gray-900/70 backdrop-blur p-4">
@@ -472,71 +426,81 @@ export default function ArchivePage() {
 
             {sourceFilter && (
               <div className="mt-2">
-                <button onClick={() => setSourceFilter(null)}
-                        className="text-xs text-gray-600 dark:text-gray-400 underline decoration-dotted hover:text-gray-800 dark:hover:text-gray-200">
+                <button onClick={() => setSourceFilter(null)} className="text-xs text-gray-600 dark:text-gray-400 underline decoration-dotted hover:text-gray-800 dark:hover:text-gray-200">
                   počisti filter
                 </button>
               </div>
             )}
           </div>
 
-          {/* Seznam – novi vrstni red: ČAS • NASLOV • VIR (sticky header) */}
-          <div className="flex-1 flex flex-col">
+          {/* Seznam novic */}
+          <div>
             <h3 className="mt-1 mb-2 text-sm font-medium text-gray-800 dark:text-gray-200">Zadnje novice</h3>
-            <div className="rounded-md border border-gray-200/70 dark:border-gray-800/70 bg-white/50 dark:bg-gray-900/40">
-              <div className="relative max-h-[60vh] overflow-y-auto pb-6">
-                {/* Sticky header (znotraj scrolla) */}
-                <div className="sticky top-0 z-10 grid grid-cols-[86px_1fr_120px] gap-x-3 sm:gap-x-4 px-2 sm:px-3 py-2
-                                text-[11px] font-medium bg-white/80 dark:bg-gray-900/80 backdrop-blur
-                                text-gray-600 dark:text-gray-300 border-b border-gray-200/70 dark:border-gray-800/70">
-                  <span className="text-right sm:text-left">Čas</span>
-                  <span>Naslov</span>
-                  <span className="text-right">Vir</span>
-                </div>
 
+            {/* Sticky header na desktopu; na mobiju skrit */}
+            <div className="hidden md:grid grid-cols-[90px_1fr_160px] text-[12px] text-gray-500 dark:text-gray-400 px-3">
+              <div className="sticky top-[calc(var(--hdr-h)+8px)] bg-transparent backdrop-blur pt-1 pb-1">Čas</div>
+              <div className="sticky top-[calc(var(--hdr-h)+8px)] bg-transparent backdrop-blur pt-1 pb-1">Naslov</div>
+              <div className="sticky top-[calc(var(--hdr-h)+8px)] bg-transparent backdrop-blur pt-1 pb-1 text-right pr-2">Vir</div>
+            </div>
+
+            <div className="rounded-md border border-gray-200/70 dark:border-gray-800/70 bg-white/50 dark:bg-gray-900/40">
+              <div className="relative max-h-[56svh] overflow-y-auto pb-4">
                 {loading ? (
                   <p className="p-3 text-sm text-gray-500 dark:text-gray-400">Nalagam…</p>
                 ) : errorMsg ? (
                   <p className="p-3 text-sm text-red-600 dark:text-red-400">{errorMsg}</p>
                 ) : (
                   <ul className="divide-y divide-gray-200 dark:divide-gray-800">
-                    {news.map((n, i) => {
-                      const src = (n as any).source as string
+                    {filtered.map((it, i) => {
+                      const link = it.link
+                      const src = it.source
                       const hex = sourceColors[src] || '#7c7c7c'
-                      const link = (n as any).link as string
-                      const it = items.find(it => it.link === link)
-                      const summary = (it?.summary ?? it?.contentsnippet ?? (it as any)?.description ?? (it as any)?.content ?? '').trim()
-                      const ts = (n as any).publishedAt ?? Date.now()
+                      const ts = tsOf(it)
+                      const summary = (it.summary ?? it.contentsnippet ?? it.description ?? it.content ?? '').trim()
 
                       return (
-                        <li key={`${link}-${i}`} className="grid grid-cols-[86px_1fr_120px] gap-x-3 sm:gap-x-4 px-2 sm:px-3 py-1.5 items-center">
-                          {/* ČAS (relativno za danes, HH:MM za ostalo) */}
-                          <span className="text-[11px] text-gray-500 dark:text-gray-400 tabular-nums text-right sm:text-left" title={fmtClock(ts)}>
-                            {timeForRow(ts)}
-                          </span>
-
-                          {/* NASLOV */}
-                          <div className="relative">
-                            <a href={link} target="_blank" rel="noopener noreferrer"
-                               className="peer block text-[13px] leading-tight text-gray-900 dark:text-gray-100 hover:underline truncate">
-                              {search.trim() ? highlight((n as any).title, search) : (n as any).title}
+                        <li key={`${link}-${i}`} className="px-2 sm:px-3 py-1.5">
+                          {/* mobile: stack */}
+                          <div className="md:hidden">
+                            <div className="flex items-center justify-between gap-3">
+                              <span className="text-[11px] text-gray-500 dark:text-gray-400 tabular-nums whitespace-nowrap">{timeForRow(ts)}</span>
+                              <button
+                                className="inline-flex items-center gap-1 text-[11px] text-gray-700 dark:text-gray-200 hover:opacity-80"
+                                onClick={() => setSourceFilter(curr => (curr === src ? null : src))}
+                                title={sourceFilter === src ? 'Počisti filter' : `Prikaži samo: ${src}`}
+                              >
+                                <span className="inline-block w-1.5 h-1.5 rounded-full" style={{ backgroundColor: hex }} aria-hidden />
+                                {src}
+                              </button>
+                            </div>
+                            <a href={link} target="_blank" rel="noopener noreferrer" className="block text-[13.5px] leading-tight text-gray-900 dark:text-gray-100 hover:underline mt-0.5">
+                              {search.trim() ? highlight(it.title, search) : it.title}
                             </a>
-                            {summary && (
-                              <div className="pointer-events-none absolute left-0 top-full mt-1 z-50 max-w-[60ch] rounded-md bg-gray-900 text-white text-[12px] leading-snug px-2.5 py-2 shadow-lg ring-1 ring-black/20 opacity-0 invisible translate-y-1 transition peer-hover:opacity-100 peer-hover:visible peer-hover:translate-y-0 peer-focus-visible:opacity-100 peer-focus-visible:visible peer-focus-visible:translate-y-0" role="tooltip">
-                                {search.trim() ? highlight(summary, search) : summary}
-                              </div>
-                            )}
                           </div>
 
-                          {/* VIR – minimalistično, brez okvirja */}
-                          <span
-                            onClick={() => setSourceFilter(curr => (curr === src ? null : src))}
-                            className="justify-self-end inline-flex items-center gap-1 text-[11px] text-gray-600 dark:text-gray-300 cursor-pointer hover:underline"
-                            title={sourceFilter === src ? 'Počisti filter' : `Prikaži samo: ${src}`}
-                          >
-                            <span className="inline-block w-1.5 h-1.5 rounded-full" style={{ backgroundColor: hex }} aria-hidden />
-                            {src}
-                          </span>
+                          {/* desktop: grid (čas | naslov | vir) */}
+                          <div className="hidden md:grid grid-cols-[90px_1fr_160px] items-center gap-x-3">
+                            <span className="text-[11px] text-gray-500 dark:text-gray-400 tabular-nums text-right">{timeForRow(ts)}</span>
+                            <div className="relative">
+                              <a href={link} target="_blank" rel="noopener noreferrer" className="peer block text-[13px] leading-tight text-gray-900 dark:text-gray-100 hover:underline truncate">
+                                {search.trim() ? highlight(it.title, search) : it.title}
+                              </a>
+                              {summary && (
+                                <div className="pointer-events-none absolute left-0 top-full mt-1 z-50 max-w-[60ch] rounded-md bg-gray-900 text-white text-[12px] leading-snug px-2.5 py-2 shadow-lg ring-1 ring-black/20 opacity-0 invisible translate-y-1 transition peer-hover:opacity-100 peer-hover:visible peer-hover:translate-y-0">
+                                  {search.trim() ? highlight(summary, search) : summary}
+                                </div>
+                              )}
+                            </div>
+                            <button
+                              className="justify-self-end inline-flex items-center gap-1 text-[11px] text-gray-700 dark:text-gray-200 hover:opacity-80"
+                              onClick={() => setSourceFilter(curr => (curr === src ? null : src))}
+                              title={sourceFilter === src ? 'Počisti filter' : `Prikaži samo: ${src}`}
+                            >
+                              <span className="inline-block w-1.5 h-1.5 rounded-full" style={{ backgroundColor: hex }} aria-hidden />
+                              {src}
+                            </button>
+                          </div>
                         </li>
                       )
                     })}
@@ -546,8 +510,8 @@ export default function ArchivePage() {
             </div>
           </div>
 
-          {/* Subtilen separator */}
-          <div className="my-6 h-px bg-gray-200/70 dark:bg-gray-700/50 rounded-full" />
+          {/* subtilen separator, brez velikih praznin */}
+          <div className="mt-4 h-px bg-gray-200/70 dark:bg-gray-700/50 rounded-full" />
         </section>
       </main>
 
