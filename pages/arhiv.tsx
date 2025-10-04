@@ -16,7 +16,7 @@ import SeoHead from '@/components/SeoHead'
 import { NewsItem } from '@/types'
 import { sourceColors } from '@/lib/sources'
 
-// ==== API types ====
+/* ===================== Types iz API-ja ===================== */
 type ApiItem = {
   id: string
   link: string
@@ -38,14 +38,21 @@ type ApiOk = {
 }
 type ApiPayload = ApiOk | { error: string }
 
-// ==== helpers ====
+/* ===================== Helperji ===================== */
 const yyyymmdd = (d: Date) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 
-const ddmmyyyy = (iso: string) => {
-  // iso = YYYY-MM-DD
-  const [y, m, d] = iso.split('-')
-  return `${d}/${m}/${y}`
+// prikaz v gumbu: dd/mm/llll
+function displayDDMMYYYY(iso: string) {
+  try {
+    const d = new Date(iso)
+    const dd = String(d.getDate()).padStart(2, '0')
+    const mm = String(d.getMonth() + 1).padStart(2, '0')
+    const yyyy = d.getFullYear()
+    return `${dd}/${mm}/${yyyy}`
+  } catch {
+    return iso
+  }
 }
 
 const relativeTime = (ms: number) => {
@@ -67,6 +74,7 @@ const norm = (s: string) => {
   try { return s.toLowerCase().normalize('NFD').replace(/\u0300-\u036f/g, '') } catch { return s.toLowerCase() }
 }
 
+// preprost highlighter (case/diakritika-insensitive)
 function highlight(text: string, q: string) {
   if (!q) return text
   const t = text ?? ''
@@ -101,7 +109,7 @@ function highlight(text: string, q: string) {
   return <>{out}</>
 }
 
-// Resolve ms – prioriteta published_at
+// prioriteta časa = published_at -> publishedat
 function tsOf(a: ApiItem) {
   const t1 = a.published_at ? Date.parse(a.published_at) : NaN
   if (Number.isFinite(t1)) return t1
@@ -112,7 +120,7 @@ function toNewsItem(a: ApiItem): NewsItem {
   return { title: a.title, link: a.link, source: a.source, publishedAt: tsOf(a) || Date.now() } as any
 }
 
-// ==== component ====
+/* ===================== Komponenta ===================== */
 export default function ArchivePage() {
   const [date, setDate] = useState(() => yyyymmdd(new Date()))
   const [items, setItems] = useState<ApiItem[]>([])
@@ -127,10 +135,10 @@ export default function ArchivePage() {
   const [, setNowTick] = useState(0)
   useEffect(() => { const t = setInterval(() => setNowTick(x => x + 1), 30_000); return () => clearInterval(t) }, [])
 
-  // stabilen sort (čas, potem id)
+  // sortiranje
   const sortDesc = (a: ApiItem, b: ApiItem) => tsOf(b) - tsOf(a) || Number(b.id) - Number(a.id)
 
-  // full fetch čez kurzorje
+  // polno nalaganje (loop po kurzorjih)
   const abortRef = useRef<AbortController | null>(null)
   async function fetchAll(d: string) {
     if (abortRef.current) abortRef.current.abort()
@@ -166,7 +174,7 @@ export default function ArchivePage() {
     }
   }
 
-  // initial + sprememba datuma
+  // initial + ob spremembi datuma
   useEffect(() => {
     fetchAll(date)
     return () => abortRef.current?.abort()
@@ -212,20 +220,42 @@ export default function ArchivePage() {
   const total = useMemo(() => Object.values(displayCounts).reduce((a, b) => a + b, 0), [displayCounts])
   const maxCount = useMemo(() => Math.max(1, ...Object.values(displayCounts)), [displayCounts])
 
-  // open native date picker from a pretty pill
+  /* ======= Date popover (native, z “Danes”) ======= */
+  const dateBtnRef = useRef<HTMLButtonElement | null>(null)
+  const datePopoverRef = useRef<HTMLDivElement | null>(null)
   const dateInputRef = useRef<HTMLInputElement | null>(null)
+
   const openDatePicker = () => {
-    const el = dateInputRef.current
-    if (!el) return
-    // Chrome, Edge
-    // @ts-ignore
-    if (typeof el.showPicker === 'function') { /* eslint-disable-next-line */
-      ;(el as any).showPicker()
-    } else {
-      el.focus()
-      el.click()
+    const pop = datePopoverRef.current as any
+    if (pop?.showPopover) pop.showPopover()
+    else {
+      // fallback na native picker
+      const input = dateInputRef.current as any
+      try { input?.showPicker?.() } catch {}
     }
+    // fokus na input
+    setTimeout(() => dateInputRef.current?.focus(), 0)
   }
+  const closeDatePicker = () => {
+    const pop = datePopoverRef.current as any
+    if (pop?.hidePopover) pop.hidePopover()
+  }
+  const onDateChange: React.ChangeEventHandler<HTMLInputElement> = (e) => {
+    const v = e.target.value
+    if (!v) return
+    startTransition(() => { setSourceFilter(null); setSearch(''); setItems([]); setDate(v) })
+    closeDatePicker()
+  }
+  const jumpToday = () => {
+    const today = yyyymmdd(new Date())
+    startTransition(() => { setSourceFilter(null); setSearch(''); setItems([]); setDate(today) })
+    closeDatePicker()
+  }
+  useEffect(() => {
+    const onKey = (ev: KeyboardEvent) => { if (ev.key === 'Escape') closeDatePicker() }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
 
   return (
     <>
@@ -239,9 +269,7 @@ export default function ArchivePage() {
             <div className="flex items-center gap-2">
               <Link
                 href="/"
-                className="inline-flex items-center gap-2 px-2.5 py-1.5 rounded-md text-xs
-                           border border-gray-300/60 dark:border-gray-700/60
-                           bg-white/70 dark:bg-gray-800/60 hover:bg-white/90 dark:hover:bg-gray-800/80 transition"
+                className="inline-flex items-center gap-2 px-2.5 py-1.5 rounded-md text-xs border border-gray-300/60 dark:border-gray-700/60 bg-white/70 dark:bg-gray-800/60 hover:bg-white/90 dark:hover:bg-gray-800/80 transition"
                 title="Nazaj na naslovnico"
                 aria-label="Nazaj na naslovnico"
               >
@@ -252,34 +280,54 @@ export default function ArchivePage() {
                 Nazaj
               </Link>
 
-              {/* Lep "pill" z dd/mm/llll + skriti native input[type=date] */}
+              {/* Date – gumb odpira popover */}
               <button
+                ref={dateBtnRef}
                 type="button"
                 onClick={openDatePicker}
-                className="inline-flex items-center gap-2 px-3 py-1.5 rounded-md text-xs
-                           border border-gray-300/60 dark:border-gray-700/60
-                           bg-white/70 dark:bg-gray-800/60 hover:bg-white/90 dark:hover:bg-gray-800/80 transition font-mono tabular-nums"
-                title="Izberi dan"
+                className="inline-flex items-center gap-2 px-3 py-1.5 rounded-md text-xs border border-gray-300/60 dark:border-gray-700/60 bg-white/80 dark:bg-gray-800/80 hover:bg-white/90 dark:hover:bg-gray-800/90 transition"
                 aria-label="Izberi dan"
+                title="Izberi dan"
               >
-                {ddmmyyyy(date)}
+                {displayDDMMYYYY(date)}
               </button>
-              <input
-                ref={dateInputRef}
-                id="date"
-                type="date"
-                value={date}
-                max={yyyymmdd(new Date())}
-                onChange={(e) => startTransition(() => { setSourceFilter(null); setSearch(''); setItems([]); setDate(e.target.value) })}
-                className="sr-only"
-              />
+
+              {/* Popover s koledarjem (native input + Danes + Zapri) */}
+              <div
+                ref={datePopoverRef}
+                popover="auto"
+                className="rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-xl p-3 w-60 text-sm"
+              >
+                <label htmlFor="date-input" className="block mb-2 text-gray-600 dark:text-gray-300">Izberi datum</label>
+                <input
+                  id="date-input"
+                  ref={dateInputRef}
+                  type="date"
+                  value={date}
+                  max={yyyymmdd(new Date())}
+                  onChange={onDateChange}
+                  className="w-full px-2.5 py-1.5 rounded-md border border-gray-300 dark:border-gray-700 bg-white/80 dark:bg-gray-800/80"
+                />
+                <div className="mt-3 flex items-center justify-between">
+                  <button
+                    onClick={jumpToday}
+                    className="px-2.5 py-1.5 rounded-md border border-gray-300/60 dark:border-gray-700/60 hover:bg-black/5 dark:hover:bg-white/5"
+                  >
+                    Danes
+                  </button>
+                  <button
+                    onClick={closeDatePicker}
+                    className="px-2.5 py-1.5 rounded-md bg-brand text-white hover:bg-brand-hover"
+                  >
+                    Zapri
+                  </button>
+                </div>
+              </div>
 
               {/* Osveži */}
               <button
                 onClick={() => fetchAll(date)}
-                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs border
-                           border-gray-300/60 dark:border-gray-700/60 bg-white/70 dark:bg-gray-800/60
-                           hover:bg-white/90 dark:hover:bg-gray-800/80 transition"
+                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs border border-gray-300/60 dark:border-gray-700/60 bg-white/70 dark:bg-gray-800/60 hover:bg-white/90 dark:hover:bg-gray-800/80 transition"
                 title="Osveži dan"
                 aria-label="Osveži dan"
               >
@@ -290,38 +338,28 @@ export default function ArchivePage() {
                 Osveži
               </button>
 
-              {updatedText && (
+              {lastUpdatedMs && (
                 <span className="ml-2 text-xs text-gray-600 dark:text-gray-400 whitespace-nowrap">
                   {updatedText}
                 </span>
               )}
             </div>
 
-            {/* search */}
+            {/* Iskalnik */}
             <div className="relative w-full sm:w-96">
-              <svg
-                className="absolute left-2.5 top-1/2 -translate-y-1/2"
-                viewBox="0 0 24 24"
-                width="16"
-                height="16"
-                aria-hidden="true"
-              >
+              <svg className="absolute left-2.5 top-1/2 -translate-y-1/2" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
                 <circle cx="11" cy="11" r="7" stroke="currentColor" strokeWidth="2" fill="none" />
                 <path d="M20 20l-3.2-3.2" stroke="currentColor" strokeWidth="2" />
               </svg>
               <input
-                type="search"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
+                type="search" value={search} onChange={(e) => setSearch(e.target.value)}
                 placeholder="Išči po naslovu ali podnaslovu…"
-                className="w-full pl-8 pr-3 py-2 rounded-md text-sm bg-white/80 dark:bg-gray-800/70
-                           border border-gray-300/70 dark:border-gray-700/70 focus:outline-none
-                           focus:ring-2 focus:ring-brand/50"
+                className="w-full pl-8 pr-3 py-2 rounded-md text-sm bg-white/80 dark:bg-gray-800/70 border border-gray-300/70 dark:border-gray-700/70 focus:outline-none focus:ring-2 focus:ring-brand/50"
               />
             </div>
           </div>
 
-          {/* GRAF */}
+          {/* Graf */}
           <div className="rounded-xl border border-gray-200/70 dark:border-gray-700/70 bg-white/70 dark:bg-gray-900/70 backdrop-blur p-4">
             <div className="flex items-center justify-between">
               <h2 className="font-medium">
@@ -332,50 +370,38 @@ export default function ArchivePage() {
             </div>
 
             <div className="mt-3 space-y-2">
-              {Object.entries(displayCounts)
-                .sort((a, b) => b[1] - a[1])
-                .map(([source, count]) => {
-                  const active = sourceFilter === source
-                  return (
-                    <button
-                      key={source}
-                      onClick={() => setSourceFilter(curr => (curr === source ? null : source))}
-                      className="w-full text-left group"
-                      title={active ? 'Počisti filter' : `Prikaži samo: ${source}`}
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className={`w-32 shrink-0 text-sm ${active ? 'text-brand' : 'text-gray-700 dark:text-gray-300'}`}>{source}</div>
-                        <div className={`flex-1 h-3 rounded-full overflow-hidden ${active ? 'bg-brand/20 dark:bg-brand/30' : 'bg-gray-200 dark:bg-gray-800'}`}>
-                          <div
-                            className="h-full bg-brand dark:bg-brand"
-                            style={{ width: `${(count / maxCount) * 100}%` }}
-                            aria-hidden
-                          />
-                        </div>
-                        <div className={`w-12 text-right text-sm tabular-nums ${active ? 'text-brand' : ''}`}>{count}</div>
+              {Object.entries(displayCounts).sort((a, b) => b[1] - a[1]).map(([source, count]) => {
+                const active = sourceFilter === source
+                return (
+                  <button key={source} onClick={() => setSourceFilter(curr => (curr === source ? null : source))}
+                          className="w-full text-left group" title={active ? 'Počisti filter' : `Prikaži samo: ${source}`}>
+                    <div className="flex items-center gap-3">
+                      <div className={`w-32 shrink-0 text-sm ${active ? 'text-brand' : 'text-gray-700 dark:text-gray-300'}`}>{source}</div>
+                      <div className={`flex-1 h-3 rounded-full overflow-hidden ${active ? 'bg-brand/20 dark:bg-brand/30' : 'bg-gray-200 dark:bg-gray-800'}`}>
+                        <div className="h-full bg-brand dark:bg-brand" style={{ width: `${(count / maxCount) * 100}%` }} aria-hidden />
                       </div>
-                    </button>
-                  )
-                })}
+                      <div className={`w-12 text-right text-sm tabular-nums ${active ? 'text-brand' : ''}`}>{count}</div>
+                    </div>
+                  </button>
+                )
+              })}
             </div>
 
             {sourceFilter && (
               <div className="mt-2">
-                <button
-                  onClick={() => setSourceFilter(null)}
-                  className="text-xs text-gray-600 dark:text-gray-400 underline decoration-dotted hover:text-gray-800 dark:hover:text-gray-200"
-                >
+                <button onClick={() => setSourceFilter(null)}
+                        className="text-xs text-gray-600 dark:text-gray-400 underline decoration-dotted hover:text-gray-800 dark:hover:text-gray-200">
                   počisti filter
                 </button>
               </div>
             )}
           </div>
 
-          {/* SEZNAM – fiksna, prijetna višina 48–55vh */}
+          {/* Seznam – stalna, prijetna višina (ne raztegne strani) */}
           <div className="flex-1 flex flex-col">
             <h3 className="mt-1 mb-2 text-sm font-medium text-gray-800 dark:text-gray-200">Zadnje novice</h3>
             <div className="rounded-md border border-gray-200/70 dark:border-gray-800/70 bg-white/50 dark:bg-gray-900/40">
-              <div className="relative h-[48vh] md:h-[50vh] lg:h-[55vh] overflow-y-auto pb-6">
+              <div className="relative h-[48vh] md:h-[50vh] lg:h-[52vh] overflow-y-auto pb-6">
                 {loading ? (
                   <p className="p-3 text-sm text-gray-500 dark:text-gray-400">Nalagam…</p>
                 ) : errorMsg ? (
@@ -390,50 +416,26 @@ export default function ArchivePage() {
                       const summary = (it?.summary ?? it?.contentsnippet ?? (it as any)?.description ?? (it as any)?.content ?? '').trim()
 
                       return (
-                        <li
-                          key={`${link}-${i}`}
-                          className="grid grid-cols-[92px_78px_1fr] sm:grid-cols-[100px_84px_1fr] gap-x-3 sm:gap-x-4 px-2 sm:px-3 py-1.5"
-                        >
-                          <button
-                            className="inline-flex items-center gap-1 min-w-0"
-                            onClick={() => setSourceFilter(curr => (curr === src ? null : src))}
-                            title={sourceFilter === src ? 'Počisti filter' : `Prikaži samo: ${src}`}
-                          >
-                            <span
-                              className="inline-block w-1.5 h-1.5 rounded-full"
-                              style={{ backgroundColor: hex }}
-                              aria-hidden
-                            />
+                        <li key={`${link}-${i}`} className="grid grid-cols-[92px_78px_1fr] sm:grid-cols-[100px_84px_1fr] gap-x-3 sm:gap-x-4 px-2 sm:px-3 py-1.5">
+                          <button className="inline-flex items-center gap-1 min-w-0"
+                                  onClick={() => setSourceFilter(curr => (curr === src ? null : src))}
+                                  title={sourceFilter === src ? 'Počisti filter' : `Prikaži samo: ${src}`}>
+                            <span className="inline-block w-1.5 h-1.5 rounded-full" style={{ backgroundColor: hex }} aria-hidden />
                             <span className="truncate text-[10px] text-gray-600 dark:text-gray-400">{src}</span>
                           </button>
 
-                          <span
-                            className="text-right sm:text-left text-[10px] text-gray-500 dark:text-gray-400 tabular-nums"
-                            title={fmtClock((n as any).publishedAt ?? Date.now())}
-                          >
+                          <span className="text-right sm:text-left text-[10px] text-gray-500 dark:text-gray-400 tabular-nums"
+                                title={fmtClock((n as any).publishedAt ?? Date.now())}>
                             {relativeTime((n as any).publishedAt ?? Date.now())}
                           </span>
 
                           <div className="relative">
-                            <a
-                              href={link}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="peer block text-[13px] leading-tight text-gray-900 dark:text-gray-100 hover:underline truncate"
-                            >
+                            <a href={link} target="_blank" rel="noopener noreferrer"
+                              className="peer block text-[13px] leading-tight text-gray-900 dark:text-gray-100 hover:underline truncate">
                               {search.trim() ? highlight((n as any).title, search) : (n as any).title}
                             </a>
-
                             {summary && (
-                              <div
-                                className="pointer-events-none absolute left-0 top-full mt-1 z-50 max-w-[60ch]
-                                           rounded-md bg-gray-900 text-white text-[12px] leading-snug
-                                           px-2.5 py-2 shadow-lg ring-1 ring-black/20
-                                           opacity-0 invisible translate-y-1 transition
-                                           peer-hover:opacity-100 peer-hover:visible peer-hover:translate-y-0
-                                           peer-focus-visible:opacity-100 peer-focus-visible:visible peer-focus-visible:translate-y-0"
-                                role="tooltip"
-                              >
+                              <div className="pointer-events-none absolute left-0 top-full mt-1 z-50 max-w-[60ch] rounded-md bg-gray-900 text-white text-[12px] leading-snug px-2.5 py-2 shadow-lg ring-1 ring-black/20 opacity-0 invisible translate-y-1 transition peer-hover:opacity-100 peer-hover:visible peer-hover:translate-y-0 peer-focus-visible:opacity-100 peer-focus-visible:visible peer-focus-visible:translate-y-0" role="tooltip">
                                 {search.trim() ? highlight(summary, search) : summary}
                               </div>
                             )}
@@ -447,7 +449,7 @@ export default function ArchivePage() {
             </div>
           </div>
 
-          {/* Subtilen separator */}
+          {/* Subtilen separator z varnim razmakom */}
           <div className="my-6 h-px bg-gray-200/70 dark:bg-gray-700/50 rounded-full" />
         </section>
       </main>
