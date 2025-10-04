@@ -67,7 +67,7 @@ const norm = (s: string) => {
   try { return s.toLowerCase().normalize('NFD').replace(/\u0300-\u036f/g, '') } catch { return s.toLowerCase() }
 }
 
-// optional highlight (ohranil sem ga, ker ti pride prav pri iskanju)
+// highlight
 function highlight(text: string, q: string) {
   if (!q) return text
   const t = text ?? ''
@@ -102,7 +102,7 @@ function highlight(text: string, q: string) {
   return <>{out}</>
 }
 
-// ms – prioriteta published_at
+// Resolve ms prioritizing published_at
 function tsOf(a: ApiItem) {
   const t1 = a.published_at ? Date.parse(a.published_at) : NaN
   if (Number.isFinite(t1)) return t1
@@ -113,13 +113,7 @@ function toNewsItem(a: ApiItem): NewsItem {
   return { title: a.title, link: a.link, source: a.source, publishedAt: tsOf(a) || Date.now() } as any
 }
 
-// krajše ime vira za prikaz
-function displaySourceName(src: string) {
-  if (src.trim().toLowerCase() === 'slovenske novice') return 'slo. novice'
-  return src
-}
-
-/* ======================== Tiny calendar popover ======================== */
+/* ======================== Calendar popover ======================== */
 
 type CalProps = {
   open: boolean
@@ -138,7 +132,7 @@ function CalendarPopover({ open, anchorRef, valueISO, onClose, onPickISO }: CalP
 
   useEffect(() => { if (open) setView(startOfMonth(new Date(valueISO))) }, [open, valueISO])
 
-  // ESC / click outside
+  // close on escape / click outside
   useEffect(() => {
     if (!open) return
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
@@ -166,6 +160,7 @@ function CalendarPopover({ open, anchorRef, valueISO, onClose, onPickISO }: CalP
     setPos({ top: r.bottom + 6 + window.scrollY, left: r.left + window.scrollX })
   }, [open, anchorRef])
 
+  // 6 tednov – ponedeljek prvo
   const grid: Array<{ iso: string; label: number; dim: 'prev'|'curr'|'next'; isToday: boolean; isFuture: boolean }> = []
   const first = startOfMonth(view)
   const firstDow = (first.getDay() + 6) % 7 // Monday=0
@@ -194,7 +189,7 @@ function CalendarPopover({ open, anchorRef, valueISO, onClose, onPickISO }: CalP
     >
       <div className="flex items-center justify-between mb-2">
         <button
-          className="h-8 w-8 inline-flex items-center justify-center rounded-md hover:bg-black/5 dark:hover:bg:white/5"
+          className="h-8 w-8 inline-flex items-center justify-center rounded-md hover:bg-black/5 dark:hover:bg-white/5"
           onClick={() => setView(v => addMonths(v, -1))}
           aria-label="Prejšnji mesec"
         >
@@ -271,18 +266,18 @@ export default function ArchivePage() {
   const [search, setSearch] = useState('')
   const [sourceFilter, setSourceFilter] = useState<string | null>(null)
 
-  // popover state
+  // date popover state
   const [isDateOpen, setIsDateOpen] = useState(false)
   const dateWrapRef = useRef<HTMLDivElement | null>(null)
 
-  // “posodobljeno”
+  // tick for "posodobljeno"
   const [, setNowTick] = useState(0)
   useEffect(() => { const t = setInterval(() => setNowTick(x => x + 1), 30_000); return () => clearInterval(t) }, [])
 
-  // stabilen sort
+  // sorting
   const sortDesc = (a: ApiItem, b: ApiItem) => tsOf(b) - tsOf(a) || Number(a.id) - Number(b.id)
 
-  // fetch vse (cursor loop)
+  // full fetch (loop cursors)
   const abortRef = useRef<AbortController | null>(null)
   async function fetchAll(d: string) {
     if (abortRef.current) abortRef.current.abort()
@@ -324,7 +319,7 @@ export default function ArchivePage() {
     return () => abortRef.current?.abort()
   }, [date])
 
-  // auto-refresh za današnji dan
+  // auto-refresh for today
   const todayStr = useMemo(() => yyyymmdd(new Date()), [])
   const latestTsRef = useRef<number>(0)
   useEffect(() => { latestTsRef.current = items.length ? tsOf(items[0]) : 0 }, [items])
@@ -361,7 +356,10 @@ export default function ArchivePage() {
 
   const news = useMemo(() => filtered.map(toNewsItem), [filtered])
 
-  const displayCounts = useMemo(() => Object.fromEntries(Object.entries(counts).filter(([k]) => k !== 'TestVir')), [counts])
+  const displayCounts = useMemo(
+    () => Object.fromEntries(Object.entries(counts).filter(([k]) => k !== 'TestVir')),
+    [counts],
+  )
   const total = useMemo(() => Object.values(displayCounts).reduce((a, b) => a + b, 0), [displayCounts])
   const maxCount = useMemo(() => Math.max(1, ...Object.values(displayCounts)), [displayCounts])
 
@@ -369,7 +367,6 @@ export default function ArchivePage() {
     startTransition(() => { setSourceFilter(null); setSearch(''); setItems([]); setDate(iso) })
   }
 
-  // čas v vrstici: danes → “pred X”, sicer HH:MM
   const timeForRow = (ms: number) => {
     const rowDay = yyyymmdd(new Date(ms))
     return rowDay === date ? relativeTime(ms) : fmtClock(ms)
@@ -380,9 +377,9 @@ export default function ArchivePage() {
       <Header />
       <SeoHead title="Križišče — Arhiv" description="Pregled novic po dnevih in medijih." />
 
-      <main className="bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white px-4 md:px-8 lg:px-16 pb-8 pt-6">
-        <section className="max-w-6xl mx-auto flex flex-col gap-5 min-h-[calc(100svh-var(--hdr-h))]">
-          {/* Orodna vrstica */}
+      <main className="bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white px-4 md:px-8 lg:px-16 pb-6 pt-5">
+        <section className="max-w-6xl mx-auto flex flex-col gap-4">
+          {/* Top controls */}
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-2">
               <Link href="/" className="inline-flex items-center gap-2 px-2.5 py-1.5 rounded-md text-xs border border-gray-300/60 dark:border-gray-700/60 bg-white/70 dark:bg-gray-800/60 hover:bg-white/90 dark:hover:bg-gray-800/80 transition" title="Nazaj na naslovnico" aria-label="Nazaj na naslovnico">
@@ -390,7 +387,7 @@ export default function ArchivePage() {
                 Nazaj
               </Link>
 
-              {/* Date input (readOnly) */}
+              {/* Date input (readOnly => odpre popover) */}
               <div ref={dateWrapRef} className="relative">
                 <input
                   id="date"
@@ -404,9 +401,7 @@ export default function ArchivePage() {
                   onFocus={() => setIsDateOpen(true)}
                   onClick={() => setIsDateOpen(true)}
                   onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setIsDateOpen(true) } }}
-                  className="px-2.5 py-1.5 rounded-md border border-gray-300 dark:border-gray-700
-                             bg-white/80 dark:bg-gray-800/80 backdrop-blur text-xs cursor-pointer
-                             focus:outline-none focus:ring-2 focus:ring-brand/50 select-none w-[140px] text-center"
+                  className="px-3 py-1.5 rounded-md border border-gray-300 dark:border-gray-700 bg-white/80 dark:bg-gray-800/80 backdrop-blur text-xs cursor-pointer focus:outline-none focus:ring-2 focus:ring-brand/50 select-none w-[140px] text-center"
                   aria-label="Izberi datum"
                 />
               </div>
@@ -422,10 +417,10 @@ export default function ArchivePage() {
                 Osveži
               </button>
 
-              {lastUpdatedMs && <span className="ml-2 text-xs text-gray-600 dark:text-gray-400 whitespace-nowrap">Posodobljeno {updatedText.replace('Posodobljeno ', '')}</span>}
+              {lastUpdatedMs && <span className="ml-2 text-xs text-gray-600 dark:text-gray-400 whitespace-nowrap">Posodobljeno {relativeTime(lastUpdatedMs)}</span>}
             </div>
 
-            {/* Iskanje */}
+            {/* search */}
             <div className="relative w-full sm:w-96">
               <svg className="absolute left-2.5 top-1/2 -translate-y-1/2" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
                 <circle cx="11" cy="11" r="7" stroke="currentColor" strokeWidth="2" fill="none" />
@@ -440,13 +435,7 @@ export default function ArchivePage() {
           </div>
 
           {/* Koledar popover */}
-          <CalendarPopover
-            open={isDateOpen}
-            anchorRef={dateWrapRef}
-            valueISO={date}
-            onClose={() => setIsDateOpen(false)}
-            onPickISO={onPickDate}
-          />
+          <CalendarPopover open={isDateOpen} anchorRef={dateWrapRef} valueISO={date} onClose={() => setIsDateOpen(false)} onPickISO={onPickDate} />
 
           {/* Graf */}
           <div className="rounded-xl border border-gray-200/70 dark:border-gray-700/70 bg-white/70 dark:bg-gray-900/70 backdrop-blur p-4">
@@ -458,48 +447,42 @@ export default function ArchivePage() {
               <span className="text-sm text-gray-600 dark:text-gray-400">Skupaj: {total}</span>
             </div>
 
-            <div className="mt-3 space-y-2">
+            <div className="mt-3 space-y-1.5">
               {Object.entries(displayCounts).sort((a, b) => b[1] - a[1]).map(([source, count]) => {
                 const active = sourceFilter === source
                 return (
-                  <button key={source} onClick={() => setSourceFilter(curr => (curr === source ? null : source))}
-                          className="w-full text-left group" title={active ? 'Počisti filter' : `Prikaži samo: ${source}`}>
+                  <button
+                    key={source}
+                    onClick={() => setSourceFilter(curr => (curr === source ? null : source))}
+                    className="w-full text-left group"
+                    title={active ? 'Počisti filter' : `Prikaži samo: ${source}`}
+                  >
                     <div className="flex items-center gap-3">
-                      <div className={`w-32 shrink-0 text-sm ${active ? 'text-brand' : 'text-gray-700 dark:text-gray-300'}`}>{displaySourceName(source)}</div>
-                      <div className={`flex-1 h-3 rounded-full overflow-hidden ${active ? 'bg-brand/20 dark:bg-brand/30' : 'bg-gray-200 dark:bg-gray-800'}`}>
+                      <div className={`w-36 shrink-0 text-[13px] ${active ? 'text-brand' : 'text-gray-700 dark:text-gray-300'}`}>{source}</div>
+                      <div className={`flex-1 h-2.5 rounded-full overflow-hidden ${active ? 'bg-brand/20 dark:bg-brand/30' : 'bg-gray-200 dark:bg-gray-800'}`}>
                         <div className="h-full bg-brand dark:bg-brand" style={{ width: `${(count / maxCount) * 100}%` }} aria-hidden />
                       </div>
-                      <div className={`w-12 text-right text-sm tabular-nums ${active ? 'text-brand' : ''}`}>{count}</div>
+                      <div className={`w-10 text-right text-[13px] tabular-nums ${active ? 'text-brand' : ''}`}>{count}</div>
                     </div>
                   </button>
                 )
               })}
             </div>
-
-            {sourceFilter && (
-              <div className="mt-2">
-                <button onClick={() => setSourceFilter(null)}
-                        className="text-xs text-gray-600 dark:text-gray-400 underline decoration-dotted hover:text-gray-800 dark:hover:text-gray-200">
-                  počisti filter
-                </button>
-              </div>
-            )}
           </div>
 
-          {/* Seznam – sticky glava, stolpci: ČAS • VIR • NASLOV */}
+          {/* Seznam – sticky glava; kompaktno; mobilni layout */}
           <div className="flex-1 flex flex-col">
-            <h3 className="mt-1 mb-2 text-sm font-medium text-gray-800 dark:text-gray-200">Zadnje novice</h3>
+            <h3 className="mt-1 mb-2 text-sm font-semibold text-gray-800 dark:text-gray-200">Zadnje novice</h3>
 
             <div className="rounded-md border border-gray-200/70 dark:border-gray-800/70 bg-white/50 dark:bg-gray-900/40">
-              {/* sticky header */}
-              <div className="sticky top-0 z-10 grid grid-cols-[96px_120px_1fr] sm:grid-cols-[104px_140px_1fr] gap-x-3 sm:gap-x-4 px-2 sm:px-3 py-1.5 text-[11px] font-medium
-                              bg-white/80 dark:bg-gray-900/80 backdrop-blur border-b border-gray-200/70 dark:border-gray-800/70">
-                <div className="text-gray-500 dark:text-gray-400">Čas</div>
-                <div className="text-gray-500 dark:text-gray-400">Vir</div>
-                <div className="text-gray-500 dark:text-gray-400">Naslov</div>
+              {/* Sticky header (desktop) */}
+              <div className="hidden sm:grid grid-cols-[92px_1fr_140px] gap-3 px-2 sm:px-3 py-1.5 text-[11px] text-gray-500 dark:text-gray-400 sticky top-0 z-10 bg-white/80 dark:bg-gray-900/80 backdrop-blur">
+                <div>Čas</div>
+                <div>Naslov</div>
+                <div className="text-right">Vir</div>
               </div>
 
-              <div className="relative h-[48svh] md:h-[52svh] overflow-y-auto pb-6">
+              <div className="relative h-[46svh] md:h-[50svh] overflow-y-auto">
                 {loading ? (
                   <p className="p-3 text-sm text-gray-500 dark:text-gray-400">Nalagam…</p>
                 ) : errorMsg ? (
@@ -515,35 +498,53 @@ export default function ArchivePage() {
                       const ts = (n as any).publishedAt ?? Date.now()
 
                       return (
-                        <li key={`${link}-${i}`} className="grid grid-cols-[96px_120px_1fr] sm:grid-cols-[104px_140px_1fr] gap-x-3 sm:gap-x-4 px-2 sm:px-3 py-1.5 items-center">
-                          {/* ČAS (brez preloma) */}
-                          <span className="text-[11px] text-gray-500 dark:text-gray-400 tabular-nums whitespace-nowrap text-right sm:text-left" title={fmtClock(ts)}>
-                            {timeForRow(ts)}
-                          </span>
+                        <li key={`${link}-${i}`} className="px-2 sm:px-3 py-1">
+                          {/* Desktop row */}
+                          <div className="hidden sm:grid grid-cols-[92px_1fr_140px] items-center gap-3">
+                            <span className="text-[11px] text-gray-500 dark:text-gray-400 tabular-nums whitespace-nowrap text-right sm:text-left" title={fmtClock(ts)}>
+                              {timeForRow(ts)}
+                            </span>
 
-                          {/* VIR – incognito link (dot + tekst), toggla filter */}
-                          <button
-                            className="inline-flex items-center gap-1 text-[11px] text-gray-600 dark:text-gray-300 hover:underline whitespace-nowrap truncate"
-                            onClick={() => setSourceFilter(curr => (curr === src ? null : src))}
-                            title={sourceFilter === src ? 'Počisti filter' : `Prikaži samo: ${src}`}
-                          >
-                            <span className="inline-block w-1.5 h-1.5 rounded-full" style={{ backgroundColor: hex }} aria-hidden />
-                            <span className="truncate">{displaySourceName(src)}</span>
-                          </button>
+                            <div className="relative min-w-0">
+                              <a href={link} target="_blank" rel="noopener noreferrer"
+                                 className="peer block text-[13px] leading-tight text-gray-900 dark:text-gray-100 hover:underline truncate">
+                                {search.trim() ? highlight((n as any).title, search) : (n as any).title}
+                              </a>
+                              {summary && (
+                                <div className="pointer-events-none absolute left-0 top-full mt-1 z-50 max-w-[60ch] rounded-md bg-gray-900 text-white text-[12px] leading-snug px-2 py-1.5 shadow-lg ring-1 ring-black/20 opacity-0 invisible translate-y-1 transition peer-hover:opacity-100 peer-hover:visible peer-hover:translate-y-0">
+                                  {search.trim() ? highlight(summary, search) : summary}
+                                </div>
+                              )}
+                            </div>
 
-                          {/* NASLOV */}
-                          <div className="relative">
+                            <button
+                              className="justify-self-end inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] border border-gray-300/70 dark:border-gray-700/70 text-gray-700 dark:text-gray-200 hover:bg-black/5 dark:hover:bg-white/5"
+                              onClick={() => setSourceFilter(curr => (curr === src ? null : src))}
+                              title={sourceFilter === src ? 'Počisti filter' : `Prikaži samo: ${src}`}
+                            >
+                              <span className="inline-block w-1.5 h-1.5 rounded-full" style={{ backgroundColor: hex }} aria-hidden />
+                              {src}
+                            </button>
+                          </div>
+
+                          {/* Mobile row (stacked: Naslov, meta) */}
+                          <div className="sm:hidden">
                             <a href={link} target="_blank" rel="noopener noreferrer"
-                               className="block text-[13px] leading-tight text-gray-900 dark:text-gray-100 hover:underline truncate">
+                              className="block text-[14px] leading-tight text-gray-100 hover:underline">
                               {search.trim() ? highlight((n as any).title, search) : (n as any).title}
                             </a>
-                            {/* Čisto po želji: če želiš super-kompakten seznam, lahko odstraniš summary tooltip. */}
-                            {summary && (
-                              <div className="pointer-events-none absolute left-0 top-full mt-1 z-50 max-w-[60ch] rounded-md bg-gray-900 text-white text-[12px] leading-snug px-2.5 py-2 shadow-lg ring-1 ring-black/20 opacity-0 invisible translate-y-1 transition
-                                              hover:opacity-100 hover:visible hover:translate-y-0 peer-focus-visible:opacity-100 peer-focus-visible:visible peer-focus-visible:translate-y-0 hidden sm:block">
-                                {search.trim() ? highlight(summary, search) : summary}
-                              </div>
-                            )}
+                            <div className="mt-0.5 flex items-center gap-2 text-[11px] text-gray-400">
+                              <span className="tabular-nums">{timeForRow(ts)}</span>
+                              <span>•</span>
+                              <button
+                                className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded border border-gray-700 text-gray-300"
+                                onClick={() => setSourceFilter(curr => (curr === src ? null : src))}
+                                title={sourceFilter === src ? 'Počisti filter' : `Prikaži samo: ${src}`}
+                              >
+                                <span className="inline-block w-1.5 h-1.5 rounded-full" style={{ backgroundColor: hex }} aria-hidden />
+                                {src}
+                              </button>
+                            </div>
                           </div>
                         </li>
                       )
@@ -554,8 +555,8 @@ export default function ArchivePage() {
             </div>
           </div>
 
-          {/* Ločilo */}
-          <div className="my-6 h-px bg-gray-200/70 dark:bg-gray-700/50 rounded-full" />
+          {/* subtilen separator z majhnim razmakom */}
+          <div className="my-4 h-px bg-gray-200/70 dark:bg-gray-700/50 rounded-full" />
         </section>
       </main>
 
