@@ -9,8 +9,6 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: { persistSession: false },
 })
 
-/* ======================== Types ======================== */
-
 type Row = {
   id: number
   link: string
@@ -39,36 +37,27 @@ type ApiOk = {
   total: number
   nextCursorTs: string | null
   nextCursorId: number | null
+  // za hiter “sanity check”
+  windowStart: string
+  windowEnd: string
 }
-
 type ApiErr = { error: string }
 
-/* ======================== Helpers ======================== */
+/** Lokalni dan → UTC ISO okno [start, nextStart) */
+function dayWindowISO(dayISO?: string) {
+  const now = new Date()
+  const [y, m, d] = dayISO
+    ? dayISO.split('-').map(n => parseInt(n, 10))
+    : [now.getFullYear(), now.getMonth() + 1, now.getDate()]
 
-/** Lokalni koledarski dan → UTC ISO [00:00:00.000, 23:59:59.999] */
-function parseDateRange(dayISO?: string) {
-  const today = new Date()
-
-  let y: number, m: number, d: number
-  if (dayISO) {
-    const [yy, mm, dd] = dayISO.split('-').map(n => parseInt(n, 10))
-    y = yy; m = mm; d = dd
-  } else {
-    y = today.getFullYear()
-    m = today.getMonth() + 1
-    d = today.getDate()
-  }
-
-  const startLocal = new Date(y, m - 1, d, 0, 0, 0, 0)
-  const endLocal   = new Date(y, m - 1, d, 23, 59, 59, 999)
+  const startLocal = new Date(y, m - 1, d, 0, 0, 0, 0)       // 00:00 lokalno
+  const nextStartLocal = new Date(y, m - 1, d + 1, 0, 0, 0)  // naslednji dan 00:00 lokalno
 
   return {
-    start: startLocal.toISOString(),
-    end: endLocal.toISOString(),
+    start: startLocal.toISOString(),        // npr. 2025-10-01T22:00:00.000Z (CEST)
+    nextStart: nextStartLocal.toISOString() // npr. 2025-10-02T22:00:00.000Z
   }
 }
-
-/* ======================== Handler ======================== */
 
 export default async function handler(
   req: NextApiRequest,
@@ -81,22 +70,20 @@ export default async function handler(
       500,
     )
 
-    // robusten kursor: kombinacija (published_at, id)
+    // kursor: kombinacija (published_at, id)
     const cursorTs: string | null = (req.query.cursor_ts as string) || null
     const cursorId: number | null = req.query.cursor_id
       ? Number(req.query.cursor_id)
       : null
 
-    const { start, end } = parseDateRange(dateStr)
+    const { start, nextStart } = dayWindowISO(dateStr)
 
-    /* === ITEMS: published_at DESC, id DESC === */
+    /* === ITEMS (DESC po published_at, potem id) === */
     let q = supabase
       .from('news')
-      .select(
-        'id, link, title, source, summary, contentsnippet, published_at, publishedat',
-      )
+      .select('id, link, title, source, summary, contentsnippet, published_at, publishedat')
       .gte('published_at', start)
-      .lte('published_at', end)
+      .lt('published_at', nextStart)              // << polodprto okno – ničesar po 00:00 naslednjega dne
       .order('published_at', { ascending: false })
       .order('id', { ascending: false })
 
@@ -115,7 +102,7 @@ export default async function handler(
       return res.status(500).json({ error: `DB error: ${error.message}` })
     }
 
-    const items: ApiItem[] = (rows as Row[]).map((r) => ({
+    const items: ApiItem[] = (rows as Row[]).map(r => ({
       id: String(r.id),
       link: r.link,
       title: r.title,
@@ -136,13 +123,12 @@ export default async function handler(
     const nextCursorTs = rows && rows.length === limit ? (last?.published_at || null) : null
     const nextCursorId = rows && rows.length === limit ? (last?.id ?? null) : null
 
-    /* === COUNTS po virih (brez .group()) ===
-       Izberemo le 'source' v danem intervalu in seštejemo v Node-u. */
+    /* === COUNTS po virih (brez .group()) === */
     const { data: srcRows, error: countsErr } = await supabase
       .from('news')
       .select('source')
       .gte('published_at', start)
-      .lte('published_at', end)
+      .lt('published_at', nextStart)
 
     if (countsErr) {
       res.setHeader('Cache-Control', 'no-store')
@@ -157,15 +143,15 @@ export default async function handler(
     }
     const total = Object.values(counts).reduce((a, b) => a + b, 0)
 
-    // vedno svež odgovor
     res.setHeader('Cache-Control', 'no-store')
-
     return res.status(200).json({
       items,
       counts,
       total,
       nextCursorTs,
       nextCursorId,
+      windowStart: start,
+      windowEnd: nextStart,
     })
   } catch (e: any) {
     res.setHeader('Cache-Control', 'no-store')
