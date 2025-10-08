@@ -54,11 +54,8 @@ type Err = { error: string }
 function canonicalize(raw: string): string {
   try {
     const u = new URL(raw.trim())
-    // https
-    u.protocol = 'https:'
-    // host: lowercase, brez www.
-    u.host = u.host.toLowerCase().replace(/^www\./, '')
-    // odstrani tracking queryje
+    u.protocol = 'https:'                                   // https
+    u.host = u.host.toLowerCase().replace(/^www\./, '')     // brez www
     const TRACK = [
       /^utm_/i, /^fbclid$/i, /^gclid$/i, /^ref$/i, /^src$/i, /^from$/i,
       /^si_src$/i, /^mc_cid$/i, /^mc_eid$/i
@@ -66,13 +63,10 @@ function canonicalize(raw: string): string {
     for (const k of Array.from(u.searchParams.keys())) {
       if (TRACK.some(rx => rx.test(k))) u.searchParams.delete(k)
     }
-    // odstrani /amp in trailing slash (razen /)
-    u.pathname = u.pathname.replace(/\/amp\/?$/i, '/')
-    if (u.pathname.length > 1) u.pathname = u.pathname.replace(/\/+$/,'')
-    // brez hash-a
-    u.hash = ''
-    // posebnosti
-    if (u.host.endsWith('rtvslo.si')) u.host = 'rtvslo.si'
+    u.pathname = u.pathname.replace(/\/amp\/?$/i, '/')      // brez /amp
+    if (u.pathname.length > 1) u.pathname = u.pathname.replace(/\/+$/,'') // brez trailing /
+    u.hash = ''                                             // brez hash
+    if (u.host.endsWith('rtvslo.si')) u.host = 'rtvslo.si'  // posebnost
     return u.toString()
   } catch {
     return raw.trim()
@@ -185,7 +179,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
     const wantsFresh = req.query.forceFresh === '1'
     const source = (req.query.source as string) || null
 
-    // forceFresh: naredimo sync RSS -> DB (v ozadju), nikoli ne vračamo surovega RSS
+    // forceFresh: sproži sync RSS -> DB (v ozadju), nikoli ne vračamo surovega RSS
     if (!paged && wantsFresh) {
       try {
         const rss = await fetchRSSFeeds({ forceFresh: true })
