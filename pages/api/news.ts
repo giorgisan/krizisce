@@ -1,6 +1,7 @@
 // pages/api/news.ts — FULL REPLACEMENT
-// - Nikoli ne vrača surovega RSS. forceFresh samo sproži sync v bazo.
-// - Kanonikalizira URL-je in upserta po link_canonical, da ni dvojnikov.
+// - Nikoli ne vrača surovega RSS (forceFresh samo sproži sync v bazo).
+// - Upsert po link_canonical (blokira prave dvojnike).
+// - Soft dedupe po (source + normTitle + tsSec) na vhodu in izhodu (skrije cross-poste).
 
 import type { NextApiRequest, NextApiResponse } from 'next'
 import { createClient } from '@supabase/supabase-js'
@@ -63,7 +64,7 @@ function canonicalize(raw: string): string {
     u.pathname = u.pathname.replace(/\/amp\/?$/i, '/')
     if (u.pathname.length > 1) u.pathname = u.pathname.replace(/\/+$/,'')
     u.hash = ''                                             // brez hash
-    if (u.host.endsWith('rtvslo.si')) u.host = 'rtvslo.si'  // posebnost
+    if (u.host.endsWith('rtvslo.si')) u.host = 'rtvslo.si'  // posebnost hosta
     return u.toString()
   } catch {
     return raw.trim()
@@ -71,16 +72,27 @@ function canonicalize(raw: string): string {
 }
 
 /* ========= helperji ========= */
-function dedupeByLink(items: FeedNewsItem[]): FeedNewsItem[] {
-  const seen = new Set<string>()
-  const out: FeedNewsItem[] = []
-  for (const item of items) {
-    const link = (item.link || '').trim()
-    if (!link || seen.has(link)) continue
-    seen.add(link)
-    out.push(item)
+const unaccent = (s: string) =>
+  s.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+
+function normTitle(s: string): string {
+  return unaccent(s).toLowerCase().replace(/\s+/g, ' ').trim()
+}
+
+function tsSec(ms?: number | null): number {
+  const v = typeof ms === 'number' ? ms : 0
+  return Math.max(0, Math.floor(v / 1000))
+}
+
+// mehka deduplikacija: (source + normTitle + tsSec) obdrži najnovejši zapis
+function softDedupe<T extends { source?: string; title?: string; publishedAt?: number }>(arr: T[]): T[] {
+  const byKey = new Map<string, T>()
+  for (const it of arr) {
+    const key = `${(it.source || '').trim()}|${normTitle(it.title || '')}|${tsSec(it.publishedAt || 0)}`
+    const prev = byKey.get(key)
+    if (!prev || (it.publishedAt || 0) > (prev.publishedAt || 0)) byKey.set(key, it)
   }
-  return out
+  return Array.from(byKey.values())
 }
 
 function normalizeSnippet(item: FeedNewsItem): string | null {
@@ -135,8 +147,18 @@ function feedItemToDbRow(item: FeedNewsItem) {
 
 async function syncToSupabase(items: FeedNewsItem[]) {
   if (!supabaseWrite) return
-  const rows = items.map(feedItemToDbRow).filter(Boolean) as any[]
+  // 1) soft dedupe na vhodu
+  const shaped = items.map((i) => {
+    const t = resolveTimestamps(i)
+    return { ...i, title: i.title || '', source: i.source || '', publishedAt: t.ms }
+  })
+  const dedupedIn = softDedupe(shaped)
+
+  // 2) map → DB rows
+  const rows = dedupedIn.map(feedItemToDbRow).filter(Boolean) as any[]
   if (!rows.length) return
+
+  // 3) upsert po link_canonical
   const { error } = await supabaseWrite
     .from('news')
     .upsert(rows, { onConflict: 'link_canonical', ignoreDuplicates: false })
@@ -180,8 +202,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
     if (!paged && wantsFresh) {
       try {
         const rss = await fetchRSSFeeds({ forceFresh: true })
-        const deduped = dedupeByLink(rss).slice(0, 200)
-        if (deduped.length) await syncToSupabase(deduped)
+        if (rss?.length) await syncToSupabase(rss.slice(0, 250))
       } catch (err) {
         console.error('❌ RSS sync error:', err)
       }
@@ -208,7 +229,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
     if (error) return res.status(500).json({ error: `DB: ${error.message}` })
 
     const rows = (data || []) as Row[]
-    const items = rows.map(rowToItem)
+    const rawItems = rows.map(rowToItem)
+
+    // mehka deduplikacija na izhodu
+    const items = softDedupe(rawItems).sort((a, b) => b.publishedAt - a.publishedAt)
 
     const nextCursor =
       rows.length === limit
