@@ -6,8 +6,8 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { SOURCES } from '@/lib/sources'
 
 type Props = {
-  value: string[]              // prazno = vsi viri
-  onChange: (next: string[]) => void
+  value: string                // 'Vse' ali ime vira
+  onChange: (next: string) => void
 }
 
 function emitFilterUpdate(sources: string[]) {
@@ -38,7 +38,7 @@ export default function SourceFilter({ value, onChange }: Props) {
     setPos({ top, right })
   }
 
-  // toggle iz Headerja
+  // odpiranje/closing prek Header ikone
   useEffect(() => {
     const handler = () => { ric(() => computeDropdownPos()); setMenuOpen((s) => !s) }
     window.addEventListener('toggle-filters', handler as EventListener)
@@ -61,20 +61,13 @@ export default function SourceFilter({ value, onChange }: Props) {
     }
   }, [menuOpen])
 
-  const toggleOne = (s: string) => {
-    const set = new Set(value)
-    if (set.has(s)) set.delete(s)
-    else set.add(s)
-    const next = Array.from(set)
-    onChange(next)
-    emitFilterUpdate(next)
+  const pick = (s: string) => {
+    onChange(s)
+    setMenuOpen(false)
+    emitFilterUpdate(s === 'Vse' ? [] : [s])
   }
 
-  const clearAll = () => {
-    onChange([])
-    emitFilterUpdate([])
-    setMenuOpen(false)
-  }
+  const isActive = (s: string) => value === s
 
   return (
     <AnimatePresence>
@@ -105,33 +98,44 @@ export default function SourceFilter({ value, onChange }: Props) {
             <div className="w-[86vw] max-w-[22rem] rounded-xl border border-gray-200/70 dark:border-gray-700/70 bg-white/80 dark:bg-gray-900/75 backdrop-blur-xl shadow-xl overflow-hidden">
               <div className="px-4 py-2 flex items-center justify-between">
                 <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">Filtriraj vire</span>
-                <button aria-label="Zapri" onClick={() => setMenuOpen(false)} className="h-8 w-8 inline-flex items-center justify-center rounded-md hover:bg-black/5 dark:hover:bg-white/5">
-                  <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M6 6l12 12M18 6l-12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>
+                <button
+                  aria-label="Zapri"
+                  onClick={() => setMenuOpen(false)}
+                  className="h-8 w-8 inline-flex items-center justify-center rounded-md hover:bg-black/5 dark:hover:bg-white/5"
+                >
+                  <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+                    <path d="M6 6l12 12M18 6l-12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                  </svg>
                 </button>
               </div>
 
               <div className="px-2 pb-2 max-h-[70vh] overflow-y-auto scrollbar-hide">
                 <div className="space-y-1">
+                  {/* Pokaži vse */}
                   <button
-                    onClick={clearAll}
-                    className="w-full text-left px-3 py-2 rounded-md bg-brand text-white hover:bg-brand-hover transition"
+                    onClick={() => pick('Vse')}
+                    className={`w-full text-left px-3 py-2 rounded-md transition ${
+                      isActive('Vse')
+                        ? 'bg-brand text-white hover:bg-brand-hover'
+                        : 'bg-brand/10 text-brand hover:bg-brand/15'
+                    }`}
                   >
                     Pokaži vse
                   </button>
 
-                  {/* več-izbirni seznam */}
+                  {/* posamezni viri */}
                   {SOURCES.filter((s) => s !== 'Vse').map((source, idx) => {
-                    const active = value.includes(source)
+                    const active = isActive(source)
                     return (
                       <motion.button
                         key={source}
-                        onClick={() => toggleOne(source)}
+                        onClick={() => pick(source)}
                         initial={{ opacity: 0, y: 3 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.1, delay: 0.01 * idx }}
                         className={`w-full text-left px-3 py-2 rounded-md transition ${
                           active
-                            ? 'bg-brand/15 text-brand ring-1 ring-brand/30'
+                            ? 'bg-black/5 dark:bg-white/10 text-gray-900 dark:text-gray-100 ring-1 ring-brand/40'
                             : 'hover:bg-black/5 dark:hover:bg-white/5 text-gray-800 dark:text-gray-200'
                         }`}
                         aria-pressed={active}
