@@ -482,7 +482,7 @@ export default function Home({ initialNews }: Props) {
   )
 }
 
-getStaticProps
+// Replacement for pages/index.tsx -> getStaticProps (fixed typing)
 export async function getStaticProps() {
   // Seed initial page from Supabase instead of direct RSS
   const { createClient } = await import('@supabase/supabase-js')
@@ -503,12 +503,14 @@ export async function getStaticProps() {
   }
 
   const { data } = await supabase
-    .from<Row>('news')
+    .from('news') // no generic here to avoid TS 'Expected 2 type arguments' error
     .select('id, link, title, source, summary, contentsnippet, image, published_at, publishedat')
     .order('publishedat', { ascending: false })
     .limit(60)
 
-  const initialNews = (data ?? []).map(r => ({
+  const rows = (data ?? []) as Row[]
+
+  const initialNews = rows.map(r => ({
     title: r.title,
     link: r.link,
     source: r.source,
@@ -520,4 +522,3 @@ export async function getStaticProps() {
 
   return { props: { initialNews }, revalidate: 60 }
 }
-
