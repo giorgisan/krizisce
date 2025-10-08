@@ -1,4 +1,4 @@
-// pages/api/news.ts
+// pages/api/news.ts (patched: never returns raw RSS; forceFresh only syncs DB)
 import type { NextApiRequest, NextApiResponse } from 'next'
 import { createClient } from '@supabase/supabase-js'
 
@@ -9,12 +9,10 @@ const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL as string
 const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY as string | undefined
 
-// Read-only client for serving data to the UI
 const supabaseRead = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: { persistSession: false },
 })
 
-// Write client (optional) for syncing fresh RSS items into the DB
 const supabaseWrite = SUPABASE_SERVICE_ROLE_KEY
   ? createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } })
   : null
@@ -29,8 +27,8 @@ type Row = {
   summary: string | null
   isodate: string | null
   pubdate: string | null
-  published_at: string | null          // timestamptz
-  publishedat: number | null           // bigint ms
+  published_at: string | null
+  publishedat: number | null
   created_at: string | null
 }
 
@@ -75,41 +73,17 @@ function resolveTimestamps(item: FeedNewsItem) {
     if (Number.isNaN(t)) return null
     return { raw: value, ms: t, iso: new Date(t).toISOString() }
   }
-
   const fromIso = parse(item.isoDate)
   const fromPub = parse(item.pubDate)
-
   const msFromNumber =
     typeof item.publishedAt === 'number' && Number.isFinite(item.publishedAt) && item.publishedAt > 0
       ? item.publishedAt
       : null
-
   const ms = fromIso?.ms ?? fromPub?.ms ?? msFromNumber ?? Date.now()
   const iso = fromIso?.iso ?? fromPub?.iso ?? new Date(ms).toISOString()
   const isoRaw = fromIso?.raw ?? (fromPub ? fromPub.iso : null)
   const pubRaw = fromPub?.raw ?? null
-
   return { ms: Math.round(ms), iso, isoRaw: isoRaw ?? iso, pubRaw }
-}
-
-function feedItemToApi(item: FeedNewsItem): ApiNewsItem | null {
-  const link = (item.link || '').trim()
-  const title = (item.title || '').trim()
-  const source = (item.source || '').trim()
-  if (!link || !title || !source) return null
-
-  const ts = resolveTimestamps(item)
-  const snippet = normalizeSnippet(item)
-
-  return {
-    title,
-    link,
-    source,
-    image: item.image?.trim() || null,
-    contentSnippet: snippet,
-    publishedAt: ts.ms,
-    isoDate: ts.isoRaw,
-  }
 }
 
 function feedItemToDbRow(item: FeedNewsItem) {
@@ -117,10 +91,8 @@ function feedItemToDbRow(item: FeedNewsItem) {
   const title = (item.title || '').trim()
   const source = (item.source || '').trim()
   if (!link || !title || !source) return null
-
   const ts = resolveTimestamps(item)
   const snippet = normalizeSnippet(item)
-
   return {
     link,
     title,
@@ -177,29 +149,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
     const wantsFresh = req.query.forceFresh === '1'
     const source = (req.query.source as string) || null
 
-    // For non-paged + explicit forceFresh, we can optionally fetch RSS
-    // to sync the DB and (optionally) return a fresh payload for the "banner".
+    // If forceFresh requested, do a background sync RSS -> DB, but DO NOT return raw RSS.
     if (!paged && wantsFresh) {
       try {
-        const feedItems = await fetchRSSFeeds({ forceFresh: true })
-        const deduped = dedupeByLink(feedItems).slice(0, 200)
-
-        if (deduped.length) {
-          await syncToSupabase(deduped).catch((err) =>
-            console.error('❌ Supabase sync error (news):', err),
-          )
-          // Return a "fresh" array to the client so the header banner can light up.
-          const payload = deduped
-            .map(feedItemToApi)
-            .filter((item): item is ApiNewsItem => Boolean(item))
-
-          if (payload.length) {
-            res.setHeader('Cache-Control', 'no-store')
-            return res.status(200).json(payload)
-          }
-        }
+        const rss = await fetchRSSFeeds({ forceFresh: true })
+        const deduped = dedupeByLink(rss).slice(0, 200)
+        if (deduped.length) await syncToSupabase(deduped)
       } catch (err) {
-        console.error('❌ Fetch RSS error:', err)
+        console.error('❌ RSS sync error:', err)
       }
     }
 
@@ -208,7 +165,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
       200,
     )
 
-    const cursor = req.query.cursor ? Number(req.query.cursor) : null  // ms epoch
+    const cursor = req.query.cursor ? Number(req.query.cursor) : null
 
     let q = supabaseRead
       .from('news')
