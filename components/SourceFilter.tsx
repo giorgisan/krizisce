@@ -6,8 +6,9 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { SOURCES } from '@/lib/sources'
 
 type Props = {
-  value: string                // 'Vse' ali ime vira
-  onChange: (next: string) => void
+  // podpremo oboje: 'Vse' ali ['RTVSLO'] (multi-API)
+  value: string | string[]
+  onChange: (next: string | string[]) => void
 }
 
 function emitFilterUpdate(sources: string[]) {
@@ -23,6 +24,10 @@ const ric = (cb: () => void) => {
 }
 
 export default function SourceFilter({ value, onChange }: Props) {
+  // ali je trenutni “mode” multi (array) ali single (string)
+  const multi = Array.isArray(value)
+  const current = multi ? (value[0] ?? 'Vse') : value
+
   const [menuOpen, setMenuOpen] = useState(false)
   const [pos, setPos] = useState<{ top: number; right: number }>({ top: 0, right: 0 })
 
@@ -31,14 +36,16 @@ export default function SourceFilter({ value, onChange }: Props) {
     const header = document.getElementById('site-header')
     const triggerRect = trigger?.getBoundingClientRect()
     const headerRect = header?.getBoundingClientRect()
+
     const topFromTrigger = (triggerRect?.bottom ?? 56) + 8
     const topFromHeader = (headerRect?.bottom ?? 56) + 8
     const top = Math.max(topFromHeader, topFromTrigger)
+
     const right = Math.max(0, window.innerWidth - (triggerRect?.right ?? window.innerWidth))
     setPos({ top, right })
   }
 
-  // odpiranje/closing prek Header ikone
+  // odpiranje prek globalnega eventa iz Headerja
   useEffect(() => {
     const handler = () => { ric(() => computeDropdownPos()); setMenuOpen((s) => !s) }
     window.addEventListener('toggle-filters', handler as EventListener)
@@ -61,13 +68,16 @@ export default function SourceFilter({ value, onChange }: Props) {
     }
   }, [menuOpen])
 
-  const pick = (s: string) => {
-    onChange(s)
+  const pick = (sel: string) => {
+    // posodobi parent state v pravem formatu
+    if (multi) onChange(sel === 'Vse' ? [] : [sel])
+    else onChange(sel)
+    // emit za Header/badge
+    emitFilterUpdate(sel === 'Vse' ? [] : [sel])
     setMenuOpen(false)
-    emitFilterUpdate(s === 'Vse' ? [] : [s])
   }
 
-  const isActive = (s: string) => value === s
+  const isActive = (s: string) => current === s
 
   return (
     <AnimatePresence>
@@ -98,17 +108,10 @@ export default function SourceFilter({ value, onChange }: Props) {
             <div className="w-[86vw] max-w-[22rem] rounded-xl border border-gray-200/70 dark:border-gray-700/70 bg-white/80 dark:bg-gray-900/75 backdrop-blur-xl shadow-xl overflow-hidden">
               <div className="px-4 py-2 flex items-center justify-between">
                 <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">Filtriraj vire</span>
-                <button
-                  aria-label="Zapri"
-                  onClick={() => setMenuOpen(false)}
-                  className="h-8 w-8 inline-flex items-center justify-center rounded-md hover:bg-black/5 dark:hover:bg-white/5"
-                >
-                  <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
-                    <path d="M6 6l12 12M18 6l-12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-                  </svg>
+                <button aria-label="Zapri" onClick={() => setMenuOpen(false)} className="h-8 w-8 inline-flex items-center justify-center rounded-md hover:bg-black/5 dark:hover:bg-white/5">
+                  <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M6 6l12 12M18 6l-12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>
                 </button>
               </div>
-
               <div className="px-2 pb-2 max-h-[70vh] overflow-y-auto scrollbar-hide">
                 <div className="space-y-1">
                   {/* Pokaži vse */}
