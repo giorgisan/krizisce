@@ -24,13 +24,14 @@ const POLL_MS = 60_000          // 1 min, ko je zavihek v ospredju
 const HIDDEN_POLL_MS = 5 * 60_000
 const POLL_MAX_BACKOFF = 5
 
-// ——— throttle-ano “brcni” RSS→DB sinhronizacijo (fire-and-forget, ne za UI) ———
+// ——— throttle “brcni” RSS→DB sinhronizacijo (fire-and-forget, ne za UI) ———
 const SYNC_KEY = 'krizisce_last_sync_ms'
 async function kickSyncIfStale(maxAgeMs = 5 * 60_000) {
   try {
     const now = Date.now()
     const last = Number(localStorage.getItem(SYNC_KEY) || '0')
     if (!last || now - last > maxAgeMs) {
+      // samo sproži; UI vedno bere iz DB brez forceFresh
       fetch('/api/news?forceFresh=1', { cache: 'no-store', keepalive: true }).catch(() => {})
       localStorage.setItem(SYNC_KEY, String(now))
     }
@@ -41,7 +42,7 @@ function timeout(ms: number) {
   return new Promise((_, rej) => setTimeout(() => rej(new Error('Request timeout')), ms))
 }
 
-// UI *vedno* bere samo iz DB (/api/news), nikoli iz forceFresh=1.
+// UI *vedno* bere samo iz DB (/api/news), nikoli neposredno iz forceFresh=1.
 async function loadNews(signal?: AbortSignal): Promise<NewsItem[] | null> {
   try {
     const res = (await Promise.race([
@@ -91,9 +92,9 @@ type Props = { initialNews: NewsItem[] }
 export default function Home({ initialNews }: Props) {
   const [news, setNews] = useState<NewsItem[]>(initialNews)
 
-  // >>> Filtriranje je zdaj zunaj (SourceFilter). Tu hranimo samo izbran vir.
-  const [selectedSource, setSelectedSource] = useState<string>('Vse')
-  const deferredSource = useDeferredValue(selectedSource)
+  // >>> NOVO: multi-select filtri (prazno = vsi)
+  const [filters, setFilters] = useState<string[]>([])
+  const deferredFilters = useDeferredValue(filters)
   // <<<
 
   const [displayCount, setDisplayCount] = useState<number>(20)
@@ -130,7 +131,7 @@ export default function Home({ initialNews }: Props) {
   // polling (z backoff + visibility)
   const [freshNews, setFreshNews] = useState<NewsItem[] | null>(null)
   const [hasNewBanner, setHasNewBanner] = useState(false)
-  const [bannerMode] = useState<'fresh'>('fresh') // “updates” smo opustili (manj šuma)
+  const [bannerMode] = useState<'fresh'>('fresh') // enoten banner
   const missCountRef = useRef(0)
   const timerRef = useRef<number | null>(null)
 
@@ -243,10 +244,15 @@ export default function Home({ initialNews }: Props) {
     () => [...shapedNews].sort((a, b) => (b as any).stableAt - (a as any).stableAt),
     [shapedNews]
   )
+
   const filteredNews = useMemo(
-    () => (deferredSource === 'Vse' ? sortedNews : sortedNews.filter((a) => a.source === deferredSource)),
-    [sortedNews, deferredSource]
+    () =>
+      (deferredFilters.length === 0
+        ? sortedNews
+        : sortedNews.filter((a) => deferredFilters.includes(a.source))),
+    [sortedNews, deferredFilters]
   )
+
   const visibleNews = useMemo(() => filteredNews.slice(0, displayCount), [filteredNews, displayCount])
 
   // minimalni publishedAt med trenutno naloženimi → za naslednjo stran gremo pod to vrednost
@@ -254,18 +260,19 @@ export default function Home({ initialNews }: Props) {
     if (!filteredNews.length) { setCursor(null); setHasMore(true); return }
     const minMs = filteredNews.reduce((acc, n) => Math.min(acc, n.publishedAt || acc), filteredNews[0].publishedAt || 0)
     setCursor(minMs || null)
-  }, [deferredSource, news])
+  }, [deferredFilters, news, filteredNews])
 
   // realni loadMore (pridobi starejše preko API kurzorja)
   const [isLoadingMore, setIsLoadingMore] = useState(false)
   type PagePayload = { items: NewsItem[]; nextCursor: number | null }
-  async function fetchPage(params: { cursor?: number | null; limit?: number; source?: string | null }): Promise<PagePayload> {
-    const { cursor, limit = 40, source } = params
+  async function fetchPage(params: { cursor?: number | null; limit?: number; sourceFilters?: string[] }): Promise<PagePayload> {
+    const { cursor, limit = 40, sourceFilters } = params
     const qs = new URLSearchParams()
     qs.set('paged', '1')
     qs.set('limit', String(limit))
     if (cursor != null) qs.set('cursor', String(cursor))
-    if (source && source !== 'Vse') qs.set('source', source)
+    // Če je izbran točno 1 vir, pošlji ?source=…, sicer naj strežnik vrne “vse”, mi pa lokalno filtriramo.
+    if (sourceFilters && sourceFilters.length === 1) qs.set('source', sourceFilters[0])
     const res = await fetch(`/api/news?${qs.toString()}`, { cache: 'no-store' })
     if (!res.ok) return { items: [], nextCursor: null }
     const data = (await res.json()) as PagePayload
@@ -280,11 +287,19 @@ export default function Home({ initialNews }: Props) {
       const { items, nextCursor } = await fetchPage({
         cursor,
         limit: 40,
-        source: deferredSource,
+        sourceFilters: deferredFilters,
       })
 
+      // lokalni filter (če je več kot 1 vir izbran)
+      const locallyFiltered =
+        deferredFilters.length === 0
+          ? items
+          : deferredFilters.length === 1
+            ? items
+            : items.filter(i => deferredFilters.includes(i.source))
+
       const seen = new Set(news.map(n => n.link))
-      const fresh = items.filter(i => !seen.has(i.link))
+      const fresh = locallyFiltered.filter(i => !seen.has(i.link))
 
       if (fresh.length) {
         setNews(prev => [...prev, ...fresh])
@@ -312,12 +327,12 @@ export default function Home({ initialNews }: Props) {
     <>
       <Header />
 
-      {/* Filter je ločen v komponento in se vključi samo na tej strani */}
+      {/* Filter je ločen v komponento in aktiven samo na tej strani */}
       <SourceFilter
-        value={selectedSource}
+        value={filters}
         onChange={(next) => {
           startTransition(() => {
-            setSelectedSource(next)
+            setFilters(next)
             setDisplayCount(20)
             setHasMore(true)
             setCursor(null)
@@ -335,12 +350,12 @@ export default function Home({ initialNews }: Props) {
       >
         {visibleNews.length === 0 ? (
           <p className="text-gray-500 dark:text-gray-400 text-center w-full mt-10">
-            Ni novic za izbrani vir ali napaka pri nalaganju.
+            Ni novic za izbrane vire ali napaka pri nalaganju.
           </p>
         ) : (
           <AnimatePresence>
             <motion.div
-              key={deferredSource}
+              key={JSON.stringify(deferredFilters)}
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -8 }}
@@ -352,6 +367,24 @@ export default function Home({ initialNews }: Props) {
               ))}
             </motion.div>
           </AnimatePresence>
+        )}
+
+        {hasNewBanner && (
+          <div className="text-center mt-6">
+            <button
+              onClick={() => window.dispatchEvent(new CustomEvent('refresh-news'))}
+              className="inline-flex items-center gap-2 rounded-full px-4 py-2
+                         bg-emerald-500/10 text-emerald-700 dark:text-emerald-300
+                         ring-1 ring-emerald-400/40 dark:ring-emerald-600/40
+                         hover:bg-emerald-500/15 transition shadow-sm"
+            >
+              <span className="relative inline-flex">
+                <span className="h-2.5 w-2.5 rounded-full bg-emerald-500 opacity-80"></span>
+                <span className="absolute inset-0 rounded-full bg-emerald-500 animate-ping opacity-25"></span>
+              </span>
+              <span>Na voljo so sveže novice — klikni za osvežitev</span>
+            </button>
+          </div>
         )}
 
         {hasMore && (
