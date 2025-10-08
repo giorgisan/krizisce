@@ -26,6 +26,17 @@ function IconSignpost(props: React.SVGProps<SVGSVGElement>) {
   )
 }
 
+function IconArchive(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}
+      strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...props}>
+      <path d="M3 7h18l-2-3H5l-2 3Z" />
+      <path d="M4 7h16v11a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7Z" />
+      <path d="M9 12h6" />
+    </svg>
+  )
+}
+
 function LogoImg({ slug, origin, label }: { slug: string; origin: string; label: string }) {
   const candidates = [
     `/logos/${slug}.svg`,
@@ -99,6 +110,7 @@ export default function Footer() {
           <div>
             <h4 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white mb-3">Povezave</h4>
             <ul className="space-y-1.5 text-sm">
+              <li><Link href="/arhiv" className="hover:text-gray-900 dark:hover:text-white transition">Arhiv</Link></li>
               <li><Link href="/projekt" className="hover:text-gray-900 dark:hover:text-white transition">O projektu</Link></li>
               <li><Link href="/pogoji" className="hover:text-gray-900 dark:hover:text-white transition">Pogoji uporabe</Link></li>
             </ul>
@@ -113,6 +125,30 @@ export default function Footer() {
           </div>
         </div>
 
+        {/* CTA: Arhiv (izpostavljen) */}
+        <div className="mt-6">
+          <div className="rounded-2xl border border-gray-200/70 dark:border-gray-800/70 bg-white/70 dark:bg-gray-900/50 p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div className="flex items-start gap-3">
+              <div className="h-9 w-9 rounded-lg grid place-items-center bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 ring-1 ring-emerald-400/30">
+                <IconArchive className="h-5 w-5" />
+              </div>
+              <div>
+                <div className="font-semibold text-gray-900 dark:text-white">Interaktivni arhiv novic</div>
+                <p className="text-sm text-gray-700 dark:text-gray-300">
+                  Preglej posamezen dan, filtriraj po viru in hitro poišči naslov ali ključne besede.
+                </p>
+              </div>
+            </div>
+            <Link
+              href="/arhiv"
+              className="inline-flex items-center justify-center rounded-full px-4 py-2 text-sm font-medium
+                         bg-emerald-600 text-white hover:bg-emerald-500 transition shadow-sm"
+            >
+              Oglej si arhiv
+            </Link>
+          </div>
+        </div>
+
         {/* Gumb Viri – bližje vsebini */}
         <div className="mt-6 flex justify-center">
           <div className="relative">
@@ -122,7 +158,7 @@ export default function Footer() {
               onClick={() => setOpen(v => !v)}
               className="inline-flex items-center gap-2 rounded-full px-4 py-2 ring-1 ring-black/10 dark:ring-white/10
                          text-gray-700 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white
-                         bg-white/60 hover:bg-white/80 dark:bg-gray-900/60 dark:hover:bg-gray-900/80 
+                         bg-white/60 hover:bg:white/80 dark:bg-gray-900/60 dark:hover:bg-gray-900/80 
                          backdrop-blur-md transition"
               aria-haspopup="dialog"
               aria-expanded={open}
@@ -168,7 +204,7 @@ export default function Footer() {
           </div>
         </div>
 
-        {/* Ločnica + copyright; dodatni "air" spodaj, vključno z safe-area na mobilnikih */}
+        {/* Ločnica + copyright */}
         <div className="border-t border-gray-200 dark:border-gray-800 mt-8 pt-4 text-center text-sm text-gray-600 dark:text-gray-500
                         pb-[calc(env(safe-area-inset-bottom,0px)+24px)]">
           <p className="italic mb-2">“Informacija ni znanje. Edino razumevanje šteje.” — Albert Einstein</p>
