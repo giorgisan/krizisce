@@ -12,68 +12,67 @@ import React, {
 import { motion, AnimatePresence } from 'framer-motion'
 
 import { NewsItem } from '@/types'
-import fetchRSSFeeds from '@/lib/fetchRSSFeeds'
 import Footer from '@/components/Footer'
 import Header from '@/components/Header'
-import { SOURCES } from '@/lib/sources'
 import ArticleCard from '@/components/ArticleCard'
 import SeoHead from '@/components/SeoHead'
 import BackToTop from '@/components/BackToTop'
+import SourceFilter from '@/components/SourceFilter'
 
 // -------------------- Helpers & constants --------------------
-const POLL_MS = 60_000
+const POLL_MS = 60_000          // 1 min, ko je zavihek v ospredju
 const HIDDEN_POLL_MS = 5 * 60_000
 const POLL_MAX_BACKOFF = 5
+
+// ——— throttle-ano “brcni” RSS→DB sinhronizacijo (fire-and-forget, ne za UI) ———
+const SYNC_KEY = 'krizisce_last_sync_ms'
+async function kickSyncIfStale(maxAgeMs = 5 * 60_000) {
+  try {
+    const now = Date.now()
+    const last = Number(localStorage.getItem(SYNC_KEY) || '0')
+    if (!last || now - last > maxAgeMs) {
+      fetch('/api/news?forceFresh=1', { cache: 'no-store', keepalive: true }).catch(() => {})
+      localStorage.setItem(SYNC_KEY, String(now))
+    }
+  } catch {}
+}
 
 function timeout(ms: number) {
   return new Promise((_, rej) => setTimeout(() => rej(new Error('Request timeout')), ms))
 }
 
-async function loadNews(forceFresh: boolean, signal?: AbortSignal): Promise<NewsItem[] | null> {
+// UI *vedno* bere samo iz DB (/api/news), nikoli iz forceFresh=1.
+async function loadNews(signal?: AbortSignal): Promise<NewsItem[] | null> {
   try {
     const res = (await Promise.race([
-      fetch(`/api/news${forceFresh ? '?forceFresh=1' : ''}`, { cache: 'no-store', signal }),
+      fetch('/api/news', { cache: 'no-store', signal }),
       timeout(12_000),
     ])) as Response
-    const fresh: NewsItem[] = await res.json()
-    return Array.isArray(fresh) && fresh.length ? fresh : null
+    const data: NewsItem[] = await res.json()
+    return Array.isArray(data) && data.length ? data : null
   } catch {
     return null
   }
 }
 
-// --- paged fetch za "Naloži več"
-type PagePayload = { items: NewsItem[]; nextCursor: number | null }
-async function fetchPage(params: { cursor?: number | null; limit?: number; source?: string | null }): Promise<PagePayload> {
-  const { cursor, limit = 40, source } = params
-  const qs = new URLSearchParams()
-  qs.set('paged', '1')
-  qs.set('limit', String(limit))
-  if (cursor != null) qs.set('cursor', String(cursor))
-  if (source && source !== 'Vse') qs.set('source', source)
-  const res = await fetch(`/api/news?${qs.toString()}`, { cache: 'no-store' })
-  if (!res.ok) return { items: [], nextCursor: null }
-  const data = (await res.json()) as PagePayload
-  if (!data || !Array.isArray(data.items)) return { items: [], nextCursor: null }
-  return data
-}
+// Robustnejša primerjava: banner pokažemo le, ko je res kaj *novejšega*.
+const NEWNESS_GRACE_MS = 30_000 // toleranca 30s proti kozmetičnim spremembam
+const diffFresh = (fresh: NewsItem[], current: NewsItem[]) => {
+  if (!fresh?.length) return { newLinks: 0, hasNewer: false }
 
-function emitFilterUpdate(sources: string[]) {
-  try { sessionStorage.setItem('filters_interacted', '1') } catch {}
-  try { localStorage.setItem('selectedSources', JSON.stringify(sources)) } catch {}
-  try { window.dispatchEvent(new CustomEvent('filters:update', { detail: { sources } })) } catch {}
-}
+  const curSet = new Set(current.map(n => n.link))
+  const newLinks = fresh.filter(n => !curSet.has(n.link)).length
 
-const ric = (cb: () => void) => {
-  if (typeof (window as any).requestIdleCallback === 'function') {
-    ;(window as any).requestIdleCallback(cb, { timeout: 500 })
-  } else setTimeout(cb, 0)
+  const maxCurrent = current.reduce((a, n) => Math.max(a, n.publishedAt || 0), 0)
+  const maxFresh   = fresh.reduce((a, n) => Math.max(a, n.publishedAt || 0), 0)
+  const hasNewer   = maxFresh > maxCurrent + NEWNESS_GRACE_MS
+
+  return { newLinks, hasNewer }
 }
 
 // === stabilni čas objave (immutable) prek localStorage ===
 const LS_FIRST_SEEN = 'krizisce_first_seen_v1'
 type FirstSeenMap = Record<string, number> // link -> ms epoch
-
 function loadFirstSeen(): FirstSeenMap {
   if (typeof window === 'undefined') return {}
   try {
@@ -81,22 +80,23 @@ function loadFirstSeen(): FirstSeenMap {
     return raw ? (JSON.parse(raw) as FirstSeenMap) : {}
   } catch { return {} }
 }
-
 function saveFirstSeen(map: FirstSeenMap) {
   if (typeof window === 'undefined') return
   try { window.localStorage.setItem(LS_FIRST_SEEN, JSON.stringify(map)) } catch {}
 }
 
+// -------------------- Page --------------------
 type Props = { initialNews: NewsItem[] }
 
 export default function Home({ initialNews }: Props) {
   const [news, setNews] = useState<NewsItem[]>(initialNews)
-  const [filter, setFilter] = useState<string>('Vse')
-  const deferredFilter = useDeferredValue(filter)
-  const [displayCount, setDisplayCount] = useState<number>(20)
 
-  const [menuOpen, setMenuOpen] = useState(false)
-  const [pos, setPos] = useState<{ top: number; right: number }>({ top: 0, right: 0 })
+  // >>> Filtriranje je zdaj zunaj (SourceFilter). Tu hranimo samo izbran vir.
+  const [selectedSource, setSelectedSource] = useState<string>('Vse')
+  const deferredSource = useDeferredValue(selectedSource)
+  // <<<
+
+  const [displayCount, setDisplayCount] = useState<number>(20)
 
   // first-seen mapa za stabilni čas
   const [firstSeen, setFirstSeen] = useState<FirstSeenMap>(() => loadFirstSeen())
@@ -105,58 +105,22 @@ export default function Home({ initialNews }: Props) {
   const [hasMore, setHasMore] = useState<boolean>(true)
   const [cursor, setCursor] = useState<number | null>(null) // ms publishedAt za naslednji batch (starejši od cursor)
 
-  useEffect(() => {
-    const handler = () => { ric(() => computeDropdownPos()); setMenuOpen((s) => !s) }
-    window.addEventListener('toggle-filters', handler as EventListener)
-    return () => window.removeEventListener('toggle-filters', handler as EventListener)
-  }, [])
-
-  const computeDropdownPos = () => {
-    const trigger = document.getElementById('filters-trigger')
-    const header = document.getElementById('site-header')
-    const triggerRect = trigger?.getBoundingClientRect()
-    const headerRect = header?.getBoundingClientRect()
-
-    const topFromTrigger = (triggerRect?.bottom ?? 56) + 8
-    const topFromHeader = (headerRect?.bottom ?? 56) + 8
-    const top = Math.max(topFromHeader, topFromTrigger)
-
-    const right = Math.max(0, window.innerWidth - (triggerRect?.right ?? window.innerWidth))
-    setPos({ top, right })
-  }
-
-  useEffect(() => {
-    if (!menuOpen) return
-    const onResize = () => ric(() => computeDropdownPos())
-    const onScroll = () => ric(() => menuOpen && computeDropdownPos())
-    window.addEventListener('resize', onResize)
-    window.addEventListener('scroll', onScroll, { passive: true })
-    ric(() => computeDropdownPos())
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setMenuOpen(false) }
-    document.addEventListener('keydown', onKey)
-    return () => {
-      window.removeEventListener('resize', onResize)
-      window.removeEventListener('scroll', onScroll)
-      document.removeEventListener('keydown', onKey)
-    }
-  }, [menuOpen])
-
   // ---------- Instant refresh on first visit ----------
   const [bootRefreshed, setBootRefreshed] = useState(false)
-
   useEffect(() => {
     const ctrl = new AbortController()
     ;(async () => {
-      const fresh = await loadNews(true, ctrl.signal)
+      // 1) UI bere samo DB
+      const fresh = await loadNews(ctrl.signal)
       if (fresh && fresh.length) {
         const currentLinks = new Set(initialNews.map(n => n.link))
         const hasNewLink = fresh.some(n => n.link && !currentLinks.has(n.link))
         if (hasNewLink) {
           startTransition(() => { setNews(fresh); setDisplayCount(20) })
-        } else {
-          // če ni novih linkov, pa so posodobitve, bomo to odkrili v pollingu
         }
       }
+      // 2) tiho “brcni” strežniško sinhronizacijo max na 5 min
+      kickSyncIfStale(5 * 60_000)
       setBootRefreshed(true)
     })()
     return () => ctrl.abort()
@@ -166,32 +130,19 @@ export default function Home({ initialNews }: Props) {
   // polling (z backoff + visibility)
   const [freshNews, setFreshNews] = useState<NewsItem[] | null>(null)
   const [hasNewBanner, setHasNewBanner] = useState(false)
-  const [bannerMode, setBannerMode] = useState<'fresh' | 'updates'>('fresh') // NEW
+  const [bannerMode] = useState<'fresh'>('fresh') // “updates” smo opustili (manj šuma)
   const missCountRef = useRef(0)
   const timerRef = useRef<number | null>(null)
-
-  const diffFresh = (fresh: NewsItem[], current: NewsItem[]) => {
-    const byLink = new Map(current.map(n => [n.link, n]))
-    let newLinks = 0
-    let updatedOnly = 0
-    for (const f of fresh) {
-      const old = byLink.get(f.link)
-      if (!old) { newLinks++; continue }
-      if ((old.title ?? '') !== (f.title ?? '') ||
-          (old.image ?? '') !== (f.image ?? '') ||
-          (old.contentSnippet ?? '') !== (f.contentSnippet ?? '')) {
-        updatedOnly++
-      }
-    }
-    return { newLinks, updatedOnly }
-  }
 
   useEffect(() => {
     if (!bootRefreshed) return
 
     const runCheck = async () => {
+      // nežno poženi strežniško sinhronizacijo na ~10 min (fire-and-forget)
+      kickSyncIfStale(10 * 60_000)
+
       const ctrl = new AbortController()
-      const fresh = await loadNews(true, ctrl.signal)
+      const fresh = await loadNews(ctrl.signal)
       if (!fresh || fresh.length === 0) {
         setHasNewBanner(false)
         window.dispatchEvent(new CustomEvent('news-has-new', { detail: false }))
@@ -200,20 +151,12 @@ export default function Home({ initialNews }: Props) {
         return
       }
 
-      const { newLinks, updatedOnly } = diffFresh(fresh, news)
-
+      const { newLinks, hasNewer } = diffFresh(fresh, news)
       setFreshNews(fresh)
-      if (newLinks > 0) {
-        setBannerMode('fresh')
+
+      if (hasNewer && newLinks > 0) {
         setHasNewBanner(true)
         window.dispatchEvent(new CustomEvent('news-banner-mode', { detail: 'fresh' }))
-        window.dispatchEvent(new CustomEvent('news-has-new', { detail: true }))
-        missCountRef.current = 0
-      } else if (updatedOnly > 0) {
-        setBannerMode('updates')
-        setHasNewBanner(true)
-        window.dispatchEvent(new CustomEvent('news-banner-mode', { detail: 'updates' }))
-        // zaradi združljivosti ostane isti event:
         window.dispatchEvent(new CustomEvent('news-has-new', { detail: true }))
         missCountRef.current = 0
       } else {
@@ -244,7 +187,7 @@ export default function Home({ initialNews }: Props) {
     }
   }, [news, bootRefreshed])
 
-  // manual refresh
+  // manual refresh (na klik bannera/ikone)
   useEffect(() => {
     const onRefresh = () => {
       window.dispatchEvent(new CustomEvent('news-refreshing', { detail: true }))
@@ -260,11 +203,10 @@ export default function Home({ initialNews }: Props) {
           setDisplayCount(20)
         }
         if (freshNews) {
-          // Če imamo svež paket, ga uveljavi.
           setNews(freshNews)
           finish()
         } else {
-          loadNews(true).then((fresh) => {
+          loadNews().then((fresh) => {
             if (fresh && fresh.length) { setNews(fresh) }
             finish()
           })
@@ -274,22 +216,6 @@ export default function Home({ initialNews }: Props) {
     window.addEventListener('refresh-news', onRefresh as EventListener)
     return () => window.removeEventListener('refresh-news', onRefresh as EventListener)
   }, [freshNews])
-
-  // sync s Headerjem (filters:update) – reset paginacije
-  useEffect(() => {
-    const onFiltersUpdate = (e: Event) => {
-      const arr = (e as CustomEvent).detail?.sources
-      if (!Array.isArray(arr)) return
-      startTransition(() => {
-        setFilter(arr.length ? arr[0] : 'Vse')
-        setDisplayCount(20)
-        setHasMore(true)
-        setCursor(null)
-      })
-    }
-    window.addEventListener('filters:update', onFiltersUpdate as EventListener)
-    return () => window.removeEventListener('filters:update', onFiltersUpdate as EventListener)
-  }, [])
 
   // — obogatimo novice s "stableAt" in sproti dopolnimo firstSeen mapo —
   const shapedNews = useMemo(() => {
@@ -312,14 +238,14 @@ export default function Home({ initialNews }: Props) {
     return withStable
   }, [news, firstSeen])
 
-  // data shaping (sort + filter + paginate)
+  // filter + sort + paginate
   const sortedNews = useMemo(
     () => [...shapedNews].sort((a, b) => (b as any).stableAt - (a as any).stableAt),
     [shapedNews]
   )
   const filteredNews = useMemo(
-    () => (deferredFilter === 'Vse' ? sortedNews : sortedNews.filter((a) => a.source === deferredFilter)),
-    [sortedNews, deferredFilter]
+    () => (deferredSource === 'Vse' ? sortedNews : sortedNews.filter((a) => a.source === deferredSource)),
+    [sortedNews, deferredSource]
   )
   const visibleNews = useMemo(() => filteredNews.slice(0, displayCount), [filteredNews, displayCount])
 
@@ -328,15 +254,25 @@ export default function Home({ initialNews }: Props) {
     if (!filteredNews.length) { setCursor(null); setHasMore(true); return }
     const minMs = filteredNews.reduce((acc, n) => Math.min(acc, n.publishedAt || acc), filteredNews[0].publishedAt || 0)
     setCursor(minMs || null)
-  }, [deferredFilter, news])
-
-  const onPick = (s: string) =>
-    startTransition(() => { setFilter(s); setDisplayCount(20); setMenuOpen(false); emitFilterUpdate([s]) })
-  const resetFilter = () =>
-    startTransition(() => { setFilter('Vse'); setDisplayCount(20); setMenuOpen(false); emitFilterUpdate([]) })
+  }, [deferredSource, news])
 
   // realni loadMore (pridobi starejše preko API kurzorja)
   const [isLoadingMore, setIsLoadingMore] = useState(false)
+  type PagePayload = { items: NewsItem[]; nextCursor: number | null }
+  async function fetchPage(params: { cursor?: number | null; limit?: number; source?: string | null }): Promise<PagePayload> {
+    const { cursor, limit = 40, source } = params
+    const qs = new URLSearchParams()
+    qs.set('paged', '1')
+    qs.set('limit', String(limit))
+    if (cursor != null) qs.set('cursor', String(cursor))
+    if (source && source !== 'Vse') qs.set('source', source)
+    const res = await fetch(`/api/news?${qs.toString()}`, { cache: 'no-store' })
+    if (!res.ok) return { items: [], nextCursor: null }
+    const data = (await res.json()) as PagePayload
+    if (!data || !Array.isArray(data.items)) return { items: [], nextCursor: null }
+    return data
+  }
+
   const handleLoadMore = async () => {
     if (isLoadingMore || !hasMore || cursor == null || cursor <= 0) return
     setIsLoadingMore(true)
@@ -344,7 +280,7 @@ export default function Home({ initialNews }: Props) {
       const { items, nextCursor } = await fetchPage({
         cursor,
         limit: 40,
-        source: deferredFilter,
+        source: deferredSource,
       })
 
       const seen = new Set(news.map(n => n.link))
@@ -376,66 +312,23 @@ export default function Home({ initialNews }: Props) {
     <>
       <Header />
 
+      {/* Filter je ločen v komponento in se vključi samo na tej strani */}
+      <SourceFilter
+        value={selectedSource}
+        onChange={(next) => {
+          startTransition(() => {
+            setSelectedSource(next)
+            setDisplayCount(20)
+            setHasMore(true)
+            setCursor(null)
+          })
+        }}
+      />
+
       <SeoHead
         title="Križišče"
         description="Agregator najnovejših novic iz slovenskih medijev. Članki so last izvornih portalov."
       />
-
-      {/* DROPDOWN */}
-      <AnimatePresence>
-        {menuOpen && (
-          <>
-            <motion.div
-              key="clickaway"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.05 }}
-              className="fixed inset-0 z-30 bg-transparent"
-              onClick={() => setMenuOpen(false)}
-              aria-hidden
-            />
-            <motion.div
-              key="filter-dropdown"
-              initial={{ opacity: 0, y: -6 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -6 }}
-              transition={{ duration: 0.12 }}
-              className="fixed z-40"
-              style={{ top: pos.top, right: pos.right }}
-              onClick={(e) => e.stopPropagation()}
-              role="dialog"
-              aria-label="Filtriraj vire"
-            >
-              <div className="w-[86vw] max-w-[22rem] rounded-xl border border-gray-200/70 dark:border-gray-700/70 bg-white/80 dark:bg-gray-900/75 backdrop-blur-xl shadow-xl overflow-hidden">
-                <div className="px-4 py-2 flex items-center justify-between">
-                  <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">Filtriraj vire</span>
-                  <button aria-label="Zapri" onClick={() => setMenuOpen(false)} className="h-8 w-8 inline-flex items-center justify-center rounded-md hover:bg-black/5 dark:hover:bg-white/5">
-                    <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M6 6l12 12M18 6l-12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>
-                  </button>
-                </div>
-                <div className="px-2 pb-2 max-h-[70vh] overflow-y-auto scrollbar-hide">
-                  <div className="space-y-1">
-                    <button onClick={resetFilter} className="w-full text-left px-3 py-2 rounded-md bg-brand text-white hover:bg-brand-hover transition">Pokaži vse</button>
-                    {SOURCES.filter((s) => s !== 'Vse').map((source, idx) => (
-                      <motion.button
-                        key={source}
-                        onClick={() => onPick(source)}
-                        initial={{ opacity: 0, y: 3 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.1, delay: 0.01 * idx }}
-                        className="w-full text-left px-3 py-2 rounded-md hover:bg-black/5 dark:hover:bg-white/5 text-gray-800 dark:text-gray-200 transition"
-                      >
-                        {source}
-                      </motion.button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
 
       <main
         className="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white px-4 md:px-8 lg:px-16 pt-5 lg:pt-6 pb-24 transform-gpu translate-y-[var(--mob-shift,0px)] md:translate-y-0 transition-transform duration-150 ease-out"
@@ -447,7 +340,7 @@ export default function Home({ initialNews }: Props) {
         ) : (
           <AnimatePresence>
             <motion.div
-              key={deferredFilter}
+              key={deferredSource}
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -8 }}
@@ -482,9 +375,8 @@ export default function Home({ initialNews }: Props) {
   )
 }
 
-// Replacement for pages/index.tsx -> getStaticProps (fixed typing)
+// -------------------- SSG: seed iz Supabase --------------------
 export async function getStaticProps() {
-  // Seed initial page from Supabase instead of direct RSS
   const { createClient } = await import('@supabase/supabase-js')
   const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL as string
   const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string
@@ -503,7 +395,7 @@ export async function getStaticProps() {
   }
 
   const { data } = await supabase
-    .from('news') // no generic here to avoid TS 'Expected 2 type arguments' error
+    .from('news')
     .select('id, link, title, source, summary, contentsnippet, image, published_at, publishedat')
     .order('publishedat', { ascending: false })
     .limit(60)
