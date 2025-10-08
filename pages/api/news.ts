@@ -56,15 +56,12 @@ function canonicalize(raw: string): string {
     const u = new URL(raw.trim())
     u.protocol = 'https:'                                   // https
     u.host = u.host.toLowerCase().replace(/^www\./, '')     // brez www
-    const TRACK = [
-      /^utm_/i, /^fbclid$/i, /^gclid$/i, /^ref$/i, /^src$/i, /^from$/i,
-      /^si_src$/i, /^mc_cid$/i, /^mc_eid$/i
-    ]
-    for (const k of Array.from(u.searchParams.keys())) {
-      if (TRACK.some(rx => rx.test(k))) u.searchParams.delete(k)
-    }
-    u.pathname = u.pathname.replace(/\/amp\/?$/i, '/')      // brez /amp
-    if (u.pathname.length > 1) u.pathname = u.pathname.replace(/\/+$/,'') // brez trailing /
+    // odstrani tracking queryje
+    const TRACK = [/^utm_/i, /^fbclid$/i, /^gclid$/i, /^ref$/i, /^src$/i, /^from$/i, /^si_src$/i, /^mc_cid$/i, /^mc_eid$/i]
+    for (const k of Array.from(u.searchParams.keys())) if (TRACK.some(rx => rx.test(k))) u.searchParams.delete(k)
+    // brez /amp in trailing /
+    u.pathname = u.pathname.replace(/\/amp\/?$/i, '/')
+    if (u.pathname.length > 1) u.pathname = u.pathname.replace(/\/+$/,'')
     u.hash = ''                                             // brez hash
     if (u.host.endsWith('rtvslo.si')) u.host = 'rtvslo.si'  // posebnost
     return u.toString()
