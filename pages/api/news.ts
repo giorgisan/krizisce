@@ -9,10 +9,12 @@ const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL as string
 const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY as string | undefined
 
+// Read-only client for serving data to the UI
 const supabaseRead = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: { persistSession: false },
 })
 
+// Write client (optional) for syncing fresh RSS items into the DB
 const supabaseWrite = SUPABASE_SERVICE_ROLE_KEY
   ? createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } })
   : null
@@ -175,26 +177,25 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
     const wantsFresh = req.query.forceFresh === '1'
     const source = (req.query.source as string) || null
 
-    if (!paged && (wantsFresh || !source || source === 'Vse')) {
+    // For non-paged + explicit forceFresh, we can optionally fetch RSS
+    // to sync the DB and (optionally) return a fresh payload for the "banner".
+    if (!paged && wantsFresh) {
       try {
-        const feedItems = await fetchRSSFeeds({ forceFresh: wantsFresh })
-        const deduped = dedupeByLink(feedItems)
-        const trimmed = deduped.slice(0, 200)
+        const feedItems = await fetchRSSFeeds({ forceFresh: true })
+        const deduped = dedupeByLink(feedItems).slice(0, 200)
 
-        if (trimmed.length) {
-          await syncToSupabase(trimmed).catch((err) =>
+        if (deduped.length) {
+          await syncToSupabase(deduped).catch((err) =>
             console.error('❌ Supabase sync error (news):', err),
           )
+          // Return a "fresh" array to the client so the header banner can light up.
+          const payload = deduped
+            .map(feedItemToApi)
+            .filter((item): item is ApiNewsItem => Boolean(item))
 
-          if (wantsFresh) {
-            const payload = trimmed
-              .map(feedItemToApi)
-              .filter((item): item is ApiNewsItem => Boolean(item))
-
-            if (payload.length) {
-              res.setHeader('Cache-Control', 'no-store')
-              return res.status(200).json(payload)
-            }
+          if (payload.length) {
+            res.setHeader('Cache-Control', 'no-store')
+            return res.status(200).json(payload)
           }
         }
       } catch (err) {
@@ -212,15 +213,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
     let q = supabaseRead
       .from('news')
       .select('id, link, title, source, image, contentsnippet, summary, isodate, pubdate, published_at, publishedat, created_at')
-      .order('publishedat', { ascending: false })   // ključ: ms bigint
+      .order('publishedat', { ascending: false })
       .order('id', { ascending: false })
 
     if (source && source !== 'Vse') q = q.eq('source', source)
-
-    if (cursor && cursor > 0) {
-      q = q.lt('publishedat', cursor)
-    }
-
+    if (cursor && cursor > 0) q = q.lt('publishedat', cursor)
     q = q.limit(limit)
 
     const { data, error } = await q
@@ -230,7 +227,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
     const items = rows.map(rowToItem)
 
     const nextCursor =
-      rows.length === limit ? (rows[rows.length - 1].publishedat ? Number(rows[rows.length - 1].publishedat) : null) : null
+      rows.length === limit
+        ? (rows[rows.length - 1].publishedat ? Number(rows[rows.length - 1].publishedat) : null)
+        : null
 
     if (paged) {
       const payload: PagedOk = { items, nextCursor }
