@@ -1,4 +1,7 @@
-// pages/api/news.ts (patched: never returns raw RSS; forceFresh only syncs DB)
+// pages/api/news.ts — FULL REPLACEMENT
+// - Nikoli ne vrača surovega RSS. forceFresh samo sproži sync v bazo.
+// - Kanonikalizira URL-je in upserta po link_canonical, da ni dvojnikov.
+
 import type { NextApiRequest, NextApiResponse } from 'next'
 import { createClient } from '@supabase/supabase-js'
 
@@ -20,6 +23,7 @@ const supabaseWrite = SUPABASE_SERVICE_ROLE_KEY
 type Row = {
   id: number
   link: string
+  link_canonical: string | null
   title: string
   source: string
   image: string | null
@@ -42,11 +46,40 @@ export type NewsItem = {
   isoDate?: string | null
 }
 
-type ApiNewsItem = NewsItem
 type PagedOk = { items: NewsItem[]; nextCursor: number | null }
 type ListOk = NewsItem[]
 type Err = { error: string }
 
+/* ========= kanonikalizacija URL-jev ========= */
+function canonicalize(raw: string): string {
+  try {
+    const u = new URL(raw.trim())
+    // https
+    u.protocol = 'https:'
+    // host: lowercase, brez www.
+    u.host = u.host.toLowerCase().replace(/^www\./, '')
+    // odstrani tracking queryje
+    const TRACK = [
+      /^utm_/i, /^fbclid$/i, /^gclid$/i, /^ref$/i, /^src$/i, /^from$/i,
+      /^si_src$/i, /^mc_cid$/i, /^mc_eid$/i
+    ]
+    for (const k of Array.from(u.searchParams.keys())) {
+      if (TRACK.some(rx => rx.test(k))) u.searchParams.delete(k)
+    }
+    // odstrani /amp in trailing slash (razen /)
+    u.pathname = u.pathname.replace(/\/amp\/?$/i, '/')
+    if (u.pathname.length > 1) u.pathname = u.pathname.replace(/\/+$/,'')
+    // brez hash-a
+    u.hash = ''
+    // posebnosti
+    if (u.host.endsWith('rtvslo.si')) u.host = 'rtvslo.si'
+    return u.toString()
+  } catch {
+    return raw.trim()
+  }
+}
+
+/* ========= helperji ========= */
 function dedupeByLink(items: FeedNewsItem[]): FeedNewsItem[] {
   const seen = new Set<string>()
   const out: FeedNewsItem[] = []
@@ -87,14 +120,16 @@ function resolveTimestamps(item: FeedNewsItem) {
 }
 
 function feedItemToDbRow(item: FeedNewsItem) {
-  const link = (item.link || '').trim()
+  const linkRaw = (item.link || '').trim()
+  const linkCanonical = canonicalize(linkRaw)
   const title = (item.title || '').trim()
   const source = (item.source || '').trim()
-  if (!link || !title || !source) return null
+  if (!linkCanonical || !title || !source) return null
   const ts = resolveTimestamps(item)
   const snippet = normalizeSnippet(item)
   return {
-    link,
+    link: linkRaw,
+    link_canonical: linkCanonical,
     title,
     source,
     image: item.image?.trim() || null,
@@ -113,7 +148,7 @@ async function syncToSupabase(items: FeedNewsItem[]) {
   if (!rows.length) return
   const { error } = await supabaseWrite
     .from('news')
-    .upsert(rows, { onConflict: 'link', ignoreDuplicates: false })
+    .upsert(rows, { onConflict: 'link_canonical', ignoreDuplicates: false })
   if (error) throw error
 }
 
@@ -134,7 +169,7 @@ function rowToItem(r: Row): NewsItem {
 
   return {
     title: r.title,
-    link: r.link,
+    link: r.link || r.link_canonical || '',
     source: r.source,
     image: r.image || null,
     contentSnippet: r.summary?.trim() || r.contentsnippet?.trim() || null,
@@ -143,13 +178,14 @@ function rowToItem(r: Row): NewsItem {
   }
 }
 
+/* ========= handler ========= */
 export default async function handler(req: NextApiRequest, res: NextApiResponse<PagedOk | ListOk | Err>) {
   try {
     const paged = req.query.paged === '1'
     const wantsFresh = req.query.forceFresh === '1'
     const source = (req.query.source as string) || null
 
-    // If forceFresh requested, do a background sync RSS -> DB, but DO NOT return raw RSS.
+    // forceFresh: naredimo sync RSS -> DB (v ozadju), nikoli ne vračamo surovega RSS
     if (!paged && wantsFresh) {
       try {
         const rss = await fetchRSSFeeds({ forceFresh: true })
@@ -169,7 +205,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
 
     let q = supabaseRead
       .from('news')
-      .select('id, link, title, source, image, contentsnippet, summary, isodate, pubdate, published_at, publishedat, created_at')
+      .select('id, link, link_canonical, title, source, image, contentsnippet, summary, isodate, pubdate, published_at, publishedat, created_at')
       .order('publishedat', { ascending: false })
       .order('id', { ascending: false })
 
@@ -188,14 +224,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
         ? (rows[rows.length - 1].publishedat ? Number(rows[rows.length - 1].publishedat) : null)
         : null
 
-    if (paged) {
-      const payload: PagedOk = { items, nextCursor }
-      res.setHeader('Cache-Control', 'no-store')
-      return res.status(200).json(payload)
-    } else {
-      res.setHeader('Cache-Control', 'no-store')
-      return res.status(200).json(items)
-    }
+    res.setHeader('Cache-Control', 'no-store')
+    if (paged) return res.status(200).json({ items, nextCursor })
+    return res.status(200).json(items)
   } catch (e: any) {
     return res.status(500).json({ error: e?.message || 'Unexpected error' })
   }
