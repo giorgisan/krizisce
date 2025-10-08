@@ -482,7 +482,42 @@ export default function Home({ initialNews }: Props) {
   )
 }
 
+getStaticProps
 export async function getStaticProps() {
-  const initialNews = await fetchRSSFeeds()
+  // Seed initial page from Supabase instead of direct RSS
+  const { createClient } = await import('@supabase/supabase-js')
+  const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL as string
+  const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string
+  const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: false } })
+
+  type Row = {
+    id: number
+    link: string
+    title: string
+    source: string
+    summary: string | null
+    contentsnippet: string | null
+    image: string | null
+    published_at: string | null
+    publishedat: number | null
+  }
+
+  const { data } = await supabase
+    .from<Row>('news')
+    .select('id, link, title, source, summary, contentsnippet, image, published_at, publishedat')
+    .order('publishedat', { ascending: false })
+    .limit(60)
+
+  const initialNews = (data ?? []).map(r => ({
+    title: r.title,
+    link: r.link,
+    source: r.source,
+    contentSnippet: r.contentsnippet ?? r.summary ?? '',
+    image: r.image ?? null,
+    publishedAt: (r.publishedat ?? (r.published_at ? Date.parse(r.published_at) : 0)) || 0,
+    isoDate: r.published_at,
+  }))
+
   return { props: { initialNews }, revalidate: 60 }
 }
+
