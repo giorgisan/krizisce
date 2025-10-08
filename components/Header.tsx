@@ -4,7 +4,7 @@
 import Link from 'next/link'
 import Image from 'next/image'
 import { useTheme } from 'next-themes'
-import { useEffect, useMemo, useState, useRef } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/router'
 import { motion, AnimatePresence } from 'framer-motion'
 
@@ -16,9 +16,6 @@ export default function Header() {
   const [refreshing, setRefreshing] = useState(false)
   const [bannerMode, setBannerMode] = useState<'fresh' | 'updates'>('fresh')
 
-  // prikaz filtrov/bannera samo na naslovnici
-  const filtersEnabled = router.pathname === '/'
-
   // null = v tej seji še ni bilo interakcije; [] = resetirano; ['RTVSLO'] = aktiven filter
   const [activeSources, setActiveSources] = useState<string[] | null>(null)
 
@@ -27,10 +24,8 @@ export default function Header() {
     new Intl.DateTimeFormat('sl-SI', { hour: '2-digit', minute: '2-digit' }).format(new Date())
   )
   useEffect(() => {
-    const tick = () =>
-      setTime(new Intl.DateTimeFormat('sl-SI', { hour: '2-digit', minute: '2-digit' }).format(new Date()))
-    const timer = setInterval(tick, 60_000)
-    tick()
+    const tick = () => setTime(new Intl.DateTimeFormat('sl-SI', { hour: '2-digit', minute: '2-digit' }).format(new Date()))
+    const timer = setInterval(tick, 60_000); tick()
     return () => clearInterval(timer)
   }, [])
 
@@ -85,7 +80,7 @@ export default function Header() {
       return () => {
         try {
           const orig = (localStorage as any).__origSetItem__ as typeof localStorage.setItem | undefined
-          if (orig) (localStorage.setItem as any) = orig
+        if (orig) (localStorage.setItem as any) = orig
         } catch {}
       }
     } catch {}
@@ -146,15 +141,29 @@ export default function Header() {
   useEffect(() => {
     const updateVars = () => {
       const isMobile = window.matchMedia('(max-width: 767px)').matches
-      const showBanner = filtersEnabled && hasNew && !refreshing && isMobile
-      const h = showBanner ? (mobBannerRef.current?.offsetHeight || 44) : 0
-      const shift = showBanner ? `calc(${h}px - 1.25rem)` : '0px'
+      const visible = hasNew && !refreshing && isMobile
+      const h = (visible ? (mobBannerRef.current?.offsetHeight || 44) : 0)
+      const shift = visible ? `calc(${h}px - 1.25rem)` : '0px'
       document.documentElement.style.setProperty('--mob-shift', shift)
     }
     updateVars()
     window.addEventListener('resize', updateVars)
     return () => window.removeEventListener('resize', updateVars)
-  }, [filtersEnabled, hasNew, refreshing])
+  }, [hasNew, refreshing])
+
+  const isArchive = router.pathname === '/arhiv'
+
+  // ⬇️ Pomembno: gumb samo objavi globalni event; UI dropdowna ni več v Headerju.
+  const onFilterClick = () => {
+    if (isArchive) {
+      const u = new URL((window?.location?.href || 'http://x') as string)
+      u.pathname = '/'
+      u.searchParams.set('filters', '1')
+      router.push(u.pathname + u.search)
+      return
+    }
+    window.dispatchEvent(new CustomEvent('toggle-filters'))
+  }
 
   const bannerText = bannerMode === 'updates' ? 'Na voljo je posodobljena vsebina' : 'Na voljo so sveže novice'
 
@@ -177,9 +186,9 @@ export default function Header() {
             </div>
           </Link>
 
-          {/* Desktop pil (samo na /) */}
+          {/* Desktop pil */}
           <AnimatePresence initial={false}>
-            {filtersEnabled && hasNew && !refreshing && (
+            {hasNew && !refreshing && (
               <motion.button
                 key="fresh-pill-desktop"
                 initial={{ opacity: 0, y: -6 }}
@@ -206,30 +215,28 @@ export default function Header() {
           </AnimatePresence>
         </div>
 
-        {/* Desno: ura, filter (samo na /), arhiv, tema */}
+        {/* Desno: ura, filter, arhiv (ikona), tema */}
         <div className="flex items-center gap-1.5 sm:gap-2">
           <span className="hidden sm:inline-block font-mono tabular-nums text-[13px] text-gray-500 dark:text-gray-400 select-none">
             {time}
           </span>
 
-          {/* FILTER (samo na /) */}
-          {filtersEnabled && (
-            <button
-              id="filters-trigger"
-              type="button"
-              onClick={() => window.dispatchEvent(new CustomEvent('toggle-filters'))}
-              aria-label="Filtriraj vire"
-              title="Filtriraj vire"
-              className="inline-flex h-10 w-10 items-center justify-center rounded-md
-                         text-black/45 dark:text-white/55
-                         hover:text-black/85 dark:hover:text-white/85
-                         hover:bg-black/[0.04] dark:hover:bg-white/[0.06] transition"
-            >
-              <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
-                <path d="M3 5h18l-7 8v5l-4 2v-7L3 5z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" fill="none"/>
-              </svg>
-            </button>
-          )}
+          {/* FILTER – samo gumb (id ostane zaradi pozicioniranja v SourceFilter) */}
+          <button
+            id="filters-trigger"
+            type="button"
+            onClick={onFilterClick}
+            aria-label="Filtriraj vire"
+            title={isArchive ? 'Odpri filtre na naslovnici' : 'Filtriraj vire'}
+            className="inline-flex h-10 w-10 items-center justify-center rounded-md
+                       text-black/45 dark:text-white/55
+                       hover:text-black/85 dark:hover:text-white/85
+                       hover:bg-black/[0.04] dark:hover:bg-white/[0.06] transition"
+          >
+            <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+              <path d="M3 5h18l-7 8v5l-4 2v-7L3 5z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" fill="none"/>
+            </svg>
+          </button>
 
           {/* ARHIV */}
           <Link
@@ -238,7 +245,7 @@ export default function Header() {
             title="Arhiv"
             className={`inline-flex h-10 w-10 items-center justify-center rounded-md transition
                         hover:bg-black/[0.04] dark:hover:bg-white/[0.06]
-                        ${router.pathname === '/arhiv' ? 'text-brand' : 'text-black/60 dark:text-white/65 hover:text-black/90 dark:hover:text-white/90'}`}
+                        ${isArchive ? 'text-brand' : 'text-black/60 dark:text-white/65 hover:text-black/90 dark:hover:text-white/90'}`}
           >
             <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
               <path d="M4 7h16v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7Z" stroke="currentColor" strokeWidth="2" fill="none" />
@@ -257,7 +264,7 @@ export default function Header() {
               className="inline-flex h-10 w-10 items-center justify-center rounded-md
                          text-black/55 dark:text-white/65
                          hover:text-black/90 dark:hover:text-white/90
-                         hover:bg-black/[0.04] dark:hover:bg:white/[0.06] transition relative overflow-hidden"
+                         hover:bg-black/[0.04] dark:hover:bg-white/[0.06] transition relative overflow-hidden"
             >
               {/* Sun */}
               <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"
@@ -275,9 +282,9 @@ export default function Header() {
         </div>
       </div>
 
-      {/* Mobilni banner (samo na /) */}
+      {/* Mobilni banner */}
       <AnimatePresence initial={false}>
-        {filtersEnabled && hasNew && !refreshing && (
+        {hasNew && !refreshing && (
           <motion.div
             key="banner-mobile"
             initial={{ opacity: 0, y: -8 }}
@@ -301,7 +308,7 @@ export default function Header() {
                   <span className="h-2.5 w-2.5 rounded-full bg-emerald-500 opacity-80"></span>
                   <span className="absolute inset-0 rounded-full bg-emerald-500 animate-ping opacity-25"></span>
                 </span>
-                <span>{bannerText}</span>
+                <span>{bannerMode === 'updates' ? 'Na voljo je posodobljena vsebina' : 'Na voljo so sveže novice'}</span>
                 <span className="opacity-70 group-hover:opacity-100">— klikni za osvežitev</span>
               </button>
             </div>
@@ -309,8 +316,8 @@ export default function Header() {
         )}
       </AnimatePresence>
 
-      {/* trak za aktivne filtre (samo na /) */}
-      {filtersEnabled && activeSources !== null && activeSources.length > 0 && (
+      {/* trak za aktivne filtre */}
+      {activeSources !== null && activeSources.length > 0 && (
         <div className="px-4 md:px-8 lg:px-16 pb-2">
           <div className="flex items-center justify-between gap-3
                           rounded-lg border border-amber-200/60 dark:border-amber-800/50
@@ -319,12 +326,16 @@ export default function Header() {
                           px-3 py-2">
             <div className="min-w-0 text-[13px]">
               <span className="font-medium">Prikazani viri:</span>{' '}
-              <span className="truncate">{activeLabel}</span>
+              <span className="truncate">{(() => {
+                const shown = activeSources.slice(0, 2).join(', ')
+                const extra = activeSources.length - 2
+                return extra > 0 ? `${shown} +${extra}` : shown
+              })()}</span>
             </div>
             <div className="shrink-0 flex items-center gap-2">
               <button
                 type="button"
-                onClick={() => window.dispatchEvent(new CustomEvent('toggle-filters'))}
+                onClick={onFilterClick}
                 className="hidden sm:inline text-[13px] underline decoration-amber-600/70 hover:decoration-amber-600"
               >
                 Uredi
