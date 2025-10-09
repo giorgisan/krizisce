@@ -30,7 +30,12 @@ async function kickSyncIfStale(maxAgeMs = 5 * 60_000) {
     const now = Date.now()
     const last = Number(localStorage.getItem(SYNC_KEY) || '0')
     if (!last || now - last > maxAgeMs) {
-      fetch('/api/news?forceFresh=1', { cache: 'no-store', keepalive: true }).catch(() => {})
+      // Dodamo varnostno glavo (ne obvezna, a pomaga ločiti notranje klice)
+      fetch('/api/news?forceFresh=1', {
+        cache: 'no-store',
+        keepalive: true,
+        headers: { 'x-krizisce-ingest': '1' }
+      }).catch(() => {})
       localStorage.setItem(SYNC_KEY, String(now))
     }
   } catch {}
