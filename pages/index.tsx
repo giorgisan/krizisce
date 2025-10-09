@@ -89,18 +89,22 @@ export default function Home({ initialNews }: Props) {
   })
   const deferredSource = useDeferredValue(selectedSource)
 
-  // Vidnost filter vrstice (odpira se z eventom iz Headerja: 'toggle-filters')
+  // Vidnost filter vrstice (krmili ikona v headerju prek 'ui:toggle-filters')
   const [filterOpen, setFilterOpen] = useState<boolean>(false)
   useEffect(() => {
     const onToggle = () => setFilterOpen(v => !v)
-    window.addEventListener('toggle-filters', onToggle as EventListener)
-    // podpora query parametru ?filters=1 (npr. iz arhiva)
+    window.addEventListener('ui:toggle-filters', onToggle as EventListener)
+    // podpora ?filters=1
     try {
       const u = new URL(window.location.href)
       if (u.searchParams.get('filters') === '1') setFilterOpen(true)
     } catch {}
-    return () => window.removeEventListener('toggle-filters', onToggle as EventListener)
+    return () => window.removeEventListener('ui:toggle-filters', onToggle as EventListener)
   }, [])
+  // vsakič, ko se stanje spremeni, javimo headerju (ta bo obarval ikono)
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent('ui:filters-state', { detail: { open: filterOpen } }))
+  }, [filterOpen])
 
   const [displayCount, setDisplayCount] = useState(20)
   const [firstSeen, setFirstSeen] = useState<FirstSeenMap>(() => loadFirstSeen())
@@ -246,7 +250,7 @@ export default function Home({ initialNews }: Props) {
     <>
       <Header />
 
-      {/* Subtilna vrstica s čipi pod headerjem; vidnost kontrolira state + header event */}
+      {/* Subtilna vrstica s čipi pod headerjem; vidnost krmili header ikona */}
       <SourceFilter
         value={selectedSource}
         onChange={(next) => {
