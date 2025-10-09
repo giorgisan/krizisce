@@ -20,7 +20,7 @@ import BackToTop from '@/components/BackToTop'
 import SourceFilter from '@/components/SourceFilter'
 
 // -------------------- Helpers & constants --------------------
-const POLL_MS = 60_000          // 1 min v ospredju
+const POLL_MS = 60_000
 const HIDDEN_POLL_MS = 5 * 60_000
 const POLL_MAX_BACKOFF = 5
 
@@ -40,7 +40,6 @@ function timeout(ms: number) {
   return new Promise((_, rej) => setTimeout(() => rej(new Error('Request timeout')), ms))
 }
 
-// UI *vedno* bere samo iz DB (/api/news), nikoli direkt forceFresh=1.
 async function loadNews(signal?: AbortSignal): Promise<NewsItem[] | null> {
   try {
     const res = (await Promise.race([
@@ -54,7 +53,6 @@ async function loadNews(signal?: AbortSignal): Promise<NewsItem[] | null> {
   }
 }
 
-// Robustna primerjava
 const NEWNESS_GRACE_MS = 30_000
 const diffFresh = (fresh: NewsItem[], current: NewsItem[]) => {
   if (!fresh?.length) return { newLinks: 0, hasNewer: false }
@@ -66,7 +64,7 @@ const diffFresh = (fresh: NewsItem[], current: NewsItem[]) => {
   return { newLinks, hasNewer }
 }
 
-// === stabilni čas objave (immutable) prek localStorage ===
+// stableAt bookkeeping
 const LS_FIRST_SEEN = 'krizisce_first_seen_v1'
 type FirstSeenMap = Record<string, number>
 function loadFirstSeen(): FirstSeenMap {
@@ -87,7 +85,7 @@ type Props = { initialNews: NewsItem[] }
 export default function Home({ initialNews }: Props) {
   const [news, setNews] = useState<NewsItem[]>(initialNews)
 
-  // >>> Single-select filter (estetski čipi pod headerjem)
+  // --- Single-select filter (kompatibilno s tvojim SourceFilter) ---
   const [selectedSource, setSelectedSource] = useState<string>(() => {
     try {
       const raw = localStorage.getItem('selectedSources')
@@ -96,18 +94,14 @@ export default function Home({ initialNews }: Props) {
     } catch { return 'Vse' }
   })
   const deferredSource = useDeferredValue(selectedSource)
-  // <<<
+  // ---
 
   const [displayCount, setDisplayCount] = useState<number>(20)
-
-  // first-seen mapa za stabilni čas
   const [firstSeen, setFirstSeen] = useState<FirstSeenMap>(() => loadFirstSeen())
-
-  // pagination indikatorji
   const [hasMore, setHasMore] = useState<boolean>(true)
-  const [cursor, setCursor] = useState<number | null>(null) // ms publishedAt za naslednji batch (starejši od cursor)
+  const [cursor, setCursor] = useState<number | null>(null)
 
-  // ---------- Instant refresh on first visit ----------
+  // instant refresh on first visit
   const [bootRefreshed, setBootRefreshed] = useState(false)
   useEffect(() => {
     const ctrl = new AbortController()
@@ -125,9 +119,8 @@ export default function Home({ initialNews }: Props) {
     })()
     return () => ctrl.abort()
   }, [initialNews])
-  // ----------------------------------------------------
 
-  // polling (z backoff + visibility)
+  // polling
   const [freshNews, setFreshNews] = useState<NewsItem[] | null>(null)
   const missCountRef = useRef(0)
   const timerRef = useRef<number | null>(null)
@@ -137,7 +130,6 @@ export default function Home({ initialNews }: Props) {
 
     const runCheck = async () => {
       kickSyncIfStale(10 * 60_000)
-
       const ctrl = new AbortController()
       const fresh = await loadNews(ctrl.signal)
       if (!fresh || fresh.length === 0) {
@@ -178,7 +170,7 @@ export default function Home({ initialNews }: Props) {
     }
   }, [news, bootRefreshed])
 
-  // manual refresh (na klik bannera/ikone)
+  // manual refresh
   useEffect(() => {
     const onRefresh = () => {
       window.dispatchEvent(new CustomEvent('news-refreshing', { detail: true }))
@@ -187,7 +179,6 @@ export default function Home({ initialNews }: Props) {
           window.dispatchEvent(new CustomEvent('news-refreshing', { detail: false }))
           window.dispatchEvent(new CustomEvent('news-has-new', { detail: false }))
           missCountRef.current = 0
-          // reset paginacije
           setHasMore(true)
           setCursor(null)
           setDisplayCount(20)
@@ -197,7 +188,7 @@ export default function Home({ initialNews }: Props) {
           finish()
         } else {
           loadNews().then((fresh) => {
-            if (fresh && fresh.length) { setNews(fresh) }
+            if (fresh && fresh.length) setNews(fresh)
             finish()
           })
         }
@@ -207,23 +198,18 @@ export default function Home({ initialNews }: Props) {
     return () => window.removeEventListener('refresh-news', onRefresh as EventListener)
   }, [freshNews])
 
-  // — obogatimo novice s "stableAt" in sproti dopolnimo firstSeen mapo —
+  // stableAt shaping
   const shapedNews = useMemo(() => {
     const map = { ...firstSeen }
     let changed = false
-
     const withStable = news.map(n => {
       const published = typeof n.publishedAt === 'number' ? n.publishedAt : 0
       const link = n.link || ''
-      if (link && map[link] == null) {
-        map[link] = published || Date.now()
-        changed = true
-      }
+      if (link && map[link] == null) { map[link] = published || Date.now(); changed = true }
       const first = map[link] ?? published
       const stableAt = Math.min(first || Infinity, published || Infinity)
       return { ...n, stableAt } as NewsItem & { stableAt: number }
     })
-
     if (changed) { setFirstSeen(map); saveFirstSeen(map) }
     return withStable
   }, [news, firstSeen])
@@ -239,14 +225,14 @@ export default function Home({ initialNews }: Props) {
   )
   const visibleNews = useMemo(() => filteredNews.slice(0, displayCount), [filteredNews, displayCount])
 
-  // minimalni publishedAt med trenutno naloženimi → za naslednjo stran gremo pod to vrednost
+  // cursor calc
   useEffect(() => {
     if (!filteredNews.length) { setCursor(null); setHasMore(true); return }
     const minMs = filteredNews.reduce((acc, n) => Math.min(acc, n.publishedAt || acc), filteredNews[0].publishedAt || 0)
     setCursor(minMs || null)
   }, [deferredSource, news])
 
-  // realni loadMore (pridobi starejše preko API kurzorja)
+  // paging
   const [isLoadingMore, setIsLoadingMore] = useState(false)
   type PagePayload = { items: NewsItem[]; nextCursor: number | null }
   async function fetchPage(params: { cursor?: number | null; limit?: number; source?: string | null }): Promise<PagePayload> {
@@ -302,7 +288,7 @@ export default function Home({ initialNews }: Props) {
     <>
       <Header />
 
-      {/* NOVA subtilna vrstica s filtri (chips pod headerjem) */}
+      {/* Subtilna vrstica s čipi pod headerjem */}
       <SourceFilter
         value={selectedSource}
         onChange={(next) => {
@@ -313,7 +299,6 @@ export default function Home({ initialNews }: Props) {
             setCursor(null)
           })
         }}
-        defaultExpanded={true}
       />
 
       <SeoHead
@@ -321,9 +306,7 @@ export default function Home({ initialNews }: Props) {
         description="Agregator najnovejših novic iz slovenskih medijev. Članki so last izvornih portalov."
       />
 
-      <main
-        className="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white px-4 md:px-8 lg:px-16 pt-4 pb-24"
-      >
+      <main className="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white px-4 md:px-8 lg:px-16 pt-4 pb-24">
         {visibleNews.length === 0 ? (
           <p className="text-gray-500 dark:text-gray-400 text-center w-full mt-10">
             Ni novic za izbrani vir ali napaka pri nalaganju.
@@ -366,7 +349,7 @@ export default function Home({ initialNews }: Props) {
   )
 }
 
-// -------------------- SSG: seed iz Supabase --------------------
+// -------------------- SSG --------------------
 export async function getStaticProps() {
   const { createClient } = await import('@supabase/supabase-js')
   const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL as string
