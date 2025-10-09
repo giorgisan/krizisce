@@ -41,7 +41,7 @@ type ApiOk = {
 type ApiErr = { error: string }
 
 function parseDateRange(dayISO?: string) {
-  // pričakujemo YYYY-MM-DD lokalno; pretvorimo v UTC [start, end)
+  // Lokalni dan → [start,end) v UTC
   const today = new Date()
   const base = dayISO
     ? new Date(`${dayISO}T00:00:00`)
@@ -63,7 +63,7 @@ export default async function handler(
       500,
     )
 
-    // IMPORTANT: cursor is ISO published_at (string), not a number
+    // cursor je ISO published_at (string)
     const cursor: string | null = (req.query.cursor as string) || null
 
     const { start, end } = parseDateRange(dateStr)
@@ -113,45 +113,24 @@ export default async function handler(
         ? ((rows as Row[])[rows.length - 1].published_at || null)
         : null
 
-    /* === COUNTS po source (brez .group()) === */
-    const { data: distinctRows, error: distinctErr } = await supabase
+    /* === COUNTS po source: en sam agregatni query === */
+    const { data: grouped, error: groupedErr } = await supabase
       .from('news')
-      .select('source')
+      .select('source, count:count()') // PostgREST: count alias
       .gte('published_at', start)
       .lt('published_at', end)
+      .group('source')
 
-    if (distinctErr) {
+    if (groupedErr) {
       res.setHeader('Cache-Control', 'no-store')
-      return res.status(500).json({ error: `DB error: ${distinctErr.message}` })
+      return res.status(500).json({ error: `DB error: ${groupedErr.message}` })
     }
 
-    const distinctSources = Array.from(
-      new Set((distinctRows || []).map((r: any) => r.source).filter(Boolean)),
-    )
+    const countsEntries = (grouped || []).map((r: any) => [r.source, Number(r.count || 0)] as const)
+    const counts = Object.fromEntries(countsEntries)
+    const total = countsEntries.reduce((a, [, c]) => a + c, 0)
 
-    const entries = await Promise.all(
-      distinctSources.map(async (src) => {
-        const { count, error: cntErr } = await supabase
-          .from('news')
-          .select('id', { count: 'exact', head: true })
-          .gte('published_at', start)
-          .lt('published_at', end)
-          .eq('source', src)
-
-        if (cntErr) {
-          return [src, 0] as const
-        }
-        return [src, Number(count || 0)] as const
-      }),
-    )
-
-    const counts: Record<string, number> = {}
-    for (const [src, c] of entries) counts[src] = c
-    const total = Object.values(counts).reduce((a, b) => a + b, 0)
-
-    // No CDN caching – archive must always be fresh
     res.setHeader('Cache-Control', 'no-store')
-
     return res.status(200).json({
       items,
       counts,
