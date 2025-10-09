@@ -17,6 +17,9 @@ export default function Header() {
   const [refreshing, setRefreshing] = useState(false)
   const [filtersOpen, setFiltersOpen] = useState(false)
 
+  // ali smo na naslovnici?
+  const isHome = router.pathname === '/'
+
   // ura
   const [time, setTime] = useState(() =>
     new Intl.DateTimeFormat('sl-SI', { hour: '2-digit', minute: '2-digit' }).format(new Date())
@@ -24,11 +27,9 @@ export default function Header() {
   useEffect(() => {
     const tick = () =>
       setTime(new Intl.DateTimeFormat('sl-SI', { hour: '2-digit', minute: '2-digit' }).format(new Date()))
-    const t = setInterval(tick, 60_000)
-    tick()
+    const t = setInterval(tick, 60_000); tick()
     return () => clearInterval(t)
   }, [])
-
   useEffect(() => setMounted(true), [])
 
   // signali za sveže novice
@@ -89,14 +90,17 @@ export default function Header() {
     window.dispatchEvent(new CustomEvent('refresh-news'))
   }
 
+  // Klik na brand naj vedno odpre/refresh-a naslovnico
   const onBrandClick: React.MouseEventHandler<HTMLAnchorElement> = (e) => {
-    if (router.pathname === '/') {
-      e.preventDefault()
-      window.scrollTo({ top: 0, behavior: 'smooth' })
+    e.preventDefault()
+    if (isHome) {
+      window.location.reload() // hard refresh, resetira state/filtre itd.
+    } else {
+      router.push('/') // navigacija na naslovnico
     }
   }
 
-  // klik na ikono filtra – stran bo preklopila in vrnila "ui:filters-state"
+  // ikona filtra – stran bo preklopila in vrnila "ui:filters-state"
   const toggleFilters = () => {
     window.dispatchEvent(new CustomEvent('ui:toggle-filters'))
   }
@@ -156,34 +160,36 @@ export default function Header() {
           </AnimatePresence>
         </div>
 
-        {/* Desno: ura, filter, arhiv, tema */}
+        {/* Desno: ura, (pogojni) filter, arhiv, tema */}
         <div className="flex items-center gap-1.5 sm:gap-2">
           <span className="hidden sm:inline-block font-mono tabular-nums text-[13px] text-gray-500 dark:text-gray-400 select-none">
             {time}
           </span>
 
-          {/* FILTER */}
-          <button
-            type="button"
-            onClick={toggleFilters}
-            aria-label={filtersOpen ? 'Skrij filtre' : 'Prikaži filtre'}
-            title={filtersOpen ? 'Skrij filtre' : 'Prikaži filtre'}
-            className={`inline-flex h-10 w-10 items-center justify-center rounded-md transition
-                        ${filtersOpen
-                          ? 'text-brand bg-brand/10 ring-1 ring-brand/30'
-                          : 'text-black/55 dark:text-white/60 hover:text-black/90 dark:hover:text-white/90 hover:bg-black/[0.04] dark:hover:bg-white/[0.06]'}`}
-          >
-            <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
-              <path
-                d="M3 5h18l-7 8v5l-4 2v-7L3 5z"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinejoin="round"
-                strokeLinecap="round"
-                fill="none"
-              />
-            </svg>
-          </button>
+          {/* FILTER – prikazan samo na naslovnici */}
+          {isHome && (
+            <button
+              type="button"
+              onClick={toggleFilters}
+              aria-label={filtersOpen ? 'Skrij filtre' : 'Prikaži filtre'}
+              title={filtersOpen ? 'Skrij filtre' : 'Prikaži filtre'}
+              className={`inline-flex h-10 w-10 items-center justify-center rounded-md transition
+                          ${filtersOpen
+                            ? 'text-brand bg-brand/10 ring-1 ring-brand/30'
+                            : 'text-black/55 dark:text-white/60 hover:text-black/90 dark:hover:text-white/90 hover:bg-black/[0.04] dark:hover:bg-white/[0.06]'}`}
+            >
+              <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+                <path
+                  d="M3 5h18l-7 8v5l-4 2v-7L3 5z"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinejoin="round"
+                  strokeLinecap="round"
+                  fill="none"
+                />
+              </svg>
+            </button>
+          )}
 
           {/* ARHIV */}
           <Link
@@ -215,13 +221,13 @@ export default function Header() {
             >
               <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
                 {isDark ? (
-                  // prikaži sonce (pomen: klik -> svetla tema)
+                  // sonce (klik -> svetla tema)
                   <>
                     <path d="M12 4V2M12 22v-2M4.93 4.93 3.52 3.52M20.48 20.48l-1.41-1.41M4 12H2M22 12h-2M4.93 19.07 3.52 20.48M20.48 3.52l-1.41 1.41" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
                     <circle cx="12" cy="12" r="4" stroke="currentColor" strokeWidth="2" fill="none"/>
                   </>
                 ) : (
-                  // prikaži luno (pomen: klik -> temna tema)
+                  // luna (klik -> temna tema)
                   <path d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 0 0 9.79 9.79Z" stroke="currentColor" strokeWidth="2" fill="none"/>
                 )}
               </svg>
