@@ -48,9 +48,7 @@ async function loadNews(signal?: AbortSignal): Promise<NewsItem[] | null> {
     ])) as Response
     const data: NewsItem[] = await res.json()
     return Array.isArray(data) && data.length ? data : null
-  } catch {
-    return null
-  }
+  } catch { return null }
 }
 
 const NEWNESS_GRACE_MS = 30_000
@@ -64,18 +62,14 @@ const diffFresh = (fresh: NewsItem[], current: NewsItem[]) => {
   return { newLinks, hasNewer }
 }
 
-// stableAt bookkeeping
+// stableAt
 const LS_FIRST_SEEN = 'krizisce_first_seen_v1'
 type FirstSeenMap = Record<string, number>
 function loadFirstSeen(): FirstSeenMap {
   if (typeof window === 'undefined') return {}
-  try {
-    const raw = window.localStorage.getItem(LS_FIRST_SEEN)
-    return raw ? (JSON.parse(raw) as FirstSeenMap) : {}
-  } catch { return {} }
+  try { return JSON.parse(window.localStorage.getItem(LS_FIRST_SEEN) || '{}') } catch { return {} }
 }
 function saveFirstSeen(map: FirstSeenMap) {
-  if (typeof window === 'undefined') return
   try { window.localStorage.setItem(LS_FIRST_SEEN, JSON.stringify(map)) } catch {}
 }
 
@@ -85,7 +79,7 @@ type Props = { initialNews: NewsItem[] }
 export default function Home({ initialNews }: Props) {
   const [news, setNews] = useState<NewsItem[]>(initialNews)
 
-  // --- Single-select filter (kompatibilno s tvojim SourceFilter) ---
+  // Single-select filter
   const [selectedSource, setSelectedSource] = useState<string>(() => {
     try {
       const raw = localStorage.getItem('selectedSources')
@@ -94,14 +88,26 @@ export default function Home({ initialNews }: Props) {
     } catch { return 'Vse' }
   })
   const deferredSource = useDeferredValue(selectedSource)
-  // ---
 
-  const [displayCount, setDisplayCount] = useState<number>(20)
+  // Vidnost filter vrstice (odpira se z eventom iz Headerja: 'toggle-filters')
+  const [filterOpen, setFilterOpen] = useState<boolean>(false)
+  useEffect(() => {
+    const onToggle = () => setFilterOpen(v => !v)
+    window.addEventListener('toggle-filters', onToggle as EventListener)
+    // podpora query parametru ?filters=1 (npr. iz arhiva)
+    try {
+      const u = new URL(window.location.href)
+      if (u.searchParams.get('filters') === '1') setFilterOpen(true)
+    } catch {}
+    return () => window.removeEventListener('toggle-filters', onToggle as EventListener)
+  }, [])
+
+  const [displayCount, setDisplayCount] = useState(20)
   const [firstSeen, setFirstSeen] = useState<FirstSeenMap>(() => loadFirstSeen())
-  const [hasMore, setHasMore] = useState<boolean>(true)
+  const [hasMore, setHasMore] = useState(true)
   const [cursor, setCursor] = useState<number | null>(null)
 
-  // instant refresh on first visit
+  // initial refresh
   const [bootRefreshed, setBootRefreshed] = useState(false)
   useEffect(() => {
     const ctrl = new AbortController()
@@ -110,9 +116,7 @@ export default function Home({ initialNews }: Props) {
       if (fresh && fresh.length) {
         const currentLinks = new Set(initialNews.map(n => n.link))
         const hasNewLink = fresh.some(n => n.link && !currentLinks.has(n.link))
-        if (hasNewLink) {
-          startTransition(() => { setNews(fresh); setDisplayCount(20) })
-        }
+        if (hasNewLink) startTransition(() => { setNews(fresh); setDisplayCount(20) })
       }
       kickSyncIfStale(5 * 60_000)
       setBootRefreshed(true)
@@ -127,7 +131,6 @@ export default function Home({ initialNews }: Props) {
 
   useEffect(() => {
     if (!bootRefreshed) return
-
     const runCheck = async () => {
       kickSyncIfStale(10 * 60_000)
       const ctrl = new AbortController()
@@ -137,10 +140,8 @@ export default function Home({ initialNews }: Props) {
         missCountRef.current = Math.min(POLL_MAX_BACKOFF, missCountRef.current + 1)
         return
       }
-
       const { newLinks, hasNewer } = diffFresh(fresh, news)
       setFreshNews(fresh)
-
       if (hasNewer && newLinks > 0) {
         window.dispatchEvent(new CustomEvent('news-has-new', { detail: true }))
         missCountRef.current = 0
@@ -149,25 +150,17 @@ export default function Home({ initialNews }: Props) {
         missCountRef.current = Math.min(POLL_MAX_BACKOFF, missCountRef.current + 1)
       }
     }
-
     const schedule = () => {
       const hidden = document.visibilityState === 'hidden'
       const base = hidden ? HIDDEN_POLL_MS : POLL_MS
       const extra = missCountRef.current * 10_000
-      const delay = base + extra
       if (timerRef.current) window.clearInterval(timerRef.current)
-      timerRef.current = window.setInterval(runCheck, delay) as unknown as number
+      timerRef.current = window.setInterval(runCheck, base + extra) as unknown as number
     }
-
-    runCheck()
-    schedule()
-
+    runCheck(); schedule()
     const onVis = () => { if (document.visibilityState === 'visible') runCheck(); schedule() }
     document.addEventListener('visibilitychange', onVis)
-    return () => {
-      if (timerRef.current) window.clearInterval(timerRef.current)
-      document.removeEventListener('visibilitychange', onVis)
-    }
+    return () => { if (timerRef.current) window.clearInterval(timerRef.current); document.removeEventListener('visibilitychange', onVis) }
   }, [news, bootRefreshed])
 
   // manual refresh
@@ -179,19 +172,10 @@ export default function Home({ initialNews }: Props) {
           window.dispatchEvent(new CustomEvent('news-refreshing', { detail: false }))
           window.dispatchEvent(new CustomEvent('news-has-new', { detail: false }))
           missCountRef.current = 0
-          setHasMore(true)
-          setCursor(null)
-          setDisplayCount(20)
+          setHasMore(true); setCursor(null); setDisplayCount(20)
         }
-        if (freshNews) {
-          setNews(freshNews)
-          finish()
-        } else {
-          loadNews().then((fresh) => {
-            if (fresh && fresh.length) setNews(fresh)
-            finish()
-          })
-        }
+        if (freshNews) { setNews(freshNews); finish() }
+        else loadNews().then((fresh) => { if (fresh && fresh.length) setNews(fresh); finish() })
       })
     }
     window.addEventListener('refresh-news', onRefresh as EventListener)
@@ -200,8 +184,7 @@ export default function Home({ initialNews }: Props) {
 
   // stableAt shaping
   const shapedNews = useMemo(() => {
-    const map = { ...firstSeen }
-    let changed = false
+    const map = { ...firstSeen }; let changed = false
     const withStable = news.map(n => {
       const published = typeof n.publishedAt === 'number' ? n.publishedAt : 0
       const link = n.link || ''
@@ -215,14 +198,8 @@ export default function Home({ initialNews }: Props) {
   }, [news, firstSeen])
 
   // filter + sort + paginate
-  const sortedNews = useMemo(
-    () => [...shapedNews].sort((a, b) => (b as any).stableAt - (a as any).stableAt),
-    [shapedNews]
-  )
-  const filteredNews = useMemo(
-    () => (deferredSource === 'Vse' ? sortedNews : sortedNews.filter((a) => a.source === deferredSource)),
-    [sortedNews, deferredSource]
-  )
+  const sortedNews = useMemo(() => [...shapedNews].sort((a, b) => (b as any).stableAt - (a as any).stableAt), [shapedNews])
+  const filteredNews = useMemo(() => deferredSource === 'Vse' ? sortedNews : sortedNews.filter(a => a.source === deferredSource), [sortedNews, deferredSource])
   const visibleNews = useMemo(() => filteredNews.slice(0, displayCount), [filteredNews, displayCount])
 
   // cursor calc
@@ -238,8 +215,7 @@ export default function Home({ initialNews }: Props) {
   async function fetchPage(params: { cursor?: number | null; limit?: number; source?: string | null }): Promise<PagePayload> {
     const { cursor, limit = 40, source } = params
     const qs = new URLSearchParams()
-    qs.set('paged', '1')
-    qs.set('limit', String(limit))
+    qs.set('paged', '1'); qs.set('limit', String(limit))
     if (cursor != null) qs.set('cursor', String(cursor))
     if (source && source !== 'Vse') qs.set('source', source)
     const res = await fetch(`/api/news?${qs.toString()}`, { cache: 'no-store' })
@@ -248,35 +224,17 @@ export default function Home({ initialNews }: Props) {
     if (!data || !Array.isArray(data.items)) return { items: [], nextCursor: null }
     return data
   }
-
   const handleLoadMore = async () => {
     if (isLoadingMore || !hasMore || cursor == null || cursor <= 0) return
     setIsLoadingMore(true)
     try {
-      const { items, nextCursor } = await fetchPage({
-        cursor,
-        limit: 40,
-        source: deferredSource,
-      })
-
+      const { items, nextCursor } = await fetchPage({ cursor, limit: 40, source: deferredSource })
       const seen = new Set(news.map(n => n.link))
       const fresh = items.filter(i => !seen.has(i.link))
-
-      if (fresh.length) {
-        setNews(prev => [...prev, ...fresh])
-        setDisplayCount(prev => prev + fresh.length)
-      }
-
-      if (!nextCursor || nextCursor === cursor || items.length === 0) {
-        setHasMore(false)
-        setCursor(null)
-      } else {
-        setCursor(nextCursor)
-        setHasMore(true)
-      }
-    } finally {
-      setIsLoadingMore(false)
-    }
+      if (fresh.length) { setNews(prev => [...prev, ...fresh]); setDisplayCount(prev => prev + fresh.length) }
+      if (!nextCursor || nextCursor === cursor || items.length === 0) { setHasMore(false); setCursor(null) }
+      else { setCursor(nextCursor); setHasMore(true) }
+    } finally { setIsLoadingMore(false) }
   }
 
   const prefersReducedMotion =
@@ -288,7 +246,7 @@ export default function Home({ initialNews }: Props) {
     <>
       <Header />
 
-      {/* Subtilna vrstica s čipi pod headerjem */}
+      {/* Subtilna vrstica s čipi pod headerjem; vidnost kontrolira state + header event */}
       <SourceFilter
         value={selectedSource}
         onChange={(next) => {
@@ -299,25 +257,19 @@ export default function Home({ initialNews }: Props) {
             setCursor(null)
           })
         }}
+        open={filterOpen}
       />
 
-      <SeoHead
-        title="Križišče"
-        description="Agregator najnovejših novic iz slovenskih medijev. Članki so last izvornih portalov."
-      />
+      <SeoHead title="Križišče" description="Agregator najnovejših novic iz slovenskih medijev. Članki so last izvornih portalov." />
 
       <main className="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white px-4 md:px-8 lg:px-16 pt-4 pb-24">
         {visibleNews.length === 0 ? (
-          <p className="text-gray-500 dark:text-gray-400 text-center w-full mt-10">
-            Ni novic za izbrani vir ali napaka pri nalaganju.
-          </p>
+          <p className="text-gray-500 dark:text-gray-400 text-center w-full mt-10">Ni novic za izbrani vir ali napaka pri nalaganju.</p>
         ) : (
           <AnimatePresence>
             <motion.div
               key={deferredSource}
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }}
+              initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
               transition={{ duration: motionDuration }}
               className="grid gap-6 grid-cols-2 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5"
             >
