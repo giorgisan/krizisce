@@ -1,7 +1,4 @@
-// pages/api/news.ts — FULL REPLACEMENT
-// - Nikoli ne vrača surovega RSS (forceFresh samo sproži sync v bazo).
-// - Upsert po link_canonical (blokira prave dvojnike).
-// - Soft dedupe po (source + normTitle + tsSec) na vhodu in izhodu (skrije cross-poste).
+// pages/api/news.ts — FULL REPLACEMENT (with cron auth gate)
 
 import type { NextApiRequest, NextApiResponse } from 'next'
 import { createClient } from '@supabase/supabase-js'
@@ -12,6 +9,7 @@ import type { NewsItem as FeedNewsItem } from '@/types'
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL as string
 const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY as string | undefined
+const CRON_SECRET = process.env.CRON_SECRET as string | undefined
 
 const supabaseRead = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: { persistSession: false },
@@ -55,18 +53,16 @@ type Err = { error: string }
 function canonicalize(raw: string): string {
   try {
     const u = new URL(raw.trim())
-    u.protocol = 'https:'                                   // https
-    u.host = u.host.toLowerCase().replace(/^www\./, '')     // brez www
-    // odstrani tracking queryje
+    u.protocol = 'https:'
+    u.host = u.host.toLowerCase().replace(/^www\./, '')
     const TRACK = [/^utm_/i, /^fbclid$/i, /^gclid$/i, /^ref$/i, /^src$/i, /^from$/i, /^si_src$/i, /^mc_cid$/i, /^mc_eid$/i]
     for (const k of Array.from(u.searchParams.keys())) {
       if (TRACK.some(rx => rx.test(k))) u.searchParams.delete(k)
     }
-    // brez /amp in trailing /
     u.pathname = u.pathname.replace(/\/amp\/?$/i, '/')
     if (u.pathname.length > 1) u.pathname = u.pathname.replace(/\/+$/, '')
-    u.hash = ''                                             // brez hash
-    if (u.host.endsWith('rtvslo.si')) u.host = 'rtvslo.si'  // posebnost hosta
+    u.hash = ''
+    if (u.host.endsWith('rtvslo.si')) u.host = 'rtvslo.si'
     return u.toString()
   } catch {
     return raw.trim()
@@ -86,7 +82,6 @@ function tsSec(ms?: number | null): number {
   return Math.max(0, Math.floor(v / 1000))
 }
 
-// mehka deduplikacija: (source + normTitle + tsSec) obdrži najnovejši zapis
 function softDedupe<T extends { source?: string; title?: string; publishedAt?: number }>(arr: T[]): T[] {
   const byKey = new Map<string, T>()
   for (const it of arr) {
@@ -149,19 +144,14 @@ function feedItemToDbRow(item: FeedNewsItem) {
 
 async function syncToSupabase(items: FeedNewsItem[]) {
   if (!supabaseWrite) return
-  // 1) soft dedupe na vhodu
   const shaped = items.map((i) => {
     const t = resolveTimestamps(i)
     return { ...i, title: i.title || '', source: i.source || '', publishedAt: t.ms }
   })
   const dedupedIn = softDedupe(shaped)
-
-  // 2) map → DB rows
   const rows = dedupedIn.map(feedItemToDbRow).filter(Boolean) as any[]
   if (!rows.length) return
-
-  // 3) upsert po link_canonical
-  const { error } = await supabaseWrite
+  const { error } = await (supabaseWrite as any)
     .from('news')
     .upsert(rows, { onConflict: 'link_canonical', ignoreDuplicates: false })
   if (error) throw error
@@ -193,15 +183,19 @@ function rowToItem(r: Row): NewsItem {
   }
 }
 
-/* ========= handler ========= */
 export default async function handler(req: NextApiRequest, res: NextApiResponse<PagedOk | ListOk | Err>) {
   try {
     const paged = req.query.paged === '1'
     const wantsFresh = req.query.forceFresh === '1'
     const source = (req.query.source as string) || null
 
-    // forceFresh: sproži sync RSS -> DB (v ozadju), nikoli ne vračamo surovega RSS
-    if (!paged && wantsFresh) {
+    // ---- CRON auth: forceFresh samo, če pride s pravilnim headerjem ali iz internega sistema
+    const headerSecret = (req.headers['x-cron-secret'] as string | undefined)?.trim()
+    const isCronCaller = Boolean(CRON_SECRET && headerSecret && headerSecret === CRON_SECRET)
+    const isInternalIngest = req.headers['x-krizisce-ingest'] === '1'
+    const isDev = process.env.NODE_ENV !== 'production'
+
+    if (!paged && wantsFresh && (isCronCaller || isInternalIngest || isDev)) {
       try {
         const rss = await fetchRSSFeeds({ forceFresh: true })
         if (rss?.length) await syncToSupabase(rss.slice(0, 250))
@@ -232,8 +226,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
 
     const rows = (data || []) as Row[]
     const rawItems = rows.map(rowToItem)
-
-    // mehka deduplikacija na izhodu
     const items = softDedupe(rawItems).sort((a, b) => b.publishedAt - a.publishedAt)
 
     const nextCursor =
