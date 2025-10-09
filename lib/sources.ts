@@ -7,6 +7,7 @@ export const SOURCES = [
   'Siol.net',
   'Slovenske novice',
   'Delo',
+  'Dnevnik',
   'Zurnal24',
   'N1',
   'Svet24',
@@ -18,6 +19,7 @@ export const sourceColors: Record<string, string> = {
   'Siol.net': '#413f93',
   'Slovenske novice': '#D1482E',
   Delo: '#0052a1',
+  Dnevnik: '#c60000',
   Zurnal24: '#678ca3',
   N1: '#253d9c',
   Svet24: '#ee9999',
@@ -31,6 +33,7 @@ export const feeds: Record<string, string> = {
   Zurnal24: 'https://www.zurnal24.si/feeds/latest',
   'Slovenske novice': 'https://www.slovenskenovice.si/rss',
   Delo: 'https://www.delo.si/rss',
+  Dnevnik: 'https://www.dnevnik.si/rss.xml',
   N1: 'https://n1info.si/feed/',
   Svet24: 'https://svet24.si/rss/site.xml',
 }
@@ -43,6 +46,7 @@ export const homepages: Record<string, string> = {
   Zurnal24: 'https://www.zurnal24.si/',
   'Slovenske novice': 'https://www.slovenskenovice.si/',
   Delo: 'https://www.delo.si/',
+  Dnevnik: 'https://www.dnevnik.si/',
   N1: 'https://n1info.si/',
   Svet24: 'https://svet24.si/',
 }
