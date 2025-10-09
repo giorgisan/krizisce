@@ -29,7 +29,7 @@ const BLOCK_BRANDS: string[] = [
 const ENABLE_HTML_CHECK = true
 const MAX_HTML_CHECKS = 8
 const HTML_CHECK_HOSTS = [
-  'siol.net','delo.si','slovenskenovice.delo.si','24ur.com','zurnal24.si','finance.si'
+  'rtvslo.si','siol.net','delo.si','slovenskenovice.si','delo.si','24ur.com','zurnal24.si', 'n1info.si','dnevnik.si'
 ]
 const HTML_MARKERS = [
   'oglasno sporočilo','oglasno sporocilo',
