@@ -54,6 +54,23 @@ const diffFresh = (fresh: NewsItem[], current: NewsItem[]) => {
   return { newLinks, hasNewer }
 }
 
+// ---- “hitri kick” ingest-a ob obisku (z varovalkami) ----
+const KICK_KEY = 'ingest_kick_ms'
+const KICK_COOLDOWN_MS = 2 * 60_000   // 2 min per-browser
+const FAST_CHECKS = 4                  // največ 4 hitri poskusi
+const FAST_DELAY_MS = 3_000            // 3 s med poskusi
+
+async function sleep(ms: number) { await new Promise(r => setTimeout(r, ms)) }
+function canKickIngestNow() {
+  try {
+    const last = Number(localStorage.getItem(KICK_KEY) || '0')
+    return !last || (Date.now() - last > KICK_COOLDOWN_MS)
+  } catch { return true }
+}
+function markKick() {
+  try { localStorage.setItem(KICK_KEY, String(Date.now())) } catch {}
+}
+
 // stableAt (lokalna stabilizacija vrstnega reda po prvem videnju)
 const LS_FIRST_SEEN = 'krizisce_first_seen_v1'
 type FirstSeenMap = Record<string, number>
@@ -101,20 +118,41 @@ export default function Home({ initialNews }: Props) {
   const [hasMore, setHasMore] = useState(true)
   const [cursor, setCursor] = useState<number | null>(null)
 
-  // --- 1) Prvi obisk: takoj preverimo DB in, če je kaj novega, zamenjamo seznam
+  // --- 1) Prvi obisk: preberemo DB, kicknemo ingest (če dovoljeno) in hitro preverimo nove zapise
   const [bootRefreshed, setBootRefreshed] = useState(false)
   useEffect(() => {
     const ctrl = new AbortController()
     ;(async () => {
-      const fresh = await loadNews(ctrl.signal)
-      if (fresh && fresh.length) {
+      // a) takoj preberi DB
+      const fresh0 = await loadNews(ctrl.signal)
+      if (fresh0 && fresh0.length) {
         const currentLinks = new Set(initialNews.map(n => n.link))
-        const hasNewLink = fresh.some(n => n.link && !currentLinks.has(n.link))
-        if (hasNewLink) startTransition(() => { setNews(fresh); setDisplayCount(20) })
+        const hasNewLink = fresh0.some(n => n.link && !currentLinks.has(n.link))
+        if (hasNewLink) startTransition(() => { setNews(fresh0); setDisplayCount(20) })
       }
+
+      // b) kick ingest-a z varovalko (2 min cooldown per-browser)
+      if (canKickIngestNow()) {
+        fetch('/api/news?forceFresh=1', { cache: 'no-store', keepalive: true }).catch(() => {})
+        markKick()
+      }
+
+      // c) hitro okno: 4× po 3 s preverimo, ali se je v DB že pojavilo kaj novega
+      for (let i = 0; i < FAST_CHECKS; i++) {
+        await sleep(FAST_DELAY_MS)
+        const fresh = await loadNews(ctrl.signal)
+        if (!fresh || fresh.length === 0) continue
+        const { newLinks, hasNewer } = diffFresh(fresh, news)
+        if (hasNewer && newLinks > 0) {
+          startTransition(() => { setNews(fresh); setDisplayCount(20) })
+          break
+        }
+      }
+
       setBootRefreshed(true)
     })()
     return () => ctrl.abort()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialNews])
 
   // --- 2) Polling (samo branje /api/news; ingest ureja cron)
