@@ -9,7 +9,7 @@ type Props = {
   value: string
   /** Klicano, ko uporabnik izbere vir */
   onChange: (next: string) => void
-  /** Privzeto razprto? */
+  /** Začetno odprto/zaprto stanje (privzeto odprto) */
   defaultExpanded?: boolean
 }
 
@@ -27,16 +27,15 @@ export default function SourceFilter({ value, onChange, defaultExpanded = true }
     return () => window.removeEventListener('resize', setHdr)
   }, [])
 
-  // seznam čipov (vključno z "Vse" na začetku)
+  // seznam čipov (Vse na začetku)
   const chips = useMemo(() => {
     const rest = SOURCES.filter(s => s !== 'Vse')
     return ['Vse', ...rest]
   }, [])
 
-  const summary = useMemo(() => (value === 'Vse' ? 'Vsi viri' : value), [value])
-
   const select = (s: string) => {
     onChange(s)
+    // sinhronizacija z obstoječim bridge-om (Header posluša selectedSources)
     try { localStorage.setItem('selectedSources', JSON.stringify(s === 'Vse' ? [] : [s])) } catch {}
     try { sessionStorage.setItem('filters_interacted', '1') } catch {}
     try { window.dispatchEvent(new CustomEvent('filters:update', { detail: { sources: s === 'Vse' ? [] : [s] } })) } catch {}
@@ -44,37 +43,54 @@ export default function SourceFilter({ value, onChange, defaultExpanded = true }
 
   return (
     <div
-      className="sticky top-[var(--hdr-h,56px)] z-30 border-b border-black/10 dark:border-white/10 bg-transparent"
+      className="
+        sticky top-[var(--hdr-h,56px)] z-40
+        border-b border-black/10 dark:border-white/10
+        supports-[backdrop-filter]:backdrop-blur-md
+        bg-white/40 dark:bg-gray-900/40
+      "
       role="region"
       aria-label="Filtri virov"
     >
       <div className="px-4 md:px-8 lg:px-16">
-        {/* zgornja vrstica: povzetek + skrij/prikaži */}
-        <div className="flex items-center justify-between gap-2 py-2">
-          {!expanded ? (
-            <span className="min-w-0 flex-1 truncate text-[13px] text-gray-600 dark:text-gray-400">{summary}</span>
-          ) : (
-            <span className="min-w-0 flex-1" />
-          )}
+        {/* zgornja mikrovrstica: le subtilen toggle, minimalen vertical breathing */}
+        <div className="flex items-center justify-end py-1">
           <button
             type="button"
             onClick={() => setExpanded(v => !v)}
             aria-expanded={expanded}
-            className="px-3.5 py-1.5 text-[13px] rounded-md bg-brand text-white hover:bg-brand-hover"
+            aria-label={expanded ? 'Skrij filtre' : 'Prikaži filtre'}
+            title={expanded ? 'Skrij filtre' : 'Prikaži filtre'}
+            className="
+              h-8 px-2 rounded-md
+              text-gray-600 hover:text-gray-800
+              dark:text-gray-400 dark:hover:text-gray-100
+              hover:bg-black/5 dark:hover:bg-white/10
+              transition
+            "
           >
-            {expanded ? 'Skrij filtre' : 'Prikaži filtre'}
+            {/* chevron up/down */}
+            {expanded ? (
+              <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M6 15l6-6 6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" fill="none"/>
+              </svg>
+            ) : (
+              <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" fill="none"/>
+              </svg>
+            )}
           </button>
         </div>
 
-        {/* čipi: ena vrstica, subtilni, horizontalni scroll */}
+        {/* čipi: ena vrstica, subtilni; horizontalni scroll z fade robovi */}
         {expanded && (
           <div className="relative">
-            {/* nežna “fade” maska na robovih za namig scrolla */}
-            <div className="pointer-events-none absolute inset-y-0 left-0 w-6 bg-gradient-to-r from-transparent to-black/[0.04] dark:to-white/[0.06]" />
-            <div className="pointer-events-none absolute inset-y-0 right-0 w-6 bg-gradient-to-l from-transparent to-black/[0.04] dark:to-white/[0.06]" />
+            {/* fade namig na robovih */}
+            <div className="pointer-events-none absolute inset-y-0 left-0 w-8 bg-gradient-to-r from-white/40 dark:from-gray-900/40 to-transparent" />
+            <div className="pointer-events-none absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-white/40 dark:from-gray-900/40 to-transparent" />
 
             <div
-              className="flex items-center gap-6 overflow-x-auto whitespace-nowrap pb-2 scrollbar-thin"
+              className="flex items-center gap-8 overflow-x-auto whitespace-nowrap pb-2 scroll-px-4"
               style={{ scrollSnapType: 'x proximity' }}
             >
               {chips.map((s) => {
@@ -86,11 +102,12 @@ export default function SourceFilter({ value, onChange, defaultExpanded = true }
                     onClick={() => select(s)}
                     aria-pressed={active}
                     className={[
-                      'inline-flex items-center rounded-full px-3 py-1.5 text-[13px] scroll-ml-4',
-                      // neaktivni = zelo subtilni; aktivni = majhen “pill” poudarek (kot na tvoji sliki)
+                      'inline-flex items-center rounded-full px-2.5 py-1 text-[13px] scroll-ml-4 transition',
                       active
-                        ? 'bg-brand text-white'
-                        : 'text-gray-800 dark:text-gray-200 hover:text-white hover:bg-white/10 dark:hover:bg-white/10 hover:backdrop-blur-sm',
+                        // NEVTRALEN “pill”: poltransparenten + tanek ring (brez oranžne)
+                        ? 'text-gray-900 dark:text-white bg-black/10 dark:bg-white/12 ring-1 ring-black/15 dark:ring-white/15'
+                        // neaktivni: zelo subtilni; ob hoverju malo več kontrasta
+                        : 'text-gray-700 dark:text-gray-300 hover:bg-black/6 dark:hover:bg-white/8 hover:text-gray-900 dark:hover:text-white',
                     ].join(' ')}
                     style={{ scrollSnapAlign: 'start' }}
                   >
