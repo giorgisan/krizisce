@@ -2,9 +2,6 @@ name: Refresh news
 
 on:
   workflow_dispatch:
-  schedule:
-    # vsakih 20 minut (varno za kvote, ~72×/dan)
-    # - cron: "*/20 * * * *" # ⚠️ Scheduled cron disabled — Supabase Cron handles ingestion now
 
 jobs:
   hit-cron-endpoint:
