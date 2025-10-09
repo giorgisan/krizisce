@@ -16,8 +16,6 @@ import Footer from '@/components/Footer'
 import SeoHead from '@/components/SeoHead'
 import { sourceColors } from '@/lib/sources'
 
-/* ======================== Types & helpers ======================== */
-
 type ApiItem = {
   id: string
   link: string
@@ -48,7 +46,7 @@ const fmtDDMMYYYY = (iso: string) => {
 }
 
 const norm = (s: string) => {
-  try { return s.toLowerCase().normalize('NFD').replace(/\u0300-\u036f/g, '') } catch { return s.toLowerCase() }
+  try { return s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '') } catch { return s.toLowerCase() }
 }
 const highlight = (txt: string, q: string) => {
   if (!q) return txt
@@ -194,28 +192,43 @@ function CalendarPopover({ open, anchorRef, valueISO, onClose, onPickISO }: CalP
       </div>
 
       <div className="grid grid-cols-7 gap-1">
-        {grid.map((d) => {
-          const active = d.iso === valueISO
-          const disabled = d.isFuture
-          const base =
-            disabled
-              ? 'opacity-40 cursor-not-allowed pointer-events-none'
-              : active
-                ? 'bg-brand text-white'
-                : d.isToday
-                  ? 'ring-1 ring-brand/60'
-                  : 'hover:bg-black/5 dark:hover:bg-white/5'
-          return (
-            <button
-              key={d.iso}
-              onClick={() => !disabled && onPick(d.iso)}
-              aria-disabled={disabled}
-              className={`h-8 rounded-md text-sm text-center ${d.dim !== 'curr' ? 'text-gray-400 dark:text-gray-600' : ''} ${base}`}
-            >
-              {d.label}
-            </button>
-          )
-        })}
+        {/* … dnevi … */}
+        {(() => {
+          const out: JSX.Element[] = []
+          const first = startOfMonth(view)
+          const firstDow = (first.getDay() + 6) % 7
+          const start = new Date(first); start.setDate(first.getDate() - firstDow)
+          for (let i = 0; i < 42; i++) {
+            const d = new Date(start); d.setDate(start.getDate() + i)
+            const iso = yyyymmdd(d)
+            const dim: 'prev'|'curr'|'next' =
+              d.getMonth() < view.getMonth() ? 'prev' :
+              d.getMonth() > view.getMonth() ? 'next' : 'curr'
+            const isToday = iso === todayISO
+            const isFuture = iso > todayISO
+            const active = iso === valueISO
+            const disabled = isFuture
+            const base =
+              disabled
+                ? 'opacity-40 cursor-not-allowed pointer-events-none'
+                : active
+                  ? 'bg-brand text-white'
+                  : isToday
+                    ? 'ring-1 ring-brand/60'
+                    : 'hover:bg-black/5 dark:hover:bg-white/5'
+            out.push(
+              <button
+                key={iso}
+                onClick={() => !disabled && onPickISO(iso)}
+                aria-disabled={disabled}
+                className={`h-8 rounded-md text-sm text-center ${dim !== 'curr' ? 'text-gray-400 dark:text-gray-600' : ''} ${base}`}
+              >
+                {d.getDate()}
+              </button>
+            )
+          }
+          return out
+        })()}
       </div>
 
       <div className="mt-2 flex items-center justify-between">
@@ -223,7 +236,7 @@ function CalendarPopover({ open, anchorRef, valueISO, onClose, onPickISO }: CalP
           Danes
         </button>
         <button onClick={onClose}
-                className="text-xs px-2 py-1 rounded-md border border-gray-300/70 dark:border-gray-700/70 hover:bg-black/5 dark:hover:bg-white/5">
+                className="text-xs px-2 py-1 rounded-md border border-gray-300/70 dark:border-gray-700/70 hover:bg-black/5 dark:hover:bg:white/5">
           Zapri
         </button>
       </div>
@@ -286,7 +299,7 @@ export default function ArchivePage() {
     return () => abortRef.current?.abort()
   }, [date])
 
-  // auto-refresh for today (brez oznake “posodobljeno …”)
+  // auto-refresh for today
   const todayStr = useMemo(() => yyyymmdd(new Date()), [])
   const latestTsRef = useRef<number>(0)
   useEffect(() => { latestTsRef.current = items.length ? tsOf(items[0]) : 0 }, [items])
@@ -304,7 +317,6 @@ export default function ArchivePage() {
     return () => clearInterval(t)
   }, [date, todayStr])
 
-  // derive
   const deferredSearch = useDeferredValue(search)
 
   const filtered = useMemo(() => {
@@ -330,14 +342,12 @@ export default function ArchivePage() {
     startTransition(() => { setSourceFilter(null); setSearch(''); setItems([]); setDate(iso) })
   }
 
-  // >>> NEW: robust time label — ura za vse, ki niso danes
   const isSelectedToday = date === todayStr
   const timeForRow = (ms: number) => {
     if (!isSelectedToday) return fmtClock(ms)
     const rowDay = yyyymmdd(new Date(ms))
     return rowDay === date ? relativeTime(ms) : fmtClock(ms)
   }
-  // <<<
 
   return (
     <>
@@ -392,7 +402,6 @@ export default function ArchivePage() {
             </div>
           </div>
 
-          {/* Koledar popover */}
           <CalendarPopover open={isDateOpen} anchorRef={dateWrapRef} valueISO={date} onClose={() => setIsDateOpen(false)} onPickISO={onPickDate} />
 
           {/* Graf */}
@@ -436,7 +445,6 @@ export default function ArchivePage() {
           <div>
             <h3 className="mt-1 mb-2 text-sm font-medium text-gray-800 dark:text-gray-200">Zadnje novice</h3>
 
-            {/* Sticky header na desktopu; na mobiju skrit */}
             <div className="hidden md:grid grid-cols-[90px_1fr_160px] text-[12px] text-gray-500 dark:text-gray-400 px-3">
               <div className="sticky top-[calc(var(--hdr-h)+8px)] bg-transparent backdrop-blur pt-1 pb-1">Čas</div>
               <div className="sticky top-[calc(var(--hdr-h)+8px)] bg-transparent backdrop-blur pt-1 pb-1">Naslov</div>
@@ -509,7 +517,6 @@ export default function ArchivePage() {
             </div>
           </div>
 
-          {/* subtilen separator, brez velikih praznin */}
           <div className="mt-4 h-px bg-gray-200/70 dark:bg-gray-700/50 rounded-full" />
         </section>
       </main>
