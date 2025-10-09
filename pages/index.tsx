@@ -1,4 +1,4 @@
-// pages/index.tsx
+// pages/index.tsx — FULL REPLACEMENT
 'use client'
 
 import React, {
@@ -30,12 +30,8 @@ async function kickSyncIfStale(maxAgeMs = 5 * 60_000) {
     const now = Date.now()
     const last = Number(localStorage.getItem(SYNC_KEY) || '0')
     if (!last || now - last > maxAgeMs) {
-      // Dodamo varnostno glavo (ne obvezna, a pomaga ločiti notranje klice)
-      fetch('/api/news?forceFresh=1', {
-        cache: 'no-store',
-        keepalive: true,
-        headers: { 'x-krizisce-ingest': '1' }
-      }).catch(() => {})
+      // optional gate header je izklopljen; API tudi brez njega požene sync
+      fetch('/api/news?forceFresh=1', { cache: 'no-store', keepalive: true }).catch(() => {})
       localStorage.setItem(SYNC_KEY, String(now))
     }
   } catch {}
@@ -90,7 +86,7 @@ type Props = { initialNews: NewsItem[] }
 export default function Home({ initialNews }: Props) {
   const [news, setNews] = useState<NewsItem[]>(initialNews)
 
-  // >>> Multi-select filter (prazno = Vse)
+  // Multi-select filter (prazno = Vse)
   const [selectedSources, setSelectedSources] = useState<string[]>(() => {
     try {
       const raw = localStorage.getItem('selectedSources')
@@ -99,7 +95,6 @@ export default function Home({ initialNews }: Props) {
     } catch { return [] }
   })
   const deferredSources = useDeferredValue(selectedSources)
-  // <<<
 
   const [displayCount, setDisplayCount] = useState<number>(20)
 
@@ -108,7 +103,7 @@ export default function Home({ initialNews }: Props) {
 
   // pagination indikatorji
   const [hasMore, setHasMore] = useState<boolean>(true)
-  const [cursor, setCursor] = useState<number | null>(null) // ms publishedAt za naslednji batch (starejši od cursor)
+  const [cursor, setCursor] = useState<number | null>(null)
 
   // ---------- Instant refresh on first visit ----------
   const [bootRefreshed, setBootRefreshed] = useState(false)
@@ -132,8 +127,6 @@ export default function Home({ initialNews }: Props) {
 
   // polling (z backoff + visibility)
   const [freshNews, setFreshNews] = useState<NewsItem[] | null>(null)
-  const [hasNewBanner, setHasNewBanner] = useState(false)
-  const [bannerMode] = useState<'fresh'>('fresh')
   const missCountRef = useRef(0)
   const timerRef = useRef<number | null>(null)
 
@@ -146,9 +139,7 @@ export default function Home({ initialNews }: Props) {
       const ctrl = new AbortController()
       const fresh = await loadNews(ctrl.signal)
       if (!fresh || fresh.length === 0) {
-        setHasNewBanner(false)
         window.dispatchEvent(new CustomEvent('news-has-new', { detail: false }))
-        window.dispatchEvent(new CustomEvent('news-banner-mode', { detail: 'fresh' }))
         missCountRef.current = Math.min(POLL_MAX_BACKOFF, missCountRef.current + 1)
         return
       }
@@ -157,14 +148,10 @@ export default function Home({ initialNews }: Props) {
       setFreshNews(fresh)
 
       if (hasNewer && newLinks > 0) {
-        setHasNewBanner(true)
-        window.dispatchEvent(new CustomEvent('news-banner-mode', { detail: 'fresh' }))
         window.dispatchEvent(new CustomEvent('news-has-new', { detail: true }))
         missCountRef.current = 0
       } else {
-        setHasNewBanner(false)
         window.dispatchEvent(new CustomEvent('news-has-new', { detail: false }))
-        window.dispatchEvent(new CustomEvent('news-banner-mode', { detail: 'fresh' }))
         missCountRef.current = Math.min(POLL_MAX_BACKOFF, missCountRef.current + 1)
       }
     }
@@ -196,7 +183,6 @@ export default function Home({ initialNews }: Props) {
       startTransition(() => {
         const finish = () => {
           window.dispatchEvent(new CustomEvent('news-refreshing', { detail: false }))
-          setHasNewBanner(false)
           window.dispatchEvent(new CustomEvent('news-has-new', { detail: false }))
           missCountRef.current = 0
           setHasMore(true)
@@ -259,7 +245,7 @@ export default function Home({ initialNews }: Props) {
     setCursor(minMs || null)
   }, [deferredSources, news])
 
-  // server paging: če je 1 vir → pošljemo ?source=X; če je več → brez source (client-side filter po prejemu)
+  // server paging
   const [isLoadingMore, setIsLoadingMore] = useState(false)
   type PagePayload = { items: NewsItem[]; nextCursor: number | null }
   async function fetchPage(params: { cursor?: number | null; limit?: number; source?: string | null }): Promise<PagePayload> {
@@ -287,7 +273,6 @@ export default function Home({ initialNews }: Props) {
         source: single,
       })
 
-      // če je več filtrov, filtriramo client-side
       const sourceSet = new Set(deferredSources)
       const itemsFiltered = single ? items : (deferredSources.length ? items.filter(i => sourceSet.has(i.source)) : items)
 
@@ -320,7 +305,6 @@ export default function Home({ initialNews }: Props) {
     <>
       <Header />
 
-      {/* Filter (ločena komponenta, multi-select) */}
       <SourceFilter
         values={selectedSources}
         onChange={(next) => {
