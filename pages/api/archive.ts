@@ -35,13 +35,12 @@ type ApiOk = {
   items: ApiItem[]
   counts: Record<string, number>
   total: number
-  nextCursor: string | null      // ISO timestamp (published_at of last item)
+  nextCursor: string | null
   fallbackLive?: boolean
 }
 type ApiErr = { error: string }
 
 function parseDateRange(dayISO?: string) {
-  // Lokalni dan → [start,end) v UTC
   const today = new Date()
   const base = dayISO
     ? new Date(`${dayISO}T00:00:00`)
@@ -62,28 +61,19 @@ export default async function handler(
       Math.max(parseInt(String(req.query.limit ?? '200'), 10) || 200, 1),
       500,
     )
-
-    // cursor je ISO published_at (string)
     const cursor: string | null = (req.query.cursor as string) || null
-
     const { start, end } = parseDateRange(dateStr)
 
-    /* === ITEMS (published_at DESC, id DESC) === */
+    // ------- ITEMS -------
     let q = supabase
       .from('news')
-      .select(
-        'id, link, title, source, summary, contentsnippet, published_at, publishedat',
-      )
+      .select('id, link, title, source, summary, contentsnippet, published_at, publishedat')
       .gte('published_at', start)
       .lt('published_at', end)
       .order('published_at', { ascending: false })
       .order('id', { ascending: false })
 
-    if (cursor) {
-      // strictly older than the last visible published_at
-      q = q.lt('published_at', cursor)
-    }
-
+    if (cursor) q = q.lt('published_at', cursor)
     q = q.limit(limit)
 
     const { data: rows, error } = await q
@@ -113,22 +103,39 @@ export default async function handler(
         ? ((rows as Row[])[rows.length - 1].published_at || null)
         : null
 
-    /* === COUNTS po source: en sam agregatni query === */
-    const { data: grouped, error: groupedErr } = await supabase
+    // ------- COUNTS (distinct + count per source; tip-safe) -------
+    const { data: distinctRows, error: distinctErr } = await supabase
       .from('news')
-      .select('source, count:count()') // PostgREST: count alias
+      .select('source')
       .gte('published_at', start)
       .lt('published_at', end)
-      .group('source')
 
-    if (groupedErr) {
+    if (distinctErr) {
       res.setHeader('Cache-Control', 'no-store')
-      return res.status(500).json({ error: `DB error: ${groupedErr.message}` })
+      return res.status(500).json({ error: `DB error: ${distinctErr.message}` })
     }
 
-    const countsEntries = (grouped || []).map((r: any) => [r.source, Number(r.count || 0)] as const)
-    const counts = Object.fromEntries(countsEntries)
-    const total = countsEntries.reduce((a, [, c]) => a + c, 0)
+    const distinctSources = Array.from(
+      new Set((distinctRows || []).map((r: any) => r.source).filter(Boolean)),
+    )
+
+    const entries = await Promise.all(
+      distinctSources.map(async (src) => {
+        const { count, error: cntErr } = await supabase
+          .from('news')
+          .select('id', { count: 'exact', head: true })
+          .gte('published_at', start)
+          .lt('published_at', end)
+          .eq('source', src)
+
+        if (cntErr) return [src, 0] as const
+        return [src, Number(count || 0)] as const
+      }),
+    )
+
+    const counts: Record<string, number> = {}
+    for (const [src, c] of entries) counts[src] = c
+    const total = Object.values(counts).reduce((a, b) => a + b, 0)
 
     res.setHeader('Cache-Control', 'no-store')
     return res.status(200).json({
