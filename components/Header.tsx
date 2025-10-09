@@ -14,10 +14,11 @@ export default function Header() {
   const [mounted, setMounted] = useState(false)
   const [hasNew, setHasNew] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
+  const [filtersOpen, setFiltersOpen] = useState(false)
+
   const [time, setTime] = useState(() =>
     new Intl.DateTimeFormat('sl-SI', { hour: '2-digit', minute: '2-digit' }).format(new Date())
   )
-
   useEffect(() => {
     const tick = () => setTime(new Intl.DateTimeFormat('sl-SI', { hour: '2-digit', minute: '2-digit' }).format(new Date()))
     const timer = setInterval(tick, 60_000); tick()
@@ -35,6 +36,16 @@ export default function Header() {
       window.removeEventListener('news-has-new', onHasNew as EventListener)
       window.removeEventListener('news-refreshing', onRefreshing as EventListener)
     }
+  }, [])
+
+  // poslušaj stanje filtra iz strani
+  useEffect(() => {
+    const onState = (e: Event) => {
+      const open = Boolean((e as CustomEvent).detail?.open)
+      setFiltersOpen(open)
+    }
+    window.addEventListener('ui:filters-state', onState as EventListener)
+    return () => window.removeEventListener('ui:filters-state', onState as EventListener)
   }, [])
 
   const hdrRef = useRef<HTMLElement | null>(null)
@@ -72,6 +83,11 @@ export default function Header() {
     if (router.pathname === '/') { e.preventDefault(); window.scrollTo({ top: 0, behavior: 'smooth' }) }
   }
 
+  // klik na ikono filtra → povej strani naj preklopi (ta bo vrnila "ui:filters-state")
+  const toggleFilters = () => {
+    window.dispatchEvent(new CustomEvent('ui:toggle-filters'))
+  }
+
   return (
     <header
       ref={hdrRef}
@@ -97,8 +113,7 @@ export default function Header() {
                 transition={{ duration: 0.18, ease: 'easeOut' }}
                 onClick={refreshNow}
                 className="hidden md:inline-flex items-center gap-2 rounded-full px-3.5 py-1.5 text-[13px] font-medium
-                           bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 ring-1 ring-emerald-400/40 dark:ring-emerald-600/40
-                           hover:bg-emerald-500/15 transition shadow-sm"
+                           bg-emerald-500/10 text-emerald-300 ring-1 ring-emerald-600/40 hover:bg-emerald-500/15 transition shadow-sm"
                 title="Osveži, da prikažeš nove spremembe"
                 aria-live="polite"
               >
@@ -113,9 +128,25 @@ export default function Header() {
           </AnimatePresence>
         </div>
 
-        {/* Desno: ura, arhiv, tema */}
+        {/* Desno: ura, filter, arhiv, tema */}
         <div className="flex items-center gap-1.5 sm:gap-2">
           <span className="hidden sm:inline-block font-mono tabular-nums text-[13px] text-gray-500 dark:text-gray-400 select-none">{time}</span>
+
+          {/* FILTER IKONA – preklopi vrstico spodaj */}
+          <button
+            type="button"
+            onClick={toggleFilters}
+            aria-label={filtersOpen ? 'Skrij filtre' : 'Prikaži filtre'}
+            title={filtersOpen ? 'Skrij filtre' : 'Prikaži filtre'}
+            className={`inline-flex h-10 w-10 items-center justify-center rounded-md transition
+                        ${filtersOpen
+                          ? 'text-brand bg-brand/10 ring-1 ring-brand/30'
+                          : 'text-black/55 dark:text-white/60 hover:text-black/90 dark:hover:text-white/90 hover:bg-black/[0.04] dark:hover:bg-white/[0.06]'}`}
+          >
+            <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+              <path d="M3 5h18l-7 8v5l-4 2v-7L3 5z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" fill="none"/>
+            </svg>
+          </button>
 
           <Link
             href="/arhiv"
@@ -138,7 +169,7 @@ export default function Header() {
               aria-label="Preklopi temo"
               title={isDark ? 'Preklopi na svetlo' : 'Preklopi na temno'}
               className="inline-flex h-10 w-10 items-center justify-center rounded-md
-                         text-black/55 dark:text-white/65 hover:text-black/90 dark:hover:text-white/90
+                         text-black/55 dark:text白/65 hover:text-black/90 dark:hover:text-white/90
                          hover:bg-black/[0.04] dark:hover:bg-white/[0.06] transition relative overflow-hidden"
             >
               {/* Sun */}
@@ -171,8 +202,7 @@ export default function Header() {
               <button
                 onClick={refreshNow}
                 className="group inline-flex items-center gap-2 rounded-full px-3.5 py-1.5 text-[13px] font-medium
-                           bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 ring-1 ring-emerald-400/40 dark:ring-emerald-600/40
-                           hover:bg-emerald-500/15 transition shadow-sm"
+                           bg-emerald-500/10 text-emerald-300 ring-1 ring-emerald-600/40 hover:bg-emerald-500/15 transition shadow-sm"
                 title="Osveži, da prikažeš nove spremembe"
               >
                 <span className="relative inline-flex">
