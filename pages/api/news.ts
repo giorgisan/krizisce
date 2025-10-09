@@ -56,13 +56,15 @@ function canonicalize(raw: string): string {
   try {
     const u = new URL(raw.trim())
     u.protocol = 'https:'                                   // https
-    u.host = u.host.toLowerCase().replace(/^www\\./, '')     // brez www
+    u.host = u.host.toLowerCase().replace(/^www\./, '')     // brez www
     // odstrani tracking queryje
     const TRACK = [/^utm_/i, /^fbclid$/i, /^gclid$/i, /^ref$/i, /^src$/i, /^from$/i, /^si_src$/i, /^mc_cid$/i, /^mc_eid$/i]
-    for (const k of Array.from(u.searchParams.keys())) if (TRACK.some(rx => rx.test(k))) u.searchParams.delete(k)
+    for (const k of Array.from(u.searchParams.keys())) {
+      if (TRACK.some(rx => rx.test(k))) u.searchParams.delete(k)
+    }
     // brez /amp in trailing /
-    u.pathname = u.pathname.replace(/\\/amp\\/?$/i, '/')
-    if (u.pathname.length > 1) u.pathname = u.pathname.replace(/\\/+$/,'')
+    u.pathname = u.pathname.replace(/\/amp\/?$/i, '/')
+    if (u.pathname.length > 1) u.pathname = u.pathname.replace(/\/+$/, '')
     u.hash = ''                                             // brez hash
     if (u.host.endsWith('rtvslo.si')) u.host = 'rtvslo.si'  // posebnost hosta
     return u.toString()
@@ -73,10 +75,10 @@ function canonicalize(raw: string): string {
 
 /* ========= helperji ========= */
 const unaccent = (s: string) =>
-  s.normalize('NFD').replace(/[\\u0300-\\u036f]/g, '')
+  s.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
 
 function normTitle(s: string): string {
-  return unaccent(s).toLowerCase().replace(/\\s+/g, ' ').trim()
+  return unaccent(s).toLowerCase().replace(/\s+/g, ' ').trim()
 }
 
 function tsSec(ms?: number | null): number {
@@ -98,7 +100,7 @@ function softDedupe<T extends { source?: string; title?: string; publishedAt?: n
 function normalizeSnippet(item: FeedNewsItem): string | null {
   const snippet = (item.contentSnippet || '').trim()
   if (snippet) return snippet
-  const fromContent = (item.content || '').replace(/<[^>]+>/g, ' ').replace(/\\s+/g, ' ').trim()
+  const fromContent = (item.content || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
   return fromContent || null
 }
 
