@@ -1,4 +1,3 @@
-// components/SourceFilter.tsx — FULL REPLACEMENT
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
@@ -6,193 +5,217 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { SOURCES } from '@/lib/sources'
 
 type Props = {
-  value: string                 // trenutno izbran vir (npr. "RTVSLO" ali "Vse")
+  /** Trenutno izbran vir: npr. 'Vse', 'RTVSLO', ... */
+  value: string
+  /** Klicano, ko uporabnik izbere vir */
   onChange: (next: string) => void
 }
 
-function persistAndBroadcast(next: string) {
+/* ---------- pomožne ---------- */
+function emitFilterUpdate(sources: string[]) {
   try { sessionStorage.setItem('filters_interacted', '1') } catch {}
-  try { localStorage.setItem('selectedSources', JSON.stringify(next === 'Vse' ? [] : [next])) } catch {}
-  try { window.dispatchEvent(new CustomEvent('filters:update', { detail: { sources: next === 'Vse' ? [] : [next] } })) } catch {}
+  try { localStorage.setItem('selectedSources', JSON.stringify(sources)) } catch {}
+  try { window.dispatchEvent(new CustomEvent('filters:update', { detail: { sources } })) } catch {}
 }
 
+const isMobileViewport = () =>
+  typeof window !== 'undefined' && window.matchMedia?.('(max-width: 767px)').matches
+
+function useBodyScrollLock(locked: boolean) {
+  useEffect(() => {
+    if (!locked) return
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => { document.body.style.overflow = prev }
+  }, [locked])
+}
+
+/* ---------- komponenta ---------- */
 export default function SourceFilter({ value, onChange }: Props) {
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
-  const isMobile = useMemo(
-    () => typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches,
-    [],
-  )
+  const [mobile, setMobile] = useState(false)
+  const panelRef = useRef<HTMLDivElement | null>(null)
+  const triggerRectRef = useRef<DOMRect | null>(null)
 
-  // odpri/zapri iz Header gumba
+  // poslušalec iz Headerja (ikona filtra)
   useEffect(() => {
-    const handler = () => setOpen(v => !v)
-    window.addEventListener('toggle-filters', handler as EventListener)
-    return () => window.removeEventListener('toggle-filters', handler as EventListener)
+    const onToggle = () => {
+      setMobile(isMobileViewport())
+      // zapomni pozicijo gumba
+      const t = document.getElementById('filters-trigger')
+      triggerRectRef.current = t?.getBoundingClientRect() || null
+      setOpen(v => !v)
+    }
+    window.addEventListener('toggle-filters', onToggle as EventListener)
+    return () => window.removeEventListener('toggle-filters', onToggle as EventListener)
   }, [])
 
-  // close na Escape & klik izven
-  const panelRef = useRef<HTMLDivElement | null>(null)
+  // ESC + click-away
   useEffect(() => {
     if (!open) return
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false)
-    const onDoc = (e: MouseEvent) => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false) }
+    const onClick = (e: MouseEvent) => {
       if (!panelRef.current) return
-      const t = e.target as Node
-      if (!panelRef.current.contains(t)) setOpen(false)
+      if (!panelRef.current.contains(e.target as Node)) setOpen(false)
     }
     document.addEventListener('keydown', onKey)
-    document.addEventListener('mousedown', onDoc)
+    if (!mobile) document.addEventListener('mousedown', onClick) // na mobile je full-screen; click-away je overlay
     return () => {
       document.removeEventListener('keydown', onKey)
-      document.removeEventListener('mousedown', onDoc)
+      document.removeEventListener('mousedown', onClick)
     }
-  }, [open])
+  }, [open, mobile])
 
-  // fokus v iskalnik
-  const inputRef = useRef<HTMLInputElement | null>(null)
-  useEffect(() => {
-    if (!open) return
-    const id = setTimeout(() => inputRef.current?.focus(), 60)
-    return () => clearTimeout(id)
-  }, [open])
+  // lock scroll (mobile bottom sheet)
+  useBodyScrollLock(open && mobile)
 
+  // iskalnik
+  const all = useMemo(() => SOURCES.filter((s) => s !== 'Vse'), [])
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
-    const items = SOURCES.filter(s => s !== 'Vse')
-    if (!q) return items
-    return items.filter(s => s.toLowerCase().includes(q))
-  }, [query])
+    if (!q) return all
+    return all.filter((s) => s.toLowerCase().includes(q))
+  }, [all, query])
 
-  const select = (next: string) => {
+  const select = (s: string) => {
+    const next = s === 'Vse' ? 'Vse' : s
     onChange(next)
-    persistAndBroadcast(next)
+    emitFilterUpdate(next === 'Vse' ? [] : [next])
     setOpen(false)
     setQuery('')
   }
 
-  // pozicija za desktop popover
-  const [pos, setPos] = useState<{ top: number; right: number }>({ top: 64, right: 16 })
-  useEffect(() => {
-    if (!open || isMobile) return
-    const compute = () => {
-      const trigger = document.getElementById('filters-trigger')
-      const header = document.getElementById('site-header')
-      const tr = trigger?.getBoundingClientRect()
-      const hr = header?.getBoundingClientRect()
-      const topFromTrigger = (tr?.bottom ?? 56) + 8
-      const topFromHeader = (hr?.bottom ?? 56) + 8
-      const top = Math.max(topFromHeader, topFromTrigger)
-      const right = Math.max(0, window.innerWidth - (tr?.right ?? window.innerWidth))
-      setPos({ top, right })
-    }
-    compute()
-    window.addEventListener('resize', compute)
-    window.addEventListener('scroll', compute, { passive: true })
-    return () => {
-      window.removeEventListener('resize', compute)
-      window.removeEventListener('scroll', compute)
-    }
-  }, [open, isMobile])
+  /* ---------- pozicija (desktop popover) ---------- */
+  const popStyle = useMemo(() => {
+    if (mobile || !triggerRectRef.current) return {}
+    const r = triggerRectRef.current
+    const top = Math.max((document.getElementById('site-header')?.getBoundingClientRect().bottom ?? r.bottom) + 8, r.bottom + 8)
+    // poravnaj desno na gumb
+    const right = Math.max(8, window.innerWidth - r.right)
+    return { top: `${top}px`, right: `${right}px` }
+  }, [mobile, open])
 
   return (
     <AnimatePresence>
       {open && (
         <>
-          {/* zatemnitev ozadja */}
+          {/* Backdrop */}
           <motion.div
-            key="sf-backdrop"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.12 }}
-            className="fixed inset-0 z-40 bg-black/30"
+            key="backdrop"
+            className="fixed inset-0 z-40 bg-black/30 dark:bg-black/50"
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            onClick={() => setOpen(false)}
             aria-hidden
           />
+          {/* Panel */}
+          {mobile ? (
+            // --------- MOBILE: bottom sheet ---------
+            <motion.div
+              key="sheet"
+              ref={panelRef}
+              className="fixed inset-x-0 bottom-0 z-50 rounded-t-2xl bg-white dark:bg-gray-900 shadow-2xl
+                         ring-1 ring-black/10 dark:ring-white/10"
+              initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
+              transition={{ type: 'tween', duration: 0.22 }}
+              role="dialog" aria-modal="true" aria-label="Filtriraj vire"
+            >
+              <div className="px-4 pt-3 pb-[calc(env(safe-area-inset-bottom,0)+10px)]">
+                <div className="flex items-center justify-between mb-2">
+                  <h2 className="text-base font-semibold">Filtriraj vire</h2>
+                  <button onClick={() => setOpen(false)} aria-label="Zapri" className="h-9 w-9 grid place-items-center rounded-md hover:bg-black/5 dark:hover:bg-white/10">
+                    <svg viewBox="0 0 24 24" width="18" height="18"><path d="M6 6l12 12M18 6l-12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
+                  </button>
+                </div>
 
-          {/* PANEL */}
-          <motion.div
-            key="sf-panel"
-            ref={panelRef}
-            initial={{ opacity: 0, y: isMobile ? 10 : -6 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: isMobile ? 10 : -6 }}
-            transition={{ duration: 0.16 }}
-            className={
-              isMobile
-                ? 'fixed inset-x-0 top-[var(--hdr-h,56px)] bottom-0 z-50 bg-white/90 dark:bg-gray-900/85 backdrop-blur-xl'
-                : 'fixed z-50 w-[min(92vw,22rem)] rounded-xl border border-gray-200/70 dark:border-gray-700/70 bg-white/90 dark:bg-gray-900/85 backdrop-blur-xl shadow-xl'
-            }
-            style={isMobile ? undefined : { top: pos.top, right: pos.right }}
-            role="dialog"
-            aria-label="Filtriraj vire"
-          >
-            {/* header + iskalnik (sticky) */}
-            <div className={`sticky top-0 ${isMobile ? 'px-4 pt-3 pb-2' : 'px-4 pt-3 pb-2'} bg-white/80 dark:bg-gray-900/75 backdrop-blur`}>
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-semibold text-gray-800 dark:text-gray-100">Filtriraj vire</span>
-                <button
-                  aria-label="Zapri"
-                  onClick={() => setOpen(false)}
-                  className="h-8 w-8 inline-flex items-center justify-center rounded-md hover:bg-black/5 dark:hover:bg-white/5"
-                >
-                  <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M6 6l12 12M18 6l-12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>
+                <div className="mb-3">
+                  <input
+                    autoFocus
+                    type="search"
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    placeholder="Išči vir …"
+                    className="w-full rounded-lg px-3 py-2 text-sm bg-gray-100/70 dark:bg-gray-800/70
+                               ring-1 ring-black/10 dark:ring-white/10 outline-none focus:ring-brand"
+                  />
+                </div>
+
+                <div role="radiogroup" aria-label="Viri" className="max-h-[60vh] overflow-y-auto space-y-1 pb-1">
+                  <button
+                    role="radio"
+                    aria-checked={value === 'Vse'}
+                    onClick={() => select('Vse')}
+                    className={`w-full text-left px-3 py-2 rounded-md ${value === 'Vse' ? 'bg-brand text-white' : 'hover:bg-black/5 dark:hover:bg-white/10'}`}
+                  >
+                    Pokaži vse
+                  </button>
+                  {filtered.map((s) => (
+                    <button
+                      key={s}
+                      role="radio"
+                      aria-checked={value === s}
+                      onClick={() => select(s)}
+                      className={`w-full text-left px-3 py-2 rounded-md ${value === s ? 'bg-brand text-white' : 'hover:bg-black/5 dark:hover:bg-white/10'}`}
+                    >
+                      {s}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </motion.div>
+          ) : (
+            // --------- DESKTOP: popover ---------
+            <motion.div
+              key="popover"
+              ref={panelRef}
+              className="fixed z-50 w-[min(90vw,22rem)] rounded-xl border border-gray-200/70 dark:border-gray-700/70
+                         bg-white/90 dark:bg-gray-900/85 backdrop-blur-xl shadow-2xl overflow-hidden"
+              style={popStyle as any}
+              initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }}
+              role="dialog" aria-modal="true" aria-label="Filtriraj vire"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="px-4 py-2 flex items-center justify-between">
+                <span className="text-sm font-semibold">Filtriraj vire</span>
+                <button aria-label="Zapri" onClick={() => setOpen(false)} className="h-8 w-8 inline-grid place-items-center rounded-md hover:bg-black/5 dark:hover:bg-white/10">
+                  <svg viewBox="0 0 24 24" width="18" height="18"><path d="M6 6l12 12M18 6l-12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
                 </button>
               </div>
 
-              <div className="mt-2 relative">
+              <div className="px-3 pb-3">
                 <input
-                  ref={inputRef}
+                  autoFocus
+                  type="search"
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
-                  placeholder="Išči vir…"
-                  className="w-full rounded-md border border-gray-300/60 dark:border-gray-700/60 bg-white/60 dark:bg-gray-800/60 px-3 py-2 text-sm outline-none focus:ring-2 ring-brand"
+                  placeholder="Išči vir …"
+                  className="mb-2 w-full rounded-lg px-3 py-2 text-sm bg-gray-100/70 dark:bg-gray-800/70
+                             ring-1 ring-black/10 dark:ring-white/10 outline-none focus:ring-brand"
                 />
-                {!!query && (
+                <div role="radiogroup" aria-label="Viri" className="max-h-[60vh] overflow-y-auto space-y-1 pb-1">
                   <button
-                    aria-label="Počisti"
-                    onClick={() => setQuery('')}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 h-7 w-7 grid place-items-center rounded-md hover:bg-black/5 dark:hover:bg-white/5"
+                    role="radio"
+                    aria-checked={value === 'Vse'}
+                    onClick={() => select('Vse')}
+                    className={`w-full text-left px-3 py-2 rounded-md ${value === 'Vse' ? 'bg-brand text-white' : 'hover:bg-black/5 dark:hover:bg-white/10'}`}
                   >
-                    <svg viewBox="0 0 24 24" width="16" height="16"><path d="M6 6l12 12M18 6l-12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
+                    Pokaži vse
                   </button>
-                )}
+                  {filtered.map((s) => (
+                    <button
+                      key={s}
+                      role="radio"
+                      aria-checked={value === s}
+                      onClick={() => select(s)}
+                      className={`w-full text-left px-3 py-2 rounded-md ${value === s ? 'bg-brand text-white' : 'hover:bg-black/5 dark:hover:bg-white/10'}`}
+                    >
+                      {s}
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
-
-            {/* seznam */}
-            <div className="px-2 pb-2 overflow-y-auto max-h-[70vh] md:max-h-[64vh]">
-              <button
-                onClick={() => select('Vse')}
-                className={`w-full text-left mt-2 mb-1 px-3 py-2 rounded-md transition ${
-                  value === 'Vse'
-                    ? 'bg-brand text-white'
-                    : 'hover:bg-black/5 dark:hover:bg-white/5 text-gray-800 dark:text-gray-200'
-                }`}
-              >
-                Pokaži vse
-              </button>
-
-              {filtered.map((source, idx) => (
-                <button
-                  key={source}
-                  onClick={() => select(source)}
-                  className={`w-full text-left px-3 py-2 rounded-md transition ${
-                    value === source
-                      ? 'ring-2 ring-brand/60 bg-brand/10 text-gray-900 dark:text-gray-100'
-                      : 'hover:bg-black/5 dark:hover:bg-white/5 text-gray-800 dark:text-gray-200'
-                  }`}
-                  style={{ transitionDelay: isMobile ? '0ms' : `${idx * 10}ms` }}
-                >
-                  {source}
-                </button>
-              ))}
-
-              {filtered.length === 0 && (
-                <p className="px-3 py-6 text-sm text-gray-500 dark:text-gray-400">Ni zadetkov.</p>
-              )}
-            </div>
-          </motion.div>
+            </motion.div>
+          )}
         </>
       )}
     </AnimatePresence>
