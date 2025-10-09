@@ -1,4 +1,4 @@
-// pages/index.tsx — FULL REPLACEMENT
+// pages/index.tsx
 'use client'
 
 import React, {
@@ -17,10 +17,10 @@ import Header from '@/components/Header'
 import ArticleCard from '@/components/ArticleCard'
 import SeoHead from '@/components/SeoHead'
 import BackToTop from '@/components/BackToTop'
-import SourceFilter from '@/components/SourceFilter'
+import StickyFiltersBar from '@/components/StickyFiltersBar'
 
 // -------------------- Helpers & constants --------------------
-const POLL_MS = 60_000          // 1 min v ospredju
+const POLL_MS = 60_000
 const HIDDEN_POLL_MS = 5 * 60_000
 const POLL_MAX_BACKOFF = 5
 
@@ -30,7 +30,6 @@ async function kickSyncIfStale(maxAgeMs = 5 * 60_000) {
     const now = Date.now()
     const last = Number(localStorage.getItem(SYNC_KEY) || '0')
     if (!last || now - last > maxAgeMs) {
-      // optional gate header je izklopljen; API tudi brez njega požene sync
       fetch('/api/news?forceFresh=1', { cache: 'no-store', keepalive: true }).catch(() => {})
       localStorage.setItem(SYNC_KEY, String(now))
     }
@@ -65,7 +64,7 @@ const diffFresh = (fresh: NewsItem[], current: NewsItem[]) => {
   return { newLinks, hasNewer }
 }
 
-// === stabilni čas objave (immutable) prek localStorage ===
+// stableAt bookkeeping
 const LS_FIRST_SEEN = 'krizisce_first_seen_v1'
 type FirstSeenMap = Record<string, number>
 function loadFirstSeen(): FirstSeenMap {
@@ -86,7 +85,7 @@ type Props = { initialNews: NewsItem[] }
 export default function Home({ initialNews }: Props) {
   const [news, setNews] = useState<NewsItem[]>(initialNews)
 
-  // Multi-select filter (prazno = Vse)
+  // Multi-select (prazno = Vse)
   const [selectedSources, setSelectedSources] = useState<string[]>(() => {
     try {
       const raw = localStorage.getItem('selectedSources')
@@ -97,15 +96,11 @@ export default function Home({ initialNews }: Props) {
   const deferredSources = useDeferredValue(selectedSources)
 
   const [displayCount, setDisplayCount] = useState<number>(20)
-
-  // first-seen mapa za stabilni čas
   const [firstSeen, setFirstSeen] = useState<FirstSeenMap>(() => loadFirstSeen())
-
-  // pagination indikatorji
   const [hasMore, setHasMore] = useState<boolean>(true)
   const [cursor, setCursor] = useState<number | null>(null)
 
-  // ---------- Instant refresh on first visit ----------
+  // instant refresh on mount
   const [bootRefreshed, setBootRefreshed] = useState(false)
   useEffect(() => {
     const ctrl = new AbortController()
@@ -123,10 +118,41 @@ export default function Home({ initialNews }: Props) {
     })()
     return () => ctrl.abort()
   }, [initialNews])
-  // ----------------------------------------------------
 
-  // polling (z backoff + visibility)
+  // poslušaj Header bridge (filters:update) in storage (drugi tab)
+  useEffect(() => {
+    const onUpd = (e: Event) => {
+      const det = (e as CustomEvent).detail
+      const arr = det && Array.isArray(det.sources) ? det.sources : []
+      startTransition(() => {
+        setSelectedSources(arr)
+        setDisplayCount(20); setHasMore(true); setCursor(null)
+      })
+    }
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === 'selectedSources') {
+        try {
+          const arr = e.newValue ? JSON.parse(e.newValue) : []
+          if (Array.isArray(arr)) {
+            startTransition(() => {
+              setSelectedSources(arr)
+              setDisplayCount(20); setHasMore(true); setCursor(null)
+            })
+          }
+        } catch {}
+      }
+    }
+    window.addEventListener('filters:update', onUpd as EventListener)
+    window.addEventListener('storage', onStorage)
+    return () => {
+      window.removeEventListener('filters:update', onUpd as EventListener)
+      window.removeEventListener('storage', onStorage)
+    }
+  }, [])
+
+  // polling
   const [freshNews, setFreshNews] = useState<NewsItem[] | null>(null)
+  const [hasNewBanner, setHasNewBanner] = useState(false)
   const missCountRef = useRef(0)
   const timerRef = useRef<number | null>(null)
 
@@ -135,22 +161,22 @@ export default function Home({ initialNews }: Props) {
 
     const runCheck = async () => {
       kickSyncIfStale(10 * 60_000)
-
       const ctrl = new AbortController()
       const fresh = await loadNews(ctrl.signal)
       if (!fresh || fresh.length === 0) {
+        setHasNewBanner(false)
         window.dispatchEvent(new CustomEvent('news-has-new', { detail: false }))
         missCountRef.current = Math.min(POLL_MAX_BACKOFF, missCountRef.current + 1)
         return
       }
-
       const { newLinks, hasNewer } = diffFresh(fresh, news)
       setFreshNews(fresh)
-
       if (hasNewer && newLinks > 0) {
+        setHasNewBanner(true)
         window.dispatchEvent(new CustomEvent('news-has-new', { detail: true }))
         missCountRef.current = 0
       } else {
+        setHasNewBanner(false)
         window.dispatchEvent(new CustomEvent('news-has-new', { detail: false }))
         missCountRef.current = Math.min(POLL_MAX_BACKOFF, missCountRef.current + 1)
       }
@@ -167,7 +193,6 @@ export default function Home({ initialNews }: Props) {
 
     runCheck()
     schedule()
-
     const onVis = () => { if (document.visibilityState === 'visible') runCheck(); schedule() }
     document.addEventListener('visibilitychange', onVis)
     return () => {
@@ -183,20 +208,16 @@ export default function Home({ initialNews }: Props) {
       startTransition(() => {
         const finish = () => {
           window.dispatchEvent(new CustomEvent('news-refreshing', { detail: false }))
+          setHasNewBanner(false)
           window.dispatchEvent(new CustomEvent('news-has-new', { detail: false }))
           missCountRef.current = 0
           setHasMore(true)
           setCursor(null)
           setDisplayCount(20)
         }
-        if (freshNews) {
-          setNews(freshNews)
-          finish()
-        } else {
-          loadNews().then((fresh) => {
-            if (fresh && fresh.length) { setNews(fresh) }
-            finish()
-          })
+        if (freshNews) { setNews(freshNews); finish() }
+        else {
+          loadNews().then((fresh) => { if (fresh && fresh.length) setNews(fresh); finish() })
         }
       })
     }
@@ -204,28 +225,23 @@ export default function Home({ initialNews }: Props) {
     return () => window.removeEventListener('refresh-news', onRefresh as EventListener)
   }, [freshNews])
 
-  // — obogatimo novice s "stableAt" in sproti dopolnimo firstSeen mapo —
+  // stableAt shaping
   const shapedNews = useMemo(() => {
     const map = { ...firstSeen }
     let changed = false
-
     const withStable = news.map(n => {
       const published = typeof n.publishedAt === 'number' ? n.publishedAt : 0
       const link = n.link || ''
-      if (link && map[link] == null) {
-        map[link] = published || Date.now()
-        changed = true
-      }
+      if (link && map[link] == null) { map[link] = published || Date.now(); changed = true }
       const first = map[link] ?? published
       const stableAt = Math.min(first || Infinity, published || Infinity)
       return { ...n, stableAt } as NewsItem & { stableAt: number }
     })
-
     if (changed) { setFirstSeen(map); saveFirstSeen(map) }
     return withStable
   }, [news, firstSeen])
 
-  // filter + sort + paginate (client)
+  // filter + sort + paginate
   const sortedNews = useMemo(
     () => [...shapedNews].sort((a, b) => (b as any).stableAt - (a as any).stableAt),
     [shapedNews]
@@ -238,14 +254,14 @@ export default function Home({ initialNews }: Props) {
 
   const visibleNews = useMemo(() => filteredNews.slice(0, displayCount), [filteredNews, displayCount])
 
-  // kurzor za “starejše”
+  // kurzor
   useEffect(() => {
     if (!filteredNews.length) { setCursor(null); setHasMore(true); return }
     const minMs = filteredNews.reduce((acc, n) => Math.min(acc, n.publishedAt || acc), filteredNews[0].publishedAt || 0)
     setCursor(minMs || null)
   }, [deferredSources, news])
 
-  // server paging
+  // paging: 1 vir → server filter; 2+ virov → client filter
   const [isLoadingMore, setIsLoadingMore] = useState(false)
   type PagePayload = { items: NewsItem[]; nextCursor: number | null }
   async function fetchPage(params: { cursor?: number | null; limit?: number; source?: string | null }): Promise<PagePayload> {
@@ -305,7 +321,8 @@ export default function Home({ initialNews }: Props) {
     <>
       <Header />
 
-      <SourceFilter
+      {/* NOVA LEPLJIVA VRSTICA S FILTRI */}
+      <StickyFiltersBar
         values={selectedSources}
         onChange={(next) => {
           startTransition(() => {
@@ -324,7 +341,7 @@ export default function Home({ initialNews }: Props) {
       />
 
       <main
-        className="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white px-4 md:px-8 lg:px-16 pt-5 lg:pt-6 pb-24 transform-gpu translate-y-[var(--mob-shift,0px)] md:translate-y-0 transition-transform duration-150 ease-out"
+        className="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white px-4 md:px-8 lg:px-16 pt-4 pb-24"
       >
         {visibleNews.length === 0 ? (
           <p className="text-gray-500 dark:text-gray-400 text-center w-full mt-10">
@@ -368,7 +385,7 @@ export default function Home({ initialNews }: Props) {
   )
 }
 
-// -------------------- SSG: seed iz Supabase --------------------
+// -------------------- SSG --------------------
 export async function getStaticProps() {
   const { createClient } = await import('@supabase/supabase-js')
   const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL as string
