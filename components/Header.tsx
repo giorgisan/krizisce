@@ -4,7 +4,7 @@
 import Link from 'next/link'
 import Image from 'next/image'
 import { useTheme } from 'next-themes'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/router'
 import { motion, AnimatePresence } from 'framer-motion'
 
@@ -14,120 +14,31 @@ export default function Header() {
   const [mounted, setMounted] = useState(false)
   const [hasNew, setHasNew] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
-  const [bannerMode, setBannerMode] = useState<'fresh' | 'updates'>('fresh')
-
-  // null = v tej seji še ni bilo interakcije; [] = resetirano; ['RTVSLO'] = aktiven filter
-  const [activeSources, setActiveSources] = useState<string[] | null>(null)
-
-  // ura
   const [time, setTime] = useState(() =>
     new Intl.DateTimeFormat('sl-SI', { hour: '2-digit', minute: '2-digit' }).format(new Date())
   )
+
   useEffect(() => {
     const tick = () => setTime(new Intl.DateTimeFormat('sl-SI', { hour: '2-digit', minute: '2-digit' }).format(new Date()))
     const timer = setInterval(tick, 60_000); tick()
     return () => clearInterval(timer)
   }, [])
-
   useEffect(() => setMounted(true), [])
 
+  // sveže novice signal
   useEffect(() => {
     const onHasNew = (e: Event) => setHasNew(Boolean((e as CustomEvent).detail))
     const onRefreshing = (e: Event) => setRefreshing(Boolean((e as CustomEvent).detail))
-    const onMode = (e: Event) => {
-      const m = (e as CustomEvent).detail === 'updates' ? 'updates' : 'fresh'
-      setBannerMode(m)
-    }
     window.addEventListener('news-has-new', onHasNew as EventListener)
     window.addEventListener('news-refreshing', onRefreshing as EventListener)
-    window.addEventListener('news-banner-mode', onMode as EventListener)
     return () => {
       window.removeEventListener('news-has-new', onHasNew as EventListener)
       window.removeEventListener('news-refreshing', onRefreshing as EventListener)
-      window.removeEventListener('news-banner-mode', onMode as EventListener)
     }
   }, [])
-
-  // prestrezi localStorage.setItem za filtre (bridge do indexa)
-  useEffect(() => {
-    try {
-      const origSetItem = localStorage.setItem.bind(localStorage)
-      const patched = ((key: string, value: string) => {
-        origSetItem(key, value)
-        if (key === 'selectedSources') {
-          try { sessionStorage.setItem('filters_interacted', '1') } catch {}
-          try {
-            const parsed = JSON.parse(value)
-            const arr = Array.isArray(parsed) ? parsed : []
-            window.dispatchEvent(new CustomEvent('filters:update', { detail: { sources: arr } }))
-          } catch {
-            window.dispatchEvent(new CustomEvent('filters:update', { detail: { sources: [] } }))
-          }
-        }
-      }) as unknown as typeof localStorage.setItem
-      ;(localStorage as any).__origSetItem__ = origSetItem
-      ;(localStorage.setItem as any) = patched
-
-      if (sessionStorage.getItem('filters_interacted') === '1') {
-        const raw = localStorage.getItem('selectedSources')
-        if (raw) {
-          try {
-            const arr = JSON.parse(raw)
-            if (Array.isArray(arr)) setActiveSources(arr)
-          } catch {}
-        }
-      }
-      return () => {
-        try {
-          const orig = (localStorage as any).__origSetItem__ as typeof localStorage.setItem | undefined
-        if (orig) (localStorage.setItem as any) = orig
-        } catch {}
-      }
-    } catch {}
-  }, [])
-
-  useEffect(() => {
-    const onUpdate = (e: Event) => {
-      const det = (e as CustomEvent).detail
-      const arr = det && Array.isArray(det.sources) ? det.sources : []
-      setActiveSources(arr)
-    }
-    window.addEventListener('filters:update', onUpdate as EventListener)
-    return () => window.removeEventListener('filters:update', onUpdate as EventListener)
-  }, [])
-
-  const clearFilters = () => {
-    try { sessionStorage.setItem('filters_interacted', '1') } catch {}
-    try { localStorage.setItem('selectedSources', JSON.stringify([])) } catch {}
-    try { window.dispatchEvent(new CustomEvent('filters:update', { detail: { sources: [] } })) } catch {}
-    setActiveSources([])
-  }
-
-  const currentTheme = (theme ?? resolvedTheme) || 'dark'
-  const isDark = currentTheme === 'dark'
-
-  const refreshNow = () => {
-    setRefreshing(true)
-    window.dispatchEvent(new CustomEvent('refresh-news'))
-  }
-
-  const onBrandClick: React.MouseEventHandler<HTMLAnchorElement> = (e) => {
-    if (router.pathname === '/') {
-      e.preventDefault()
-      window.scrollTo({ top: 0, behavior: 'smooth' })
-    }
-  }
-
-  const activeLabel = useMemo(() => {
-    if (!activeSources || activeSources.length === 0) return ''
-    const shown = activeSources.slice(0, 2).join(', ')
-    const extra = activeSources.length - 2
-    return extra > 0 ? `${shown} +${extra}` : shown
-  }, [activeSources])
 
   const hdrRef = useRef<HTMLElement | null>(null)
   const mobBannerRef = useRef<HTMLDivElement | null>(null)
-
   useEffect(() => {
     const setHdr = () => {
       const h = hdrRef.current?.offsetHeight || 56
@@ -151,21 +62,15 @@ export default function Header() {
     return () => window.removeEventListener('resize', updateVars)
   }, [hasNew, refreshing])
 
-  const isArchive = router.pathname === '/arhiv'
-
-  // ⬇️ Pomembno: gumb samo objavi globalni event; UI dropdowna ni več v Headerju.
-  const onFilterClick = () => {
-    if (isArchive) {
-      const u = new URL((window?.location?.href || 'http://x') as string)
-      u.pathname = '/'
-      u.searchParams.set('filters', '1')
-      router.push(u.pathname + u.search)
-      return
-    }
-    window.dispatchEvent(new CustomEvent('toggle-filters'))
+  const currentTheme = (theme ?? resolvedTheme) || 'dark'
+  const isDark = currentTheme === 'dark'
+  const refreshNow = () => {
+    setRefreshing(true)
+    window.dispatchEvent(new CustomEvent('refresh-news'))
   }
-
-  const bannerText = bannerMode === 'updates' ? 'Na voljo je posodobljena vsebina' : 'Na voljo so sveže novice'
+  const onBrandClick: React.MouseEventHandler<HTMLAnchorElement> = (e) => {
+    if (router.pathname === '/') { e.preventDefault(); window.scrollTo({ top: 0, behavior: 'smooth' }) }
+  }
 
   return (
     <header
@@ -180,26 +85,19 @@ export default function Header() {
             <Image src="/logo.png" alt="Križišče" width={36} height={36} priority fetchPriority="high" className="w-9 h-9 rounded-md" />
             <div className="min-w-0 leading-tight">
               <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">Križišče</h1>
-              <p className="text-xs sm:text-[13px] text-gray-600 dark:text-gray-400 mt-0.5">
-                Zadnje novice slovenskih medijev
-              </p>
+              <p className="text-xs sm:text-[13px] text-gray-600 dark:text-gray-400 mt-0.5">Zadnje novice slovenskih medijev</p>
             </div>
           </Link>
 
-          {/* Desktop pil */}
           <AnimatePresence initial={false}>
             {hasNew && !refreshing && (
               <motion.button
                 key="fresh-pill-desktop"
-                initial={{ opacity: 0, y: -6 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -6 }}
+                initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }}
                 transition={{ duration: 0.18, ease: 'easeOut' }}
                 onClick={refreshNow}
-                className="hidden md:inline-flex items-center gap-2 rounded-full px-3.5 py-1.5
-                           text-[13px] font-medium
-                           bg-emerald-500/10 text-emerald-700 dark:text-emerald-300
-                           ring-1 ring-emerald-400/40 dark:ring-emerald-600/40
+                className="hidden md:inline-flex items-center gap-2 rounded-full px-3.5 py-1.5 text-[13px] font-medium
+                           bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 ring-1 ring-emerald-400/40 dark:ring-emerald-600/40
                            hover:bg-emerald-500/15 transition shadow-sm"
                 title="Osveži, da prikažeš nove spremembe"
                 aria-live="polite"
@@ -208,44 +106,23 @@ export default function Header() {
                   <span className="h-2.5 w-2.5 rounded-full bg-emerald-500 opacity-80"></span>
                   <span className="absolute inset-0 rounded-full bg-emerald-500 animate-ping opacity-25"></span>
                 </span>
-                <span>{bannerText}</span>
+                <span>Na voljo so sveže novice</span>
                 <span className="opacity-70">— klikni za osvežitev</span>
               </motion.button>
             )}
           </AnimatePresence>
         </div>
 
-        {/* Desno: ura, filter, arhiv (ikona), tema */}
+        {/* Desno: ura, arhiv, tema */}
         <div className="flex items-center gap-1.5 sm:gap-2">
-          <span className="hidden sm:inline-block font-mono tabular-nums text-[13px] text-gray-500 dark:text-gray-400 select-none">
-            {time}
-          </span>
+          <span className="hidden sm:inline-block font-mono tabular-nums text-[13px] text-gray-500 dark:text-gray-400 select-none">{time}</span>
 
-          {/* FILTER – samo gumb (id ostane zaradi pozicioniranja v SourceFilter) */}
-          <button
-            id="filters-trigger"
-            type="button"
-            onClick={onFilterClick}
-            aria-label="Filtriraj vire"
-            title={isArchive ? 'Odpri filtre na naslovnici' : 'Filtriraj vire'}
-            className="inline-flex h-10 w-10 items-center justify-center rounded-md
-                       text-black/45 dark:text-white/55
-                       hover:text-black/85 dark:hover:text-white/85
-                       hover:bg-black/[0.04] dark:hover:bg-white/[0.06] transition"
-          >
-            <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
-              <path d="M3 5h18l-7 8v5l-4 2v-7L3 5z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" fill="none"/>
-            </svg>
-          </button>
-
-          {/* ARHIV */}
           <Link
             href="/arhiv"
-            aria-label="Arhiv"
-            title="Arhiv"
-            className={`inline-flex h-10 w-10 items-center justify-center rounded-md transition
-                        hover:bg-black/[0.04] dark:hover:bg-white/[0.06]
-                        ${isArchive ? 'text-brand' : 'text-black/60 dark:text-white/65 hover:text-black/90 dark:hover:text-white/90'}`}
+            aria-label="Arhiv" title="Arhiv"
+            className="inline-flex h-10 w-10 items-center justify-center rounded-md transition
+                       text-black/60 dark:text-white/65 hover:text-black/90 dark:hover:text-white/90
+                       hover:bg-black/[0.04] dark:hover:bg-white/[0.06]"
           >
             <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
               <path d="M4 7h16v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7Z" stroke="currentColor" strokeWidth="2" fill="none" />
@@ -254,7 +131,6 @@ export default function Header() {
             </svg>
           </Link>
 
-          {/* Tema */}
           {mounted && (
             <button
               type="button"
@@ -262,8 +138,7 @@ export default function Header() {
               aria-label="Preklopi temo"
               title={isDark ? 'Preklopi na svetlo' : 'Preklopi na temno'}
               className="inline-flex h-10 w-10 items-center justify-center rounded-md
-                         text-black/55 dark:text-white/65
-                         hover:text-black/90 dark:hover:text-white/90
+                         text-black/55 dark:text-white/65 hover:text-black/90 dark:hover:text-white/90
                          hover:bg-black/[0.04] dark:hover:bg-white/[0.06] transition relative overflow-hidden"
             >
               {/* Sun */}
@@ -282,14 +157,12 @@ export default function Header() {
         </div>
       </div>
 
-      {/* Mobilni banner */}
+      {/* Mobilni banner s svežimi novicami */}
       <AnimatePresence initial={false}>
         {hasNew && !refreshing && (
           <motion.div
             key="banner-mobile"
-            initial={{ opacity: 0, y: -8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
+            initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
             transition={{ duration: 0.18, ease: 'easeOut' }}
             className="md:hidden fixed left-0 right-0 z-40 bg-[#FAFAFA]/95 dark:bg-gray-900/70 backdrop-blur-md"
             style={{ top: 'var(--hdr-h, 56px)' }}
@@ -297,10 +170,8 @@ export default function Header() {
             <div ref={mobBannerRef} className="px-4 md:px-8 lg:px-16 py-1.5 flex justify-center">
               <button
                 onClick={refreshNow}
-                className="group inline-flex items-center gap-2 rounded-full px-3.5 py-1.5
-                           text-[13px] font-medium
-                           bg-emerald-500/10 text-emerald-700 dark:text-emerald-300
-                           ring-1 ring-emerald-400/40 dark:ring-emerald-600/40
+                className="group inline-flex items-center gap-2 rounded-full px-3.5 py-1.5 text-[13px] font-medium
+                           bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 ring-1 ring-emerald-400/40 dark:ring-emerald-600/40
                            hover:bg-emerald-500/15 transition shadow-sm"
                 title="Osveži, da prikažeš nove spremembe"
               >
@@ -308,49 +179,13 @@ export default function Header() {
                   <span className="h-2.5 w-2.5 rounded-full bg-emerald-500 opacity-80"></span>
                   <span className="absolute inset-0 rounded-full bg-emerald-500 animate-ping opacity-25"></span>
                 </span>
-                <span>{bannerMode === 'updates' ? 'Na voljo je posodobljena vsebina' : 'Na voljo so sveže novice'}</span>
+                <span>Na voljo so sveže novice</span>
                 <span className="opacity-70 group-hover:opacity-100">— klikni za osvežitev</span>
               </button>
             </div>
           </motion.div>
         )}
       </AnimatePresence>
-
-      {/* trak za aktivne filtre */}
-      {activeSources !== null && activeSources.length > 0 && (
-        <div className="px-4 md:px-8 lg:px-16 pb-2">
-          <div className="flex items-center justify-between gap-3
-                          rounded-lg border border-amber-200/60 dark:border-amber-800/50
-                          bg-amber-50/90 dark:bg-amber-900/20
-                          text-amber-900 dark:text-amber-200
-                          px-3 py-2">
-            <div className="min-w-0 text-[13px]">
-              <span className="font-medium">Prikazani viri:</span>{' '}
-              <span className="truncate">{(() => {
-                const shown = activeSources.slice(0, 2).join(', ')
-                const extra = activeSources.length - 2
-                return extra > 0 ? `${shown} +${extra}` : shown
-              })()}</span>
-            </div>
-            <div className="shrink-0 flex items-center gap-2">
-              <button
-                type="button"
-                onClick={onFilterClick}
-                className="hidden sm:inline text-[13px] underline decoration-amber-600/70 hover:decoration-amber-600"
-              >
-                Uredi
-              </button>
-              <button
-                type="button"
-                onClick={clearFilters}
-                className="text-[13px] px-2.5 py-1 rounded-md bg-amber-600 text-white hover:bg-amber-500"
-              >
-                Pokaži vse
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </header>
   )
 }
