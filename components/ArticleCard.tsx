@@ -12,6 +12,7 @@ import {
 import dynamic from 'next/dynamic'
 import { proxiedImage, buildSrcSet } from '@/lib/img'
 import { preloadPreview, canPrefetch, warmImage } from '@/lib/previewPrefetch'
+import { sourceColors } from '@/lib/sources' // ← namesto require()
 
 interface Props { news: NewsItem; priority?: boolean }
 type PreviewProps = { url: string; onClose: () => void }
@@ -39,8 +40,7 @@ export default function ArticleCard({ news, priority = false }: Props) {
   const formattedDate = formatDisplayTime(news.publishedAt, news.isoDate)
 
   const sourceColor = useMemo(() => {
-    const colors = require('@/lib/sources').sourceColors as Record<string, string>
-    return colors[news.source] || '#fc9c6c'
+    return (sourceColors as Record<string, string>)[news.source] || '#fc9c6c'
   }, [news.source])
 
   // --- zaznavanje dotika / coarse pointer ---
