@@ -103,38 +103,21 @@ export default async function handler(
         ? ((rows as Row[])[rows.length - 1].published_at || null)
         : null
 
-    // ------- COUNTS (distinct + count per source; tip-safe) -------
-    const { data: distinctRows, error: distinctErr } = await supabase
-      .from('news')
-      .select('source')
-      .gte('published_at', start)
-      .lt('published_at', end)
+    // ------- COUNTS preko RPC funkcije (1 query namesto N+1) -------
+    const { data: rpcData, error: rpcError } = await supabase.rpc('counts_by_source', {
+      start_iso: start,
+      end_iso: end,
+    })
 
-    if (distinctErr) {
+    if (rpcError) {
       res.setHeader('Cache-Control', 'no-store')
-      return res.status(500).json({ error: `DB error: ${distinctErr.message}` })
+      return res.status(500).json({ error: `RPC error: ${rpcError.message}` })
     }
 
-    const distinctSources = Array.from(
-      new Set((distinctRows || []).map((r: any) => r.source).filter(Boolean)),
-    )
-
-    const entries = await Promise.all(
-      distinctSources.map(async (src) => {
-        const { count, error: cntErr } = await supabase
-          .from('news')
-          .select('id', { count: 'exact', head: true })
-          .gte('published_at', start)
-          .lt('published_at', end)
-          .eq('source', src)
-
-        if (cntErr) return [src, 0] as const
-        return [src, Number(count || 0)] as const
-      }),
-    )
-
     const counts: Record<string, number> = {}
-    for (const [src, c] of entries) counts[src] = c
+    for (const row of rpcData || []) {
+      counts[row.source] = Number(row.count)
+    }
     const total = Object.values(counts).reduce((a, b) => a + b, 0)
 
     res.setHeader('Cache-Control', 'no-store')
