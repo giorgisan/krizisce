@@ -1,0 +1,28 @@
+name: Refresh news
+
+on:
+  workflow_dispatch:
+  schedule:
+    # vsakih 20 minut (varno za kvote, ~72x/dan)
+    - cron: "*/20 * * * *"
+
+jobs:
+  hit-cron-endpoint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Curl production endpoint
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          set -eu
+          # URL tvoje produkcije — po potrebi zamenjaj z domeno .si
+          URL="https://krizisce.vercel.app/api/news?forceFresh=1&_cron=1"
+          echo "Hitting: $URL"
+          http_code=$(curl -sS -m 25 -w "%{http_code}" -H "x-cron-secret: $CRON_SECRET" "$URL" -o /tmp/resp.txt || true)
+          echo "HTTP $http_code"
+          tail -c 5000 /tmp/resp.txt || true
+          case "$http_code" in
+            200|204) exit 0 ;;
+            *) echo "Request failed with HTTP $http_code"; exit 1 ;;
+          esac
