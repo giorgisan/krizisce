@@ -17,7 +17,7 @@ jobs:
         run: |
           set -eu
           # URL tvoje produkcije — po potrebi zamenjaj z domeno .si
-          URL="https://krizisce.vercel.app/api/news?forceFresh=1&_cron=1"
+          URL="https://krizisce.si/api/news?forceFresh=1&_cron=1"
           echo "Hitting: $URL"
           http_code=$(curl -sS -m 25 -w "%{http_code}" -H "x-cron-secret: $CRON_SECRET" "$URL" -o /tmp/resp.txt || true)
           echo "HTTP $http_code"
