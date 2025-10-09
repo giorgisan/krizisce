@@ -12,6 +12,7 @@ const SOURCES: SourceLink[] = [
   { name: 'Siol.net', url: 'https://siol.net', slug: 'siol' },
   { name: 'Slovenske novice', url: 'https://www.slovenskenovice.si', slug: 'slovenskenovice' },
   { name: 'Delo', url: 'https://www.delo.si', slug: 'delo' },
+  { name: 'Dnevnik', url: 'https://www.dnevnik.si', slug: 'dnevnik' },
   { name: 'Žurnal24', url: 'https://www.zurnal24.si', slug: 'zurnal24' },
   { name: 'N1', url: 'https://n1info.si', slug: 'n1' },
   { name: 'Svet24', url: 'https://novice.svet24.si', slug: 'svet24' },
