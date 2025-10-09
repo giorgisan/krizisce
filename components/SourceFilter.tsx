@@ -9,7 +9,7 @@ type Props = {
   value: string
   /** Klicano, ko uporabnik izbere vir */
   onChange: (next: string) => void
-  /** Ali je vrstica vidna (sticky). Neobvezno; privzeto true. */
+  /** Ali je filter vrstica odprta; privzeto true (varno za SSR) */
   open?: boolean
 }
 
@@ -30,7 +30,7 @@ export default function SourceFilter({ value, onChange, open = true }: Props) {
 
   const select = (s: string) => {
     onChange(s)
-    // Sync z obstoječim bridge-om (Header posluša selectedSources)
+    // sync z obstoječim bridge-om (Header posluša selectedSources)
     try { localStorage.setItem('selectedSources', JSON.stringify(s === 'Vse' ? [] : [s])) } catch {}
     try { sessionStorage.setItem('filters_interacted', '1') } catch {}
     try { window.dispatchEvent(new CustomEvent('filters:update', { detail: { sources: s === 'Vse' ? [] : [s] } })) } catch {}
@@ -39,23 +39,23 @@ export default function SourceFilter({ value, onChange, open = true }: Props) {
   return (
     <div
       className={[
-        // sticky bar – kadar je skrit, naj ne pušča praznega prostora (collapse)
+        // sticky bar; ko je skrit, ne pušča praznega prostora
         'sticky top-[var(--hdr-h,56px)] z-40 overflow-hidden transition-[max-height,opacity] duration-150 ease-out',
         open ? 'max-h-16 opacity-100' : 'max-h-0 opacity-0',
-        // blur + subtilen border
+        // blur + subtilen border + prosojno ozadje
         'border-b border-black/10 dark:border-white/10 bg-white/35 dark:bg-gray-900/35 supports-[backdrop-filter]:backdrop-blur-md',
       ].join(' ')}
       role="region"
       aria-label="Filtri virov"
       aria-hidden={!open}
     >
-      {/* ENA vrstica: čipi v vodoravnem scrollu; kompaktno */}
       <div className="px-4 md:px-8 lg:px-16 py-1.5">
         <div className="relative">
           {/* fade robovi za namig scrolla */}
           <div className="pointer-events-none absolute inset-y-0 left-0 w-6 bg-gradient-to-r from-white/35 dark:from-gray-900/35 to-transparent" />
           <div className="pointer-events-none absolute inset-y-0 right-0 w-6 bg-gradient-to-l from-white/35 dark:from-gray-900/35 to-transparent" />
 
+          {/* ENA vrstica čipov (kompaktno, performančno) */}
           <div
             className="flex items-center gap-6 overflow-x-auto whitespace-nowrap scrollbar-thin"
             style={{ scrollSnapType: 'x proximity' }}
