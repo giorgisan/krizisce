@@ -17,7 +17,7 @@ import Header from '@/components/Header'
 import ArticleCard from '@/components/ArticleCard'
 import SeoHead from '@/components/SeoHead'
 import BackToTop from '@/components/BackToTop'
-import StickyFiltersBar from '@/components/StickyFiltersBar'
+import InlineFiltersBar from '@/components/InlineFiltersBar'
 
 // -------------------- Helpers & constants --------------------
 const POLL_MS = 60_000
@@ -321,8 +321,8 @@ export default function Home({ initialNews }: Props) {
     <>
       <Header />
 
-      {/* NOVA LEPLJIVA VRSTICA S FILTRI */}
-      <StickyFiltersBar
+      {/* NOVA INLINE LEPLJIVA VRSTICA S FILTRI */}
+      <InlineFiltersBar
         values={selectedSources}
         onChange={(next) => {
           startTransition(() => {
@@ -340,9 +340,7 @@ export default function Home({ initialNews }: Props) {
         description="Agregator najnovejših novic iz slovenskih medijev. Članki so last izvornih portalov."
       />
 
-      <main
-        className="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white px-4 md:px-8 lg:px-16 pt-4 pb-24"
-      >
+      <main className="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white px-4 md:px-8 lg:px-16 pt-4 pb-24">
         {visibleNews.length === 0 ? (
           <p className="text-gray-500 dark:text-gray-400 text-center w-full mt-10">
             Ni novic za izbrane vire ali napaka pri nalaganju.
