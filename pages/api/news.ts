@@ -14,7 +14,7 @@ const supabaseWrite = SUPABASE_SERVICE_ROLE_KEY
   ? createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } })
   : null;
 
-/* ---------- generic canonical key ---------- */
+/* ---------- canonical key helpers (same as edge fn) ---------- */
 
 function cleanUrl(raw: string): URL | null {
   try {
@@ -55,7 +55,6 @@ function makeLinkKey(raw: string, iso?: string | null): string {
   }
   const numericId = nums.sort((a, b) => b.length - a.length)[0];
   if (numericId) return `https://${u.host}/a/${numericId}`;
-
   const parts = u.pathname.split('/').filter(Boolean);
   let last = parts.length ? parts[parts.length - 1] : '';
   last = last.replace(/\.[a-z0-9]+$/i, '');
@@ -113,6 +112,14 @@ function softDedupe<T extends { source?: string; title?: string; publishedAt?: n
   }
   return Array.from(byKey.values());
 }
+function dedupeByKey<T extends { link_key: string; publishedat?: number }>(rows: T[]): T[] {
+  const by = new Map<string, T>();
+  for (const r of rows) {
+    const prev = by.get(r.link_key);
+    if (!prev || (r.publishedat || 0) > (prev.publishedat || 0)) by.set(r.link_key, r);
+  }
+  return Array.from(by.values());
+}
 
 function normalizeSnippet(item: FeedNewsItem): string | null {
   const snippet = (item.contentSnippet || '').trim();
@@ -150,7 +157,7 @@ function feedItemToDbRow(item: FeedNewsItem) {
   return {
     link: linkRaw,
     link_canonical: linkKey,
-    link_key: linkKey, // pošljemo ključ
+    link_key: linkKey,
     title,
     source,
     image: item.image?.trim() || null,
@@ -173,9 +180,12 @@ async function syncToSupabase(items: FeedNewsItem[]) {
   const rows = dedupedIn.map(feedItemToDbRow).filter(Boolean) as any[];
   if (!rows.length) return;
 
+  // trdo dedupiraj po link_key, da batch ne vsebuje dvojnika
+  const rowsByKey = dedupeByKey(rows);
+
   const { error } = await (supabaseWrite as any)
     .from('news')
-    .upsert(rows, { onConflict: 'link_key', ignoreDuplicates: false });
+    .upsert(rowsByKey, { onConflict: 'link_key', ignoreDuplicates: false });
   if (error) throw error;
 }
 
