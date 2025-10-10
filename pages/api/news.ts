@@ -1,5 +1,4 @@
-// pages/api/news.ts — FULL REPLACEMENT
-
+// pages/api/news.ts
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { createClient } from '@supabase/supabase-js';
 import fetchRSSFeeds from '@/lib/fetchRSSFeeds';
@@ -15,10 +14,64 @@ const supabaseWrite = SUPABASE_SERVICE_ROLE_KEY
   ? createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } })
   : null;
 
+/* ---------- generic canonical key (same as edge fn) ---------- */
+
+function cleanUrl(raw: string): URL | null {
+  try {
+    const u = new URL(raw.trim());
+    u.protocol = 'https:';
+    u.host = u.host.toLowerCase().replace(/^www\./, '');
+    const TRACK = [/^utm_/i, /^fbclid$/i, /^gclid$/i, /^ref$/i, /^src$/i, /^from$/i, /^si_src$/i, /^mc_cid$/i, /^mc_eid$/i];
+    for (const k of Array.from(u.searchParams.keys())) {
+      if (TRACK.some(rx => rx.test(k))) u.searchParams.delete(k);
+    }
+    u.pathname = u.pathname.replace(/\/amp\/?$/i, '/');
+    if (u.pathname.length > 1) u.pathname = u.pathname.replace(/\/+$/, '');
+    u.hash = '';
+    return u;
+  } catch {
+    return null;
+  }
+}
+function yyyymmdd(iso?: string | null): string | null {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (isNaN(+d)) return null;
+  const y = d.getUTCFullYear();
+  const m = String(d.getUTCMonth() + 1).padStart(2, '0');
+  const dd = String(d.getUTCDate()).padStart(2, '0');
+  return `${y}${m}${dd}`;
+}
+function makeLinkKey(raw: string, iso?: string | null): string {
+  const u = cleanUrl(raw);
+  if (!u) return raw.trim();
+  const nums: string[] = [];
+  const pathNums = u.pathname.match(/\d{6,}/g);
+  if (pathNums) nums.push(...pathNums);
+  for (const [, v] of u.searchParams.entries()) {
+    if (/^\d{6,}$/.test(v)) nums.push(v);
+    const inner = v.match(/\d{6,}/g);
+    if (inner) nums.push(...inner);
+  }
+  const numericId = nums.sort((a, b) => b.length - a.length)[0];
+  if (numericId) return `https://${u.host}/a/${numericId}`;
+
+  const parts = u.pathname.split('/').filter(Boolean);
+  let last = parts.length ? parts[parts.length - 1] : '';
+  last = last.replace(/\.[a-z0-9]+$/i, '');
+  const day = yyyymmdd(iso) ?? '';
+  if (last && day) return `https://${u.host}/a/${day}-${last.toLowerCase()}`;
+  if (last) return `https://${u.host}/a/${last.toLowerCase()}`;
+  return `https://${u.host}${u.pathname}`;
+}
+
+/* ---------------- types ---------------- */
+
 type Row = {
   id: number;
   link: string;
   link_canonical: string | null;
+  link_key: string | null;
   title: string;
   source: string;
   image: string | null;
@@ -45,38 +98,8 @@ type PagedOk = { items: NewsItem[]; nextCursor: number | null };
 type ListOk = NewsItem[];
 type Err = { error: string };
 
-/* ========== canonicalize (domen-specifično) ========== */
-function canonicalize(raw: string): string {
-  try {
-    const u = new URL(raw.trim());
-    u.protocol = 'https:';
-    u.host = u.host.toLowerCase().replace(/^www\./, '');
+/* ---------------- helpers ---------------- */
 
-    const TRACK = [/^utm_/i, /^fbclid$/i, /^gclid$/i, /^ref$/i, /^src$/i, /^from$/i, /^si_src$/i, /^mc_cid$/i, /^mc_eid$/i];
-    for (const k of Array.from(u.searchParams.keys())) {
-      if (TRACK.some((rx) => rx.test(k))) u.searchParams.delete(k);
-    }
-
-    u.pathname = u.pathname.replace(/\/amp\/?$/i, '/');
-    if (u.pathname.length > 1) u.pathname = u.pathname.replace(/\/+$/, '');
-    u.hash = '';
-
-    // RTVSLO: stabilni ID
-    if (u.host.endsWith('rtvslo.si')) {
-      const mPath = u.pathname.match(/\/(\d+)(?:\/)?$/);
-      const qId = u.searchParams.get('id');
-      const id = (mPath && mPath[1]) || (qId && /^\d+$/.test(qId) ? qId : null);
-      if (id) return `https://rtvslo.si/a/${id}`;
-      return `https://rtvslo.si${u.pathname}`;
-    }
-
-    return u.toString();
-  } catch {
-    return raw.trim();
-  }
-}
-
-/* ========== helpers ========== */
 const unaccent = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 const normTitle = (s: string) => unaccent(s).toLowerCase().replace(/\s+/g, ' ').trim();
 const tsSec = (ms?: number | null) => Math.max(0, Math.floor((typeof ms === 'number' ? ms : 0) / 1000));
@@ -104,35 +127,30 @@ function resolveTimestamps(item: FeedNewsItem) {
     const t = Date.parse(value);
     if (Number.isNaN(t)) return null;
     return { raw: value, ms: t, iso: new Date(t).toISOString() };
-    // raw = originalni niz; iso = normaliziran ISO
   };
   const fromIso = parse(item.isoDate);
   const fromPub = parse(item.pubDate);
-
   const msFromNumber =
-    typeof item.publishedAt === 'number' && Number.isFinite(item.publishedAt) && item.publishedAt > 0
-      ? item.publishedAt
-      : null;
-
+    typeof item.publishedAt === 'number' && Number.isFinite(item.publishedAt) && item.publishedAt > 0 ? item.publishedAt : null;
   const ms = fromIso?.ms ?? fromPub?.ms ?? msFromNumber ?? Date.now();
   const iso = fromIso?.iso ?? fromPub?.iso ?? new Date(ms).toISOString();
   const isoRaw = fromIso?.raw ?? fromPub?.raw ?? iso;
   const pubRaw = fromPub?.raw ?? null;
-
   return { ms: Math.round(ms), iso, isoRaw, pubRaw };
 }
 
 function feedItemToDbRow(item: FeedNewsItem) {
   const linkRaw = (item.link || '').trim();
-  const linkCanonical = canonicalize(linkRaw) || linkRaw; // Fallback!
+  const ts = resolveTimestamps(item);
+  const linkKey = makeLinkKey(linkRaw, ts.iso) || linkRaw;
   const title = (item.title || '').trim();
   const source = (item.source || '').trim();
-  if (!linkCanonical || !title || !source) return null;
-  const ts = resolveTimestamps(item);
+  if (!linkKey || !title || !source) return null;
   const snippet = normalizeSnippet(item);
   return {
     link: linkRaw,
-    link_canonical: linkCanonical,
+    link_canonical: linkKey,
+    link_key: linkKey,         // <-- **send link_key**
     title,
     source,
     image: item.image?.trim() || null,
@@ -155,7 +173,6 @@ async function syncToSupabase(items: FeedNewsItem[]) {
   const rows = dedupedIn.map(feedItemToDbRow).filter(Boolean) as any[];
   if (!rows.length) return;
 
-  // Upsert po link_key (generiran v bazi iz coalesce(link_canonical, link))
   const { error } = await (supabaseWrite as any)
     .from('news')
     .upsert(rows, { onConflict: 'link_key', ignoreDuplicates: false });
@@ -188,13 +205,14 @@ function rowToItem(r: Row): NewsItem {
   };
 }
 
+/* ---------------- handler ---------------- */
+
 export default async function handler(req: NextApiRequest, res: NextApiResponse<PagedOk | ListOk | Err>) {
   try {
     const paged = req.query.paged === '1';
     const wantsFresh = req.query.forceFresh === '1';
     const source = (req.query.source as string) || null;
 
-    // ---- CRON auth: forceFresh je dovoljeno le interni klic / cron (ali dev)
     const headerSecret = (req.headers['x-cron-secret'] as string | undefined)?.trim();
     const isCronCaller = Boolean(CRON_SECRET && headerSecret && headerSecret === CRON_SECRET);
     const isInternalIngest = req.headers['x-krizisce-ingest'] === '1';
@@ -209,16 +227,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
       }
     }
 
-    const limit = Math.min(
-      Math.max(parseInt(String(req.query.limit ?? (paged ? 40 : 60)), 10) || (paged ? 40 : 60), 1),
-      200
-    );
+    const limit = Math.min(Math.max(parseInt(String(req.query.limit ?? (paged ? 40 : 60)), 10) || (paged ? 40 : 60), 1), 200);
     const cursor = req.query.cursor ? Number(req.query.cursor) : null;
 
     let q = supabaseRead
       .from('news')
       .select(
-        'id, link, link_canonical, title, source, image, contentsnippet, summary, isodate, pubdate, published_at, publishedat, created_at'
+        'id, link, link_canonical, link_key, title, source, image, contentsnippet, summary, isodate, pubdate, published_at, publishedat, created_at'
       )
       .gt('publishedat', 0)
       .order('publishedat', { ascending: false })
