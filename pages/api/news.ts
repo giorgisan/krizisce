@@ -14,7 +14,7 @@ const supabaseWrite = SUPABASE_SERVICE_ROLE_KEY
   ? createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } })
   : null;
 
-/* ---------- generic canonical key (same as edge fn) ---------- */
+/* ---------- generic canonical key ---------- */
 
 function cleanUrl(raw: string): URL | null {
   try {
@@ -22,7 +22,7 @@ function cleanUrl(raw: string): URL | null {
     u.protocol = 'https:';
     u.host = u.host.toLowerCase().replace(/^www\./, '');
     const TRACK = [/^utm_/i, /^fbclid$/i, /^gclid$/i, /^ref$/i, /^src$/i, /^from$/i, /^si_src$/i, /^mc_cid$/i, /^mc_eid$/i];
-    for (const k of Array.from(u.searchParams.keys())) {
+    for (const [k] of Array.from(u.searchParams.entries())) {
       if (TRACK.some(rx => rx.test(k))) u.searchParams.delete(k);
     }
     u.pathname = u.pathname.replace(/\/amp\/?$/i, '/');
@@ -48,7 +48,7 @@ function makeLinkKey(raw: string, iso?: string | null): string {
   const nums: string[] = [];
   const pathNums = u.pathname.match(/\d{6,}/g);
   if (pathNums) nums.push(...pathNums);
-  for (const [, v] of u.searchParams.entries()) {
+  for (const [, v] of Array.from(u.searchParams.entries())) {
     if (/^\d{6,}$/.test(v)) nums.push(v);
     const inner = v.match(/\d{6,}/g);
     if (inner) nums.push(...inner);
@@ -150,7 +150,7 @@ function feedItemToDbRow(item: FeedNewsItem) {
   return {
     link: linkRaw,
     link_canonical: linkKey,
-    link_key: linkKey,         // <-- **send link_key**
+    link_key: linkKey, // pošljemo ključ
     title,
     source,
     image: item.image?.trim() || null,
