@@ -1,3 +1,4 @@
+// pages/index.tsx
 'use client'
 
 import React, {
@@ -19,9 +20,21 @@ import BackToTop from '@/components/BackToTop'
 import SourceFilter from '@/components/SourceFilter'
 
 // -------------------- Helpers & constants --------------------
-const POLL_MS = 120_000            // 2 min foreground
-const HIDDEN_POLL_MS = 5 * 60_000  // 5 min background
+const POLL_MS = 60_000
+const HIDDEN_POLL_MS = 5 * 60_000
 const POLL_MAX_BACKOFF = 5
+
+const SYNC_KEY = 'krizisce_last_sync_ms'
+async function kickSyncIfStale(maxAgeMs = 5 * 60_000) {
+  try {
+    const now = Date.now()
+    const last = Number(localStorage.getItem(SYNC_KEY) || '0')
+    if (!last || now - last > maxAgeMs) {
+      fetch('/api/news?forceFresh=1', { cache: 'no-store', keepalive: true }).catch(() => {})
+      localStorage.setItem(SYNC_KEY, String(now))
+    }
+  } catch {}
+}
 
 function timeout(ms: number) {
   return new Promise((_, rej) => setTimeout(() => rej(new Error('Request timeout')), ms))
@@ -33,18 +46,14 @@ async function loadNews(signal?: AbortSignal): Promise<NewsItem[] | null> {
       fetch('/api/news', { cache: 'no-store', signal }),
       timeout(12_000),
     ])) as Response
-    if (!res.ok) return null
     const data: NewsItem[] = await res.json()
     return Array.isArray(data) && data.length ? data : null
-  } catch {
-    return null
-  }
+  } catch { return null }
 }
 
 const NEWNESS_GRACE_MS = 30_000
 const diffFresh = (fresh: NewsItem[], current: NewsItem[]) => {
   if (!fresh?.length) return { newLinks: 0, hasNewer: false }
-  // IMPORTANT: primerjaj po kanoničnem linku (API že vrača kanoničnega)
   const curSet = new Set(current.map(n => n.link))
   const newLinks = fresh.filter(n => !curSet.has(n.link)).length
   const maxCurrent = current.reduce((a, n) => Math.max(a, n.publishedAt || 0), 0)
@@ -53,24 +62,7 @@ const diffFresh = (fresh: NewsItem[], current: NewsItem[]) => {
   return { newLinks, hasNewer }
 }
 
-// ---- “hitri kick” ingest-a ob obisku (z varovalkami) ----
-const KICK_KEY = 'ingest_kick_ms'
-const KICK_COOLDOWN_MS = 2 * 60_000   // 2 min per-browser
-const FAST_CHECKS = 4                  // največ 4 hitri poskusi
-const FAST_DELAY_MS = 3_000            // 3 s med poskusi
-
-async function sleep(ms: number) { await new Promise(r => setTimeout(r, ms)) }
-function canKickIngestNow() {
-  try {
-    const last = Number(localStorage.getItem(KICK_KEY) || '0')
-    return !last || (Date.now() - last > KICK_COOLDOWN_MS)
-  } catch { return true }
-}
-function markKick() {
-  try { localStorage.setItem(KICK_KEY, String(Date.now())) } catch {}
-}
-
-// stableAt (lokalna stabilizacija vrstnega reda po prvem videnju)
+// stableAt
 const LS_FIRST_SEEN = 'krizisce_first_seen_v1'
 type FirstSeenMap = Record<string, number>
 function loadFirstSeen(): FirstSeenMap {
@@ -97,17 +89,19 @@ export default function Home({ initialNews }: Props) {
   })
   const deferredSource = useDeferredValue(selectedSource)
 
-  // Vidnost filter vrstice
+  // Vidnost filter vrstice (krmili ikona v headerju prek 'ui:toggle-filters')
   const [filterOpen, setFilterOpen] = useState<boolean>(false)
   useEffect(() => {
     const onToggle = () => setFilterOpen(v => !v)
     window.addEventListener('ui:toggle-filters', onToggle as EventListener)
+    // podpora ?filters=1
     try {
       const u = new URL(window.location.href)
       if (u.searchParams.get('filters') === '1') setFilterOpen(true)
     } catch {}
     return () => window.removeEventListener('ui:toggle-filters', onToggle as EventListener)
   }, [])
+  // vsakič, ko se stanje spremeni, javimo headerju (ta bo obarval ikono)
   useEffect(() => {
     window.dispatchEvent(new CustomEvent('ui:filters-state', { detail: { open: filterOpen } }))
   }, [filterOpen])
@@ -117,54 +111,24 @@ export default function Home({ initialNews }: Props) {
   const [hasMore, setHasMore] = useState(true)
   const [cursor, setCursor] = useState<number | null>(null)
 
-  // --- 1) Prvi obisk: preberemo DB, kicknemo ingest in hitro preverimo nove zapise
+  // initial refresh
   const [bootRefreshed, setBootRefreshed] = useState(false)
   useEffect(() => {
     const ctrl = new AbortController()
     ;(async () => {
-      // a) takoj preberi DB
-      const fresh0 = await loadNews(ctrl.signal)
-      if (fresh0?.length) {
-        // Uporabljamo kanonični link, zato je dovolj primerjava po .link
+      const fresh = await loadNews(ctrl.signal)
+      if (fresh && fresh.length) {
         const currentLinks = new Set(initialNews.map(n => n.link))
-        const hasNewLink = fresh0.some(n => n.link && !currentLinks.has(n.link))
-        if (hasNewLink) startTransition(() => { setNews(fresh0); setDisplayCount(20) })
+        const hasNewLink = fresh.some(n => n.link && !currentLinks.has(n.link))
+        if (hasNewLink) startTransition(() => { setNews(fresh); setDisplayCount(20) })
       }
-
-      // b) kick ingest-a z varovalko (2 min cooldown per-browser) + interni header
-      if (canKickIngestNow()) {
-        fetch('/api/news?forceFresh=1', {
-          cache: 'no-store',
-          keepalive: true,
-          headers: { 'x-krizisce-ingest': '1' },
-        }).catch(() => {})
-        markKick()
-      }
-
-      // c) hitro okno: baseline, da se izognemo stale state-u
-      const baselineArr = fresh0 ?? initialNews
-      const baselineMax = Math.max(0, ...baselineArr.map(n => n.publishedAt || 0))
-      const baselineLinks = new Set(baselineArr.map(n => n.link))
-
-      for (let i = 0; i < FAST_CHECKS; i++) {
-        await sleep(FAST_DELAY_MS)
-        const fresh = await loadNews(ctrl.signal)
-        if (!fresh?.length) continue
-        const maxFresh = fresh.reduce((a, n) => Math.max(a, n.publishedAt || 0), 0)
-        const newLinks = fresh.filter(n => !baselineLinks.has(n.link)).length
-        if (maxFresh > baselineMax + NEWNESS_GRACE_MS && newLinks > 0) {
-          startTransition(() => { setNews(fresh); setDisplayCount(20) })
-          break
-        }
-      }
-
+      kickSyncIfStale(5 * 60_000)
       setBootRefreshed(true)
     })()
     return () => ctrl.abort()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialNews])
 
-  // --- 2) Polling (samo branje /api/news; ingest ureja cron)
+  // polling
   const [freshNews, setFreshNews] = useState<NewsItem[] | null>(null)
   const missCountRef = useRef(0)
   const timerRef = useRef<number | null>(null)
@@ -172,6 +136,7 @@ export default function Home({ initialNews }: Props) {
   useEffect(() => {
     if (!bootRefreshed) return
     const runCheck = async () => {
+      kickSyncIfStale(10 * 60_000)
       const ctrl = new AbortController()
       const fresh = await loadNews(ctrl.signal)
       if (!fresh || fresh.length === 0) {
@@ -198,20 +163,11 @@ export default function Home({ initialNews }: Props) {
     }
     runCheck(); schedule()
     const onVis = () => { if (document.visibilityState === 'visible') runCheck(); schedule() }
-    const onFocus = () => runCheck()
-    const onOnline = () => runCheck()
     document.addEventListener('visibilitychange', onVis)
-    window.addEventListener('focus', onFocus)
-    window.addEventListener('online', onOnline)
-    return () => {
-      if (timerRef.current) window.clearInterval(timerRef.current)
-      document.removeEventListener('visibilitychange', onVis)
-      window.removeEventListener('focus', onFocus)
-      window.removeEventListener('online', onOnline)
-    }
+    return () => { if (timerRef.current) window.clearInterval(timerRef.current); document.removeEventListener('visibilitychange', onVis) }
   }, [news, bootRefreshed])
 
-  // --- 3) Ročni refresh
+  // manual refresh
   useEffect(() => {
     const onRefresh = () => {
       window.dispatchEvent(new CustomEvent('news-refreshing', { detail: true }))
@@ -230,7 +186,7 @@ export default function Home({ initialNews }: Props) {
     return () => window.removeEventListener('refresh-news', onRefresh as EventListener)
   }, [freshNews])
 
-  // --- 4) stableAt shaping (lokalni vrstni red po prvem videnju)
+  // stableAt shaping
   const shapedNews = useMemo(() => {
     const map = { ...firstSeen }; let changed = false
     const withStable = news.map(n => {
@@ -245,28 +201,19 @@ export default function Home({ initialNews }: Props) {
     return withStable
   }, [news, firstSeen])
 
-  // --- 5) filter + sort + paginate
-  const sortedNews = useMemo(
-    () =>
-      [...shapedNews].sort(
-        (a, b) => (b.publishedAt - a.publishedAt) || ((b as any).stableAt - (a as any).stableAt)
-      ),
-    [shapedNews],
-  )
-  const filteredNews = useMemo(
-    () => deferredSource === 'Vse' ? sortedNews : sortedNews.filter(a => a.source === deferredSource),
-    [sortedNews, deferredSource],
-  )
+  // filter + sort + paginate
+  const sortedNews = useMemo(() => [...shapedNews].sort((a, b) => (b as any).stableAt - (a as any).stableAt), [shapedNews])
+  const filteredNews = useMemo(() => deferredSource === 'Vse' ? sortedNews : sortedNews.filter(a => a.source === deferredSource), [sortedNews, deferredSource])
   const visibleNews = useMemo(() => filteredNews.slice(0, displayCount), [filteredNews, displayCount])
 
-  // --- 6) cursor calc
+  // cursor calc
   useEffect(() => {
     if (!filteredNews.length) { setCursor(null); setHasMore(true); return }
     const minMs = filteredNews.reduce((acc, n) => Math.min(acc, n.publishedAt || acc), filteredNews[0].publishedAt || 0)
     setCursor(minMs || null)
   }, [deferredSource, news])
 
-  // --- 7) paging
+  // paging
   const [isLoadingMore, setIsLoadingMore] = useState(false)
   type PagePayload = { items: NewsItem[]; nextCursor: number | null }
   async function fetchPage(params: { cursor?: number | null; limit?: number; source?: string | null }): Promise<PagePayload> {
@@ -303,6 +250,7 @@ export default function Home({ initialNews }: Props) {
     <>
       <Header />
 
+      {/* Subtilna vrstica s čipi pod headerjem; vidnost krmili header ikona */}
       <SourceFilter
         value={selectedSource}
         onChange={(next) => {
@@ -367,7 +315,6 @@ export async function getStaticProps() {
   type Row = {
     id: number
     link: string
-    link_canonical: string | null
     title: string
     source: string
     summary: string | null
@@ -379,7 +326,7 @@ export async function getStaticProps() {
 
   const { data } = await supabase
     .from('news')
-    .select('id, link, link_canonical, title, source, summary, contentsnippet, image, published_at, publishedat')
+    .select('id, link, title, source, summary, contentsnippet, image, published_at, publishedat')
     .order('publishedat', { ascending: false })
     .limit(60)
 
@@ -387,8 +334,7 @@ export async function getStaticProps() {
 
   const initialNews = rows.map(r => ({
     title: r.title,
-    // KLJUČNO: uporabljaj kanonični link (fallback na original)
-    link: r.link_canonical || r.link || '',
+    link: r.link,
     source: r.source,
     contentSnippet: r.contentsnippet ?? r.summary ?? '',
     image: r.image ?? null,
