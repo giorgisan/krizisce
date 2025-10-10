@@ -1,4 +1,3 @@
-// pages/index.tsx
 'use client'
 
 import React, {
@@ -45,6 +44,7 @@ async function loadNews(signal?: AbortSignal): Promise<NewsItem[] | null> {
 const NEWNESS_GRACE_MS = 30_000
 const diffFresh = (fresh: NewsItem[], current: NewsItem[]) => {
   if (!fresh?.length) return { newLinks: 0, hasNewer: false }
+  // IMPORTANT: primerjaj po kanoničnem linku (API že vrača kanoničnega)
   const curSet = new Set(current.map(n => n.link))
   const newLinks = fresh.filter(n => !curSet.has(n.link)).length
   const maxCurrent = current.reduce((a, n) => Math.max(a, n.publishedAt || 0), 0)
@@ -125,6 +125,7 @@ export default function Home({ initialNews }: Props) {
       // a) takoj preberi DB
       const fresh0 = await loadNews(ctrl.signal)
       if (fresh0?.length) {
+        // Uporabljamo kanonični link, zato je dovolj primerjava po .link
         const currentLinks = new Set(initialNews.map(n => n.link))
         const hasNewLink = fresh0.some(n => n.link && !currentLinks.has(n.link))
         if (hasNewLink) startTransition(() => { setNews(fresh0); setDisplayCount(20) })
@@ -366,6 +367,7 @@ export async function getStaticProps() {
   type Row = {
     id: number
     link: string
+    link_canonical: string | null
     title: string
     source: string
     summary: string | null
@@ -377,7 +379,7 @@ export async function getStaticProps() {
 
   const { data } = await supabase
     .from('news')
-    .select('id, link, title, source, summary, contentsnippet, image, published_at, publishedat')
+    .select('id, link, link_canonical, title, source, summary, contentsnippet, image, published_at, publishedat')
     .order('publishedat', { ascending: false })
     .limit(60)
 
@@ -385,7 +387,8 @@ export async function getStaticProps() {
 
   const initialNews = rows.map(r => ({
     title: r.title,
-    link: r.link,
+    // KLJUČNO: uporabljaj kanonični link (fallback na original)
+    link: r.link_canonical || r.link || '',
     source: r.source,
     contentSnippet: r.contentsnippet ?? r.summary ?? '',
     image: r.image ?? null,
