@@ -20,9 +20,8 @@ import BackToTop from '@/components/BackToTop'
 import SourceFilter from '@/components/SourceFilter'
 
 // -------------------- Helpers & constants --------------------
-// Pollamo samo za "read" (brez forceFresh) – cron ureja ingest.
 const POLL_MS = 120_000            // 2 min foreground
-const HIDDEN_POLL_MS = 5 * 60_000  // 5 min v ozadju
+const HIDDEN_POLL_MS = 5 * 60_000  // 5 min background
 const POLL_MAX_BACKOFF = 5
 
 function timeout(ms: number) {
@@ -88,7 +87,7 @@ type Props = { initialNews: NewsItem[] }
 export default function Home({ initialNews }: Props) {
   const [news, setNews] = useState<NewsItem[]>(initialNews)
 
-  // Single-select filter (ohranimo kompatibilnost s tvojim headerjem)
+  // Single-select filter
   const [selectedSource, setSelectedSource] = useState<string>(() => {
     try {
       const raw = localStorage.getItem('selectedSources')
@@ -118,32 +117,41 @@ export default function Home({ initialNews }: Props) {
   const [hasMore, setHasMore] = useState(true)
   const [cursor, setCursor] = useState<number | null>(null)
 
-  // --- 1) Prvi obisk: preberemo DB, kicknemo ingest (če dovoljeno) in hitro preverimo nove zapise
+  // --- 1) Prvi obisk: preberemo DB, kicknemo ingest in hitro preverimo nove zapise
   const [bootRefreshed, setBootRefreshed] = useState(false)
   useEffect(() => {
     const ctrl = new AbortController()
     ;(async () => {
       // a) takoj preberi DB
       const fresh0 = await loadNews(ctrl.signal)
-      if (fresh0 && fresh0.length) {
+      if (fresh0?.length) {
         const currentLinks = new Set(initialNews.map(n => n.link))
         const hasNewLink = fresh0.some(n => n.link && !currentLinks.has(n.link))
         if (hasNewLink) startTransition(() => { setNews(fresh0); setDisplayCount(20) })
       }
 
-      // b) kick ingest-a z varovalko (2 min cooldown per-browser)
+      // b) kick ingest-a z varovalko (2 min cooldown per-browser) + interni header
       if (canKickIngestNow()) {
-        fetch('/api/news?forceFresh=1', { cache: 'no-store', keepalive: true }).catch(() => {})
+        fetch('/api/news?forceFresh=1', {
+          cache: 'no-store',
+          keepalive: true,
+          headers: { 'x-krizisce-ingest': '1' },
+        }).catch(() => {})
         markKick()
       }
 
-      // c) hitro okno: 4× po 3 s preverimo, ali se je v DB že pojavilo kaj novega
+      // c) hitro okno: baseline, da se izognemo stale state-u
+      const baselineArr = fresh0 ?? initialNews
+      const baselineMax = Math.max(0, ...baselineArr.map(n => n.publishedAt || 0))
+      const baselineLinks = new Set(baselineArr.map(n => n.link))
+
       for (let i = 0; i < FAST_CHECKS; i++) {
         await sleep(FAST_DELAY_MS)
         const fresh = await loadNews(ctrl.signal)
-        if (!fresh || fresh.length === 0) continue
-        const { newLinks, hasNewer } = diffFresh(fresh, news)
-        if (hasNewer && newLinks > 0) {
+        if (!fresh?.length) continue
+        const maxFresh = fresh.reduce((a, n) => Math.max(a, n.publishedAt || 0), 0)
+        const newLinks = fresh.filter(n => !baselineLinks.has(n.link)).length
+        if (maxFresh > baselineMax + NEWNESS_GRACE_MS && newLinks > 0) {
           startTransition(() => { setNews(fresh); setDisplayCount(20) })
           break
         }
@@ -202,7 +210,7 @@ export default function Home({ initialNews }: Props) {
     }
   }, [news, bootRefreshed])
 
-  // --- 3) Ročni refresh (npr. iz headerja)
+  // --- 3) Ročni refresh
   useEffect(() => {
     const onRefresh = () => {
       window.dispatchEvent(new CustomEvent('news-refreshing', { detail: true }))
@@ -238,7 +246,10 @@ export default function Home({ initialNews }: Props) {
 
   // --- 5) filter + sort + paginate
   const sortedNews = useMemo(
-    () => [...shapedNews].sort((a, b) => (b as any).stableAt - (a as any).stableAt),
+    () =>
+      [...shapedNews].sort(
+        (a, b) => (b.publishedAt - a.publishedAt) || ((b as any).stableAt - (a as any).stableAt)
+      ),
     [shapedNews],
   )
   const filteredNews = useMemo(
@@ -291,7 +302,6 @@ export default function Home({ initialNews }: Props) {
     <>
       <Header />
 
-      {/* Subtilna vrstica s čipi pod headerjem; vidnost krmili header ikona */}
       <SourceFilter
         value={selectedSource}
         onChange={(next) => {
