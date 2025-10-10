@@ -1,8 +1,7 @@
-// pages/api/news.ts — FULL REPLACEMENT (with cron auth gate)
+// pages/api/news.ts — FULL REPLACEMENT
 
 import type { NextApiRequest, NextApiResponse } from 'next'
 import { createClient } from '@supabase/supabase-js'
-
 import fetchRSSFeeds from '@/lib/fetchRSSFeeds'
 import type { NewsItem as FeedNewsItem } from '@/types'
 
@@ -49,7 +48,7 @@ type PagedOk = { items: NewsItem[]; nextCursor: number | null }
 type ListOk = NewsItem[]
 type Err = { error: string }
 
-/* ========= kanonikalizacija URL-jev ========= */
+/* ========== canonicalize ========== */
 function canonicalize(raw: string): string {
   try {
     const u = new URL(raw.trim())
@@ -69,18 +68,10 @@ function canonicalize(raw: string): string {
   }
 }
 
-/* ========= helperji ========= */
-const unaccent = (s: string) =>
-  s.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-
-function normTitle(s: string): string {
-  return unaccent(s).toLowerCase().replace(/\s+/g, ' ').trim()
-}
-
-function tsSec(ms?: number | null): number {
-  const v = typeof ms === 'number' ? ms : 0
-  return Math.max(0, Math.floor(v / 1000))
-}
+/* ========== helpers ========== */
+const unaccent = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+const normTitle = (s: string) => unaccent(s).toLowerCase().replace(/\s+/g, ' ').trim()
+const tsSec = (ms?: number | null) => Math.max(0, Math.floor((typeof ms === 'number' ? ms : 0) / 1000))
 
 function softDedupe<T extends { source?: string; title?: string; publishedAt?: number }>(arr: T[]): T[] {
   const byKey = new Map<string, T>()
@@ -108,15 +99,19 @@ function resolveTimestamps(item: FeedNewsItem) {
   }
   const fromIso = parse(item.isoDate)
   const fromPub = parse(item.pubDate)
+
   const msFromNumber =
     typeof item.publishedAt === 'number' && Number.isFinite(item.publishedAt) && item.publishedAt > 0
       ? item.publishedAt
       : null
+
   const ms = fromIso?.ms ?? fromPub?.ms ?? msFromNumber ?? Date.now()
   const iso = fromIso?.iso ?? fromPub?.iso ?? new Date(ms).toISOString()
-  const isoRaw = fromIso?.raw ?? (fromPub ? fromPub.iso : null)
+  // BUGFIX: uporabimo .raw (prej je bilo pomotoma .iso)
+  const isoRaw = fromIso?.raw ?? fromPub?.raw ?? iso
   const pubRaw = fromPub?.raw ?? null
-  return { ms: Math.round(ms), iso, isoRaw: isoRaw ?? iso, pubRaw }
+
+  return { ms: Math.round(ms), iso, isoRaw, pubRaw }
 }
 
 function feedItemToDbRow(item: FeedNewsItem) {
@@ -157,7 +152,7 @@ async function syncToSupabase(items: FeedNewsItem[]) {
   if (error) throw error
 }
 
-function toMs(s?: string | null): number {
+const toMs = (s?: string | null) => {
   if (!s) return 0
   const v = Date.parse(s)
   return Number.isFinite(v) ? v : 0
@@ -174,7 +169,7 @@ function rowToItem(r: Row): NewsItem {
 
   return {
     title: r.title,
-    link: r.link || r.link_canonical || '',
+    link: r.link_canonical || r.link || '',
     source: r.source,
     image: r.image || null,
     contentSnippet: r.summary?.trim() || r.contentsnippet?.trim() || null,
@@ -189,7 +184,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
     const wantsFresh = req.query.forceFresh === '1'
     const source = (req.query.source as string) || null
 
-    // ---- CRON auth: forceFresh samo, če pride s pravilnim headerjem ali iz internega sistema
+    // ---- CRON auth: forceFresh je dovoljeno le interni klic / cron (ali dev)
     const headerSecret = (req.headers['x-cron-secret'] as string | undefined)?.trim()
     const isCronCaller = Boolean(CRON_SECRET && headerSecret && headerSecret === CRON_SECRET)
     const isInternalIngest = req.headers['x-krizisce-ingest'] === '1'
@@ -208,12 +203,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
       Math.max(parseInt(String(req.query.limit ?? (paged ? 40 : 60)), 10) || (paged ? 40 : 60), 1),
       200,
     )
-
     const cursor = req.query.cursor ? Number(req.query.cursor) : null
 
     let q = supabaseRead
       .from('news')
       .select('id, link, link_canonical, title, source, image, contentsnippet, summary, isodate, pubdate, published_at, publishedat, created_at')
+      .gt('publishedat', 0)
       .order('publishedat', { ascending: false })
       .order('id', { ascending: false })
 
