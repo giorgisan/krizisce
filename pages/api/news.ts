@@ -1,8 +1,7 @@
-// pages/api/news.ts
+// pages/api/news.ts — FULL REPLACEMENT (upsert by link_key)
 
 import type { NextApiRequest, NextApiResponse } from 'next'
 import { createClient } from '@supabase/supabase-js'
-
 import fetchRSSFeeds from '@/lib/fetchRSSFeeds'
 import type { NewsItem as FeedNewsItem } from '@/types'
 
@@ -14,43 +13,12 @@ const CRON_SECRET = process.env.CRON_SECRET as string | undefined
 const supabaseRead = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: { persistSession: false },
 })
-
 const supabaseWrite = SUPABASE_SERVICE_ROLE_KEY
   ? createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } })
   : null
 
-type Row = {
-  id: number
-  link: string
-  link_canonical: string | null
-  title: string
-  source: string
-  image: string | null
-  contentsnippet: string | null
-  summary: string | null
-  isodate: string | null
-  pubdate: string | null
-  published_at: string | null
-  publishedat: number | null
-  created_at: string | null
-}
-
-export type NewsItem = {
-  title: string
-  link: string
-  source: string
-  image?: string | null
-  contentSnippet?: string | null
-  publishedAt: number
-  isoDate?: string | null
-}
-
-type PagedOk = { items: NewsItem[]; nextCursor: number | null }
-type ListOk = NewsItem[]
-type Err = { error: string }
-
-/* ========= kanonikalizacija URL-jev ========= */
-function canonicalize(raw: string): string {
+// ---------- URL canonicalization & link_key ----------
+function cleanUrl(raw: string): URL | null {
   try {
     const u = new URL(raw.trim())
     u.protocol = 'https:'
@@ -63,24 +31,51 @@ function canonicalize(raw: string): string {
     if (u.pathname.length > 1) u.pathname = u.pathname.replace(/\/+$/, '')
     u.hash = ''
     if (u.host.endsWith('rtvslo.si')) u.host = 'rtvslo.si'
-    return u.toString()
+    return u
   } catch {
-    return raw.trim()
+    return null
   }
 }
-
-/* ========= helperji ========= */
-const unaccent = (s: string) =>
-  s.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-
-function normTitle(s: string): string {
-  return unaccent(s).toLowerCase().replace(/\s+/g, ' ').trim()
+function yyyymmdd(iso?: string | null): string | null {
+  if (!iso) return null
+  const d = new Date(iso)
+  if (isNaN(+d)) return null
+  const y = d.getUTCFullYear()
+  const m = String(d.getUTCMonth() + 1).padStart(2, '0')
+  const dd = String(d.getUTCDate()).padStart(2, '0')
+  return `${y}${m}${dd}`
+}
+/** Deterministični ključ članka:
+ *  - če v URL/parametrih najde dolge številke → https://host/a/<ID>
+ *  - sicer YYYYMMDD + zadnji path del → https://host/a/20251010-naslov
+ *  - fallback: canonical URL
+ */
+function makeLinkKey(raw: string, iso?: string | null): string {
+  const u = cleanUrl(raw)
+  if (!u) return raw.trim()
+  const nums: string[] = []
+  const mPath = u.pathname.match(/\d{6,}/g)
+  if (mPath) nums.push(...mPath)
+  for (const [, v] of Array.from(u.searchParams.entries())) {
+    if (/^\d{6,}$/.test(v)) nums.push(v)
+    const inner = v.match(/\d{6,}/g)
+    if (inner) nums.push(...inner)
+  }
+  const numericId = nums.sort((a, b) => b.length - a.length)[0]
+  if (numericId) return `https://${u.host}/a/${numericId}`
+  const parts = u.pathname.split('/').filter(Boolean)
+  let last = parts.length ? parts[parts.length - 1] : ''
+  last = last.replace(/\.[a-z0-9]+$/i, '')
+  const day = yyyymmdd(iso) ?? ''
+  if (last && day) return `https://${u.host}/a/${day}-${last.toLowerCase()}`
+  if (last) return `https://${u.host}/a/${last.toLowerCase()}`
+  return `https://${u.host}${u.pathname}`
 }
 
-function tsSec(ms?: number | null): number {
-  const v = typeof ms === 'number' ? ms : 0
-  return Math.max(0, Math.floor(v / 1000))
-}
+// ---------- helpers ----------
+const unaccent = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+const normTitle = (s: string) => unaccent(s).toLowerCase().replace(/\s+/g, ' ').trim()
+const tsSec = (ms?: number | null) => Math.max(0, Math.floor((typeof ms === 'number' ? ms : 0) / 1000))
 
 function softDedupe<T extends { source?: string; title?: string; publishedAt?: number }>(arr: T[]): T[] {
   const byKey = new Map<string, T>()
@@ -98,38 +93,36 @@ function normalizeSnippet(item: FeedNewsItem): string | null {
   const fromContent = (item.content || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
   return fromContent || null
 }
-
 function resolveTimestamps(item: FeedNewsItem) {
-  const parse = (value?: string | null) => {
-    if (!value) return null
-    const t = Date.parse(value)
-    if (Number.isNaN(t)) return null
-    return { raw: value, ms: t, iso: new Date(t).toISOString() }
+  const parse = (v?: string | null) => {
+    if (!v) return null
+    const t = Date.parse(v)
+    return Number.isNaN(t) ? null : { raw: v, ms: t, iso: new Date(t).toISOString() }
   }
-  const fromIso = parse(item.isoDate)
-  const fromPub = parse(item.pubDate)
-  const msFromNumber =
-    typeof item.publishedAt === 'number' && Number.isFinite(item.publishedAt) && item.publishedAt > 0
-      ? item.publishedAt
-      : null
-  const ms = fromIso?.ms ?? fromPub?.ms ?? msFromNumber ?? Date.now()
-  const iso = fromIso?.iso ?? fromPub?.iso ?? new Date(ms).toISOString()
-  const isoRaw = fromIso?.raw ?? (fromPub ? fromPub.iso : null)
-  const pubRaw = fromPub?.raw ?? null
-  return { ms: Math.round(ms), iso, isoRaw: isoRaw ?? iso, pubRaw }
+  const a = parse(item.isoDate)
+  const b = parse(item.pubDate)
+  const msNum = typeof item.publishedAt === 'number' && item.publishedAt > 0 ? item.publishedAt : null
+  const ms = a?.ms ?? b?.ms ?? msNum ?? Date.now()
+  const iso = a?.iso ?? b?.iso ?? new Date(ms).toISOString()
+  const isoRaw = a?.raw ?? b?.raw ?? iso
+  const pubRaw = b?.raw ?? null
+  return { ms: Math.round(ms), iso, isoRaw, pubRaw }
 }
 
 function feedItemToDbRow(item: FeedNewsItem) {
   const linkRaw = (item.link || '').trim()
-  const linkCanonical = canonicalize(linkRaw)
+  const u = cleanUrl(linkRaw)
+  const linkCanonical = u ? u.toString() : linkRaw
   const title = (item.title || '').trim()
   const source = (item.source || '').trim()
   if (!linkCanonical || !title || !source) return null
   const ts = resolveTimestamps(item)
   const snippet = normalizeSnippet(item)
+  const link_key = makeLinkKey(linkCanonical, ts.iso) // <-- KLJUČNO: izračunaj in POŠLJI
   return {
     link: linkRaw,
     link_canonical: linkCanonical,
+    link_key,                           // <-- POŠLJI
     title,
     source,
     image: item.image?.trim() || null,
@@ -151,9 +144,11 @@ async function syncToSupabase(items: FeedNewsItem[]) {
   const dedupedIn = softDedupe(shaped)
   const rows = dedupedIn.map(feedItemToDbRow).filter(Boolean) as any[]
   if (!rows.length) return
+
+  // Upsert po link_key (imaš UNIQUE (link_key) v bazi)
   const { error } = await (supabaseWrite as any)
     .from('news')
-    .upsert(rows, { onConflict: 'link_canonical', ignoreDuplicates: false })
+    .upsert(rows, { onConflict: 'link_key', ignoreDuplicates: false })
   if (error) throw error
 }
 
@@ -162,7 +157,31 @@ function toMs(s?: string | null): number {
   const v = Date.parse(s)
   return Number.isFinite(v) ? v : 0
 }
-
+type Row = {
+  id: number
+  link: string
+  link_canonical: string | null
+  link_key: string | null
+  title: string
+  source: string
+  image: string | null
+  contentsnippet: string | null
+  summary: string | null
+  isodate: string | null
+  pubdate: string | null
+  published_at: string | null
+  publishedat: number | null
+  created_at: string | null
+}
+export type NewsItem = {
+  title: string
+  link: string
+  source: string
+  image?: string | null
+  contentSnippet?: string | null
+  publishedAt: number
+  isoDate?: string | null
+}
 function rowToItem(r: Row): NewsItem {
   const ms =
     (r.publishedat && Number(r.publishedat)) ||
@@ -171,10 +190,9 @@ function rowToItem(r: Row): NewsItem {
     toMs(r.isodate) ||
     toMs(r.created_at) ||
     Date.now()
-
   return {
     title: r.title,
-    link: r.link || r.link_canonical || '',
+    link: r.link_canonical || r.link || '',
     source: r.source,
     image: r.image || null,
     contentSnippet: r.summary?.trim() || r.contentsnippet?.trim() || null,
@@ -183,13 +201,18 @@ function rowToItem(r: Row): NewsItem {
   }
 }
 
+// ---------- handler ----------
+type PagedOk = { items: NewsItem[]; nextCursor: number | null }
+type ListOk = NewsItem[]
+type Err = { error: string }
+
 export default async function handler(req: NextApiRequest, res: NextApiResponse<PagedOk | ListOk | Err>) {
   try {
     const paged = req.query.paged === '1'
     const wantsFresh = req.query.forceFresh === '1'
     const source = (req.query.source as string) || null
 
-    // ---- CRON auth: forceFresh samo, če pride s pravilnim headerjem ali iz internega sistema
+    // forceFresh odobri samo cron/edge/dev
     const headerSecret = (req.headers['x-cron-secret'] as string | undefined)?.trim()
     const isCronCaller = Boolean(CRON_SECRET && headerSecret && headerSecret === CRON_SECRET)
     const isInternalIngest = req.headers['x-krizisce-ingest'] === '1'
@@ -204,16 +227,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
       }
     }
 
-    const limit = Math.min(
-      Math.max(parseInt(String(req.query.limit ?? (paged ? 40 : 60)), 10) || (paged ? 40 : 60), 1),
-      200,
-    )
-
+    const limitDefault = paged ? 40 : 60
+    const limit = Math.min(Math.max(parseInt(String(req.query.limit ?? limitDefault), 10) || limitDefault, 1), 200)
     const cursor = req.query.cursor ? Number(req.query.cursor) : null
 
     let q = supabaseRead
       .from('news')
-      .select('id, link, link_canonical, title, source, image, contentsnippet, summary, isodate, pubdate, published_at, publishedat, created_at')
+      .select('id, link, link_canonical, link_key, title, source, image, contentsnippet, summary, isodate, pubdate, published_at, publishedat, created_at')
+      .gt('publishedat', 0)
       .order('publishedat', { ascending: false })
       .order('id', { ascending: false })
 
@@ -225,9 +246,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
     if (error) return res.status(500).json({ error: `DB: ${error.message}` })
 
     const rows = (data || []) as Row[]
-    const rawItems = rows.map(rowToItem)
-    const items = softDedupe(rawItems).sort((a, b) => b.publishedAt - a.publishedAt)
-
+    const items = rows.map(rowToItem)
     const nextCursor =
       rows.length === limit
         ? (rows[rows.length - 1].publishedat ? Number(rows[rows.length - 1].publishedat) : null)
