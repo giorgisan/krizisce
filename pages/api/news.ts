@@ -1,21 +1,23 @@
-// pages/api/news.ts — production-ready varianta z jasno napako če manjka SERVICE ROLE KEY
-
 import type { NextApiRequest, NextApiResponse } from 'next'
 import { createClient } from '@supabase/supabase-js'
 import fetchRSSFeeds from '@/lib/fetchRSSFeeds'
 import type { NewsItem as FeedNewsItem } from '@/types'
 
+/* ------------ env ------------ */
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL as string
 const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY as string | undefined
 const CRON_SECRET = process.env.CRON_SECRET as string | undefined
+// (opcijsko) če želiš eksplicitno zakleniti na domeno:
+const SITE_HOST = process.env.NEXT_PUBLIC_SITE_HOST /* npr. "krizisce.si" */ || null
 
+/* ------------ supabase clients ------------ */
 const supabaseRead = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: false } })
 const supabaseWrite = SUPABASE_SERVICE_ROLE_KEY
   ? createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } })
   : null
 
-/* ---------------- URL kanonikalizacija + ključ ---------------- */
+/* ------------ URL kanonikalizacija & ključ ------------ */
 function cleanUrl(raw: string): URL | null {
   try {
     const u = new URL(raw.trim())
@@ -65,7 +67,7 @@ function makeLinkKey(raw: string, iso?: string | null): string {
   return `https://${u.host}${u.pathname}`
 }
 
-/* ---------------- helperji ---------------- */
+/* ------------ helperji ------------ */
 type Row = {
   id: number
   link: string
@@ -158,7 +160,7 @@ function feedItemToDbRow(item: FeedNewsItem) {
 }
 
 async function syncToSupabase(items: FeedNewsItem[]) {
-  if (!supabaseWrite) return // varnostna zavorica
+  if (!supabaseWrite) return
   const shaped = items.map((i) => {
     const t = resolveTimestamps(i)
     return { ...i, title: i.title || '', source: i.source || '', publishedAt: t.ms }
@@ -167,7 +169,6 @@ async function syncToSupabase(items: FeedNewsItem[]) {
   const rows = dedupedIn.map(feedItemToDbRow).filter(Boolean) as any[]
   if (!rows.length) return
 
-  // KLJUČNO: upsert po link_key
   const { error } = await (supabaseWrite as any)
     .from('news')
     .upsert(rows, { onConflict: 'link_key', ignoreDuplicates: false })
@@ -201,7 +202,33 @@ function rowToItem(r: Row): NewsItem {
   }
 }
 
-/* ---------------- handler ---------------- */
+/* ------------ “browser kick” gate ------------ */
+// In-memory, da ne prežvečimo RSS ob več obiskih v sekundi
+// (resetira se ob redeployu – dovolj dobro)
+let lastIngestAt = 0
+const MIN_INGEST_COOLDOWN_MS = 45_000
+
+function headerCaseInsensitive(req: NextApiRequest, name: string): string | undefined {
+  const h = req.headers as Record<string, any>
+  const found = Object.keys(h).find(k => k.toLowerCase() === name.toLowerCase())
+  return found ? String(h[found]) : undefined
+}
+
+function isSameOrigin(req: NextApiRequest): boolean {
+  const origin = headerCaseInsensitive(req, 'origin') || ''
+  const host = headerCaseInsensitive(req, 'host') || ''
+  if (SITE_HOST) return host.endsWith(SITE_HOST) || origin.includes(SITE_HOST)
+  // fallback: sprejmi vsak origin, ki se ujema z hostom
+  try {
+    if (!origin) return true
+    const u = new URL(origin)
+    return u.host === host
+  } catch {
+    return true
+  }
+}
+
+/* ------------ handler ------------ */
 type PagedOk = { items: NewsItem[]; nextCursor: number | null }
 type ListOk = NewsItem[]
 type Err = { error: string }
@@ -212,23 +239,27 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
     const wantsFresh = req.query.forceFresh === '1'
     const source = (req.query.source as string) || null
 
-    // forceFresh dovoli samo cron/edge/dev
-    const headerSecret = (req.headers['x-cron-secret'] as string | undefined)?.trim()
+    const headerSecret = headerCaseInsensitive(req, 'x-cron-secret')?.trim()
     const isCronCaller = Boolean(CRON_SECRET && headerSecret && headerSecret === CRON_SECRET)
-    const isInternalIngest = req.headers['x-krizisce-ingest'] === '1'
+    const ingestHeader = headerCaseInsensitive(req, 'x-krizisce-ingest')
+    const isInternalIngest = String(ingestHeader || '').trim() === '1'
     const isDev = process.env.NODE_ENV !== 'production'
+    const isBrowserKick = isSameOrigin(req) // ← to omogoči kick iz browserja
 
-    // >>> DODANO: jasno povej, če manjka SERVICE ROLE KEY in nas je nekdo poklical za ingest
-    if (!supabaseWrite && wantsFresh && (isCronCaller || isInternalIngest || isDev)) {
+    if (!supabaseWrite && wantsFresh && (isCronCaller || isInternalIngest || isDev || isBrowserKick)) {
       return res.status(500).json({ error: 'Missing SUPABASE_SERVICE_ROLE_KEY on server; cannot ingest.' })
     }
 
-    if (!paged && wantsFresh && (isCronCaller || isInternalIngest || isDev)) {
-      try {
-        const rss = await fetchRSSFeeds({ forceFresh: true })
-        if (rss?.length) await syncToSupabase(rss.slice(0, 250))
-      } catch (err) {
-        console.error('❌ RSS sync error:', err)
+    if (!paged && wantsFresh && (isCronCaller || isInternalIngest || isDev || isBrowserKick)) {
+      const now = Date.now()
+      if (now - lastIngestAt > MIN_INGEST_COOLDOWN_MS) {
+        lastIngestAt = now
+        try {
+          const rss = await fetchRSSFeeds({ forceFresh: true })
+          if (rss?.length) await syncToSupabase(rss.slice(0, 250))
+        } catch (err) {
+          console.error('❌ RSS sync error:', err)
+        }
       }
     }
 
