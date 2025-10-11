@@ -171,8 +171,8 @@ async function syncToSupabase(items: FeedNewsItem[]) {
   const { error } = await (supabaseWrite as any)
     .from('news')
     .upsert(rows, {
-      onConflict: 'link_key',
-      ignoreDuplicates: true, // DO NOTHING če obstaja
+      onConflict: 'link_key',          // <-- samo to
+      ignoreDuplicates: true,          // pusti
     })
 
   if (error) throw error
