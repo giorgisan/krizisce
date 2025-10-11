@@ -215,24 +215,26 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
     const wantsFresh = req.query.forceFresh === '1'
     const source = (req.query.source as string) || null
 
-    // forceFresh samo cron/edge/dev
-    const headerSecret = (req.headers['x-cron-secret'] as string | undefined)?.trim()
-    const isCronCaller = Boolean(CRON_SECRET && headerSecret && headerSecret === CRON_SECRET)
-    const isInternalIngest = req.headers['x-krizisce-ingest'] === '1'
-    const isDev = process.env.NODE_ENV !== 'production'
+    // ... v handlerju nad ingest delom:
+const headerSecret = (req.headers['x-cron-secret'] as string | undefined)?.trim()
+const isCronCaller = Boolean(CRON_SECRET && headerSecret && headerSecret === CRON_SECRET)
+const isInternalIngest = req.headers['x-krizisce-ingest'] === '1'
+const isDev = process.env.NODE_ENV !== 'production'
 
-    if (!supabaseWrite && wantsFresh && (isCronCaller || isInternalIngest || isDev)) {
-      return res.status(500).json({ error: 'Missing SUPABASE_SERVICE_ROLE_KEY on server; cannot ingest.' })
-    }
+// NOVO: dovoli tudi ?token=<CRON_SECRET> ali varno stikalo za čas debugiranja
+const tokenOk = CRON_SECRET && req.query.token === CRON_SECRET
+const allowPublic = process.env.ALLOW_PUBLIC_REFRESH === '1'
 
-    if (!paged && wantsFresh && (isCronCaller || isInternalIngest || isDev)) {
-      try {
-        const rss = await fetchRSSFeeds({ forceFresh: true })
-        if (rss?.length) await syncToSupabase(rss.slice(0, 250))
-      } catch (err) {
-        console.error('❌ RSS sync error:', err)
-      }
-    }
+const canIngest = isCronCaller || isInternalIngest || isDev || tokenOk || allowPublic
+
+if (!paged && wantsFresh && canIngest) {
+  try {
+    const rss = await fetchRSSFeeds({ forceFresh: true })
+    if (rss?.length) await syncToSupabase(rss.slice(0, 250))
+  } catch (err) {
+    console.error('❌ RSS sync error:', err)
+  }
+}
 
     const limit  = Math.min(Math.max(parseInt(String(req.query.limit ?? (paged ? 40 : 60)), 10) || (paged ? 40 : 60), 1), 200)
     const cursor = req.query.cursor ? Number(req.query.cursor) : null
