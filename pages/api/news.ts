@@ -1,23 +1,21 @@
+// pages/api/news.ts — upsert usklajen z DB, varno ignorira duplikate
+
 import type { NextApiRequest, NextApiResponse } from 'next'
 import { createClient } from '@supabase/supabase-js'
 import fetchRSSFeeds from '@/lib/fetchRSSFeeds'
 import type { NewsItem as FeedNewsItem } from '@/types'
 
-/* ------------ env ------------ */
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL as string
+const SUPABASE_URL  = process.env.NEXT_PUBLIC_SUPABASE_URL as string
 const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY as string | undefined
 const CRON_SECRET = process.env.CRON_SECRET as string | undefined
-// (opcijsko) če želiš eksplicitno zakleniti na domeno:
-const SITE_HOST = process.env.NEXT_PUBLIC_SITE_HOST /* npr. "krizisce.si" */ || null
 
-/* ------------ supabase clients ------------ */
 const supabaseRead = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: false } })
 const supabaseWrite = SUPABASE_SERVICE_ROLE_KEY
   ? createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } })
   : null
 
-/* ------------ URL kanonikalizacija & ključ ------------ */
+/* ---------------- URL kanonikalizacija + ključ ---------------- */
 function cleanUrl(raw: string): URL | null {
   try {
     const u = new URL(raw.trim())
@@ -67,7 +65,7 @@ function makeLinkKey(raw: string, iso?: string | null): string {
   return `https://${u.host}${u.pathname}`
 }
 
-/* ------------ helperji ------------ */
+/* ---------------- helperji ---------------- */
 type Row = {
   id: number
   link: string
@@ -169,9 +167,13 @@ async function syncToSupabase(items: FeedNewsItem[]) {
   const rows = dedupedIn.map(feedItemToDbRow).filter(Boolean) as any[]
   if (!rows.length) return
 
+  // KLJUČNO: onConflict usklajen z DB + DO NOTHING
   const { error } = await (supabaseWrite as any)
     .from('news')
-    .upsert(rows, { onConflict: 'link_key', ignoreDuplicates: false })
+    .upsert(rows, {
+      onConflict: 'link_key,source,published_sec,image_key',
+      ignoreDuplicates: true,
+    })
 
   if (error) throw error
 }
@@ -202,33 +204,7 @@ function rowToItem(r: Row): NewsItem {
   }
 }
 
-/* ------------ “browser kick” gate ------------ */
-// In-memory, da ne prežvečimo RSS ob več obiskih v sekundi
-// (resetira se ob redeployu – dovolj dobro)
-let lastIngestAt = 0
-const MIN_INGEST_COOLDOWN_MS = 45_000
-
-function headerCaseInsensitive(req: NextApiRequest, name: string): string | undefined {
-  const h = req.headers as Record<string, any>
-  const found = Object.keys(h).find(k => k.toLowerCase() === name.toLowerCase())
-  return found ? String(h[found]) : undefined
-}
-
-function isSameOrigin(req: NextApiRequest): boolean {
-  const origin = headerCaseInsensitive(req, 'origin') || ''
-  const host = headerCaseInsensitive(req, 'host') || ''
-  if (SITE_HOST) return host.endsWith(SITE_HOST) || origin.includes(SITE_HOST)
-  // fallback: sprejmi vsak origin, ki se ujema z hostom
-  try {
-    if (!origin) return true
-    const u = new URL(origin)
-    return u.host === host
-  } catch {
-    return true
-  }
-}
-
-/* ------------ handler ------------ */
+/* ---------------- handler ---------------- */
 type PagedOk = { items: NewsItem[]; nextCursor: number | null }
 type ListOk = NewsItem[]
 type Err = { error: string }
@@ -239,31 +215,26 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
     const wantsFresh = req.query.forceFresh === '1'
     const source = (req.query.source as string) || null
 
-    const headerSecret = headerCaseInsensitive(req, 'x-cron-secret')?.trim()
+    // forceFresh dovoli samo cron/edge/dev
+    const headerSecret = (req.headers['x-cron-secret'] as string | undefined)?.trim()
     const isCronCaller = Boolean(CRON_SECRET && headerSecret && headerSecret === CRON_SECRET)
-    const ingestHeader = headerCaseInsensitive(req, 'x-krizisce-ingest')
-    const isInternalIngest = String(ingestHeader || '').trim() === '1'
+    const isInternalIngest = req.headers['x-krizisce-ingest'] === '1'
     const isDev = process.env.NODE_ENV !== 'production'
-    const isBrowserKick = isSameOrigin(req) // ← to omogoči kick iz browserja
 
-    if (!supabaseWrite && wantsFresh && (isCronCaller || isInternalIngest || isDev || isBrowserKick)) {
+    if (!supabaseWrite && wantsFresh && (isCronCaller || isInternalIngest || isDev)) {
       return res.status(500).json({ error: 'Missing SUPABASE_SERVICE_ROLE_KEY on server; cannot ingest.' })
     }
 
-    if (!paged && wantsFresh && (isCronCaller || isInternalIngest || isDev || isBrowserKick)) {
-      const now = Date.now()
-      if (now - lastIngestAt > MIN_INGEST_COOLDOWN_MS) {
-        lastIngestAt = now
-        try {
-          const rss = await fetchRSSFeeds({ forceFresh: true })
-          if (rss?.length) await syncToSupabase(rss.slice(0, 250))
-        } catch (err) {
-          console.error('❌ RSS sync error:', err)
-        }
+    if (!paged && wantsFresh && (isCronCaller || isInternalIngest || isDev)) {
+      try {
+        const rss = await fetchRSSFeeds({ forceFresh: true })
+        if (rss?.length) await syncToSupabase(rss.slice(0, 250))
+      } catch (err) {
+        console.error('❌ RSS sync error:', err)
       }
     }
 
-    const limit = Math.min(Math.max(parseInt(String(req.query.limit ?? (paged ? 40 : 60)), 10) || (paged ? 40 : 60), 1), 200)
+    const limit  = Math.min(Math.max(parseInt(String(req.query.limit ?? (paged ? 40 : 60)), 10) || (paged ? 40 : 60), 1), 200)
     const cursor = req.query.cursor ? Number(req.query.cursor) : null
 
     let q = supabaseRead
@@ -282,7 +253,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
 
     const rows = (data || []) as Row[]
     const rawItems = rows.map(rowToItem)
-    const items = softDedupe(rawItems).sort((a, b) => b.publishedAt - a.publishedAt)
+    const items = softDedupe(rawItems).sort((a, b) => b.publishedAt - a.publishedAt).reverse()
 
     const nextCursor = rows.length === limit
       ? (rows[rows.length - 1].publishedat ? Number(rows[rows.length - 1].publishedat) : null)
