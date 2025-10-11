@@ -167,11 +167,11 @@ async function syncToSupabase(items: FeedNewsItem[]) {
   const rows = dedupedIn.map(feedItemToDbRow).filter(Boolean) as any[]
   if (!rows.length) return
 
-  // KLJUČNO: onConflict usklajen z DB + DO NOTHING
+  // KLJUČNO: onConflict mora imeti obstoječ UNIQUE indeks (link_key)
   const { error } = await (supabaseWrite as any)
     .from('news')
     .upsert(rows, {
-      onConflict: 'link_key,source,published_sec,image_key',
+      onConflict: 'link_key',
       ignoreDuplicates: true,
     })
 
@@ -253,7 +253,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
 
     const rows = (data || []) as Row[]
     const rawItems = rows.map(rowToItem)
-    const items = softDedupe(rawItems).sort((a, b) => b.publishedAt - a.publishedAt).reverse()
+    const items = softDedupe(rawItems).sort((a, b) => b.publishedAt - a.publishedAt)
 
     const nextCursor = rows.length === limit
       ? (rows[rows.length - 1].publishedat ? Number(rows[rows.length - 1].publishedat) : null)
