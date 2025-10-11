@@ -1,4 +1,4 @@
-// pages/api/news.ts — upsert usklajen z DB, varno ignorira duplikate
+// pages/api/news.ts — upsert usklajen z DB (UNIQUE na link_key), varno ignorira duplikate
 
 import type { NextApiRequest, NextApiResponse } from 'next'
 import { createClient } from '@supabase/supabase-js'
@@ -167,12 +167,12 @@ async function syncToSupabase(items: FeedNewsItem[]) {
   const rows = dedupedIn.map(feedItemToDbRow).filter(Boolean) as any[]
   if (!rows.length) return
 
-  // KLJUČNO: onConflict mora imeti obstoječ UNIQUE indeks (link_key)
+  // >>> KLJUČNO: usklajeno z DB – UNIQUE je na (link_key), partial WHERE link_key IS NOT NULL
   const { error } = await (supabaseWrite as any)
     .from('news')
     .upsert(rows, {
       onConflict: 'link_key',
-      ignoreDuplicates: true,
+      ignoreDuplicates: true, // DO NOTHING če obstaja
     })
 
   if (error) throw error
@@ -215,7 +215,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
     const wantsFresh = req.query.forceFresh === '1'
     const source = (req.query.source as string) || null
 
-    // forceFresh dovoli samo cron/edge/dev
+    // forceFresh samo cron/edge/dev
     const headerSecret = (req.headers['x-cron-secret'] as string | undefined)?.trim()
     const isCronCaller = Boolean(CRON_SECRET && headerSecret && headerSecret === CRON_SECRET)
     const isInternalIngest = req.headers['x-krizisce-ingest'] === '1'
@@ -253,6 +253,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
 
     const rows = (data || []) as Row[]
     const rawItems = rows.map(rowToItem)
+    // že pridejo DESC po publishedat; softDedupe + stabilna DESC
     const items = softDedupe(rawItems).sort((a, b) => b.publishedAt - a.publishedAt)
 
     const nextCursor = rows.length === limit
