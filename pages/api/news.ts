@@ -1,4 +1,4 @@
-// pages/api/news.ts — FULL REPLACEMENT (fix: upsert by link_key, send link_key)
+// pages/api/news.ts — production-ready varianta z jasno napako če manjka SERVICE ROLE KEY
 
 import type { NextApiRequest, NextApiResponse } from 'next'
 import { createClient } from '@supabase/supabase-js'
@@ -16,25 +16,19 @@ const supabaseWrite = SUPABASE_SERVICE_ROLE_KEY
   : null
 
 /* ---------------- URL kanonikalizacija + ključ ---------------- */
-
 function cleanUrl(raw: string): URL | null {
   try {
     const u = new URL(raw.trim())
     u.protocol = 'https:'
     u.host = u.host.toLowerCase().replace(/^www\./, '')
     const TRACK = [/^utm_/i, /^fbclid$/i, /^gclid$/i, /^ref$/i, /^src$/i, /^from$/i, /^si_src$/i, /^mc_cid$/i, /^mc_eid$/i]
-    for (const [k] of Array.from(u.searchParams.entries())) {
-      if (TRACK.some(rx => rx.test(k))) u.searchParams.delete(k)
-    }
+    for (const [k] of Array.from(u.searchParams.entries())) if (TRACK.some(rx => rx.test(k))) u.searchParams.delete(k)
     u.pathname = u.pathname.replace(/\/amp\/?$/i, '/')
     if (u.pathname.length > 1) u.pathname = u.pathname.replace(/\/+$/, '')
     u.hash = ''
-    // RTV posebnost
     if (u.host.endsWith('rtvslo.si')) u.host = 'rtvslo.si'
     return u
-  } catch {
-    return null
-  }
+  } catch { return null }
 }
 
 function yyyymmdd(iso?: string | null): string | null {
@@ -47,11 +41,6 @@ function yyyymmdd(iso?: string | null): string | null {
   return `${y}${m}${dd}`
 }
 
-/** Deterministični ključ članka (link_key):
- *  - če v URL/parametrih najde dolge številke (npr. 760289) → https://host/a/760289
- *  - sicer YYYYMMDD + slug zadnjega path dela → https://host/a/20251010-naslov
- *  - fallback: normaliziran URL
- */
 function makeLinkKey(raw: string, iso?: string | null): string {
   const u = cleanUrl(raw)
   if (!u) return raw.trim()
@@ -76,8 +65,7 @@ function makeLinkKey(raw: string, iso?: string | null): string {
   return `https://${u.host}${u.pathname}`
 }
 
-/* ---------------- ostali helperji ---------------- */
-
+/* ---------------- helperji ---------------- */
 type Row = {
   id: number
   link: string
@@ -170,7 +158,7 @@ function feedItemToDbRow(item: FeedNewsItem) {
 }
 
 async function syncToSupabase(items: FeedNewsItem[]) {
-  if (!supabaseWrite) return
+  if (!supabaseWrite) return // varnostna zavorica
   const shaped = items.map((i) => {
     const t = resolveTimestamps(i)
     return { ...i, title: i.title || '', source: i.source || '', publishedAt: t.ms }
@@ -202,7 +190,6 @@ function rowToItem(r: Row): NewsItem {
     toMs(r.created_at) ||
     Date.now()
 
-  // Za prikaz uporabljaj kanonični link (fallback: original)
   return {
     title: r.title,
     link: r.link_canonical || r.link || '',
@@ -215,7 +202,6 @@ function rowToItem(r: Row): NewsItem {
 }
 
 /* ---------------- handler ---------------- */
-
 type PagedOk = { items: NewsItem[]; nextCursor: number | null }
 type ListOk = NewsItem[]
 type Err = { error: string }
@@ -231,6 +217,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
     const isCronCaller = Boolean(CRON_SECRET && headerSecret && headerSecret === CRON_SECRET)
     const isInternalIngest = req.headers['x-krizisce-ingest'] === '1'
     const isDev = process.env.NODE_ENV !== 'production'
+
+    // >>> DODANO: jasno povej, če manjka SERVICE ROLE KEY in nas je nekdo poklical za ingest
+    if (!supabaseWrite && wantsFresh && (isCronCaller || isInternalIngest || isDev)) {
+      return res.status(500).json({ error: 'Missing SUPABASE_SERVICE_ROLE_KEY on server; cannot ingest.' })
+    }
 
     if (!paged && wantsFresh && (isCronCaller || isInternalIngest || isDev)) {
       try {
