@@ -1,4 +1,4 @@
-// components/ArticlePreview.tsx
+/* components/ArticlePreview.tsx */
 'use client'
 
 import React, {
@@ -50,7 +50,7 @@ const PREVIEW_TYPO_CSS = `
 function IconShareIOS(p: React.SVGProps<SVGSVGElement>) { return (<svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" {...p}><path fill="currentColor" d="M12 3c.4 0 .8.16 1.06.44l3 3a1.5 1.5 0 1 1-2.12 2.12L13.5 7.12V14a1.5 1.5 0 1 1-3 0V7.12L9.06 8.56A1.5 1.5 0 0 1 6.94 6.44l3-3C10.2 3.16 10.6 3 11 3h1z"/><path fill="currentColor" d="M5 10.5A2.5 2.5 0 0 0 2.5 13v6A2.5 2.5 0 0 0 5 21.5h14A2.5 2.5 0 0 0 21.5 19v-6A2.5 2.5 0 0 0 19 10.5h-2a1.5 1.5 0 1 0 0 3h2V19H5v-5.5h2a1.5 1.5 0 1 0 0-3H5z"/></svg>) }
 function IconFacebook(p: React.SVGProps<SVGSVGElement>) { return (<svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" {...p}><path fill="currentColor" d="M13 21v-7h2.3l.4-3H13V9.3c0-.9.3-1.5 1.6-1.5H16V5.1C15.6 5 14.7 5 13.7 5 11.5 5 10 6.3 10 8.9V11H7.7v3H10v7h3z"/></svg>) }
 function IconLinkedIn(p: React.SVGProps<SVGSVGElement>) { return (<svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" {...p}><path fill="currentColor" d="M6.5 6.5A2.5 2.5 0 1 1 1.5 6.5a2.5 2.5 0 0 1 5 0zM2 8.8h4.9V22H2zM14.9 8.5c-2.7 0-4 1.5-4.6 2.5V8.8H5.4V22h4.9v-7c0-1.9 1-2.9 2.5-2.9 1.4 0 2.3 1 2.3 2.9V22H20v-7.7c0-3.3-1.8-5.8-5.1-5.8z"/></svg>) }
-function IconWhatsApp(p: React.SVGProps<SVGSVGElement>) { return (<svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" {...p}><path fill="currentColor" d="M12 2a10 10 0 0 0-8.7 15l-1.3 4.7 4.8-1.3A10 10 0 1 0 12 2zm5.6 14.6c-.2.6-1.2 1.1-1.7 1.2-.5.1-1 .2-1.7-.1-.4-.1-1-.3-1.8-.7-3.1-1.4-5.2-4.7-5.3-4.9-.2-.3-1.3-1.7-1.3-3.2 0-1.4.7-2.1 1-2.4.2-.2.6-.3 1-.3h.7c.2 0 .5 0 .7.6.3.7 1 2.6 1 2.8.1.2.1.4 0 .6-.1.2-.2.4-.4.6-.2.2-.4.5-.2.9.2.4.9 1.5 2 2.4 1.4 1.2 2.6 1.6 3 .1.2-.4.5-.5.8-.4.3.1 1.8.8 2.1 1 .3.2.5.4.6.6.1.5.1 1-.1 1.2z"/></svg>) }
+function IconWhatsApp(p: React.SVGProps<SVGSVGElement>) { return (<svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" {...p}><path fill="currentColor" d="M12 2a10 10 0 0 0-8.7 15l-1.3 4.7 4.8-1.3A10 10 0 1 0 12 2zm5.6 14.6c-.2.6-1.2 1.1-1.7 1.2-.5.1-1 .2-1.7-.1-.4-.1-1-.3-1.8-.7-3.1-1.4-5.2-4.7-5.3-4.9-.2-.3-1.3-1.7-1.3-3.2 0-1.4.7-2.1 1-2.4.2-.2.6-.3 1-.3h.7c.2 0 .5 0 .7 .6.3.7 1 2.6 1 2.8.1.2.1.4 0 .6-.1.2-.2.4-.4.6-.2.2-.4.5-.2.9.2.4.9 1.5 2 2.4 1.4 1.2 2.6 1.6 3 .1.2-.4.5-.5.8-.4.3.1 1.8.8 2.1 1 .3.2.5.4.6.6.1.5.1 1-.1 1.2z"/></svg>) }
 function IconTelegram(p: React.SVGProps<SVGSVGElement>) { return (<svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" {...p}><path fill="currentColor" d="M21.9 3.3c-.3-.2-.7-.2-1.1 0L2.8 10.6c-.7.3-.7 1.4.1 1.6l4.7 1.5 1.7 5.2c.2.7 1.1.9 1.6.3l2.6-2.8 4.3 3.1c.6.4 1.5.1 1.7-.6l3.1-14.4c.1-.5-.1-1-.6-1.2z"/></svg>) }
 function IconCamera(p: React.SVGProps<SVGSVGElement>) { return (<svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" {...p}><path fill="currentColor" d="M9 4a2 2 0 0 0-1.8 1.1L6.6 6H5a3 3 0 0 0-3 3v8a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3V9a3 3 0 0 0-3-3h-1.6l-.6-.9A2 2 0 0 0 15 4H9zm3 5a5 5 0 1 1 0 10 5 5 0 0 1 0-10zm0 2.5A2.5 2.5 0 1 0 14.5 14 2.5 2.5 0 0 0 12 11.5z"/></svg>) }
 function IconX(p: React.SVGProps<SVGSVGElement>){return(<svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" {...p}><path d="M3 3l18 18M21 3L3 21" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>)}
@@ -99,7 +99,8 @@ function truncateHTMLByWordsPercent(html:string, percent=0.76){
   return out.innerHTML
 }
 
-/* image dedupe keys */
+/* image dedupe helpers */
+// ── UPDATE #1: okrepljena normalizacija poti (CDN/cache segmenti)
 function imageKeyFromSrc(src: string | null | undefined): string {
   if (!src) return ''
   let pathname = ''
@@ -109,6 +110,13 @@ function imageKeyFromSrc(src: string | null | undefined): string {
   } catch {
     pathname = (src.split('#')[0] || '').split('?')[0].toLowerCase()
   }
+
+  // odstrani tipične CDN/cache/resize segmente (npr. dnevnik.si /cache/... ali /fit/1200x/)
+  pathname = pathname
+    .replace(/\/cache\/[^/]+\/+/g, '/')
+    .replace(/\/(fit|fill|resize)\/\d+x\d+\/?/g, '/')
+
+  // odstrani suffixe dimenzij in konsistentna končnica
   pathname = pathname.replace(/(-|_)?\d{2,4}x\d{2,4}(?=\.)/g, '')
   pathname = pathname.replace(/(-|_)?\d{2,4}x(?=\.)/g, '')
   pathname = pathname.replace(/-scaled(?=\.)/g, '')
@@ -122,6 +130,20 @@ function basenameStem(pathname: string): string {
     .replace(/(-|_)?\d{2,4}x\d{2,4}$/g, '')
     .replace(/(-|_)?\d{2,4}x$/g, '')
     .replace(/-scaled$/g, '')
+}
+
+// ── UPDATE #2: “normaliziran stem” – zniža šum (številke, ločila, diakritika)
+function normalizeStemForDedupe(s: string): string {
+  return (s || '')
+    .toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // brez diakritike
+    .replace(/\.[a-z0-9]+$/, '')                      // brez končnice
+    .replace(/(-|_)?\d{2,4}x\d{2,4}$/g, '')
+    .replace(/(-|_)?\d{2,4}x$/g, '')
+    .replace(/-scaled$/g, '')
+    .replace(/\d+/g, '')                               // odstrani številke/hash
+    .replace(/[-_]+/g, '')                             // odstrani ločila
+    .slice(0, 20)                                      // stabilna dolžina
 }
 
 /* wait images */
@@ -171,6 +193,7 @@ function cleanAndExtract(html: string, baseUrl: string, knownTitle: string | und
   let firstImgPinned: string | null = null
   let firstKey = ''
   let firstStem = ''
+  let firstNormStem = ''
 
   const imgs = Array.from(wrap.querySelectorAll('img'))
   if (imgs.length > 0) {
@@ -192,9 +215,12 @@ function cleanAndExtract(html: string, baseUrl: string, knownTitle: string | und
 
     firstKey  = imageKeyFromSrc(firstAbs || firstRaw)
     firstStem = basenameStem(firstKey)
+    firstNormStem = normalizeStemForDedupe(firstStem)
 
-    const seen = new Set<string>()
-    if (firstKey) seen.add(firstKey)
+    const seenKeys = new Set<string>()
+    const seenNormStems = new Set<string>()
+    if (firstKey) seenKeys.add(firstKey)
+    if (firstNormStem) seenNormStems.add(firstNormStem)
 
     imgs.slice(1).forEach((img) => {
       const raw = img.getAttribute('src') || img.getAttribute('data-src') || ''
@@ -213,15 +239,20 @@ function cleanAndExtract(html: string, baseUrl: string, knownTitle: string | und
 
       const key  = imageKeyFromSrc(abs || raw)
       const stem = basenameStem(key)
+      const nstem = normalizeStemForDedupe(stem)
 
       const duplicate =
         !key ||
-        seen.has(key) ||
+        seenKeys.has(key) ||
+        (nstem && seenNormStems.has(nstem)) ||
         stem === firstStem ||
-        (firstStem && stem && (stem.startsWith(firstStem.slice(0,10)) || firstStem.startsWith(stem.slice(0,10))))
+        (firstStem && stem && (
+          stem.startsWith(firstStem.slice(0,10)) ||
+          firstStem.startsWith(stem.slice(0,10))
+        ))
 
       if (duplicate) { (img.closest('figure, picture') || img).remove() }
-      else { seen.add(key) }
+      else { seenKeys.add(key); if (nstem) seenNormStems.add(nstem) }
     })
   }
 
