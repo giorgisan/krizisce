@@ -19,7 +19,8 @@ import SeoHead from '@/components/SeoHead'
 import BackToTop from '@/components/BackToTop'
 import SourceFilter from '@/components/SourceFilter'
 
-// -------------------- Helpers & constants --------------------
+/* ================= Helpers & constants ================= */
+
 const POLL_MS = 60_000
 const HIDDEN_POLL_MS = 5 * 60_000
 const POLL_MAX_BACKOFF = 5
@@ -40,15 +41,63 @@ function timeout(ms: number) {
   return new Promise((_, rej) => setTimeout(() => rej(new Error('Request timeout')), ms))
 }
 
+/**
+ * Primarni klic gre na naš /api/news (Vercel).
+ * Če pade/timeouta → fallback: direktno na Supabase (anon key).
+ */
 async function loadNews(signal?: AbortSignal): Promise<NewsItem[] | null> {
+  // 1) prek Vercela
   try {
     const res = (await Promise.race([
       fetch('/api/news', { cache: 'no-store', signal }),
       timeout(12_000),
     ])) as Response
-    const data: NewsItem[] = await res.json()
-    return Array.isArray(data) && data.length ? data : null
-  } catch { return null }
+    if (res.ok) {
+      const data: NewsItem[] = await res.json()
+      if (Array.isArray(data) && data.length) return data
+    }
+  } catch {}
+
+  // 2) fallback: direkt Supabase
+  try {
+    const { createClient } = await import('@supabase/supabase-js')
+    const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL as string
+    const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string
+    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: false } })
+
+    type Row = {
+      link: string
+      title: string
+      source: string
+      contentsnippet: string | null
+      summary: string | null
+      image: string | null
+      published_at: string | null
+      publishedat: number | null
+    }
+
+    const { data, error } = await supabase
+      .from('news')
+      .select('link,title,source,contentsnippet,summary,image,published_at,publishedat')
+      .order('publishedat', { ascending: false })
+      .limit(60)
+
+    if (error || !data) return null
+
+    const items: NewsItem[] = (data as Row[]).map(r => ({
+      title: r.title,
+      link: r.link,
+      source: r.source,
+      contentSnippet: r.contentsnippet ?? r.summary ?? '',
+      image: r.image ?? null,
+      publishedAt: (r.publishedat ?? (r.published_at ? Date.parse(r.published_at) : 0)) || 0,
+      isoDate: r.published_at,
+    }))
+
+    return items.length ? items : null
+  } catch {
+    return null
+  }
 }
 
 const NEWNESS_GRACE_MS = 30_000
@@ -73,7 +122,8 @@ function saveFirstSeen(map: FirstSeenMap) {
   try { window.localStorage.setItem(LS_FIRST_SEEN, JSON.stringify(map)) } catch {}
 }
 
-// -------------------- Page --------------------
+/* ================= Page ================= */
+
 type Props = { initialNews: NewsItem[] }
 
 export default function Home({ initialNews }: Props) {
@@ -89,19 +139,17 @@ export default function Home({ initialNews }: Props) {
   })
   const deferredSource = useDeferredValue(selectedSource)
 
-  // Vidnost filter vrstice (krmili ikona v headerju prek 'ui:toggle-filters')
+  // filter vrstica (toggle iz Headerja)
   const [filterOpen, setFilterOpen] = useState<boolean>(false)
   useEffect(() => {
     const onToggle = () => setFilterOpen(v => !v)
     window.addEventListener('ui:toggle-filters', onToggle as EventListener)
-    // podpora ?filters=1
     try {
       const u = new URL(window.location.href)
       if (u.searchParams.get('filters') === '1') setFilterOpen(true)
     } catch {}
     return () => window.removeEventListener('ui:toggle-filters', onToggle as EventListener)
   }, [])
-  // vsakič, ko se stanje spremeni, javimo headerju (ta bo obarval ikono)
   useEffect(() => {
     window.dispatchEvent(new CustomEvent('ui:filters-state', { detail: { open: filterOpen } }))
   }, [filterOpen])
@@ -250,7 +298,6 @@ export default function Home({ initialNews }: Props) {
     <>
       <Header />
 
-      {/* Subtilna vrstica s čipi pod headerjem; vidnost krmili header ikona */}
       <SourceFilter
         value={selectedSource}
         onChange={(next) => {
@@ -305,7 +352,8 @@ export default function Home({ initialNews }: Props) {
   )
 }
 
-// -------------------- SSG --------------------
+/* ================= SSG (ISR) ================= */
+
 export async function getStaticProps() {
   const { createClient } = await import('@supabase/supabase-js')
   const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL as string
@@ -332,7 +380,7 @@ export async function getStaticProps() {
 
   const rows = (data ?? []) as Row[]
 
-  const initialNews = rows.map(r => ({
+  const initialNews: NewsItem[] = rows.map(r => ({
     title: r.title,
     link: r.link,
     source: r.source,
