@@ -105,6 +105,46 @@ const fmtClock = (ms: number) => {
   } catch { return '' }
 }
 
+/* ---------- Helperji za fallback na Supabase ---------- */
+
+const dayBoundsUtc = (iso: string) => {
+  const [y, m, d] = iso.split('-').map(Number)
+  const start = Date.UTC(y, (m ?? 1) - 1, d ?? 1, 0, 0, 0, 0)
+  const end = start + 24 * 60 * 60 * 1000
+  return { start, end }
+}
+
+async function supabaseFetchDay(iso: string, limit = 250, cursor?: number | null) {
+  const { createClient } = await import('@supabase/supabase-js')
+  const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL as string
+  const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string
+  const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: false } })
+
+  const { start, end } = dayBoundsUtc(iso)
+
+  let q = supabase
+    .from('news')
+    .select('id, link, title, source, published_at, publishedat, summary, contentsnippet, description, content')
+    .gte('publishedat', start)
+    .lt('publishedat', end)
+    .order('publishedat', { ascending: false })
+    .order('id', { ascending: false })
+    .limit(limit)
+
+  if (cursor && Number.isFinite(cursor)) q = q.lt('publishedat', cursor)
+
+  const { data, error } = await q
+  if (error) throw error
+
+  const items = (data ?? []) as ApiItem[]
+  const nextCursor =
+    items.length === limit
+      ? Number(items[items.length - 1]?.publishedat) || null
+      : null
+
+  return { items, nextCursor }
+}
+
 /* ======================== Calendar popover ======================== */
 
 type CalProps = {
@@ -176,7 +216,7 @@ function CalendarPopover({ open, anchorRef, valueISO, onClose, onPickISO }: CalP
       style={{ top: pos.top, left: pos.left }}
     >
       <div className="flex items-center justify-between mb-2">
-        <button className="h-8 w-8 inline-flex items-center justify-center rounded-md hover:bg:black/5 dark:hover:bg-white/5"
+        <button className="h-8 w-8 inline-flex items-center justify-center rounded-md hover:bg:black/5 dark:hover:bg:white/5"
                 onClick={() => setView(v => addMonths(v, -1))}
                 aria-label="Prejšnji mesec">‹</button>
         <div className="text-sm font-medium">
@@ -192,7 +232,6 @@ function CalendarPopover({ open, anchorRef, valueISO, onClose, onPickISO }: CalP
       </div>
 
       <div className="grid grid-cols-7 gap-1">
-        {/* … dnevi … */}
         {(() => {
           const out: JSX.Element[] = []
           const first = startOfMonth(view)
@@ -215,7 +254,7 @@ function CalendarPopover({ open, anchorRef, valueISO, onClose, onPickISO }: CalP
                   ? 'bg-brand text-white'
                   : isToday
                     ? 'ring-1 ring-brand/60'
-                    : 'hover:bg-black/5 dark:hover:bg-white/5'
+                    : 'hover:bg-black/5 dark:hover:bg:white/5'
             out.push(
               <button
                 key={iso}
@@ -260,14 +299,17 @@ export default function ArchivePage() {
 
   const sortDesc = (a: ApiItem, b: ApiItem) => tsOf(b) - tsOf(a) || Number(a.id) - Number(b.id)
 
-  // full-day fetch with cursor paging
+  // full-day fetch with cursor paging (API -> fallback Supabase)
   const abortRef = useRef<AbortController | null>(null)
   async function fetchAll(d: string) {
     if (abortRef.current) abortRef.current.abort()
     const ctrl = new AbortController(); abortRef.current = ctrl
     setLoading(true); setErrorMsg(null)
+
+    const LIMIT = 250
+
+    // 1) Poskusi /api/archive (Vercel)
     try {
-      const LIMIT = 250
       let cursor: string | null = null
       let acc: ApiItem[] = []
       const seen = new Set<string>()
@@ -285,6 +327,32 @@ export default function ArchivePage() {
 
         if (!data.nextCursor) break
         cursor = data.nextCursor
+        await new Promise(r => setTimeout(r, 0))
+      }
+      setLoading(false)
+      return
+    } catch {
+      // nadaljuj na Supabase fallback
+    }
+
+    // 2) Fallback: direktno Supabase (anon)
+    try {
+      let cursor: number | null = null
+      let acc: ApiItem[] = []
+      const seen = new Set<string>()
+      while (true) {
+        const { items, nextCursor } = await supabaseFetchDay(d, LIMIT, cursor)
+
+        for (const it of items) if (!seen.has(it.link)) { seen.add(it.link); acc.push(it) }
+        setItems(acc = [...acc].sort(sortDesc))
+
+        // lokalni counts (po virih)
+        const c: Record<string, number> = {}
+        for (const it of acc) c[it.source] = (c[it.source] || 0) + 1
+        setCounts(c)
+
+        if (!nextCursor) break
+        cursor = nextCursor
         await new Promise(r => setTimeout(r, 0))
       }
     } catch (e) {
