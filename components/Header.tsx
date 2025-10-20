@@ -8,6 +8,8 @@ import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/router'
 import { motion, AnimatePresence } from 'framer-motion'
 
+type ViewMode = 'grid' | 'list'
+
 export default function Header() {
   const router = useRouter()
   const { theme, resolvedTheme, setTheme } = useTheme()
@@ -16,6 +18,9 @@ export default function Header() {
   const [hasNew, setHasNew] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
   const [filtersOpen, setFiltersOpen] = useState(false)
+
+  // novi state: view mode – poslušamo iz strani
+  const [view, setView] = useState<ViewMode>('grid')
 
   // ali smo na naslovnici?
   const isHome = router.pathname === '/'
@@ -52,6 +57,16 @@ export default function Header() {
     }
     window.addEventListener('ui:filters-state', onState as EventListener)
     return () => window.removeEventListener('ui:filters-state', onState as EventListener)
+  }, [])
+
+  // stanje pogleda (stran javlja nazaj)
+  useEffect(() => {
+    const onView = (e: Event) => {
+      const next = (e as CustomEvent).detail?.view as ViewMode | undefined
+      if (next === 'grid' || next === 'list') setView(next)
+    }
+    window.addEventListener('ui:view-state', onView as EventListener)
+    return () => window.removeEventListener('ui:view-state', onView as EventListener)
   }, [])
 
   const hdrRef = useRef<HTMLElement | null>(null)
@@ -103,6 +118,11 @@ export default function Header() {
   // ikona filtra – stran bo preklopila in vrnila "ui:filters-state"
   const toggleFilters = () => {
     window.dispatchEvent(new CustomEvent('ui:toggle-filters'))
+  }
+
+  // preklop pogleda – pošljemo signal strani
+  const toggleView = () => {
+    window.dispatchEvent(new CustomEvent('ui:toggle-view'))
   }
 
   // preklop teme – en sam SVG, vedno viden
@@ -160,7 +180,7 @@ export default function Header() {
           </AnimatePresence>
         </div>
 
-        {/* Desno: ura, (pogojni) filter, arhiv, tema */}
+        {/* Desno: ura, (pogojni) filter, ARCHIVE, VIEW, THEME */}
         <div className="flex items-center gap-1.5 sm:gap-2">
           <span className="hidden sm:inline-block font-mono tabular-nums text-[13px] text-gray-500 dark:text-gray-400 select-none">
             {time}
@@ -188,6 +208,34 @@ export default function Header() {
                   fill="none"
                 />
               </svg>
+            </button>
+          )}
+
+          {/* VIEW TOGGLE – samo na naslovnici */}
+          {isHome && (
+            <button
+              type="button"
+              onClick={toggleView}
+              aria-label={view === 'list' ? 'Preklopi na mrežo' : 'Preklopi na seznam'}
+              title={view === 'list' ? 'Mrežni pogled' : 'Seznam brez slik'}
+              className={`inline-flex h-10 w-10 items-center justify-center rounded-md transition
+                          ${view === 'list'
+                            ? 'text-brand bg-brand/10 ring-1 ring-brand/30'
+                            : 'text-black/55 dark:text-white/60 hover:text-black/90 dark:hover:text-white/90 hover:bg-black/[0.04] dark:hover:bg-white/[0.06]'}`}
+            >
+              {/* Ikoni: list vs grid */}
+              {view === 'list' ? (
+                <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+                  <rect x="3" y="4" width="7" height="7" rx="1" stroke="currentColor" strokeWidth="2" fill="none" />
+                  <rect x="14" y="4" width="7" height="7" rx="1" stroke="currentColor" strokeWidth="2" fill="none" />
+                  <rect x="3" y="13" width="7" height="7" rx="1" stroke="currentColor" strokeWidth="2" fill="none" />
+                  <rect x="14" y="13" width="7" height="7" rx="1" stroke="currentColor" strokeWidth="2" fill="none" />
+                </svg>
+              ) : (
+                <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+                  <path d="M4 6h16M4 12h16M4 18h16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                </svg>
+              )}
             </button>
           )}
 
@@ -221,13 +269,11 @@ export default function Header() {
             >
               <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
                 {isDark ? (
-                  // sonce (klik -> svetla tema)
                   <>
                     <path d="M12 4V2M12 22v-2M4.93 4.93 3.52 3.52M20.48 20.48l-1.41-1.41M4 12H2M22 12h-2M4.93 19.07 3.52 20.48M20.48 3.52l-1.41 1.41" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
                     <circle cx="12" cy="12" r="4" stroke="currentColor" strokeWidth="2" fill="none"/>
                   </>
                 ) : (
-                  // luna (klik -> temna tema)
                   <path d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 0 0 9.79 9.79Z" stroke="currentColor" strokeWidth="2" fill="none"/>
                 )}
               </svg>
