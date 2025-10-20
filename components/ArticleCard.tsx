@@ -1,3 +1,4 @@
+// components/ArticleCard.tsx
 'use client'
 
 import { NewsItem } from '@/types'
@@ -12,9 +13,9 @@ import {
 import dynamic from 'next/dynamic'
 import { proxiedImage, buildSrcSet } from '@/lib/img'
 import { preloadPreview, canPrefetch, warmImage } from '@/lib/previewPrefetch'
-import { sourceColors } from '@/lib/sources' // ← namesto require()
+import { sourceColors } from '@/lib/sources'
 
-interface Props { news: NewsItem; priority?: boolean }
+interface Props { news: NewsItem; priority?: boolean; view?: 'grid' | 'list' }
 type PreviewProps = { url: string; onClose: () => void }
 const ArticlePreview = dynamic(() => import('./ArticlePreview'), { ssr: false }) as ComponentType<PreviewProps>
 
@@ -36,7 +37,7 @@ function formatDisplayTime(publishedAt?: number, iso?: string) {
   return `${date}, ${time}`
 }
 
-export default function ArticleCard({ news, priority = false }: Props) {
+export default function ArticleCard({ news, priority = false, view = 'grid' }: Props) {
   const formattedDate = formatDisplayTime(news.publishedAt, news.isoDate)
 
   const sourceColor = useMemo(() => {
@@ -50,11 +51,61 @@ export default function ArticleCard({ news, priority = false }: Props) {
       const coarse   = typeof window !== 'undefined' && window.matchMedia?.('(pointer: coarse)').matches
       const touchCap = typeof navigator !== 'undefined' && (navigator.maxTouchPoints || (navigator as any).msMaxTouchPoints) > 0
       setIsTouch(!!coarse || !!touchCap || 'ontouchstart' in window)
-    } catch {
-      setIsTouch(false)
-    }
+    } catch { setIsTouch(false) }
   }, [])
 
+  // ---- API beacons ----
+  const sendBeacon = (payload: any) => {
+    try {
+      const json = JSON.stringify(payload)
+      if ('sendBeacon' in navigator) {
+        navigator.sendBeacon('/api/click', new Blob([json], { type: 'application/json' }))
+      } else {
+        fetch('/api/click', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: json, keepalive: true })
+      }
+    } catch {}
+  }
+  const logClick = () => { sendBeacon({ source: news.source, url: news.link, action: 'open' }) }
+  const handleClick = (e: MouseEvent<HTMLAnchorElement>) => {
+    if (e.metaKey || e.ctrlKey || e.button === 1) return
+    e.preventDefault()
+    window.open(news.link, '_blank', 'noopener')
+    logClick()
+  }
+  const handleAuxClick = (e: MouseEvent<HTMLAnchorElement>) => { if (e.button === 1) logClick() }
+
+  /* ================= LIST VIEW (compact, brez slik) ================= */
+  if (view === 'list') {
+    return (
+      <a
+        href={news.link}
+        target="_blank"
+        rel="noopener"
+        referrerPolicy="strict-origin-when-cross-origin"
+        onClick={handleClick}
+        onAuxClick={handleAuxClick}
+        className="group block rounded-md px-2.5 py-2 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+      >
+        <div className="flex flex-col gap-1">
+          <div className="text-[13px] text-gray-600 dark:text-gray-400">
+            <span className="font-medium" style={{ color: sourceColor }}>{news.source}</span>
+            <span className="mx-2 text-gray-400 dark:text-gray-500">•</span>
+            <span>{formattedDate}</span>
+          </div>
+          <h3 className="text-[15px] font-semibold leading-snug text-gray-900 dark:text-gray-100 group-hover:underline underline-offset-2">
+            {news.title}
+          </h3>
+          {news.contentSnippet && (
+            <p className="text-[13px] text-gray-700 dark:text-gray-300 line-clamp-2">
+              {news.contentSnippet}
+            </p>
+          )}
+        </div>
+      </a>
+    )
+  }
+
+  /* ================= GRID CARD (obstoječi) ================= */
   // ---- Slike: proxy → direct → fallback ----
   const rawImg = news.image ?? null
   const [useProxy, setUseProxy]   = useState<boolean>(!!rawImg)
@@ -94,28 +145,6 @@ export default function ArticleCard({ news, priority = false }: Props) {
     document.head.appendChild(link)
     return () => { document.head.removeChild(link) }
   }, [isPriority, rawImg])
-
-  // ---- API beacons ----
-  const sendBeacon = (payload: any) => {
-    try {
-      const json = JSON.stringify(payload)
-      if ('sendBeacon' in navigator) {
-        navigator.sendBeacon('/api/click', new Blob([json], { type: 'application/json' }))
-      } else {
-        fetch('/api/click', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: json, keepalive: true })
-      }
-    } catch {}
-  }
-
-  // Klik na članek
-  const logClick = () => { sendBeacon({ source: news.source, url: news.link, action: 'open' }) }
-  const handleClick = (e: MouseEvent<HTMLAnchorElement>) => {
-    if (e.metaKey || e.ctrlKey || e.button === 1) return
-    e.preventDefault()
-    window.open(news.link, '_blank', 'noopener') // brez noreferrer, da pošljemo Referer
-    logClick()
-  }
-  const handleAuxClick = (e: MouseEvent<HTMLAnchorElement>) => { if (e.button === 1) logClick() }
 
   // ---- Predogled: open/close tracking ----
   const [showPreview, setShowPreview] = useState(false)
@@ -205,7 +234,7 @@ export default function ArticleCard({ news, priority = false }: Props) {
       >
         {/* Media */}
         <div className="relative w-full aspect-[16/9] overflow-hidden">
-          {useFallback || !currentSrc ? (
+          {(!rawImg || useFallback || !currentSrc) ? (
             <div className="absolute inset-0 flex items-center justify-center">
               <div className="absolute inset-0 bg-gradient-to-br from-gray-200 via-gray-300 to-gray-200 dark:from-gray-700 dark:via-gray-800 dark:to-gray-700" />
               <span className="relative z-10 text-sm font-medium text-gray-700 dark:text-gray-300">Ni slike</span>
