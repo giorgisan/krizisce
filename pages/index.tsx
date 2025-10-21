@@ -154,11 +154,6 @@ const ArticlePreview = dynamic(() => import('@/components/ArticlePreview'), { ss
 type Props = { initialNews: NewsItem[] }
 type ViewMode = 'grid' | 'list'
 
-// --- Prvi prikaz naj bo radodaren (40), kasneje prilagodimo navzdol za mobilne ---
-function initialCountSSR() {
-  return 40
-}
-
 export default function Home({ initialNews }: Props) {
   const [news, setNews] = useState<NewsItem[]>(initialNews)
 
@@ -203,11 +198,11 @@ export default function Home({ initialNews }: Props) {
     window.dispatchEvent(new CustomEvent('ui:filters-state', { detail: { open: filterOpen } }))
   }, [filterOpen])
 
-  const [displayCount, setDisplayCount] = useState(initialCountSSR())
-  // Po mountu zmanjšamo za manjše širine
+  // prikazno število
+  const [displayCount, setDisplayCount] = useState(40)
   useEffect(() => {
     const w = window.innerWidth
-    if (w < 641) setDisplayCount(16)
+    if (w < 641) setDisplayCount(18)
     else if (w < 1025) setDisplayCount(24)
     else setDisplayCount(40)
   }, [])
@@ -351,13 +346,17 @@ export default function Home({ initialNews }: Props) {
     window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
   const motionDuration = prefersReducedMotion ? 0.12 : 0.16
 
-  /* ========== LIST HEADER (desktop) ========== */
+  /* ========== LIST HEADER (sticky, kompakt) ========== */
   function ListHeader() {
     return (
       <div
         className="sticky top-[var(--hdr-h,56px)] z-20 bg-white dark:bg-gray-900 shadow-sm border-b border-gray-200/80 dark:border-gray-700/70"
       >
-        <div className="grid grid-cols-[76px_1fr_auto] md:grid-cols-[88px_1fr_auto] px-3 h-10 items-center text-[12px] uppercase tracking-wide text-gray-500 dark:text-gray-400">
+        <div
+          className="grid grid-cols-[56px_1fr_auto] sm:grid-cols-[76px_1fr_auto] md:grid-cols-[88px_1fr_auto]
+                     px-2 sm:px-3 h-9 md:h-10 items-center text-[11px] sm:text-[12px] uppercase tracking-wide
+                     text-gray-500 dark:text-gray-400"
+        >
           <span>Čas</span>
           <span>Naslov</span>
           <span className="justify-self-end pr-2">Vir</span>
@@ -366,17 +365,16 @@ export default function Home({ initialNews }: Props) {
     )
   }
 
-  /* ========== LIST ROW (dense, oko ob naslovu) ========== */
+  /* ========== LIST ROW (zelo gost, “oko” takoj za naslovom; na mob. long-press) ========== */
   function ListRow({ item }: { item: NewsItem }) {
     const [showPreview, setShowPreview] = useState(false)
-    const isTouch = typeof window !== 'undefined' && ('ontouchstart' in window || (navigator as any).maxTouchPoints > 0)
+    const isTouch =
+      typeof window !== 'undefined' &&
+      (('ontouchstart' in window) || (navigator as any).maxTouchPoints > 0)
+
     const longPressTimer = useRef<number | null>(null)
     const [isMobile, setIsMobile] = useState(false)
-
-    useEffect(() => {
-      const m = typeof window !== 'undefined' && window.matchMedia('(max-width: 640px)').matches
-      setIsMobile(!!m)
-    }, [])
+    useEffect(() => { setIsMobile(window.matchMedia('(max-width: 640px)').matches) }, [])
 
     const onClickLink = (e: MouseEvent<HTMLAnchorElement>) => {
       if (e.metaKey || e.ctrlKey || e.button === 1) return
@@ -396,17 +394,17 @@ export default function Home({ initialNews }: Props) {
     return (
       <>
         <li
-          className="group grid grid-cols-[76px_1fr_auto] md:grid-cols-[88px_1fr_auto]
-                     items-center gap-2 px-3 h-10 md:h-11
-                     hover:bg-black/[0.035] dark:hover:bg:white/[0.05] transition-colors duration-100"
+          className="group grid grid-cols-[56px_1fr_auto] sm:grid-cols-[76px_1fr_auto] md:grid-cols-[88px_1fr_auto]
+                     items-center gap-1 sm:gap-2 px-2 sm:px-3 h-10 md:h-11
+                     hover:bg-black/[0.035] dark:hover:bg-white/[0.05] transition-colors duration-100"
         >
           {/* Čas */}
           <span className="text-[12px] text-gray-500 dark:text-gray-400 tabular-nums">
             {formatDisplayTime(item.publishedAt, item.isoDate, isMobile)}
           </span>
 
-          {/* Naslov + oko (oko skrito na mobilnem) */}
-          <div className="min-w-0 flex items-center gap-2">
+          {/* Naslov + oko (oko takoj za naslovom; na mob. skrito, ker je long-press) */}
+          <div className="min-w-0 flex items-center gap-1 sm:gap-2">
             <a
               href={item.link}
               target="_blank"
@@ -416,23 +414,24 @@ export default function Home({ initialNews }: Props) {
               onTouchStart={onTouchStart}
               onTouchEnd={clearLong}
               onTouchMove={clearLong}
-              className={`flex-1 min-w-0 ${isMobile ? 'text-[15px] leading-snug line-clamp-2' : 'truncate text-[15px]'} text-gray-900 dark:text-gray-100 focus:outline-none group-hover:text-brand`}
+              className={`flex-1 min-w-0 truncate text-[15px] leading-tight text-gray-900 dark:text-gray-100
+                          focus:outline-none group-hover:text-brand`}
+              title={item.title}
             >
               {item.title}
-              <span className="sr-only"> — predogled z ikono desno</span>
             </a>
 
-            {/* Oko (desktop) */}
+            {/* Oko – na desktopu */}
             <button
               type="button"
               aria-label="Predogled"
               title="Predogled"
               onClick={() => setShowPreview(true)}
-              className="hidden sm:inline-flex items-center justify-center h-8 w-8 rounded-md
-                         text-gray-600/70 dark:text-gray-300/70 opacity-40 group-hover:opacity-90 transition
+              className="hidden sm:inline-flex items-center justify-center h-7 w-7 rounded-md
+                         text-gray-600/70 dark:text-gray-300/70 opacity-35 group-hover:opacity-95 transition
                          hover:ring-1 hover:ring-black/10 dark:hover:ring-white/20"
             >
-              <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true">
                 <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12Z" stroke="currentColor" strokeWidth="2" fill="none" />
                 <circle cx="12" cy="12" r="3.5" stroke="currentColor" strokeWidth="2" fill="none" />
               </svg>
@@ -441,7 +440,10 @@ export default function Home({ initialNews }: Props) {
 
           {/* Vir */}
           <span className="ml-1 text-[12px] text-gray-600 dark:text-gray-300 inline-flex items-center gap-2 justify-self-end pr-2">
-            <span className="inline-block h-2 w-2 rounded-full" style={{ background: (sourceColors as Record<string, string>)[item.source] || '#999' }} />
+            <span
+              className="inline-block h-2 w-2 rounded-full"
+              style={{ background: (sourceColors as Record<string, string>)[item.source] || '#999' }}
+            />
             {item.source}
           </span>
         </li>
@@ -492,7 +494,6 @@ export default function Home({ initialNews }: Props) {
                 transition={{ duration: motionDuration }}
                 className="max-w-6xl mx-auto w-full"
               >
-                {/* Panel brez overflow-hidden, da sticky header ne “preliva” */}
                 <div className="rounded-lg ring-1 ring-black/5 dark:ring-white/10 bg-white/30 dark:bg-gray-800/30 backdrop-blur-sm">
                   <ListHeader />
                   <ul className="divide-y divide-gray-200/70 dark:divide-gray-700/60">
