@@ -334,7 +334,7 @@ export default function Home({ initialNews }: Props) {
     try {
       const { items, nextCursor } = await fetchPage({ cursor, limit: 40, source: deferredSource })
       const seen = new Set(news.map(n => n.link))
-      const fresh = items.filter	i => !seen.has(i.link))
+      const fresh = items.filter(i => !seen.has(i.link))
       if (fresh.length) { setNews(prev => [...prev, ...fresh]); setDisplayCount(prev => prev + fresh.length) }
       if (!nextCursor || nextCursor === cursor || items.length === 0) { setHasMore(false); setCursor(null) }
       else { setCursor(nextCursor); setHasMore(true) }
