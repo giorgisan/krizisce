@@ -83,7 +83,7 @@ async function loadNews(signal?: AbortSignal): Promise<NewsItem[] | null> {
       .from('news')
       .select('link,title,source,contentsnippet,summary,image,published_at,publishedat')
       .order('publishedat', { ascending: false })
-      .limit(120)
+      .limit(120) // ↑ več za prvi load
 
     const items: NewsItem[] = (data || []).map((r: Row) => ({
       title: r.title,
@@ -154,11 +154,8 @@ const ArticlePreview = dynamic(() => import('@/components/ArticlePreview'), { ss
 type Props = { initialNews: NewsItem[] }
 type ViewMode = 'grid' | 'list'
 
-function initialCount() {
-  if (typeof window === 'undefined') return 20
-  const w = window.innerWidth
-  if (w < 641) return 16
-  if (w < 1025) return 24
+// --- Prvi prikaz naj bo radodaren (40), kasneje prilagodimo navzdol za mobilne ---
+function initialCountSSR() {
   return 40
 }
 
@@ -206,8 +203,14 @@ export default function Home({ initialNews }: Props) {
     window.dispatchEvent(new CustomEvent('ui:filters-state', { detail: { open: filterOpen } }))
   }, [filterOpen])
 
-  const [displayCount, setDisplayCount] = useState(initialCount())
-  useEffect(() => { setDisplayCount(initialCount()) }, [])
+  const [displayCount, setDisplayCount] = useState(initialCountSSR())
+  // Po mountu zmanjšamo za manjše širine
+  useEffect(() => {
+    const w = window.innerWidth
+    if (w < 641) setDisplayCount(16)
+    else if (w < 1025) setDisplayCount(24)
+    else setDisplayCount(40)
+  }, [])
 
   const [firstSeen, setFirstSeen] = useState<FirstSeenMap>(() => loadFirstSeen())
   const [hasMore, setHasMore] = useState(true)
@@ -222,7 +225,7 @@ export default function Home({ initialNews }: Props) {
       if (fresh && fresh.length) {
         const currentLinks = new Set(initialNews.map(n => n.link))
         const hasNewLink = fresh.some(n => n.link && !currentLinks.has(n.link))
-        if (hasNewLink) startTransition(() => { setNews(fresh); setDisplayCount(initialCount()) })
+        if (hasNewLink) startTransition(() => { setNews(fresh) })
       }
       kickSyncIfStale(5 * 60_000)
       setBootRefreshed(true)
@@ -278,7 +281,7 @@ export default function Home({ initialNews }: Props) {
           window.dispatchEvent(new CustomEvent('news-refreshing', { detail: false }))
           window.dispatchEvent(new CustomEvent('news-has-new', { detail: false }))
           missCountRef.current = 0
-          setHasMore(true); setCursor(null); setDisplayCount(initialCount())
+          setHasMore(true); setCursor(null);
         }
         if (freshNews) { setNews(freshNews); finish() }
         else loadNews().then((fresh) => { if (fresh && fresh.length) setNews(fresh); finish() })
@@ -352,10 +355,9 @@ export default function Home({ initialNews }: Props) {
   function ListHeader() {
     return (
       <div
-        className="sticky top-[var(--hdr-h,56px)] z-10 bg-white/80 dark:bg-gray-900/80 backdrop-blur supports-[backdrop-filter]:backdrop-blur
-                   border-b border-gray-200/70 dark:border-gray-700/60 rounded-t-lg"
+        className="sticky top-[var(--hdr-h,56px)] z-20 bg-white dark:bg-gray-900 shadow-sm border-b border-gray-200/80 dark:border-gray-700/70"
       >
-        <div className="grid grid-cols-[80px_1fr_auto] md:grid-cols-[88px_1fr_auto] px-3 h-10 items-center text-[12px] uppercase tracking-wide text-gray-500 dark:text-gray-400">
+        <div className="grid grid-cols-[76px_1fr_auto] md:grid-cols-[88px_1fr_auto] px-3 h-10 items-center text-[12px] uppercase tracking-wide text-gray-500 dark:text-gray-400">
           <span>Čas</span>
           <span>Naslov</span>
           <span className="justify-self-end pr-2">Vir</span>
@@ -394,11 +396,9 @@ export default function Home({ initialNews }: Props) {
     return (
       <>
         <li
-          className="group grid grid-cols-[64px_1fr_auto] md:grid-cols-[80px_1fr_auto] lg:grid-cols-[88px_1fr_auto]
-                     items-center gap-3 px-3 md:h-11 h-12 rounded-md
-                     even:bg-black/[0.02] dark:even:bg-white/[0.03]
-                     hover:bg-black/[0.035] dark:hover:bg-white/[0.05] transition-colors duration-100
-                     focus-within:ring-2 focus-within:ring-brand/70 focus-within:ring-offset-1 focus-within:ring-offset-transparent"
+          className="group grid grid-cols-[76px_1fr_auto] md:grid-cols-[88px_1fr_auto]
+                     items-center gap-2 px-3 h-10 md:h-11
+                     hover:bg-black/[0.035] dark:hover:bg-white/[0.05] transition-colors duration-100"
         >
           {/* Čas */}
           <span className="text-[12px] text-gray-500 dark:text-gray-400 tabular-nums">
@@ -460,7 +460,6 @@ export default function Home({ initialNews }: Props) {
         onChange={(next) => {
           startTransition(() => {
             setSelectedSource(next)
-            setDisplayCount(initialCount())
             setHasMore(true)
             setCursor(null)
           })
@@ -493,7 +492,8 @@ export default function Home({ initialNews }: Props) {
                 transition={{ duration: motionDuration }}
                 className="max-w-6xl mx-auto w-full"
               >
-                <div className="rounded-lg bg-white/40 dark:bg-gray-800/40 ring-1 ring-black/5 dark:ring-white/10 backdrop-blur-sm overflow-hidden">
+                {/* Panel brez overflow-hidden, da sticky header ne “preliva” */}
+                <div className="rounded-lg ring-1 ring-black/5 dark:ring-white/10 bg-white/30 dark:bg-gray-800/30 backdrop-blur-sm">
                   <ListHeader />
                   <ul className="divide-y divide-gray-200/70 dark:divide-gray-700/60">
                     {visibleNews.map((item) => (
@@ -551,7 +551,7 @@ export async function getStaticProps() {
     .from('news')
     .select('id, link, title, source, summary, contentsnippet, image, published_at, publishedat')
     .order('publishedat', { ascending: false })
-    .limit(120)
+    .limit(120) // ↑ več za prvi load
 
   const rows = (data ?? []) as Row[]
 
