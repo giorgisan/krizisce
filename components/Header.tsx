@@ -18,9 +18,7 @@ export default function Header() {
   const [hasNew, setHasNew] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
   const [filtersOpen, setFiltersOpen] = useState(false)
-
-  // novi state: view mode – poslušamo iz strani
-  const [view, setView] = useState<ViewMode>('grid')
+  const [view, setView] = useState<ViewMode>('grid') // state za vizualni toggle
 
   // ali smo na naslovnici?
   const isHome = router.pathname === '/'
@@ -39,7 +37,7 @@ export default function Header() {
 
   // signali za sveže novice
   useEffect(() => {
-    const onHasNew = (e: Event) => setHasNew(Boolean((e as CustomEvent).detail))
+    const onHasNew = (e: Event) => setHasNew(Object((e as CustomEvent).detail) === true || !!(e as any).detail)
     const onRefreshing = (e: Event) => setRefreshing(Boolean((e as CustomEvent).detail))
     window.addEventListener('news-has-new', onHasNew as EventListener)
     window.addEventListener('news-refreshing', onRefreshing as EventListener)
@@ -121,12 +119,53 @@ export default function Header() {
   }
 
   // preklop pogleda – pošljemo signal strani
-  const toggleView = () => {
+  const toggleView = (target: ViewMode) => {
+    // če kliknemo na trenutno, nič
+    if (target === view) return
     window.dispatchEvent(new CustomEvent('ui:toggle-view'))
   }
 
   // preklop teme – en sam SVG, vedno viden
   const toggleTheme = () => setTheme(isDark ? 'light' : 'dark')
+
+  // Kompaktna segmentirana kontrola: Grid | List
+  const ViewSegment = () => (
+    <div className="ml-2 hidden md:flex items-center rounded-full bg-black/[0.06] dark:bg-white/[0.06] ring-1 ring-black/10 dark:ring-white/10 p-0.5">
+      <button
+        type="button"
+        onClick={() => toggleView('grid')}
+        aria-pressed={view === 'grid'}
+        className={`flex items-center gap-1.5 px-2.5 py-1.5 text-[12px] rounded-full transition
+          ${view === 'grid'
+            ? 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-sm'
+            : 'text-gray-700 dark:text-gray-300 hover:bg-black/5 dark:hover:bg-white/5'}`}
+        title="Mrežni pogled"
+      >
+        <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+          <rect x="3" y="4" width="7" height="7" rx="1" stroke="currentColor" strokeWidth="2" fill="none" />
+          <rect x="14" y="4" width="7" height="7" rx="1" stroke="currentColor" strokeWidth="2" fill="none" />
+          <rect x="3" y="13" width="7" height="7" rx="1" stroke="currentColor" strokeWidth="2" fill="none" />
+          <rect x="14" y="13" width="7" height="7" rx="1" stroke="currentColor" strokeWidth="2" fill="none" />
+        </svg>
+        <span>Mreža</span>
+      </button>
+      <button
+        type="button"
+        onClick={() => toggleView('list')}
+        aria-pressed={view === 'list'}
+        className={`flex items-center gap-1.5 px-2.5 py-1.5 text-[12px] rounded-full transition
+          ${view === 'list'
+            ? 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-sm'
+            : 'text-gray-700 dark:text-gray-300 hover:bg-black/5 dark:hover:bg-white/5'}`}
+        title="Seznam brez slik"
+      >
+        <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+          <path d="M4 6h16M4 12h16M4 18h16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+        </svg>
+        <span>Seznam</span>
+      </button>
+    </div>
+  )
 
   return (
     <header
@@ -135,7 +174,7 @@ export default function Header() {
       className="sticky top-0 z-40 bg-[#FAFAFA]/95 dark:bg-gray-900/70 backdrop-blur-md border-b border-gray-200 dark:border-gray-700 shadow-sm"
     >
       <div className="py-2 px-4 md:px-8 lg:px-16 flex items-center justify-between gap-2">
-        {/* Levo: brand + sveže pil (desktop) */}
+        {/* Levo: brand + segment za pogled + sveže pil (desktop) */}
         <div className="flex items-center gap-3 min-w-0">
           <Link href="/" onClick={onBrandClick} className="flex items-center gap-3 min-w-0">
             <Image
@@ -147,11 +186,15 @@ export default function Header() {
               fetchPriority="high"
               className="w-9 h-9 rounded-md"
             />
-            <div className="min-w-0 leading-tight">
-              <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">Križišče</h1>
-              <p className="text-xs sm:text-[13px] text-gray-600 dark:text-gray-400 mt-0.5">
-                Zadnje novice slovenskih medijev
-              </p>
+            <div className="min-w-0 leading-tight flex items-center">
+              <div>
+                <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">Križišče</h1>
+                <p className="text-xs sm:text-[13px] text-gray-600 dark:text-gray-400 mt-0.5">
+                  Zadnje novice slovenskih medijev
+                </p>
+              </div>
+              {/* Segmentirana kontrola pogleda – zraven naslova na desktopu */}
+              {isHome && <ViewSegment />}
             </div>
           </Link>
 
@@ -180,7 +223,7 @@ export default function Header() {
           </AnimatePresence>
         </div>
 
-        {/* Desno: ura, (pogojni) filter, ARCHIVE, VIEW, THEME */}
+        {/* Desno: ura, (pogojni) filter, arhiv, tema */}
         <div className="flex items-center gap-1.5 sm:gap-2">
           <span className="hidden sm:inline-block font-mono tabular-nums text-[13px] text-gray-500 dark:text-gray-400 select-none">
             {time}
@@ -208,34 +251,6 @@ export default function Header() {
                   fill="none"
                 />
               </svg>
-            </button>
-          )}
-
-          {/* VIEW TOGGLE – samo na naslovnici */}
-          {isHome && (
-            <button
-              type="button"
-              onClick={toggleView}
-              aria-label={view === 'list' ? 'Preklopi na mrežo' : 'Preklopi na seznam'}
-              title={view === 'list' ? 'Mrežni pogled' : 'Seznam brez slik'}
-              className={`inline-flex h-10 w-10 items-center justify-center rounded-md transition
-                          ${view === 'list'
-                            ? 'text-brand bg-brand/10 ring-1 ring-brand/30'
-                            : 'text-black/55 dark:text-white/60 hover:text-black/90 dark:hover:text-white/90 hover:bg-black/[0.04] dark:hover:bg-white/[0.06]'}`}
-            >
-              {/* Ikoni: list vs grid */}
-              {view === 'list' ? (
-                <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
-                  <rect x="3" y="4" width="7" height="7" rx="1" stroke="currentColor" strokeWidth="2" fill="none" />
-                  <rect x="14" y="4" width="7" height="7" rx="1" stroke="currentColor" strokeWidth="2" fill="none" />
-                  <rect x="3" y="13" width="7" height="7" rx="1" stroke="currentColor" strokeWidth="2" fill="none" />
-                  <rect x="14" y="13" width="7" height="7" rx="1" stroke="currentColor" strokeWidth="2" fill="none" />
-                </svg>
-              ) : (
-                <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
-                  <path d="M4 6h16M4 12h16M4 18h16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-                </svg>
-              )}
             </button>
           )}
 
