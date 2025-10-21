@@ -37,7 +37,7 @@ export default function Header() {
 
   // signali za sveže novice
   useEffect(() => {
-    const onHasNew = (e: Event) => setHasNew(Object((e as CustomEvent).detail) === true || !!(e as any).detail)
+    const onHasNew = (e: Event) => setHasNew(Boolean((e as CustomEvent).detail))
     const onRefreshing = (e: Event) => setRefreshing(Boolean((e as CustomEvent).detail))
     window.addEventListener('news-has-new', onHasNew as EventListener)
     window.addEventListener('news-refreshing', onRefreshing as EventListener)
@@ -107,9 +107,9 @@ export default function Header() {
   const onBrandClick: React.MouseEventHandler<HTMLAnchorElement> = (e) => {
     e.preventDefault()
     if (isHome) {
-      window.location.reload() // hard refresh, resetira state/filtre itd.
+      window.location.reload()
     } else {
-      router.push('/') // navigacija na naslovnico
+      router.push('/')
     }
   }
 
@@ -126,7 +126,7 @@ export default function Header() {
   // preklop teme – en sam SVG, vedno viden
   const toggleTheme = () => setTheme(isDark ? 'light' : 'dark')
 
-  // Ikone (inline SVG), skladne s stilom ostalih ikon
+  // Ikone (inline SVG)
   const GridIcon = (props: any) => (
     <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" {...props}>
       <rect x="3" y="4" width="7" height="7" rx="1" stroke="currentColor" strokeWidth="2" fill="none" />
@@ -135,9 +135,12 @@ export default function Header() {
       <rect x="14" y="13" width="7" height="7" rx="1" stroke="currentColor" strokeWidth="2" fill="none" />
     </svg>
   )
-  const ListIcon = (props: any) => (
+  const ListBulletsIcon = (props: any) => (
     <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" {...props}>
-      <path d="M4 6h16M4 12h16M4 18h16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+      <circle cx="5" cy="6" r="1.5" fill="currentColor" />
+      <circle cx="5" cy="12" r="1.5" fill="currentColor" />
+      <circle cx="5" cy="18" r="1.5" fill="currentColor" />
+      <path d="M9 6h10M9 12h10M9 18h10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
     </svg>
   )
   const CalendarClock = (props: any) => (
@@ -149,6 +152,17 @@ export default function Header() {
       <path d="M16.5 13.5v2l1.5 1.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
     </svg>
   )
+  const FunnelIcon = (props: any) => (
+    <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" {...props}>
+      <path d="M3 5h18l-7 8v5l-4 2v-7L3 5z"
+        stroke="currentColor" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" fill="none" />
+    </svg>
+  )
+
+  const viewActiveClasses =
+    'text-brand bg-brand/10 ring-1 ring-brand/30';
+  const viewIdleClasses =
+    'text-black/55 dark:text-white/60 hover:text-black/90 dark:hover:text-white/90 hover:bg-black/[0.04] dark:hover:bg-white/[0.06]';
 
   return (
     <header
@@ -202,7 +216,7 @@ export default function Header() {
           </AnimatePresence>
         </div>
 
-        {/* Desno: ura, (pogojni) filter, arhiv, preklop pogleda, tema */}
+        {/* Desno: ura, FILTER, VIEW TOGGLE, ARHIV, TEMA */}
         <div className="flex items-center gap-1.5 sm:gap-2">
           <span className="hidden sm:inline-block font-mono tabular-nums text-[13px] text-gray-500 dark:text-gray-400 select-none">
             {time}
@@ -216,20 +230,32 @@ export default function Header() {
               aria-label={filtersOpen ? 'Skrij filtre' : 'Prikaži filtre'}
               title={filtersOpen ? 'Skrij filtre' : 'Prikaži filtre'}
               className={`inline-flex h-10 w-10 items-center justify-center rounded-md transition
-                          ${filtersOpen
-                            ? 'text-brand bg-brand/10 ring-1 ring-brand/30'
-                            : 'text-black/55 dark:text-white/60 hover:text-black/90 dark:hover:text-white/90 hover:bg-black/[0.04] dark:hover:bg-white/[0.06]'}`}
+                          ${filtersOpen ? 'text-brand bg-brand/10 ring-1 ring-brand/30' : viewIdleClasses}`}
             >
-              <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
-                <path
-                  d="M3 5h18l-7 8v5l-4 2v-7L3 5z"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinejoin="round"
-                  strokeLinecap="round"
-                  fill="none"
-                />
-              </svg>
+              <FunnelIcon />
+            </button>
+          )}
+
+          {/* VIEW TOGGLE – pred arhivom */}
+          {isHome && (
+            <button
+              type="button"
+              onClick={toggleView}
+              aria-label={view === 'list' ? 'Preklopi na mrežo' : 'Preklopi na seznam'}
+              title={view === 'list' ? 'Mrežni pogled' : 'Seznam brez slik'}
+              className={`inline-flex h-10 w-10 items-center justify-center rounded-md transition
+                          ${view === 'list' ? viewActiveClasses : viewIdleClasses}`}
+            >
+              <motion.span
+                key={view}
+                initial={{ opacity: 0, scale: 0.9, rotate: -6 }}
+                animate={{ opacity: 1, scale: 1, rotate: 0 }}
+                exit={{ opacity: 0, scale: 0.9, rotate: 6 }}
+                transition={{ duration: 0.12 }}
+                className="grid place-items-center"
+              >
+                {view === 'list' ? <GridIcon /> : <ListBulletsIcon />}
+              </motion.span>
             </button>
           )}
 
@@ -244,30 +270,6 @@ export default function Header() {
           >
             <CalendarClock />
           </Link>
-
-          {/* PREKLOP POGLEDA – med arhivom in temo */}
-          {isHome && (
-            <button
-              type="button"
-              onClick={toggleView}
-              aria-label={view === 'list' ? 'Preklopi na mrežo' : 'Preklopi na seznam'}
-              title={view === 'list' ? 'Mrežni pogled' : 'Seznam brez slik'}
-              className="inline-flex h-10 w-10 items-center justify-center rounded-md
-                         text-black/55 dark:text-white/65 hover:text-black/90 dark:hover:text-white/90
-                         hover:bg-black/[0.04] dark:hover:bg-white/[0.06] transition"
-            >
-              <motion.span
-                key={view}
-                initial={{ opacity: 0, scale: 0.9, rotate: -8 }}
-                animate={{ opacity: 1, scale: 1, rotate: 0 }}
-                exit={{ opacity: 0, scale: 0.9, rotate: 8 }}
-                transition={{ duration: 0.12 }}
-                className="grid place-items-center"
-              >
-                {view === 'list' ? <GridIcon /> : <ListIcon />}
-              </motion.span>
-            </button>
-          )}
 
           {/* TEMA – vedno vidna ikona (en sam SVG) */}
           {mounted && (
