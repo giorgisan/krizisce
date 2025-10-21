@@ -119,52 +119,35 @@ export default function Header() {
   }
 
   // preklop pogleda – pošljemo signal strani
-  const toggleView = (target: ViewMode) => {
-    // če kliknemo na trenutno, nič
-    if (target === view) return
+  const toggleView = () => {
     window.dispatchEvent(new CustomEvent('ui:toggle-view'))
   }
 
   // preklop teme – en sam SVG, vedno viden
   const toggleTheme = () => setTheme(isDark ? 'light' : 'dark')
 
-  // Kompaktna segmentirana kontrola: Grid | List
-  const ViewSegment = () => (
-    <div className="ml-2 hidden md:flex items-center rounded-full bg-black/[0.06] dark:bg-white/[0.06] ring-1 ring-black/10 dark:ring-white/10 p-0.5">
-      <button
-        type="button"
-        onClick={() => toggleView('grid')}
-        aria-pressed={view === 'grid'}
-        className={`flex items-center gap-1.5 px-2.5 py-1.5 text-[12px] rounded-full transition
-          ${view === 'grid'
-            ? 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-sm'
-            : 'text-gray-700 dark:text-gray-300 hover:bg-black/5 dark:hover:bg-white/5'}`}
-        title="Mrežni pogled"
-      >
-        <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
-          <rect x="3" y="4" width="7" height="7" rx="1" stroke="currentColor" strokeWidth="2" fill="none" />
-          <rect x="14" y="4" width="7" height="7" rx="1" stroke="currentColor" strokeWidth="2" fill="none" />
-          <rect x="3" y="13" width="7" height="7" rx="1" stroke="currentColor" strokeWidth="2" fill="none" />
-          <rect x="14" y="13" width="7" height="7" rx="1" stroke="currentColor" strokeWidth="2" fill="none" />
-        </svg>
-        <span>Mreža</span>
-      </button>
-      <button
-        type="button"
-        onClick={() => toggleView('list')}
-        aria-pressed={view === 'list'}
-        className={`flex items-center gap-1.5 px-2.5 py-1.5 text-[12px] rounded-full transition
-          ${view === 'list'
-            ? 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-sm'
-            : 'text-gray-700 dark:text-gray-300 hover:bg-black/5 dark:hover:bg-white/5'}`}
-        title="Seznam brez slik"
-      >
-        <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
-          <path d="M4 6h16M4 12h16M4 18h16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-        </svg>
-        <span>Seznam</span>
-      </button>
-    </div>
+  // Ikone (inline SVG), skladne s stilom ostalih ikon
+  const GridIcon = (props: any) => (
+    <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" {...props}>
+      <rect x="3" y="4" width="7" height="7" rx="1" stroke="currentColor" strokeWidth="2" fill="none" />
+      <rect x="14" y="4" width="7" height="7" rx="1" stroke="currentColor" strokeWidth="2" fill="none" />
+      <rect x="3" y="13" width="7" height="7" rx="1" stroke="currentColor" strokeWidth="2" fill="none" />
+      <rect x="14" y="13" width="7" height="7" rx="1" stroke="currentColor" strokeWidth="2" fill="none" />
+    </svg>
+  )
+  const ListIcon = (props: any) => (
+    <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" {...props}>
+      <path d="M4 6h16M4 12h16M4 18h16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  )
+  const CalendarClock = (props: any) => (
+    <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" {...props}>
+      <rect x="3" y="5" width="18" height="16" rx="2" stroke="currentColor" strokeWidth="2" fill="none"/>
+      <path d="M8 3v4M16 3v4" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+      <path d="M3 9h18" stroke="currentColor" strokeWidth="2"/>
+      <circle cx="16.5" cy="15.5" r="3.5" stroke="currentColor" strokeWidth="2" fill="none"/>
+      <path d="M16.5 13.5v2l1.5 1.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+    </svg>
   )
 
   return (
@@ -174,7 +157,7 @@ export default function Header() {
       className="sticky top-0 z-40 bg-[#FAFAFA]/95 dark:bg-gray-900/70 backdrop-blur-md border-b border-gray-200 dark:border-gray-700 shadow-sm"
     >
       <div className="py-2 px-4 md:px-8 lg:px-16 flex items-center justify-between gap-2">
-        {/* Levo: brand + segment za pogled + sveže pil (desktop) */}
+        {/* Levo: brand + sveže pil (desktop) */}
         <div className="flex items-center gap-3 min-w-0">
           <Link href="/" onClick={onBrandClick} className="flex items-center gap-3 min-w-0">
             <Image
@@ -186,15 +169,11 @@ export default function Header() {
               fetchPriority="high"
               className="w-9 h-9 rounded-md"
             />
-            <div className="min-w-0 leading-tight flex items-center">
-              <div>
-                <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">Križišče</h1>
-                <p className="text-xs sm:text-[13px] text-gray-600 dark:text-gray-400 mt-0.5">
-                  Zadnje novice slovenskih medijev
-                </p>
-              </div>
-              {/* Segmentirana kontrola pogleda – zraven naslova na desktopu */}
-              {isHome && <ViewSegment />}
+            <div className="min-w-0 leading-tight">
+              <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">Križišče</h1>
+              <p className="text-xs sm:text-[13px] text-gray-600 dark:text-gray-400 mt-0.5">
+                Zadnje novice slovenskih medijev
+              </p>
             </div>
           </Link>
 
@@ -223,7 +202,7 @@ export default function Header() {
           </AnimatePresence>
         </div>
 
-        {/* Desno: ura, (pogojni) filter, arhiv, tema */}
+        {/* Desno: ura, (pogojni) filter, arhiv, preklop pogleda, tema */}
         <div className="flex items-center gap-1.5 sm:gap-2">
           <span className="hidden sm:inline-block font-mono tabular-nums text-[13px] text-gray-500 dark:text-gray-400 select-none">
             {time}
@@ -254,21 +233,41 @@ export default function Header() {
             </button>
           )}
 
-          {/* ARHIV */}
+          {/* ARHIV – CalendarClock */}
           <Link
             href="/arhiv"
             aria-label="Arhiv"
-            title="Arhiv"
+            title="Arhiv (koledar)"
             className="inline-flex h-10 w-10 items-center justify-center rounded-md transition
                        text-black/60 dark:text-white/65 hover:text-black/90 dark:hover:text-white/90
                        hover:bg-black/[0.04] dark:hover:bg-white/[0.06]"
           >
-            <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
-              <path d="M4 7h16v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7Z" stroke="currentColor" strokeWidth="2" fill="none" />
-              <path d="M3 7h18l-2-3H5l-2 3Z" stroke="currentColor" strokeWidth="2" fill="none" />
-              <path d="M9 12h6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-            </svg>
+            <CalendarClock />
           </Link>
+
+          {/* PREKLOP POGLEDA – med arhivom in temo */}
+          {isHome && (
+            <button
+              type="button"
+              onClick={toggleView}
+              aria-label={view === 'list' ? 'Preklopi na mrežo' : 'Preklopi na seznam'}
+              title={view === 'list' ? 'Mrežni pogled' : 'Seznam brez slik'}
+              className="inline-flex h-10 w-10 items-center justify-center rounded-md
+                         text-black/55 dark:text-white/65 hover:text-black/90 dark:hover:text-white/90
+                         hover:bg-black/[0.04] dark:hover:bg-white/[0.06] transition"
+            >
+              <motion.span
+                key={view}
+                initial={{ opacity: 0, scale: 0.9, rotate: -8 }}
+                animate={{ opacity: 1, scale: 1, rotate: 0 }}
+                exit={{ opacity: 0, scale: 0.9, rotate: 8 }}
+                transition={{ duration: 0.12 }}
+                className="grid place-items-center"
+              >
+                {view === 'list' ? <GridIcon /> : <ListIcon />}
+              </motion.span>
+            </button>
+          )}
 
           {/* TEMA – vedno vidna ikona (en sam SVG) */}
           {mounted && (
