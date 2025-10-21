@@ -398,7 +398,7 @@ export default function Home({ initialNews }: Props) {
         <li
           className="group grid grid-cols-[76px_1fr_auto] md:grid-cols-[88px_1fr_auto]
                      items-center gap-2 px-3 h-10 md:h-11
-                     hover:bg-black/[0.035] dark:hover:bg-white/[0.05] transition-colors duration-100"
+                     hover:bg-black/[0.035] dark:hover:bg:white/[0.05] transition-colors duration-100"
         >
           {/* Čas */}
           <span className="text-[12px] text-gray-500 dark:text-gray-400 tabular-nums">
