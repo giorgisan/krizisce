@@ -19,16 +19,11 @@ export default function Header() {
   const [refreshing, setRefreshing] = useState(false)
   const [filtersOpen, setFiltersOpen] = useState(false)
   const [view, setView] = useState<ViewMode>('grid')
-  const [mobileSource, setMobileSource] = useState<string>(() => {
-    try {
-      const raw = localStorage.getItem('selectedSources')
-      const arr = raw ? JSON.parse(raw) : []
-      return Array.isArray(arr) && arr[0] ? String(arr[0]) : 'Vse'
-    } catch { return 'Vse' }
-  })
 
+  // ali smo na naslovnici?
   const isHome = router.pathname === '/'
 
+  // ura
   const [time, setTime] = useState(() =>
     new Intl.DateTimeFormat('sl-SI', { hour: '2-digit', minute: '2-digit' }).format(new Date())
   )
@@ -40,6 +35,7 @@ export default function Header() {
   }, [])
   useEffect(() => setMounted(true), [])
 
+  // signali za sveže novice
   useEffect(() => {
     const onHasNew = (e: Event) => setHasNew(Boolean((e as CustomEvent).detail))
     const onRefreshing = (e: Event) => setRefreshing(Boolean((e as CustomEvent).detail))
@@ -51,6 +47,7 @@ export default function Header() {
     }
   }, [])
 
+  // stanje filtra (stran javlja nazaj)
   useEffect(() => {
     const onState = (e: Event) => {
       const open = Boolean((e as CustomEvent).detail?.open)
@@ -60,16 +57,7 @@ export default function Header() {
     return () => window.removeEventListener('ui:filters-state', onState as EventListener)
   }, [])
 
-  useEffect(() => {
-    const onFiltersUpdate = (e: Event) => {
-      const arr = (e as CustomEvent).detail?.sources as string[] | undefined
-      const s = Array.isArray(arr) && arr[0] ? String(arr[0]) : 'Vse'
-      setMobileSource(s)
-    }
-    window.addEventListener('filters:update', onFiltersUpdate as EventListener)
-    return () => window.removeEventListener('filters:update', onFiltersUpdate as EventListener)
-  }, [])
-
+  // view state iz strani (za aktivno stanje gumba)
   useEffect(() => {
     const onView = (e: Event) => {
       const next = (e as CustomEvent).detail?.view as ViewMode | undefined
@@ -82,6 +70,7 @@ export default function Header() {
   const hdrRef = useRef<HTMLElement | null>(null)
   const mobBannerRef = useRef<HTMLDivElement | null>(null)
 
+  // posodobi CSS var za sticky offset
   useEffect(() => {
     const setHdr = () => {
       const h = hdrRef.current?.offsetHeight || 56
@@ -92,6 +81,7 @@ export default function Header() {
     return () => window.removeEventListener('resize', setHdr)
   }, [])
 
+  // mobilni banner offset
   useEffect(() => {
     const updateVars = () => {
       const isMobile = window.matchMedia('(max-width: 767px)').matches
@@ -113,15 +103,28 @@ export default function Header() {
     window.dispatchEvent(new CustomEvent('refresh-news'))
   }
 
+  // Klik na brand naj vedno odpre/refresh-a naslovnico
   const onBrandClick: React.MouseEventHandler<HTMLAnchorElement> = (e) => {
     e.preventDefault()
-    if (isHome) { window.location.reload() } else { router.push('/') }
+    if (isHome) {
+      window.location.reload() // hard refresh, resetira state/filtre itd.
+    } else {
+      router.push('/') // navigacija na naslovnico
+    }
   }
 
-  const toggleFilters = () => { window.dispatchEvent(new CustomEvent('ui:toggle-filters')) }
+  // ikona filtra – prikazana le na desktopu (na mobilnem so filtri vedno odprti v indexu)
+  const toggleFilters = () => {
+    window.dispatchEvent(new CustomEvent('ui:toggle-filters'))
+  }
+
+  // preklop pogleda
   const toggleView = () => { window.dispatchEvent(new CustomEvent('ui:toggle-view')) }
+
+  // preklop teme – en sam SVG, vedno viden
   const toggleTheme = () => setTheme(isDark ? 'light' : 'dark')
 
+  // Ikone
   const GridIcon = (props: any) => (
     <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" {...props}>
       <rect x="3" y="4" width="7" height="7" rx="1" stroke="currentColor" strokeWidth="2" fill="none" />
@@ -156,32 +159,49 @@ export default function Header() {
 
   const viewActiveClasses = 'text-brand bg-brand/10 ring-1 ring-brand/30';
   const viewIdleClasses = 'text-black/55 dark:text-white/60 hover:text-black/90 dark:hover:text-white/90 hover:bg-black/[0.04] dark:hover:bg-white/[0.06]';
-  const mobileFilterLabel = mobileSource === 'Vse' ? 'Vsi viri' : mobileSource;
 
   return (
-    <header ref={hdrRef} id="site-header" className="sticky top-0 z-40 bg-[#FAFAFA]/95 dark:bg-gray-900/70 backdrop-blur-md border-b border-gray-200 dark:border-gray-700 shadow-sm">
+    <header
+      ref={hdrRef}
+      id="site-header"
+      className="sticky top-0 z-40 bg-[#FAFAFA]/95 dark:bg-gray-900/70 backdrop-blur-md border-b border-gray-200 dark:border-gray-700 shadow-sm"
+    >
       <div className="py-2 px-4 md:px-8 lg:px-16 flex items-center justify-between gap-2">
+        {/* Levo: brand + sveže pil (desktop) */}
         <div className="flex items-center gap-3 min-w-0">
           <Link href="/" onClick={onBrandClick} className="flex items-center gap-3 min-w-0">
-            <Image src="/logo.png" alt="Križišče" width={36} height={36} priority fetchPriority="high" className="w-9 h-9 rounded-md" />
+            <Image
+              src="/logo.png"
+              alt="Križišče"
+              width={36}
+              height={36}
+              priority
+              fetchPriority="high"
+              className="w-9 h-9 rounded-md"
+            />
             <div className="min-w-0 leading-tight">
               <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">Križišče</h1>
-              <p className="hidden sm:block text-xs sm:text-[13px] text-gray-600 dark:text-gray-400 mt-0.5">Zadnje novice slovenskih medijev</p>
-              <div className="sm:hidden mt-0.5">
-                <button type="button" onClick={toggleFilters} className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[12px] ${filtersOpen ? 'text-brand bg-brand/10 ring-1 ring-brand/30' : 'text-gray-600 dark:text-gray-400 bg-white/5 dark:bg-white/5'}`} aria-label="Izberi vir" title="Izberi vir">
-                  <span className="inline-block" aria-hidden="true">
-                    <svg viewBox="0 0 24 24" width="16" height="16">
-                      <path d="M3 5h18l-7 8v5l-4 2v-7L3 5z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" fill="none" />
-                    </svg>
-                  </span>
-                  <span className="truncate max-w-[38vw]">{mobileFilterLabel}</span>
-                </button>
-              </div>
+              {/* Podnaslov skrijemo na mobilnem, da ne lomi vrstice */}
+              <p className="hidden sm:block text-xs sm:text-[13px] text-gray-600 dark:text-gray-400 mt-0.5">
+                Zadnje novice slovenskih medijev
+              </p>
             </div>
           </Link>
+
           <AnimatePresence initial={false}>
             {hasNew && !refreshing && (
-              <motion.button key="fresh-pill-desktop" initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} transition={{ duration: 0.18, ease: 'easeOut' }} onClick={refreshNow} className="hidden md:inline-flex items-center gap-2 rounded-full px-3.5 py-1.5 text-[13px] font-medium bg-emerald-500/10 text-emerald-300 ring-1 ring-emerald-600/40 hover:bg-emerald-500/15 transition shadow-sm" title="Osveži, da prikažeš nove spremembe" aria-live="polite">
+              <motion.button
+                key="fresh-pill-desktop"
+                initial={{ opacity: 0, y: -6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -6 }}
+                transition={{ duration: 0.18, ease: 'easeOut' }}
+                onClick={refreshNow}
+                className="hidden md:inline-flex items-center gap-2 rounded-full px-3.5 py-1.5 text-[13px] font-medium
+                           bg-emerald-500/10 text-emerald-300 ring-1 ring-emerald-600/40 hover:bg-emerald-500/15 transition shadow-sm"
+                title="Osveži, da prikažeš nove spremembe"
+                aria-live="polite"
+              >
                 <span className="relative inline-flex">
                   <span className="h-2.5 w-2.5 rounded-full bg-emerald-500 opacity-80"></span>
                   <span className="absolute inset-0 rounded-full bg-emerald-500 animate-ping opacity-25"></span>
@@ -193,29 +213,74 @@ export default function Header() {
           </AnimatePresence>
         </div>
 
+        {/* Desno: ura, filter (desktop), pogled, arhiv, tema */}
         <div className="flex items-center gap-1.5 sm:gap-2">
-          <span className="hidden sm:inline-block font-mono tabular-nums text-[13px] text-gray-500 dark:text-gray-400 select-none">{time}</span>
+          <span className="hidden sm:inline-block font-mono tabular-nums text-[13px] text-gray-500 dark:text-gray-400 select-none">
+            {time}
+          </span>
 
+          {/* FILTER – samo na desktopu */}
           {isHome && (
-            <button type="button" onClick={toggleFilters} aria-label={filtersOpen ? 'Skrij filtre' : 'Prikaži filtre'} title={filtersOpen ? 'Skrij filtre' : 'Prikaži filtre'} className={`hidden sm:inline-flex h-10 w-10 items-center justify-center rounded-md transition ${filtersOpen ? 'text-brand bg-brand/10 ring-1 ring-brand/30' : viewIdleClasses}`}>
+            <button
+              type="button"
+              onClick={toggleFilters}
+              aria-label={filtersOpen ? 'Skrij filtre' : 'Prikaži filtre'}
+              title={filtersOpen ? 'Skrij filtre' : 'Prikaži filtre'}
+              className={`hidden sm:inline-flex h-10 w-10 items-center justify-center rounded-md transition
+                          ${filtersOpen
+                            ? 'text-brand bg-brand/10 ring-1 ring-brand/30'
+                            : 'text-black/55 dark:text-white/60 hover:text-black/90 dark:hover:text-white/90 hover:bg-black/[0.04] dark:hover:bg-white/[0.06]'}`}
+            >
               <FunnelIcon />
             </button>
           )}
 
+          {/* POGLED – mreža ↔ seznam brez slik */}
           {isHome && (
-            <button type="button" onClick={toggleView} aria-label={view === 'list' ? 'Preklopi na mrežo' : 'Preklopi na seznam'} title={view === 'list' ? 'Mrežni pogled' : 'Seznam brez slik'} className={`inline-flex h-10 w-10 items-center justify-center rounded-md transition ${view === 'list' ? viewActiveClasses : viewIdleClasses}`}>
-              <motion.span key={view} initial={{ opacity: 0, scale: 0.9, rotate: -6 }} animate={{ opacity: 1, scale: 1, rotate: 0 }} exit={{ opacity: 0, scale: 0.9, rotate: 6 }} transition={{ duration: 0.12 }} className="grid place-items-center">
+            <button
+              type="button"
+              onClick={toggleView}
+              aria-label={view === 'list' ? 'Preklopi na mrežo' : 'Preklopi na seznam'}
+              title={view === 'list' ? 'Mrežni pogled' : 'Seznam brez slik'}
+              className={`inline-flex h-10 w-10 items-center justify-center rounded-md transition ${view === 'list' ? viewActiveClasses : viewIdleClasses}`}
+            >
+              <motion.span
+                key={view}
+                initial={{ opacity: 0, scale: 0.9, rotate: -6 }}
+                animate={{ opacity: 1, scale: 1, rotate: 0 }}
+                exit={{ opacity: 0, scale: 0.9, rotate: 6 }}
+                transition={{ duration: 0.12 }}
+                className="grid place-items-center"
+              >
                 {view === 'list' ? <GridIcon /> : <ListBulletsIcon />}
               </motion.span>
             </button>
           )}
 
-          <Link href="/arhiv" aria-label="Arhiv" title="Arhiv (koledar)" className="inline-flex h-10 w-10 items-center justify-center rounded-md transition text-black/60 dark:text-white/65 hover:text-black/90 dark:hover:text-white/90 hover:bg-black/[0.04] dark:hover:bg-white/[0.06]">
+          {/* ARHIV (koledar) */}
+          <Link
+            href="/arhiv"
+            aria-label="Arhiv"
+            title="Arhiv (koledar)"
+            className="inline-flex h-10 w-10 items-center justify-center rounded-md transition
+                       text-black/60 dark:text-white/65 hover:text-black/90 dark:hover:text-white/90
+                       hover:bg-black/[0.04] dark:hover:bg-white/[0.06]"
+          >
             <CalendarClock />
           </Link>
 
+          {/* TEMA – vedno vidna ikona (en sam SVG) */}
           {mounted && (
-            <button type="button" onClick={toggleTheme} aria-label={isDark ? 'Preklopi na svetlo' : 'Preklopi na temno'} title={isDark ? 'Preklopi na svetlo' : 'Preklopi na temno'} className="inline-flex h-10 w-10 items-center justify-center rounded-md text-black/55 dark:text-white/65 hover:text-black/90 dark:hover:text-white/90 hover:bg-black/[0.04] dark:hover:bg-white/[0.06] transition">
+            <button
+              type="button"
+              onClick={toggleTheme}
+              aria-label={isDark ? 'Preklopi na svetlo' : 'Preklopi na temno'}
+              title={isDark ? 'Preklopi na svetlo' : 'Preklopi na temno'}
+              className="inline-flex h-10 w-10 items-center justify-center rounded-md
+                         text-black/55 dark:text-white/65
+                         hover:text-black/90 dark:hover:text-white/90
+                         hover:bg-black/[0.04] dark:hover:bg-white/[0.06] transition"
+            >
               <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
                 {isDark ? (
                   <>
@@ -231,11 +296,25 @@ export default function Header() {
         </div>
       </div>
 
+      {/* Mobilni banner s svežimi novicami */}
       <AnimatePresence initial={false}>
         {hasNew && !refreshing && (
-          <motion.div key="banner-mobile" initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.18, ease: 'easeOut' }} className="md:hidden fixed left-0 right-0 z-40 bg-[#FAFAFA]/95 dark:bg-gray-900/70 backdrop-blur-md" style={{ top: 'var(--hdr-h, 56px)' }}>
+          <motion.div
+            key="banner-mobile"
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.18, ease: 'easeOut' }}
+            className="md:hidden fixed left-0 right-0 z-40 bg-[#FAFAFA]/95 dark:bg-gray-900/70 backdrop-blur-md"
+            style={{ top: 'var(--hdr-h, 56px)' }}
+          >
             <div ref={mobBannerRef} className="px-4 md:px-8 lg:px-16 py-1.5 flex justify-center">
-              <button onClick={refreshNow} className="group inline-flex items-center gap-2 rounded-full px-3.5 py-1.5 text-[13px] font-medium bg-emerald-500/10 text-emerald-300 ring-1 ring-emerald-600/40 hover:bg-emerald-500/15 transition shadow-sm" title="Osveži, da prikažeš nove spremembe">
+              <button
+                onClick={refreshNow}
+                className="group inline-flex items-center gap-2 rounded-full px-3.5 py-1.5 text-[13px] font-medium
+                           bg-emerald-500/10 text-emerald-300 ring-1 ring-emerald-600/40 hover:bg-emerald-500/15 transition shadow-sm"
+                title="Osveži, da prikažeš nove spremembe"
+              >
                 <span className="relative inline-flex">
                   <span className="h-2.5 w-2.5 rounded-full bg-emerald-500 opacity-80"></span>
                   <span className="absolute inset-0 rounded-full bg-emerald-500 animate-ping opacity-25"></span>
