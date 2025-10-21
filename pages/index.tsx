@@ -83,7 +83,7 @@ async function loadNews(signal?: AbortSignal): Promise<NewsItem[] | null> {
       .from('news')
       .select('link,title,source,contentsnippet,summary,image,published_at,publishedat')
       .order('publishedat', { ascending: false })
-      .limit(60)
+      .limit(120)
 
     const items: NewsItem[] = (data || []).map((r: Row) => ({
       title: r.title,
@@ -123,20 +123,26 @@ function saveFirstSeen(map: FirstSeenMap) {
   try { window.localStorage.setItem(LS_FIRST_SEEN, JSON.stringify(map)) } catch {}
 }
 
-// časovni format (uporablja list view)
-function formatDisplayTime(publishedAt?: number, iso?: string) {
+/* ---- Časovni format ---- */
+function formatDisplayTime(publishedAt?: number, iso?: string, compact = false) {
   const ms = publishedAt ?? (iso ? Date.parse(iso) : 0)
   if (!ms) return ''
   const diff = Date.now() - ms
   const min  = Math.floor(diff / 60_000)
   const hr   = Math.floor(min / 60)
-  if (diff < 60_000) return 'pred nekaj sekundami'
-  if (min  < 60)     return `pred ${min} min`
-  if (hr   < 24)     return `pred ${hr} h`
+  if (compact) {
+    if (diff < 60_000) return 'sek'
+    if (min  < 60)     return `${min} m`
+    if (hr   < 24)     return `${hr} h`
+  } else {
+    if (diff < 60_000) return 'pred nekaj sekundami'
+    if (min  < 60)     return `pred ${min} min`
+    if (hr   < 24)     return `pred ${hr} h`
+  }
   const d    = new Date(ms)
   const date = new Intl.DateTimeFormat('sl-SI', { day: 'numeric', month: 'short' }).format(d)
   const time = new Intl.DateTimeFormat('sl-SI', { hour: '2-digit', minute: '2-digit' }).format(d)
-  return `${date}, ${time}`
+  return compact ? `${date} ${time}` : `${date}, ${time}`
 }
 
 /* ================= Preview (shared) ================= */
@@ -147,6 +153,14 @@ const ArticlePreview = dynamic(() => import('@/components/ArticlePreview'), { ss
 
 type Props = { initialNews: NewsItem[] }
 type ViewMode = 'grid' | 'list'
+
+function initialCount() {
+  if (typeof window === 'undefined') return 20
+  const w = window.innerWidth
+  if (w < 641) return 16
+  if (w < 1025) return 24
+  return 40
+}
 
 export default function Home({ initialNews }: Props) {
   const [news, setNews] = useState<NewsItem[]>(initialNews)
@@ -192,7 +206,9 @@ export default function Home({ initialNews }: Props) {
     window.dispatchEvent(new CustomEvent('ui:filters-state', { detail: { open: filterOpen } }))
   }, [filterOpen])
 
-  const [displayCount, setDisplayCount] = useState(20)
+  const [displayCount, setDisplayCount] = useState(initialCount())
+  useEffect(() => { setDisplayCount(initialCount()) }, [])
+
   const [firstSeen, setFirstSeen] = useState<FirstSeenMap>(() => loadFirstSeen())
   const [hasMore, setHasMore] = useState(true)
   const [cursor, setCursor] = useState<number | null>(null)
@@ -206,7 +222,7 @@ export default function Home({ initialNews }: Props) {
       if (fresh && fresh.length) {
         const currentLinks = new Set(initialNews.map(n => n.link))
         const hasNewLink = fresh.some(n => n.link && !currentLinks.has(n.link))
-        if (hasNewLink) startTransition(() => { setNews(fresh); setDisplayCount(20) })
+        if (hasNewLink) startTransition(() => { setNews(fresh); setDisplayCount(initialCount()) })
       }
       kickSyncIfStale(5 * 60_000)
       setBootRefreshed(true)
@@ -262,7 +278,7 @@ export default function Home({ initialNews }: Props) {
           window.dispatchEvent(new CustomEvent('news-refreshing', { detail: false }))
           window.dispatchEvent(new CustomEvent('news-has-new', { detail: false }))
           missCountRef.current = 0
-          setHasMore(true); setCursor(null); setDisplayCount(20)
+          setHasMore(true); setCursor(null); setDisplayCount(initialCount())
         }
         if (freshNews) { setNews(freshNews); finish() }
         else loadNews().then((fresh) => { if (fresh && fresh.length) setNews(fresh); finish() })
@@ -332,11 +348,33 @@ export default function Home({ initialNews }: Props) {
     window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
   const motionDuration = prefersReducedMotion ? 0.12 : 0.16
 
-  /* ========== LIST ROW (one-line dense + tuning) ========== */
+  /* ========== LIST HEADER (desktop) ========== */
+  function ListHeader() {
+    return (
+      <div
+        className="sticky top-[var(--hdr-h,56px)] z-10 bg-white/80 dark:bg-gray-900/80 backdrop-blur supports-[backdrop-filter]:backdrop-blur
+                   border-b border-gray-200/70 dark:border-gray-700/60 rounded-t-lg"
+      >
+        <div className="grid grid-cols-[80px_1fr_auto] md:grid-cols-[88px_1fr_auto] px-3 h-10 items-center text-[12px] uppercase tracking-wide text-gray-500 dark:text-gray-400">
+          <span>Čas</span>
+          <span>Naslov</span>
+          <span className="justify-self-end pr-2">Vir</span>
+        </div>
+      </div>
+    )
+  }
+
+  /* ========== LIST ROW (dense, oko ob naslovu) ========== */
   function ListRow({ item }: { item: NewsItem }) {
     const [showPreview, setShowPreview] = useState(false)
     const isTouch = typeof window !== 'undefined' && ('ontouchstart' in window || (navigator as any).maxTouchPoints > 0)
     const longPressTimer = useRef<number | null>(null)
+    const [isMobile, setIsMobile] = useState(false)
+
+    useEffect(() => {
+      const m = typeof window !== 'undefined' && window.matchMedia('(max-width: 640px)').matches
+      setIsMobile(!!m)
+    }, [])
 
     const onClickLink = (e: MouseEvent<HTMLAnchorElement>) => {
       if (e.metaKey || e.ctrlKey || e.button === 1) return
@@ -356,53 +394,56 @@ export default function Home({ initialNews }: Props) {
     return (
       <>
         <li
-          className="group grid grid-cols-[92px_1fr_auto] items-center gap-3 px-3 h-12 sm:h-12 rounded-md
+          className="group grid grid-cols-[64px_1fr_auto] md:grid-cols-[80px_1fr_auto] lg:grid-cols-[88px_1fr_auto]
+                     items-center gap-3 px-3 md:h-11 h-12 rounded-md
                      even:bg-black/[0.02] dark:even:bg-white/[0.03]
-                     hover:bg-black/[0.04] dark:hover:bg-white/[0.05] transition
+                     hover:bg-black/[0.035] dark:hover:bg-white/[0.05] transition-colors duration-100
                      focus-within:ring-2 focus-within:ring-brand/70 focus-within:ring-offset-1 focus-within:ring-offset-transparent"
         >
           {/* Čas */}
           <span className="text-[12px] text-gray-500 dark:text-gray-400 tabular-nums">
-            {formatDisplayTime(item.publishedAt, item.isoDate)}
+            {formatDisplayTime(item.publishedAt, item.isoDate, isMobile)}
           </span>
 
-          {/* Naslov (link) */}
-          <a
-            href={item.link}
-            target="_blank"
-            rel="noopener"
-            onClick={onClickLink}
-            onAuxClick={onClickLink as any}
-            onTouchStart={onTouchStart}
-            onTouchEnd={clearLong}
-            onTouchMove={clearLong}
-            className="min-w-0 truncate text-[15px] text-gray-900 dark:text-gray-100 group-hover:text-brand focus:outline-none"
-          >
-            {item.title}
-          </a>
+          {/* Naslov + oko (oko skrito na mobilnem) */}
+          <div className="min-w-0 flex items-center gap-2">
+            <a
+              href={item.link}
+              target="_blank"
+              rel="noopener"
+              onClick={onClickLink}
+              onAuxClick={onClickLink as any}
+              onTouchStart={onTouchStart}
+              onTouchEnd={clearLong}
+              onTouchMove={clearLong}
+              className={`flex-1 min-w-0 ${isMobile ? 'text-[15px] leading-snug line-clamp-2' : 'truncate text-[15px]'} text-gray-900 dark:text-gray-100 focus:outline-none group-hover:text-brand`}
+            >
+              {item.title}
+              <span className="sr-only"> — predogled z ikono desno</span>
+            </a>
 
-          {/* Vir + oko (desktop) */}
-          <div className="flex items-center gap-2">
+            {/* Oko (desktop) */}
             <button
               type="button"
               aria-label="Predogled"
               title="Predogled"
               onClick={() => setShowPreview(true)}
-              className="hidden sm:inline-flex items-center justify-center h-9 w-9 rounded-md text-gray-600 dark:text-gray-300
-                         hover:bg-black/[0.06] dark:hover:bg-white/[0.08] transition
-                         focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/70"
+              className="hidden sm:inline-flex items-center justify-center h-8 w-8 rounded-md
+                         text-gray-600/70 dark:text-gray-300/70 opacity-40 group-hover:opacity-90 transition
+                         hover:ring-1 hover:ring-black/10 dark:hover:ring-white/20"
             >
               <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
                 <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12Z" stroke="currentColor" strokeWidth="2" fill="none" />
                 <circle cx="12" cy="12" r="3.5" stroke="currentColor" strokeWidth="2" fill="none" />
               </svg>
             </button>
-
-            <span className="ml-1 text-[12px] text-gray-600 dark:text-gray-300 inline-flex items-center gap-2">
-              <span className="inline-block h-2 w-2 rounded-full" style={{ background: (sourceColors as Record<string, string>)[item.source] || '#999' }} />
-              {item.source}
-            </span>
           </div>
+
+          {/* Vir */}
+          <span className="ml-1 text-[12px] text-gray-600 dark:text-gray-300 inline-flex items-center gap-2 justify-self-end pr-2">
+            <span className="inline-block h-2 w-2 rounded-full" style={{ background: (sourceColors as Record<string, string>)[item.source] || '#999' }} />
+            {item.source}
+          </span>
         </li>
 
         {showPreview && <ArticlePreview url={item.link} onClose={() => setShowPreview(false)} />}
@@ -419,7 +460,7 @@ export default function Home({ initialNews }: Props) {
         onChange={(next) => {
           startTransition(() => {
             setSelectedSource(next)
-            setDisplayCount(20)
+            setDisplayCount(initialCount())
             setHasMore(true)
             setCursor(null)
           })
@@ -450,13 +491,16 @@ export default function Home({ initialNews }: Props) {
                 key="list"
                 initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
                 transition={{ duration: motionDuration }}
-                className="max-w-6xl mx-auto"
+                className="max-w-6xl mx-auto w-full"
               >
-                <ul className="divide-y divide-gray-200/70 dark:divide-gray-700/60 rounded-lg bg-white/40 dark:bg-gray-800/40 ring-1 ring-black/5 dark:ring-white/10 backdrop-blur-sm">
-                  {visibleNews.map((item) => (
-                    <ListRow key={item.link} item={item} />
-                  ))}
-                </ul>
+                <div className="rounded-lg bg-white/40 dark:bg-gray-800/40 ring-1 ring-black/5 dark:ring-white/10 backdrop-blur-sm overflow-hidden">
+                  <ListHeader />
+                  <ul className="divide-y divide-gray-200/70 dark:divide-gray-700/60">
+                    {visibleNews.map((item) => (
+                      <ListRow key={item.link} item={item} />
+                    ))}
+                  </ul>
+                </div>
               </motion.div>
             )}
           </AnimatePresence>
@@ -507,7 +551,7 @@ export async function getStaticProps() {
     .from('news')
     .select('id, link, title, source, summary, contentsnippet, image, published_at, publishedat')
     .order('publishedat', { ascending: false })
-    .limit(60)
+    .limit(120)
 
   const rows = (data ?? []) as Row[]
 
