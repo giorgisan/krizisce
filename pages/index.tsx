@@ -26,29 +26,6 @@ const HIDDEN_POLL_MS = 5 * 60_000
 const POLL_MAX_BACKOFF = 5
 
 const SYNC_KEY = 'krizisce_last_sync_ms'
-const VIEW_LS_KEY = 'krizisce_view_mode_v1' as const // 'grid' | 'list'
-type ViewMode = 'grid' | 'list'
-
-function getInitialView(): ViewMode {
-  try {
-    const u = new URL(window.location.href)
-    const q = (u.searchParams.get('view') || '').toLowerCase()
-    if (q === 'list') return 'list'
-    const saved = localStorage.getItem(VIEW_LS_KEY)
-    if (saved === 'list' || saved === 'grid') return saved as ViewMode
-  } catch {}
-  return 'grid'
-}
-function persistView(next: ViewMode) {
-  try { localStorage.setItem(VIEW_LS_KEY, next) } catch {}
-  try {
-    const u = new URL(window.location.href)
-    if (next === 'list') u.searchParams.set('view', 'list')
-    else u.searchParams.delete('view')
-    window.history.replaceState({}, '', u.toString())
-  } catch {}
-}
-
 async function kickSyncIfStale(maxAgeMs = 5 * 60_000) {
   try {
     const now = Date.now()
@@ -152,22 +129,6 @@ type Props = { initialNews: NewsItem[] }
 export default function Home({ initialNews }: Props) {
   const [news, setNews] = useState<NewsItem[]>(initialNews)
 
-  // View mode (grid | list)
-  const [view, setView] = useState<ViewMode>(() => (typeof window === 'undefined' ? 'grid' : getInitialView()))
-  // sync query/localStorage on mount (covers SSR hydration)
-  useEffect(() => { persistView(view); }, []) // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Bridge z Headerjem: poslušaj toggle in javi stanje
-  useEffect(() => {
-    const onToggle = () => setView(v => (v === 'grid' ? 'list' : 'grid'))
-    window.addEventListener('ui:toggle-view', onToggle as EventListener)
-    return () => window.removeEventListener('ui:toggle-view', onToggle as EventListener)
-  }, [])
-  useEffect(() => {
-    persistView(view)
-    window.dispatchEvent(new CustomEvent('ui:view-state', { detail: { view } }))
-  }, [view])
-
   // Single-select filter
   const [selectedSource, setSelectedSource] = useState<string>(() => {
     try {
@@ -178,10 +139,16 @@ export default function Home({ initialNews }: Props) {
   })
   const deferredSource = useDeferredValue(selectedSource)
 
-  // filter vrstica (toggle iz Headerja)
+  // ===== FILTER VRSTICA: na mobilnem vedno odprta =====
   const [filterOpen, setFilterOpen] = useState<boolean>(false)
   useEffect(() => {
-    const onToggle = () => setFilterOpen(v => !v)
+    const isMobile = window.matchMedia('(max-width: 767px)').matches
+    if (isMobile) setFilterOpen(true)
+    const onToggle = () => {
+      const mobile = window.matchMedia('(max-width: 767px)').matches
+      if (mobile) { setFilterOpen(true); return }
+      setFilterOpen(v => !v)
+    }
     window.addEventListener('ui:toggle-filters', onToggle as EventListener)
     try {
       const u = new URL(window.location.href)
@@ -331,7 +298,7 @@ export default function Home({ initialNews }: Props) {
   const prefersReducedMotion =
     typeof window !== 'undefined' &&
     window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
-  const motionDuration = prefersReducedMotion ? 0.08 : 0.16
+  const motionDuration = prefersReducedMotion ? 0.08 : 0.14
 
   return (
     <>
@@ -356,35 +323,17 @@ export default function Home({ initialNews }: Props) {
         {visibleNews.length === 0 ? (
           <p className="text-gray-500 dark:text-gray-400 text-center w-full mt-10">Ni novic za izbrani vir ali napaka pri nalaganju.</p>
         ) : (
-          <AnimatePresence mode="wait">
-            {view === 'grid' ? (
-              <motion.div
-                key={'grid-' + deferredSource}
-                initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
-                transition={{ duration: motionDuration }}
-                className="grid gap-6 grid-cols-2 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5"
-                layout
-              >
-                {visibleNews.map((article, i) => (
-                  <ArticleCard key={article.link} news={article as any} priority={i === 0} view="grid" />
-                ))}
-              </motion.div>
-            ) : (
-              <motion.ul
-                key={'list-' + deferredSource}
-                initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }}
-                transition={{ duration: motionDuration }}
-                className="divide-y divide-gray-200 dark:divide-gray-700 bg-transparent"
-                aria-label="Seznam novic"
-                layout
-              >
-                {visibleNews.map((article) => (
-                  <li key={article.link} className="py-2">
-                    <ArticleCard news={article as any} view="list" />
-                  </li>
-                ))}
-              </motion.ul>
-            )}
+          <AnimatePresence>
+            <motion.div
+              key={deferredSource}
+              initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: motionDuration }}
+              className="grid gap-6 grid-cols-2 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5"
+            >
+              {visibleNews.map((article, i) => (
+                <ArticleCard key={article.link} news={article as any} priority={i === 0} />
+              ))}
+            </motion.div>
           </AnimatePresence>
         )}
 
