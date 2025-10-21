@@ -395,23 +395,51 @@ export default function Home({ initialNews }: Props) {
   )
 }
 
-/* ================= SSG ================= */
+/* ================= SSG (ISR) ================= */
+
 export async function getStaticProps() {
   const { createClient } = await import('@supabase/supabase-js')
   const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL as string
   const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string
   const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: false } })
 
-  const { data } = await supabase
+  type Row = {
+    id: number
+    link: string
+    title: string
+    source: string
+    summary: string | null
+    contentsnippet: string | null
+    image: string | null
+    published_at: string | null   // timestamptz (ISO string)
+    publishedat: number | null    // bigint (ms)
+  }
+
+  // 🔧 nujno vključimo published_at in publishedat
+  const { data, error } = await supabase
     .from('news')
-    .select('id,link,title,source,summary,contentsnippet,image,published_at,publishedat')
+    .select('id, link, title, source, summary, contentsnippet, image, published_at, publishedat')
     .order('publishedat', { ascending: false })
     .limit(120)
 
-  const rows = data ?? []
-  const initialNews: NewsItem[] = rows.map((r: any) => ({
+  if (error) {
+    // V najslabšem primeru vrni prazno, da build ne pade
+    return { props: { initialNews: [] as NewsItem[] }, revalidate: 60 }
+  }
+
+  const rows = (data ?? []) as Row[]
+
+  const initialNews: NewsItem[] = rows.map((r) => ({
     title: r.title,
     link: r.link,
     source: r.source,
     contentSnippet: r.contentsnippet ?? r.summary ?? '',
-    image: r.image ?? null
+    image: r.image ?? null,
+    // ⬇️ izračun obveznega publishedAt (ms)
+    publishedAt: (r.publishedat ?? (r.published_at ? Date.parse(r.published_at) : 0)) || 0,
+    // ⬇️ ISO string, če obstaja
+    isoDate: r.published_at || undefined,
+  }))
+
+  return { props: { initialNews }, revalidate: 60 }
+}
