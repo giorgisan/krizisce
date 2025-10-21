@@ -27,7 +27,6 @@ const POLL_MAX_BACKOFF = 5
 
 const SYNC_KEY = 'krizisce_last_sync_ms'
 const VIEW_LS_KEY = 'krizisce_view_mode_v1' as const // 'grid' | 'list'
-
 type ViewMode = 'grid' | 'list'
 
 function getInitialView(): ViewMode {
@@ -40,7 +39,6 @@ function getInitialView(): ViewMode {
   } catch {}
   return 'grid'
 }
-
 function persistView(next: ViewMode) {
   try { localStorage.setItem(VIEW_LS_KEY, next) } catch {}
   try {
@@ -333,7 +331,7 @@ export default function Home({ initialNews }: Props) {
   const prefersReducedMotion =
     typeof window !== 'undefined' &&
     window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
-  const motionDuration = prefersReducedMotion ? 0.08 : 0.14
+  const motionDuration = prefersReducedMotion ? 0.08 : 0.16
 
   return (
     <>
@@ -365,22 +363,24 @@ export default function Home({ initialNews }: Props) {
                 initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
                 transition={{ duration: motionDuration }}
                 className="grid gap-6 grid-cols-2 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5"
+                layout
               >
                 {visibleNews.map((article, i) => (
-                  <ArticleCard key={article.link} news={article as any} priority={i === 0} />
+                  <ArticleCard key={article.link} news={article as any} priority={i === 0} view="grid" />
                 ))}
               </motion.div>
             ) : (
               <motion.ul
                 key={'list-' + deferredSource}
-                initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
+                initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }}
                 transition={{ duration: motionDuration }}
                 className="divide-y divide-gray-200 dark:divide-gray-700 bg-transparent"
                 aria-label="Seznam novic"
+                layout
               >
                 {visibleNews.map((article) => (
                   <li key={article.link} className="py-2">
-                    <ArticleCard news={article as any} />
+                    <ArticleCard news={article as any} view="list" />
                   </li>
                 ))}
               </motion.ul>
