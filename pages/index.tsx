@@ -44,8 +44,12 @@ function timeout(ms: number) {
   return new Promise((_, rej) => setTimeout(() => rej(new Error('Request timeout')), ms))
 }
 
+/**
+ * Primarni klic gre na naš /api/news (Vercel).
+ * Če pade/timeouta → fallback: direktno na Supabase (anon key).
+ */
 async function loadNews(signal?: AbortSignal): Promise<NewsItem[] | null> {
-  // 1) Vercel API
+  // 1) prek Vercela
   try {
     const res = (await Promise.race([
       fetch('/api/news', { cache: 'no-store', signal }),
@@ -57,7 +61,7 @@ async function loadNews(signal?: AbortSignal): Promise<NewsItem[] | null> {
     }
   } catch {}
 
-  // 2) fallback: Supabase
+  // 2) fallback: direkt Supabase
   try {
     const { createClient } = await import('@supabase/supabase-js')
     const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL as string
@@ -65,9 +69,14 @@ async function loadNews(signal?: AbortSignal): Promise<NewsItem[] | null> {
     const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: false } })
 
     type Row = {
-      link: string; title: string; source: string
-      contentsnippet: string | null; summary: string | null
-      image: string | null; published_at: string | null; publishedat: number | null
+      link: string
+      title: string
+      source: string
+      contentsnippet: string | null
+      summary: string | null
+      image: string | null
+      published_at: string | null
+      publishedat: number | null
     }
 
     const { data } = await supabase
@@ -166,7 +175,7 @@ export default function Home({ initialNews }: Props) {
     return () => window.removeEventListener('ui:toggle-view', onToggle as EventListener)
   }, [])
 
-  // ===== FILTER vrstice: na mobilnem vedno odprta =====
+  // ===== FILTER vrstica: na mobilnem vedno odprta =====
   const [filterOpen, setFilterOpen] = useState<boolean>(false)
   useEffect(() => {
     const isMobile = window.matchMedia('(max-width: 767px)').matches
@@ -323,88 +332,156 @@ export default function Home({ initialNews }: Props) {
     window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
   const motionDuration = prefersReducedMotion ? 0.12 : 0.16
 
-  /* ========== LIST ROW (one-line dense) ========== */
-// TUNING delci za pages/index.tsx (zamenja obstoječi ListRow ter del className-ov)
+  /* ========== LIST ROW (one-line dense + tuning) ========== */
+  function ListRow({ item }: { item: NewsItem }) {
+    const [showPreview, setShowPreview] = useState(false)
+    const isTouch = typeof window !== 'undefined' && ('ontouchstart' in window || (navigator as any).maxTouchPoints > 0)
+    const longPressTimer = useRef<number | null>(null)
 
-function ListRow({ item }: { item: NewsItem }) {
-  const [showPreview, setShowPreview] = useState(false)
-  const isTouch = typeof window !== 'undefined' && ('ontouchstart' in window || (navigator as any).maxTouchPoints > 0)
-  const longPressTimer = useRef<number | null>(null)
+    const onClickLink = (e: MouseEvent<HTMLAnchorElement>) => {
+      if (e.metaKey || e.ctrlKey || e.button === 1) return
+      e.preventDefault()
+      window.open(item.link, '_blank', 'noopener')
+    }
 
-  const onClickLink = (e: MouseEvent<HTMLAnchorElement>) => {
-    if (e.metaKey || e.ctrlKey || e.button === 1) return
-    e.preventDefault()
-    window.open(item.link, '_blank', 'noopener')
-  }
+    const onTouchStart = () => {
+      if (!isTouch) return
+      const id = window.setTimeout(() => setShowPreview(true), 380) as unknown as number
+      longPressTimer.current = id
+    }
+    const clearLong = () => {
+      if (longPressTimer.current) { window.clearTimeout(longPressTimer.current); longPressTimer.current = null }
+    }
 
-  const onTouchStart = () => {
-    if (!isTouch) return
-    const id = window.setTimeout(() => setShowPreview(true), 380) as unknown as number
-    longPressTimer.current = id
-  }
-  const clearLong = () => {
-    if (longPressTimer.current) { window.clearTimeout(longPressTimer.current); longPressTimer.current = null }
+    return (
+      <>
+        <li
+          className="group grid grid-cols-[92px_1fr_auto] items-center gap-3 px-3 h-12 sm:h-12 rounded-md
+                     even:bg-black/[0.02] dark:even:bg-white/[0.03]
+                     hover:bg-black/[0.04] dark:hover:bg-white/[0.05] transition
+                     focus-within:ring-2 focus-within:ring-brand/70 focus-within:ring-offset-1 focus-within:ring-offset-transparent"
+        >
+          {/* Čas */}
+          <span className="text-[12px] text-gray-500 dark:text-gray-400 tabular-nums">
+            {formatDisplayTime(item.publishedAt, item.isoDate)}
+          </span>
+
+          {/* Naslov (link) */}
+          <a
+            href={item.link}
+            target="_blank"
+            rel="noopener"
+            onClick={onClickLink}
+            onAuxClick={onClickLink as any}
+            onTouchStart={onTouchStart}
+            onTouchEnd={clearLong}
+            onTouchMove={clearLong}
+            className="min-w-0 truncate text-[15px] text-gray-900 dark:text-gray-100 group-hover:text-brand focus:outline-none"
+          >
+            {item.title}
+          </a>
+
+          {/* Vir + oko (desktop) */}
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              aria-label="Predogled"
+              title="Predogled"
+              onClick={() => setShowPreview(true)}
+              className="hidden sm:inline-flex items-center justify-center h-9 w-9 rounded-md text-gray-600 dark:text-gray-300
+                         hover:bg-black/[0.06] dark:hover:bg-white/[0.08] transition
+                         focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/70"
+            >
+              <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+                <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12Z" stroke="currentColor" strokeWidth="2" fill="none" />
+                <circle cx="12" cy="12" r="3.5" stroke="currentColor" strokeWidth="2" fill="none" />
+              </svg>
+            </button>
+
+            <span className="ml-1 text-[12px] text-gray-600 dark:text-gray-300 inline-flex items-center gap-2">
+              <span className="inline-block h-2 w-2 rounded-full" style={{ background: (sourceColors as Record<string, string>)[item.source] || '#999' }} />
+              {item.source}
+            </span>
+          </div>
+        </li>
+
+        {showPreview && <ArticlePreview url={item.link} onClose={() => setShowPreview(false)} />}
+      </>
+    )
   }
 
   return (
     <>
-      <li
-        className="group grid grid-cols-[92px_1fr_auto] items-center gap-3 px-3 h-12 sm:h-12 rounded-md
-                   even:bg-black/[0.02] dark:even:bg-white/[0.03]
-                   hover:bg-black/[0.04] dark:hover:bg-white/[0.05] transition
-                   focus-within:ring-2 focus-within:ring-brand/70 focus-within:ring-offset-1 focus-within:ring-offset-transparent"
-      >
-        {/* Čas */}
-        <span className="text-[12px] text-gray-500 dark:text-gray-400 tabular-nums">
-          {formatDisplayTime(item.publishedAt, item.isoDate)}
-        </span>
+      <Header />
 
-        {/* Naslov (link) */}
-        <a
-          href={item.link}
-          target="_blank"
-          rel="noopener"
-          onClick={onClickLink}
-          onAuxClick={onClickLink as any}
-          onTouchStart={onTouchStart}
-          onTouchEnd={clearLong}
-          onTouchMove={clearLong}
-          className="min-w-0 truncate text-[15px] text-gray-900 dark:text-gray-100 group-hover:text-brand focus:outline-none"
-        >
-          {item.title}
-        </a>
+      <SourceFilter
+        value={selectedSource}
+        onChange={(next) => {
+          startTransition(() => {
+            setSelectedSource(next)
+            setDisplayCount(20)
+            setHasMore(true)
+            setCursor(null)
+          })
+        }}
+        open={filterOpen}
+      />
 
-        {/* Vir + oko (desktop) */}
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            aria-label="Predogled"
-            title="Predogled"
-            onClick={() => setShowPreview(true)}
-            className="hidden sm:inline-flex items-center justify-center h-9 w-9 rounded-md text-gray-600 dark:text-gray-300
-                       hover:bg-black/[0.06] dark:hover:bg-white/[0.08] transition
-                       focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/70"
-          >
-            <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
-              <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12Z" stroke="currentColor" strokeWidth="2" fill="none" />
-              <circle cx="12" cy="12" r="3.5" stroke="currentColor" strokeWidth="2" fill="none" />
-            </svg>
-          </button>
+      <SeoHead title="Križišče" description="Agregator najnovejših novic iz slovenskih medijev. Članki so last izvornih portalov." />
 
-          <span className="ml-1 text-[12px] text-gray-600 dark:text-gray-300 inline-flex items-center gap-2">
-            <span className="inline-block h-2 w-2 rounded-full" style={{ background: (sourceColors as Record<string, string>)[item.source] || '#999' }} />
-            {item.source}
-          </span>
-        </div>
-      </li>
+      <main className="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white px-4 md:px-8 lg:px-16 pt-4 pb-24">
+        {visibleNews.length === 0 ? (
+          <p className="text-gray-500 dark:text-gray-400 text-center w-full mt-10">Ni novic za izbrani vir ali napaka pri nalaganju.</p>
+        ) : (
+          <AnimatePresence mode="wait">
+            {view === 'grid' ? (
+              <motion.div
+                key="grid"
+                initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                transition={{ duration: motionDuration }}
+                className="grid gap-6 grid-cols-2 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5"
+              >
+                {visibleNews.map((article, i) => (
+                  <ArticleCard key={article.link} news={article as any} priority={i === 0} />
+                ))}
+              </motion.div>
+            ) : (
+              <motion.div
+                key="list"
+                initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                transition={{ duration: motionDuration }}
+                className="max-w-6xl mx-auto"
+              >
+                <ul className="divide-y divide-gray-200/70 dark:divide-gray-700/60 rounded-lg bg-white/40 dark:bg-gray-800/40 ring-1 ring-black/5 dark:ring-white/10 backdrop-blur-sm">
+                  {visibleNews.map((item) => (
+                    <ListRow key={item.link} item={item} />
+                  ))}
+                </ul>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        )}
 
-      {showPreview && <ArticlePreview url={item.link} onClose={() => setShowPreview(false)} />}
+        {hasMore && (
+          <div className="text-center mt-8 mb-10">
+            <button
+              onClick={handleLoadMore}
+              disabled={isLoadingMore}
+              className="px-5 py-2 bg-brand text-white rounded-full hover:bg-brand-hover transition disabled:opacity-60"
+            >
+              {isLoadingMore ? 'Nalagam…' : 'Naloži več'}
+            </button>
+          </div>
+        )}
+
+        <hr className="max-w-6xl mx-auto mt-4 border-t border-gray-200 dark:border-gray-700" />
+      </main>
+
+      <BackToTop threshold={200} />
+      <Footer />
     </>
   )
 }
-
-// Poleg tega naj UL ohrani razred 'divide-y ... ring-1 ...' kot je v datoteki, ni potrebnih drugih sprememb.
-
 
 /* ================= SSG (ISR) ================= */
 
