@@ -4,7 +4,7 @@
 /* ========================================================
    KRIŽIŠČE — INDEX (compact list overhaul)
    Sections are marked with === [SECTION] so you can copy/paste
-   slices in the future without hunting line numbers.
+   slices next time without hunting line numbers.
    ======================================================== */
 
 import React, {
@@ -46,6 +46,7 @@ function timeout(ms: number) {
   return new Promise((_, rej) => setTimeout(() => rej(new Error('Request timeout')), ms))
 }
 
+/** Primarni fetch na /api/news, fallback na Supabase. */
 async function loadNews(signal?: AbortSignal): Promise<NewsItem[] | null> {
   try {
     const res = (await Promise.race([
@@ -108,6 +109,7 @@ const diffFresh = (fresh: NewsItem[], current: NewsItem[]) => {
   return { newLinks, hasNewer }
 }
 
+// stableAt (first-seen) lokalni cache
 const LS_FIRST_SEEN = 'krizisce_first_seen_v1'
 type FirstSeenMap = Record<string, number>
 function loadFirstSeen(): FirstSeenMap {
@@ -118,6 +120,7 @@ function saveFirstSeen(map: FirstSeenMap) {
   try { window.localStorage.setItem(LS_FIRST_SEEN, JSON.stringify(map)) } catch {}
 }
 
+/** Format časa za tabelo (kompaktno na mobilnem). */
 function formatDisplayTime(publishedAt?: number, iso?: string, compact = false) {
   const ms = publishedAt ?? (iso ? Date.parse(iso) : 0)
   if (!ms) return ''
@@ -139,18 +142,110 @@ function formatDisplayTime(publishedAt?: number, iso?: string, compact = false) 
   return compact ? `${date} ${time}` : `${date}, ${time}`
 }
 
+/* ===================== [SECTION]: Preview (dynamic) ===================== */
+
 type PreviewProps = { url: string; onClose: () => void }
 const ArticlePreview = dynamic(() => import('@/components/ArticlePreview'), { ssr: false }) as React.ComponentType<PreviewProps>
 
-/* ===================== [SECTION]: State ===================== */
+/* ===================== [SECTION]: Page State ===================== */
 
 type Props = { initialNews: NewsItem[] }
 type ViewMode = 'grid' | 'list'
 function initialCountSSR() { return 40 }
 
+/* ===================== [SECTION]: List header component ===================== */
+/** Sticky vrstica “Čas | Naslov | Vir”, prikazana nad seznamom. */
+function ListStandaloneHeader() {
+  return (
+    <div
+      className="sticky z-[40]
+                 top-[calc(var(--hdr-h,56px)+8px)]
+                 bg-white/70 dark:bg-gray-900/70 backdrop-blur
+                 border-b border-gray-200/70 dark:border-gray-700/60"
+    >
+      <div className="grid grid-cols-[70px_1fr_130px] md:grid-cols-[88px_1fr_160px]
+                      px-2 md:px-3 h-8 items-center
+                      text-[11px] md:text-[12px] uppercase tracking-wide
+                      text-gray-500 dark:text-gray-400">
+        <span>Čas</span>
+        <span>Naslov</span>
+        <span className="justify-self-end pr-1 md:pr-2">Vir</span>
+      </div>
+    </div>
+  )
+}
+
+/* ===================== [SECTION]: List row (dense) ===================== */
+function ListRow({ item }: { item: NewsItem }) {
+  const [showPreview, setShowPreview] = useState(false)
+  const isMobile = typeof window !== 'undefined' && window.matchMedia?.('(max-width: 640px)').matches
+
+  const onClickLink = (e: MouseEvent<HTMLAnchorElement>) => {
+    if (e.metaKey || e.ctrlKey || (e as any).button === 1) return
+    e.preventDefault()
+    window.open(item.link, '_blank', 'noopener')
+  }
+
+  return (
+    <>
+      <li
+        className="group grid grid-cols-[70px_1fr_130px] md:grid-cols-[80px_1fr_160px]
+                   items-center gap-1 px-1.5 md:px-2
+                   h-[30px] md:h-[34px]
+                   hover:bg-black/[0.03] dark:hover:bg-white/[0.04]
+                   transition-colors"
+      >
+        {/* Čas */}
+        <span className="text-[11px] md:text-[12px] text-gray-500 dark:text-gray-400 tabular-nums">
+          {formatDisplayTime(item.publishedAt, item.isoDate, isMobile)}
+        </span>
+
+        {/* Naslov + oko (desno ob naslovu) */}
+        <div className="min-w-0 flex items-center gap-0.5">
+          <a
+            href={item.link}
+            target="_blank" rel="noopener"
+            onClick={onClickLink}
+            className="flex-1 min-w-0 truncate text-[13.5px] md:text-[14px] leading-tight
+                       text-gray-900 dark:text-gray-100 group-hover:text-brand transition-colors"
+          >
+            {item.title}
+          </a>
+          <button
+            type="button"
+            aria-label="Predogled"
+            title="Predogled"
+            onClick={() => setShowPreview(true)}
+            className="hidden sm:inline-flex items-center justify-center h-[22px] w-[22px] rounded
+                       text-gray-500/70 dark:text-gray-300/70 opacity-30 group-hover:opacity-100
+                       hover:ring-1 hover:ring-black/10 dark:hover:ring-white/20"
+          >
+            <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
+              <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12Z" stroke="currentColor" strokeWidth="2" fill="none" />
+              <circle cx="12" cy="12" r="3.5" stroke="currentColor" strokeWidth="2" fill="none" />
+            </svg>
+          </button>
+        </div>
+
+        {/* Vir */}
+        <span className="ml-1 text-[11px] md:text-[12px] text-gray-600 dark:text-gray-300 inline-flex items-center gap-1 justify-self-end pr-1 md:pr-2">
+          <span className="inline-block h-2 w-2 rounded-full"
+                style={{ background: (sourceColors as Record<string, string>)[item.source] || '#999' }} />
+          {item.source}
+        </span>
+      </li>
+
+      {showPreview && <ArticlePreview url={item.link} onClose={() => setShowPreview(false)} />}
+    </>
+  )
+}
+
+/* ===================== [SECTION]: Page Component ===================== */
+
 export default function Home({ initialNews }: Props) {
   const [news, setNews] = useState<NewsItem[]>(initialNews)
 
+  // filter (single-select)
   const [selectedSource, setSelectedSource] = useState<string>(() => {
     try {
       const raw = localStorage.getItem('selectedSources')
@@ -160,6 +255,7 @@ export default function Home({ initialNews }: Props) {
   })
   const deferredSource = useDeferredValue(selectedSource)
 
+  // view (grid / list)
   const [view, setView] = useState<ViewMode>(() => {
     try { return (localStorage.getItem('viewMode') as ViewMode) || 'grid' } catch { return 'grid' }
   })
@@ -173,6 +269,7 @@ export default function Home({ initialNews }: Props) {
     return () => window.removeEventListener('ui:toggle-view', onToggle as EventListener)
   }, [])
 
+  // filter vrstica: na mobilnem vedno odprta
   const [filterOpen, setFilterOpen] = useState<boolean>(false)
   useEffect(() => {
     const isMobile = window.matchMedia('(max-width: 767px)').matches
@@ -189,6 +286,7 @@ export default function Home({ initialNews }: Props) {
     window.dispatchEvent(new CustomEvent('ui:filters-state', { detail: { open: filterOpen } }))
   }, [filterOpen])
 
+  // koliko prikažemo
   const [displayCount, setDisplayCount] = useState(initialCountSSR())
   useEffect(() => {
     const w = window.innerWidth
@@ -201,6 +299,7 @@ export default function Home({ initialNews }: Props) {
   const [hasMore, setHasMore] = useState(true)
   const [cursor, setCursor] = useState<number | null>(null)
 
+  // initial refresh
   const [bootRefreshed, setBootRefreshed] = useState(false)
   useEffect(() => {
     const ctrl = new AbortController()
@@ -217,10 +316,10 @@ export default function Home({ initialNews }: Props) {
     return () => ctrl.abort()
   }, [initialNews])
 
+  // polling
   const [freshNews, setFreshNews] = useState<NewsItem[] | null>(null)
   const missCountRef = useRef(0)
   const timerRef = useRef<number | null>(null)
-
   useEffect(() => {
     if (!bootRefreshed) return
     const runCheck = async () => {
@@ -255,6 +354,7 @@ export default function Home({ initialNews }: Props) {
     return () => { if (timerRef.current) window.clearInterval(timerRef.current); document.removeEventListener('visibilitychange', onVis) }
   }, [news, bootRefreshed])
 
+  // manual refresh
   useEffect(() => {
     const onRefresh = () => {
       window.dispatchEvent(new CustomEvent('news-refreshing', { detail: true }))
@@ -273,6 +373,7 @@ export default function Home({ initialNews }: Props) {
     return () => window.removeEventListener('refresh-news', onRefresh as EventListener)
   }, [freshNews])
 
+  // stableAt shaping
   const shapedNews = useMemo(() => {
     const map = { ...firstSeen }; let changed = false
     const withStable = news.map(n => {
@@ -287,10 +388,12 @@ export default function Home({ initialNews }: Props) {
     return withStable
   }, [news, firstSeen])
 
+  // filter + sort + paginate
   const sortedNews = useMemo(() => [...shapedNews].sort((a, b) => (b as any).stableAt - (a as any).stableAt), [shapedNews])
   const filteredNews = useMemo(() => deferredSource === 'Vse' ? sortedNews : sortedNews.filter(a => a.source === deferredSource), [sortedNews, deferredSource])
   const visibleNews = useMemo(() => filteredNews.slice(0, displayCount), [filteredNews, displayCount])
 
+  // cursor za “Naloži več”
   useEffect(() => {
     if (!filteredNews.length) { setCursor(null); setHasMore(true); return }
     const minMs = filteredNews.reduce((acc, n) => Math.min(acc, n.publishedAt || acc), filteredNews[0].publishedAt || 0)
@@ -328,96 +431,6 @@ export default function Home({ initialNews }: Props) {
     typeof window !== 'undefined' &&
     window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
   const motionDuration = prefersReducedMotion ? 0.12 : 0.16
-
- {/* === [SECTION]: LIST HEADER (sticky below main header) === */}
-<div
-  className="sticky z-[40]
-             top-[calc(var(--hdr-h,56px)+8px)]
-             bg-white/70 dark:bg-gray-900/70 backdrop-blur
-             border-b border-gray-200/70 dark:border-gray-700/60"
->
-  <div className="grid grid-cols-[70px_1fr_130px] md:grid-cols-[88px_1fr_160px]
-                  px-2 md:px-3 h-8 items-center
-                  text-[11px] md:text-[12px] uppercase tracking-wide
-                  text-gray-500 dark:text-gray-400">
-    <span>Čas</span>
-    <span>Naslov</span>
-    <span className="justify-self-end pr-1 md:pr-2">Vir</span>
-  </div>
-</div>
-
-{/* === [SECTION]: LIST BODY === */}
-<ul className="divide-y divide-gray-200/70 dark:divide-gray-700/60">
-  {visibleNews.map((item) => (
-    <ListRow key={item.link} item={item} />
-  ))}
-</ul>
-
-
-
-// === [SECTION]: LIST ROW (ultra-compact; oko tik ob naslovu) ===
-function ListRow({ item }: { item: NewsItem }) {
-  const [showPreview, setShowPreview] = useState(false)
-  const isMobile = typeof window !== 'undefined' && window.matchMedia?.('(max-width: 640px)').matches
-
-  const onClickLink = (e: MouseEvent<HTMLAnchorElement>) => {
-    if (e.metaKey || e.ctrlKey || e.button === 1) return
-    e.preventDefault()
-    window.open(item.link, '_blank', 'noopener')
-  }
-
-  return (
-    <>
-      <li
-        className="group grid grid-cols-[70px_1fr_130px] md:grid-cols-[80px_1fr_160px]
-                   items-center gap-1 px-1.5 md:px-2
-                   h-[30px] md:h-[34px]
-                   hover:bg-black/[0.03] dark:hover:bg-white/[0.04]
-                   transition-colors"
-      >
-        {/* Čas */}
-        <span className="text-[11px] md:text-[12px] text-gray-500 dark:text-gray-400 tabular-nums">
-          {formatDisplayTime(item.publishedAt, item.isoDate, isMobile)}
-        </span>
-
-        {/* Naslov + oko */}
-        <div className="min-w-0 flex items-center gap-0.5">
-          <a
-            href={item.link}
-            target="_blank" rel="noopener"
-            onClick={onClickLink}
-            className="flex-1 min-w-0 truncate text-[13.5px] md:text-[14px] leading-tight
-                       text-gray-900 dark:text-gray-100 group-hover:text-brand transition-colors"
-          >
-            {item.title}
-          </a>
-          <button
-            type="button"
-            aria-label="Predogled"
-            title="Predogled"
-            onClick={() => setShowPreview(true)}
-            className="hidden sm:inline-flex items-center justify-center h-[22px] w-[22px] rounded
-                       text-gray-500/70 dark:text-gray-300/70 opacity-30 group-hover:opacity-100
-                       hover:ring-1 hover:ring-black/10 dark:hover:ring-white/20"
-          >
-            <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
-              <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12Z" stroke="currentColor" strokeWidth="2" fill="none" />
-              <circle cx="12" cy="12" r="3.5" stroke="currentColor" strokeWidth="2" fill="none" />
-            </svg>
-          </button>
-        </div>
-
-        {/* Vir */}
-        <span className="ml-1 text-[11px] md:text-[12px] text-gray-600 dark:text-gray-300 inline-flex items-center gap-1 justify-self-end pr-1 md:pr-2">
-          <span className="inline-block h-2 w-2 rounded-full" style={{ background: (sourceColors as Record<string, string>)[item.source] || '#999' }} />
-          {item.source}
-        </span>
-      </li>
-
-      {showPreview && <ArticlePreview url={item.link} onClose={() => setShowPreview(false)} />}
-    </>
-  )
-}
 
   /* ===================== [SECTION]: Render ===================== */
   return (
@@ -461,8 +474,10 @@ function ListRow({ item }: { item: NewsItem }) {
                 transition={{ duration: motionDuration }}
                 className="max-w-6xl mx-auto w-full"
               >
+                {/* Sticky header nad seznamom */}
                 <ListStandaloneHeader />
 
+                {/* Sam seznam (zelo kompakten) */}
                 <div className="rounded-lg ring-1 ring-black/5 dark:ring-white/10 bg-white/30 dark:bg-gray-800/30 backdrop-blur-sm mt-1">
                   <ul className="divide-y divide-gray-200/60 dark:divide-gray-700/55">
                     {visibleNews.map((item) => (
