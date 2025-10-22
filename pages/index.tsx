@@ -1,18 +1,20 @@
 // pages/index.tsx
 'use client'
 
+/* ========================================================
+   KRIŽIŠČE — INDEX (compact list overhaul)
+   Sections are marked with === [SECTION] so you can copy/paste
+   slices in the future without hunting line numbers.
+   ======================================================== */
+
 import React, {
-  useEffect,
-  useMemo,
-  useState,
-  useDeferredValue,
-  startTransition,
-  useRef,
-  MouseEvent,
+  useEffect, useMemo, useState, useDeferredValue,
+  startTransition, useRef, MouseEvent
 } from 'react'
 import dynamic from 'next/dynamic'
 import { motion, AnimatePresence } from 'framer-motion'
 
+// Project imports
 import { NewsItem } from '@/types'
 import Footer from '@/components/Footer'
 import Header from '@/components/Header'
@@ -22,7 +24,7 @@ import BackToTop from '@/components/BackToTop'
 import SourceFilter from '@/components/SourceFilter'
 import { sourceColors } from '@/lib/sources'
 
-/* ================= Helpers & constants ================= */
+/* ===================== [SECTION]: Helpers ===================== */
 
 const POLL_MS = 60_000
 const HIDDEN_POLL_MS = 5 * 60_000
@@ -44,12 +46,7 @@ function timeout(ms: number) {
   return new Promise((_, rej) => setTimeout(() => rej(new Error('Request timeout')), ms))
 }
 
-/**
- * Primarni klic gre na naš /api/news (Vercel).
- * Če pade/timeouta → fallback: direktno na Supabase (anon key).
- */
 async function loadNews(signal?: AbortSignal): Promise<NewsItem[] | null> {
-  // 1) prek Vercela
   try {
     const res = (await Promise.race([
       fetch('/api/news', { cache: 'no-store', signal }),
@@ -61,7 +58,6 @@ async function loadNews(signal?: AbortSignal): Promise<NewsItem[] | null> {
     }
   } catch {}
 
-  // 2) fallback: direkt Supabase
   try {
     const { createClient } = await import('@supabase/supabase-js')
     const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL as string
@@ -112,7 +108,6 @@ const diffFresh = (fresh: NewsItem[], current: NewsItem[]) => {
   return { newLinks, hasNewer }
 }
 
-// stableAt
 const LS_FIRST_SEEN = 'krizisce_first_seen_v1'
 type FirstSeenMap = Record<string, number>
 function loadFirstSeen(): FirstSeenMap {
@@ -123,7 +118,6 @@ function saveFirstSeen(map: FirstSeenMap) {
   try { window.localStorage.setItem(LS_FIRST_SEEN, JSON.stringify(map)) } catch {}
 }
 
-/* ---- Časovni format ---- */
 function formatDisplayTime(publishedAt?: number, iso?: string, compact = false) {
   const ms = publishedAt ?? (iso ? Date.parse(iso) : 0)
   if (!ms) return ''
@@ -145,19 +139,18 @@ function formatDisplayTime(publishedAt?: number, iso?: string, compact = false) 
   return compact ? `${date} ${time}` : `${date}, ${time}`
 }
 
-/* ================= Preview (shared) ================= */
 type PreviewProps = { url: string; onClose: () => void }
 const ArticlePreview = dynamic(() => import('@/components/ArticlePreview'), { ssr: false }) as React.ComponentType<PreviewProps>
 
-/* ================= Page ================= */
+/* ===================== [SECTION]: State ===================== */
 
 type Props = { initialNews: NewsItem[] }
 type ViewMode = 'grid' | 'list'
+function initialCountSSR() { return 40 }
 
 export default function Home({ initialNews }: Props) {
   const [news, setNews] = useState<NewsItem[]>(initialNews)
 
-  // Single-select filter
   const [selectedSource, setSelectedSource] = useState<string>(() => {
     try {
       const raw = localStorage.getItem('selectedSources')
@@ -167,7 +160,6 @@ export default function Home({ initialNews }: Props) {
   })
   const deferredSource = useDeferredValue(selectedSource)
 
-  // ===== VIEW MODE (grid/list) =====
   const [view, setView] = useState<ViewMode>(() => {
     try { return (localStorage.getItem('viewMode') as ViewMode) || 'grid' } catch { return 'grid' }
   })
@@ -181,7 +173,6 @@ export default function Home({ initialNews }: Props) {
     return () => window.removeEventListener('ui:toggle-view', onToggle as EventListener)
   }, [])
 
-  // ===== FILTER vrstica: na mobilnem vedno odprta =====
   const [filterOpen, setFilterOpen] = useState<boolean>(false)
   useEffect(() => {
     const isMobile = window.matchMedia('(max-width: 767px)').matches
@@ -198,12 +189,11 @@ export default function Home({ initialNews }: Props) {
     window.dispatchEvent(new CustomEvent('ui:filters-state', { detail: { open: filterOpen } }))
   }, [filterOpen])
 
-  // koliko pokažemo
-  const [displayCount, setDisplayCount] = useState(40)
+  const [displayCount, setDisplayCount] = useState(initialCountSSR())
   useEffect(() => {
     const w = window.innerWidth
-    if (w < 641) setDisplayCount(20)
-    else if (w < 1025) setDisplayCount(30)
+    if (w < 641) setDisplayCount(24)
+    else if (w < 1025) setDisplayCount(32)
     else setDisplayCount(40)
   }, [])
 
@@ -211,7 +201,6 @@ export default function Home({ initialNews }: Props) {
   const [hasMore, setHasMore] = useState(true)
   const [cursor, setCursor] = useState<number | null>(null)
 
-  // initial refresh
   const [bootRefreshed, setBootRefreshed] = useState(false)
   useEffect(() => {
     const ctrl = new AbortController()
@@ -228,7 +217,6 @@ export default function Home({ initialNews }: Props) {
     return () => ctrl.abort()
   }, [initialNews])
 
-  // polling
   const [freshNews, setFreshNews] = useState<NewsItem[] | null>(null)
   const missCountRef = useRef(0)
   const timerRef = useRef<number | null>(null)
@@ -267,7 +255,6 @@ export default function Home({ initialNews }: Props) {
     return () => { if (timerRef.current) window.clearInterval(timerRef.current); document.removeEventListener('visibilitychange', onVis) }
   }, [news, bootRefreshed])
 
-  // manual refresh
   useEffect(() => {
     const onRefresh = () => {
       window.dispatchEvent(new CustomEvent('news-refreshing', { detail: true }))
@@ -286,7 +273,6 @@ export default function Home({ initialNews }: Props) {
     return () => window.removeEventListener('refresh-news', onRefresh as EventListener)
   }, [freshNews])
 
-  // stableAt shaping
   const shapedNews = useMemo(() => {
     const map = { ...firstSeen }; let changed = false
     const withStable = news.map(n => {
@@ -301,19 +287,16 @@ export default function Home({ initialNews }: Props) {
     return withStable
   }, [news, firstSeen])
 
-  // filter + sort + paginate
   const sortedNews = useMemo(() => [...shapedNews].sort((a, b) => (b as any).stableAt - (a as any).stableAt), [shapedNews])
   const filteredNews = useMemo(() => deferredSource === 'Vse' ? sortedNews : sortedNews.filter(a => a.source === deferredSource), [sortedNews, deferredSource])
   const visibleNews = useMemo(() => filteredNews.slice(0, displayCount), [filteredNews, displayCount])
 
-  // cursor calc
   useEffect(() => {
     if (!filteredNews.length) { setCursor(null); setHasMore(true); return }
     const minMs = filteredNews.reduce((acc, n) => Math.min(acc, n.publishedAt || acc), filteredNews[0].publishedAt || 0)
     setCursor(minMs || null)
   }, [deferredSource, news])
 
-  // paging
   const [isLoadingMore, setIsLoadingMore] = useState(false)
   type PagePayload = { items: NewsItem[]; nextCursor: number | null }
   async function fetchPage(params: { cursor?: number | null; limit?: number; source?: string | null }): Promise<PagePayload> {
@@ -346,34 +329,28 @@ export default function Home({ initialNews }: Props) {
     window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
   const motionDuration = prefersReducedMotion ? 0.12 : 0.16
 
-  /* ========== LIST HEADER (sticky, translucent, blurred) ========== */
-  function ListHeader() {
+  /* ===================== [SECTION]: Sticky list header ===================== */
+  function ListStandaloneHeader() {
     return (
-      <div
-        className="sticky top-[var(--hdr-h,56px)] z-20 border-b border-black/10 dark:border-white/10
-                   bg-white/35 dark:bg-gray-900/35 supports-[backdrop-filter]:backdrop-blur-md"
-      >
-        <div className="grid grid-cols-[56px_1fr_auto] md:grid-cols-[88px_1fr_auto] px-2 sm:px-3 h-9 md:h-10 items-center
-                        text-[11px] sm:text-[12px] uppercase tracking-wide text-gray-600 dark:text-gray-400">
+      <div className="sticky top-[var(--hdr-h,56px)] z-20">
+        <div className="px-2 md:px-3 lg:px-4 h-9 md:h-10
+                        bg-white/70 dark:bg-gray-900/60
+                        backdrop-blur-md supports-[backdrop-filter]:bg-white/35 supports-[backdrop-filter]:dark:bg-gray-900/35
+                        border-b border-gray-200/70 dark:border-gray-700/60
+                        text-[11px] md:text-[12px] uppercase tracking-wide text-gray-500 dark:text-gray-400
+                        grid grid-cols-[76px_1fr_140px] md:grid-cols-[88px_1fr_180px] items-center">
           <span>Čas</span>
           <span>Naslov</span>
-          <span className="justify-self-end pr-2">Vir</span>
+          <span className="justify-self-end pr-1 md:pr-2">Vir</span>
         </div>
       </div>
     )
   }
 
-  /* ========== LIST ROW (dense, oko ob naslovu) ========== */
+  /* ===================== [SECTION]: List row (dense) ===================== */
   function ListRow({ item }: { item: NewsItem }) {
     const [showPreview, setShowPreview] = useState(false)
-    const isTouch = typeof window !== 'undefined' && ('ontouchstart' in window || (navigator as any).maxTouchPoints > 0)
-    const longPressTimer = useRef<number | null>(null)
-    const [isMobile, setIsMobile] = useState(false)
-
-    useEffect(() => {
-      const m = typeof window !== 'undefined' && window.matchMedia('(max-width: 640px)').matches
-      setIsMobile(!!m)
-    }, [])
+    const isMobile = typeof window !== 'undefined' && window.matchMedia?.('(max-width: 640px)').matches
 
     const onClickLink = (e: MouseEvent<HTMLAnchorElement>) => {
       if (e.metaKey || e.ctrlKey || e.button === 1) return
@@ -381,55 +358,36 @@ export default function Home({ initialNews }: Props) {
       window.open(item.link, '_blank', 'noopener')
     }
 
-    const onTouchStart = () => {
-      if (!isTouch) return
-      const id = window.setTimeout(() => setShowPreview(true), 380) as unknown as number
-      longPressTimer.current = id
-    }
-    const clearLong = () => {
-      if (longPressTimer.current) { window.clearTimeout(longPressTimer.current); longPressTimer.current = null }
-    }
-
     return (
       <>
         <li
-          className="group grid grid-cols-[56px_1fr_auto] md:grid-cols-[88px_1fr_auto]
-                     items-center gap-1.5 px-2 sm:px-3 h-9 md:h-10
-                     hover:bg-black/[0.035] dark:hover:bg-white/[0.05] transition-colors duration-100"
-        >
-          {/* Čas */}
-          <span className="text-[11px] sm:text-[12px] text-gray-500 dark:text-gray-400 tabular-nums">
+          className="group grid grid-cols-[76px_1fr_140px] md:grid-cols-[88px_1fr_180px]
+                     items-center gap-1 md:gap-2 px-2 md:px-3
+                     h-8 md:h-9
+                     hover:bg-black/[0.03] dark:hover:bg-white/[0.045]
+                     transition-colors">
+          <span className="text-[11px] md:text-[12px] text-gray-500 dark:text-gray-400 tabular-nums">
             {formatDisplayTime(item.publishedAt, item.isoDate, isMobile)}
           </span>
 
-          {/* Naslov + oko (oko skrito na mobilnem) */}
-          <div className="min-w-0 flex items-center gap-1.5">
+          <div className="min-w-0 flex items-center gap-1.5 md:gap-2">
             <a
               href={item.link}
-              target="_blank"
-              rel="noopener"
+              target="_blank" rel="noopener"
               onClick={onClickLink}
-              onAuxClick={onClickLink as any}
-              onTouchStart={onTouchStart}
-              onTouchEnd={clearLong}
-              onTouchMove={clearLong}
-              className="flex-1 min-w-0 whitespace-nowrap overflow-hidden text-ellipsis
-                         text-[14px] md:text-[15px] leading-tight text-gray-900 dark:text-gray-100
-                         focus:outline-none group-hover:text-brand"
-              title={item.title}
+              className="flex-1 min-w-0 truncate text-[14px] md:text-[15px] leading-tight
+                         text-gray-900 dark:text-gray-100 group-hover:text-brand"
             >
               {item.title}
             </a>
-
-            {/* Oko (desktop) */}
             <button
               type="button"
               aria-label="Predogled"
               title="Predogled"
               onClick={() => setShowPreview(true)}
               className="hidden sm:inline-flex items-center justify-center h-7 w-7 rounded-md
-                         text-gray-600/70 dark:text-gray-300/70 opacity-40 group-hover:opacity-95 transition
-                         hover:ring-1 hover:ring-black/10 dark:hover:ring-white/20"
+                         text-gray-600/70 dark:text-gray-300/70 opacity-40 group-hover:opacity-95
+                         transition hover:ring-1 hover:ring-black/10 dark:hover:ring-white/20"
             >
               <svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true">
                 <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12Z" stroke="currentColor" strokeWidth="2" fill="none" />
@@ -438,8 +396,7 @@ export default function Home({ initialNews }: Props) {
             </button>
           </div>
 
-          {/* Vir */}
-          <span className="ml-1 text-[11px] sm:text-[12px] text-gray-600 dark:text-gray-300 inline-flex items-center gap-2 justify-self-end pr-2">
+          <span className="ml-1 text-[11px] md:text-[12px] text-gray-600 dark:text-gray-300 inline-flex items-center gap-1.5 md:gap-2 justify-self-end pr-1 md:pr-2">
             <span className="inline-block h-2 w-2 rounded-full" style={{ background: (sourceColors as Record<string, string>)[item.source] || '#999' }} />
             {item.source}
           </span>
@@ -450,6 +407,7 @@ export default function Home({ initialNews }: Props) {
     )
   }
 
+  /* ===================== [SECTION]: Render ===================== */
   return (
     <>
       <Header />
@@ -468,7 +426,7 @@ export default function Home({ initialNews }: Props) {
 
       <SeoHead title="Križišče" description="Agregator najnovejših novic iz slovenskih medijev. Članki so last izvornih portalov." />
 
-      <main className="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white px-3 sm:px-4 md:px-8 lg:px-16 pt-3 pb-24">
+      <main className="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white px-4 md:px-8 lg:px-16 pt-4 pb-24">
         {visibleNews.length === 0 ? (
           <p className="text-gray-500 dark:text-gray-400 text-center w-full mt-10">Ni novic za izbrani vir ali napaka pri nalaganju.</p>
         ) : (
@@ -491,9 +449,10 @@ export default function Home({ initialNews }: Props) {
                 transition={{ duration: motionDuration }}
                 className="max-w-6xl mx-auto w-full"
               >
-                <div className="rounded-lg ring-1 ring-black/5 dark:ring-white/10 bg-white/30 dark:bg-gray-800/30 supports-[backdrop-filter]:backdrop-blur-sm">
-                  <ListHeader />
-                  <ul className="divide-y divide-gray-200/70 dark:divide-gray-700/60">
+                <ListStandaloneHeader />
+
+                <div className="rounded-lg ring-1 ring-black/5 dark:ring-white/10 bg-white/30 dark:bg-gray-800/30 backdrop-blur-sm mt-1">
+                  <ul className="divide-y divide-gray-200/60 dark:divide-gray-700/55">
                     {visibleNews.map((item) => (
                       <ListRow key={item.link} item={item} />
                     ))}
@@ -525,13 +484,24 @@ export default function Home({ initialNews }: Props) {
   )
 }
 
-/* ================= SSG (ISR) ================= */
-
+/* ===================== [SECTION]: SSG ===================== */
 export async function getStaticProps() {
   const { createClient } = await import('@supabase/supabase-js')
   const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL as string
   const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string
   const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: false } })
+
+  type Row = {
+    id: number
+    link: string
+    title: string
+    source: string
+    summary: string | null
+    contentsnippet: string | null
+    image: string | null
+    published_at: string | null
+    publishedat: number | null
+  }
 
   const { data } = await supabase
     .from('news')
@@ -539,7 +509,7 @@ export async function getStaticProps() {
     .order('publishedat', { ascending: false })
     .limit(120)
 
-  const rows = (data ?? []) as any[]
+  const rows = (data ?? []) as Row[]
 
   const initialNews: NewsItem[] = rows.map(r => ({
     title: r.title,
