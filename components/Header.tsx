@@ -1,6 +1,9 @@
 // components/Header.tsx
 'use client'
 
+/* =========================
+   [SECTION 0]: Imports
+   ========================= */
 import Link from 'next/link'
 import Image from 'next/image'
 import { useTheme } from 'next-themes'
@@ -10,6 +13,44 @@ import { motion, AnimatePresence } from 'framer-motion'
 
 type ViewMode = 'grid' | 'list'
 
+/* =========================
+   [SECTION 1]: Ikone (inline SVG)
+   ========================= */
+const GridIcon = (props: any) => (
+  <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" {...props}>
+    <rect x="3" y="4" width="7" height="7" rx="1" stroke="currentColor" strokeWidth="2" fill="none" />
+    <rect x="14" y="4" width="7" height="7" rx="1" stroke="currentColor" strokeWidth="2" fill="none" />
+    <rect x="3" y="13" width="7" height="7" rx="1" stroke="currentColor" strokeWidth="2" fill="none" />
+    <rect x="14" y="13" width="7" height="7" rx="1" stroke="currentColor" strokeWidth="2" fill="none" />
+  </svg>
+)
+const ListBulletsIcon = (props: any) => (
+  <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" {...props}>
+    <circle cx="5" cy="6" r="1.5" fill="currentColor" />
+    <circle cx="5" cy="12" r="1.5" fill="currentColor" />
+    <circle cx="5" cy="18" r="1.5" fill="currentColor" />
+    <path d="M9 6h10M9 12h10M9 18h10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+  </svg>
+)
+const CalendarClock = (props: any) => (
+  <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" {...props}>
+    <rect x="3" y="5" width="18" height="16" rx="2" stroke="currentColor" strokeWidth="2" fill="none"/>
+    <path d="M8 3v4M16 3v4" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+    <path d="M3 9h18" stroke="currentColor" strokeWidth="2"/>
+    <circle cx="16.5" cy="15.5" r="3.5" stroke="currentColor" strokeWidth="2" fill="none"/>
+    <path d="M16.5 13.5v2l1.5 1.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+  </svg>
+)
+const FunnelIcon = (props: any) => (
+  <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" {...props}>
+    <path d="M3 5h18l-7 8v5l-4 2v-7L3 5z"
+      stroke="currentColor" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" fill="none" />
+  </svg>
+)
+
+/* =========================
+   [SECTION 2]: Komponenta Header
+   ========================= */
 export default function Header() {
   const router = useRouter()
   const { theme, resolvedTheme, setTheme } = useTheme()
@@ -22,6 +63,7 @@ export default function Header() {
 
   const isHome = router.pathname === '/'
 
+  // ura v headerju
   const [time, setTime] = useState(() =>
     new Intl.DateTimeFormat('sl-SI', { hour: '2-digit', minute: '2-digit' }).format(new Date())
   )
@@ -33,6 +75,7 @@ export default function Header() {
   }, [])
   useEffect(() => setMounted(true), [])
 
+  // dogodki iz app-a
   useEffect(() => {
     const onHasNew = (e: Event) => setHasNew(Boolean((e as CustomEvent).detail))
     const onRefreshing = (e: Event) => setRefreshing(Boolean((e as CustomEvent).detail))
@@ -43,16 +86,11 @@ export default function Header() {
       window.removeEventListener('news-refreshing', onRefreshing as EventListener)
     }
   }, [])
-
   useEffect(() => {
-    const onState = (e: Event) => {
-      const open = Boolean((e as CustomEvent).detail?.open)
-      setFiltersOpen(open)
-    }
+    const onState = (e: Event) => setFiltersOpen(Boolean((e as CustomEvent).detail?.open))
     window.addEventListener('ui:filters-state', onState as EventListener)
     return () => window.removeEventListener('ui:filters-state', onState as EventListener)
   }, [])
-
   useEffect(() => {
     const onView = (e: Event) => {
       const next = (e as CustomEvent).detail?.view as ViewMode | undefined
@@ -62,9 +100,9 @@ export default function Header() {
     return () => window.removeEventListener('ui:view-state', onView as EventListener)
   }, [])
 
+  // višina headerja -> CSS var
   const hdrRef = useRef<HTMLElement | null>(null)
   const mobBannerRef = useRef<HTMLDivElement | null>(null)
-
   useEffect(() => {
     const setHdr = () => {
       const h = hdrRef.current?.offsetHeight || 56
@@ -75,6 +113,7 @@ export default function Header() {
     return () => window.removeEventListener('resize', setHdr)
   }, [])
 
+  // mobilni “fresh news” banner – premik vsebine
   useEffect(() => {
     const updateVars = () => {
       const isMobile = window.matchMedia('(max-width: 767px)').matches
@@ -91,75 +130,47 @@ export default function Header() {
   const currentTheme = (theme ?? resolvedTheme) || 'dark'
   const isDark = currentTheme === 'dark'
 
+  /* =========================
+     [SECTION 3]: Handlerji
+     ========================= */
   const refreshNow = () => {
     setRefreshing(true)
     window.dispatchEvent(new CustomEvent('refresh-news'))
   }
-
   const onBrandClick: React.MouseEventHandler<HTMLAnchorElement> = (e) => {
     e.preventDefault()
     if (isHome) { window.location.reload() } else { router.push('/') }
   }
-
   const toggleFilters = () => { window.dispatchEvent(new CustomEvent('ui:toggle-filters')) }
   const toggleView = () => { window.dispatchEvent(new CustomEvent('ui:toggle-view')) }
   const toggleTheme = () => setTheme(isDark ? 'light' : 'dark')
 
-  const GridIcon = (props: any) => (
-    <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" {...props}>
-      <rect x="3" y="4" width="7" height="7" rx="1" stroke="currentColor" strokeWidth="2" fill="none" />
-      <rect x="14" y="4" width="7" height="7" rx="1" stroke="currentColor" strokeWidth="2" fill="none" />
-      <rect x="3" y="13" width="7" height="7" rx="1" stroke="currentColor" strokeWidth="2" fill="none" />
-      <rect x="14" y="13" width="7" height="7" rx="1" stroke="currentColor" strokeWidth="2" fill="none" />
-    </svg>
-  )
-  const ListBulletsIcon = (props: any) => (
-    <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" {...props}>
-      <circle cx="5" cy="6" r="1.5" fill="currentColor" />
-      <circle cx="5" cy="12" r="1.5" fill="currentColor" />
-      <circle cx="5" cy="18" r="1.5" fill="currentColor" />
-      <path d="M9 6h10M9 12h10M9 18h10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-    </svg>
-  )
-  const CalendarClock = (props: any) => (
-    <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" {...props}>
-      <rect x="3" y="5" width="18" height="16" rx="2" stroke="currentColor" strokeWidth="2" fill="none"/>
-      <path d="M8 3v4M16 3v4" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-      <path d="M3 9h18" stroke="currentColor" strokeWidth="2"/>
-      <circle cx="16.5" cy="15.5" r="3.5" stroke="currentColor" strokeWidth="2" fill="none"/>
-      <path d="M16.5 13.5v2l1.5 1.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-    </svg>
-  )
-  const FunnelIcon = (props: any) => (
-    <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" {...props}>
-      <path d="M3 5h18l-7 8v5l-4 2v-7L3 5z"
-        stroke="currentColor" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" fill="none" />
-    </svg>
-  )
+  const viewActiveClasses = 'text-brand bg-brand/10 ring-1 ring-brand/30'
+  const viewIdleClasses   = 'text-black/55 dark:text-white/60 hover:text-black/90 dark:hover:text-white/90 hover:bg-black/[0.04] dark:hover:bg-white/[0.06]'
 
-  const viewActiveClasses = 'text-brand bg-brand/10 ring-1 ring-brand/30';
-  const viewIdleClasses = 'text-black/55 dark:text-white/60 hover:text-black/90 dark:hover:text-white/90 hover:bg-black/[0.04] dark:hover:bg-white/[0.06]';
-
+  /* =========================
+     [SECTION 4]: Render
+     ========================= */
   return (
     <header
       ref={hdrRef}
       id="site-header"
-      className="sticky top-0 z-40 bg-[#FAFAFA]/95 dark:bg-gray-900/70 backdrop-blur-md border-b border-gray-200 dark:border-gray-700 shadow-sm"
+      className="sticky top-0 z-[70] bg-[#FAFAFA]/95 dark:bg-gray-900/70 backdrop-blur-md border-b border-gray-200 dark:border-gray-700 shadow-sm"
     >
       <div className="py-2 px-4 md:px-8 lg:px-16 flex items-center justify-between gap-2">
-        {/* Levo: brand + (mobilni) podnaslov */}
+        {/* [4.1] Levo: brand + podnaslov */}
         <div className="flex items-center gap-3 min-w-0 flex-1">
           <Link href="/" onClick={onBrandClick} className="flex items-center gap-3 min-w-0">
             <Image src="/logo.png" alt="Križišče" width={36} height={36} priority fetchPriority="high" className="w-9 h-9 rounded-md" />
             <div className="min-w-0 leading-tight">
               <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">Križišče</h1>
-              {/* VRNEMO podnaslov na mobilnem, a ga skrajšamo v eno vrstico (truncate) */}
               <p className="block text-xs sm:text-[13px] text-gray-600 dark:text-gray-400 mt-0.5 truncate max-w-[58vw] sm:max-w-none">
                 Zadnje novice slovenskih medijev
               </p>
             </div>
           </Link>
 
+          {/* “Sveže” pilula (desktop) */}
           <AnimatePresence initial={false}>
             {hasNew && !refreshing && (
               <motion.button
@@ -185,13 +196,13 @@ export default function Header() {
           </AnimatePresence>
         </div>
 
-        {/* Desno: ikone (naj se ne krčijo preko slogana) */}
+        {/* [4.2] Desno: ura + kontrole */}
         <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
           <span className="hidden sm:inline-block font-mono tabular-nums text-[13px] text-gray-500 dark:text-gray-400 select-none">
             {time}
           </span>
 
-          {/* FILTER – samo desktop */}
+          {/* Filter (desktop) */}
           {isHome && (
             <button
               type="button"
@@ -199,15 +210,13 @@ export default function Header() {
               aria-label={filtersOpen ? 'Skrij filtre' : 'Prikaži filtre'}
               title={filtersOpen ? 'Skrij filtre' : 'Prikaži filtre'}
               className={`hidden sm:inline-flex h-10 w-10 items-center justify-center rounded-md transition
-                          ${filtersOpen
-                            ? 'text-brand bg-brand/10 ring-1 ring-brand/30'
-                            : 'text-black/55 dark:text-white/60 hover:text-black/90 dark:hover:text-white/90 hover:bg-black/[0.04] dark:hover:bg-white/[0.06]'}`}
+                          ${filtersOpen ? 'text-brand bg-brand/10 ring-1 ring-brand/30' : viewIdleClasses}`}
             >
               <FunnelIcon />
             </button>
           )}
 
-          {/* POGLED – mreža ↔ seznam */}
+          {/* Preklop pogleda */}
           {isHome && (
             <button
               type="button"
@@ -222,18 +231,27 @@ export default function Header() {
             </button>
           )}
 
-          {/* ARHIV (koledar) */}
-          <Link href="/arhiv" aria-label="Arhiv" title="Arhiv (koledar)"
-            className="inline-flex h-10 w-10 items-center justify-center rounded-md transition
+          {/* Arhiv (Link!) */}
+          <Link
+            href="/arhiv"
+            aria-label="Arhiv"
+            title="Arhiv (koledar)"
+            className="relative z-[60] inline-flex h-10 w-10 items-center justify-center rounded-md
                        text-black/60 dark:text-white/65 hover:text-black/90 dark:hover:text-white/90
-                       hover:bg-black/[0.04] dark:hover:bg-white/[0.06]">
+                       hover:bg-black/[0.04] dark:hover:bg-white/[0.06] transition"
+          >
             <CalendarClock />
           </Link>
 
-          {/* TEMA */}
+          {/* Tema */}
           {mounted && (
-            <button type="button" onClick={toggleTheme} aria-label={isDark ? 'Preklopi na svetlo' : 'Preklopi na temno'} title={isDark ? 'Preklopi na svetlo' : 'Preklopi na temno'}
-              className="inline-flex h-10 w-10 items-center justify-center rounded-md text-black/55 dark:text-white/65 hover:text-black/90 dark:hover:text-white/90 hover:bg-black/[0.04] dark:hover:bg-white/[0.06] transition">
+            <button
+              type="button"
+              onClick={() => setTheme(isDark ? 'light' : 'dark')}
+              aria-label={isDark ? 'Preklopi na svetlo' : 'Preklopi na temno'}
+              title={isDark ? 'Preklopi na svetlo' : 'Preklopi na temno'}
+              className="inline-flex h-10 w-10 items-center justify-center rounded-md text-black/55 dark:text-white/65 hover:text-black/90 dark:hover:text-white/90 hover:bg-black/[0.04] dark:hover:bg-white/[0.06] transition"
+            >
               <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
                 {isDark ? (
                   <>
@@ -249,15 +267,22 @@ export default function Header() {
         </div>
       </div>
 
-      {/* Mobilni banner s svežimi novicami */}
+      {/* [4.3] Mobilni “fresh news” banner */}
       <AnimatePresence initial={false}>
         {hasNew && !refreshing && (
-          <motion.div key="banner-mobile" initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.18, ease: 'easeOut' }}
-            className="md:hidden fixed left-0 right-0 z-40 bg-[#FAFAFA]/95 dark:bg-gray-900/70 backdrop-blur-md" style={{ top: 'var(--hdr-h, 56px)' }}>
+          <motion.div
+            key="banner-mobile"
+            initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.18, ease: 'easeOut' }}
+            className="md:hidden fixed left-0 right-0 z-[60] bg-[#FAFAFA]/95 dark:bg-gray-900/70 backdrop-blur-md"
+            style={{ top: 'var(--hdr-h, 56px)' }}
+          >
             <div ref={mobBannerRef} className="px-4 md:px-8 lg:px-16 py-1.5 flex justify-center">
-              <button onClick={refreshNow}
+              <button
+                onClick={refreshNow}
                 className="group inline-flex items-center gap-2 rounded-full px-3.5 py-1.5 text-[13px] font-medium bg-emerald-500/10 text-emerald-300 ring-1 ring-emerald-600/40 hover:bg-emerald-500/15 transition shadow-sm"
-                title="Osveži, da prikažeš nove spremembe">
+                title="Osveži, da prikažeš nove spremembe"
+              >
                 <span className="relative inline-flex">
                   <span className="h-2.5 w-2.5 rounded-full bg-emerald-500 opacity-80"></span>
                   <span className="absolute inset-0 rounded-full bg-emerald-500 animate-ping opacity-25"></span>
