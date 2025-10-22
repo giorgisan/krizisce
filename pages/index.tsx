@@ -329,23 +329,23 @@ export default function Home({ initialNews }: Props) {
     window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
   const motionDuration = prefersReducedMotion ? 0.12 : 0.16
 
-  /* ===================== [SECTION]: Sticky list header ===================== */
-  function ListStandaloneHeader() {
-    return (
-      <div className="sticky top-[var(--hdr-h,56px)] z-20">
-        <div className="px-2 md:px-3 lg:px-4 h-9 md:h-10
-                        bg-white/70 dark:bg-gray-900/60
-                        backdrop-blur-md supports-[backdrop-filter]:bg-white/35 supports-[backdrop-filter]:dark:bg-gray-900/35
-                        border-b border-gray-200/70 dark:border-gray-700/60
-                        text-[11px] md:text-[12px] uppercase tracking-wide text-gray-500 dark:text-gray-400
-                        grid grid-cols-[76px_1fr_140px] md:grid-cols-[88px_1fr_180px] items-center">
-          <span>Čas</span>
-          <span>Naslov</span>
-          <span className="justify-self-end pr-1 md:pr-2">Vir</span>
-        </div>
-      </div>
-    )
-  }
+ // === [SECTION]: LIST HEADER (sticky below main header) ===
+<div
+  className="sticky z-[40]
+             top-[calc(var(--hdr-h,56px)+8px)]
+             bg-white/70 dark:bg-gray-900/70 backdrop-blur
+             border-b border-gray-200/70 dark:border-gray-700/60"
+>
+  <div className="grid grid-cols-[70px_1fr_130px] md:grid-cols-[88px_1fr_160px]
+                  px-2 md:px-3 h-8 items-center
+                  text-[11px] md:text-[12px] uppercase tracking-wide
+                  text-gray-500 dark:text-gray-400">
+    <span>Čas</span>
+    <span>Naslov</span>
+    <span className="justify-self-end pr-1 md:pr-2">Vir</span>
+  </div>
+</div>
+
 
 // === [SECTION]: LIST ROW (ultra-compact; oko tik ob naslovu) ===
 function ListRow({ item }: { item: NewsItem }) {
