@@ -347,65 +347,69 @@ export default function Home({ initialNews }: Props) {
     )
   }
 
-  /* ===================== [SECTION]: List row (dense) ===================== */
-  function ListRow({ item }: { item: NewsItem }) {
-    const [showPreview, setShowPreview] = useState(false)
-    const isMobile = typeof window !== 'undefined' && window.matchMedia?.('(max-width: 640px)').matches
+// === [SECTION]: LIST ROW (ultra-compact; oko tik ob naslovu) ===
+function ListRow({ item }: { item: NewsItem }) {
+  const [showPreview, setShowPreview] = useState(false)
+  const isMobile = typeof window !== 'undefined' && window.matchMedia?.('(max-width: 640px)').matches
 
-    const onClickLink = (e: MouseEvent<HTMLAnchorElement>) => {
-      if (e.metaKey || e.ctrlKey || e.button === 1) return
-      e.preventDefault()
-      window.open(item.link, '_blank', 'noopener')
-    }
-
-    return (
-      <>
-        <li
-          className="group grid grid-cols-[76px_1fr_140px] md:grid-cols-[88px_1fr_180px]
-                     items-center gap-1 md:gap-2 px-2 md:px-3
-                     h-8 md:h-9
-                     hover:bg-black/[0.03] dark:hover:bg-white/[0.045]
-                     transition-colors">
-          <span className="text-[11px] md:text-[12px] text-gray-500 dark:text-gray-400 tabular-nums">
-            {formatDisplayTime(item.publishedAt, item.isoDate, isMobile)}
-          </span>
-
-          <div className="min-w-0 flex items-center gap-1.5 md:gap-2">
-            <a
-              href={item.link}
-              target="_blank" rel="noopener"
-              onClick={onClickLink}
-              className="flex-1 min-w-0 truncate text-[14px] md:text-[15px] leading-tight
-                         text-gray-900 dark:text-gray-100 group-hover:text-brand"
-            >
-              {item.title}
-            </a>
-            <button
-              type="button"
-              aria-label="Predogled"
-              title="Predogled"
-              onClick={() => setShowPreview(true)}
-              className="hidden sm:inline-flex items-center justify-center h-7 w-7 rounded-md
-                         text-gray-600/70 dark:text-gray-300/70 opacity-40 group-hover:opacity-95
-                         transition hover:ring-1 hover:ring-black/10 dark:hover:ring-white/20"
-            >
-              <svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true">
-                <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12Z" stroke="currentColor" strokeWidth="2" fill="none" />
-                <circle cx="12" cy="12" r="3.5" stroke="currentColor" strokeWidth="2" fill="none" />
-              </svg>
-            </button>
-          </div>
-
-          <span className="ml-1 text-[11px] md:text-[12px] text-gray-600 dark:text-gray-300 inline-flex items-center gap-1.5 md:gap-2 justify-self-end pr-1 md:pr-2">
-            <span className="inline-block h-2 w-2 rounded-full" style={{ background: (sourceColors as Record<string, string>)[item.source] || '#999' }} />
-            {item.source}
-          </span>
-        </li>
-
-        {showPreview && <ArticlePreview url={item.link} onClose={() => setShowPreview(false)} />}
-      </>
-    )
+  const onClickLink = (e: MouseEvent<HTMLAnchorElement>) => {
+    if (e.metaKey || e.ctrlKey || e.button === 1) return
+    e.preventDefault()
+    window.open(item.link, '_blank', 'noopener')
   }
+
+  return (
+    <>
+      <li
+        className="group grid grid-cols-[70px_1fr_130px] md:grid-cols-[80px_1fr_160px]
+                   items-center gap-1 px-1.5 md:px-2
+                   h-[30px] md:h-[34px]
+                   hover:bg-black/[0.03] dark:hover:bg-white/[0.04]
+                   transition-colors"
+      >
+        {/* Čas */}
+        <span className="text-[11px] md:text-[12px] text-gray-500 dark:text-gray-400 tabular-nums">
+          {formatDisplayTime(item.publishedAt, item.isoDate, isMobile)}
+        </span>
+
+        {/* Naslov + oko */}
+        <div className="min-w-0 flex items-center gap-0.5">
+          <a
+            href={item.link}
+            target="_blank" rel="noopener"
+            onClick={onClickLink}
+            className="flex-1 min-w-0 truncate text-[13.5px] md:text-[14px] leading-tight
+                       text-gray-900 dark:text-gray-100 group-hover:text-brand transition-colors"
+          >
+            {item.title}
+          </a>
+          <button
+            type="button"
+            aria-label="Predogled"
+            title="Predogled"
+            onClick={() => setShowPreview(true)}
+            className="hidden sm:inline-flex items-center justify-center h-[22px] w-[22px] rounded
+                       text-gray-500/70 dark:text-gray-300/70 opacity-30 group-hover:opacity-100
+                       hover:ring-1 hover:ring-black/10 dark:hover:ring-white/20"
+          >
+            <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
+              <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12Z" stroke="currentColor" strokeWidth="2" fill="none" />
+              <circle cx="12" cy="12" r="3.5" stroke="currentColor" strokeWidth="2" fill="none" />
+            </svg>
+          </button>
+        </div>
+
+        {/* Vir */}
+        <span className="ml-1 text-[11px] md:text-[12px] text-gray-600 dark:text-gray-300 inline-flex items-center gap-1 justify-self-end pr-1 md:pr-2">
+          <span className="inline-block h-2 w-2 rounded-full" style={{ background: (sourceColors as Record<string, string>)[item.source] || '#999' }} />
+          {item.source}
+        </span>
+      </li>
+
+      {showPreview && <ArticlePreview url={item.link} onClose={() => setShowPreview(false)} />}
+    </>
+  )
+}
 
   /* ===================== [SECTION]: Render ===================== */
   return (
