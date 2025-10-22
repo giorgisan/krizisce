@@ -329,7 +329,7 @@ export default function Home({ initialNews }: Props) {
     window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
   const motionDuration = prefersReducedMotion ? 0.12 : 0.16
 
- // === [SECTION]: LIST HEADER (sticky below main header) ===
+ {/* === [SECTION]: LIST HEADER (sticky below main header) === */}
 <div
   className="sticky z-[40]
              top-[calc(var(--hdr-h,56px)+8px)]
@@ -345,6 +345,14 @@ export default function Home({ initialNews }: Props) {
     <span className="justify-self-end pr-1 md:pr-2">Vir</span>
   </div>
 </div>
+
+{/* === [SECTION]: LIST BODY === */}
+<ul className="divide-y divide-gray-200/70 dark:divide-gray-700/60">
+  {visibleNews.map((item) => (
+    <ListRow key={item.link} item={item} />
+  ))}
+</ul>
+
 
 
 // === [SECTION]: LIST ROW (ultra-compact; oko tik ob naslovu) ===
