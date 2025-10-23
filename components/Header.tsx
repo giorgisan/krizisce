@@ -191,7 +191,7 @@ export default function Header() {
             </button>
           )}
 
-          {/* ARHIV */}
+          {/* ARHIV – zamenjana ikona: koledar */}
           <Link
             href="/arhiv"
             aria-label="Arhiv"
@@ -200,10 +200,15 @@ export default function Header() {
                        text-black/60 dark:text-white/65 hover:text-black/90 dark:hover:text-white/90
                        hover:bg-black/[0.04] dark:hover:bg-white/[0.06]"
           >
+            {/* Koledar: vrhnji obročki + list + mreža */}
             <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
-              <path d="M4 7h16v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7Z" stroke="currentColor" strokeWidth="2" fill="none" />
-              <path d="M3 7h18l-2-3H5l-2 3Z" stroke="currentColor" strokeWidth="2" fill="none" />
-              <path d="M9 12h6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+              <g fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M7 3v3M17 3v3" />
+                <rect x="3" y="5" width="18" height="16" rx="2" />
+                <path d="M3 9h18" />
+                <path d="M8 13h0M12 13h0M16 13h0M8 17h0M12 17h0M16 17h0" />
+              </g>
+              <span className="sr-only">Arhiv</span>
             </svg>
           </Link>
 
@@ -221,13 +226,11 @@ export default function Header() {
             >
               <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
                 {isDark ? (
-                  // sonce (klik -> svetla tema)
                   <>
                     <path d="M12 4V2M12 22v-2M4.93 4.93 3.52 3.52M20.48 20.48l-1.41-1.41M4 12H2M22 12h-2M4.93 19.07 3.52 20.48M20.48 3.52l-1.41 1.41" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
                     <circle cx="12" cy="12" r="4" stroke="currentColor" strokeWidth="2" fill="none"/>
                   </>
                 ) : (
-                  // luna (klik -> temna tema)
                   <path d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 0 0 9.79 9.79Z" stroke="currentColor" strokeWidth="2" fill="none"/>
                 )}
               </svg>
