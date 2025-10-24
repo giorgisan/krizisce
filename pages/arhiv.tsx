@@ -89,6 +89,27 @@ const tsOf = (a: ApiItem) => {
   return Number.isFinite(t2) ? t2 : 0
 }
 
+// ---- TIME HELPERS (DST-safe lokalni dan) ----
+const dayBoundsLocal = (iso: string) => {
+  const [y, m, d] = iso.split('-').map(Number)
+  const start = new Date(y, (m ?? 1) - 1, d ?? 1, 0, 0, 0, 0).getTime()
+  const end   = new Date(y, (m ?? 1) - 1, (d ?? 1) + 1, 0, 0, 0, 0).getTime()
+  return { start, end }
+}
+
+/** Normalizira epoch – če bi kdaj dobil sekunde, pretvori v ms. */
+const epochMsOf = (x: number) => (x < 1e11 ? x * 1000 : x)
+
+/** Trdo filtriranje elementov na lokalni dan [start, end). */
+const filterToLocalDay = (items: ApiItem[], iso: string) => {
+  const { start, end } = dayBoundsLocal(iso)
+  return items.filter(it => {
+    const t = tsOf(it)
+    const ms = epochMsOf(t)
+    return ms >= start && ms < end
+  })
+}
+
 const relativeTime = (ms: number) => {
   const diff = Math.max(0, Date.now() - ms)
   const m = Math.floor(diff / 60000)
@@ -105,19 +126,7 @@ const fmtClock = (ms: number) => {
   } catch { return '' }
 }
 
-/* ---------- Helperji za fallback na Supabase ---------- */
-
-/** 
- * Meje dneva v LOKALNEM času (DST-safe).
- * start = lokalna polnoč izbranega dne
- * end   = lokalna polnoč NASLEDNJEGA dne
- */
-const dayBoundsLocal = (iso: string) => {
-  const [y, m, d] = iso.split('-').map(Number)
-  const start = new Date(y, (m ?? 1) - 1, d ?? 1, 0, 0, 0, 0).getTime()
-  const end   = new Date(y, (m ?? 1) - 1, (d ?? 1) + 1, 0, 0, 0, 0).getTime()
-  return { start, end }
-}
+/* ---------- Fallback: Supabase ---------- */
 
 async function supabaseFetchDay(iso: string, limit = 250, cursor?: number | null) {
   const { createClient } = await import('@supabase/supabase-js')
@@ -150,7 +159,7 @@ async function supabaseFetchDay(iso: string, limit = 250, cursor?: number | null
   return { items, nextCursor }
 }
 
-/* ======================== Calendar popover ======================== */
+/* ======================== Calendar popover (nespremenjeno) ======================== */
 
 type CalProps = {
   open: boolean
@@ -195,20 +204,7 @@ function CalendarPopover({ open, anchorRef, valueISO, onClose, onPickISO }: CalP
     setPos({ top: r.bottom + 6 + window.scrollY, left: r.left + window.scrollX })
   }, [open, anchorRef])
 
-  const grid: Array<{ iso: string; label: number; dim: 'prev'|'curr'|'next'; isToday: boolean; isFuture: boolean }> = []
-  const first = startOfMonth(view)
-  const firstDow = (first.getDay() + 6) % 7 // Monday=0
-  const start = new Date(first); start.setDate(first.getDate() - firstDow)
-  for (let i = 0; i < 42; i++) {
-    const d = new Date(start); d.setDate(start.getDate() + i)
-    const iso = yyyymmdd(d)
-    const dim: 'prev'|'curr'|'next' =
-      d.getMonth() < view.getMonth() ? 'prev' :
-      d.getMonth() > view.getMonth() ? 'next' : 'curr'
-    grid.push({ iso, label: d.getDate(), dim, isToday: iso === todayISO, isFuture: iso > todayISO })
-  }
-
-  const onPick = (iso: string) => { onPickISO(iso); onClose() }
+  const todayISO2 = todayISO // samo, da lint ne teži
 
   if (!open || !pos) return null
   return (
@@ -248,8 +244,8 @@ function CalendarPopover({ open, anchorRef, valueISO, onClose, onPickISO }: CalP
             const dim: 'prev'|'curr'|'next' =
               d.getMonth() < view.getMonth() ? 'prev' :
               d.getMonth() > view.getMonth() ? 'next' : 'curr'
-            const isToday = iso === todayISO
-            const isFuture = iso > todayISO
+            const isToday = iso === todayISO2
+            const isFuture = iso > todayISO2
             const active = iso === valueISO
             const disabled = isFuture
             const base =
@@ -276,7 +272,7 @@ function CalendarPopover({ open, anchorRef, valueISO, onClose, onPickISO }: CalP
       </div>
 
       <div className="mt-2 flex items-center justify-between">
-        <button onClick={() => onPick(yyyymmdd(new Date()))} className="text-xs underline hover:opacity-80">
+        <button onClick={() => onPickISO(yyyymmdd(new Date()))} className="text-xs underline hover:opacity-80">
           Danes
         </button>
         <button onClick={onClose}
@@ -313,7 +309,7 @@ export default function ArchivePage() {
 
     const LIMIT = 250
 
-    // 1) Poskusi /api/archive (Vercel)
+    // 1) API (Vercel)
     try {
       let cursor: string | null = null
       let acc: ApiItem[] = []
@@ -327,8 +323,14 @@ export default function ArchivePage() {
         if (!res.ok || 'error' in data) throw new Error('Napaka pri nalaganju arhiva')
 
         for (const it of data.items) if (!seen.has(it.link)) { seen.add(it.link); acc.push(it) }
-        setItems(acc = [...acc].sort(sortDesc))
-        setCounts(data.counts || {})
+        // TRDO FILTRIRAJ NA LOKALNI DAN
+        const clamped = filterToLocalDay(acc, d)
+        setItems([...clamped].sort(sortDesc))
+
+        // counts iz filtriranih
+        const c: Record<string, number> = {}
+        for (const it of clamped) c[it.source] = (c[it.source] || 0) + 1
+        setCounts(c)
 
         if (!data.nextCursor) break
         cursor = data.nextCursor
@@ -340,7 +342,7 @@ export default function ArchivePage() {
       // nadaljuj na Supabase fallback
     }
 
-    // 2) Fallback: direktno Supabase (anon)
+    // 2) Fallback: Supabase (anon)
     try {
       let cursor: number | null = null
       let acc: ApiItem[] = []
@@ -349,11 +351,11 @@ export default function ArchivePage() {
         const { items, nextCursor } = await supabaseFetchDay(d, LIMIT, cursor)
 
         for (const it of items) if (!seen.has(it.link)) { seen.add(it.link); acc.push(it) }
-        setItems(acc = [...acc].sort(sortDesc))
+        const clamped = filterToLocalDay(acc, d)
+        setItems([...clamped].sort(sortDesc))
 
-        // lokalni counts (po virih)
         const c: Record<string, number> = {}
-        for (const it of acc) c[it.source] = (c[it.source] || 0) + 1
+        for (const it of clamped) c[it.source] = (c[it.source] || 0) + 1
         setCounts(c)
 
         if (!nextCursor) break
@@ -475,7 +477,7 @@ export default function ArchivePage() {
             </div>
           </div>
 
-          <CalendarPopover open={isDateOpen} anchorRef={dateWrapRef} valueISO={date} onClose={() => setIsDateOpen(false)} onPickISO={onPickDate} />
+          <CalendarPopover open={isDateOpen} anchorRef={dateWrapRef} valueISO={date} onClose={() => setIsDateOpen(false)} onPickISO={iso => { setIsDateOpen(false); onPickDate(iso) }} />
 
           {/* Graf */}
           <div className="rounded-xl border border-gray-200/70 dark:border-gray-700/70 bg-white/70 dark:bg-gray-900/70 backdrop-blur p-4">
@@ -525,7 +527,7 @@ export default function ArchivePage() {
             </div>
 
             <div className="rounded-md border border-gray-200/70 dark:border-gray-800/70 bg-white/50 dark:bg-gray-900/40">
-              <div className="relative max-h-[56svh] overflow-y-auto pb-3">
+              <div className="relative max-h=[56svh] max-h-[56svh] overflow-y-auto pb-3">
                 {loading ? (
                   <p className="p-3 text-sm text-gray-500 dark:text-gray-400">Nalagam…</p>
                 ) : errorMsg ? (
@@ -541,7 +543,7 @@ export default function ArchivePage() {
 
                       return (
                         <li key={`${link}-${i}`} className="px-2 sm:px-3 py-1">
-                          {/* mobile: stack */}
+                          {/* mobile */}
                           <div className="md:hidden">
                             <div className="flex items-center justify-between gap-3">
                               <span className="text-[11px] text-gray-500 dark:text-gray-400 tabular-nums whitespace-nowrap">{timeForRow(ts)}</span>
@@ -559,7 +561,7 @@ export default function ArchivePage() {
                             </a>
                           </div>
 
-                          {/* desktop: grid (čas | naslov | vir) */}
+                          {/* desktop */}
                           <div className="hidden md:grid grid-cols-[90px_1fr_160px] items-center gap-x-3">
                             <span className="text-[11px] text-gray-500 dark:text-gray-400 tabular-nums text-right">{timeForRow(ts)}</span>
                             <div className="relative">
