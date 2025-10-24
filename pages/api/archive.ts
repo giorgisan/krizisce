@@ -16,8 +16,8 @@ type Row = {
   source: string
   summary: string | null
   contentsnippet: string | null
-  published_at: string | null   // timestamptz
-  publishedat: number | null    // bigint (ms)
+  published_at: string | null   // timestamptz (lahko NULL)
+  publishedat: number | null    // bigint (ms, uporabljamo za filter/sort)
 }
 
 type ApiItem = {
@@ -40,29 +40,35 @@ type ApiOk = {
 }
 type ApiErr = { error: string }
 
-// Lokalna polnoč izbranega dne → ISO v UTC (Postgres timestamptz-friendly)
+// Lokalna polnoč izbranega dne → [startISO, endISO] in [startMs, endMs]
 function parseDateRange(dayISO?: string) {
   const today = new Date()
   const base = dayISO
-    ? new Date(`${dayISO}T00:00:00`) // interpretira se kot lokalni čas
+    ? new Date(`${dayISO}T00:00:00`) // lokalni čas
     : new Date(today.getFullYear(), today.getMonth(), today.getDate())
   const start = new Date(base)
   const end = new Date(base)
   end.setDate(end.getDate() + 1)
-  return { start: start.toISOString(), end: end.toISOString() }
+  return {
+    startISO: start.toISOString(),
+    endISO: end.toISOString(),
+    startMs: start.getTime(),
+    endMs: end.getTime(),
+  }
 }
 
-// Cursor v obliki "published_at__id"
-function parseCursor(raw: string | null): { ts: string | null; id: number | null; legacy: boolean } {
-  if (!raw) return { ts: null, id: null, legacy: false }
+// Cursor za keyset (publishedat DESC, id DESC)
+function parseCursor(raw: string | null): { ms: number | null; id: number | null } {
+  if (!raw) return { ms: null, id: null }
+  // nov format: "ms__id"
   const parts = String(raw).split('__')
   if (parts.length === 2) {
-    const ts = parts[0]
+    const ms = Number(parts[0])
     const id = Number(parts[1])
-    if (ts && Number.isFinite(id)) return { ts, id, legacy: false }
+    if (Number.isFinite(ms) && Number.isFinite(id)) return { ms, id }
   }
-  // legacy: star format (samo published_at), še vedno podprto
-  return { ts: raw, id: null, legacy: true }
+  // legacy: če bi kdaj prišel ISO published_at, ga ignoriramo (ne lomimo)
+  return { ms: null, id: null }
 }
 
 export default async function handler(
@@ -76,25 +82,22 @@ export default async function handler(
       500,
     )
     const rawCursor: string | null = (req.query.cursor as string) || null
-    const { start, end } = parseDateRange(dateStr)
+    const { startISO, endISO, startMs, endMs } = parseDateRange(dateStr)
     const cur = parseCursor(rawCursor)
 
-    // ------- ITEMS: keyset pagination (published_at DESC, id DESC) -------
+    // ------- ITEMS: reši po publishedat (ms) + id (keyset) -------
     let q = supabase
       .from('news')
       .select('id, link, title, source, summary, contentsnippet, published_at, publishedat')
-      .gte('published_at', start)
-      .lt('published_at', end)
-      .order('published_at', { ascending: false })
+      .gte('publishedat', startMs)
+      .lt('publishedat', endMs)
+      .order('publishedat', { ascending: false })
       .order('id', { ascending: false })
 
-    if (cur.ts && cur.id != null && !cur.legacy) {
-      // (published_at < ts) OR (published_at = ts AND id < lastId)
-      const orExpr = `published_at.lt.${cur.ts},and(published_at.eq.${cur.ts},id.lt.${cur.id})`
+    if (cur.ms != null && cur.id != null) {
+      // (publishedat < ms) OR (publishedat = ms AND id < lastId)
+      const orExpr = `publishedat.lt.${cur.ms},and(publishedat.eq.${cur.ms},id.lt.${cur.id})`
       q = q.or(orExpr as any)
-    } else if (cur.ts) {
-      // legacy podpora: samo published_at < cursor
-      q = q.lt('published_at', cur.ts)
     }
 
     q = q.limit(limit)
@@ -121,29 +124,32 @@ export default async function handler(
       publishedat: r.publishedat,
     }))
 
-    // naslednji cursor: vzemi zadnji zapis s strani
+    // naslednji cursor
     let nextCursor: string | null = null
     if (rows && rows.length === limit) {
       const last = (rows as Row[])[rows.length - 1]
-      if (last?.published_at && Number.isFinite(last?.id)) {
-        nextCursor = `${last.published_at}__${last.id}`
+      if (Number.isFinite(last?.publishedat) && Number.isFinite(last?.id)) {
+        nextCursor = `${last.publishedat}__${last.id}`
       }
     }
 
-    // ------- COUNTS (RPC ostane po published_at) -------
-    const { data: rpcData, error: rpcError } = await supabase.rpc('counts_by_source', {
-      start_iso: start,
-      end_iso: end,
-    })
+    // ------- COUNTS po publishedat (1 grouped query) -------
+    // PostgREST podpira agregacijo: select=source,count:count() & group=source
+    const { data: countsRows, error: countsErr } = await supabase
+      .from('news')
+      .select('source, cnt:count()', { head: false })
+      .gte('publishedat', startMs)
+      .lt('publishedat', endMs)
+      .group('source')
 
-    if (rpcError) {
+    if (countsErr) {
       res.setHeader('Cache-Control', 'no-store')
-      return res.status(500).json({ error: `RPC error: ${rpcError.message}` })
+      return res.status(500).json({ error: `Counts error: ${countsErr.message}` })
     }
 
     const counts: Record<string, number> = {}
-    for (const row of (rpcData as any[]) || []) {
-      counts[row.source] = Number(row.count)
+    for (const row of (countsRows as any[]) || []) {
+      counts[row.source] = Number(row.cnt)
     }
     const total = Object.values(counts).reduce((a, b) => a + b, 0)
 
