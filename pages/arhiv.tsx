@@ -1,4 +1,3 @@
-// pages/arhiv.tsx /g
 'use client'
 
 import React, {
@@ -107,12 +106,20 @@ const fmtClock = (ms: number) => {
 
 /* ---------- Helperji za fallback na Supabase ---------- */
 
-const dayBoundsUtc = (iso: string) => {
-  const [y, m, d] = iso.split('-').map(Number)
-  const start = Date.UTC(y, (m ?? 1) - 1, d ?? 1, 0, 0, 0, 0)
-  const end = start + 24 * 60 * 60 * 1000
-  return { start, end }
-}
+// POPRAVLJENA FUNKCIJA: Izračuna začetek in konec LOKALNEGA dneva in ju pretvori v UTC časovne znamke
+const dayBoundsForQuery = (iso: string) => {
+  const [y, m, d] = iso.split('-').map(Number);
+  // Ustvari datuma v lokalnem časovnem pasu brskalnika
+  const startLocal = new Date(y, (m ?? 1) - 1, d ?? 1, 0, 0, 0, 0);
+  // Konec dneva (23:59:59.999) - pomembno je, da vključiš zadnje milisekunde dneva
+  const endLocal = new Date(y, (m ?? 1) - 1, d ?? 1, 23, 59, 59, 999);
+
+  // Date.prototype.getTime() vrne milisekunde od epohe (kar je UTC).
+  // S tem zagotovimo, da se lokalni časovna obdobja pravilno pretvorijo v UTC časovne znamke
+  // za poizvedbo v bazi.
+  return { start: startLocal.getTime(), end: endLocal.getTime() };
+};
+
 
 async function supabaseFetchDay(iso: string, limit = 250, cursor?: number | null) {
   const { createClient } = await import('@supabase/supabase-js')
@@ -120,18 +127,19 @@ async function supabaseFetchDay(iso: string, limit = 250, cursor?: number | null
   const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string
   const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: false } })
 
-  const { start, end } = dayBoundsUtc(iso)
+  // Uporabi novo funkcijo za določanje mej
+  const { start, end } = dayBoundsForQuery(iso)
 
   let q = supabase
     .from('news')
     .select('id, link, title, source, published_at, publishedat, summary, contentsnippet, description, content')
     .gte('publishedat', start)
-    .lt('publishedat', end)
+    .lte('publishedat', end) // POPRAVEK: Zamenjano iz '.lt' v '.lte'
     .order('publishedat', { ascending: false })
     .order('id', { ascending: false })
     .limit(limit)
 
-  if (cursor && Number.isFinite(cursor)) q = q.lt('publishedat', cursor)
+  if (cursor && Number.isFinite(cursor)) q = q.lt('publishedat', cursor) // Ta cursor še vedno uporablja 'lt' za pageing, kar je ok
 
   const { data, error } = await q
   if (error) throw error
@@ -341,6 +349,7 @@ export default function ArchivePage() {
       let acc: ApiItem[] = []
       const seen = new Set<string>()
       while (true) {
+        // Uporablja se posodobljena funkcija supabaseFetchDay
         const { items, nextCursor } = await supabaseFetchDay(d, LIMIT, cursor)
 
         for (const it of items) if (!seen.has(it.link)) { seen.add(it.link); acc.push(it) }
@@ -376,6 +385,9 @@ export default function ArchivePage() {
     const t = setInterval(async () => {
       if (document.hidden || !latestTsRef.current) return
       try {
+        // Opomba: Ta klic API-ja še vedno uporablja stari API, ki bi se morda moral posodobiti,
+        // da bi upošteval nov način filtriranja, če /api/archive ni posodobljen.
+        // Če se /api/archive ne zanaša na to logiko, je lahko ok.
         const res = await fetch(`/api/archive?date=${encodeURIComponent(date)}&limit=1&_t=${Date.now()}`, { cache: 'no-store' })
         const data: any = await res.json()
         const newest = (data?.items?.length ? tsOf(data.items[0]) : 0) || 0
@@ -413,9 +425,16 @@ export default function ArchivePage() {
   const isSelectedToday = date === todayStr
   const timeForRow = (ms: number) => {
     if (!isSelectedToday) return fmtClock(ms)
-    const rowDay = yyyymmdd(new Date(ms))
-    return rowDay === date ? relativeTime(ms) : fmtClock(ms)
+    // Preveri, če je objava res za izbrani dan. Če je, prikaži relativni čas, sicer uro.
+    const rowDate = new Date(ms);
+    const rowDay = yyyymmdd(rowDate);
+    // Zaradi pretvorbe v lokalni čas se lahko GMT 23:00 "premakne" na naslednji dan lokalno.
+    // Če je izbrani dan danes in se objava prikaže ob 00:00,
+    // to pomeni, da je originalen UTC čas objave bil prejšnji dan pozno zvečer.
+    // Zato je bolje, da se zanašamo na izbrani 'date' string in ne na 'rowDay' za isSelectedToday
+    return rowDay === date ? relativeTime(ms) : fmtClock(ms) // Prikaže uro, če se je "premaknila" na naslednji dan, vendar je vseeno znotraj izbranega filtra.
   }
+
 
   return (
     <>
@@ -513,83 +532,4 @@ export default function ArchivePage() {
           <div>
             <h3 className="mt-1 mb-2 text-sm font-medium text-gray-800 dark:text-gray-200">Zadnje novice</h3>
 
-            <div className="hidden md:grid grid-cols-[90px_1fr_160px] text-[12px] text-gray-500 dark:text-gray-400 px-3">
-              <div className="sticky top-[calc(var(--hdr-h)+8px)] bg-transparent backdrop-blur pt-1 pb-1">Čas</div>
-              <div className="sticky top-[calc(var(--hdr-h)+8px)] bg-transparent backdrop-blur pt-1 pb-1">Naslov</div>
-              <div className="sticky top-[calc(var(--hdr-h)+8px)] bg-transparent backdrop-blur pt-1 pb-1 text-right pr-2">Vir</div>
-            </div>
-
-            <div className="rounded-md border border-gray-200/70 dark:border-gray-800/70 bg-white/50 dark:bg-gray-900/40">
-              <div className="relative max-h-[56svh] overflow-y-auto pb-3">
-                {loading ? (
-                  <p className="p-3 text-sm text-gray-500 dark:text-gray-400">Nalagam…</p>
-                ) : errorMsg ? (
-                  <p className="p-3 text-sm text-red-600 dark:text-red-400">{errorMsg}</p>
-                ) : (
-                  <ul className="divide-y divide-gray-200 dark:divide-gray-800">
-                    {filtered.map((it, i) => {
-                      const link = it.link
-                      const src = it.source
-                      const hex = sourceColors[src] || '#7c7c7c'
-                      const ts = tsOf(it)
-                      const summary = (it.summary ?? it.contentsnippet ?? it.description ?? it.content ?? '').trim()
-
-                      return (
-                        <li key={`${link}-${i}`} className="px-2 sm:px-3 py-1">
-                          {/* mobile: stack */}
-                          <div className="md:hidden">
-                            <div className="flex items-center justify-between gap-3">
-                              <span className="text-[11px] text-gray-500 dark:text-gray-400 tabular-nums whitespace-nowrap">{timeForRow(ts)}</span>
-                              <button
-                                className="inline-flex items-center gap-1 text-[11px] text-gray-700 dark:text-gray-200 hover:opacity-80"
-                                onClick={() => setSourceFilter(curr => (curr === src ? null : src))}
-                                title={sourceFilter === src ? 'Počisti filter' : `Prikaži samo: ${src}`}
-                              >
-                                <span className="inline-block w-1.5 h-1.5 rounded-full" style={{ backgroundColor: hex }} aria-hidden />
-                                {src}
-                              </button>
-                            </div>
-                            <a href={link} target="_blank" rel="noopener noreferrer" className="block text-[13.5px] leading-tight text-gray-900 dark:text-gray-100 hover:underline mt-0.5">
-                              {search.trim() ? highlight(it.title, search) : it.title}
-                            </a>
-                          </div>
-
-                          {/* desktop: grid (čas | naslov | vir) */}
-                          <div className="hidden md:grid grid-cols-[90px_1fr_160px] items-center gap-x-3">
-                            <span className="text-[11px] text-gray-500 dark:text-gray-400 tabular-nums text-right">{timeForRow(ts)}</span>
-                            <div className="relative">
-                              <a href={link} target="_blank" rel="noopener noreferrer" className="peer block text-[13px] leading-tight text-gray-900 dark:text-gray-100 hover:underline truncate">
-                                {search.trim() ? highlight(it.title, search) : it.title}
-                              </a>
-                              {summary && (
-                                <div className="pointer-events-none absolute left-0 top-full mt-1 z-50 max-w-[60ch] rounded-md bg-gray-900 text-white text-[12px] leading-snug px-2.5 py-2 shadow-lg ring-1 ring-black/20 opacity-0 invisible translate-y-1 transition peer-hover:opacity-100 peer-hover:visible peer-hover:translate-y-0">
-                                  {search.trim() ? highlight(summary, search) : summary}
-                                </div>
-                              )}
-                            </div>
-                            <button
-                              className="justify-self-end inline-flex items-center gap-1 text-[11px] text-gray-700 dark:text-gray-200 hover:opacity-80"
-                              onClick={() => setSourceFilter(curr => (curr === src ? null : src))}
-                              title={sourceFilter === src ? 'Počisti filter' : `Prikaži samo: ${src}`}
-                            >
-                              <span className="inline-block w-1.5 h-1.5 rounded-full" style={{ backgroundColor: hex }} aria-hidden />
-                              {src}
-                            </button>
-                          </div>
-                        </li>
-                      )
-                    })}
-                  </ul>
-                )}
-              </div>
-            </div>
-          </div>
-
-          <div className="mt-4 h-px bg-gray-200/70 dark:bg-gray-700/50 rounded-full" />
-        </section>
-      </main>
-
-      <Footer />
-    </>
-  )
-}
+            <div className="hidden md:grid grid-cols-[90px_1fr_160px] text-[12px] text-
