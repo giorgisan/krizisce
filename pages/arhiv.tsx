@@ -1,3 +1,4 @@
+// pages/arhiv.tsx
 'use client'
 
 import React, {
@@ -106,20 +107,17 @@ const fmtClock = (ms: number) => {
 
 /* ---------- Helperji za fallback na Supabase ---------- */
 
-// POPRAVLJENA FUNKCIJA: Izračuna začetek in konec LOKALNEGA dneva in ju pretvori v UTC časovne znamke
-const dayBoundsForQuery = (iso: string) => {
-  const [y, m, d] = iso.split('-').map(Number);
-  // Ustvari datuma v lokalnem časovnem pasu brskalnika
-  const startLocal = new Date(y, (m ?? 1) - 1, d ?? 1, 0, 0, 0, 0);
-  // Konec dneva (23:59:59.999) - pomembno je, da vključiš zadnje milisekunde dneva
-  const endLocal = new Date(y, (m ?? 1) - 1, d ?? 1, 23, 59, 59, 999);
-
-  // Date.prototype.getTime() vrne milisekunde od epohe (kar je UTC).
-  // S tem zagotovimo, da se lokalni časovna obdobja pravilno pretvorijo v UTC časovne znamke
-  // za poizvedbo v bazi.
-  return { start: startLocal.getTime(), end: endLocal.getTime() };
-};
-
+/** 
+ * Meje dneva v LOKALNEM času (DST-safe).
+ * start = lokalna polnoč izbranega dne
+ * end   = lokalna polnoč NASLEDNJEGA dne
+ */
+const dayBoundsLocal = (iso: string) => {
+  const [y, m, d] = iso.split('-').map(Number)
+  const start = new Date(y, (m ?? 1) - 1, d ?? 1, 0, 0, 0, 0).getTime()
+  const end   = new Date(y, (m ?? 1) - 1, (d ?? 1) + 1, 0, 0, 0, 0).getTime()
+  return { start, end }
+}
 
 async function supabaseFetchDay(iso: string, limit = 250, cursor?: number | null) {
   const { createClient } = await import('@supabase/supabase-js')
@@ -127,19 +125,18 @@ async function supabaseFetchDay(iso: string, limit = 250, cursor?: number | null
   const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string
   const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: false } })
 
-  // Uporabi novo funkcijo za določanje mej
-  const { start, end } = dayBoundsForQuery(iso)
+  const { start, end } = dayBoundsLocal(iso)
 
   let q = supabase
     .from('news')
     .select('id, link, title, source, published_at, publishedat, summary, contentsnippet, description, content')
     .gte('publishedat', start)
-    .lte('publishedat', end) // POPRAVEK: Zamenjano iz '.lt' v '.lte'
+    .lt('publishedat', end)
     .order('publishedat', { ascending: false })
     .order('id', { ascending: false })
     .limit(limit)
 
-  if (cursor && Number.isFinite(cursor)) q = q.lt('publishedat', cursor) // Ta cursor še vedno uporablja 'lt' za pageing, kar je ok
+  if (cursor && Number.isFinite(cursor)) q = q.lt('publishedat', cursor)
 
   const { data, error } = await q
   if (error) throw error
@@ -349,7 +346,6 @@ export default function ArchivePage() {
       let acc: ApiItem[] = []
       const seen = new Set<string>()
       while (true) {
-        // Uporablja se posodobljena funkcija supabaseFetchDay
         const { items, nextCursor } = await supabaseFetchDay(d, LIMIT, cursor)
 
         for (const it of items) if (!seen.has(it.link)) { seen.add(it.link); acc.push(it) }
@@ -385,9 +381,6 @@ export default function ArchivePage() {
     const t = setInterval(async () => {
       if (document.hidden || !latestTsRef.current) return
       try {
-        // Opomba: Ta klic API-ja še vedno uporablja stari API, ki bi se morda moral posodobiti,
-        // da bi upošteval nov način filtriranja, če /api/archive ni posodobljen.
-        // Če se /api/archive ne zanaša na to logiko, je lahko ok.
         const res = await fetch(`/api/archive?date=${encodeURIComponent(date)}&limit=1&_t=${Date.now()}`, { cache: 'no-store' })
         const data: any = await res.json()
         const newest = (data?.items?.length ? tsOf(data.items[0]) : 0) || 0
@@ -425,14 +418,9 @@ export default function ArchivePage() {
   const isSelectedToday = date === todayStr
   const timeForRow = (ms: number) => {
     if (!isSelectedToday) return fmtClock(ms)
-    // Preveri, ali je objava glede na svoj lokalni čas res znotraj izbranega 'date'
-    // Če je UTC čas objave npr. 23:00 UTC prejšnjega dne, a se lokalno prikaže ob 01:00 izbranega dne,
-    // še vedno želimo prikazati "pred X min" za današnji dan, če je izbran "danes".
-    const rowDate = new Date(ms);
-    const rowDayLocal = yyyymmdd(rowDate); // Datum v lokalnem časovnem pasu
-    return rowDayLocal === date ? relativeTime(ms) : fmtClock(ms);
+    const rowDay = yyyymmdd(new Date(ms))
+    return rowDay === date ? relativeTime(ms) : fmtClock(ms)
   }
-
 
   return (
     <>
@@ -570,3 +558,43 @@ export default function ArchivePage() {
                               {search.trim() ? highlight(it.title, search) : it.title}
                             </a>
                           </div>
+
+                          {/* desktop: grid (čas | naslov | vir) */}
+                          <div className="hidden md:grid grid-cols-[90px_1fr_160px] items-center gap-x-3">
+                            <span className="text-[11px] text-gray-500 dark:text-gray-400 tabular-nums text-right">{timeForRow(ts)}</span>
+                            <div className="relative">
+                              <a href={link} target="_blank" rel="noopener noreferrer" className="peer block text-[13px] leading-tight text-gray-900 dark:text-gray-100 hover:underline truncate">
+                                {search.trim() ? highlight(it.title, search) : it.title}
+                              </a>
+                              {summary && (
+                                <div className="pointer-events-none absolute left-0 top-full mt-1 z-50 max-w-[60ch] rounded-md bg-gray-900 text-white text-[12px] leading-snug px-2.5 py-2 shadow-lg ring-1 ring-black/20 opacity-0 invisible translate-y-1 transition peer-hover:opacity-100 peer-hover:visible peer-hover:translate-y-0">
+                                  {search.trim() ? highlight(summary, search) : summary}
+                                </div>
+                              )}
+                            </div>
+                            <button
+                              className="justify-self-end inline-flex items-center gap-1 text-[11px] text-gray-700 dark:text-gray-200 hover:opacity-80"
+                              onClick={() => setSourceFilter(curr => (curr === src ? null : src))}
+                              title={sourceFilter === src ? 'Počisti filter' : `Prikaži samo: ${src}`}
+                            >
+                              <span className="inline-block w-1.5 h-1.5 rounded-full" style={{ backgroundColor: hex }} aria-hidden />
+                              {src}
+                            </button>
+                          </div>
+                        </li>
+                      )
+                    })}
+                  </ul>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-4 h-px bg-gray-200/70 dark:bg-gray-700/50 rounded-full" />
+        </section>
+      </main>
+
+      <Footer />
+    </>
+  )
+}
