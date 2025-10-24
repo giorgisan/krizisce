@@ -38,13 +38,42 @@ type ApiOk = {
 }
 type ApiErr = { error: string }
 
-// lokalna polnoč izbranega dne → [startISO,endISO] in [startMs,endMs]
-function parseDateRange(dayISO?: string) {
-  const today = new Date()
-  const base = dayISO ? new Date(`${dayISO}T00:00:00`) : new Date(today.getFullYear(), today.getMonth(), today.getDate())
-  const start = new Date(base)
-  const end = new Date(base); end.setDate(end.getDate() + 1)
-  return { startISO: start.toISOString(), endISO: end.toISOString(), startMs: start.getTime(), endMs: end.getTime() }
+/** Vrne offset v urah za podani datum v podanem časovnem pasu.
+ *  Uporabimo poldne UTC, da zanesljivo dobimo pravilni offset (1 ali 2).
+ */
+function offsetHoursForDate(y: number, m: number, d: number, tz: string) {
+  const dtf = new Intl.DateTimeFormat('en-US', {
+    timeZone: tz,
+    hour12: false,
+    hour: '2-digit'
+  })
+  // Poldne UTC istega koledarskega dne
+  const noonUtc = new Date(Date.UTC(y, m - 1, d, 12, 0, 0, 0))
+  const parts = dtf.formatToParts(noonUtc)
+  const hh = Number(parts.find(p => p.type === 'hour')?.value ?? '0')
+  // Če je v Ljubljani 13:00, je offset +1; če 14:00, offset +2
+  return hh - 12
+}
+
+/** Meje lokalnega dne (Europe/Ljubljana) kot UTC epoch ms + ISO (za RPC) */
+function parseDateRangeTZ(dayISO?: string, tz = 'Europe/Ljubljana') {
+  const base = dayISO ? new Date(dayISO + 'T00:00:00Z') : new Date()
+  const y = base.getUTCFullYear()
+  const m = base.getUTCMonth() + 1
+  const d = base.getUTCDate()
+
+  const offStart = offsetHoursForDate(y, m, d, tz)
+  const offEnd   = offsetHoursForDate(y, m, d + 1, tz) // lahko drugačen ob prehodu DST
+
+  const startMs = Date.UTC(y, m - 1, d, -offStart, 0, 0, 0)
+  const endMs   = Date.UTC(y, m - 1, d + 1, -offEnd, 0, 0, 0)
+
+  return {
+    startISO: new Date(startMs).toISOString(),
+    endISO:   new Date(endMs).toISOString(),
+    startMs,
+    endMs,
+  }
 }
 
 // cursor: publishedat__id (npr. 1729730400000__123456)
@@ -63,7 +92,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
     const dateStr = (req.query.date as string) || undefined
     const limit = Math.min(Math.max(parseInt(String(req.query.limit ?? '200'), 10) || 200, 1), 500)
     const rawCursor: string | null = (req.query.cursor as string) || null
-    const { startISO, endISO, startMs, endMs } = parseDateRange(dateStr)
+    const { startISO, endISO, startMs, endMs } = parseDateRangeTZ(dateStr, 'Europe/Ljubljana')
     const cur = parseCursor(rawCursor)
 
     // ------- ITEMS po (publishedat DESC, id DESC) -------
@@ -107,7 +136,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
       }
     }
 
-    // ------- COUNTS – nazaj na tvoj RPC (zanesljivo) -------
+    // ------- COUNTS – tvoj stabilni RPC (po istih mejah dneva) -------
     const { data: rpcData, error: rpcError } = await supabase.rpc('counts_by_source', {
       start_iso: startISO,
       end_iso: endISO,
