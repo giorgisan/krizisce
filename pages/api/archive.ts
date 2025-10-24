@@ -16,8 +16,8 @@ type Row = {
   source: string
   summary: string | null
   contentsnippet: string | null
-  published_at: string | null   // timestamptz (lahko NULL)
-  publishedat: number | null    // bigint (ms, uporabljamo za filter/sort)
+  published_at: string | null   // lahko NULL
+  publishedat: number | null    // bigint (ms) — uporabljamo za filter/sort
 }
 
 type ApiItem = {
@@ -40,11 +40,11 @@ type ApiOk = {
 }
 type ApiErr = { error: string }
 
-// Lokalna polnoč izbranega dne → [startISO, endISO] in [startMs, endMs]
+// lokalna polnoč izbranega dne → [startISO, endISO] in [startMs, endMs]
 function parseDateRange(dayISO?: string) {
   const today = new Date()
   const base = dayISO
-    ? new Date(`${dayISO}T00:00:00`) // lokalni čas
+    ? new Date(`${dayISO}T00:00:00`)
     : new Date(today.getFullYear(), today.getMonth(), today.getDate())
   const start = new Date(base)
   const end = new Date(base)
@@ -57,18 +57,16 @@ function parseDateRange(dayISO?: string) {
   }
 }
 
-// Cursor za keyset (publishedat DESC, id DESC)
+// cursor: publishedat__id (npr. 1729730400000__123456)
 function parseCursor(raw: string | null): { ms: number | null; id: number | null } {
   if (!raw) return { ms: null, id: null }
-  // nov format: "ms__id"
   const parts = String(raw).split('__')
   if (parts.length === 2) {
     const ms = Number(parts[0])
     const id = Number(parts[1])
     if (Number.isFinite(ms) && Number.isFinite(id)) return { ms, id }
   }
-  // legacy: če bi kdaj prišel ISO published_at, ga ignoriramo (ne lomimo)
-  return { ms: null, id: null }
+  return { ms: null, id: null } // legacy ignoriramo
 }
 
 export default async function handler(
@@ -85,7 +83,7 @@ export default async function handler(
     const { startISO, endISO, startMs, endMs } = parseDateRange(dateStr)
     const cur = parseCursor(rawCursor)
 
-    // ------- ITEMS: reši po publishedat (ms) + id (keyset) -------
+    // -------- ITEMS: keyset po (publishedat DESC, id DESC) --------
     let q = supabase
       .from('news')
       .select('id, link, title, source, summary, contentsnippet, published_at, publishedat')
@@ -124,7 +122,6 @@ export default async function handler(
       publishedat: r.publishedat,
     }))
 
-    // naslednji cursor
     let nextCursor: string | null = null
     if (rows && rows.length === limit) {
       const last = (rows as Row[])[rows.length - 1]
@@ -133,14 +130,13 @@ export default async function handler(
       }
     }
 
-    // ------- COUNTS po publishedat (1 grouped query) -------
-    // PostgREST podpira agregacijo: select=source,count:count() & group=source
+    // -------- COUNTS: agregat po publishedat (BREZ .group()) --------
+    // PostgREST sam "groupira", ko kombiniraš agregat + neagregatno polje.
     const { data: countsRows, error: countsErr } = await supabase
       .from('news')
-      .select('source, cnt:count()', { head: false })
+      .select('source, cnt:count()')
       .gte('publishedat', startMs)
       .lt('publishedat', endMs)
-      .group('source')
 
     if (countsErr) {
       res.setHeader('Cache-Control', 'no-store')
