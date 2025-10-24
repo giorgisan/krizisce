@@ -5,9 +5,7 @@ import { createClient } from '@supabase/supabase-js'
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL as string
 const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string
 
-const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-  auth: { persistSession: false },
-})
+const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: false } })
 
 type Row = {
   id: number
@@ -40,21 +38,13 @@ type ApiOk = {
 }
 type ApiErr = { error: string }
 
-// lokalna polnoč izbranega dne → [startISO, endISO] in [startMs, endMs]
+// lokalna polnoč izbranega dne → [startISO,endISO] in [startMs,endMs]
 function parseDateRange(dayISO?: string) {
   const today = new Date()
-  const base = dayISO
-    ? new Date(`${dayISO}T00:00:00`)
-    : new Date(today.getFullYear(), today.getMonth(), today.getDate())
+  const base = dayISO ? new Date(`${dayISO}T00:00:00`) : new Date(today.getFullYear(), today.getMonth(), today.getDate())
   const start = new Date(base)
-  const end = new Date(base)
-  end.setDate(end.getDate() + 1)
-  return {
-    startISO: start.toISOString(),
-    endISO: end.toISOString(),
-    startMs: start.getTime(),
-    endMs: end.getTime(),
-  }
+  const end = new Date(base); end.setDate(end.getDate() + 1)
+  return { startISO: start.toISOString(), endISO: end.toISOString(), startMs: start.getTime(), endMs: end.getTime() }
 }
 
 // cursor: publishedat__id (npr. 1729730400000__123456)
@@ -62,28 +52,21 @@ function parseCursor(raw: string | null): { ms: number | null; id: number | null
   if (!raw) return { ms: null, id: null }
   const parts = String(raw).split('__')
   if (parts.length === 2) {
-    const ms = Number(parts[0])
-    const id = Number(parts[1])
+    const ms = Number(parts[0]); const id = Number(parts[1])
     if (Number.isFinite(ms) && Number.isFinite(id)) return { ms, id }
   }
   return { ms: null, id: null } // legacy ignoriramo
 }
 
-export default async function handler(
-  req: NextApiRequest,
-  res: NextApiResponse<ApiOk | ApiErr>,
-) {
+export default async function handler(req: NextApiRequest, res: NextApiResponse<ApiOk | ApiErr>) {
   try {
     const dateStr = (req.query.date as string) || undefined
-    const limit = Math.min(
-      Math.max(parseInt(String(req.query.limit ?? '200'), 10) || 200, 1),
-      500,
-    )
+    const limit = Math.min(Math.max(parseInt(String(req.query.limit ?? '200'), 10) || 200, 1), 500)
     const rawCursor: string | null = (req.query.cursor as string) || null
     const { startISO, endISO, startMs, endMs } = parseDateRange(dateStr)
     const cur = parseCursor(rawCursor)
 
-    // -------- ITEMS: keyset po (publishedat DESC, id DESC) --------
+    // ------- ITEMS po (publishedat DESC, id DESC) -------
     let q = supabase
       .from('news')
       .select('id, link, title, source, summary, contentsnippet, published_at, publishedat')
@@ -99,24 +82,18 @@ export default async function handler(
     }
 
     q = q.limit(limit)
-
     const { data: rows, error } = await q
     if (error) {
       res.setHeader('Cache-Control', 'no-store')
       return res.status(500).json({ error: `DB error: ${error.message}` })
     }
 
-    const items: ApiItem[] = (rows as Row[]).map((r) => ({
+    const items: ApiItem[] = (rows as Row[]).map(r => ({
       id: String(r.id),
       link: r.link,
       title: r.title,
       source: r.source,
-      summary:
-        r.summary && r.summary.trim()
-          ? r.summary
-          : r.contentsnippet && r.contentsnippet.trim()
-          ? r.contentsnippet
-          : null,
+      summary: r.summary?.trim() ? r.summary : (r.contentsnippet?.trim() ? r.contentsnippet : null),
       contentsnippet: r.contentsnippet,
       published_at: r.published_at,
       publishedat: r.publishedat,
@@ -130,33 +107,22 @@ export default async function handler(
       }
     }
 
-    // -------- COUNTS: agregat po publishedat (BREZ .group()) --------
-    // PostgREST sam "groupira", ko kombiniraš agregat + neagregatno polje.
-    const { data: countsRows, error: countsErr } = await supabase
-      .from('news')
-      .select('source, cnt:count()')
-      .gte('publishedat', startMs)
-      .lt('publishedat', endMs)
-
-    if (countsErr) {
+    // ------- COUNTS – nazaj na tvoj RPC (zanesljivo) -------
+    const { data: rpcData, error: rpcError } = await supabase.rpc('counts_by_source', {
+      start_iso: startISO,
+      end_iso: endISO,
+    })
+    if (rpcError) {
       res.setHeader('Cache-Control', 'no-store')
-      return res.status(500).json({ error: `Counts error: ${countsErr.message}` })
+      return res.status(500).json({ error: `RPC error: ${rpcError.message}` })
     }
 
     const counts: Record<string, number> = {}
-    for (const row of (countsRows as any[]) || []) {
-      counts[row.source] = Number(row.cnt)
-    }
+    for (const row of (rpcData as any[]) || []) counts[row.source] = Number(row.count)
     const total = Object.values(counts).reduce((a, b) => a + b, 0)
 
     res.setHeader('Cache-Control', 'no-store')
-    return res.status(200).json({
-      items,
-      counts,
-      total,
-      nextCursor,
-      fallbackLive: false,
-    })
+    return res.status(200).json({ items, counts, total, nextCursor, fallbackLive: false })
   } catch (e: any) {
     res.setHeader('Cache-Control', 'no-store')
     return res.status(500).json({ error: e?.message || 'Unexpected error' })
