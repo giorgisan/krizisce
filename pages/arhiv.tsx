@@ -129,7 +129,7 @@ type Props = { initialNews: NewsItem[] }
 export default function Home({ initialNews }: Props) {
   const [news, setNews] = useState<NewsItem[]>(initialNews)
 
-  // --- FIX: robustna migracija iz starega ključa 'selectedSources' na 'selectedSource' ---
+  // --- MIGRACIJA: selectedSources (stari array) → selectedSource (string) ---
   const [selectedSource, setSelectedSource] = useState<string>(() => {
     try {
       const rawNew = localStorage.getItem('selectedSource')
@@ -316,7 +316,7 @@ export default function Home({ initialNews }: Props) {
         onChange={(next) => {
           startTransition(() => {
             setSelectedSource(next)
-            // --- FIX: persistiraj novi ključ, počisti starega ---
+            // persistiraj novi ključ in počisti starega
             try {
               localStorage.setItem('selectedSource', next)
               localStorage.removeItem('selectedSources')
