@@ -1,6 +1,16 @@
 // components/ArticleCard.tsx
 'use client'
 
+/* ============================================
+   ArticleCard — z robustnim nalaganjem slik
+   Odseki za lažji copy-paste:
+   A) Stanja za sliko (imgLoaded, ref, key)
+   B) Reset + cache-complete check
+   C) Watchdog za stuck scenarije
+   D) Skeleton overlay ("Nalagam sliko …")
+   E) <img> z data-ok in pravilnim referrerPolicy
+   ============================================ */
+
 import { NewsItem } from '@/types'
 import {
   MouseEvent,
@@ -13,7 +23,7 @@ import {
 import dynamic from 'next/dynamic'
 import { proxiedImage, buildSrcSet } from '@/lib/img'
 import { preloadPreview, canPrefetch, warmImage } from '@/lib/previewPrefetch'
-import { sourceColors } from '@/lib/sources' // ← namesto require()
+import { sourceColors } from '@/lib/sources'
 
 interface Props { news: NewsItem; priority?: boolean }
 type PreviewProps = { url: string; onClose: () => void }
@@ -70,16 +80,6 @@ export default function ArticleCard({ news, priority = false }: Props) {
     if (!rawImg) return ''
     return buildSrcSet(rawImg, IMAGE_WIDTHS, ASPECT)
   }, [rawImg])
-
-  // --- stanje nalaganja slike (za skeleton) ---
-  const [imgLoaded, setImgLoaded] = useState(false)
-  // unique key, da se onLoad resetira, ko se zamenja strategija (proxy ↔ direct) ali vir
-  const imgKey = `${currentSrc || 'noimg'}|${useProxy ? 'p' : 'd'}`
-
-  useEffect(() => {
-    // ob vsaki spremembi vira ponovno prikaži skeleton
-    setImgLoaded(false)
-  }, [imgKey])
 
   const handleImgError = () => {
     if (rawImg && useProxy) { setUseProxy(false); return }
@@ -197,6 +197,36 @@ export default function ArticleCard({ news, priority = false }: Props) {
   const [eyeHover,   setEyeHover]   = useState(false)
   const showEye = isTouch ? true : eyeVisible
 
+  /* =========================
+     A) STANJA ZA SLIKO
+     ========================= */
+  const [imgLoaded, setImgLoaded] = useState(false)
+  const imgRef = useRef<HTMLImageElement>(null)
+  // unikaten key, da se <img> remounta, ko zamenjamo vir (proxy↔direct)
+  const imgKey = `${currentSrc || 'noimg'}|${useProxy ? 'p' : 'd'}`
+
+  /* =========================
+     B) RESET + CACHE CHECK
+     ========================= */
+  useEffect(() => { setImgLoaded(false) }, [imgKey])
+
+  useEffect(() => {
+    const el = imgRef.current
+    if (el && el.complete && el.naturalWidth > 0) setImgLoaded(true)
+  }, [imgKey])
+
+  /* =========================
+     C) WATCHDOG (4.5 s)
+     ========================= */
+  useEffect(() => {
+    if (!currentSrc || imgLoaded || useFallback) return
+    const t = window.setTimeout(() => {
+      // če visi (niti onLoad niti onError), preklopi in/ali fallback
+      handleImgError()
+    }, 4500)
+    return () => window.clearTimeout(t)
+  }, [currentSrc, imgLoaded, useFallback]) 
+
   return (
     <>
       <a
@@ -216,27 +246,28 @@ export default function ArticleCard({ news, priority = false }: Props) {
       >
         {/* Media */}
         <div className="relative w-full aspect-[16/9] overflow-hidden">
-          {/* Skeleton “Nalagam…” – prikazan dokler ni imgLoaded in dokler imamo slikovni vir */}
+          {/* D) SKELETON: "Nalagam sliko …" */}
           {(!imgLoaded && !useFallback && !!currentSrc) && (
-            <div className="absolute inset-0 grid place-items-center
+            <div className="absolute inset-0 grid place-items-center pointer-events-none
                             bg-gradient-to-br from-gray-200 via-gray-300 to-gray-200
                             dark:from-gray-700 dark:via-gray-800 dark:to-gray-700 animate-pulse">
               <span className="px-2 py-1 rounded text-[12px] font-medium
                                bg-black/30 text-white backdrop-blur">
-                Nalagam…
+                Nalagam sliko …
               </span>
             </div>
           )}
 
-          {/* Fallback: ni slike */}
           {useFallback || !currentSrc ? (
             <div className="absolute inset-0 flex items-center justify-center">
               <div className="absolute inset-0 bg-gradient-to-br from-gray-200 via-gray-300 to-gray-200 dark:from-gray-700 dark:via-gray-800 dark:to-gray-700" />
               <span className="relative z-10 text-sm font-medium text-gray-700 dark:text-gray-300">Ni slike</span>
             </div>
           ) : (
+            /* E) IMG z robustnimi atributi */
             <img
               key={imgKey}
+              ref={imgRef}
               src={currentSrc}
               srcSet={srcSet}
               alt={news.title}
@@ -250,7 +281,7 @@ export default function ArticleCard({ news, priority = false }: Props) {
               decoding="async"
               width={640}
               height={360}
-              referrerPolicy="no-referrer"
+              referrerPolicy="strict-origin-when-cross-origin"
               crossOrigin="anonymous"
               data-ok={imgLoaded}
             />
@@ -282,9 +313,9 @@ export default function ArticleCard({ news, priority = false }: Props) {
           {!isTouch && (
             <span
               className="hidden md:block pointer-events-none absolute top-2 right-[calc(0.5rem+2rem+8px)]
-                         rounded-md px-2 py-1 text-xs font-medium bg-black/60 text-white backdrop-blur-sm drop-shadow-lg
-                         opacity-0 -translate-x-1 transition-opacity transition-transform duration-150
-                         peer-hover:opacity-100 peer-hover:translate-x-0"
+                             rounded-md px-2 py-1 text-xs font-medium bg-black/60 text-white backdrop-blur-sm drop-shadow-lg
+                             opacity-0 -translate-x-1 transition-opacity transition-transform duration-150
+                             peer-hover:opacity-100 peer-hover:translate-x-0"
             >
               Predogled&nbsp;novice
             </span>
