@@ -1,7 +1,8 @@
+// components/ArticleCard.tsx
 'use client'
 
 import { NewsItem } from '@/types'
-import React, {
+import {
   MouseEvent,
   useMemo,
   useRef,
@@ -12,7 +13,7 @@ import React, {
 import dynamic from 'next/dynamic'
 import { proxiedImage, buildSrcSet } from '@/lib/img'
 import { preloadPreview, canPrefetch, warmImage } from '@/lib/previewPrefetch'
-import { sourceColors } from '@/lib/sources'
+import { sourceColors } from '@/lib/sources' // ← namesto require()
 
 interface Props { news: NewsItem; priority?: boolean }
 type PreviewProps = { url: string; onClose: () => void }
@@ -20,8 +21,6 @@ const ArticlePreview = dynamic(() => import('./ArticlePreview'), { ssr: false })
 
 const ASPECT = 16 / 9
 const IMAGE_WIDTHS = [320, 480, 640, 960, 1280]
-
-/* ================= Helpers ================= */
 
 function formatDisplayTime(publishedAt?: number, iso?: string) {
   const ms = publishedAt ?? (iso ? Date.parse(iso) : 0)
@@ -38,61 +37,56 @@ function formatDisplayTime(publishedAt?: number, iso?: string) {
   return `${date}, ${time}`
 }
 
-const httpsOnly = (u?: string | null) => {
-  if (!u) return null
-  try { const x = new URL(u); x.protocol = 'https:'; return x.toString() } catch { return null }
-}
-
-/* ================= Component ================= */
-
 export default function ArticleCard({ news, priority = false }: Props) {
   const formattedDate = formatDisplayTime(news.publishedAt, news.isoDate)
-  const sourceColor = useMemo(() => (sourceColors as Record<string,string>)[news.source] || '#fc9c6c', [news.source])
 
-  // coarse pointer / touch
+  const sourceColor = useMemo(() => {
+    return (sourceColors as Record<string, string>)[news.source] || '#fc9c6c'
+  }, [news.source])
+
+  // --- zaznavanje dotika / coarse pointer ---
   const [isTouch, setIsTouch] = useState(false)
   useEffect(() => {
     try {
       const coarse   = typeof window !== 'undefined' && window.matchMedia?.('(pointer: coarse)').matches
       const touchCap = typeof navigator !== 'undefined' && (navigator.maxTouchPoints || (navigator as any).msMaxTouchPoints) > 0
       setIsTouch(!!coarse || !!touchCap || 'ontouchstart' in window)
-    } catch { setIsTouch(false) }
+    } catch {
+      setIsTouch(false)
+    }
   }, [])
 
-  /* ---------- Images: direct → proxy → fallback ---------- */
-  type ImgStrategy = 'direct' | 'proxy' | 'fallback'
+  // ---- Slike: proxy → direct → fallback ----
   const rawImg = news.image ?? null
-  const [strategy, setStrategy] = useState<ImgStrategy>(rawImg ? 'direct' : 'fallback')
-
-  // computed urls
-  const directUrl = useMemo(() => httpsOnly(rawImg), [rawImg])
+  const [useProxy, setUseProxy]       = useState<boolean>(!!rawImg)
+  const [useFallback, setUseFallback] = useState<boolean>(!rawImg)
 
   const currentSrc = useMemo(() => {
     if (!rawImg) return null
-    if (strategy === 'proxy') return proxiedImage(rawImg, 640, 360, 1)
-    if (strategy === 'direct') return directUrl
-    return null
-  }, [rawImg, strategy, directUrl])
+    return useProxy ? proxiedImage(rawImg, 640, 360, 1) : rawImg
+  }, [rawImg, useProxy])
 
-  // srcset depends on strategy (avoid mixing)
   const srcSet = useMemo(() => {
     if (!rawImg) return ''
-    if (strategy === 'proxy') return buildSrcSet(rawImg, IMAGE_WIDTHS, ASPECT)
-    return '' // most origins don't support true multi-width direct URLs
-  }, [rawImg, strategy])
+    return buildSrcSet(rawImg, IMAGE_WIDTHS, ASPECT)
+  }, [rawImg])
 
-  const useFallback = strategy === 'fallback'
+  // --- stanje nalaganja slike (za skeleton) ---
+  const [imgLoaded, setImgLoaded] = useState(false)
+  // unique key, da se onLoad resetira, ko se zamenja strategija (proxy ↔ direct) ali vir
+  const imgKey = `${currentSrc || 'noimg'}|${useProxy ? 'p' : 'd'}`
 
-  // force reload <img> on strategy change (bypass cache heuristics)
-  const [imgKey, setImgKey] = useState(0)
-  useEffect(() => { setImgKey(k => k + 1) }, [strategy])
+  useEffect(() => {
+    // ob vsaki spremembi vira ponovno prikaži skeleton
+    setImgLoaded(false)
+  }, [imgKey])
 
   const handleImgError = () => {
-    if (strategy === 'direct' && rawImg) { setStrategy('proxy'); return }
-    if (strategy === 'proxy')           { setStrategy('fallback'); return }
+    if (rawImg && useProxy) { setUseProxy(false); return }
+    if (!useFallback) setUseFallback(true)
   }
 
-  // LCP preload for first card
+  // Preload za LCP – deterministično (prva kartica dobi priority=true)
   const cardRef = useRef<HTMLAnchorElement>(null)
   const [isPriority, setIsPriority] = useState<boolean>(priority)
   useEffect(() => { if (priority) setIsPriority(true) }, [priority])
@@ -106,14 +100,13 @@ export default function ArticleCard({ news, priority = false }: Props) {
     const link    = document.createElement('link')
     link.rel      = 'preload'
     link.as       = 'image'
-    // preload proxied variant (fast + predictable)
     link.href     = proxiedImage(rawImg, targetW, targetH, dpr)
     link.crossOrigin = 'anonymous'
     document.head.appendChild(link)
     return () => { document.head.removeChild(link) }
   }, [isPriority, rawImg])
 
-  /* ---------- Analytics beacons ---------- */
+  // ---- API beacons ----
   const sendBeacon = (payload: any) => {
     try {
       const json = JSON.stringify(payload)
@@ -125,18 +118,20 @@ export default function ArticleCard({ news, priority = false }: Props) {
     } catch {}
   }
 
+  // Klik na članek
   const logClick = () => { sendBeacon({ source: news.source, url: news.link, action: 'open' }) }
   const handleClick = (e: MouseEvent<HTMLAnchorElement>) => {
     if (e.metaKey || e.ctrlKey || e.button === 1) return
     e.preventDefault()
-    window.open(news.link, '_blank', 'noopener')
+    window.open(news.link, '_blank', 'noopener') // brez noreferrer, da pošljemo Referer
     logClick()
   }
   const handleAuxClick = (e: MouseEvent<HTMLAnchorElement>) => { if (e.button === 1) logClick() }
 
-  /* ---------- Preview open/close ---------- */
+  // ---- Predogled: open/close tracking ----
   const [showPreview, setShowPreview] = useState(false)
   const previewOpenedAtRef = useRef<number | null>(null)
+
   useEffect(() => {
     if (showPreview) {
       previewOpenedAtRef.current = Date.now()
@@ -153,7 +148,12 @@ export default function ArticleCard({ news, priority = false }: Props) {
     } else if (previewOpenedAtRef.current) {
       const duration = Date.now() - previewOpenedAtRef.current
       previewOpenedAtRef.current = null
-      sendBeacon({ source: news.source, url: news.link, action: 'preview_close', meta: { duration_ms: duration } })
+      sendBeacon({
+        source: news.source,
+        url:    news.link,
+        action: 'preview_close',
+        meta: { duration_ms: duration },
+      })
     }
   }, [showPreview, news.source, news.link])
 
@@ -161,7 +161,12 @@ export default function ArticleCard({ news, priority = false }: Props) {
     const onUnload = () => {
       if (previewOpenedAtRef.current) {
         const duration = Date.now() - previewOpenedAtRef.current
-        sendBeacon({ source: news.source, url: news.link, action: 'preview_close', meta: { duration_ms: duration, closed_by: 'unload' } })
+        sendBeacon({
+          source: news.source,
+          url:    news.link,
+          action: 'preview_close',
+          meta: { duration_ms: duration, closed_by: 'unload' },
+        })
         previewOpenedAtRef.current = null
       }
     }
@@ -169,12 +174,13 @@ export default function ArticleCard({ news, priority = false }: Props) {
     return () => window.removeEventListener('beforeunload', onUnload)
   }, [news.source, news.link])
 
-  /* ---------- Prefetch preview + warm image ---------- */
+  // ---- Prefetch preview + hover warm-up slike ----
   const preloadedRef = useRef(false)
   const triggerPrefetch = () => {
     if (!preloadedRef.current && canPrefetch()) {
       preloadedRef.current = true
       preloadPreview(news.link).catch(() => {})
+
       if (rawImg && cardRef.current) {
         const rectW = Math.max(1, Math.round(cardRef.current.getBoundingClientRect().width || 480))
         const dpr   = (typeof window !== 'undefined' && window.devicePixelRatio) || 1
@@ -186,7 +192,7 @@ export default function ArticleCard({ news, priority = false }: Props) {
     }
   }
 
-  /* ---------- Eye button visibility ---------- */
+  // ---- Oko: vidnost (kartica) + nežen zoom (gumb) ----
   const [eyeVisible, setEyeVisible] = useState(false)
   const [eyeHover,   setEyeHover]   = useState(false)
   const showEye = isTouch ? true : eyeVisible
@@ -210,6 +216,19 @@ export default function ArticleCard({ news, priority = false }: Props) {
       >
         {/* Media */}
         <div className="relative w-full aspect-[16/9] overflow-hidden">
+          {/* Skeleton “Nalagam…” – prikazan dokler ni imgLoaded in dokler imamo slikovni vir */}
+          {(!imgLoaded && !useFallback && !!currentSrc) && (
+            <div className="absolute inset-0 grid place-items-center
+                            bg-gradient-to-br from-gray-200 via-gray-300 to-gray-200
+                            dark:from-gray-700 dark:via-gray-800 dark:to-gray-700 animate-pulse">
+              <span className="px-2 py-1 rounded text-[12px] font-medium
+                               bg-black/30 text-white backdrop-blur">
+                Nalagam…
+              </span>
+            </div>
+          )}
+
+          {/* Fallback: ni slike */}
           {useFallback || !currentSrc ? (
             <div className="absolute inset-0 flex items-center justify-center">
               <div className="absolute inset-0 bg-gradient-to-br from-gray-200 via-gray-300 to-gray-200 dark:from-gray-700 dark:via-gray-800 dark:to-gray-700" />
@@ -221,9 +240,11 @@ export default function ArticleCard({ news, priority = false }: Props) {
               src={currentSrc}
               srcSet={srcSet}
               alt={news.title}
-              className="absolute inset-0 h-full w-full object-cover"
+              className="absolute inset-0 h-full w-full object-cover transition-opacity duration-200
+                         opacity-0 data-[ok=true]:opacity-100"
               sizes="(max-width: 640px) 100vw, (max-width: 1280px) 33vw, 20vw"
               onError={handleImgError}
+              onLoad={() => setImgLoaded(true)}
               loading={isPriority ? 'eager' : 'lazy'}
               fetchPriority={isPriority ? 'high' : 'auto'}
               decoding="async"
@@ -231,6 +252,7 @@ export default function ArticleCard({ news, priority = false }: Props) {
               height={360}
               referrerPolicy="no-referrer"
               crossOrigin="anonymous"
+              data-ok={imgLoaded}
             />
           )}
 
@@ -256,7 +278,7 @@ export default function ArticleCard({ news, priority = false }: Props) {
             </svg>
           </button>
 
-          {/* Tooltip (no-touch) */}
+          {/* Tooltip – na touch ga skrijemo */}
           {!isTouch && (
             <span
               className="hidden md:block pointer-events-none absolute top-2 right-[calc(0.5rem+2rem+8px)]
@@ -269,7 +291,7 @@ export default function ArticleCard({ news, priority = false }: Props) {
           )}
         </div>
 
-        {/* Text */}
+        {/* Besedilo */}
         <div className="p-2.5 min-h-[10rem] sm:min-h-[10rem] md:min-h-[9.75rem] lg:min-h-[9.5rem] xl:min-h-[9.5rem] overflow-hidden">
           <div className="mb-1 grid grid-cols-[1fr_auto] items-baseline gap-x-2">
             <span className="truncate text-[12px] font-medium tracking-[0.01em]" style={{ color: sourceColor }}>
