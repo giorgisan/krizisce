@@ -1,4 +1,3 @@
-// pages/index.tsx
 'use client'
 
 import React, {
@@ -176,13 +175,17 @@ export default function Home({ initialNews }: Props) {
     return () => ctrl.abort()
   }, [initialNews])
 
-  // polling
+  // polling (UPD: upoštevaj trenutno izbran vir, da se banner ne kaže lažno)
   const [freshNews, setFreshNews] = useState<NewsItem[] | null>(null)
   const missCountRef = useRef(0)
   const timerRef = useRef<number | null>(null)
 
   useEffect(() => {
     if (!bootRefreshed) return
+
+    const filterBySelection = (arr: NewsItem[]) =>
+      (deferredSource === 'Vse' ? arr : arr.filter(n => n.source === deferredSource))
+
     const runCheck = async () => {
       kickSyncIfStale(10 * 60_000)
       const ctrl = new AbortController()
@@ -192,7 +195,7 @@ export default function Home({ initialNews }: Props) {
         missCountRef.current = Math.min(POLL_MAX_BACKOFF, missCountRef.current + 1)
         return
       }
-      const { newLinks, hasNewer } = diffFresh(fresh, news)
+      const { newLinks, hasNewer } = diffFresh(filterBySelection(fresh), filterBySelection(news))
       setFreshNews(fresh)
       if (hasNewer && newLinks > 0) {
         window.dispatchEvent(new CustomEvent('news-has-new', { detail: true }))
@@ -202,6 +205,7 @@ export default function Home({ initialNews }: Props) {
         missCountRef.current = Math.min(POLL_MAX_BACKOFF, missCountRef.current + 1)
       }
     }
+
     const schedule = () => {
       const hidden = document.visibilityState === 'hidden'
       const base = hidden ? HIDDEN_POLL_MS : POLL_MS
@@ -209,11 +213,12 @@ export default function Home({ initialNews }: Props) {
       if (timerRef.current) window.clearInterval(timerRef.current)
       timerRef.current = window.setInterval(runCheck, base + extra) as unknown as number
     }
+
     runCheck(); schedule()
     const onVis = () => { if (document.visibilityState === 'visible') runCheck(); schedule() }
     document.addEventListener('visibilitychange', onVis)
     return () => { if (timerRef.current) window.clearInterval(timerRef.current); document.removeEventListener('visibilitychange', onVis) }
-  }, [news, bootRefreshed])
+  }, [news, bootRefreshed, deferredSource])
 
   // manual refresh
   useEffect(() => {
@@ -313,7 +318,7 @@ export default function Home({ initialNews }: Props) {
 
       <SeoHead title="Križišče" description="Agregator najnovejših novic iz slovenskih medijev. Članki so last izvornih portalov." />
 
-      <main className="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white px-4 md:px-8 lg:px-16 pt-4 pb-24">
+      <main className="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white px-4 md:px-8 lg:px-16 pt-4 pb-24" tabIndex={-1}>
         {visibleNews.length === 0 ? (
           <p className="text-gray-500 dark:text-gray-400 text-center w-full mt-10">Ni novic za izbrani vir ali napaka pri nalaganju.</p>
         ) : (
