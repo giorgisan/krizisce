@@ -1,4 +1,3 @@
-// components/Header.tsx
 'use client'
 
 import Link from 'next/link'
@@ -85,7 +84,13 @@ export default function Header() {
   const currentTheme = (theme ?? resolvedTheme) || 'dark'
   const isDark = currentTheme === 'dark'
 
+  // ⇩ NOVO: ob kliku na banner/gumb premakni pogled na vrh + sproži refresh
   const refreshNow = () => {
+    try {
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+      const main = document.querySelector('main') as HTMLElement | null
+      main?.focus?.()
+    } catch {}
     setRefreshing(true)
     window.dispatchEvent(new CustomEvent('refresh-news'))
   }
@@ -200,7 +205,6 @@ export default function Header() {
                        text-black/60 dark:text-white/65 hover:text-black/90 dark:hover:text-white/90
                        hover:bg-black/[0.04] dark:hover:bg-white/[0.06]"
           >
-            {/* Koledar: vrhnji obročki + list + mreža */}
             <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
               <g fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M7 3v3M17 3v3" />
