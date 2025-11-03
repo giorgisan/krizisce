@@ -231,6 +231,7 @@ export default function Header() {
                   <span className="absolute inset-0 rounded-full bg-emerald-500 animate-ping opacity-25"></span>
                 </span>
                 <span>Na voljo so sveže novice</span>
+                <span className="opacity-70">— kliknite za osvežitev</span>
               </motion.button>
             )}
           </AnimatePresence>
