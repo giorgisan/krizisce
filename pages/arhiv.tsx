@@ -455,17 +455,23 @@ export default function ArchivePage() {
                 Nazaj
               </Link>
 
-              {/* –1 dan */}
+              {/* –1 dan (z besedilom na ≥sm, samo ikona na <sm) */}
               <button
                 onClick={goPrevDay}
-                className="inline-flex items-center justify-center h-8 w-8 rounded-md text-xs border border-gray-300/60 dark:border-gray-700/60 bg-white/70 dark:bg-gray-800/60 hover:bg-white/90 dark:hover:bg-gray-800/80 transition"
+                className="inline-flex items-center justify-center h-9 px-2 sm:px-3 rounded-md text-xs
+                           border border-gray-300/60 dark:border-gray-700/60
+                           bg-white/70 dark:bg-gray-800/60 hover:bg-white/90 dark:hover:bg-gray-800/80 transition
+                           gap-1"
                 title="Prejšnji dan"
                 aria-label="Prejšnji dan"
               >
-                ‹
+                <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+                  <path d="M15 6l-6 6 6 6" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+                <span className="hidden sm:inline">Prejšnji dan</span>
               </button>
-
-              {/* Date input (readOnly) */}
+              
+              {/* Date input ostane nespremenjen */}
               <div ref={dateWrapRef} className="relative">
                 <input
                   type="text"
@@ -478,21 +484,30 @@ export default function ArchivePage() {
                   onFocus={() => setIsDateOpen(true)}
                   onClick={() => setIsDateOpen(true)}
                   onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setIsDateOpen(true) } }}
-                  className="px-2.5 py-1.5 rounded-md border border-gray-300 dark:border-gray-700 bg-white/80 dark:bg-gray-800/80 backdrop-blur text-xs cursor-pointer focus:outline-none focus:ring-2 focus:ring-brand/50 select-none w-[140px] text-center"
+                  className="px-2.5 py-1.5 rounded-md border border-gray-300 dark:border-gray-700
+                             bg-white/80 dark:bg-gray-800/80 backdrop-blur text-xs cursor-pointer focus:outline-none
+                             focus:ring-2 focus:ring-brand/50 select-none w-[140px] text-center"
                   aria-label="Izberi datum"
                 />
               </div>
-
-              {/* +1 dan */}
+              
+              {/* +1 dan (onemogočeno za prihodnost) */}
               <button
                 onClick={goNextDay}
                 disabled={nextDisabled}
-                className="inline-flex items-center justify-center h-8 w-8 rounded-md text-xs border border-gray-300/60 dark:border-gray-700/60 bg-white/70 dark:bg-gray-800/60 hover:bg-white/90 dark:hover:bg-gray-800/80 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                className="inline-flex items-center justify-center h-9 px-2 sm:px-3 rounded-md text-xs
+                           border border-gray-300/60 dark:border-gray-700/60
+                           bg-white/70 dark:bg-gray-800/60 hover:bg-white/90 dark:hover:bg-gray-800/80 transition
+                           disabled:opacity-50 disabled:cursor-not-allowed gap-1"
                 title="Naslednji dan"
                 aria-label="Naslednji dan"
               >
-                ›
+                <span className="hidden sm:inline">Naslednji dan</span>
+                <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+                  <path d="M9 6l6 6-6 6" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
               </button>
+
 
               <button onClick={() => fetchAll(date)} className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs border border-gray-300/60 dark:border-gray-700/60 bg-white/70 dark:bg-gray-800/60 hover:bg-white/90 dark:hover:bg-gray-800/80 transition" title="Osveži dan" aria-label="Osveži dan">
                 <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path d="M4 4v6h6M20 20v-6h-6" stroke="currentColor" strokeWidth="2" fill="none"/><path d="M20 8a8 8 0 0 0-14-4M4 16a8 8 0 0 0 14 4" stroke="currentColor" strokeWidth="2" fill="none"/></svg>
