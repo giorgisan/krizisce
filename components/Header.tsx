@@ -17,7 +17,6 @@ export default function Header() {
   const [refreshing, setRefreshing] = useState(false)
   const [filtersOpen, setFiltersOpen] = useState(false)
 
-  // ali smo na naslovnici?
   const isHome = router.pathname === '/'
 
   // ura
@@ -85,7 +84,7 @@ export default function Header() {
   const currentTheme = (theme ?? resolvedTheme) || 'dark'
   const isDark = currentTheme === 'dark'
 
-  // ===== Robustno scroll-then-refresh =====
+  // ===== Scroll-then-refresh (ostane) =====
   const busyRef = useRef(false)
 
   function waitForTop(timeoutMs = 1200): Promise<void> {
@@ -96,7 +95,6 @@ export default function Header() {
         window.removeEventListener('scroll', onScroll as EventListener)
         clearTimeout(tid)
       }
-      // takoj preveri (če smo že na vrhu)
       if (window.scrollY <= 0) return resolve()
       window.addEventListener('scroll', onScroll as EventListener, { passive: true })
       const tid = window.setTimeout(done, timeoutMs)
@@ -107,39 +105,66 @@ export default function Header() {
     if (busyRef.current) return
     busyRef.current = true
     try {
-      // če nismo na vrhu, najprej smooth scroll do vrha in počakaj
       if (window.scrollY > 0) {
         window.scrollTo({ top: 0, behavior: 'smooth' })
-        await waitForTop(1200) // iOS Safari včasih potrebuje malo več časa
+        await waitForTop(1200)
       }
-      // dostopnost: fokus na main
       const main = document.querySelector('main') as HTMLElement | null
       try { main?.focus?.() } catch {}
-      // šele zdaj začnemo refresh ciklus
+
       setRefreshing(true)
       window.dispatchEvent(new CustomEvent('refresh-news'))
     } finally {
-      // pustimo, da nas 'news-refreshing' event kasneje vrne v false
       setTimeout(() => { busyRef.current = false }, 50)
     }
   }
+
+  // ===== NOVO: po zaključenem refreshu še enkrat trdno pripni scroll na 0
+  const prevRefreshing = useRef(false)
+  useEffect(() => {
+    if (prevRefreshing.current && !refreshing) {
+      // prehod true -> false
+      const html = document.documentElement
+      const prevBehavior = html.style.scrollBehavior
+      const prevAnchor = (document.body.style as any).overflowAnchor
+
+      try {
+        // izklopi smooth in anchoring
+        html.style.scrollBehavior = 'auto'
+        ;(document.body.style as any).overflowAnchor = 'none'
+        // en “tick” kasneje, ko se DOM stabilizira
+        requestAnimationFrame(() => {
+          window.scrollTo(0, 0)
+          // še en frame za ziher (Safari)
+          requestAnimationFrame(() => {
+            window.scrollTo(0, 0)
+            // povrni nastavitve
+            html.style.scrollBehavior = prevBehavior
+            ;(document.body.style as any).overflowAnchor = prevAnchor
+          })
+        })
+      } catch {
+        // fallback
+        window.scrollTo(0, 0)
+      }
+    }
+    prevRefreshing.current = refreshing
+  }, [refreshing])
 
   // Klik na brand naj vedno odpre/refresh-a naslovnico
   const onBrandClick: React.MouseEventHandler<HTMLAnchorElement> = (e) => {
     e.preventDefault()
     if (isHome) {
-      window.location.reload() // hard refresh, resetira state/filtre itd.
+      window.location.reload()
     } else {
-      router.push('/') // navigacija na naslovnico
+      router.push('/')
     }
   }
 
-  // ikona filtra – stran bo preklopila in vrnila "ui:filters-state"
   const toggleFilters = () => {
     window.dispatchEvent(new CustomEvent('ui:toggle-filters'))
   }
 
-  // preklop teme – en sam SVG, vedno viden
   const toggleTheme = () => setTheme(isDark ? 'light' : 'dark')
 
   return (
@@ -200,7 +225,6 @@ export default function Header() {
             {time}
           </span>
 
-          {/* FILTER – prikazan samo na naslovnici */}
           {isHome && (
             <button
               type="button"
@@ -225,7 +249,6 @@ export default function Header() {
             </button>
           )}
 
-          {/* ARHIV – zamenjana ikona: koledar */}
           <Link
             href="/arhiv"
             aria-label="Arhiv"
@@ -245,7 +268,6 @@ export default function Header() {
             </svg>
           </Link>
 
-          {/* TEMA – vedno vidna ikona (en sam SVG) */}
           {mounted && (
             <button
               type="button"
