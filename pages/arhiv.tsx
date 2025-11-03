@@ -45,6 +45,13 @@ const fmtDDMMYYYY = (iso: string) => {
   return `${d}/${m}/${y}`
 }
 
+/** DST-safe premik po lokalnih dnevih */
+const isoPlusDays = (iso: string, delta: number) => {
+  const [y, m, d] = iso.split('-').map(Number)
+  const nd = new Date(y, (m ?? 1) - 1, (d ?? 1) + delta, 0, 0, 0, 0)
+  return yyyymmdd(nd)
+}
+
 const norm = (s: string) => {
   try { return s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '') } catch { return s.toLowerCase() }
 }
@@ -424,6 +431,15 @@ export default function ArchivePage() {
     return rowDay === date ? relativeTime(ms) : fmtClock(ms)
   }
 
+  // Handlers za –1 / +1 dan
+  const goPrevDay = () => onPickDate(isoPlusDays(date, -1))
+  const goNextDay = () => {
+    const next = isoPlusDays(date, +1)
+    if (next > todayStr) return
+    onPickDate(next)
+  }
+  const nextDisabled = useMemo(() => isoPlusDays(date, +1) > todayStr, [date, todayStr])
+
   return (
     <>
       <Header />
@@ -438,6 +454,16 @@ export default function ArchivePage() {
                 <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path d="M3 12L12 3l9 9" stroke="currentColor" strokeWidth="2" fill="none"/><path d="M5 10v10h5v-6h4v6h5V10" stroke="currentColor" strokeWidth="2" fill="none"/></svg>
                 Nazaj
               </Link>
+
+              {/* –1 dan */}
+              <button
+                onClick={goPrevDay}
+                className="inline-flex items-center justify-center h-8 w-8 rounded-md text-xs border border-gray-300/60 dark:border-gray-700/60 bg-white/70 dark:bg-gray-800/60 hover:bg-white/90 dark:hover:bg-gray-800/80 transition"
+                title="Prejšnji dan"
+                aria-label="Prejšnji dan"
+              >
+                ‹
+              </button>
 
               {/* Date input (readOnly) */}
               <div ref={dateWrapRef} className="relative">
@@ -456,6 +482,17 @@ export default function ArchivePage() {
                   aria-label="Izberi datum"
                 />
               </div>
+
+              {/* +1 dan */}
+              <button
+                onClick={goNextDay}
+                disabled={nextDisabled}
+                className="inline-flex items-center justify-center h-8 w-8 rounded-md text-xs border border-gray-300/60 dark:border-gray-700/60 bg-white/70 dark:bg-gray-800/60 hover:bg-white/90 dark:hover:bg-gray-800/80 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                title="Naslednji dan"
+                aria-label="Naslednji dan"
+              >
+                ›
+              </button>
 
               <button onClick={() => fetchAll(date)} className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs border border-gray-300/60 dark:border-gray-700/60 bg-white/70 dark:bg-gray-800/60 hover:bg-white/90 dark:hover:bg-gray-800/80 transition" title="Osveži dan" aria-label="Osveži dan">
                 <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path d="M4 4v6h6M20 20v-6h-6" stroke="currentColor" strokeWidth="2" fill="none"/><path d="M20 8a8 8 0 0 0-14-4M4 16a8 8 0 0 0 14 4" stroke="currentColor" strokeWidth="2" fill="none"/></svg>
