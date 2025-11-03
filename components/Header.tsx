@@ -17,53 +17,21 @@ export default function Header() {
   const [refreshing, setRefreshing] = useState(false)
   const [filtersOpen, setFiltersOpen] = useState(false)
 
-  // ali smo na naslovnici?
   const isHome = router.pathname === '/'
 
-  /* ================== Ura (poravnana) + 'ui:minute' ================== */
-  const [nowMs, setNowMs] = useState<number>(() => Date.now())
+  // ura
+  const [time, setTime] = useState(() =>
+    new Intl.DateTimeFormat('sl-SI', { hour: '2-digit', minute: '2-digit' }).format(new Date())
+  )
   useEffect(() => {
-    let intervalId: number | undefined
-    let timeoutId: number | undefined
-
-    const tick = () => {
-      setNowMs(Date.now())
-      try { window.dispatchEvent(new CustomEvent('ui:minute')) } catch {}
-    }
-
-    const startAligned = () => {
-      const toNext = 60_000 - (Date.now() % 60_000)
-      timeoutId = window.setTimeout(() => {
-        tick()
-        intervalId = window.setInterval(tick, 60_000) as unknown as number
-      }, toNext) as unknown as number
-    }
-
-    startAligned()
-
-    const onVis = () => {
-      if (document.visibilityState === 'visible') {
-        if (timeoutId) clearTimeout(timeoutId)
-        if (intervalId) clearInterval(intervalId)
-        tick()
-        startAligned()
-      }
-    }
-    document.addEventListener('visibilitychange', onVis)
-
-    return () => {
-      document.removeEventListener('visibilitychange', onVis)
-      if (timeoutId) clearTimeout(timeoutId)
-      if (intervalId) clearInterval(intervalId)
-    }
+    const tick = () =>
+      setTime(new Intl.DateTimeFormat('sl-SI', { hour: '2-digit', minute: '2-digit' }).format(new Date()))
+    const t = setInterval(tick, 60_000); tick()
+    return () => clearInterval(t)
   }, [])
-
-  const time = new Intl.DateTimeFormat('sl-SI', { hour: '2-digit', minute: '2-digit' })
-    .format(new Date(nowMs))
-
   useEffect(() => setMounted(true), [])
 
-  /* ================== Signali za sveže novice ================== */
+  // signali za sveže novice
   useEffect(() => {
     const onHasNew = (e: Event) => setHasNew(Boolean((e as CustomEvent).detail))
     const onRefreshing = (e: Event) => setRefreshing(Boolean((e as CustomEvent).detail))
@@ -75,7 +43,7 @@ export default function Header() {
     }
   }, [])
 
-  /* ================== Stanje filtra (UI povratni kanal) ================== */
+  // stanje filtra (stran javlja nazaj)
   useEffect(() => {
     const onState = (e: Event) => {
       const open = Boolean((e as CustomEvent).detail?.open)
@@ -88,11 +56,10 @@ export default function Header() {
   const hdrRef = useRef<HTMLElement | null>(null)
   const mobBannerRef = useRef<HTMLDivElement | null>(null)
 
-  /* ================== CSS var za sticky offset ================== */
+  // posodobi CSS var za sticky offset
   useEffect(() => {
     const setHdr = () => {
-      const base = window.matchMedia('(min-width: 768px)').matches ? 72 : 56
-      const h = hdrRef.current?.offsetHeight || base
+      const h = hdrRef.current?.offsetHeight || 56
       document.documentElement.style.setProperty('--hdr-h', `${h}px`)
     }
     setHdr()
@@ -100,7 +67,7 @@ export default function Header() {
     return () => window.removeEventListener('resize', setHdr)
   }, [])
 
-  /* ================== Mobilni banner offset ================== */
+  // mobilni banner offset
   useEffect(() => {
     const updateVars = () => {
       const isMobile = window.matchMedia('(max-width: 767px)').matches
@@ -117,7 +84,7 @@ export default function Header() {
   const currentTheme = (theme ?? resolvedTheme) || 'dark'
   const isDark = currentTheme === 'dark'
 
-  /* ================== Scroll-then-refresh + anti-anchoring ================== */
+  // ===== Scroll-then-refresh (ostane) =====
   const busyRef = useRef(false)
 
   function waitForTop(timeoutMs = 1200): Promise<void> {
@@ -144,6 +111,7 @@ export default function Header() {
       }
       const main = document.querySelector('main') as HTMLElement | null
       try { main?.focus?.() } catch {}
+
       setRefreshing(true)
       window.dispatchEvent(new CustomEvent('refresh-news'))
     } finally {
@@ -151,60 +119,61 @@ export default function Header() {
     }
   }
 
-  // po koncu refresh-a utrdi scroll na 0 (proti scroll anchoringu)
+  // ===== NOVO: po zaključenem refreshu še enkrat trdno pripni scroll na 0
   const prevRefreshing = useRef(false)
   useEffect(() => {
     if (prevRefreshing.current && !refreshing) {
+      // prehod true -> false
       const html = document.documentElement
       const prevBehavior = html.style.scrollBehavior
       const prevAnchor = (document.body.style as any).overflowAnchor
+
       try {
+        // izklopi smooth in anchoring
         html.style.scrollBehavior = 'auto'
         ;(document.body.style as any).overflowAnchor = 'none'
+        // en “tick” kasneje, ko se DOM stabilizira
         requestAnimationFrame(() => {
           window.scrollTo(0, 0)
+          // še en frame za ziher (Safari)
           requestAnimationFrame(() => {
             window.scrollTo(0, 0)
+            // povrni nastavitve
             html.style.scrollBehavior = prevBehavior
             ;(document.body.style as any).overflowAnchor = prevAnchor
           })
         })
-      } catch { window.scrollTo(0, 0) }
+      } catch {
+        // fallback
+        window.scrollTo(0, 0)
+      }
     }
     prevRefreshing.current = refreshing
   }, [refreshing])
 
-  /* ================== Navigacija / UI akcije ================== */
+  // Klik na brand naj vedno odpre/refresh-a naslovnico
   const onBrandClick: React.MouseEventHandler<HTMLAnchorElement> = (e) => {
     e.preventDefault()
-    if (isHome) window.location.reload()
-    else router.push('/')
+    if (isHome) {
+      window.location.reload()
+    } else {
+      router.push('/')
+    }
   }
-  const toggleFilters = () => window.dispatchEvent(new CustomEvent('ui:toggle-filters'))
+
+  const toggleFilters = () => {
+    window.dispatchEvent(new CustomEvent('ui:toggle-filters'))
+  }
+
   const toggleTheme = () => setTheme(isDark ? 'light' : 'dark')
 
   return (
     <header
       ref={hdrRef}
       id="site-header"
-      data-new={hasNew && !refreshing ? '1' : undefined}
-      className="sticky top-0 z-40
-                 bg-[#FAFAFA]/95 dark:bg-gray-900/72 backdrop-blur-xl
-                 border-b border-black/5 dark:border-white/10
-                 shadow-[0_2px_16px_-6px_rgba(0,0,0,0.35)]
-                 supports-[backdrop-filter]:backdrop-saturate-150"
+      className="sticky top-0 z-40 bg-[#FAFAFA]/95 dark:bg-gray-900/70 backdrop-blur-md border-b border-gray-200 dark:border-gray-700 shadow-sm"
     >
-      {/* Skip link (a11y) */}
-      <a
-        href="#main-content"
-        className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2
-                   focus:bg-black focus:text-white focus:px-3 focus:py-2 focus:rounded-md z-[100]"
-      >
-        Preskoči na vsebino
-      </a>
-
-      {/* Glavna vrstica */}
-      <div className="py-2 md:py-3 px-4 md:px-8 lg:px-16 flex items-center justify-between gap-2">
+      <div className="py-2 px-4 md:px-8 lg:px-16 flex items-center justify-between gap-2">
         {/* Levo: brand + sveže pil (desktop) */}
         <div className="flex items-center gap-3 min-w-0">
           <Link href="/" onClick={onBrandClick} className="flex items-center gap-3 min-w-0">
@@ -215,11 +184,11 @@ export default function Header() {
               height={36}
               priority
               fetchPriority="high"
-              className="w-9 h-9 md:w-10 md:h-10 rounded-md"
+              className="w-9 h-9 rounded-md"
             />
             <div className="min-w-0 leading-tight">
-              <h1 className="text-[20px] sm:text-[22px] lg:text-[24px] font-bold text-gray-900 dark:text-white">Križišče</h1>
-              <p className="text-xs sm:text-[13px] text-gray-700 dark:text-gray-300/90 mt-0.5">
+              <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">Križišče</h1>
+              <p className="text-xs sm:text-[13px] text-gray-600 dark:text-gray-400 mt-0.5">
                 Zadnje novice slovenskih medijev
               </p>
             </div>
@@ -250,107 +219,78 @@ export default function Header() {
           </AnimatePresence>
         </div>
 
-        {/* Desno: ura, filter, arhiv, tema */}
+        {/* Desno: ura, (pogojni) filter, arhiv, tema */}
         <div className="flex items-center gap-1.5 sm:gap-2">
-          <span className="hidden sm:inline-block font-mono tabular-nums text-[13px] text-gray-600 dark:text-gray-300 select-none">
+          <span className="hidden sm:inline-block font-mono tabular-nums text-[13px] text-gray-500 dark:text-gray-400 select-none">
             {time}
           </span>
 
-          {/* FILTER – prikazan samo na naslovnici */}
           {isHome && (
             <button
               type="button"
               onClick={toggleFilters}
               aria-label={filtersOpen ? 'Skrij filtre' : 'Prikaži filtre'}
               title={filtersOpen ? 'Skrij filtre' : 'Prikaži filtre'}
-              className={`inline-flex h-10 w-10 md:h-10 md:w-auto md:px-3 items-center justify-center rounded-md transition
+              className={`inline-flex h-10 w-10 items-center justify-center rounded-md transition
                           ${filtersOpen
                             ? 'text-brand bg-brand/10 ring-1 ring-brand/30'
-                            : 'text-black/60 dark:text-white/70 hover:text-black/90 dark:hover:text-white/90 hover:bg-black/[0.04] dark:hover:bg-white/[0.06]'}`}
+                            : 'text-black/55 dark:text-white/60 hover:text-black/90 dark:hover:text-white/90 hover:bg-black/[0.04] dark:hover:bg-white/[0.06]'}`}
             >
-              <div className="flex items-center gap-2">
-                <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
-                  <path
-                    d="M3 5h18l-7 8v5l-4 2v-7L3 5z"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinejoin="round"
-                    strokeLinecap="round"
-                    fill="none"
-                  />
-                </svg>
-                <span className="hidden md:inline text-sm">Filtri</span>
-              </div>
+              <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+                <path
+                  d="M3 5h18l-7 8v5l-4 2v-7L3 5z"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinejoin="round"
+                  strokeLinecap="round"
+                  fill="none"
+                />
+              </svg>
             </button>
           )}
 
-          {/* ARHIV */}
           <Link
             href="/arhiv"
             aria-label="Arhiv"
             title="Arhiv"
-            className="inline-flex h-10 w-10 md:w-auto md:px-3 items-center justify-center rounded-md transition
-                       text-black/60 dark:text-white/70 hover:text-black/90 dark:hover:text-white/90
+            className="inline-flex h-10 w-10 items-center justify-center rounded-md transition
+                       text-black/60 dark:text-white/65 hover:text-black/90 dark:hover:text-white/90
                        hover:bg-black/[0.04] dark:hover:bg-white/[0.06]"
           >
-            <div className="flex items-center gap-2">
-              <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
-                <g fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M7 3v3M17 3v3" />
-                  <rect x="3" y="5" width="18" height="16" rx="2" />
-                  <path d="M3 9h18" />
-                  <path d="M8 13h0M12 13h0M16 13h0M8 17h0M12 17h0M16 17h0" />
-                </g>
-              </svg>
-              <span className="hidden md:inline text-sm">Arhiv</span>
-            </div>
+            <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+              <g fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M7 3v3M17 3v3" />
+                <rect x="3" y="5" width="18" height="16" rx="2" />
+                <path d="M3 9h18" />
+                <path d="M8 13h0M12 13h0M16 13h0M8 17h0M12 17h0M16 17h0" />
+              </g>
+              <span className="sr-only">Arhiv</span>
+            </svg>
           </Link>
 
-          {/* TEMA */}
           {mounted && (
             <button
               type="button"
               onClick={toggleTheme}
               aria-label={isDark ? 'Preklopi na svetlo' : 'Preklopi na temno'}
               title={isDark ? 'Preklopi na svetlo' : 'Preklopi na temno'}
-              className="inline-flex h-10 w-10 md:w-auto md:px-3 items-center justify-center rounded-md
-                         text-black/60 dark:text-white/70
+              className="inline-flex h-10 w-10 items-center justify-center rounded-md
+                         text-black/55 dark:text-white/65
                          hover:text-black/90 dark:hover:text-white/90
                          hover:bg-black/[0.04] dark:hover:bg-white/[0.06] transition"
             >
-              <div className="flex items-center gap-2">
-                <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
-                  {isDark ? (
-                    <>
-                      <path d="M12 4V2M12 22v-2M4.93 4.93 3.52 3.52M20.48 20.48l-1.41-1.41M4 12H2M22 12h-2M4.93 19.07 3.52 20.48M20.48 3.52l-1.41 1.41" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-                      <circle cx="12" cy="12" r="4" stroke="currentColor" strokeWidth="2" fill="none"/>
-                    </>
-                  ) : (
-                    <path d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 0 0 9.79 9.79Z" stroke="currentColor" strokeWidth="2" fill="none"/>
-                  )}
-                </svg>
-                <span className="hidden md:inline text-sm">Tema</span>
-              </div>
+              <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+                {isDark ? (
+                  <>
+                    <path d="M12 4V2M12 22v-2M4.93 4.93 3.52 3.52M20.48 20.48l-1.41-1.41M4 12H2M22 12h-2M4.93 19.07 3.52 20.48M20.48 3.52l-1.41 1.41" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                    <circle cx="12" cy="12" r="4" stroke="currentColor" strokeWidth="2" fill="none"/>
+                  </>
+                ) : (
+                  <path d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 0 0 9.79 9.79Z" stroke="currentColor" strokeWidth="2" fill="none"/>
+                )}
+              </svg>
             </button>
           )}
-        </div>
-      </div>
-
-      {/* SUBNAV (desktop): kontekst za filtre / izbran vir */}
-      <div className="hidden md:block px-4 md:px-8 lg:px-16 py-2 border-t border-black/5 dark:border-white/10">
-        <div className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
-          <span className="opacity-80">Filtri:</span>
-          <button
-            onClick={() => window.dispatchEvent(new CustomEvent('ui:toggle-filters'))}
-            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full
-                       bg-black/[0.05] dark:bg-white/[0.06] hover:bg-black/[0.08] dark:hover:bg-white/[0.1]
-                       ring-1 ring-black/10 dark:ring-white/10"
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M3 5h18l-7 8v5l-4 2v-7L3 5z" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-            Uredi
-          </button>
         </div>
       </div>
 
