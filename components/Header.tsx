@@ -1,3 +1,4 @@
+// components/Header.tsx
 'use client'
 
 import Link from 'next/link'
@@ -84,15 +85,43 @@ export default function Header() {
   const currentTheme = (theme ?? resolvedTheme) || 'dark'
   const isDark = currentTheme === 'dark'
 
-  // ⇩ NOVO: ob kliku na banner/gumb premakni pogled na vrh + sproži refresh
-  const refreshNow = () => {
+  // ===== Robustno scroll-then-refresh =====
+  const busyRef = useRef(false)
+
+  function waitForTop(timeoutMs = 1200): Promise<void> {
+    return new Promise((resolve) => {
+      const done = () => { cleanup(); resolve() }
+      const onScroll = () => { if (window.scrollY <= 0) done() }
+      const cleanup = () => {
+        window.removeEventListener('scroll', onScroll as EventListener)
+        clearTimeout(tid)
+      }
+      // takoj preveri (če smo že na vrhu)
+      if (window.scrollY <= 0) return resolve()
+      window.addEventListener('scroll', onScroll as EventListener, { passive: true })
+      const tid = window.setTimeout(done, timeoutMs)
+    })
+  }
+
+  const refreshNow = async () => {
+    if (busyRef.current) return
+    busyRef.current = true
     try {
-      window.scrollTo({ top: 0, behavior: 'smooth' })
+      // če nismo na vrhu, najprej smooth scroll do vrha in počakaj
+      if (window.scrollY > 0) {
+        window.scrollTo({ top: 0, behavior: 'smooth' })
+        await waitForTop(1200) // iOS Safari včasih potrebuje malo več časa
+      }
+      // dostopnost: fokus na main
       const main = document.querySelector('main') as HTMLElement | null
-      main?.focus?.()
-    } catch {}
-    setRefreshing(true)
-    window.dispatchEvent(new CustomEvent('refresh-news'))
+      try { main?.focus?.() } catch {}
+      // šele zdaj začnemo refresh ciklus
+      setRefreshing(true)
+      window.dispatchEvent(new CustomEvent('refresh-news'))
+    } finally {
+      // pustimo, da nas 'news-refreshing' event kasneje vrne v false
+      setTimeout(() => { busyRef.current = false }, 50)
+    }
   }
 
   // Klik na brand naj vedno odpre/refresh-a naslovnico
