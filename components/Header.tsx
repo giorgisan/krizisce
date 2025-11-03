@@ -1,4 +1,3 @@
-// components/Header.tsx
 'use client'
 
 import Link from 'next/link'
@@ -17,15 +16,18 @@ export default function Header() {
   const [refreshing, setRefreshing] = useState(false)
   const [filtersOpen, setFiltersOpen] = useState(false)
 
+  // ali smo na naslovnici?
   const isHome = router.pathname === '/'
 
-  // ura
+  // ura (→ po vsakem utripu pošljemo tudi 'ui:minute')
   const [time, setTime] = useState(() =>
     new Intl.DateTimeFormat('sl-SI', { hour: '2-digit', minute: '2-digit' }).format(new Date())
   )
   useEffect(() => {
-    const tick = () =>
+    const tick = () => {
       setTime(new Intl.DateTimeFormat('sl-SI', { hour: '2-digit', minute: '2-digit' }).format(new Date()))
+      try { window.dispatchEvent(new CustomEvent('ui:minute')) } catch {}
+    }
     const t = setInterval(tick, 60_000); tick()
     return () => clearInterval(t)
   }, [])
@@ -84,9 +86,8 @@ export default function Header() {
   const currentTheme = (theme ?? resolvedTheme) || 'dark'
   const isDark = currentTheme === 'dark'
 
-  // ===== Scroll-then-refresh (ostane) =====
+  // ===== Scroll-then-refresh (robustno) =====
   const busyRef = useRef(false)
-
   function waitForTop(timeoutMs = 1200): Promise<void> {
     return new Promise((resolve) => {
       const done = () => { cleanup(); resolve() }
@@ -100,7 +101,6 @@ export default function Header() {
       const tid = window.setTimeout(done, timeoutMs)
     })
   }
-
   const refreshNow = async () => {
     if (busyRef.current) return
     busyRef.current = true
@@ -111,7 +111,6 @@ export default function Header() {
       }
       const main = document.querySelector('main') as HTMLElement | null
       try { main?.focus?.() } catch {}
-
       setRefreshing(true)
       window.dispatchEvent(new CustomEvent('refresh-news'))
     } finally {
@@ -119,52 +118,37 @@ export default function Header() {
     }
   }
 
-  // ===== NOVO: po zaključenem refreshu še enkrat trdno pripni scroll na 0
+  // po refreshu utrdi scroll na 0 (proti scroll anchoringu)
   const prevRefreshing = useRef(false)
   useEffect(() => {
     if (prevRefreshing.current && !refreshing) {
-      // prehod true -> false
       const html = document.documentElement
       const prevBehavior = html.style.scrollBehavior
       const prevAnchor = (document.body.style as any).overflowAnchor
-
       try {
-        // izklopi smooth in anchoring
         html.style.scrollBehavior = 'auto'
         ;(document.body.style as any).overflowAnchor = 'none'
-        // en “tick” kasneje, ko se DOM stabilizira
         requestAnimationFrame(() => {
           window.scrollTo(0, 0)
-          // še en frame za ziher (Safari)
           requestAnimationFrame(() => {
             window.scrollTo(0, 0)
-            // povrni nastavitve
             html.style.scrollBehavior = prevBehavior
             ;(document.body.style as any).overflowAnchor = prevAnchor
           })
         })
-      } catch {
-        // fallback
-        window.scrollTo(0, 0)
-      }
+      } catch { window.scrollTo(0, 0) }
     }
     prevRefreshing.current = refreshing
   }, [refreshing])
 
-  // Klik na brand naj vedno odpre/refresh-a naslovnico
+  // klik na brand
   const onBrandClick: React.MouseEventHandler<HTMLAnchorElement> = (e) => {
     e.preventDefault()
-    if (isHome) {
-      window.location.reload()
-    } else {
-      router.push('/')
-    }
+    if (isHome) window.location.reload()
+    else router.push('/')
   }
 
-  const toggleFilters = () => {
-    window.dispatchEvent(new CustomEvent('ui:toggle-filters'))
-  }
-
+  const toggleFilters = () => window.dispatchEvent(new CustomEvent('ui:toggle-filters'))
   const toggleTheme = () => setTheme(isDark ? 'light' : 'dark')
 
   return (
@@ -174,23 +158,12 @@ export default function Header() {
       className="sticky top-0 z-40 bg-[#FAFAFA]/95 dark:bg-gray-900/70 backdrop-blur-md border-b border-gray-200 dark:border-gray-700 shadow-sm"
     >
       <div className="py-2 px-4 md:px-8 lg:px-16 flex items-center justify-between gap-2">
-        {/* Levo: brand + sveže pil (desktop) */}
         <div className="flex items-center gap-3 min-w-0">
           <Link href="/" onClick={onBrandClick} className="flex items-center gap-3 min-w-0">
-            <Image
-              src="/logo.png"
-              alt="Križišče"
-              width={36}
-              height={36}
-              priority
-              fetchPriority="high"
-              className="w-9 h-9 rounded-md"
-            />
+            <Image src="/logo.png" alt="Križišče" width={36} height={36} priority fetchPriority="high" className="w-9 h-9 rounded-md" />
             <div className="min-w-0 leading-tight">
               <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">Križišče</h1>
-              <p className="text-xs sm:text-[13px] text-gray-600 dark:text-gray-400 mt-0.5">
-                Zadnje novice slovenskih medijev
-              </p>
+              <p className="text-xs sm:text-[13px] text-gray-600 dark:text-gray-400 mt-0.5">Zadnje novice slovenskih medijev</p>
             </div>
           </Link>
 
@@ -219,7 +192,6 @@ export default function Header() {
           </AnimatePresence>
         </div>
 
-        {/* Desno: ura, (pogojni) filter, arhiv, tema */}
         <div className="flex items-center gap-1.5 sm:gap-2">
           <span className="hidden sm:inline-block font-mono tabular-nums text-[13px] text-gray-500 dark:text-gray-400 select-none">
             {time}
@@ -237,26 +209,15 @@ export default function Header() {
                             : 'text-black/55 dark:text-white/60 hover:text-black/90 dark:hover:text-white/90 hover:bg-black/[0.04] dark:hover:bg-white/[0.06]'}`}
             >
               <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
-                <path
-                  d="M3 5h18l-7 8v5l-4 2v-7L3 5z"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinejoin="round"
-                  strokeLinecap="round"
-                  fill="none"
-                />
+                <path d="M3 5h18l-7 8v5l-4 2v-7L3 5z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" fill="none" />
               </svg>
             </button>
           )}
 
-          <Link
-            href="/arhiv"
-            aria-label="Arhiv"
-            title="Arhiv"
+          <Link href="/arhiv" aria-label="Arhiv" title="Arhiv"
             className="inline-flex h-10 w-10 items-center justify-center rounded-md transition
                        text-black/60 dark:text-white/65 hover:text-black/90 dark:hover:text-white/90
-                       hover:bg-black/[0.04] dark:hover:bg-white/[0.06]"
-          >
+                       hover:bg-black/[0.04] dark:hover:bg-white/[0.06]">
             <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
               <g fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M7 3v3M17 3v3" />
@@ -271,12 +232,11 @@ export default function Header() {
           {mounted && (
             <button
               type="button"
-              onClick={toggleTheme}
+              onClick={() => setTheme(isDark ? 'light' : 'dark')}
               aria-label={isDark ? 'Preklopi na svetlo' : 'Preklopi na temno'}
               title={isDark ? 'Preklopi na svetlo' : 'Preklopi na temno'}
               className="inline-flex h-10 w-10 items-center justify-center rounded-md
-                         text-black/55 dark:text-white/65
-                         hover:text-black/90 dark:hover:text-white/90
+                         text-black/55 dark:text-white/65 hover:text-black/90 dark:hover:text-white/90
                          hover:bg-black/[0.04] dark:hover:bg-white/[0.06] transition"
             >
               <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
