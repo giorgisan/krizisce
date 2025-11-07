@@ -162,11 +162,20 @@ export default function Header() {
   }, [refreshing])
 
   /* ========= Navigacija ========= */
-  const onBrandClick: React.MouseEventHandler<HTMLAnchorElement> = (e) => {
+  const onBrandClick: React.MouseEventHandler<HTMLAnchorElement> = async (e) => {
     e.preventDefault()
-    if (isHome) window.location.reload()
-    else router.push('/')
+    // vedno se najprej premakni na vrh
+    try {
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+      await waitForTop(800)
+    } catch {}
+    // če nismo na /, nato navigiraj domov
+    if (!isHome) {
+      router.push('/')
+    }
+    // če smo že na /, ne delaj reloada – samo ostani na vrhu
   }
+
   const toggleFilters = () => window.dispatchEvent(new CustomEvent('ui:toggle-filters'))
   const toggleTheme = () => setTheme(isDark ? 'light' : 'dark')
 
@@ -267,7 +276,7 @@ export default function Header() {
             aria-label="Arhiv"
             title="Arhiv"
             className="inline-flex h-9 w-9 items-center justify-center rounded-md transition
-                       text-black/60 dark:text-white/70 hover:text-black/90 dark:hover:text-white/90
+                       text-black/60 dark:text:white/70 hover:text-black/90 dark:hover:text-white/90
                        hover:bg-black/[0.04] dark:hover:bg-white/[0.06]"
           >
             <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
