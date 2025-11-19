@@ -53,36 +53,56 @@ const isoPlusDays = (iso: string, delta: number) => {
 }
 
 const norm = (s: string) => {
-  try { return s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '') } catch { return s.toLowerCase() }
+  try {
+    return s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+  } catch {
+    return s.toLowerCase()
+  }
 }
+
 const highlight = (txt: string, q: string) => {
   if (!q) return txt
   const t = txt ?? ''
-  const nn = norm(t), nq = norm(q).trim()
+  const nn = norm(t)
+  const nq = norm(q).trim()
   if (!nq) return t
-  const parts = nq.split(/\s+/).filter(w => w.length >= 2)
+  const parts = nq.split(/\s+/).filter((w) => w.length >= 2)
   if (!parts.length) return t
+
   const ranges: Array<[number, number]> = []
-  parts.forEach(tok => {
+  parts.forEach((tok) => {
     let i = 0
     while (true) {
       const k = nn.indexOf(tok, i)
       if (k === -1) break
-      ranges.push([k, k + tok.length]); i = k + tok.length
+      ranges.push([k, k + tok.length])
+      i = k + tok.length
     }
   })
   if (!ranges.length) return t
+
   ranges.sort((a, b) => a[0] - b[0])
   const merged: Array<[number, number]> = []
   for (const r of ranges) {
-    if (!merged.length || r[0] > merged[merged.length - 1][1]) merged.push([...r] as [number, number])
-    else merged[merged.length - 1][1] = Math.max(merged[merged.length - 1][1], r[1])
+    if (!merged.length || r[0] > merged[merged.length - 1][1]) {
+      merged.push([...r] as [number, number])
+    } else {
+      merged[merged.length - 1][1] = Math.max(merged[merged.length - 1][1], r[1])
+    }
   }
+
   const out: React.ReactNode[] = []
   let last = 0
   merged.forEach(([a, b], idx) => {
     if (a > last) out.push(t.slice(last, a))
-    out.push(<mark key={`${a}-${b}-${idx}`} className="bg-yellow-200 dark:bg-yellow-600/60 rounded px-0.5">{t.slice(a, b)}</mark>)
+    out.push(
+      <mark
+        key={`${a}-${b}-${idx}`}
+        className="bg-yellow-200 dark:bg-yellow-600/60 rounded px-0.5"
+      >
+        {t.slice(a, b)}
+      </mark>,
+    )
     last = b
   })
   if (last < t.length) out.push(t.slice(last))
@@ -96,11 +116,14 @@ const tsOf = (a: ApiItem) => {
   return Number.isFinite(t2) ? t2 : 0
 }
 
+// globalni comparator, da ga ne delamo na novo na vsak render
+const sortDesc = (a: ApiItem, b: ApiItem) => tsOf(b) - tsOf(a) || Number(a.id) - Number(b.id)
+
 // ---- TIME HELPERS (DST-safe lokalni dan) ----
 const dayBoundsLocal = (iso: string) => {
   const [y, m, d] = iso.split('-').map(Number)
   const start = new Date(y, (m ?? 1) - 1, d ?? 1, 0, 0, 0, 0).getTime()
-  const end   = new Date(y, (m ?? 1) - 1, (d ?? 1) + 1, 0, 0, 0, 0).getTime()
+  const end = new Date(y, (m ?? 1) - 1, (d ?? 1) + 1, 0, 0, 0, 0).getTime()
   return { start, end }
 }
 
@@ -110,7 +133,7 @@ const epochMsOf = (x: number) => (x < 1e11 ? x * 1000 : x)
 /** Trdo filtriranje elementov na lokalni dan [start, end). */
 const filterToLocalDay = (items: ApiItem[], iso: string) => {
   const { start, end } = dayBoundsLocal(iso)
-  return items.filter(it => {
+  return items.filter((it) => {
     const t = tsOf(it)
     const ms = epochMsOf(t)
     return ms >= start && ms < end
@@ -129,8 +152,13 @@ const relativeTime = (ms: number) => {
 }
 const fmtClock = (ms: number) => {
   try {
-    return new Intl.DateTimeFormat('sl-SI', { hour: '2-digit', minute: '2-digit' }).format(new Date(ms))
-  } catch { return '' }
+    return new Intl.DateTimeFormat('sl-SI', {
+      hour: '2-digit',
+      minute: '2-digit',
+    }).format(new Date(ms))
+  } catch {
+    return ''
+  }
 }
 
 /* ---------- Fallback: Supabase ---------- */
@@ -139,13 +167,17 @@ async function supabaseFetchDay(iso: string, limit = 250, cursor?: number | null
   const { createClient } = await import('@supabase/supabase-js')
   const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL as string
   const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string
-  const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: false } })
+  const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    auth: { persistSession: false },
+  })
 
   const { start, end } = dayBoundsLocal(iso)
 
   let q = supabase
     .from('news')
-    .select('id, link, title, source, published_at, publishedat, summary, contentsnippet, description, content')
+    .select(
+      'id, link, title, source, published_at, publishedat, summary, contentsnippet, description, content',
+    )
     .gte('publishedat', start)
     .lt('publishedat', end)
     .order('publishedat', { ascending: false })
@@ -176,18 +208,29 @@ type CalProps = {
   onPickISO: (iso: string) => void
 }
 const startOfMonth = (d: Date) => new Date(d.getFullYear(), d.getMonth(), 1)
-const addMonths = (d: Date, m: number) => new Date(d.getFullYear(), d.getMonth() + m, 1)
+const addMonths = (d: Date, m: number) =>
+  new Date(d.getFullYear(), d.getMonth() + m, 1)
 
-function CalendarPopover({ open, anchorRef, valueISO, onClose, onPickISO }: CalProps) {
+function CalendarPopover({
+  open,
+  anchorRef,
+  valueISO,
+  onClose,
+  onPickISO,
+}: CalProps) {
   const popRef = useRef<HTMLDivElement | null>(null)
   const [view, setView] = useState<Date>(() => startOfMonth(new Date(valueISO)))
   const todayISO = yyyymmdd(new Date())
 
-  useEffect(() => { if (open) setView(startOfMonth(new Date(valueISO))) }, [open, valueISO])
+  useEffect(() => {
+    if (open) setView(startOfMonth(new Date(valueISO)))
+  }, [open, valueISO])
 
   useEffect(() => {
     if (!open) return
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose()
+    }
     const onDown = (e: MouseEvent) => {
       if (!popRef.current) return
       if (popRef.current.contains(e.target as Node)) return
@@ -202,7 +245,7 @@ function CalendarPopover({ open, anchorRef, valueISO, onClose, onPickISO }: CalP
     }
   }, [open, onClose, anchorRef])
 
-  const [pos, setPos] = useState<{top:number;left:number} | null>(null)
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null)
   useLayoutEffect(() => {
     if (!open) return
     const el = anchorRef.current
@@ -224,19 +267,34 @@ function CalendarPopover({ open, anchorRef, valueISO, onClose, onPickISO }: CalP
       style={{ top: pos.top, left: pos.left }}
     >
       <div className="flex items-center justify-between mb-2">
-        <button className="h-8 w-8 inline-flex items-center justify-center rounded-md hover:bg:black/5 dark:hover:bg:white/5"
-                onClick={() => setView(v => addMonths(v, -1))}
-                aria-label="Prejšnji mesec">‹</button>
+        <button
+          className="h-8 w-8 inline-flex items-center justify-center rounded-md hover:bg:black/5 dark:hover:bg:white/5"
+          onClick={() => setView((v) => addMonths(v, -1))}
+          aria-label="Prejšnji mesec"
+        >
+          ‹
+        </button>
         <div className="text-sm font-medium">
-          {new Intl.DateTimeFormat('sl-SI', { month: 'long', year: 'numeric' }).format(view)}
+          {new Intl.DateTimeFormat('sl-SI', {
+            month: 'long',
+            year: 'numeric',
+          }).format(view)}
         </div>
-        <button className="h-8 w-8 inline-flex items-center justify-center rounded-md hover:bg:black/5 dark:hover:bg:white/5"
-                onClick={() => setView(v => addMonths(v, +1))}
-                aria-label="Naslednji mesec">›</button>
+        <button
+          className="h-8 w-8 inline-flex items-center justify-center rounded-md hover:bg:black/5 dark:hover:bg:white/5"
+          onClick={() => setView((v) => addMonths(v, +1))}
+          aria-label="Naslednji mesec"
+        >
+          ›
+        </button>
       </div>
 
       <div className="grid grid-cols-7 gap-1 text-[11px] text-gray-500 dark:text-gray-400 mb-1">
-        {['Po','To','Sr','Če','Pe','So','Ne'].map((d) => <div key={d} className="text-center">{d}</div>)}
+        {['Po', 'To', 'Sr', 'Če', 'Pe', 'So', 'Ne'].map((d) => (
+          <div key={d} className="text-center">
+            {d}
+          </div>
+        ))}
       </div>
 
       <div className="grid grid-cols-7 gap-1">
@@ -244,34 +302,42 @@ function CalendarPopover({ open, anchorRef, valueISO, onClose, onPickISO }: CalP
           const out: JSX.Element[] = []
           const first = startOfMonth(view)
           const firstDow = (first.getDay() + 6) % 7
-          const start = new Date(first); start.setDate(first.getDate() - firstDow)
+          const start = new Date(first)
+          start.setDate(first.getDate() - firstDow)
           for (let i = 0; i < 42; i++) {
-            const d = new Date(start); d.setDate(start.getDate() + i)
+            const d = new Date(start)
+            d.setDate(start.getDate() + i)
             const iso = yyyymmdd(d)
-            const dim: 'prev'|'curr'|'next' =
-              d.getMonth() < view.getMonth() ? 'prev' :
-              d.getMonth() > view.getMonth() ? 'next' : 'curr'
+            const dim: 'prev' | 'curr' | 'next' =
+              d.getMonth() < view.getMonth()
+                ? 'prev'
+                : d.getMonth() > view.getMonth()
+                  ? 'next'
+                  : 'curr'
             const isToday = iso === todayISO2
             const isFuture = iso > todayISO2
             const active = iso === valueISO
             const disabled = isFuture
-            const base =
-              disabled
-                ? 'opacity-40 cursor-not-allowed pointer-events-none'
-                : active
-                  ? 'bg-brand text-white'
-                  : isToday
-                    ? 'ring-1 ring-brand/60'
-                    : 'hover:bg-black/5 dark:hover:bg:white/5'
+            const base = disabled
+              ? 'opacity-40 cursor-not-allowed pointer-events-none'
+              : active
+                ? 'bg-brand text-white'
+                : isToday
+                  ? 'ring-1 ring-brand/60'
+                  : 'hover:bg-black/5 dark:hover:bg:white/5'
             out.push(
               <button
                 key={iso}
                 onClick={() => !disabled && onPickISO(iso)}
                 aria-disabled={disabled}
-                className={`h-8 rounded-md text-sm text-center ${dim !== 'curr' ? 'text-gray-400 dark:text-gray-600' : ''} ${base}`}
+                className={`h-8 rounded-md text-sm text-center ${
+                  dim !== 'curr'
+                    ? 'text-gray-400 dark:text-gray-600'
+                    : ''
+                } ${base}`}
               >
                 {d.getDate()}
-              </button>
+              </button>,
             )
           }
           return out
@@ -279,11 +345,16 @@ function CalendarPopover({ open, anchorRef, valueISO, onClose, onPickISO }: CalP
       </div>
 
       <div className="mt-2 flex items-center justify-between">
-        <button onClick={() => onPickISO(yyyymmdd(new Date()))} className="text-xs underline hover:opacity-80">
+        <button
+          onClick={() => onPickISO(yyyymmdd(new Date()))}
+          className="text-xs underline hover:opacity-80"
+        >
           Danes
         </button>
-        <button onClick={onClose}
-                className="text-xs px-2 py-1 rounded-md border border-gray-300/70 dark:border-gray-700/70 hover:bg-black/5 dark:hover:bg:white/5">
+        <button
+          onClick={onClose}
+          className="text-xs px-2 py-1 rounded-md border border-gray-300/70 dark:border-gray-700/70 hover:bg-black/5 dark:hover:bg:white/5"
+        >
           Zapri
         </button>
       </div>
@@ -305,14 +376,15 @@ export default function ArchivePage() {
   const [isDateOpen, setIsDateOpen] = useState(false)
   const dateWrapRef = useRef<HTMLDivElement | null>(null)
 
-  const sortDesc = (a: ApiItem, b: ApiItem) => tsOf(b) - tsOf(a) || Number(a.id) - Number(b.id)
-
   // full-day fetch with cursor paging (API -> fallback Supabase)
   const abortRef = useRef<AbortController | null>(null)
+
   async function fetchAll(d: string) {
     if (abortRef.current) abortRef.current.abort()
-    const ctrl = new AbortController(); abortRef.current = ctrl
-    setLoading(true); setErrorMsg(null)
+    const ctrl = new AbortController()
+    abortRef.current = ctrl
+    setLoading(true)
+    setErrorMsg(null)
 
     const LIMIT = 250
 
@@ -321,28 +393,45 @@ export default function ArchivePage() {
       let cursor: string | null = null
       let acc: ApiItem[] = []
       const seen = new Set<string>()
+
       while (true) {
         const qs = new URLSearchParams({ date: d, limit: String(LIMIT) })
         if (cursor) qs.set('cursor', cursor)
         qs.set('_t', String(Date.now()))
-        const res = await fetch(`/api/archive?${qs.toString()}`, { cache: 'no-store', signal: ctrl.signal })
-        const data: ApiPayload = await res.json().catch(() => ({ error: 'Neveljaven odgovor' }))
-        if (!res.ok || 'error' in data) throw new Error('Napaka pri nalaganju arhiva')
+        const res = await fetch(`/api/archive?${qs.toString()}`, {
+          cache: 'no-store',
+          signal: ctrl.signal,
+        })
+        const data: ApiPayload = await res
+          .json()
+          .catch(() => ({ error: 'Neveljaven odgovor' }))
 
-        for (const it of data.items) if (!seen.has(it.link)) { seen.add(it.link); acc.push(it) }
-        // TRDO FILTRIRAJ NA LOKALNI DAN
-        const clamped = filterToLocalDay(acc, d)
-        setItems([...clamped].sort(sortDesc))
+        if (!res.ok || 'error' in data)
+          throw new Error('Napaka pri nalaganju arhiva')
 
-        // counts iz filtriranih
-        const c: Record<string, number> = {}
-        for (const it of clamped) c[it.source] = (c[it.source] || 0) + 1
-        setCounts(c)
+        for (const it of data.items) {
+          if (!seen.has(it.link)) {
+            seen.add(it.link)
+            acc.push(it)
+          }
+        }
 
         if (!data.nextCursor) break
         cursor = data.nextCursor
-        await new Promise(r => setTimeout(r, 0))
+        // pusti event loopu malo zraka
+        await new Promise((r) => setTimeout(r, 0))
       }
+
+      // enkrat na koncu: filtriraj na dan, sortiraj, izračunaj counts
+      const clamped = filterToLocalDay(acc, d).sort(sortDesc)
+
+      const c: Record<string, number> = {}
+      for (const it of clamped) {
+        c[it.source] = (c[it.source] || 0) + 1
+      }
+
+      setItems(clamped)
+      setCounts(c)
       setLoading(false)
       return
     } catch {
@@ -354,23 +443,38 @@ export default function ArchivePage() {
       let cursor: number | null = null
       let acc: ApiItem[] = []
       const seen = new Set<string>()
+
       while (true) {
-        const { items, nextCursor } = await supabaseFetchDay(d, LIMIT, cursor)
+        const { items: pageItems, nextCursor } = await supabaseFetchDay(
+          d,
+          LIMIT,
+          cursor,
+        )
 
-        for (const it of items) if (!seen.has(it.link)) { seen.add(it.link); acc.push(it) }
-        const clamped = filterToLocalDay(acc, d)
-        setItems([...clamped].sort(sortDesc))
-
-        const c: Record<string, number> = {}
-        for (const it of clamped) c[it.source] = (c[it.source] || 0) + 1
-        setCounts(c)
+        for (const it of pageItems) {
+          if (!seen.has(it.link)) {
+            seen.add(it.link)
+            acc.push(it)
+          }
+        }
 
         if (!nextCursor) break
         cursor = nextCursor
-        await new Promise(r => setTimeout(r, 0))
+        await new Promise((r) => setTimeout(r, 0))
       }
+
+      const clamped = filterToLocalDay(acc, d).sort(sortDesc)
+
+      const c: Record<string, number> = {}
+      for (const it of clamped) {
+        c[it.source] = (c[it.source] || 0) + 1
+      }
+
+      setItems(clamped)
+      setCounts(c)
     } catch (e) {
-      if (!(abortRef.current?.signal.aborted)) setErrorMsg('Arhiva trenutno ni mogoče naložiti.')
+      if (!abortRef.current?.signal.aborted)
+        setErrorMsg('Arhiva trenutno ni mogoče naložiti.')
     } finally {
       setLoading(false)
     }
@@ -384,13 +488,18 @@ export default function ArchivePage() {
   // auto-refresh for today
   const todayStr = useMemo(() => yyyymmdd(new Date()), [])
   const latestTsRef = useRef<number>(0)
-  useEffect(() => { latestTsRef.current = items.length ? tsOf(items[0]) : 0 }, [items])
+  useEffect(() => {
+    latestTsRef.current = items.length ? tsOf(items[0]) : 0
+  }, [items])
   useEffect(() => {
     if (date !== todayStr) return
     const t = setInterval(async () => {
       if (document.hidden || !latestTsRef.current) return
       try {
-        const res = await fetch(`/api/archive?date=${encodeURIComponent(date)}&limit=1&_t=${Date.now()}`, { cache: 'no-store' })
+        const res = await fetch(
+          `/api/archive?date=${encodeURIComponent(date)}&limit=1&_t=${Date.now()}`,
+          { cache: 'no-store' },
+        )
         const data: any = await res.json()
         const newest = (data?.items?.length ? tsOf(data.items[0]) : 0) || 0
         if (newest > latestTsRef.current) await fetchAll(date)
@@ -407,21 +516,40 @@ export default function ArchivePage() {
       .filter((it) => !sourceFilter || it.source === sourceFilter)
       .filter((it) => {
         if (!q) return true
-        const summary = (it.summary ?? it.contentsnippet ?? it.description ?? it.content ?? '') || ''
+        const summary =
+          (it.summary ??
+            it.contentsnippet ??
+            it.description ??
+            it.content ??
+            '') || ''
         return norm(`${it.title} ${summary} ${it.source}`).includes(q)
       })
-      .sort(sortDesc)
+    // brez .sort — items so že sortirani v fetchAll
   }, [items, deferredSearch, sourceFilter])
 
   const displayCounts = useMemo(
-    () => Object.fromEntries(Object.entries(counts).filter(([k]) => k !== 'TestVir')),
+    () =>
+      Object.fromEntries(
+        Object.entries(counts).filter(([k]) => k !== 'TestVir'),
+      ),
     [counts],
   )
-  const total = useMemo(() => Object.values(displayCounts).reduce((a, b) => a + b, 0), [displayCounts])
-  const maxCount = useMemo(() => Math.max(1, ...Object.values(displayCounts)), [displayCounts])
+  const total = useMemo(
+    () => Object.values(displayCounts).reduce((a, b) => a + b, 0),
+    [displayCounts],
+  )
+  const maxCount = useMemo(
+    () => Math.max(1, ...Object.values(displayCounts)),
+    [displayCounts],
+  )
 
   const onPickDate = (iso: string) => {
-    startTransition(() => { setSourceFilter(null); setSearch(''); setItems([]); setDate(iso) })
+    startTransition(() => {
+      setSourceFilter(null)
+      setSearch('')
+      setItems([])
+      setDate(iso)
+    })
   }
 
   const isSelectedToday = date === todayStr
@@ -438,24 +566,53 @@ export default function ArchivePage() {
     if (next > todayStr) return
     onPickDate(next)
   }
-  const nextDisabled = useMemo(() => isoPlusDays(date, +1) > todayStr, [date, todayStr])
+  const nextDisabled = useMemo(
+    () => isoPlusDays(date, +1) > todayStr,
+    [date, todayStr],
+  )
 
   return (
     <>
       <Header />
-      <SeoHead title="Križišče — Arhiv" description="Pregled novic po dnevih in medijih." />
+      <SeoHead
+        title="Križišče — Arhiv"
+        description="Pregled novic po dnevih in medijih."
+      />
 
       <main className="bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white px-4 md:px-8 lg:px-16 pt-6 pb-6">
         <section className="max-w-6xl mx-auto flex flex-col gap-5">
           {/* Orodna vrstica */}
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-2">
-              <Link href="/" className="inline-flex items-center gap-2 px-2.5 py-1.5 rounded-md text-xs border border-gray-300/60 dark:border-gray-700/60 bg-white/70 dark:bg-gray-800/60 hover:bg-white/90 dark:hover:bg-gray-800/80 transition" title="Nazaj na naslovnico" aria-label="Nazaj na naslovnico">
-                <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path d="M3 12L12 3l9 9" stroke="currentColor" strokeWidth="2" fill="none"/><path d="M5 10v10h5v-6h4v6h5V10" stroke="currentColor" strokeWidth="2" fill="none"/></svg>
+              <Link
+                href="/"
+                className="inline-flex items-center gap-2 px-2.5 py-1.5 rounded-md text-xs border border-gray-300/60 dark:border-gray-700/60 bg-white/70 dark:bg-gray-800/60 hover:bg-white/90 dark:hover:bg-gray-800/80 transition"
+                title="Nazaj na naslovnico"
+                aria-label="Nazaj na naslovnico"
+              >
+                <svg
+                  viewBox="0 0 24 24"
+                  width="14"
+                  height="14"
+                  aria-hidden="true"
+                >
+                  <path
+                    d="M3 12L12 3l9 9"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    fill="none"
+                  />
+                  <path
+                    d="M5 10v10h5v-6h4v6h5V10"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    fill="none"
+                  />
+                </svg>
                 Nazaj
               </Link>
 
-              {/* –1 dan (z besedilom na ≥sm, samo ikona na <sm) */}
+              {/* –1 dan */}
               <button
                 onClick={goPrevDay}
                 className="inline-flex items-center justify-center h-9 px-2 sm:px-3 rounded-md text-xs
@@ -465,13 +622,25 @@ export default function ArchivePage() {
                 title="Prejšnji dan"
                 aria-label="Prejšnji dan"
               >
-                <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
-                  <path d="M15 6l-6 6 6 6" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
+                <svg
+                  viewBox="0 0 24 24"
+                  width="16"
+                  height="16"
+                  aria-hidden="true"
+                >
+                  <path
+                    d="M15 6l-6 6 6 6"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    fill="none"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
                 </svg>
                 <span className="hidden sm:inline">Prejšnji dan</span>
               </button>
-              
-              {/* Date input ostane nespremenjen */}
+
+              {/* Date input */}
               <div ref={dateWrapRef} className="relative">
                 <input
                   type="text"
@@ -483,15 +652,20 @@ export default function ArchivePage() {
                   aria-expanded={isDateOpen ? 'true' : 'false'}
                   onFocus={() => setIsDateOpen(true)}
                   onClick={() => setIsDateOpen(true)}
-                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setIsDateOpen(true) } }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault()
+                      setIsDateOpen(true)
+                    }
+                  }}
                   className="px-2.5 py-1.5 rounded-md border border-gray-300 dark:border-gray-700
                              bg-white/80 dark:bg-gray-800/80 backdrop-blur text-xs cursor-pointer focus:outline-none
                              focus:ring-2 focus:ring-brand/50 select-none w-[140px] text-center"
                   aria-label="Izberi datum"
                 />
               </div>
-              
-              {/* +1 dan (onemogočeno za prihodnost) */}
+
+              {/* +1 dan */}
               <button
                 onClick={goNextDay}
                 disabled={nextDisabled}
@@ -503,65 +677,174 @@ export default function ArchivePage() {
                 aria-label="Naslednji dan"
               >
                 <span className="hidden sm:inline">Naslednji dan</span>
-                <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
-                  <path d="M9 6l6 6-6 6" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
+                <svg
+                  viewBox="0 0 24 24"
+                  width="16"
+                  height="16"
+                  aria-hidden="true"
+                >
+                  <path
+                    d="M9 6l6 6-6 6"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    fill="none"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
                 </svg>
               </button>
 
-
-              <button onClick={() => fetchAll(date)} className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs border border-gray-300/60 dark:border-gray-700/60 bg-white/70 dark:bg-gray-800/60 hover:bg-white/90 dark:hover:bg-gray-800/80 transition" title="Osveži dan" aria-label="Osveži dan">
-                <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path d="M4 4v6h6M20 20v-6h-6" stroke="currentColor" strokeWidth="2" fill="none"/><path d="M20 8a8 8 0 0 0-14-4M4 16a8 8 0 0 0 14 4" stroke="currentColor" strokeWidth="2" fill="none"/></svg>
+              <button
+                onClick={() => fetchAll(date)}
+                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs border border-gray-300/60 dark:border-gray-700/60 bg-white/70 dark:bg-gray-800/60 hover:bg-white/90 dark:hover:bg-gray-800/80 transition"
+                title="Osveži dan"
+                aria-label="Osveži dan"
+              >
+                <svg
+                  viewBox="0 0 24 24"
+                  width="14"
+                  height="14"
+                  aria-hidden="true"
+                >
+                  <path
+                    d="M4 4v6h6M20 20v-6h-6"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    fill="none"
+                  />
+                  <path
+                    d="M20 8a8 8 0 0 0-14-4M4 16a8 8 0 0 0 14 4"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    fill="none"
+                  />
+                </svg>
                 Osveži
               </button>
             </div>
 
             {/* search */}
             <div className="relative w-full sm:w-96">
-              <svg className="absolute left-2.5 top-1/2 -translate-y-1/2" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
-                <circle cx="11" cy="11" r="7" stroke="currentColor" strokeWidth="2" fill="none" />
-                <path d="M20 20l-3.2-3.2" stroke="currentColor" strokeWidth="2" />
+              <svg
+                className="absolute left-2.5 top-1/2 -translate-y-1/2"
+                viewBox="0 0 24 24"
+                width="16"
+                height="16"
+                aria-hidden="true"
+              >
+                <circle
+                  cx="11"
+                  cy="11"
+                  r="7"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  fill="none"
+                />
+                <path
+                  d="M20 20l-3.2-3.2"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                />
               </svg>
               <input
-                type="search" value={search} onChange={(e) => setSearch(e.target.value)}
+                type="search"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
                 placeholder="Išči po naslovu ali podnaslovu …"
                 className="w-full pl-8 pr-3 py-2 rounded-md text-sm bg-white/80 dark:bg-gray-800/70 border border-gray-300/70 dark:border-gray-700/70 focus:outline-none focus:ring-2 focus:ring-brand/50"
               />
             </div>
           </div>
 
-          <CalendarPopover open={isDateOpen} anchorRef={dateWrapRef} valueISO={date} onClose={() => setIsDateOpen(false)} onPickISO={iso => { setIsDateOpen(false); onPickDate(iso) }} />
+          <CalendarPopover
+            open={isDateOpen}
+            anchorRef={dateWrapRef}
+            valueISO={date}
+            onClose={() => setIsDateOpen(false)}
+            onPickISO={(iso) => {
+              setIsDateOpen(false)
+              onPickDate(iso)
+            }}
+          />
 
           {/* Graf */}
           <div className="rounded-xl border border-gray-200/70 dark:border-gray-700/70 bg-white/70 dark:bg-gray-900/70 backdrop-blur p-4">
             <div className="flex items-center justify-between">
               <h2 className="font-medium">
                 Objave po medijih
-                <span className="ml-2 text-xs text-gray-500 dark:text-gray-400 font-normal">(klikni stolpec za filtriranje)</span>
+                <span className="ml-2 text-xs text-gray-500 dark:text-gray-400 font-normal">
+                  (klikni stolpec za filtriranje)
+                </span>
               </h2>
-              <span className="text-sm text-gray-600 dark:text-gray-400">Skupaj: {total}</span>
+              <span className="text-sm text-gray-600 dark:text-gray-400">
+                Skupaj: {total}
+              </span>
             </div>
 
             <div className="mt-3 space-y-2">
-              {Object.entries(displayCounts).sort((a, b) => b[1] - a[1]).map(([source, count]) => {
-                const active = sourceFilter === source
-                return (
-                  <button key={source} onClick={() => setSourceFilter(curr => (curr === source ? null : source))}
-                          className="w-full text-left group" title={active ? 'Počisti filter' : `Prikaži samo: ${source}`}>
-                    <div className="flex items-center gap-3">
-                      <div className={`w-32 shrink-0 text-sm ${active ? 'text-brand' : 'text-gray-700 dark:text-gray-300'}`}>{source}</div>
-                      <div className={`flex-1 h-3 rounded-full overflow-hidden ${active ? 'bg-brand/20 dark:bg-brand/30' : 'bg-gray-200 dark:bg-gray-800'}`}>
-                        <div className="h-full bg-brand dark:bg-brand" style={{ width: `${(count / maxCount) * 100}%` }} aria-hidden />
+              {Object.entries(displayCounts)
+                .sort((a, b) => b[1] - a[1])
+                .map(([source, count]) => {
+                  const active = sourceFilter === source
+                  return (
+                    <button
+                      key={source}
+                      onClick={() =>
+                        setSourceFilter((curr) =>
+                          curr === source ? null : source,
+                        )
+                      }
+                      className="w-full text-left group"
+                      title={
+                        active
+                          ? 'Počisti filter'
+                          : `Prikaži samo: ${source}`
+                      }
+                    >
+                      <div className="flex items-center gap-3">
+                        <div
+                          className={`w-32 shrink-0 text-sm ${
+                            active
+                              ? 'text-brand'
+                              : 'text-gray-700 dark:text-gray-300'
+                          }`}
+                        >
+                          {source}
+                        </div>
+                        <div
+                          className={`flex-1 h-3 rounded-full overflow-hidden ${
+                            active
+                              ? 'bg-brand/20 dark:bg-brand/30'
+                              : 'bg-gray-200 dark:bg-gray-800'
+                          }`}
+                        >
+                          <div
+                            className="h-full bg-brand dark:bg-brand"
+                            style={{
+                              width: `${(count / maxCount) * 100}%`,
+                            }}
+                            aria-hidden
+                          />
+                        </div>
+                        <div
+                          className={`w-12 text-right text-sm tabular-nums ${
+                            active ? 'text-brand' : ''
+                          }`}
+                        >
+                          {count}
+                        </div>
                       </div>
-                      <div className={`w-12 text-right text-sm tabular-nums ${active ? 'text-brand' : ''}`}>{count}</div>
-                    </div>
-                  </button>
-                )
-              })}
+                    </button>
+                  )
+                })}
             </div>
 
             {sourceFilter && (
               <div className="mt-2">
-                <button onClick={() => setSourceFilter(null)} className="text-xs text-gray-600 dark:text-gray-400 underline decoration-dotted hover:text-gray-800 dark:hover:text-gray-200">
+                <button
+                  onClick={() => setSourceFilter(null)}
+                  className="text-xs text-gray-600 dark:text-gray-400 underline decoration-dotted hover:text-gray-800 dark:hover:text-gray-200"
+                >
                   Počisti filter
                 </button>
               </div>
@@ -570,20 +853,32 @@ export default function ArchivePage() {
 
           {/* Seznam novic */}
           <div>
-            <h3 className="mt-1 mb-2 text-sm font-medium text-gray-800 dark:text-gray-200">Zadnje novice</h3>
+            <h3 className="mt-1 mb-2 text-sm font-medium text-gray-800 dark:text-gray-200">
+              Zadnje novice
+            </h3>
 
             <div className="hidden md:grid grid-cols-[90px_1fr_160px] text-[12px] text-gray-500 dark:text-gray-400 px-3">
-              <div className="sticky top-[calc(var(--hdr-h)+8px)] bg-transparent backdrop-blur pt-1 pb-1">Čas</div>
-              <div className="sticky top-[calc(var(--hdr-h)+8px)] bg-transparent backdrop-blur pt-1 pb-1">Naslov</div>
-              <div className="sticky top-[calc(var(--hdr-h)+8px)] bg-transparent backdrop-blur pt-1 pb-1 text-right pr-2">Vir</div>
+              <div className="sticky top-[calc(var(--hdr-h)+8px)] bg-transparent backdrop-blur pt-1 pb-1">
+                Čas
+              </div>
+              <div className="sticky top-[calc(var(--hdr-h)+8px)] bg-transparent backdrop-blur pt-1 pb-1">
+                Naslov
+              </div>
+              <div className="sticky top-[calc(var(--hdr-h)+8px)] bg-transparent backdrop-blur pt-1 pb-1 text-right pr-2">
+                Vir
+              </div>
             </div>
 
             <div className="rounded-md border border-gray-200/70 dark:border-gray-800/70 bg-white/50 dark:bg-gray-900/40">
               <div className="relative max-h=[56svh] max-h-[56svh] overflow-y-auto pb-3">
                 {loading ? (
-                  <p className="p-3 text-sm text-gray-500 dark:text-gray-400">Nalagam…</p>
+                  <p className="p-3 text-sm text-gray-500 dark:text-gray-400">
+                    Nalagam…
+                  </p>
                 ) : errorMsg ? (
-                  <p className="p-3 text-sm text-red-600 dark:text-red-400">{errorMsg}</p>
+                  <p className="p-3 text-sm text-red-600 dark:text-red-400">
+                    {errorMsg}
+                  </p>
                 ) : (
                   <ul className="divide-y divide-gray-200 dark:divide-gray-800">
                     {filtered.map((it, i) => {
@@ -591,47 +886,98 @@ export default function ArchivePage() {
                       const src = it.source
                       const hex = sourceColors[src] || '#7c7c7c'
                       const ts = tsOf(it)
-                      const summary = (it.summary ?? it.contentsnippet ?? it.description ?? it.content ?? '').trim()
+                      const summary =
+                        (
+                          it.summary ??
+                          it.contentsnippet ??
+                          it.description ??
+                          it.content ??
+                          ''
+                        ).trim()
 
                       return (
                         <li key={`${link}-${i}`} className="px-2 sm:px-3 py-1">
                           {/* mobile */}
                           <div className="md:hidden">
                             <div className="flex items-center justify-between gap-3">
-                              <span className="text-[11px] text-gray-500 dark:text-gray-400 tabular-nums whitespace-nowrap">{timeForRow(ts)}</span>
+                              <span className="text-[11px] text-gray-500 dark:text-gray-400 tabular-nums whitespace-nowrap">
+                                {timeForRow(ts)}
+                              </span>
                               <button
                                 className="inline-flex items-center gap-1 text-[11px] text-gray-700 dark:text-gray-200 hover:opacity-80"
-                                onClick={() => setSourceFilter(curr => (curr === src ? null : src))}
-                                title={sourceFilter === src ? 'Počisti filter' : `Prikaži samo: ${src}`}
+                                onClick={() =>
+                                  setSourceFilter((curr) =>
+                                    curr === src ? null : src,
+                                  )
+                                }
+                                title={
+                                  sourceFilter === src
+                                    ? 'Počisti filter'
+                                    : `Prikaži samo: ${src}`
+                                }
                               >
-                                <span className="inline-block w-1.5 h-1.5 rounded-full" style={{ backgroundColor: hex }} aria-hidden />
+                                <span
+                                  className="inline-block w-1.5 h-1.5 rounded-full"
+                                  style={{ backgroundColor: hex }}
+                                  aria-hidden
+                                />
                                 {src}
                               </button>
                             </div>
-                            <a href={link} target="_blank" rel="noopener noreferrer" className="block text-[13.5px] leading-tight text-gray-900 dark:text-gray-100 hover:underline mt-0.5">
-                              {search.trim() ? highlight(it.title, search) : it.title}
+                            <a
+                              href={link}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="block text-[13.5px] leading-tight text-gray-900 dark:text-gray-100 hover:underline mt-0.5"
+                            >
+                              {search.trim()
+                                ? highlight(it.title, search)
+                                : it.title}
                             </a>
                           </div>
 
                           {/* desktop */}
                           <div className="hidden md:grid grid-cols-[90px_1fr_160px] items-center gap-x-3">
-                            <span className="text-[11px] text-gray-500 dark:text-gray-400 tabular-nums text-right">{timeForRow(ts)}</span>
+                            <span className="text-[11px] text-gray-500 dark:text-gray-400 tabular-nums text-right">
+                              {timeForRow(ts)}
+                            </span>
                             <div className="relative">
-                              <a href={link} target="_blank" rel="noopener noreferrer" className="peer block text-[13px] leading-tight text-gray-900 dark:text-gray-100 hover:underline truncate">
-                                {search.trim() ? highlight(it.title, search) : it.title}
+                              <a
+                                href={link}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="peer block text-[13px] leading-tight text-gray-900 dark:text-gray-100 hover:underline truncate"
+                              >
+                                {search.trim()
+                                  ? highlight(it.title, search)
+                                  : it.title}
                               </a>
                               {summary && (
                                 <div className="pointer-events-none absolute left-0 top-full mt-1 z-50 max-w-[60ch] rounded-md bg-gray-900 text-white text-[12px] leading-snug px-2.5 py-2 shadow-lg ring-1 ring-black/20 opacity-0 invisible translate-y-1 transition peer-hover:opacity-100 peer-hover:visible peer-hover:translate-y-0">
-                                  {search.trim() ? highlight(summary, search) : summary}
+                                  {search.trim()
+                                    ? highlight(summary, search)
+                                    : summary}
                                 </div>
                               )}
                             </div>
                             <button
                               className="justify-self-end inline-flex items-center gap-1 text-[11px] text-gray-700 dark:text-gray-200 hover:opacity-80"
-                              onClick={() => setSourceFilter(curr => (curr === src ? null : src))}
-                              title={sourceFilter === src ? 'Počisti filter' : `Prikaži samo: ${src}`}
+                              onClick={() =>
+                                setSourceFilter((curr) =>
+                                  curr === src ? null : src,
+                                )
+                              }
+                              title={
+                                sourceFilter === src
+                                  ? 'Počisti filter'
+                                  : `Prikaži samo: ${src}`
+                              }
                             >
-                              <span className="inline-block w-1.5 h-1.5 rounded-full" style={{ backgroundColor: hex }} aria-hidden />
+                              <span
+                                className="inline-block w-1.5 h-1.5 rounded-full"
+                                style={{ backgroundColor: hex }}
+                                aria-hidden
+                              />
                               {src}
                             </button>
                           </div>
