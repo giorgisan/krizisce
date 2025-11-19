@@ -873,7 +873,7 @@ export default function ArchivePage() {
               <div className="relative max-h=[56svh] max-h-[56svh] overflow-y-auto pb-3">
                 {loading ? (
                   <p className="p-3 text-sm text-gray-500 dark:text-gray-400">
-                    Nalagam…
+                    Nalagam vsebino …
                   </p>
                 ) : errorMsg ? (
                   <p className="p-3 text-sm text-red-600 dark:text-red-400">
