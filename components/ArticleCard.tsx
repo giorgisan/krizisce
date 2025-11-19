@@ -67,7 +67,7 @@ export default function ArticleCard({ news, priority = false }: Props) {
   }, [])
 
   const rawImg = news.image ?? null
-  const proxyInitiallyOn = !!rawImg // ⬅️ proxy je privzeto vedno vklopljen
+  const proxyInitiallyOn = !!rawImg // proxy je privzeto vedno vklopljen
 
   const [useProxy, setUseProxy]       = useState<boolean>(proxyInitiallyOn)
   const [useFallback, setUseFallback] = useState<boolean>(!rawImg)
@@ -76,18 +76,6 @@ export default function ArticleCard({ news, priority = false }: Props) {
 
   const cardRef = useRef<HTMLAnchorElement>(null)
   const imgRef  = useRef<HTMLImageElement>(null)
-  const [inView, setInView] = useState<boolean>(false)
-
-  useEffect(() => {
-    const el = cardRef.current
-    if (!el) return
-    const io = new IntersectionObserver(
-      (entries) => entries.forEach(e => { if (e.isIntersecting) setInView(true) }),
-      { rootMargin: '200px 0px' }
-    )
-    io.observe(el)
-    return () => io.disconnect()
-  }, [])
 
   const currentSrc = useMemo(() => {
     if (!rawImg) return null
@@ -132,8 +120,9 @@ export default function ArticleCard({ news, priority = false }: Props) {
   const [isPriority, setIsPriority] = useState<boolean>(priority)
   useEffect(() => { if (priority) setIsPriority(true) }, [priority])
 
+  // preload za priority kartice (brez inView gate)
   useEffect(() => {
-    if (!isPriority || !rawImg || !inView) return
+    if (!isPriority || !rawImg) return
     const rectW  = Math.max(1, Math.round(cardRef.current?.getBoundingClientRect().width || 480))
     const dpr    = (typeof window !== 'undefined' && window.devicePixelRatio) || 1
     const targetW = Math.min(1280, Math.round(rectW * dpr))
@@ -145,7 +134,7 @@ export default function ArticleCard({ news, priority = false }: Props) {
     link.crossOrigin = 'anonymous'
     document.head.appendChild(link)
     return () => { document.head.removeChild(link) }
-  }, [isPriority, rawImg, inView])
+  }, [isPriority, rawImg])
 
   const sendBeacon = (payload: any) => {
     try {
@@ -254,7 +243,7 @@ export default function ArticleCard({ news, priority = false }: Props) {
             </div>
           )}
 
-          {useFallback || !currentSrc || !inView ? (
+          {useFallback || !currentSrc ? (
             (useFallback || !currentSrc)
               ? (
                 <div className="absolute inset-0 flex items-center justify-center">
