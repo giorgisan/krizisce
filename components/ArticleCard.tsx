@@ -2,7 +2,7 @@
 
 /* =========================================================
    ArticleCard.tsx — robustno nalaganje slik (mobile friendly)
-   + ZDAJ: “pred X min” se osveži vsako minuto (poslušamo 'ui:minute')
+   + “pred X min” se osveži vsako minuto (poslušamo 'ui:minute')
    ========================================================= */
 
 import { NewsItem } from '@/types'
@@ -24,9 +24,6 @@ const ArticlePreview = dynamic(() => import('./ArticlePreview'), { ssr: false })
 
 const ASPECT = 16 / 9
 const IMAGE_WIDTHS = [320, 480, 640, 960, 1280]
-
-let PROXY_FAILS = 0
-const PROXY_TRIP = 6
 
 interface Props { news: NewsItem; priority?: boolean }
 
@@ -52,7 +49,6 @@ export default function ArticleCard({ news, priority = false }: Props) {
     const date = new Intl.DateTimeFormat('sl-SI', { day: 'numeric', month: 'short' }).format(d)
     const time = new Intl.DateTimeFormat('sl-SI', { hour: '2-digit', minute: '2-digit' }).format(d)
     return `${date}, ${time}`
-    // minuteTick je namenoma v deps, da se niz osveži vsako minuto
   }, [news.publishedAt, news.isoDate, minuteTick])
 
   const sourceColor = useMemo(() => {
@@ -71,7 +67,7 @@ export default function ArticleCard({ news, priority = false }: Props) {
   }, [])
 
   const rawImg = news.image ?? null
-  const proxyInitiallyOn = !!rawImg && PROXY_FAILS < PROXY_TRIP
+  const proxyInitiallyOn = !!rawImg // ⬅️ proxy je privzeto vedno vklopljen
 
   const [useProxy, setUseProxy]       = useState<boolean>(proxyInitiallyOn)
   const [useFallback, setUseFallback] = useState<boolean>(!rawImg)
@@ -99,7 +95,7 @@ export default function ArticleCard({ news, priority = false }: Props) {
     return rawImg
   }, [rawImg, useProxy])
 
-  // ⚠️ Ključna sprememba: srcSet uporabljamo samo, dokler je proxy v igri.
+  // srcSet uporabljamo samo, dokler je proxy v igri
   const srcSet = useMemo(() => {
     if (!rawImg || !useProxy) return ''
     return buildSrcSet(rawImg, IMAGE_WIDTHS, ASPECT)
@@ -112,20 +108,21 @@ export default function ArticleCard({ news, priority = false }: Props) {
   }, [rawImg])
 
   useEffect(() => {
-    setUseProxy(!!rawImg && PROXY_FAILS < PROXY_TRIP)
+    setUseProxy(!!rawImg)
     setUseFallback(!rawImg)
     setImgLoaded(false)
     setImgKey(k => k + 1)
   }, [news.link, rawImg])
 
   const handleImgError = () => {
+    // 1. poskus: če je bil proxy, preklopi to kartico na originalni URL
     if (rawImg && useProxy) {
-      PROXY_FAILS++
       setUseProxy(false)
       setImgLoaded(false)
       setImgKey(k => k + 1)
       return
     }
+    // 2. poskus: če crkne še original, pokaži fallback “Ni slike”
     if (!useFallback) {
       setUseFallback(true)
       setImgLoaded(false)
