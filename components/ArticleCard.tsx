@@ -99,10 +99,11 @@ export default function ArticleCard({ news, priority = false }: Props) {
     return rawImg
   }, [rawImg, useProxy])
 
+  // ⚠️ Ključna sprememba: srcSet uporabljamo samo, dokler je proxy v igri.
   const srcSet = useMemo(() => {
-    if (!rawImg) return ''
+    if (!rawImg || !useProxy) return ''
     return buildSrcSet(rawImg, IMAGE_WIDTHS, ASPECT)
-  }, [rawImg])
+  }, [rawImg, useProxy])
 
   const lqipSrc = useMemo(() => {
     if (!rawImg) return null
@@ -271,7 +272,7 @@ export default function ArticleCard({ news, priority = false }: Props) {
             <img
               key={imgKey}
               ref={imgRef}
-              src={currentSrc}
+              src={currentSrc as string}
               srcSet={srcSet}
               alt={news.title}
               className="absolute inset-0 h-full w-full object-cover transition-opacity duration-200 opacity-0 data-[ok=true]:opacity-100"
