@@ -389,7 +389,7 @@ export default async function handler(
       // izračun score-a in izbor predstavnika
       const scored: { row: Row; score: number }[] = []
 
-      for (const g of groups.values()) {
+      for (const g of Array.from(groups.values())) {
         const sourceCount = g.sources.size
         if (sourceCount < MIN_SOURCES) continue
 
