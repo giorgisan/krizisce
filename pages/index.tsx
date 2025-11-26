@@ -1,3 +1,4 @@
+// pages/index.tsx
 'use client'
 
 import React, {
@@ -288,7 +289,7 @@ export default function Home({ initialNews }: Props) {
   const sortedNews = useMemo(
     () =>
       mode === 'trending'
-        ? shapedNews // ohrani vrstni red iz API-ja (trending score)
+        ? shapedNews // ohrani vrstni red iz API-ja (trending score / clustering)
         : [...shapedNews].sort((a, b) => (b as any).stableAt - (a as any).stableAt),
     [shapedNews, mode],
   )
@@ -413,7 +414,7 @@ export default function Home({ initialNews }: Props) {
             const fresh = await loadNews('trending')
             if (fresh && fresh.length) setNews(fresh)
           }}
-          className{
+          className={
             'px-3 py-1 rounded-full border text-sm ' +
             (mode === 'trending'
               ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900 border-transparent'
