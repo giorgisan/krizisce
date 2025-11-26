@@ -148,8 +148,8 @@ function makeStoryIdFromTitle(rawTitle: string): string | null {
   const base = normTitle(rawTitle)
   if (!base) return null
 
-  // izluščimo besede (samo črke, unicode)
-  const words = Array.from(base.matchAll(/\p{L}+/gu)).map((m) => m[0])
+  // base je že ASCII lower-case; besede dobimo z delitvijo po ne-črkah
+  const words = base.split(/[^a-z]+/).filter(Boolean)
 
   // odstranimo stopworde
   const filtered = words.filter((w) => !STORY_STOPWORDS.has(w))
@@ -399,23 +399,25 @@ export default async function handler(
         const score = sourceCount * ageFactor
 
         // predstavnik: najnovejši članek v skupini
-        const rep = g.rows.slice().sort((a, b) => {
-          const am =
-            (a.publishedat && Number(a.publishedat)) ||
-            toMs(a.published_at) ||
-            toMs(a.pubdate) ||
-            toMs(a.isodate) ||
-            toMs(a.created_at) ||
-            0
-          const bm =
-            (b.publishedat && Number(b.publishedat)) ||
-            toMs(b.published_at) ||
-            toMs(b.pubdate) ||
-            toMs(b.isodate) ||
-            toMs(b.created_at) ||
-            0
-          return bm - am
-        })[0]
+        const rep = g.rows
+          .slice()
+          .sort((a, b) => {
+            const am =
+              (a.publishedat && Number(a.publishedat)) ||
+              toMs(a.published_at) ||
+              toMs(a.pubdate) ||
+              toMs(a.isodate) ||
+              toMs(a.created_at) ||
+              0
+            const bm =
+              (b.publishedat && Number(b.publishedat)) ||
+              toMs(b.published_at) ||
+              toMs(b.pubdate) ||
+              toMs(b.isodate) ||
+              toMs(b.created_at) ||
+              0
+            return bm - am
+          })[0]
 
         scored.push({ row: rep, score })
       }
