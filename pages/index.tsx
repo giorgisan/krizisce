@@ -20,6 +20,8 @@ import SourceFilter from '@/components/SourceFilter'
 
 /* ================= Helpers & constants ================= */
 
+type Mode = 'latest' | 'trending'
+
 const POLL_MS = 60_000
 const HIDDEN_POLL_MS = 5 * 60_000
 const POLL_MAX_BACKOFF = 5
@@ -44,11 +46,13 @@ function timeout(ms: number) {
  * Primarni klic gre na naš /api/news (Vercel).
  * Če pade/timeouta → fallback: direktno na Supabase (anon key).
  */
-async function loadNews(signal?: AbortSignal): Promise<NewsItem[] | null> {
+async function loadNews(mode: Mode, signal?: AbortSignal): Promise<NewsItem[] | null> {
+  const qs = mode === 'trending' ? '?variant=trending' : ''
+
   // 1) prek Vercela
   try {
     const res = (await Promise.race([
-      fetch('/api/news', { cache: 'no-store', signal }),
+      fetch(`/api/news${qs}`, { cache: 'no-store', signal }),
       timeout(12_000),
     ])) as Response
     if (res.ok) {
@@ -57,7 +61,7 @@ async function loadNews(signal?: AbortSignal): Promise<NewsItem[] | null> {
     }
   } catch {}
 
-  // 2) fallback: direkt Supabase
+  // 2) fallback: direkt Supabase (vedno "latest")
   try {
     const { createClient } = await import('@supabase/supabase-js')
     const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL as string
@@ -128,6 +132,8 @@ type Props = { initialNews: NewsItem[] }
 export default function Home({ initialNews }: Props) {
   const [news, setNews] = useState<NewsItem[]>(initialNews)
 
+  const [mode, setMode] = useState<Mode>('latest')
+
   // Single-select filter
   const [selectedSource, setSelectedSource] = useState<string>(() => {
     try {
@@ -163,19 +169,24 @@ export default function Home({ initialNews }: Props) {
   useEffect(() => {
     const ctrl = new AbortController()
     ;(async () => {
-      const fresh = await loadNews(ctrl.signal)
+      const fresh = await loadNews(mode, ctrl.signal)
       if (fresh && fresh.length) {
         const currentLinks = new Set(initialNews.map(n => n.link))
         const hasNewLink = fresh.some(n => n.link && !currentLinks.has(n.link))
-        if (hasNewLink) startTransition(() => { setNews(fresh); setDisplayCount(20) })
+        if (hasNewLink) {
+          startTransition(() => {
+            setNews(fresh)
+            setDisplayCount(20)
+          })
+        }
       }
       kickSyncIfStale(5 * 60_000)
       setBootRefreshed(true)
     })()
     return () => ctrl.abort()
-  }, [initialNews])
+  }, [initialNews, mode])
 
-  // polling (UPD: upoštevaj trenutno izbran vir, da se banner ne kaže lažno)
+  // polling (upošteva trenutno izbran vir in mode)
   const [freshNews, setFreshNews] = useState<NewsItem[] | null>(null)
   const missCountRef = useRef(0)
   const timerRef = useRef<number | null>(null)
@@ -189,7 +200,7 @@ export default function Home({ initialNews }: Props) {
     const runCheck = async () => {
       kickSyncIfStale(10 * 60_000)
       const ctrl = new AbortController()
-      const fresh = await loadNews(ctrl.signal)
+      const fresh = await loadNews(mode, ctrl.signal)
       if (!fresh || fresh.length === 0) {
         window.dispatchEvent(new CustomEvent('news-has-new', { detail: false }))
         missCountRef.current = Math.min(POLL_MAX_BACKOFF, missCountRef.current + 1)
@@ -214,11 +225,15 @@ export default function Home({ initialNews }: Props) {
       timerRef.current = window.setInterval(runCheck, base + extra) as unknown as number
     }
 
-    runCheck(); schedule()
+    runCheck()
+    schedule()
     const onVis = () => { if (document.visibilityState === 'visible') runCheck(); schedule() }
     document.addEventListener('visibilitychange', onVis)
-    return () => { if (timerRef.current) window.clearInterval(timerRef.current); document.removeEventListener('visibilitychange', onVis) }
-  }, [news, bootRefreshed, deferredSource])
+    return () => {
+      if (timerRef.current) window.clearInterval(timerRef.current)
+      document.removeEventListener('visibilitychange', onVis)
+    }
+  }, [news, bootRefreshed, deferredSource, mode])
 
   // manual refresh
   useEffect(() => {
@@ -229,15 +244,24 @@ export default function Home({ initialNews }: Props) {
           window.dispatchEvent(new CustomEvent('news-refreshing', { detail: false }))
           window.dispatchEvent(new CustomEvent('news-has-new', { detail: false }))
           missCountRef.current = 0
-          setHasMore(true); setCursor(null); setDisplayCount(20)
+          setHasMore(true)
+          setCursor(null)
+          setDisplayCount(20)
         }
-        if (freshNews) { setNews(freshNews); finish() }
-        else loadNews().then((fresh) => { if (fresh && fresh.length) setNews(fresh); finish() })
+        if (freshNews) {
+          setNews(freshNews)
+          finish()
+        } else {
+          loadNews(mode).then((fresh) => {
+            if (fresh && fresh.length) setNews(fresh)
+            finish()
+          })
+        }
       })
     }
     window.addEventListener('refresh-news', onRefresh as EventListener)
     return () => window.removeEventListener('refresh-news', onRefresh as EventListener)
-  }, [freshNews])
+  }, [freshNews, mode])
 
   // stableAt shaping
   const shapedNews = useMemo(() => {
@@ -255,20 +279,35 @@ export default function Home({ initialNews }: Props) {
   }, [news, firstSeen])
 
   // filter + sort + paginate
-  const sortedNews = useMemo(() => [...shapedNews].sort((a, b) => (b as any).stableAt - (a as any).stableAt), [shapedNews])
-  const filteredNews = useMemo(() => deferredSource === 'Vse' ? sortedNews : sortedNews.filter(a => a.source === deferredSource), [sortedNews, deferredSource])
-  const visibleNews = useMemo(() => filteredNews.slice(0, displayCount), [filteredNews, displayCount])
+  const sortedNews = useMemo(
+    () => [...shapedNews].sort((a, b) => (b as any).stableAt - (a as any).stableAt),
+    [shapedNews],
+  )
+  const filteredNews = useMemo(
+    () => deferredSource === 'Vse'
+      ? sortedNews
+      : sortedNews.filter(a => a.source === deferredSource),
+    [sortedNews, deferredSource],
+  )
+  const visibleNews = useMemo(
+    () => filteredNews.slice(0, displayCount),
+    [filteredNews, displayCount],
+  )
 
   // cursor calc
   useEffect(() => {
     if (!filteredNews.length) { setCursor(null); setHasMore(true); return }
-    const minMs = filteredNews.reduce((acc, n) => Math.min(acc, n.publishedAt || acc), filteredNews[0].publishedAt || 0)
+    const minMs = filteredNews.reduce(
+      (acc, n) => Math.min(acc, n.publishedAt || acc),
+      filteredNews[0].publishedAt || 0,
+    )
     setCursor(minMs || null)
   }, [deferredSource, news])
 
   // paging
   const [isLoadingMore, setIsLoadingMore] = useState(false)
   type PagePayload = { items: NewsItem[]; nextCursor: number | null }
+
   async function fetchPage(params: { cursor?: number | null; limit?: number; source?: string | null }): Promise<PagePayload> {
     const { cursor, limit = 40, source } = params
     const qs = new URLSearchParams()
@@ -281,16 +320,26 @@ export default function Home({ initialNews }: Props) {
     if (!data || !Array.isArray(data.items)) return { items: [], nextCursor: null }
     return data
   }
+
   const handleLoadMore = async () => {
+    if (mode !== 'latest') return // paging samo za "Najnovejše"
     if (isLoadingMore || !hasMore || cursor == null || cursor <= 0) return
     setIsLoadingMore(true)
     try {
       const { items, nextCursor } = await fetchPage({ cursor, limit: 40, source: deferredSource })
       const seen = new Set(news.map(n => n.link))
       const fresh = items.filter(i => !seen.has(i.link))
-      if (fresh.length) { setNews(prev => [...prev, ...fresh]); setDisplayCount(prev => prev + fresh.length) }
-      if (!nextCursor || nextCursor === cursor || items.length === 0) { setHasMore(false); setCursor(null) }
-      else { setCursor(nextCursor); setHasMore(true) }
+      if (fresh.length) {
+        setNews(prev => [...prev, ...fresh])
+        setDisplayCount(prev => prev + fresh.length)
+      }
+      if (!nextCursor || nextCursor === cursor || items.length === 0) {
+        setHasMore(false)
+        setCursor(null)
+      } else {
+        setCursor(nextCursor)
+        setHasMore(true)
+      }
     } finally { setIsLoadingMore(false) }
   }
 
@@ -316,16 +365,69 @@ export default function Home({ initialNews }: Props) {
         open={filterOpen}
       />
 
-      <SeoHead title="Križišče" description="Agregator najnovejših novic iz slovenskih medijev. Članki so last izvornih portalov." />
+      {/* Toggle: Najnovejše vs. Trending */}
+      <div className="px-4 md:px-8 lg:px-16 mt-3 mb-1 flex gap-2">
+        <button
+          onClick={async () => {
+            if (mode === 'latest') return
+            setMode('latest')
+            setDisplayCount(20)
+            setHasMore(true)
+            setCursor(null)
+            const fresh = await loadNews('latest')
+            if (fresh && fresh.length) setNews(fresh)
+          }}
+          className={
+            'px-3 py-1 rounded-full border text-sm ' +
+            (mode === 'latest'
+              ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900 border-transparent'
+              : 'bg-transparent text-gray-700 dark:text-gray-300 border-gray-400 dark:border-gray-600')
+          }
+        >
+          Najnovejše
+        </button>
 
-      <main className="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white px-4 md:px-8 lg:px-16 pt-4 pb-24" tabIndex={-1}>
+        <button
+          onClick={async () => {
+            if (mode === 'trending') return
+            setMode('trending')
+            setDisplayCount(40)
+            setHasMore(false)
+            setCursor(null)
+            const fresh = await loadNews('trending')
+            if (fresh && fresh.length) setNews(fresh)
+          }}
+          className={
+            'px-3 py-1 rounded-full border text-sm ' +
+            (mode === 'trending'
+              ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900 border-transparent'
+              : 'bg-transparent text-gray-700 dark:text-gray-300 border-gray-400 dark:border-gray-600')
+          }
+        >
+          Trending
+        </button>
+      </div>
+
+      <SeoHead
+        title="Križišče"
+        description="Agregator najnovejših novic iz slovenskih medijev. Članki so last izvornih portalov."
+      />
+
+      <main
+        className="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white px-4 md:px-8 lg:px-16 pt-4 pb-24"
+        tabIndex={-1}
+      >
         {visibleNews.length === 0 ? (
-          <p className="text-gray-500 dark:text-gray-400 text-center w-full mt-10">Ni novic za izbrani vir ali napaka pri nalaganju.</p>
+          <p className="text-gray-500 dark:text-gray-400 text-center w-full mt-10">
+            Ni novic za izbrani vir ali napaka pri nalaganju.
+          </p>
         ) : (
           <AnimatePresence>
             <motion.div
-              key={deferredSource}
-              initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
+              key={deferredSource + '|' + mode}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
               transition={{ duration: motionDuration }}
               className="grid gap-6 grid-cols-2 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5"
             >
@@ -336,7 +438,7 @@ export default function Home({ initialNews }: Props) {
           </AnimatePresence>
         )}
 
-        {hasMore && (
+        {mode === 'latest' && hasMore && (
           <div className="text-center mt-8 mb-10">
             <button
               onClick={handleLoadMore}
