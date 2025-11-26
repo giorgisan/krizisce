@@ -176,7 +176,7 @@ export default function Home({ initialNews }: Props) {
         if (hasNewLink) {
           startTransition(() => {
             setNews(fresh)
-            setDisplayCount(20)
+            setDisplayCount(mode === 'trending' ? 40 : 20)
           })
         }
       }
@@ -244,9 +244,15 @@ export default function Home({ initialNews }: Props) {
           window.dispatchEvent(new CustomEvent('news-refreshing', { detail: false }))
           window.dispatchEvent(new CustomEvent('news-has-new', { detail: false }))
           missCountRef.current = 0
-          setHasMore(true)
-          setCursor(null)
-          setDisplayCount(20)
+          if (mode === 'latest') {
+            setHasMore(true)
+            setCursor(null)
+            setDisplayCount(20)
+          } else {
+            setHasMore(false)
+            setCursor(null)
+            setDisplayCount(40)
+          }
         }
         if (freshNews) {
           setNews(freshNews)
@@ -280,21 +286,26 @@ export default function Home({ initialNews }: Props) {
 
   // filter + sort + paginate
   const sortedNews = useMemo(
-    () => [...shapedNews].sort((a, b) => (b as any).stableAt - (a as any).stableAt),
-    [shapedNews],
+    () =>
+      mode === 'trending'
+        ? shapedNews // ohrani vrstni red iz API-ja (trending score)
+        : [...shapedNews].sort((a, b) => (b as any).stableAt - (a as any).stableAt),
+    [shapedNews, mode],
   )
+
   const filteredNews = useMemo(
     () => deferredSource === 'Vse'
       ? sortedNews
       : sortedNews.filter(a => a.source === deferredSource),
     [sortedNews, deferredSource],
   )
+
   const visibleNews = useMemo(
     () => filteredNews.slice(0, displayCount),
     [filteredNews, displayCount],
   )
 
-  // cursor calc
+  // cursor calc (samo latest ga res rabi, a ne škoduje, če se računa vedno)
   useEffect(() => {
     if (!filteredNews.length) { setCursor(null); setHasMore(true); return }
     const minMs = filteredNews.reduce(
@@ -357,9 +368,14 @@ export default function Home({ initialNews }: Props) {
         onChange={(next) => {
           startTransition(() => {
             setSelectedSource(next)
-            setDisplayCount(20)
-            setHasMore(true)
-            setCursor(null)
+            setDisplayCount(mode === 'trending' ? 40 : 20)
+            if (mode === 'latest') {
+              setHasMore(true)
+              setCursor(null)
+            } else {
+              setHasMore(false)
+              setCursor(null)
+            }
           })
         }}
         open={filterOpen}
@@ -397,7 +413,7 @@ export default function Home({ initialNews }: Props) {
             const fresh = await loadNews('trending')
             if (fresh && fresh.length) setNews(fresh)
           }}
-          className={
+          className{
             'px-3 py-1 rounded-full border text-sm ' +
             (mode === 'trending'
               ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900 border-transparent'
