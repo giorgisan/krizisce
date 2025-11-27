@@ -435,7 +435,7 @@ export default function Home({ initialNews }: Props) {
               : 'bg-transparent text-gray-700 dark:text-gray-300 border-gray-400 dark:border-gray-600')
           }
         >
-          Trending
+          🔥 Aktualno
         </button>
       </div>
 
