@@ -2,9 +2,9 @@
 'use client'
 
 /* =========================================================
-   TrendingCard.tsx — isto kot ArticleCard, PLUS:
+   TrendingCard.tsx — kot ArticleCard, PLUS:
    - "Zadnja objava: <source>"
-   - "Pokrivajo: <vsi viri>" z individualnimi linki
+   - mini-card linki za vse storySources
    ========================================================= */
 
 import { NewsItem } from '@/types'
@@ -38,7 +38,7 @@ interface Props { news: TrendingNewsItem; priority?: boolean }
 export default function TrendingCard({ news, priority = false }: Props) {
   const storySources: StorySource[] = Array.isArray(news.storySources) ? news.storySources : []
 
-  // --- minute tick iz Headerja: ob 'ui:minute' rerenderiramo formatirani čas
+  // minute tick
   const [minuteTick, setMinuteTick] = useState(0)
   useEffect(() => {
     const onMinute = () => setMinuteTick((m) => (m + 1) % 60)
@@ -77,7 +77,7 @@ export default function TrendingCard({ news, priority = false }: Props) {
   }, [])
 
   const rawImg = news.image ?? null
-  const proxyInitiallyOn = !!rawImg // proxy je privzeto vedno vklopljen
+  const proxyInitiallyOn = !!rawImg
 
   const [useProxy, setUseProxy]       = useState<boolean>(proxyInitiallyOn)
   const [useFallback, setUseFallback] = useState<boolean>(!rawImg)
@@ -93,7 +93,6 @@ export default function TrendingCard({ news, priority = false }: Props) {
     return rawImg
   }, [rawImg, useProxy])
 
-  // srcSet uporabljamo samo, dokler je proxy v igri
   const srcSet = useMemo(() => {
     if (!rawImg || !useProxy) return ''
     return buildSrcSet(rawImg, IMAGE_WIDTHS, ASPECT)
@@ -113,14 +112,12 @@ export default function TrendingCard({ news, priority = false }: Props) {
   }, [news.link, rawImg])
 
   const handleImgError = () => {
-    // 1. poskus: če je bil proxy, preklopi to kartico na originalni URL
     if (rawImg && useProxy) {
       setUseProxy(false)
       setImgLoaded(false)
       setImgKey(k => k + 1)
       return
     }
-    // 2. poskus: če crkne še original, pokaži fallback “Ni slike”
     if (!useFallback) {
       setUseFallback(true)
       setImgLoaded(false)
@@ -130,7 +127,6 @@ export default function TrendingCard({ news, priority = false }: Props) {
   const [isPriority, setIsPriority] = useState<boolean>(priority)
   useEffect(() => { if (priority) setIsPriority(true) }, [priority])
 
-  // preload za priority kartice (brez inView gate)
   useEffect(() => {
     if (!isPriority || !rawImg) return
     const rectW  = Math.max(1, Math.round(cardRef.current?.getBoundingClientRect().width || 480))
@@ -218,8 +214,8 @@ export default function TrendingCard({ news, priority = false }: Props) {
   const [eyeHover,   setEyeHover]   = useState(false)
   const showEye = isTouch ? true : eyeVisible
 
-  const handleSourceClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
-    // da ne sproži glavnega linka
+  const handleSourceClick = (e: MouseEvent<HTMLAnchorElement>) => {
+    // ne sproži glavnega linka
     e.stopPropagation()
   }
 
@@ -335,7 +331,7 @@ export default function TrendingCard({ news, priority = false }: Props) {
           </p>
 
           {/* trending meta */}
-          <div className="mt-2 space-y-0.5 text-[11px] text-gray-600 dark:text-gray-300">
+          <div className="mt-2 space-y-1 text-[11px] text-gray-600 dark:text-gray-300">
             <div>
               Zadnja objava:{' '}
               <span className="font-medium">
@@ -344,22 +340,22 @@ export default function TrendingCard({ news, priority = false }: Props) {
             </div>
 
             {storySources.length > 0 && (
-              <div className="flex flex-wrap items-center gap-[2px]">
+              <div>
                 <span className="font-medium mr-1">Pokrivajo:</span>
-                {storySources.map((s, idx) => (
-                  <span key={s.source + s.link}>
-                    {idx > 0 && <span>, </span>}
+                <div className="mt-1 flex flex-wrap gap-1">
+                  {storySources.map((s) => (
                     <a
+                      key={s.source + s.link}
                       href={s.link}
                       target="_blank"
                       rel="noopener noreferrer"
                       onClick={handleSourceClick}
-                      className="hover:underline"
+                      className="px-2 py-[2px] rounded-full bg-gray-100 dark:bg-gray-700 text-[11px] text-gray-800 dark:text-gray-100 hover:bg-gray-200 dark:hover:bg-gray-600 transition"
                     >
                       {s.source}
                     </a>
-                  </span>
-                ))}
+                  ))}
+                </div>
               </div>
             )}
           </div>
