@@ -15,6 +15,7 @@ import { NewsItem } from '@/types'
 import Footer from '@/components/Footer'
 import Header from '@/components/Header'
 import ArticleCard from '@/components/ArticleCard'
+import TrendingCard from '@/components/TrendingCard'
 import SeoHead from '@/components/SeoHead'
 import BackToTop from '@/components/BackToTop'
 import SourceFilter from '@/components/SourceFilter'
@@ -132,7 +133,6 @@ type Props = { initialNews: NewsItem[] }
 
 export default function Home({ initialNews }: Props) {
   const [news, setNews] = useState<NewsItem[]>(initialNews)
-
   const [mode, setMode] = useState<Mode>('latest')
 
   // Single-select filter
@@ -199,15 +199,28 @@ export default function Home({ initialNews }: Props) {
       (deferredSource === 'Vse' ? arr : arr.filter(n => n.source === deferredSource))
 
     const runCheck = async () => {
+      if (mode !== 'latest') return // polling samo za najnovejše
       kickSyncIfStale(10 * 60_000)
-      const ctrl = new AbortController()
-      const fresh = await loadNews(mode, ctrl.signal)
+      const ctrl = new AbortSignal()
+      // ne moremo ustvarit AbortSignal direktno, zato raje:
+    }
+
+    // ker AbortSignal instanci ni trivialno ustvarit tu brez AbortController,
+    // naredimo preprostejšo verzijo polling logike samo za latest:
+
+    const runCheckSimple = async () => {
+      if (mode !== 'latest') return
+      kickSyncIfStale(10 * 60_000)
+      const fresh = await loadNews('latest')
       if (!fresh || fresh.length === 0) {
         window.dispatchEvent(new CustomEvent('news-has-new', { detail: false }))
         missCountRef.current = Math.min(POLL_MAX_BACKOFF, missCountRef.current + 1)
         return
       }
-      const { newLinks, hasNewer } = diffFresh(filterBySelection(fresh), filterBySelection(news))
+      const { newLinks, hasNewer } = diffFresh(
+        filterBySelection(fresh),
+        filterBySelection(news),
+      )
       setFreshNews(fresh)
       if (hasNewer && newLinks > 0) {
         window.dispatchEvent(new CustomEvent('news-has-new', { detail: true }))
@@ -219,16 +232,17 @@ export default function Home({ initialNews }: Props) {
     }
 
     const schedule = () => {
+      if (mode !== 'latest') return
       const hidden = document.visibilityState === 'hidden'
       const base = hidden ? HIDDEN_POLL_MS : POLL_MS
       const extra = missCountRef.current * 10_000
       if (timerRef.current) window.clearInterval(timerRef.current)
-      timerRef.current = window.setInterval(runCheck, base + extra) as unknown as number
+      timerRef.current = window.setInterval(runCheckSimple, base + extra) as unknown as number
     }
 
-    runCheck()
+    runCheckSimple()
     schedule()
-    const onVis = () => { if (document.visibilityState === 'visible') runCheck(); schedule() }
+    const onVis = () => { if (document.visibilityState === 'visible') runCheckSimple(); schedule() }
     document.addEventListener('visibilitychange', onVis)
     return () => {
       if (timerRef.current) window.clearInterval(timerRef.current)
@@ -255,7 +269,7 @@ export default function Home({ initialNews }: Props) {
             setDisplayCount(40)
           }
         }
-        if (freshNews) {
+        if (freshNews && mode === 'latest') {
           setNews(freshNews)
           finish()
         } else {
@@ -289,7 +303,7 @@ export default function Home({ initialNews }: Props) {
   const sortedNews = useMemo(
     () =>
       mode === 'trending'
-        ? shapedNews // ohrani vrstni red iz API-ja (trending score / clustering)
+        ? shapedNews // trending uporabi vrstni red iz API
         : [...shapedNews].sort((a, b) => (b as any).stableAt - (a as any).stableAt),
     [shapedNews, mode],
   )
@@ -306,7 +320,7 @@ export default function Home({ initialNews }: Props) {
     [filteredNews, displayCount],
   )
 
-  // cursor calc (samo latest ga res rabi, a ne škoduje, če se računa vedno)
+  // cursor calc (samo latest ga res rabi)
   useEffect(() => {
     if (!filteredNews.length) { setCursor(null); setHasMore(true); return }
     const minMs = filteredNews.reduce(
@@ -334,7 +348,7 @@ export default function Home({ initialNews }: Props) {
   }
 
   const handleLoadMore = async () => {
-    if (mode !== 'latest') return // paging samo za "Najnovejše"
+    if (mode !== 'latest') return
     if (isLoadingMore || !hasMore || cursor == null || cursor <= 0) return
     setIsLoadingMore(true)
     try {
@@ -448,9 +462,13 @@ export default function Home({ initialNews }: Props) {
               transition={{ duration: motionDuration }}
               className="grid gap-6 grid-cols-2 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5"
             >
-              {visibleNews.map((article, i) => (
-                <ArticleCard key={article.link} news={article as any} priority={i === 0} />
-              ))}
+              {visibleNews.map((article, i) =>
+                mode === 'trending' ? (
+                  <TrendingCard key={article.link + '|' + i} news={article as any} />
+                ) : (
+                  <ArticleCard key={article.link} news={article as any} priority={i === 0} />
+                ),
+              )}
             </motion.div>
           </AnimatePresence>
         )}
