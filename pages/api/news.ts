@@ -239,7 +239,8 @@ function rowToItem(r: Row): NewsItem {
 
 const TREND_WINDOW_HOURS = 6
 const TREND_MIN_SOURCES = 2
-const TREND_MIN_OVERLAP = 2
+const TREND_MIN_OVERLAP = 2          // min št. skupnih keywordov
+const TREND_MIN_OVERLAP_RATIO = 0.4  // min delež ujemanja (glede na manjši set)
 const TREND_MAX_ITEMS = 5
 
 type StoryArticle = {
@@ -258,7 +259,8 @@ type RowMeta = {
 
 type TrendGroup = {
   rows: RowMeta[]
-  keywords: string[]
+  keywords: string[]      // fiksni centroid
+  keywordSet: Set<string> // za hitro računanje overlapa
 }
 
 const STORY_STOPWORDS = new Set<string>([
@@ -285,6 +287,7 @@ const STORY_STOPWORDS = new Set<string>([
   'bodo',
   'bil',
   'bila',
+  'bili',
   'danes',
   'vceraj',
   'nocoj',
@@ -293,16 +296,13 @@ const STORY_STOPWORDS = new Set<string>([
   'sloveniji',
   'slovenski',
   'slovenska',
+  'slovensko',
   'video',
   'foto',
   'galerija',
   'intervju',
 ])
 
-/**
- * Osnovni tokenizer: dobi surov tekst (naslov + summary),
- * ga normalizira in razbije v keywoorde.
- */
 function extractKeywordsFromText(text: string): string[] {
   const base = normTitle(text || '')
   if (!base) return []
@@ -312,7 +312,7 @@ function extractKeywordsFromText(text: string): string[] {
 
   for (let i = 0; i < tokens.length; i++) {
     const w = tokens[i]
-    // dovolimo dolžino >= 3, da pobere npr. "lin"
+    // >= 3 znaki, da poberemo npr. "lin", "mbappe", "most"
     if (w.length < 3) continue
     if (STORY_STOPWORDS.has(w)) continue
     if (out.indexOf(w) === -1) out.push(w)
@@ -321,19 +321,9 @@ function extractKeywordsFromText(text: string): string[] {
   return out
 }
 
-/**
- * Ekstrahiraj ključne besede iz ROW-a:
- * - naslov
- * - summary ali contentsnippet
- *
- * To je ključno: cluster upošteva tudi povzetek,
- * zato se zgodbe "pogrešana 13-letnica" zlepijo,
- * čeprav imajo naslovi precej različne formulacije.
- */
+/** Naslov + summary/contentsnippet → ključne besede zgodbe */
 function extractStoryKeywords(row: Row): string[] {
-  const text = `${row.title || ''} ${
-    row.summary || row.contentsnippet || ''
-  }`
+  const text = `${row.title || ''} ${row.summary || row.contentsnippet || ''}`
   return extractKeywordsFromText(text)
 }
 
@@ -352,6 +342,14 @@ async function fetchTrendingRows(): Promise<Row[]> {
 
   if (error) throw new Error(`DB trending: ${error.message}`)
   return (data || []) as Row[]
+}
+
+function countOverlap(a: string[], bSet: Set<string>): number {
+  let c = 0
+  for (let i = 0; i < a.length; i++) {
+    if (bSet.has(a[i])) c++
+  }
+  return c
 }
 
 function computeTrendingFromRows(
@@ -377,35 +375,36 @@ function computeTrendingFromRows(
 
   const groups: TrendGroup[] = []
 
+  // *** grupiranje: vsaka skupina ima fiksni centroid keywordov ***
   for (let i = 0; i < metas.length; i++) {
     const m = metas[i]
-    let attachedIndex = -1
+
+    let bestIndex = -1
+    let bestOverlap = 0
+    let bestRatio = 0
 
     for (let gi = 0; gi < groups.length; gi++) {
       const g = groups[gi]
-      let overlap = 0
-      for (let ki = 0; ki < m.keywords.length; ki++) {
-        const kw = m.keywords[ki]
-        if (g.keywords.indexOf(kw) !== -1) {
-          overlap++
-          if (overlap >= TREND_MIN_OVERLAP) break
-        }
-      }
-      if (overlap >= TREND_MIN_OVERLAP) {
-        attachedIndex = gi
-        break
+      const overlap = countOverlap(m.keywords, g.keywordSet)
+      if (overlap < TREND_MIN_OVERLAP) continue
+
+      const smaller = Math.max(1, Math.min(m.keywords.length, g.keywords.length))
+      const ratio = overlap / smaller
+      if (
+        ratio >= TREND_MIN_OVERLAP_RATIO &&
+        (overlap > bestOverlap || (overlap === bestOverlap && ratio > bestRatio))
+      ) {
+        bestIndex = gi
+        bestOverlap = overlap
+        bestRatio = ratio
       }
     }
 
-    if (attachedIndex >= 0) {
-      const g = groups[attachedIndex]
-      g.rows.push(m)
-      for (let ki = 0; ki < m.keywords.length; ki++) {
-        const kw = m.keywords[ki]
-        if (g.keywords.indexOf(kw) === -1) g.keywords.push(kw)
-      }
+    if (bestIndex >= 0) {
+      groups[bestIndex].rows.push(m)
     } else {
-      groups.push({ rows: [m], keywords: m.keywords.slice() })
+      const kw = m.keywords.slice()
+      groups.push({ rows: [m], keywords: kw, keywordSet: new Set(kw) })
     }
   }
 
@@ -536,7 +535,8 @@ export default async function handler(
     const tokenOk = CRON_SECRET && req.query.token === CRON_SECRET
     const allowPublic = process.env.ALLOW_PUBLIC_REFRESH === '1'
 
-    const canIngest = isCronCaller || isInternalIngest || isDev || tokenOk || allowPublic
+    const canIngest =
+      isCronCaller || isInternalIngest || isDev || tokenOk || allowPublic
 
     if (!paged && wantsFresh && canIngest) {
       try {
