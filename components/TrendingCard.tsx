@@ -557,7 +557,7 @@ export default function TrendingCard({ news }: Props) {
                       Drugi viri
                     </span>
                     <span className="text-[10px] text-gray-500">
-                      {related.length} vira
+                      {related.length}
                       {related.length > 2 ? '+' : ''}
                     </span>
                   </div>
