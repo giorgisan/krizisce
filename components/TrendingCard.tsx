@@ -2,12 +2,11 @@
 'use client'
 
 /* =========================================================
-   TrendingCard.tsx — kartica za zavihek "Trending"/"Aktualno"
+   TrendingCard.tsx — kartica za zavihek "Aktualno"
    ---------------------------------------------------------
    - temelji na ArticleCard (klik, tracking, proxy slike…)
    - spodaj pokaže "Zadnja objava" + mini kartice "Drugi viri"
    - logotipi se berejo iz /public/logos/<slug>.png prek getSourceLogoPath
-   - podatke za zgodbo bere iz news.storyArticles (backend clustering)
    ========================================================= */
 
 import { NewsItem } from '@/types'
@@ -40,7 +39,6 @@ interface Props {
 
 // ==== helper tipi za trending ====
 
-// to je lokalna oblika, ki jo kartica uporablja za "Drugi viri"
 type RelatedItem = {
   source: string
   title: string
@@ -50,15 +48,12 @@ type RelatedItem = {
 }
 
 /**
- * Prebere člane zgodbe iz news.storyArticles (ali fallback polj, če bi se struktura kdaj spremenila).
- *
- * Pričakovana struktura na backendu (kot v tvojem /api/news?variant=trending):
- * storyArticles: [
- *   { source, link, title, summary?, publishedAt? (ms) }
- * ]
+ * Domneva:
+ *   /api/news?variant=trending
+ *   ima polje `storyArticles: { source, title, link, summary?, publishedAt? }[]`
  */
 function extractRelatedItems(news: any): RelatedItem[] {
-  const rawBase =
+  const raw =
     news.storyArticles ||
     news.storyItems ||
     news.otherSources ||
@@ -66,72 +61,24 @@ function extractRelatedItems(news: any): RelatedItem[] {
     news.members ||
     []
 
-  const raw = Array.isArray(rawBase) ? rawBase : []
-
+  if (!Array.isArray(raw)) return []
   return raw
     .map((r: any): RelatedItem | null => {
       if (!r || !r.link || !r.title || !r.source) return null
-
-      let published: number | null = null
-      if (typeof r.publishedAt === 'number') {
-        published = r.publishedAt
-      } else if (typeof r.publishedAt === 'string') {
-        const t = Date.parse(r.publishedAt)
-        published = Number.isNaN(t) ? null : t
-      } else if (typeof r.isoDate === 'string') {
-        const t = Date.parse(r.isoDate)
-        published = Number.isNaN(t) ? null : t
-      }
-
       return {
         source: String(r.source),
         title: String(r.title),
         link: String(r.link),
-        publishedAt: published,
+        publishedAt:
+          typeof r.publishedAt === 'number' ? r.publishedAt : null,
         isoDate: typeof r.isoDate === 'string' ? r.isoDate : null,
       }
     })
     .filter(Boolean) as RelatedItem[]
 }
 
-/**
- * Izbere "glavni vir" za label "Zadnja objava".
- *
- * Logika:
- *  - če obstaja news.storyArticles → vzamemo tistega z najnovejšim publishedAt/isoDate
- *  - fallback: news.primarySource / news.mainSource / news.lastSource / news.source
- */
+/** Izberi primarni vir (zadnja objava); fallback je news.source */
 function getPrimarySource(news: any): string {
-  const arr: any[] | null = Array.isArray(news.storyArticles)
-    ? news.storyArticles
-    : null
-
-  if (arr && arr.length) {
-    let bestSource = ''
-    let bestTs = -Infinity
-
-    for (const item of arr) {
-      if (!item || !item.source) continue
-      let ts = -Infinity
-      if (typeof item.publishedAt === 'number') {
-        ts = item.publishedAt
-      } else if (typeof item.publishedAt === 'string') {
-        const t = Date.parse(item.publishedAt)
-        if (!Number.isNaN(t)) ts = t
-      } else if (typeof item.isoDate === 'string') {
-        const t = Date.parse(item.isoDate)
-        if (!Number.isNaN(t)) ts = t
-      }
-
-      if (ts > bestTs) {
-        bestTs = ts
-        bestSource = String(item.source)
-      }
-    }
-
-    if (bestSource) return bestSource
-  }
-
   return (
     news.primarySource ||
     news.mainSource ||
@@ -404,7 +351,7 @@ export default function TrendingCard({ news }: Props) {
         }}
         className="cv-auto group block no-underline bg-gray-900/85 dark:bg-gray-800 rounded-lg shadow-md overflow-hidden transition-all duration-200 hover:scale-[1.02] hover:shadow-lg hover:bg-gray-900 dark:hover:bg-gray-700"
       >
-        {/* Slika */}
+        {/* SLika */}
         <div
           className="relative w-full aspect-[16/9] overflow-hidden"
           style={
@@ -534,7 +481,7 @@ export default function TrendingCard({ news }: Props) {
           </p>
 
           {/* Primarni vir + drugi viri */}
-          <div className="mt-2 pt-2 border-t border-gray-800 flex flex-col gap-1">
+          <div className="mt-2 pt-2 border-t border-gray-800 flex flex-col gap-2">
             {/* Zadnja objava */}
             <div className="flex items-center gap-2 text-[12px] text-gray-300">
               <span className="text-gray-400">Zadnja objava:</span>
@@ -548,7 +495,7 @@ export default function TrendingCard({ news }: Props) {
                         alt={primarySource}
                         width={18}
                         height={18}
-                        className="h-4 w-4 rounded-full bg-gray-100 dark:bg-gray-700 object-cover"
+                        className="h-4 w-4 rounded-full bg-gray-100 dark:bg-gray-700 object-cover opacity-80 group-hover:opacity-100 transition-opacity"
                       />
                     )}
                     <span className="font-medium">{primarySource}</span>
@@ -559,12 +506,13 @@ export default function TrendingCard({ news }: Props) {
 
             {/* Drugi viri */}
             {related.length > 0 && (
-              <div className="mt-1 flex flex-col gap-1">
-                <span className="text-[11px] uppercase tracking-wide text-gray-500">
+              <div className="mt-1">
+                <div className="text-[11px] uppercase tracking-wide text-gray-500 mb-1">
                   Drugi viri:
-                </span>
-                <div className="flex flex-col gap-1">
-                  {related.slice(0, 4).map((item, idx) => {
+                </div>
+
+                <div className="rounded-lg bg-gray-900/70 border border-gray-800/80 px-2 py-2 flex flex-col gap-1">
+                  {related.slice(0, 6).map((item, idx) => {
                     const logo = getSourceLogoPath(item.source)
                     const relTime = formatRelativeTime(
                       item.publishedAt ?? item.isoDate ?? null,
@@ -595,10 +543,10 @@ export default function TrendingCard({ news }: Props) {
                             alt={item.source}
                             width={20}
                             height={20}
-                            className="h-5 w-5 rounded-full bg-gray-100 dark:bg-gray-700 object-cover mt-[2px]"
+                            className="h-5 w-5 rounded-full bg-gray-100 dark:bg-gray-700 object-cover mt-[2px] opacity-80 group-hover:opacity-100 transition-opacity"
                           />
                         ) : (
-                          <span className="mt-[2px] h-5 w-5 rounded-full bg-gray-700 flex items-center justify-center text-[10px] text-gray-300">
+                          <span className="mt-[2px] h-5 w-5 rounded-full bg-gray-700 flex items-center justify-center text-[10px] text-gray-300 opacity-80 group-hover:opacity-100 transition-opacity">
                             {item.source.slice(0, 2).toUpperCase()}
                           </span>
                         )}
