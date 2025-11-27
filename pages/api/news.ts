@@ -319,7 +319,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
         if (!keywordsArr.length) continue
 
         const kw = new Set<string>()
-        for (const w of keywordsArr) kw.add(w)
+        for (let i = 0; i < keywordsArr.length; i++) {
+          kw.add(keywordsArr[i])
+        }
 
         meta.push({
           row: r,
@@ -353,21 +355,25 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
       for (const m of meta) {
         let assigned = false
 
-        for (const g of groups) {
+        for (let gi = 0; gi < groups.length; gi++) {
+          const g = groups[gi]
           let overlap = 0
-          for (const kw of m.keywords) {
+
+          m.keywords.forEach((kw) => {
+            if (overlap >= MIN_OVERLAP) return
             if (g.keywords.has(kw)) {
               overlap++
-              if (overlap >= MIN_OVERLAP) break
             }
-          }
+          })
 
           if (overlap >= MIN_OVERLAP) {
             g.rows.push(m.row)
             g.sources.add(m.source)
             if (m.ms < g.firstMs) g.firstMs = m.ms
             if (m.ms > g.lastMs) g.lastMs = m.ms
-            for (const kw of m.keywords) g.keywords.add(kw)
+            m.keywords.forEach((kw) => {
+              g.keywords.add(kw)
+            })
             assigned = true
             break
           }
@@ -375,7 +381,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
 
         if (!assigned) {
           const kwSet = new Set<string>()
-          for (const w of m.keywords) kwSet.add(w)
+          m.keywords.forEach((w) => {
+            kwSet.add(w)
+          })
           groups.push({
             rows: [m.row],
             sources: new Set<string>([m.source]),
@@ -388,7 +396,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
 
       const scored: { row: Row; score: number }[] = []
 
-      for (const g of groups) {
+      for (let i = 0; i < groups.length; i++) {
+        const g = groups[i]
         const sourceCount = g.sources.size
         if (sourceCount < MIN_SOURCES) continue
 
