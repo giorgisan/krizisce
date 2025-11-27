@@ -167,12 +167,11 @@ async function syncToSupabase(items: FeedNewsItem[]) {
   const rows = dedupedIn.map(feedItemToDbRow).filter(Boolean) as any[]
   if (!rows.length) return
 
-  // >>> KLJUČNO: usklajeno z DB – UNIQUE je na (link_key), partial WHERE link_key IS NOT NULL
   const { error } = await (supabaseWrite as any)
     .from('news')
     .upsert(rows, {
-      onConflict: 'link_key',          // <-- samo to
-      ignoreDuplicates: true,          // pusti
+      onConflict: 'link_key',
+      ignoreDuplicates: true,
     })
 
   if (error) throw error
@@ -211,7 +210,13 @@ const TREND_MIN_SOURCES = 2
 const TREND_MIN_OVERLAP = 2
 const TREND_MAX_ITEMS = 5
 
-type StorySource = { source: string; link: string }
+type StoryArticle = {
+  source: string
+  link: string
+  title: string
+  summary: string | null
+  publishedAt: number
+}
 
 type RowMeta = {
   row: Row
@@ -225,7 +230,6 @@ type TrendGroup = {
 }
 
 const STORY_STOPWORDS = new Set<string>([
-  // zelo basic stopwordi, vse v lower-case, brez šumnikov (unaccent)
   'v', 'na', 'ob', 'po', 'pri', 'pod', 'nad', 'za', 'do', 'od', 'z', 's',
   'in', 'ali', 'pa', 'kot', 'je', 'so', 'se', 'bo', 'bodo', 'bil', 'bila',
   'danes', 'vceraj', 'nocoj', 'noc', 'slovenija', 'sloveniji', 'slovenski', 'slovenska',
@@ -235,7 +239,6 @@ const STORY_STOPWORDS = new Set<string>([
 function extractKeywordsFromTitle(title: string): string[] {
   const base = normTitle(title || '')
   if (!base) return []
-  // dovolimo a-z, 0-9 in osnovne šumnike; vse ostalo je delimiter
   const tokens = base.split(/[^a-z0-9čćšžđ]+/i).filter(Boolean)
   const out: string[] = []
   for (let i = 0; i < tokens.length; i++) {
@@ -262,7 +265,7 @@ async function fetchTrendingRows(): Promise<Row[]> {
   return (data || []) as Row[]
 }
 
-function computeTrendingFromRows(rows: Row[]): (NewsItem & { storySources: StorySource[] })[] {
+function computeTrendingFromRows(rows: Row[]): (NewsItem & { storyArticles: StoryArticle[] })[] {
   const metas: RowMeta[] = rows.map((row) => {
     const ms =
       (row.publishedat && Number(row.publishedat)) ||
@@ -277,7 +280,6 @@ function computeTrendingFromRows(rows: Row[]): (NewsItem & { storySources: Story
 
   if (!metas.length) return []
 
-  // najnovejše najprej
   metas.sort((a, b) => b.ms - a.ms)
 
   const groups: TrendGroup[] = []
@@ -305,7 +307,6 @@ function computeTrendingFromRows(rows: Row[]): (NewsItem & { storySources: Story
     if (attachedIndex >= 0) {
       const g = groups[attachedIndex]
       g.rows.push(m)
-      // merge keywords
       for (let ki = 0; ki < m.keywords.length; ki++) {
         const kw = m.keywords[ki]
         if (g.keywords.indexOf(kw) === -1) g.keywords.push(kw)
@@ -330,7 +331,6 @@ function computeTrendingFromRows(rows: Row[]): (NewsItem & { storySources: Story
     const g = groups[gi]
     if (!g.rows.length) continue
 
-    // distinct sources
     const srcs: string[] = []
     for (let ri = 0; ri < g.rows.length; ri++) {
       const s = (g.rows[ri].row.source || '').trim()
@@ -339,11 +339,9 @@ function computeTrendingFromRows(rows: Row[]): (NewsItem & { storySources: Story
     const sourceCount = srcs.length
     if (sourceCount < TREND_MIN_SOURCES) continue
 
-    // predstavnik = najnovejši v skupini
     let rep = g.rows[0]
     for (let ri = 1; ri < g.rows.length; ri++) if (g.rows[ri].ms > rep.ms) rep = g.rows[ri]
 
-    // starost = najstarejši v skupini
     let oldestMs = g.rows[0].ms
     for (let ri = 1; ri < g.rows.length; ri++) if (g.rows[ri].ms < oldestMs) oldestMs = g.rows[ri].ms
 
@@ -354,7 +352,6 @@ function computeTrendingFromRows(rows: Row[]): (NewsItem & { storySources: Story
     scored.push({ group: g, rep, sourceCount, score })
   }
 
-  // sort: 1) največ virov, 2) score, 3) najnovejši predstavnik
   scored.sort((a, b) => {
     if (b.sourceCount !== a.sourceCount) return b.sourceCount - a.sourceCount
     if (b.score !== a.score) return b.score - a.score
@@ -363,26 +360,41 @@ function computeTrendingFromRows(rows: Row[]): (NewsItem & { storySources: Story
 
   const top = scored.slice(0, TREND_MAX_ITEMS)
 
-  const result: (NewsItem & { storySources: StorySource[] })[] = []
+  const result: (NewsItem & { storyArticles: StoryArticle[] })[] = []
 
   for (let si = 0; si < top.length; si++) {
     const sg = top[si]
     const base = rowToItem(sg.rep.row)
 
-    const linkBySource: { [src: string]: string } = {}
+    const storyArticles: StoryArticle[] = []
+    const seenSrc: string[] = []
+
     for (let ri = 0; ri < sg.group.rows.length; ri++) {
-      const r = sg.group.rows[ri].row
+      const meta = sg.group.rows[ri]
+      const r = meta.row
       const srcName = (r.source || '').trim()
       const link = r.link_canonical || r.link || ''
-      if (srcName && link && !linkBySource[srcName]) {
-        linkBySource[srcName] = link
-      }
-    }
-    const storySources: StorySource[] = Object.keys(linkBySource)
-      .sort()
-      .map((src) => ({ source: src, link: linkBySource[src] }))
+      if (!srcName || !link) continue
+      if (seenSrc.indexOf(srcName) !== -1) continue
+      seenSrc.push(srcName)
 
-    result.push({ ...base, storySources })
+      const summary =
+        (r.summary && r.summary.trim()) ||
+        (r.contentsnippet && r.contentsnippet.trim()) ||
+        null
+
+      storyArticles.push({
+        source: srcName,
+        link,
+        title: r.title || '',
+        summary,
+        publishedAt: meta.ms,
+      })
+    }
+
+    storyArticles.sort((a, b) => b.publishedAt - a.publishedAt)
+
+    result.push({ ...base, storyArticles })
   }
 
   return result
@@ -418,7 +430,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
     const isInternalIngest = req.headers['x-krizisce-ingest'] === '1'
     const isDev = process.env.NODE_ENV !== 'production'
 
-    // NOVO: dovoli tudi ?token=<CRON_SECRET> ali varno stikalo za čas debugiranja
     const tokenOk = CRON_SECRET && req.query.token === CRON_SECRET
     const allowPublic = process.env.ALLOW_PUBLIC_REFRESH === '1'
 
@@ -452,7 +463,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
 
     const rows = (data || []) as Row[]
     const rawItems = rows.map(rowToItem)
-    // že pridejo DESC po publishedat; softDedupe + stabilna DESC
     const items = softDedupe(rawItems).sort((a, b) => b.publishedAt - a.publishedAt)
 
     const nextCursor = rows.length === limit
