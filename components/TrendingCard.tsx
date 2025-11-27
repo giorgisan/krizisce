@@ -1,10 +1,7 @@
-// components/TrendingCard.tsx
 'use client'
 
 /* =========================================================
-   TrendingCard.tsx — kot ArticleCard, PLUS:
-   - "Zadnja objava: <source>"
-   - mini-card linki za vse storySources
+   TrendingCard.tsx — glavni članek + mini kartice ostalih virov
    ========================================================= */
 
 import { NewsItem } from '@/types'
@@ -21,10 +18,16 @@ import { proxiedImage, buildSrcSet } from '@/lib/img'
 import { preloadPreview, canPrefetch, warmImage } from '@/lib/previewPrefetch'
 import { sourceColors } from '@/lib/sources'
 
-type StorySource = { source: string; link: string }
+type StoryArticle = {
+  source: string
+  link: string
+  title: string
+  summary: string | null
+  publishedAt: number
+}
 
 type TrendingNewsItem = NewsItem & {
-  storySources?: StorySource[]
+  storyArticles?: StoryArticle[]
 }
 
 type PreviewProps = { url: string; onClose: () => void }
@@ -36,7 +39,8 @@ const IMAGE_WIDTHS = [320, 480, 640, 960, 1280]
 interface Props { news: TrendingNewsItem; priority?: boolean }
 
 export default function TrendingCard({ news, priority = false }: Props) {
-  const storySources: StorySource[] = Array.isArray(news.storySources) ? news.storySources : []
+  const storyArticles: StoryArticle[] = Array.isArray(news.storyArticles) ? news.storyArticles : []
+  const otherArticles = storyArticles.filter(a => a.source !== news.source)
 
   // minute tick
   const [minuteTick, setMinuteTick] = useState(0)
@@ -152,14 +156,21 @@ export default function TrendingCard({ news, priority = false }: Props) {
       }
     } catch {}
   }
-  const logClick = () => { sendBeacon({ source: news.source, url: news.link, action: 'open' }) }
+
+  const logClick = () => {
+    sendBeacon({ source: news.source, url: news.link, action: 'open' })
+  }
+
   const handleClick = (e: MouseEvent<HTMLAnchorElement>) => {
     if (e.metaKey || e.ctrlKey || e.button === 1) return
     e.preventDefault()
     window.open(news.link, '_blank', 'noopener')
     logClick()
   }
-  const handleAuxClick = (e: MouseEvent<HTMLAnchorElement>) => { if (e.button === 1) logClick() }
+
+  const handleAuxClick = (e: MouseEvent<HTMLAnchorElement>) => {
+    if (e.button === 1) logClick()
+  }
 
   const [showPreview, setShowPreview] = useState(false)
   const previewOpenedAtRef = useRef<number | null>(null)
@@ -182,6 +193,7 @@ export default function TrendingCard({ news, priority = false }: Props) {
       sendBeacon({ source: news.source, url: news.link, action: 'preview_close', meta: { duration_ms: duration } })
     }
   }, [showPreview, news.source, news.link])
+
   useEffect(() => {
     const onUnload = () => {
       if (previewOpenedAtRef.current) {
@@ -214,9 +226,10 @@ export default function TrendingCard({ news, priority = false }: Props) {
   const [eyeHover,   setEyeHover]   = useState(false)
   const showEye = isTouch ? true : eyeVisible
 
-  const handleSourceClick = (e: MouseEvent<HTMLAnchorElement>) => {
-    // ne sproži glavnega linka
+  const handleRelatedClick = (e: MouseEvent<HTMLButtonElement>, article: StoryArticle) => {
     e.stopPropagation()
+    window.open(article.link, '_blank', 'noopener')
+    sendBeacon({ source: article.source, url: article.link, action: 'open_related' })
   }
 
   return (
@@ -315,22 +328,23 @@ export default function TrendingCard({ news, priority = false }: Props) {
           )}
         </div>
 
-        {/* ========== BESEDILO ========== */}
-        <div className="p-2.5 min-h-[11.5rem] sm:min-h-[11.5rem] md:min-h-[11.25rem] lg:min-h-[11.25rem] xl:min-h-[11.25rem] overflow-hidden">
+        {/* ========== BESEDILO + MINI KARTICE ========== */}
+        <div className="p-2.5 min-h-[12.5rem] sm:min-h-[12.5rem] md:min-h-[12.25rem] lg:min-h-[12.25rem] xl:min-h-[12.25rem] overflow-hidden">
           <div className="mb-1 grid grid-cols-[1fr_auto] items-baseline gap-x-2">
             <span className="truncate text-[12px] font-medium tracking-[0.01em]" style={{ color: sourceColor }}>
               {news.source}
             </span>
             <span className="text-[11px] text-gray-500 dark:text-gray-400">{formattedDate}</span>
           </div>
+
           <h3 className="line-clamp-3 text-[15px] font-semibold leading-tight text-gray-900 dark:text-gray-100">
             {news.title}
           </h3>
+
           <p className="mt-1 line-clamp-3 text-[13px] text-gray-700 dark:text-gray-300">
             {news.contentSnippet}
           </p>
 
-          {/* trending meta */}
           <div className="mt-2 space-y-1 text-[11px] text-gray-600 dark:text-gray-300">
             <div>
               Zadnja objava:{' '}
@@ -339,21 +353,24 @@ export default function TrendingCard({ news, priority = false }: Props) {
               </span>
             </div>
 
-            {storySources.length > 0 && (
-              <div>
-                <span className="font-medium mr-1">Pokrivajo:</span>
-                <div className="mt-1 flex flex-wrap gap-1">
-                  {storySources.map((s) => (
-                    <a
-                      key={s.source + s.link}
-                      href={s.link}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      onClick={handleSourceClick}
-                      className="px-2 py-[2px] rounded-full bg-gray-100 dark:bg-gray-700 text-[11px] text-gray-800 dark:text-gray-100 hover:bg-gray-200 dark:hover:bg-gray-600 transition"
+            {otherArticles.length > 0 && (
+              <div className="mt-1">
+                <div className="font-medium mb-1">Drugi viri:</div>
+                <div className="space-y-1">
+                  {otherArticles.map((a) => (
+                    <button
+                      key={a.source + a.link}
+                      type="button"
+                      onClick={(e) => handleRelatedClick(e, a)}
+                      className="w-full text-left rounded-md bg-gray-100 dark:bg-gray-700 px-2 py-1 hover:bg-gray-200 dark:hover:bg-gray-600 transition"
                     >
-                      {s.source}
-                    </a>
+                      <div className="text-[11px] font-semibold text-gray-900 dark:text-gray-50">
+                        {a.source}
+                      </div>
+                      <div className="text-[11px] text-gray-700 dark:text-gray-200 line-clamp-2">
+                        {a.title}
+                      </div>
+                    </button>
                   ))}
                 </div>
               </div>
