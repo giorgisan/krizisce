@@ -394,7 +394,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
         }
       }
 
-      const scored: { row: Row; score: number }[] = []
+      // izračunaj score + pripni storySources
+      const scored: { group: Group; rep: Row; score: number }[] = []
 
       for (let i = 0; i < groups.length; i++) {
         const g = groups[i]
@@ -426,7 +427,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
             return bm - am
           })[0]
 
-        scored.push({ row: rep, score })
+        scored.push({ group: g, rep, score })
       }
 
       if (!scored.length) {
@@ -440,24 +441,42 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
       scored.sort((a, b) => {
         if (b.score !== a.score) return b.score - a.score
         const am =
-          (a.row.publishedat && Number(a.row.publishedat)) ||
-          toMs(a.row.published_at) ||
-          toMs(a.row.pubdate) ||
-          toMs(a.row.isodate) ||
-          toMs(a.row.created_at) ||
+          (a.rep.publishedat && Number(a.rep.publishedat)) ||
+          toMs(a.rep.published_at) ||
+          toMs(a.rep.pubdate) ||
+          toMs(a.rep.isodate) ||
+          toMs(a.rep.created_at) ||
           0
         const bm =
-          (b.row.publishedat && Number(b.row.publishedat)) ||
-          toMs(b.row.published_at) ||
-          toMs(b.row.pubdate) ||
-          toMs(b.row.isodate) ||
-          toMs(b.row.created_at) ||
+          (b.rep.publishedat && Number(b.rep.publishedat)) ||
+          toMs(b.rep.published_at) ||
+          toMs(b.rep.pubdate) ||
+          toMs(b.rep.isodate) ||
+          toMs(b.rep.created_at) ||
           0
         return bm - am
       })
 
-      const selectedRows = scored.slice(0, limit).map(s => s.row)
-      const items = softDedupe(selectedRows.map(rowToItem))
+      const picked = scored.slice(0, limit)
+      const items: any[] = []
+
+      for (let i = 0; i < picked.length; i++) {
+        const { group, rep } = picked[i]
+        const base = rowToItem(rep)
+
+        const srcMap = new Map<string, { source: string; link: string }>()
+        for (let j = 0; j < group.rows.length; j++) {
+          const r = group.rows[j]
+          const src = (r.source || '').trim()
+          const link = (r.link_canonical || r.link || '').trim()
+          if (!src || !link) continue
+          const key = `${src}|${link}`
+          if (!srcMap.has(key)) srcMap.set(key, { source: src, link })
+        }
+        const storySources = Array.from(srcMap.values()).sort((a, b) => a.source.localeCompare(b.source, 'sl'))
+
+        items.push({ ...base, storySources })
+      }
 
       res.setHeader('Cache-Control', 'no-store')
       if (paged) return res.status(200).json({ items, nextCursor: null })
