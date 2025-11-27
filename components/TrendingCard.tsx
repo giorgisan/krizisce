@@ -7,6 +7,7 @@
    - temelji na ArticleCard (klik, tracking, proxy slike…)
    - spodaj pokaže "Zadnja objava" + mini kartice "Drugi viri"
    - logotipi se berejo iz /public/logos/<slug>.png prek getSourceLogoPath
+   - podatke za zgodbo bere iz news.storyArticles (backend clustering)
    ========================================================= */
 
 import { NewsItem } from '@/types'
@@ -39,6 +40,7 @@ interface Props {
 
 // ==== helper tipi za trending ====
 
+// to je lokalna oblika, ki jo kartica uporablja za "Drugi viri"
 type RelatedItem = {
   source: string
   title: string
@@ -48,38 +50,88 @@ type RelatedItem = {
 }
 
 /**
- * POSODOBI, ČE IMAŠ DRUGAČNA POLJA NA /api/news?variant=trending
+ * Prebere člane zgodbe iz news.storyArticles (ali fallback polj, če bi se struktura kdaj spremenila).
  *
- * Domneva:
- *  - eden izmed news.storyItems | news.otherSources | news.related
- *    je array objektov { source, title, link, publishedAt?, isoDate? }
+ * Pričakovana struktura na backendu (kot v tvojem /api/news?variant=trending):
+ * storyArticles: [
+ *   { source, link, title, summary?, publishedAt? (ms) }
+ * ]
  */
 function extractRelatedItems(news: any): RelatedItem[] {
-  const raw =
+  const rawBase =
+    news.storyArticles ||
     news.storyItems ||
     news.otherSources ||
     news.related ||
     news.members ||
     []
 
-  if (!Array.isArray(raw)) return []
+  const raw = Array.isArray(rawBase) ? rawBase : []
+
   return raw
     .map((r: any): RelatedItem | null => {
       if (!r || !r.link || !r.title || !r.source) return null
+
+      let published: number | null = null
+      if (typeof r.publishedAt === 'number') {
+        published = r.publishedAt
+      } else if (typeof r.publishedAt === 'string') {
+        const t = Date.parse(r.publishedAt)
+        published = Number.isNaN(t) ? null : t
+      } else if (typeof r.isoDate === 'string') {
+        const t = Date.parse(r.isoDate)
+        published = Number.isNaN(t) ? null : t
+      }
+
       return {
         source: String(r.source),
         title: String(r.title),
         link: String(r.link),
-        publishedAt:
-          typeof r.publishedAt === 'number' ? r.publishedAt : null,
+        publishedAt: published,
         isoDate: typeof r.isoDate === 'string' ? r.isoDate : null,
       }
     })
     .filter(Boolean) as RelatedItem[]
 }
 
-/** Izberi primarni vir (zadnja objava); fallback je news.source */
+/**
+ * Izbere "glavni vir" za label "Zadnja objava".
+ *
+ * Logika:
+ *  - če obstaja news.storyArticles → vzamemo tistega z najnovejšim publishedAt/isoDate
+ *  - fallback: news.primarySource / news.mainSource / news.lastSource / news.source
+ */
 function getPrimarySource(news: any): string {
+  const arr: any[] | null = Array.isArray(news.storyArticles)
+    ? news.storyArticles
+    : null
+
+  if (arr && arr.length) {
+    let bestSource = ''
+    let bestTs = -Infinity
+
+    for (const item of arr) {
+      if (!item || !item.source) continue
+      let ts = -Infinity
+      if (typeof item.publishedAt === 'number') {
+        ts = item.publishedAt
+      } else if (typeof item.publishedAt === 'string') {
+        const t = Date.parse(item.publishedAt)
+        if (!Number.isNaN(t)) ts = t
+      } else if (typeof item.isoDate === 'string') {
+        const t = Date.parse(item.isoDate)
+        if (!Number.isNaN(t)) ts = t
+      }
+
+      if (ts > bestTs) {
+        bestTs = ts
+        bestSource = String(item.source)
+      }
+    }
+
+    if (bestSource) return bestSource
+  }
+
   return (
     news.primarySource ||
     news.mainSource ||
@@ -352,7 +404,7 @@ export default function TrendingCard({ news }: Props) {
         }}
         className="cv-auto group block no-underline bg-gray-900/85 dark:bg-gray-800 rounded-lg shadow-md overflow-hidden transition-all duration-200 hover:scale-[1.02] hover:shadow-lg hover:bg-gray-900 dark:hover:bg-gray-700"
       >
-        {/* SLika */}
+        {/* Slika */}
         <div
           className="relative w-full aspect-[16/9] overflow-hidden"
           style={
