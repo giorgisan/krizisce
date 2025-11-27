@@ -247,7 +247,7 @@ export default function TrendingCard({ news, priority = false }: Props) {
         onFocus={() => { setEyeVisible(true); triggerPrefetch() }}
         onBlur={() => setEyeVisible(false)}
         onTouchStart={() => { triggerPrefetch() }}
-        className="cv-auto group block no-underline bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden transition-all duration-200 hover:scale-[1.02] hover:shadow-lg hover:bg-gray-100 dark:hover:bg-gray-700"
+        className="cv-auto group block no-underline bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden transition-all duration-200 hover:scale-[1.02] hover:shadow-lg"
       >
         <div
           className="relative w-full aspect-[16/9] overflow-hidden"
@@ -362,7 +362,7 @@ export default function TrendingCard({ news, priority = false }: Props) {
                       key={a.source + a.link}
                       type="button"
                       onClick={(e) => handleRelatedClick(e, a)}
-                      className="w-full text-left rounded-md bg-gray-100 dark:bg-gray-700 px-2 py-1 hover:bg-gray-200 dark:hover:bg-gray-600 transition"
+                      className="w-full text-left rounded-md bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 px-2 py-1 hover:bg-gray-200 dark:hover:bg-gray-600 transition"
                     >
                       <div className="text-[11px] font-semibold text-gray-900 dark:text-gray-50">
                         {a.source}
