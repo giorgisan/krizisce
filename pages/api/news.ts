@@ -22,9 +22,7 @@ function cleanUrl(raw: string): URL | null {
     u.protocol = 'https:'
     u.host = u.host.toLowerCase().replace(/^www\./, '')
     const TRACK = [/^utm_/i, /^fbclid$/i, /^gclid$/i, /^ref$/i, /^src$/i, /^from$/i, /^si_src$/i, /^mc_cid$/i, /^mc_eid$/i]
-    for (const [k] of Array.from(u.searchParams.entries())) {
-      if (TRACK.some(rx => rx.test(k))) u.searchParams.delete(k)
-    }
+    for (const [k] of Array.from(u.searchParams.entries())) if (TRACK.some(rx => rx.test(k))) u.searchParams.delete(k)
     u.pathname = u.pathname.replace(/\/amp\/?$/i, '/')
     if (u.pathname.length > 1) u.pathname = u.pathname.replace(/\/+$/, '')
     u.hash = ''
@@ -83,8 +81,6 @@ type Row = {
   published_at: string | null
   publishedat: number | null
   created_at: string | null
-  story_id: string | null
-  trending_score: number | null
 }
 
 export type NewsItem = {
@@ -99,26 +95,7 @@ export type NewsItem = {
 
 const unaccent = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
 const normTitle = (s: string) => unaccent(s).toLowerCase().replace(/\s+/g, ' ').trim()
-
 const tsSec = (ms?: number | null) => Math.max(0, Math.floor((typeof ms === 'number' ? ms : 0) / 1000))
-
-// stopwordi za clustering / story ključne besede
-const STORY_STOPWORDS = new Set([
-  'in','da','se','je','so','na','v','za','po','pri','s','z','od','kot','ali','če','ce','kaj','ko','že','ze',
-  'video','foto','intervju','kolumna','komentar','analiza','vse','slovenija','slovenije','slovenci','slovencev',
-])
-
-// še vedno generiramo story_id, če ga boš kdaj želel uporabljati direktno
-function makeStoryIdFromTitle(rawTitle: string): string | null {
-  const base = normTitle(rawTitle)
-  if (!base) return null
-  const words = base.split(/[^a-z]+/).filter(Boolean)
-  const filtered = words.filter(w => !STORY_STOPWORDS.has(w))
-  if (!filtered.length) return base.slice(0, 80)
-  const sorted = Array.from(new Set(filtered)).sort()
-  const core = sorted.slice(0, 8).join('-')
-  return core.slice(0, 120)
-}
 
 function softDedupe<T extends { source?: string; title?: string; publishedAt?: number }>(arr: T[]): T[] {
   const byKey = new Map<string, T>()
@@ -164,8 +141,6 @@ function feedItemToDbRow(item: FeedNewsItem) {
   const source = (item.source || '').trim()
   if (!linkKey || !title || !source) return null
   const snippet = normalizeSnippet(item)
-  const storyId = makeStoryIdFromTitle(title)
-
   return {
     link: linkRaw,
     link_canonical: linkCanonical,
@@ -179,7 +154,6 @@ function feedItemToDbRow(item: FeedNewsItem) {
     pubdate: ts.pubRaw,
     published_at: ts.iso,
     publishedat: ts.ms,
-    story_id: storyId,
   }
 }
 
@@ -193,11 +167,12 @@ async function syncToSupabase(items: FeedNewsItem[]) {
   const rows = dedupedIn.map(feedItemToDbRow).filter(Boolean) as any[]
   if (!rows.length) return
 
+  // >>> KLJUČNO: usklajeno z DB – UNIQUE je na (link_key), partial WHERE link_key IS NOT NULL
   const { error } = await (supabaseWrite as any)
     .from('news')
     .upsert(rows, {
-      onConflict: 'link_key',
-      ignoreDuplicates: true,
+      onConflict: 'link_key',          // <-- samo to
+      ignoreDuplicates: true,          // pusti
     })
 
   if (error) throw error
@@ -229,6 +204,190 @@ function rowToItem(r: Row): NewsItem {
   }
 }
 
+/* ---------------- TRENDING: clustering nad DB (runtime) ---------------- */
+
+const TREND_WINDOW_HOURS = 6
+const TREND_MIN_SOURCES = 2
+const TREND_MIN_OVERLAP = 2
+const TREND_MAX_ITEMS = 5
+
+type StorySource = { source: string; link: string }
+
+type RowMeta = {
+  row: Row
+  ms: number
+  keywords: string[]
+}
+
+type TrendGroup = {
+  rows: RowMeta[]
+  keywords: string[]
+}
+
+const STORY_STOPWORDS = new Set<string>([
+  // zelo basic stopwordi, vse v lower-case, brez šumnikov (unaccent)
+  'v', 'na', 'ob', 'po', 'pri', 'pod', 'nad', 'za', 'do', 'od', 'z', 's',
+  'in', 'ali', 'pa', 'kot', 'je', 'so', 'se', 'bo', 'bodo', 'bil', 'bila',
+  'danes', 'vceraj', 'nocoj', 'noc', 'slovenija', 'sloveniji', 'slovenski', 'slovenska',
+  'video', 'foto', 'galerija', 'intervju'
+])
+
+function extractKeywordsFromTitle(title: string): string[] {
+  const base = normTitle(title || '')
+  if (!base) return []
+  // dovolimo a-z, 0-9 in osnovne šumnike; vse ostalo je delimiter
+  const tokens = base.split(/[^a-z0-9čćšžđ]+/i).filter(Boolean)
+  const out: string[] = []
+  for (let i = 0; i < tokens.length; i++) {
+    const w = tokens[i]
+    if (w.length < 4) continue
+    if (STORY_STOPWORDS.has(w)) continue
+    if (out.indexOf(w) === -1) out.push(w)
+  }
+  return out
+}
+
+async function fetchTrendingRows(): Promise<Row[]> {
+  const nowMs = Date.now()
+  const cutoffMs = nowMs - TREND_WINDOW_HOURS * 3_600_000
+
+  const { data, error } = await supabaseRead
+    .from('news')
+    .select('id, link, link_canonical, link_key, title, source, image, contentsnippet, summary, isodate, pubdate, published_at, publishedat, created_at')
+    .gt('publishedat', cutoffMs)
+    .order('publishedat', { ascending: false })
+    .limit(200)
+
+  if (error) throw new Error(`DB trending: ${error.message}`)
+  return (data || []) as Row[]
+}
+
+function computeTrendingFromRows(rows: Row[]): (NewsItem & { storySources: StorySource[] })[] {
+  const metas: RowMeta[] = rows.map((row) => {
+    const ms =
+      (row.publishedat && Number(row.publishedat)) ||
+      toMs(row.published_at) ||
+      toMs(row.pubdate) ||
+      toMs(row.isodate) ||
+      toMs(row.created_at) ||
+      Date.now()
+    const keywords = extractKeywordsFromTitle(row.title || '')
+    return { row, ms, keywords }
+  }).filter((m) => m.keywords.length > 0)
+
+  if (!metas.length) return []
+
+  // najnovejše najprej
+  metas.sort((a, b) => b.ms - a.ms)
+
+  const groups: TrendGroup[] = []
+
+  for (let i = 0; i < metas.length; i++) {
+    const m = metas[i]
+    let attachedIndex = -1
+
+    for (let gi = 0; gi < groups.length; gi++) {
+      const g = groups[gi]
+      let overlap = 0
+      for (let ki = 0; ki < m.keywords.length; ki++) {
+        const kw = m.keywords[ki]
+        if (g.keywords.indexOf(kw) !== -1) {
+          overlap++
+          if (overlap >= TREND_MIN_OVERLAP) break
+        }
+      }
+      if (overlap >= TREND_MIN_OVERLAP) {
+        attachedIndex = gi
+        break
+      }
+    }
+
+    if (attachedIndex >= 0) {
+      const g = groups[attachedIndex]
+      g.rows.push(m)
+      // merge keywords
+      for (let ki = 0; ki < m.keywords.length; ki++) {
+        const kw = m.keywords[ki]
+        if (g.keywords.indexOf(kw) === -1) g.keywords.push(kw)
+      }
+    } else {
+      groups.push({ rows: [m], keywords: m.keywords.slice() })
+    }
+  }
+
+  const nowMs = Date.now()
+
+  type ScoredGroup = {
+    group: TrendGroup
+    rep: RowMeta
+    sourceCount: number
+    score: number
+  }
+
+  const scored: ScoredGroup[] = []
+
+  for (let gi = 0; gi < groups.length; gi++) {
+    const g = groups[gi]
+    if (!g.rows.length) continue
+
+    // distinct sources
+    const srcs: string[] = []
+    for (let ri = 0; ri < g.rows.length; ri++) {
+      const s = (g.rows[ri].row.source || '').trim()
+      if (s && srcs.indexOf(s) === -1) srcs.push(s)
+    }
+    const sourceCount = srcs.length
+    if (sourceCount < TREND_MIN_SOURCES) continue
+
+    // predstavnik = najnovejši v skupini
+    let rep = g.rows[0]
+    for (let ri = 1; ri < g.rows.length; ri++) if (g.rows[ri].ms > rep.ms) rep = g.rows[ri]
+
+    // starost = najstarejši v skupini
+    let oldestMs = g.rows[0].ms
+    for (let ri = 1; ri < g.rows.length; ri++) if (g.rows[ri].ms < oldestMs) oldestMs = g.rows[ri].ms
+
+    const ageHours = Math.max(0, (nowMs - oldestMs) / 3_600_000)
+    const ageFactor = 1 / Math.log(ageHours + 2)
+    const score = sourceCount * ageFactor
+
+    scored.push({ group: g, rep, sourceCount, score })
+  }
+
+  // sort: 1) največ virov, 2) score, 3) najnovejši predstavnik
+  scored.sort((a, b) => {
+    if (b.sourceCount !== a.sourceCount) return b.sourceCount - a.sourceCount
+    if (b.score !== a.score) return b.score - a.score
+    return b.rep.ms - a.rep.ms
+  })
+
+  const top = scored.slice(0, TREND_MAX_ITEMS)
+
+  const result: (NewsItem & { storySources: StorySource[] })[] = []
+
+  for (let si = 0; si < top.length; si++) {
+    const sg = top[si]
+    const base = rowToItem(sg.rep.row)
+
+    const linkBySource: { [src: string]: string } = {}
+    for (let ri = 0; ri < sg.group.rows.length; ri++) {
+      const r = sg.group.rows[ri].row
+      const srcName = (r.source || '').trim()
+      const link = r.link_canonical || r.link || ''
+      if (srcName && link && !linkBySource[srcName]) {
+        linkBySource[srcName] = link
+      }
+    }
+    const storySources: StorySource[] = Object.keys(linkBySource)
+      .sort()
+      .map((src) => ({ source: src, link: linkBySource[src] }))
+
+    result.push({ ...base, storySources })
+  }
+
+  return result
+}
+
 /* ---------------- handler ---------------- */
 type PagedOk = { items: NewsItem[]; nextCursor: number | null }
 type ListOk = NewsItem[]
@@ -239,15 +398,30 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
     const paged = req.query.paged === '1'
     const wantsFresh = req.query.forceFresh === '1'
     const source = (req.query.source as string) || null
-    const variant = (req.query.variant as string) || null // 'trending' ali null
+    const variant = (req.query.variant as string) || 'latest'
 
-    // --- kdo sme sprožit ingest ---
+    // --- TRENDING BRANCH ---
+    if (variant === 'trending') {
+      try {
+        const rows = await fetchTrendingRows()
+        const items = computeTrendingFromRows(rows)
+        res.setHeader('Cache-Control', 'no-store')
+        return res.status(200).json(items as any)
+      } catch (err: any) {
+        return res.status(500).json({ error: err?.message || 'Trending error' })
+      }
+    }
+
+    // --- INGEST GUARD (samo za "latest" varianto) ---
     const headerSecret = (req.headers['x-cron-secret'] as string | undefined)?.trim()
     const isCronCaller = Boolean(CRON_SECRET && headerSecret && headerSecret === CRON_SECRET)
     const isInternalIngest = req.headers['x-krizisce-ingest'] === '1'
     const isDev = process.env.NODE_ENV !== 'production'
+
+    // NOVO: dovoli tudi ?token=<CRON_SECRET> ali varno stikalo za čas debugiranja
     const tokenOk = CRON_SECRET && req.query.token === CRON_SECRET
     const allowPublic = process.env.ALLOW_PUBLIC_REFRESH === '1'
+
     const canIngest = isCronCaller || isInternalIngest || isDev || tokenOk || allowPublic
 
     if (!paged && wantsFresh && canIngest) {
@@ -259,237 +433,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
       }
     }
 
-    const defaultLimit = paged ? 40 : 60
-    const limit = Math.min(
-      Math.max(parseInt(String(req.query.limit ?? defaultLimit), 10) || defaultLimit, 1),
-      200,
-    )
+    const limit  = Math.min(Math.max(parseInt(String(req.query.limit ?? (paged ? 40 : 60)), 10) || (paged ? 40 : 60), 1), 200)
     const cursor = req.query.cursor ? Number(req.query.cursor) : null
-
-    /* --------- SPECIAL: TRENDING VARIANTA --------- */
-    if (variant === 'trending') {
-      const WINDOW_HOURS = 6
-      const MIN_SOURCES = 2
-      const MIN_KEYWORD_LEN = 4
-      const MIN_OVERLAP = 2
-
-      const nowMs = Date.now()
-      const sinceMs = nowMs - WINDOW_HOURS * 60 * 60 * 1000
-
-      let q = supabaseRead
-        .from('news')
-        .select(
-          'id, link, link_canonical, link_key, title, source, image, contentsnippet, summary, isodate, pubdate, published_at, publishedat, created_at',
-        )
-        .gt('publishedat', sinceMs)
-        .order('publishedat', { ascending: false })
-        .order('id', { ascending: false })
-        .limit(500)
-
-      if (source && source !== 'Vse') q = q.eq('source', source)
-
-      const { data, error } = await q
-      if (error) return res.status(500).json({ error: `DB: ${error.message}` })
-
-      const rows = (data || []) as Row[]
-
-      type Meta = {
-        row: Row
-        ms: number
-        keywords: Set<string>
-        source: string
-      }
-
-      const meta: Meta[] = []
-
-      for (const r of rows) {
-        const ms =
-          (r.publishedat && Number(r.publishedat)) ||
-          toMs(r.published_at) ||
-          toMs(r.pubdate) ||
-          toMs(r.isodate) ||
-          toMs(r.created_at) ||
-          nowMs
-
-        const base = normTitle(r.title || '')
-        if (!base) continue
-
-        const parts = base.split(/[^a-z]+/).filter(Boolean)
-        const keywordsArr = parts.filter(w => w.length >= MIN_KEYWORD_LEN && !STORY_STOPWORDS.has(w))
-        if (!keywordsArr.length) continue
-
-        const kw = new Set<string>()
-        for (let i = 0; i < keywordsArr.length; i++) {
-          kw.add(keywordsArr[i])
-        }
-
-        meta.push({
-          row: r,
-          ms,
-          keywords: kw,
-          source: r.source,
-        })
-      }
-
-      // če res ni nič za grupirat, vrni navaden "latest" za to okno
-      if (!meta.length) {
-        const items = softDedupe(rows.map(rowToItem)).sort((a, b) => b.publishedAt - a.publishedAt)
-        res.setHeader('Cache-Control', 'no-store')
-        if (paged) return res.status(200).json({ items: items.slice(0, limit), nextCursor: null })
-        return res.status(200).json(items.slice(0, limit))
-      }
-
-      // sort po ms DESC, da novejši "vodijo" skupine
-      meta.sort((a, b) => b.ms - a.ms)
-
-      type Group = {
-        rows: Row[]
-        sources: Set<string>
-        firstMs: number
-        lastMs: number
-        keywords: Set<string>
-      }
-
-      const groups: Group[] = []
-
-      for (const m of meta) {
-        let assigned = false
-
-        for (let gi = 0; gi < groups.length; gi++) {
-          const g = groups[gi]
-          let overlap = 0
-
-          m.keywords.forEach((kw) => {
-            if (overlap >= MIN_OVERLAP) return
-            if (g.keywords.has(kw)) {
-              overlap++
-            }
-          })
-
-          if (overlap >= MIN_OVERLAP) {
-            g.rows.push(m.row)
-            g.sources.add(m.source)
-            if (m.ms < g.firstMs) g.firstMs = m.ms
-            if (m.ms > g.lastMs) g.lastMs = m.ms
-            m.keywords.forEach((kw) => {
-              g.keywords.add(kw)
-            })
-            assigned = true
-            break
-          }
-        }
-
-        if (!assigned) {
-          const kwSet = new Set<string>()
-          m.keywords.forEach((w) => {
-            kwSet.add(w)
-          })
-          groups.push({
-            rows: [m.row],
-            sources: new Set<string>([m.source]),
-            firstMs: m.ms,
-            lastMs: m.ms,
-            keywords: kwSet,
-          })
-        }
-      }
-
-      // izračunaj score + pripni storySources
-      const scored: { group: Group; rep: Row; score: number }[] = []
-
-      for (let i = 0; i < groups.length; i++) {
-        const g = groups[i]
-        const sourceCount = g.sources.size
-        if (sourceCount < MIN_SOURCES) continue
-
-        const ageHours = (nowMs - g.firstMs) / (60 * 60 * 1000)
-        const ageFactor = 1 / Math.log(ageHours + 2)
-
-        const score = sourceCount * ageFactor
-
-        const rep = g.rows
-          .slice()
-          .sort((a, b) => {
-            const am =
-              (a.publishedat && Number(a.publishedat)) ||
-              toMs(a.published_at) ||
-              toMs(a.pubdate) ||
-              toMs(a.isodate) ||
-              toMs(a.created_at) ||
-              0
-            const bm =
-              (b.publishedat && Number(b.publishedat)) ||
-              toMs(b.published_at) ||
-              toMs(b.pubdate) ||
-              toMs(b.isodate) ||
-              toMs(b.created_at) ||
-              0
-            return bm - am
-          })[0]
-
-        scored.push({ group: g, rep, score })
-      }
-
-      if (!scored.length) {
-        // nič multicource zgodb → fallback na navaden latest iz okna
-        const items = softDedupe(rows.map(rowToItem)).sort((a, b) => b.publishedAt - a.publishedAt)
-        res.setHeader('Cache-Control', 'no-store')
-        if (paged) return res.status(200).json({ items: items.slice(0, limit), nextCursor: null })
-        return res.status(200).json(items.slice(0, limit))
-      }
-
-      scored.sort((a, b) => {
-        if (b.score !== a.score) return b.score - a.score
-        const am =
-          (a.rep.publishedat && Number(a.rep.publishedat)) ||
-          toMs(a.rep.published_at) ||
-          toMs(a.rep.pubdate) ||
-          toMs(a.rep.isodate) ||
-          toMs(a.rep.created_at) ||
-          0
-        const bm =
-          (b.rep.publishedat && Number(b.rep.publishedat)) ||
-          toMs(b.rep.published_at) ||
-          toMs(b.rep.pubdate) ||
-          toMs(b.rep.isodate) ||
-          toMs(b.rep.created_at) ||
-          0
-        return bm - am
-      })
-
-      const picked = scored.slice(0, limit)
-      const items: any[] = []
-
-      for (let i = 0; i < picked.length; i++) {
-        const { group, rep } = picked[i]
-        const base = rowToItem(rep)
-
-        const srcMap = new Map<string, { source: string; link: string }>()
-        for (let j = 0; j < group.rows.length; j++) {
-          const r = group.rows[j]
-          const src = (r.source || '').trim()
-          const link = (r.link_canonical || r.link || '').trim()
-          if (!src || !link) continue
-          const key = `${src}|${link}`
-          if (!srcMap.has(key)) srcMap.set(key, { source: src, link })
-        }
-        const storySources = Array.from(srcMap.values()).sort((a, b) => a.source.localeCompare(b.source, 'sl'))
-
-        items.push({ ...base, storySources })
-      }
-
-      res.setHeader('Cache-Control', 'no-store')
-      if (paged) return res.status(200).json({ items, nextCursor: null })
-      return res.status(200).json(items)
-    }
-
-    /* --------- DEFAULT: navaden feed --------- */
 
     let q = supabaseRead
       .from('news')
-      .select(
-        'id, link, link_canonical, link_key, title, source, image, contentsnippet, summary, isodate, pubdate, published_at, publishedat, created_at',
-      )
+      .select('id, link, link_canonical, link_key, title, source, image, contentsnippet, summary, isodate, pubdate, published_at, publishedat, created_at')
       .gt('publishedat', 0)
       .order('publishedat', { ascending: false })
       .order('id', { ascending: false })
@@ -503,6 +452,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
 
     const rows = (data || []) as Row[]
     const rawItems = rows.map(rowToItem)
+    // že pridejo DESC po publishedat; softDedupe + stabilna DESC
     const items = softDedupe(rawItems).sort((a, b) => b.publishedAt - a.publishedAt)
 
     const nextCursor = rows.length === limit
