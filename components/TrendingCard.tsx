@@ -39,6 +39,7 @@ interface Props {
 
 // ==== helper tipi za trending ====
 
+// ista struktura kot storyArticles v /api/news?variant=trending
 type RelatedItem = {
   source: string
   title: string
@@ -79,22 +80,6 @@ function extractRelatedItems(news: any): RelatedItem[] {
     .filter(Boolean) as RelatedItem[]
 }
 
-/** Izberi primarni vir (zadnja objava); fallback je news.source */
-function getPrimarySource(news: any): string {
-  const storyPrimary =
-    Array.isArray(news.storyArticles) && news.storyArticles.length
-      ? news.storyArticles[0]?.source
-      : null
-  return (
-    storyPrimary ||
-    news.primarySource ||
-    news.mainSource ||
-    news.lastSource ||
-    news.source ||
-    ''
-  )
-}
-
 /** Formatiraj "pred X min" za primarni članek / related */
 function formatRelativeTime(
   msOrIso: number | string | null | undefined,
@@ -123,6 +108,51 @@ function formatRelativeTime(
     minute: '2-digit',
   }).format(d)
   return `${date}, ${time}`
+}
+
+/** Goli layout za vrstico v "ZADNJA OBJAVA" / "DRUGI VIRI" */
+function SourceRowBase({
+  item,
+  time,
+}: {
+  item: RelatedItem
+  time: string
+}) {
+  const logo = getSourceLogoPath(item.source)
+
+  return (
+    <>
+      {logo ? (
+        <Image
+          src={logo}
+          alt={item.source}
+          width={20}
+          height={20}
+          className="mt-[2px] h-5 w-5 flex-none rounded-full bg-gray-100 dark:bg-gray-700 object-cover opacity-80 group-hover:opacity-100 transition-opacity"
+        />
+      ) : (
+        <span className="mt-[2px] h-5 w-5 flex-none rounded-full bg-gray-700 flex items-center justify-center text-[10px] text-gray-300">
+          {item.source.slice(0, 2).toUpperCase()}
+        </span>
+      )}
+
+      <div className="min-w-0 flex-1">
+        <div className="flex items-baseline justify-between gap-2">
+          <span className="text-[11px] font-medium text-gray-100 truncate">
+            {item.source}
+          </span>
+          {time && (
+            <span className="shrink-0 text-[10px] text-gray-500">
+              {time}
+            </span>
+          )}
+        </div>
+        <p className="text-[12px] text-gray-300 line-clamp-2">
+          {item.title}
+        </p>
+      </div>
+    </>
+  )
 }
 
 export default function TrendingCard({ news }: Props) {
@@ -335,9 +365,17 @@ export default function TrendingCard({ news }: Props) {
   const showEye = isTouch ? true : eyeVisible
 
   // ==== trending metadata ====
-  const primarySource = getPrimarySource(news)
   const relatedAll = extractRelatedItems(news)
   const related = relatedAll.filter((r) => r.link !== news.link)
+
+  // "zadnja objava" = sam news (reprezentativni članek)
+  const primaryItem: RelatedItem = {
+    source: news.source,
+    title: news.title,
+    link: news.link,
+    publishedAt: (news as any).publishedAt ?? null,
+    isoDate: (news as any).isoDate ?? null,
+  }
 
   const primaryTime = useMemo(() => {
     const ms =
@@ -504,55 +542,27 @@ export default function TrendingCard({ news }: Props) {
           </p>
 
           {/* Lijak: Zadnja objava + drugi viri */}
-          {(primarySource || related.length > 0) && (
+          {(primaryItem.source || related.length > 0) && (
             <div className="mt-3 rounded-xl border border-gray-800/80 bg-gray-900/70 dark:bg-gray-900/80 shadow-inner overflow-hidden">
               {/* Zadnja objava */}
-              <div className="flex items-center gap-2 px-2.5 pt-2.5 pb-2">
-                <div className="h-7 w-7 rounded-full bg-gradient-to-br from-orange-500/80 via-pink-500/80 to-indigo-500/80 flex items-center justify-center text-[11px] font-bold text-white/90 shadow-sm">
-                  ↓
-                </div>
-                <div className="flex flex-col min-w-0">
-                  <span className="text-[10px] uppercase tracking-[0.12em] text-gray-400">
-                    Zadnja objava
-                  </span>
-                  <div className="flex items-center gap-1.5 min-w-0">
-                    {(() => {
-                      const logo = getSourceLogoPath(primarySource)
-                      return (
-                        <>
-                          {logo && (
-                            <Image
-                              src={logo}
-                              alt={primarySource}
-                              width={18}
-                              height={18}
-                              className="h-4 w-4 rounded-full bg-gray-100 dark:bg-gray-700 object-cover opacity-80 group-hover:opacity-100 transition-opacity"
-                            />
-                          )}
-                          <span className="text-[12px] font-medium text-gray-100 truncate">
-                            {primarySource}
-                          </span>
-                          {primaryTime && (
-                            <span className="text-[10px] text-gray-500 ml-2 shrink-0">
-                              {primaryTime}
-                            </span>
-                          )}
-                        </>
-                      )
-                    })()}
-                  </div>
+              <div className="px-2.5 pt-2.5">
+                <p className="mb-1 text-[10px] uppercase tracking-[0.12em] text-gray-400">
+                  Zadnja objava
+                </p>
+                <div className="rounded-lg border border-gray-800/80 bg-gray-900/80 px-2 py-1.5 flex items-start gap-2 group">
+                  <SourceRowBase item={primaryItem} time={primaryTime} />
                 </div>
               </div>
 
               {/* Divider */}
               {related.length > 0 && (
-                <div className="h-px mx-2 bg-gradient-to-r from-transparent via-gray-700/80 to-transparent" />
+                <div className="h-px mx-2 mt-2 bg-gradient-to-r from-transparent via-gray-700/80 to-transparent" />
               )}
 
               {/* Drugi viri */}
               {related.length > 0 && (
-                <div className="px-2.5 pb-2.5 pt-2 flex flex-col gap-1.5">
-                  <div className="flex items-center justify-between gap-2">
+                <div className="px-2.5 pb-2.5 pt-2">
+                  <div className="mb-1 flex items-center justify-between gap-2">
                     <span className="text-[10px] uppercase tracking-[0.16em] text-gray-500">
                       Drugi viri
                     </span>
@@ -563,7 +573,6 @@ export default function TrendingCard({ news }: Props) {
                   </div>
                   <div className="flex flex-col gap-1.5">
                     {related.slice(0, 4).map((item, idx) => {
-                      const logo = getSourceLogoPath(item.source)
                       const relTime = formatRelativeTime(
                         item.publishedAt ?? item.isoDate ?? null,
                         now,
@@ -589,34 +598,7 @@ export default function TrendingCard({ news }: Props) {
                           onClick={onClickRelated}
                           className="group w-full text-left rounded-lg bg-gray-900/60 hover:bg-gray-800/90 border border-gray-800/80 px-2 py-1.5 flex items-start gap-2 transition-colors"
                         >
-                          {logo ? (
-                            <Image
-                              src={logo}
-                              alt={item.source}
-                              width={20}
-                              height={20}
-                              className="h-5 w-5 rounded-full bg-gray-100 dark:bg-gray-700 object-cover mt-[2px] opacity-70 group-hover:opacity-100 transition-opacity"
-                            />
-                          ) : (
-                            <span className="mt-[2px] h-5 w-5 rounded-full bg-gray-700 flex items-center justify-center text-[10px] text-gray-300">
-                              {item.source.slice(0, 2).toUpperCase()}
-                            </span>
-                          )}
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-baseline justify-between gap-2">
-                              <span className="text-[11px] font-medium text-gray-200">
-                                {item.source}
-                              </span>
-                              {relTime && (
-                                <span className="text-[10px] text-gray-500 shrink-0">
-                                  {relTime}
-                                </span>
-                              )}
-                            </div>
-                            <p className="text-[12px] text-gray-300 line-clamp-2">
-                              {item.title}
-                            </p>
-                          </div>
+                          <SourceRowBase item={item} time={relTime} />
                         </button>
                       )
                     })}
