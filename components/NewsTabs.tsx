@@ -3,22 +3,22 @@
 
 import React from 'react'
 
-type TabId = 'latest' | 'trending'
+export type NewsTabId = 'latest' | 'trending'
 
 interface NewsTabsProps {
-  active: TabId
-  onChange: (tab: TabId) => void
+  active: NewsTabId
+  onChange: (tab: NewsTabId) => void
 }
 
-const tabs: { id: TabId; label: string }[] = [
+const TABS: { id: NewsTabId; label: React.ReactNode }[] = [
   { id: 'latest', label: 'Najnovejše' },
-  { id: 'trending', label: 'Aktualno' },
+  { id: 'trending', label: <>🔥 Aktualno</> },
 ]
 
 export default function NewsTabs({ active, onChange }: NewsTabsProps) {
   const makeClasses = (isActive: boolean) => {
     const base =
-      'relative pb-2 text-sm md:text-[15px] font-medium transition-colors select-none'
+      'relative pb-2 text-sm md:text-[15px] font-medium transition-colors select-none outline-none'
     const idle =
       'text-gray-400 hover:text-gray-200 focus-visible:text-gray-100'
     const activeCls = 'text-white'
@@ -26,13 +26,13 @@ export default function NewsTabs({ active, onChange }: NewsTabsProps) {
   }
 
   return (
-    <div className="mb-4 md:mb-5">
+    <div className="mb-3 md:mb-4">
       <div
         className="flex items-end gap-6 border-b border-gray-800/80"
         role="tablist"
         aria-label="Pogled novic"
       >
-        {tabs.map((tab) => {
+        {TABS.map((tab) => {
           const isActive = tab.id === active
           return (
             <button
@@ -45,7 +45,6 @@ export default function NewsTabs({ active, onChange }: NewsTabsProps) {
               onClick={() => onChange(tab.id)}
             >
               <span>{tab.label}</span>
-              {/* underline */}
               <span
                 aria-hidden="true"
                 className={[
