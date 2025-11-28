@@ -19,6 +19,7 @@ import TrendingCard from '@/components/TrendingCard'
 import SeoHead from '@/components/SeoHead'
 import BackToTop from '@/components/BackToTop'
 import SourceFilter from '@/components/SourceFilter'
+import NewsTabs from '@/components/NewsTabs'
 
 /* ================= Helpers & constants ================= */
 
@@ -34,14 +35,18 @@ async function kickSyncIfStale(maxAgeMs = 5 * 60_000) {
     const now = Date.now()
     const last = Number(localStorage.getItem(SYNC_KEY) || '0')
     if (!last || now - last > maxAgeMs) {
-      fetch('/api/news?forceFresh=1', { cache: 'no-store', keepalive: true }).catch(() => {})
+      fetch('/api/news?forceFresh=1', { cache: 'no-store', keepalive: true }).catch(
+        () => {},
+      )
       localStorage.setItem(SYNC_KEY, String(now))
     }
   } catch {}
 }
 
 function timeout(ms: number) {
-  return new Promise((_, rej) => setTimeout(() => rej(new Error('Request timeout')), ms))
+  return new Promise((_, rej) =>
+    setTimeout(() => rej(new Error('Request timeout')), ms),
+  )
 }
 
 /**
@@ -67,8 +72,11 @@ async function loadNews(mode: Mode, signal?: AbortSignal): Promise<NewsItem[] | 
   try {
     const { createClient } = await import('@supabase/supabase-js')
     const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL as string
-    const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string
-    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: false } })
+    const SUPABASE_ANON_KEY = process.env
+      .NEXT_PUBLIC_SUPABASE_ANON_KEY as string
+    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      auth: { persistSession: false },
+    })
 
     type Row = {
       link: string
@@ -83,19 +91,23 @@ async function loadNews(mode: Mode, signal?: AbortSignal): Promise<NewsItem[] | 
 
     const { data, error } = await supabase
       .from('news')
-      .select('link,title,source,contentsnippet,summary,image,published_at,publishedat')
+      .select(
+        'link,title,source,contentsnippet,summary,image,published_at,publishedat',
+      )
       .order('publishedat', { ascending: false })
       .limit(60)
 
     if (error || !data) return null
 
-    const items: NewsItem[] = (data as Row[]).map(r => ({
+    const items: NewsItem[] = (data as Row[]).map((r) => ({
       title: r.title,
       link: r.link,
       source: r.source,
       contentSnippet: r.contentsnippet ?? r.summary ?? '',
       image: r.image ?? null,
-      publishedAt: (r.publishedat ?? (r.published_at ? Date.parse(r.published_at) : 0)) || 0,
+      publishedAt:
+        (r.publishedat ??
+          (r.published_at ? Date.parse(r.published_at) : 0)) || 0,
       isoDate: r.published_at,
     }))
 
@@ -108,11 +120,14 @@ async function loadNews(mode: Mode, signal?: AbortSignal): Promise<NewsItem[] | 
 const NEWNESS_GRACE_MS = 30_000
 const diffFresh = (fresh: NewsItem[], current: NewsItem[]) => {
   if (!fresh?.length) return { newLinks: 0, hasNewer: false }
-  const curSet = new Set(current.map(n => n.link))
-  const newLinks = fresh.filter(n => !curSet.has(n.link)).length
-  const maxCurrent = current.reduce((a, n) => Math.max(a, n.publishedAt || 0), 0)
-  const maxFresh   = fresh.reduce((a, n) => Math.max(a, n.publishedAt || 0), 0)
-  const hasNewer   = maxFresh > maxCurrent + NEWNESS_GRACE_MS
+  const curSet = new Set(current.map((n) => n.link))
+  const newLinks = fresh.filter((n) => !curSet.has(n.link)).length
+  const maxCurrent = current.reduce(
+    (a, n) => Math.max(a, n.publishedAt || 0),
+    0,
+  )
+  const maxFresh = fresh.reduce((a, n) => Math.max(a, n.publishedAt || 0), 0)
+  const hasNewer = maxFresh > maxCurrent + NEWNESS_GRACE_MS
   return { newLinks, hasNewer }
 }
 
@@ -121,10 +136,16 @@ const LS_FIRST_SEEN = 'krizisce_first_seen_v1'
 type FirstSeenMap = Record<string, number>
 function loadFirstSeen(): FirstSeenMap {
   if (typeof window === 'undefined') return {}
-  try { return JSON.parse(window.localStorage.getItem(LS_FIRST_SEEN) || '{}') } catch { return {} }
+  try {
+    return JSON.parse(window.localStorage.getItem(LS_FIRST_SEEN) || '{}')
+  } catch {
+    return {}
+  }
 }
 function saveFirstSeen(map: FirstSeenMap) {
-  try { window.localStorage.setItem(LS_FIRST_SEEN, JSON.stringify(map)) } catch {}
+  try {
+    window.localStorage.setItem(LS_FIRST_SEEN, JSON.stringify(map))
+  } catch {}
 }
 
 /* ================= Page ================= */
@@ -141,23 +162,28 @@ export default function Home({ initialNews }: Props) {
       const raw = localStorage.getItem('selectedSources')
       const arr = raw ? JSON.parse(raw) : []
       return Array.isArray(arr) && arr[0] ? String(arr[0]) : 'Vse'
-    } catch { return 'Vse' }
+    } catch {
+      return 'Vse'
+    }
   })
   const deferredSource = useDeferredValue(selectedSource)
 
   // filter vrstica (toggle iz Headerja)
   const [filterOpen, setFilterOpen] = useState<boolean>(false)
   useEffect(() => {
-    const onToggle = () => setFilterOpen(v => !v)
+    const onToggle = () => setFilterOpen((v) => !v)
     window.addEventListener('ui:toggle-filters', onToggle as EventListener)
     try {
       const u = new URL(window.location.href)
       if (u.searchParams.get('filters') === '1') setFilterOpen(true)
     } catch {}
-    return () => window.removeEventListener('ui:toggle-filters', onToggle as EventListener)
+    return () =>
+      window.removeEventListener('ui:toggle-filters', onToggle as EventListener)
   }, [])
   useEffect(() => {
-    window.dispatchEvent(new CustomEvent('ui:filters-state', { detail: { open: filterOpen } }))
+    window.dispatchEvent(
+      new CustomEvent('ui:filters-state', { detail: { open: filterOpen } }),
+    )
   }, [filterOpen])
 
   const [displayCount, setDisplayCount] = useState(20)
@@ -172,8 +198,10 @@ export default function Home({ initialNews }: Props) {
     ;(async () => {
       const fresh = await loadNews(mode, ctrl.signal)
       if (fresh && fresh.length) {
-        const currentLinks = new Set(initialNews.map(n => n.link))
-        const hasNewLink = fresh.some(n => n.link && !currentLinks.has(n.link))
+        const currentLinks = new Set(initialNews.map((n) => n.link))
+        const hasNewLink = fresh.some(
+          (n) => n.link && !currentLinks.has(n.link),
+        )
         if (hasNewLink) {
           startTransition(() => {
             setNews(fresh)
@@ -196,25 +224,20 @@ export default function Home({ initialNews }: Props) {
     if (!bootRefreshed) return
 
     const filterBySelection = (arr: NewsItem[]) =>
-      (deferredSource === 'Vse' ? arr : arr.filter(n => n.source === deferredSource))
-
-    const runCheck = async () => {
-      if (mode !== 'latest') return // polling samo za najnovejše
-      kickSyncIfStale(10 * 60_000)
-      const ctrl = new AbortSignal()
-      // ne moremo ustvarit AbortSignal direktno, zato raje:
-    }
-
-    // ker AbortSignal instanci ni trivialno ustvarit tu brez AbortController,
-    // naredimo preprostejšo verzijo polling logike samo za latest:
+      deferredSource === 'Vse' ? arr : arr.filter((n) => n.source === deferredSource)
 
     const runCheckSimple = async () => {
       if (mode !== 'latest') return
       kickSyncIfStale(10 * 60_000)
       const fresh = await loadNews('latest')
       if (!fresh || fresh.length === 0) {
-        window.dispatchEvent(new CustomEvent('news-has-new', { detail: false }))
-        missCountRef.current = Math.min(POLL_MAX_BACKOFF, missCountRef.current + 1)
+        window.dispatchEvent(
+          new CustomEvent('news-has-new', { detail: false }),
+        )
+        missCountRef.current = Math.min(
+          POLL_MAX_BACKOFF,
+          missCountRef.current + 1,
+        )
         return
       }
       const { newLinks, hasNewer } = diffFresh(
@@ -223,11 +246,18 @@ export default function Home({ initialNews }: Props) {
       )
       setFreshNews(fresh)
       if (hasNewer && newLinks > 0) {
-        window.dispatchEvent(new CustomEvent('news-has-new', { detail: true }))
+        window.dispatchEvent(
+          new CustomEvent('news-has-new', { detail: true }),
+        )
         missCountRef.current = 0
       } else {
-        window.dispatchEvent(new CustomEvent('news-has-new', { detail: false }))
-        missCountRef.current = Math.min(POLL_MAX_BACKOFF, missCountRef.current + 1)
+        window.dispatchEvent(
+          new CustomEvent('news-has-new', { detail: false }),
+        )
+        missCountRef.current = Math.min(
+          POLL_MAX_BACKOFF,
+          missCountRef.current + 1,
+        )
       }
     }
 
@@ -237,12 +267,18 @@ export default function Home({ initialNews }: Props) {
       const base = hidden ? HIDDEN_POLL_MS : POLL_MS
       const extra = missCountRef.current * 10_000
       if (timerRef.current) window.clearInterval(timerRef.current)
-      timerRef.current = window.setInterval(runCheckSimple, base + extra) as unknown as number
+      timerRef.current = window.setInterval(
+        runCheckSimple,
+        base + extra,
+      ) as unknown as number
     }
 
     runCheckSimple()
     schedule()
-    const onVis = () => { if (document.visibilityState === 'visible') runCheckSimple(); schedule() }
+    const onVis = () => {
+      if (document.visibilityState === 'visible') runCheckSimple()
+      schedule()
+    }
     document.addEventListener('visibilitychange', onVis)
     return () => {
       if (timerRef.current) window.clearInterval(timerRef.current)
@@ -253,11 +289,17 @@ export default function Home({ initialNews }: Props) {
   // manual refresh
   useEffect(() => {
     const onRefresh = () => {
-      window.dispatchEvent(new CustomEvent('news-refreshing', { detail: true }))
+      window.dispatchEvent(
+        new CustomEvent('news-refreshing', { detail: true }),
+      )
       startTransition(() => {
         const finish = () => {
-          window.dispatchEvent(new CustomEvent('news-refreshing', { detail: false }))
-          window.dispatchEvent(new CustomEvent('news-has-new', { detail: false }))
+          window.dispatchEvent(
+            new CustomEvent('news-refreshing', { detail: false }),
+          )
+          window.dispatchEvent(
+            new CustomEvent('news-has-new', { detail: false }),
+          )
           missCountRef.current = 0
           if (mode === 'latest') {
             setHasMore(true)
@@ -281,21 +323,30 @@ export default function Home({ initialNews }: Props) {
       })
     }
     window.addEventListener('refresh-news', onRefresh as EventListener)
-    return () => window.removeEventListener('refresh-news', onRefresh as EventListener)
+    return () =>
+      window.removeEventListener('refresh-news', onRefresh as EventListener)
   }, [freshNews, mode])
 
   // stableAt shaping
   const shapedNews = useMemo(() => {
-    const map = { ...firstSeen }; let changed = false
-    const withStable = news.map(n => {
-      const published = typeof n.publishedAt === 'number' ? n.publishedAt : 0
+    const map = { ...firstSeen }
+    let changed = false
+    const withStable = news.map((n) => {
+      const published =
+        typeof n.publishedAt === 'number' ? n.publishedAt : 0
       const link = n.link || ''
-      if (link && map[link] == null) { map[link] = published || Date.now(); changed = true }
+      if (link && map[link] == null) {
+        map[link] = published || Date.now()
+        changed = true
+      }
       const first = map[link] ?? published
       const stableAt = Math.min(first || Infinity, published || Infinity)
       return { ...n, stableAt } as NewsItem & { stableAt: number }
     })
-    if (changed) { setFirstSeen(map); saveFirstSeen(map) }
+    if (changed) {
+      setFirstSeen(map)
+      saveFirstSeen(map)
+    }
     return withStable
   }, [news, firstSeen])
 
@@ -304,14 +355,17 @@ export default function Home({ initialNews }: Props) {
     () =>
       mode === 'trending'
         ? shapedNews // trending uporabi vrstni red iz API
-        : [...shapedNews].sort((a, b) => (b as any).stableAt - (a as any).stableAt),
+        : [...shapedNews].sort(
+            (a, b) => (b as any).stableAt - (a as any).stableAt,
+          ),
     [shapedNews, mode],
   )
 
   const filteredNews = useMemo(
-    () => deferredSource === 'Vse'
-      ? sortedNews
-      : sortedNews.filter(a => a.source === deferredSource),
+    () =>
+      deferredSource === 'Vse'
+        ? sortedNews
+        : sortedNews.filter((a) => a.source === deferredSource),
     [sortedNews, deferredSource],
   )
 
@@ -322,7 +376,11 @@ export default function Home({ initialNews }: Props) {
 
   // cursor calc (samo latest ga res rabi)
   useEffect(() => {
-    if (!filteredNews.length) { setCursor(null); setHasMore(true); return }
+    if (!filteredNews.length) {
+      setCursor(null)
+      setHasMore(true)
+      return
+    }
     const minMs = filteredNews.reduce(
       (acc, n) => Math.min(acc, n.publishedAt || acc),
       filteredNews[0].publishedAt || 0,
@@ -334,16 +392,22 @@ export default function Home({ initialNews }: Props) {
   const [isLoadingMore, setIsLoadingMore] = useState(false)
   type PagePayload = { items: NewsItem[]; nextCursor: number | null }
 
-  async function fetchPage(params: { cursor?: number | null; limit?: number; source?: string | null }): Promise<PagePayload> {
+  async function fetchPage(params: {
+    cursor?: number | null
+    limit?: number
+    source?: string | null
+  }): Promise<PagePayload> {
     const { cursor, limit = 40, source } = params
     const qs = new URLSearchParams()
-    qs.set('paged', '1'); qs.set('limit', String(limit))
+    qs.set('paged', '1')
+    qs.set('limit', String(limit))
     if (cursor != null) qs.set('cursor', String(cursor))
     if (source && source !== 'Vse') qs.set('source', source)
     const res = await fetch(`/api/news?${qs.toString()}`, { cache: 'no-store' })
     if (!res.ok) return { items: [], nextCursor: null }
     const data = (await res.json()) as PagePayload
-    if (!data || !Array.isArray(data.items)) return { items: [], nextCursor: null }
+    if (!data || !Array.isArray(data.items))
+      return { items: [], nextCursor: null }
     return data
   }
 
@@ -352,12 +416,16 @@ export default function Home({ initialNews }: Props) {
     if (isLoadingMore || !hasMore || cursor == null || cursor <= 0) return
     setIsLoadingMore(true)
     try {
-      const { items, nextCursor } = await fetchPage({ cursor, limit: 40, source: deferredSource })
-      const seen = new Set(news.map(n => n.link))
-      const fresh = items.filter(i => !seen.has(i.link))
+      const { items, nextCursor } = await fetchPage({
+        cursor,
+        limit: 40,
+        source: deferredSource,
+      })
+      const seen = new Set(news.map((n) => n.link))
+      const fresh = items.filter((i) => !seen.has(i.link))
       if (fresh.length) {
-        setNews(prev => [...prev, ...fresh])
-        setDisplayCount(prev => prev + fresh.length)
+        setNews((prev) => [...prev, ...fresh])
+        setDisplayCount((prev) => prev + fresh.length)
       }
       if (!nextCursor || nextCursor === cursor || items.length === 0) {
         setHasMore(false)
@@ -366,13 +434,36 @@ export default function Home({ initialNews }: Props) {
         setCursor(nextCursor)
         setHasMore(true)
       }
-    } finally { setIsLoadingMore(false) }
+    } finally {
+      setIsLoadingMore(false)
+    }
   }
 
   const prefersReducedMotion =
     typeof window !== 'undefined' &&
     window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
   const motionDuration = prefersReducedMotion ? 0.08 : 0.14
+
+  // === handler za tabs (preklop med latest/trending) ===
+  const handleTabChange = async (next: Mode) => {
+    if (next === mode) return
+
+    if (next === 'latest') {
+      setMode('latest')
+      setDisplayCount(20)
+      setHasMore(true)
+      setCursor(null)
+      const fresh = await loadNews('latest')
+      if (fresh && fresh.length) setNews(fresh)
+    } else {
+      setMode('trending')
+      setDisplayCount(40)
+      setHasMore(false)
+      setCursor(null)
+      const fresh = await loadNews('trending')
+      if (fresh && fresh.length) setNews(fresh)
+    }
+  }
 
   return (
     <>
@@ -396,47 +487,9 @@ export default function Home({ initialNews }: Props) {
         open={filterOpen}
       />
 
-      {/* Toggle: Najnovejše vs. Trending */}
-      <div className="px-4 md:px-8 lg:px-16 mt-3 mb-1 flex gap-2">
-        <button
-          onClick={async () => {
-            if (mode === 'latest') return
-            setMode('latest')
-            setDisplayCount(20)
-            setHasMore(true)
-            setCursor(null)
-            const fresh = await loadNews('latest')
-            if (fresh && fresh.length) setNews(fresh)
-          }}
-          className={
-            'px-3 py-1 rounded-full border text-sm ' +
-            (mode === 'latest'
-              ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900 border-transparent'
-              : 'bg-transparent text-gray-700 dark:text-gray-300 border-gray-400 dark:border-gray-600')
-          }
-        >
-          Najnovejše
-        </button>
-
-        <button
-          onClick={async () => {
-            if (mode === 'trending') return
-            setMode('trending')
-            setDisplayCount(40)
-            setHasMore(false)
-            setCursor(null)
-            const fresh = await loadNews('trending')
-            if (fresh && fresh.length) setNews(fresh)
-          }}
-          className={
-            'px-3 py-1 rounded-full border text-sm ' +
-            (mode === 'trending'
-              ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900 border-transparent'
-              : 'bg-transparent text-gray-700 dark:text-gray-300 border-gray-400 dark:border-gray-600')
-          }
-        >
-          🔥 Aktualno
-        </button>
+      {/* Tabs: Najnovejše vs. Aktualno */}
+      <div className="px-4 md:px-8 lg:px-16 mt-3 mb-1">
+        <NewsTabs active={mode} onChange={handleTabChange} />
       </div>
 
       <SeoHead
@@ -464,9 +517,16 @@ export default function Home({ initialNews }: Props) {
             >
               {visibleNews.map((article, i) =>
                 mode === 'trending' ? (
-                  <TrendingCard key={article.link + '|' + i} news={article as any} />
+                  <TrendingCard
+                    key={article.link + '|' + i}
+                    news={article as any}
+                  />
                 ) : (
-                  <ArticleCard key={article.link} news={article as any} priority={i === 0} />
+                  <ArticleCard
+                    key={article.link}
+                    news={article as any}
+                    priority={i === 0}
+                  />
                 ),
               )}
             </motion.div>
@@ -499,8 +559,11 @@ export default function Home({ initialNews }: Props) {
 export async function getStaticProps() {
   const { createClient } = await import('@supabase/supabase-js')
   const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL as string
-  const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string
-  const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: false } })
+  const SUPABASE_ANON_KEY = process.env
+    .NEXT_PUBLIC_SUPABASE_ANON_KEY as string
+  const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    auth: { persistSession: false },
+  })
 
   type Row = {
     id: number
@@ -516,19 +579,23 @@ export async function getStaticProps() {
 
   const { data } = await supabase
     .from('news')
-    .select('id, link, title, source, summary, contentsnippet, image, published_at, publishedat')
+    .select(
+      'id, link, title, source, summary, contentsnippet, image, published_at, publishedat',
+    )
     .order('publishedat', { ascending: false })
     .limit(60)
 
   const rows = (data ?? []) as Row[]
 
-  const initialNews: NewsItem[] = rows.map(r => ({
+  const initialNews: NewsItem[] = rows.map((r) => ({
     title: r.title,
     link: r.link,
     source: r.source,
     contentSnippet: r.contentsnippet ?? r.summary ?? '',
     image: r.image ?? null,
-    publishedAt: (r.publishedat ?? (r.published_at ? Date.parse(r.published_at) : 0)) || 0,
+    publishedAt:
+      (r.publishedat ??
+        (r.published_at ? Date.parse(r.published_at) : 0)) || 0,
     isoDate: r.published_at,
   }))
 
