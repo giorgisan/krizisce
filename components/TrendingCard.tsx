@@ -2,14 +2,14 @@
 'use client'
 
 /* =========================================================
-   TrendingCard.tsx — kartica za zavihek "Trending"/"Aktualno"
+   TrendingCard.tsx — kartica za zavihek "Aktualno"
    ---------------------------------------------------------
-   - temelji na ArticleCard (klik, tracking, proxy slike…)
-   - spodaj pokaže "Zadnja objava" + lijak "Drugi viri"
-   - logotipi se berejo iz /public/logos/<slug>.png prek getSourceLogoPath
+   - Glavna kartica (slika + naslov + povzetek)
+   - Spodaj "Zadnja objava" + "Drugi viri" (vsi sorodni članki)
+   - Drugi viri v timeline stilu, z logoti (fade + hover) in
+     majhnim očesom za predogled članka.
    ========================================================= */
 
-import { NewsItem } from '@/types'
 import {
   MouseEvent,
   useMemo,
@@ -20,6 +20,7 @@ import {
 } from 'react'
 import dynamic from 'next/dynamic'
 import Image from 'next/image'
+import { NewsItem } from '@/types'
 import { proxiedImage, buildSrcSet } from '@/lib/img'
 import { preloadPreview, canPrefetch, warmImage } from '@/lib/previewPrefetch'
 import { sourceColors } from '@/lib/sources'
@@ -37,9 +38,8 @@ interface Props {
   news: NewsItem & { [key: string]: any }
 }
 
-// ==== helper tipi za trending ====
+/* ============ helperji za trending ============ */
 
-// ista struktura kot storyArticles v /api/news?variant=trending
 type RelatedItem = {
   source: string
   title: string
@@ -49,8 +49,6 @@ type RelatedItem = {
 }
 
 /**
- * POSODOBI, ČE IMAŠ DRUGAČNA POLJA NA /api/news?variant=trending
- *
  * Domneva:
  *  - news.storyArticles | news.storyItems | news.otherSources | news.related | news.members
  *    je array objektov { source, title, link, publishedAt?, isoDate? }
@@ -80,7 +78,23 @@ function extractRelatedItems(news: any): RelatedItem[] {
     .filter(Boolean) as RelatedItem[]
 }
 
-/** Formatiraj "pred X min" za primarni članek / related */
+/** Izberi primarni vir (zadnja objava); fallback je news.source */
+function getPrimarySource(news: any): string {
+  const storyPrimary =
+    Array.isArray(news.storyArticles) && news.storyArticles.length
+      ? news.storyArticles[0]?.source
+      : null
+  return (
+    storyPrimary ||
+    news.primarySource ||
+    news.mainSource ||
+    news.lastSource ||
+    news.source ||
+    ''
+  )
+}
+
+/** Formatiraj "pred X min" / datumski fallback */
 function formatRelativeTime(
   msOrIso: number | string | null | undefined,
   now: number,
@@ -95,9 +109,11 @@ function formatRelativeTime(
   const diff = now - ms
   const min = Math.floor(diff / 60_000)
   const hr = Math.floor(min / 60)
+
   if (diff < 60_000) return 'pred nekaj sekundami'
   if (min < 60) return `pred ${min} min`
   if (hr < 24) return `pred ${hr} h`
+
   const d = new Date(ms)
   const date = new Intl.DateTimeFormat('sl-SI', {
     day: 'numeric',
@@ -110,53 +126,10 @@ function formatRelativeTime(
   return `${date}, ${time}`
 }
 
-/** Goli layout za vrstico v "ZADNJA OBJAVA" / "DRUGI VIRI" */
-function SourceRowBase({
-  item,
-  time,
-}: {
-  item: RelatedItem
-  time: string
-}) {
-  const logo = getSourceLogoPath(item.source)
-
-  return (
-    <>
-      {logo ? (
-        <Image
-          src={logo}
-          alt={item.source}
-          width={20}
-          height={20}
-          className="mt-[2px] h-5 w-5 flex-none rounded-full bg-gray-100 dark:bg-gray-700 object-cover opacity-80 group-hover:opacity-100 transition-opacity"
-        />
-      ) : (
-        <span className="mt-[2px] h-5 w-5 flex-none rounded-full bg-gray-700 flex items-center justify-center text-[10px] text-gray-300">
-          {item.source.slice(0, 2).toUpperCase()}
-        </span>
-      )}
-
-      <div className="min-w-0 flex-1">
-        <div className="flex items-baseline justify-between gap-2">
-          <span className="text-[11px] font-medium text-gray-100 truncate">
-            {item.source}
-          </span>
-          {time && (
-            <span className="shrink-0 text-[10px] text-gray-500">
-              {time}
-            </span>
-          )}
-        </div>
-        <p className="text-[12px] text-gray-300 line-clamp-2">
-          {item.title}
-        </p>
-      </div>
-    </>
-  )
-}
+/* =================== komponenta =================== */
 
 export default function TrendingCard({ news }: Props) {
-  // --- minute tick za živ "pred X min" (poslušamo 'ui:minute' iz Headerja)
+  /* --------- "pred X min" tick (ui:minute iz Headerja) --------- */
   const [minuteTick, setMinuteTick] = useState(0)
   useEffect(() => {
     const onMinute = () => setMinuteTick((m) => (m + 1) % 60)
@@ -175,9 +148,10 @@ export default function TrendingCard({ news }: Props) {
   }, [(news as any).publishedAt, (news as any).isoDate, minuteTick])
 
   const sourceColor = useMemo(() => {
-    return (sourceColors as Record<string, string>)[news.source] || '#fc9c6c'
+    return (sourceColors as Record<string, string>)[news.source] || '#f97316'
   }, [news.source])
 
+  /* --------- touch detection (za oko / hover ipd.) --------- */
   const [isTouch, setIsTouch] = useState(false)
   useEffect(() => {
     try {
@@ -194,7 +168,7 @@ export default function TrendingCard({ news }: Props) {
     }
   }, [])
 
-  // ==== slika ====
+  /* --------- slika --------- */
   const rawImg = (news as any).image ?? null
   const proxyInitiallyOn = !!rawImg
 
@@ -246,7 +220,6 @@ export default function TrendingCard({ news }: Props) {
 
   const [isPriority] = useState<boolean>(false) // trending kartice niso priority
 
-  // preload (malo bolj konzervativno kot ArticleCard)
   useEffect(() => {
     if (!isPriority || !rawImg) return
     const rectW = Math.max(
@@ -268,7 +241,8 @@ export default function TrendingCard({ news }: Props) {
     }
   }, [isPriority, rawImg])
 
-  // ==== tracking ====
+  /* --------- tracking --------- */
+
   const sendBeacon = (payload: any) => {
     try {
       const json = JSON.stringify(payload)
@@ -289,56 +263,65 @@ export default function TrendingCard({ news }: Props) {
       // ignore
     }
   }
+
   const logClick = () => {
     sendBeacon({ source: news.source, url: news.link, action: 'open' })
   }
+
   const handleClick = (e: MouseEvent<HTMLAnchorElement>) => {
     if (e.metaKey || e.ctrlKey || e.button === 1) return
     e.preventDefault()
     window.open(news.link, '_blank', 'noopener')
     logClick()
   }
+
   const handleAuxClick = (e: MouseEvent<HTMLAnchorElement>) => {
     if (e.button === 1) logClick()
   }
 
-  const [showPreview, setShowPreview] = useState(false)
+  /* --------- preview (glavni + related) --------- */
+
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const previewOpenedAtRef = useRef<number | null>(null)
-  useEffect(() => {
-    if (showPreview) {
-      previewOpenedAtRef.current = Date.now()
-      sendBeacon({
-        source: news.source,
-        url: news.link,
-        action: 'preview_open',
-      })
-    } else if (previewOpenedAtRef.current) {
+  const previewSourceRef = useRef<string | null>(null)
+
+  const openPreview = (url: string, source: string, meta?: any) => {
+    setPreviewUrl(url)
+    previewOpenedAtRef.current = Date.now()
+    previewSourceRef.current = source
+    sendBeacon({
+      source,
+      url,
+      action: 'preview_open',
+      meta,
+    })
+  }
+
+  const closePreview = (reason: string = 'close_button') => {
+    if (previewUrl && previewOpenedAtRef.current && previewSourceRef.current) {
       const duration = Date.now() - previewOpenedAtRef.current
-      previewOpenedAtRef.current = null
       sendBeacon({
-        source: news.source,
-        url: news.link,
+        source: previewSourceRef.current,
+        url: previewUrl,
         action: 'preview_close',
-        meta: { duration_ms: duration },
+        meta: { duration_ms: duration, reason },
       })
     }
-  }, [showPreview, news.source, news.link])
+    previewOpenedAtRef.current = null
+    previewSourceRef.current = null
+    setPreviewUrl(null)
+  }
+
   useEffect(() => {
     const onUnload = () => {
-      if (previewOpenedAtRef.current) {
-        const duration = Date.now() - previewOpenedAtRef.current
-        sendBeacon({
-          source: news.source,
-          url: news.link,
-          action: 'preview_close',
-          meta: { duration_ms: duration, closed_by: 'unload' },
-        })
-        previewOpenedAtRef.current = null
+      if (previewUrl) {
+        closePreview('unload')
       }
     }
     window.addEventListener('beforeunload', onUnload)
     return () => window.removeEventListener('beforeunload', onUnload)
-  }, [news.source, news.link])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [previewUrl])
 
   const preloadedRef = useRef(false)
   const triggerPrefetch = () => {
@@ -364,18 +347,11 @@ export default function TrendingCard({ news }: Props) {
   const [eyeHover, setEyeHover] = useState(false)
   const showEye = isTouch ? true : eyeVisible
 
-  // ==== trending metadata ====
+  /* --------- trending meta --------- */
+
+  const primarySource = getPrimarySource(news)
   const relatedAll = extractRelatedItems(news)
   const related = relatedAll.filter((r) => r.link !== news.link)
-
-  // "zadnja objava" = sam news (reprezentativni članek)
-  const primaryItem: RelatedItem = {
-    source: news.source,
-    title: news.title,
-    link: news.link,
-    publishedAt: (news as any).publishedAt ?? null,
-    isoDate: (news as any).isoDate ?? null,
-  }
 
   const primaryTime = useMemo(() => {
     const ms =
@@ -384,6 +360,8 @@ export default function TrendingCard({ news }: Props) {
     return formatRelativeTime(ms, now)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [(news as any).publishedAt, (news as any).isoDate, minuteTick])
+
+  /* ================== RENDER ================== */
 
   return (
     <>
@@ -408,9 +386,9 @@ export default function TrendingCard({ news }: Props) {
         onTouchStart={() => {
           triggerPrefetch()
         }}
-        className="cv-auto group block no-underline bg-gray-900/85 dark:bg-gray-800 rounded-xl shadow-md overflow-hidden transition-all duration-200 hover:scale-[1.02] hover:shadow-lg hover:bg-gray-900 dark:hover:bg-gray-700"
+        className="group block no-underline rounded-2xl bg-slate-900/95 dark:bg-slate-900 shadow-md overflow-hidden transition-all duration-200 hover:shadow-xl hover:bg-slate-900"
       >
-        {/* SLika */}
+        {/* Slika */}
         <div
           className="relative w-full aspect-[16/9] overflow-hidden"
           style={
@@ -428,8 +406,8 @@ export default function TrendingCard({ news }: Props) {
           {!imgLoaded && !useFallback && !!currentSrc && (
             <div
               className="absolute inset-0 grid place-items-center pointer-events-none
-                            bg-gradient-to-br from-gray-200 via-gray-300 to-gray-200
-                            dark:from-gray-700 dark:via-gray-800 dark:to-gray-700 animate-pulse"
+                         bg-gradient-to-br from-slate-200 via-slate-300 to-slate-200
+                         dark:from-slate-700 dark:via-slate-800 dark:to-slate-700 animate-pulse"
             >
               <span className="px-2 py-1 rounded text-[12px] font-medium bg-black/30 text-white backdrop-blur">
                 Nalagam sliko …
@@ -439,8 +417,8 @@ export default function TrendingCard({ news }: Props) {
 
           {useFallback || !currentSrc ? (
             <div className="absolute inset-0 flex items-center justify-center">
-              <div className="absolute inset-0 bg-gradient-to-br from-gray-200 via-gray-300 to-gray-200 dark:from-gray-700 dark:via-gray-800 dark:to-gray-700" />
-              <span className="relative z-10 text-sm font-medium text-gray-700 dark:text-gray-300">
+              <div className="absolute inset-0 bg-gradient-to-br from-slate-200 via-slate-300 to-slate-200 dark:from-slate-700 dark:via-slate-800 dark:to-slate-700" />
+              <span className="relative z-10 text-sm font-medium text-slate-700 dark:text-slate-200">
                 Ni slike
               </span>
             </div>
@@ -466,12 +444,12 @@ export default function TrendingCard({ news }: Props) {
             />
           )}
 
-          {/* gumb za predogled */}
+          {/* gumb za predogled glavne novice */}
           <button
             onClick={(e) => {
               e.preventDefault()
               e.stopPropagation()
-              setShowPreview(true)
+              openPreview(news.link, news.source, { kind: 'main' })
             }}
             onMouseEnter={() => setEyeHover(true)}
             onMouseLeave={() => setEyeHover(false)}
@@ -479,14 +457,14 @@ export default function TrendingCard({ news }: Props) {
             onBlur={() => setEyeHover(false)}
             aria-label="Predogled"
             className={`peer absolute top-2 right-2 h-8 w-8 grid place-items-center rounded-full
-                        ring-1 ring-black/10 dark:ring-white/10 text-gray-700 dark:text-gray-200
-                        bg-white/80 dark:bg-gray-900/80 backdrop-blur transition-opacity duration-150 transform-gpu
+                        ring-1 ring-black/10 dark:ring-white/10 text-slate-800 dark:text-slate-200
+                        bg-white/85 dark:bg-slate-900/85 backdrop-blur transition-opacity duration-150 transform-gpu
                         ${showEye ? 'opacity-100' : 'opacity-0'} ${
               isTouch ? '' : 'md:opacity-0 md:group-hover:opacity-100'
             }`}
             style={{
               transform: eyeHover
-                ? 'translateY(0) scale(1.30)'
+                ? 'translateY(0) scale(1.28)'
                 : 'translateY(0) scale(1)',
             }}
           >
@@ -511,97 +489,203 @@ export default function TrendingCard({ news }: Props) {
           {!isTouch && (
             <span
               className="hidden md:block pointer-events-none absolute top-2 right-[calc(0.5rem+2rem+8px)]
-                             rounded-md px-2 py-1 text-xs font-medium bg-black/60 text-white backdrop-blur-sm drop-shadow-lg
-                             opacity-0 -translate-x-1 transition-opacity transition-transform duration-150 peer-hover:opacity-100 peer-hover:translate-x-0"
+                         rounded-md px-2 py-1 text-xs font-medium bg-black/60 text-white backdrop-blur-sm drop-shadow-lg
+                         opacity-0 -translate-x-1 transition-opacity transition-transform duration-150 peer-hover:opacity-100 peer-hover:translate-x-0"
             >
               Predogled&nbsp;novice
             </span>
           )}
         </div>
 
-        {/* ========== BESEDILO + TRENDING META ========== */}
-        <div className="p-2.5 min-h-[11rem] overflow-hidden flex flex-col gap-2">
+        {/* Besedilo + meta */}
+        <div className="p-3 flex flex-col gap-2">
           {/* glava */}
-          <div className="mb-1 grid grid-cols-[1fr_auto] items-baseline gap-x-2">
+          <div className="mb-1 flex items-baseline justify-between gap-2">
             <span
               className="truncate text-[12px] font-medium tracking-[0.01em]"
               style={{ color: sourceColor }}
             >
               {news.source}
             </span>
-            <span className="text-[11px] text-gray-400">
+            <span className="text-[11px] text-slate-400">
               {formattedDate}
             </span>
           </div>
 
-          <h3 className="line-clamp-3 text-[15px] font-semibold leading-tight text-gray-50">
+          <h3 className="line-clamp-3 text-[15px] font-semibold leading-tight text-slate-50">
             {news.title}
           </h3>
-          <p className="mt-1 line-clamp-3 text-[13px] text-gray-200">
+          <p className="mt-1 line-clamp-3 text-[13px] text-slate-200/90">
             {(news as any).contentSnippet}
           </p>
 
           {/* Lijak: Zadnja objava + drugi viri */}
-          {(primaryItem.source || related.length > 0) && (
-            <div className="mt-3 rounded-xl border border-gray-800/80 bg-gray-900/70 dark:bg-gray-900/80 shadow-inner overflow-hidden">
+          {(primarySource || related.length > 0) && (
+            <div className="mt-3 rounded-2xl border border-slate-800/90 bg-slate-950/90 shadow-inner overflow-hidden">
               {/* Zadnja objava */}
-              <div className="px-2.5 pt-2.5">
-                <p className="mb-1 text-[10px] uppercase tracking-[0.12em] text-gray-400">
-                  Zadnja objava
-                </p>
-                <div className="rounded-lg border border-gray-800/80 bg-gray-900/80 px-2 py-1.5 flex items-start gap-2 group">
-                  <SourceRowBase item={primaryItem} time={primaryTime} />
+              <div className="px-3 pt-2.5 pb-2.5 flex items-center gap-2.5">
+                <div className="h-7 w-7 rounded-full bg-gradient-to-br from-orange-500 via-pink-500 to-indigo-500 flex items-center justify-center text-[11px] font-bold text-white/90 shadow-sm">
+                  ↓
+                </div>
+                <div className="flex flex-col min-w-0">
+                  <span className="text-[10px] uppercase tracking-[0.12em] text-slate-400">
+                    Zadnja objava
+                  </span>
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    {(() => {
+                      const logo = getSourceLogoPath(primarySource)
+                      return (
+                        <>
+                          {logo && (
+                            <Image
+                              src={logo}
+                              alt={primarySource}
+                              width={18}
+                              height={18}
+                              className="h-4 w-4 rounded-full bg-slate-100 dark:bg-slate-700 object-cover opacity-70 group-hover:opacity-100 transition-opacity"
+                            />
+                          )}
+                          <span className="text-[12px] font-medium text-slate-100 truncate">
+                            {primarySource}
+                          </span>
+                          {primaryTime && (
+                            <span className="text-[10px] text-slate-500 ml-2 shrink-0">
+                              {primaryTime}
+                            </span>
+                          )}
+                        </>
+                      )
+                    })()}
+                  </div>
                 </div>
               </div>
 
               {/* Divider */}
               {related.length > 0 && (
-                <div className="h-px mx-2 mt-2 bg-gradient-to-r from-transparent via-gray-700/80 to-transparent" />
+                <div className="h-px mx-3 bg-slate-800/80" />
               )}
 
               {/* Drugi viri */}
               {related.length > 0 && (
-                <div className="px-2.5 pb-2.5 pt-2">
-                  <div className="mb-1 flex items-center justify-between gap-2">
-                    <span className="text-[10px] uppercase tracking-[0.16em] text-gray-500">
+                <div className="px-3 pb-2.5 pt-2 flex flex-col gap-1.5">
+                  <div className="flex items-center justify-between gap-2 mb-1">
+                    <span className="text-[10px] uppercase tracking-[0.16em] text-slate-500">
                       Drugi viri
                     </span>
-                    <span className="text-[10px] text-gray-500">
+                    <span className="text-[10px] text-slate-500">
                       {related.length}
-                      {related.length > 2 ? '+' : ''}
                     </span>
                   </div>
-                  <div className="flex flex-col gap-1.5">
-                    {related.slice(0, 4).map((item, idx) => {
-                      const relTime = formatRelativeTime(
-                        item.publishedAt ?? item.isoDate ?? null,
-                        now,
-                      )
 
-                      const onClickRelated = (
-                        e: MouseEvent<HTMLButtonElement>,
-                      ) => {
-                        e.preventDefault()
-                        e.stopPropagation()
-                        window.open(item.link, '_blank', 'noopener')
-                        sendBeacon({
-                          source: item.source,
-                          url: item.link,
-                          action: 'open_related',
-                          meta: { parent: news.link, index: idx },
-                        })
-                      }
+                  <div className="relative pl-3">
+                    {/* vertikalna linija */}
+                    <div className="pointer-events-none absolute left-[4px] top-2 bottom-2 w-px bg-slate-800/80" />
+                    <div className="flex flex-col gap-1.5">
+                      {related.map((item, idx) => {
+                        const logo = getSourceLogoPath(item.source)
+                        const relTime = formatRelativeTime(
+                          item.publishedAt ?? item.isoDate ?? null,
+                          now,
+                        )
 
-                      return (
-                        <button
-                          key={item.link + '|' + idx}
-                          onClick={onClickRelated}
-                          className="group w-full text-left rounded-lg bg-gray-900/60 hover:bg-gray-800/90 border border-gray-800/80 px-2 py-1.5 flex items-start gap-2 transition-colors"
-                        >
-                          <SourceRowBase item={item} time={relTime} />
-                        </button>
-                      )
-                    })}
+                        const openRelated = (
+                          e: MouseEvent<HTMLButtonElement>,
+                        ) => {
+                          e.preventDefault()
+                          e.stopPropagation()
+                          window.open(item.link, '_blank', 'noopener')
+                          sendBeacon({
+                            source: item.source,
+                            url: item.link,
+                            action: 'open_related',
+                            meta: { parent: news.link, index: idx },
+                          })
+                        }
+
+                        const openRelatedPreview = (
+                          e: MouseEvent<HTMLButtonElement>,
+                        ) => {
+                          e.preventDefault()
+                          e.stopPropagation()
+                          openPreview(item.link, item.source, {
+                            parent: news.link,
+                            index: idx,
+                            kind: 'related',
+                          })
+                        }
+
+                        return (
+                          <button
+                            key={item.link + '|' + idx}
+                            onClick={openRelated}
+                            className="group w-full text-left rounded-xl bg-slate-900/70 hover:bg-slate-800/95 border border-slate-800/90 px-2.5 py-1.5 flex items-start gap-2 transition-colors"
+                          >
+                            {/* bullet + logo stack */}
+                            <div className="flex flex-col items-center mt-[2px]">
+                              <div className="h-1.5 w-1.5 rounded-full bg-slate-500 mb-1" />
+                              {logo ? (
+                                <Image
+                                  src={logo}
+                                  alt={item.source}
+                                  width={20}
+                                  height={20}
+                                  className="h-5 w-5 rounded-full bg-slate-100 dark:bg-slate-700 object-cover opacity-55 group-hover:opacity-100 transition-opacity"
+                                />
+                              ) : (
+                                <span className="h-5 w-5 rounded-full bg-slate-700 flex items-center justify-center text-[10px] text-slate-200 opacity-70 group-hover:opacity-100 transition-opacity">
+                                  {item.source.slice(0, 2).toUpperCase()}
+                                </span>
+                              )}
+                            </div>
+
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center justify-between gap-2 mb-0.5">
+                                <span className="text-[11px] font-medium text-slate-100">
+                                  {item.source}
+                                </span>
+                                {relTime && (
+                                  <span className="text-[10px] text-slate-500 shrink-0">
+                                    {relTime}
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-[12px] text-slate-200 line-clamp-2">
+                                {item.title}
+                              </p>
+                            </div>
+
+                            {/* majhno oko za preview */}
+                            <button
+                              onClick={openRelatedPreview}
+                              aria-label="Predogled sorodnega članka"
+                              className="ml-1 mt-[2px] h-6 w-6 flex items-center justify-center rounded-full border border-slate-700 bg-slate-900/80 text-slate-300 opacity-0 group-hover:opacity-100 transition-opacity"
+                            >
+                              <svg
+                                viewBox="0 0 24 24"
+                                width="14"
+                                height="14"
+                                aria-hidden="true"
+                              >
+                                <path
+                                  d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12Z"
+                                  stroke="currentColor"
+                                  strokeWidth="2"
+                                  fill="none"
+                                />
+                                <circle
+                                  cx="12"
+                                  cy="12"
+                                  r="3.5"
+                                  stroke="currentColor"
+                                  strokeWidth="2"
+                                  fill="none"
+                                />
+                              </svg>
+                            </button>
+                          </button>
+                        )
+                      })}
+                    </div>
                   </div>
                 </div>
               )}
@@ -610,8 +694,8 @@ export default function TrendingCard({ news }: Props) {
         </div>
       </a>
 
-      {showPreview && (
-        <ArticlePreview url={news.link} onClose={() => setShowPreview(false)} />
+      {previewUrl && (
+        <ArticlePreview url={previewUrl} onClose={() => closePreview()} />
       )}
     </>
   )
