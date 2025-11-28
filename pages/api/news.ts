@@ -129,9 +129,9 @@ const normTitle = (s: string) =>
 const tsSec = (ms?: number | null) =>
   Math.max(0, Math.floor((typeof ms === 'number' ? ms : 0) / 1000))
 
-function softDedupe<T extends { source?: string; title?: string; publishedAt?: number }>(
-  arr: T[],
-): T[] {
+function softDedupe<
+  T extends { source?: string; title?: string; publishedAt?: number },
+>(arr: T[]): T[] {
   const byKey = new Map<string, T>()
   for (const it of arr) {
     const key = `${(it.source || '').trim()}|${normTitle(
@@ -266,7 +266,7 @@ function rowToItem(r: Row): NewsItem {
 
 const TREND_WINDOW_HOURS = 6
 const TREND_MIN_SOURCES = 2
-const TREND_MIN_OVERLAP = 2
+const TREND_MIN_OVERLAP = 2 // min. št. skupnih "močnih" ključnih besed
 const TREND_MAX_ITEMS = 5
 
 type StoryArticle = {
@@ -280,14 +280,19 @@ type StoryArticle = {
 type RowMeta = {
   row: Row
   ms: number
-  keywords: string[]
+  keywords: string[]          // vsi keywordi iz naslova
+  strongKeywords: string[]    // "IDF-težki" keywordi za klastriranje
 }
 
 type TrendGroup = {
   rows: RowMeta[]
-  keywords: string[]
+  keywords: string[] // unija strongKeywords v skupini
 }
 
+/**
+ * Stop-words za slovenske naslove – generične besede, ki ne nosijo
+ * informacij o sami zgodbi (nesreča, znano, danes, 18-letnik, ...).
+ */
 const STORY_STOPWORDS = new Set<string>([
   'v',
   'na',
@@ -312,6 +317,8 @@ const STORY_STOPWORDS = new Set<string>([
   'bodo',
   'bil',
   'bila',
+  'bili',
+  'bilo',
   'danes',
   'vceraj',
   'nocoj',
@@ -320,23 +327,79 @@ const STORY_STOPWORDS = new Set<string>([
   'sloveniji',
   'slovenski',
   'slovenska',
+  'slovensko',
   'video',
   'foto',
   'galerija',
   'intervju',
+  'clanek',
+  'novice',
+  'kronika',
+  // kronika / nesreče
+  'nesreca',
+  'nesreci',
+  'prometna',
+  'prometni',
+  'prometne',
+  'tragedija',
+  'smrt',
+  'smrti',
+  'umrl',
+  'umrla',
+  'umrli',
+  'umrle',
+  'letnik',
+  'letnika',
+  'letniki',
+  'znano',
+  'znane',
+  'znani',
+  'podrobnosti',
 ])
 
+/**
+ * Zelo grob "stemmer" za slovenske naslove:
+ * - številk ne spreminjamo,
+ * - daljše besede odrežemo na začetni del (približek korena).
+ *
+ * Ideja: šmartinki / šmartinski / šmartinska → "smarti",
+ * kar je dovolj, da se zgodbe o isti lokaciji vidijo kot iste.
+ */
+function stemToken(raw: string): string {
+  if (!raw) return raw
+  if (/^\d+$/.test(raw)) return raw
+
+  let w = raw
+  if (w.length > 7) return w.slice(0, 6)
+  if (w.length > 5) return w.slice(0, 5)
+  return w
+}
+
+/**
+ * Ekstrakcija ključnih besed iz naslova.
+ * - normalizacija (lowercase, brez šumnikov),
+ * - razbitje po ne-alfa znakov,
+ * - odstranitev stop-words,
+ * - "stemmanje" z cut-na-začetek,
+ * - filtriranje na dolžino in unikatnost.
+ */
 function extractKeywordsFromTitle(title: string): string[] {
-  const base = normTitle(title || '')
+  const base = unaccent(title || '').toLowerCase()
   if (!base) return []
 
-  const tokens = base.split(/[^a-z0-9čćšžđ]+/i).filter(Boolean)
+  const tokens = base.split(/[^a-z0-9]+/i).filter(Boolean)
   const out: string[] = []
 
   for (let i = 0; i < tokens.length; i++) {
-    const w = tokens[i]
+    let w = tokens[i]
+    if (!w) continue
+
+    if (STORY_STOPWORDS.has(w)) continue
+
+    w = stemToken(w)
     if (w.length < 4) continue
     if (STORY_STOPWORDS.has(w)) continue
+
     if (out.indexOf(w) === -1) out.push(w)
   }
 
@@ -364,16 +427,20 @@ async function fetchTrendingRows(): Promise<Row[]> {
  * computeTrendingFromRows
  *
  * Ključne točke:
- * - clustering po ključnih besedah (>= TREND_MIN_OVERLAP skupnih keywordov)
- * - skupino obdržimo samo, če ima vsaj TREND_MIN_SOURCES različnih virov
- * - score:
- *    - primary: št. različnih virov (velike zgodbe močno preferirane)
- *    - secondary: št. člankov v skupini
- *    - recency: upoštevamo NAJMLAJŠI članek v skupini (dokler je zadnja objava sveža, je zgodba relevantna)
+ * - iz naslova izlušči keywords in jim da grob "stem",
+ * - naredi frekvenčno statistiko keywordov (IDF-ish),
+ * - za klastriranje uporablja samo "močne" (redkejše) keyworde,
+ * - skupino obdrži samo, če ima vsaj TREND_MIN_SOURCES različnih virov.
+ *
+ * S tem:
+ * - nesreča v Kamniku in nesreča na Šmartinki se NE združita,
+ * - vse variacije Šmartinke (Šmartinski cesti, ...), ki imajo iste
+ *   redke keyworde, se lepo zlepijo v eno zgodbo.
  */
 function computeTrendingFromRows(
   rows: Row[],
 ): (NewsItem & { storyArticles: StoryArticle[] })[] {
+  // 1) osnovni meta-podatki + keywords iz naslovov
   const metas: RowMeta[] = rows
     .map((row) => {
       const ms =
@@ -385,47 +452,107 @@ function computeTrendingFromRows(
         Date.now()
 
       const keywords = extractKeywordsFromTitle(row.title || '')
-      return { row, ms, keywords }
+      return { row, ms, keywords, strongKeywords: [] }
     })
     .filter((m) => m.keywords.length > 0)
 
   if (!metas.length) return []
+
+  // 2) frekvence keywordov (IDF komponenta)
+  const freq = new Map<string, number>()
+  for (const m of metas) {
+    for (const kw of m.keywords) {
+      freq.set(kw, (freq.get(kw) || 0) + 1)
+    }
+  }
+
+  // 3) strongKeywords = redkejši / informativni keywordi
+  for (const m of metas) {
+    const strong: string[] = []
+
+    for (const kw of m.keywords) {
+      const f = freq.get(kw) || 0
+
+      // popolnoma unikatne besede so vedno močne
+      if (f <= 1) {
+        strong.push(kw)
+        continue
+      }
+
+      // daljši, srednje redki keywordi so OK
+      if (kw.length >= 7 && f <= 6) {
+        strong.push(kw)
+        continue
+      }
+
+      if (kw.length >= 5 && f <= 4) {
+        strong.push(kw)
+        continue
+      }
+    }
+
+    // fallback: če je vse "generično", vzemi 1–2 najredkejši besedi,
+    // da sploh lahko kaj primerjamo
+    if (!strong.length && m.keywords.length) {
+      const sortedByFreq = [...m.keywords].sort(
+        (a, b) => (freq.get(a) || 0) - (freq.get(b) || 0),
+      )
+      strong.push(...sortedByFreq.slice(0, 2))
+    }
+
+    m.strongKeywords = strong
+  }
 
   // novejši najprej
   metas.sort((a, b) => b.ms - a.ms)
 
   const groups: TrendGroup[] = []
 
-  // simple greedy clustering po overlapu keywordov
+  // 4) greedy klastriranje po overlapu strongKeywords
   for (let i = 0; i < metas.length; i++) {
     const m = metas[i]
+    const mKW = m.strongKeywords.length ? m.strongKeywords : m.keywords
+
     let attachedIndex = -1
+    let bestScore = 0
 
     for (let gi = 0; gi < groups.length; gi++) {
       const g = groups[gi]
-      let overlap = 0
-      for (let ki = 0; ki < m.keywords.length; ki++) {
-        const kw = m.keywords[ki]
-        if (g.keywords.indexOf(kw) !== -1) {
-          overlap++
-          if (overlap >= TREND_MIN_OVERLAP) break
-        }
+      const gKW = g.keywords
+
+      let intersect = 0
+      const seen = new Set<string>()
+
+      for (let ki = 0; ki < mKW.length; ki++) {
+        const kw = mKW[ki]
+        if (seen.has(kw)) continue
+        seen.add(kw)
+        if (gKW.indexOf(kw) !== -1) intersect++
       }
-      if (overlap >= TREND_MIN_OVERLAP) {
+
+      if (intersect < TREND_MIN_OVERLAP) continue
+
+      const unionSize = new Set([...mKW, ...gKW]).size
+      const jaccard = unionSize > 0 ? intersect / unionSize : 0
+
+      // iščemo skupino z največjo podobnostjo
+      if (jaccard > bestScore) {
+        bestScore = jaccard
         attachedIndex = gi
-        break
       }
     }
 
     if (attachedIndex >= 0) {
       const g = groups[attachedIndex]
       g.rows.push(m)
-      for (let ki = 0; ki < m.keywords.length; ki++) {
-        const kw = m.keywords[ki]
+
+      const mKWset = mKW
+      for (let ki = 0; ki < mKWset.length; ki++) {
+        const kw = mKWset[ki]
         if (g.keywords.indexOf(kw) === -1) g.keywords.push(kw)
       }
     } else {
-      groups.push({ rows: [m], keywords: m.keywords.slice() })
+      groups.push({ rows: [m], keywords: mKW.slice() })
     }
   }
 
@@ -460,27 +587,23 @@ function computeTrendingFromRows(
       if (g.rows[ri].ms > rep.ms) rep = g.rows[ri]
     }
 
-    // recency: gledamo NAJMLAJŠI članek v skupini
+    // recency: gledamo najmlajši članek v skupini
     let newestMs = g.rows[0].ms
     for (let ri = 1; ri < g.rows.length; ri++) {
       if (g.rows[ri].ms > newestMs) newestMs = g.rows[ri].ms
     }
 
     const ageHoursNewest = Math.max(0, (nowMs - newestMs) / 3_600_000)
-    // recencyWeight ∈ (0, 1]; 0 h → ~1, 6 h → ~0.5
     const recencyWeight = 1 / (1 + ageHoursNewest)
 
     const articleCount = g.rows.length
 
-    // močna prioriteta na "kolko različnih medijev to pokriva",
-    // potem bonus za več člankov, potem recency.
     const score =
       sourceCount * 10 + Math.min(articleCount, 6) * 2 + recencyWeight * 5
 
     scored.push({ group: g, rep, sourceCount, articleCount, score })
   }
 
-  // sort: score, potem še malo po času
   scored.sort((a, b) => {
     if (b.score !== a.score) return b.score - a.score
     if (b.sourceCount !== a.sourceCount) return b.sourceCount - a.sourceCount
