@@ -156,6 +156,30 @@ export default function Home({ initialNews }: Props) {
   const [news, setNews] = useState<NewsItem[]>(initialNews)
   const [mode, setMode] = useState<Mode>('latest')
 
+  // mobile detection (za posebna pravila prikaza)
+  const [isMobile, setIsMobile] = useState(false)
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const mq = window.matchMedia('(max-width: 768px)')
+    const update = () => setIsMobile(mq.matches)
+    update()
+    if (mq.addEventListener) {
+      mq.addEventListener('change', update)
+    } else {
+      // stari Safari
+      // @ts-ignore
+      mq.addListener(update)
+    }
+    return () => {
+      if (mq.removeEventListener) {
+        mq.removeEventListener('change', update)
+      } else {
+        // @ts-ignore
+        mq.removeListener(update)
+      }
+    }
+  }, [])
+
   // Single-select filter
   const [selectedSource, setSelectedSource] = useState<string>(() => {
     try {
@@ -369,9 +393,18 @@ export default function Home({ initialNews }: Props) {
     [sortedNews, deferredSource],
   )
 
+  // na mobile + trending omejimo na 4 kartice
+  const effectiveDisplayCount = useMemo(
+    () =>
+      mode === 'trending' && isMobile
+        ? Math.min(displayCount, 4)
+        : displayCount,
+    [displayCount, mode, isMobile],
+  )
+
   const visibleNews = useMemo(
-    () => filteredNews.slice(0, displayCount),
-    [filteredNews, displayCount],
+    () => filteredNews.slice(0, effectiveDisplayCount),
+    [filteredNews, effectiveDisplayCount],
   )
 
   // cursor calc (samo latest ga res rabi)
@@ -465,6 +498,12 @@ export default function Home({ initialNews }: Props) {
     }
   }
 
+  // grid layout – trending na mobile 1 stolpec, drugače kot prej
+  const gridClasses =
+    mode === 'trending'
+      ? 'grid gap-6 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5'
+      : 'grid gap-6 grid-cols-2 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5'
+
   return (
     <>
       <Header />
@@ -513,7 +552,7 @@ export default function Home({ initialNews }: Props) {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -8 }}
               transition={{ duration: motionDuration }}
-              className="grid gap-6 grid-cols-2 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5"
+              className={gridClasses}
             >
               {visibleNews.map((article, i) =>
                 mode === 'trending' ? (
