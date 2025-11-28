@@ -6,7 +6,6 @@
    ---------------------------------------------------------
    - temelji na ArticleCard (klik, tracking, proxy slike…)
    - spodaj pokaže "Zadnja objava" + lijak "Drugi viri"
-   - logotipi se berejo iz /public/logos/<slug>.png prek getSourceLogoPath
    ========================================================= */
 
 import { NewsItem } from '@/types'
@@ -48,8 +47,6 @@ type RelatedItem = {
 }
 
 /**
- * POSODOBI, ČE IMAŠ DRUGAČNA POLJA NA /api/news?variant=trending
- *
  * Domneva:
  *  - news.storyArticles | news.storyItems | news.otherSources | news.related | news.members
  *    je array objektov { source, title, link, publishedAt?, isoDate? }
@@ -95,7 +92,7 @@ function getPrimarySource(news: any): string {
   )
 }
 
-/** Formatiraj "pred X min" za primarni članek / related */
+/** Formatiraj "pred X min" */
 function formatRelativeTime(
   msOrIso: number | string | null | undefined,
   now: number,
@@ -126,7 +123,7 @@ function formatRelativeTime(
 }
 
 export default function TrendingCard({ news }: Props) {
-  // --- minute tick za živ "pred X min" (poslušamo 'ui:minute' iz Headerja)
+  // --- minute tick za živ "pred X min"
   const [minuteTick, setMinuteTick] = useState(0)
   useEffect(() => {
     const onMinute = () => setMinuteTick((m) => (m + 1) % 60)
@@ -216,7 +213,7 @@ export default function TrendingCard({ news }: Props) {
 
   const [isPriority] = useState<boolean>(false) // trending kartice niso priority
 
-  // preload (malo bolj konzervativno kot ArticleCard)
+  // preload
   useEffect(() => {
     if (!isPriority || !rawImg) return
     const rectW = Math.max(
@@ -238,7 +235,7 @@ export default function TrendingCard({ news }: Props) {
     }
   }, [isPriority, rawImg])
 
-  // ==== tracking helper ====
+  // ==== tracking ====
   const sendBeacon = (payload: any) => {
     try {
       const json = JSON.stringify(payload)
@@ -259,61 +256,56 @@ export default function TrendingCard({ news }: Props) {
       // ignore
     }
   }
-
-  const logClick = (src: string, url: string, action: string, meta?: any) => {
-    sendBeacon({ source: src, url, action, meta })
+  const logClick = () => {
+    sendBeacon({ source: news.source, url: news.link, action: 'open' })
   }
-
-  // ==== klik na glavno novico ====
   const handleClick = (e: MouseEvent<HTMLAnchorElement>) => {
     if (e.metaKey || e.ctrlKey || e.button === 1) return
     e.preventDefault()
     window.open(news.link, '_blank', 'noopener')
-    logClick(news.source, news.link, 'open')
+    logClick()
   }
   const handleAuxClick = (e: MouseEvent<HTMLAnchorElement>) => {
-    if (e.button === 1) logClick(news.source, news.link, 'open')
+    if (e.button === 1) logClick()
   }
 
-  // ==== preview (glavni + drugi viri) ====
-  type PreviewMeta = { url: string; source: string }
-
-  const [preview, setPreview] = useState<PreviewMeta | null>(null)
+  const [showPreview, setShowPreview] = useState(false)
   const previewOpenedAtRef = useRef<number | null>(null)
-  const previewMetaRef = useRef<PreviewMeta | null>(null)
-
   useEffect(() => {
-    if (preview) {
+    if (showPreview) {
       previewOpenedAtRef.current = Date.now()
-      previewMetaRef.current = preview
-      logClick(preview.source, preview.url, 'preview_open')
-    } else if (previewOpenedAtRef.current && previewMetaRef.current) {
-      const duration = Date.now() - previewOpenedAtRef.current
-      const meta = previewMetaRef.current
-      logClick(meta.source, meta.url, 'preview_close', {
-        duration_ms: duration,
+      sendBeacon({
+        source: news.source,
+        url: news.link,
+        action: 'preview_open',
       })
+    } else if (previewOpenedAtRef.current) {
+      const duration = Date.now() - previewOpenedAtRef.current
       previewOpenedAtRef.current = null
-      previewMetaRef.current = null
+      sendBeacon({
+        source: news.source,
+        url: news.link,
+        action: 'preview_close',
+        meta: { duration_ms: duration },
+      })
     }
-  }, [preview])
-
+  }, [showPreview, news.source, news.link])
   useEffect(() => {
     const onUnload = () => {
-      if (previewOpenedAtRef.current && previewMetaRef.current) {
+      if (previewOpenedAtRef.current) {
         const duration = Date.now() - previewOpenedAtRef.current
-        const meta = previewMetaRef.current
-        logClick(meta.source, meta.url, 'preview_close', {
-          duration_ms: duration,
-          closed_by: 'unload',
+        sendBeacon({
+          source: news.source,
+          url: news.link,
+          action: 'preview_close',
+          meta: { duration_ms: duration, closed_by: 'unload' },
         })
         previewOpenedAtRef.current = null
-        previewMetaRef.current = null
       }
     }
     window.addEventListener('beforeunload', onUnload)
     return () => window.removeEventListener('beforeunload', onUnload)
-  }, [])
+  }, [news.source, news.link])
 
   const preloadedRef = useRef(false)
   const triggerPrefetch = () => {
@@ -342,7 +334,7 @@ export default function TrendingCard({ news }: Props) {
   // ==== trending metadata ====
   const primarySource = getPrimarySource(news)
   const relatedAll = extractRelatedItems(news)
-  const related = relatedAll.filter((r) => r.link !== news.link) // vsi ostali, brez glavnega
+  const related = relatedAll.filter((r) => r.link !== news.link)
 
   const primaryTime = useMemo(() => {
     const ms =
@@ -375,7 +367,7 @@ export default function TrendingCard({ news }: Props) {
         onTouchStart={() => {
           triggerPrefetch()
         }}
-        className="cv-auto group block no-underline bg-gray-900/85 dark:bg-gray-800 rounded-xl shadow-md overflow-hidden transition-all duration-200 hover:scale-[1.02] hover:shadow-lg hover:bg-gray-900 dark:hover:bg-gray-700"
+        className="cv-auto block no-underline bg-gray-900/85 dark:bg-gray-800 rounded-xl shadow-md overflow-hidden transition-colors duration-200 hover:bg-gray-900 dark:hover:bg-gray-700"
       >
         {/* SLika */}
         <div
@@ -438,7 +430,7 @@ export default function TrendingCard({ news }: Props) {
             onClick={(e) => {
               e.preventDefault()
               e.stopPropagation()
-              setPreview({ url: news.link, source: news.source })
+              setShowPreview(true)
             }}
             onMouseEnter={() => setEyeHover(true)}
             onMouseLeave={() => setEyeHover(false)}
@@ -448,9 +440,7 @@ export default function TrendingCard({ news }: Props) {
             className={`peer absolute top-2 right-2 h-8 w-8 grid place-items-center rounded-full
                         ring-1 ring-black/10 dark:ring-white/10 text-gray-700 dark:text-gray-200
                         bg-white/80 dark:bg-gray-900/80 backdrop-blur transition-opacity duration-150 transform-gpu
-                        ${showEye ? 'opacity-100' : 'opacity-0'} ${
-              isTouch ? '' : 'md:opacity-0 md:group-hover:opacity-100'
-            }`}
+                        ${showEye ? 'opacity-100' : 'opacity-0'}`}
             style={{
               transform: eyeHover
                 ? 'translateY(0) scale(1.30)'
@@ -510,7 +500,7 @@ export default function TrendingCard({ news }: Props) {
 
           {/* Lijak: Zadnja objava + drugi viri */}
           {(primarySource || related.length > 0) && (
-            <div className="mt-3 rounded-xl border border-gray-800/80 bg-gray-950/80 dark:bg-gray-900/90 shadow-inner overflow-hidden">
+            <div className="mt-3 rounded-xl border border-gray-800/80 bg-gray-900/70 dark:bg-gray-900/80 shadow-inner overflow-hidden">
               {/* Zadnja objava */}
               <div className="flex items-center gap-2 px-2.5 pt-2.5 pb-2">
                 <div className="h-7 w-7 rounded-full bg-gradient-to-br from-orange-500/80 via-pink-500/80 to-indigo-500/80 flex items-center justify-center text-[11px] font-bold text-white/90 shadow-sm">
@@ -531,7 +521,7 @@ export default function TrendingCard({ news }: Props) {
                               alt={primarySource}
                               width={18}
                               height={18}
-                              className="h-4 w-4 rounded-full bg-gray-100 dark:bg-gray-700 object-cover opacity-80"
+                              className="h-4 w-4 rounded-full bg-gray-100 dark:bg-gray-700 object-cover opacity-80 transition-opacity"
                             />
                           )}
                           <span className="text-[12px] font-medium text-gray-100 truncate">
@@ -557,7 +547,7 @@ export default function TrendingCard({ news }: Props) {
               {/* Drugi viri */}
               {related.length > 0 && (
                 <div className="px-2.5 pb-2.5 pt-2 flex flex-col gap-1.5">
-                  <div className="flex items-center justify-between gap-2 mb-0.5">
+                  <div className="flex items-center justify-between gap-2 mb-1">
                     <span className="text-[10px] uppercase tracking-[0.16em] text-gray-500">
                       Drugi viri
                     </span>
@@ -565,7 +555,7 @@ export default function TrendingCard({ news }: Props) {
                       {related.length}
                     </span>
                   </div>
-                  <div className="flex flex-col gap-1.25">
+                  <div className="flex flex-col gap-1.5">
                     {related.map((item, idx) => {
                       const logo = getSourceLogoPath(item.source)
                       const relTime = formatRelativeTime(
@@ -573,48 +563,51 @@ export default function TrendingCard({ news }: Props) {
                         now,
                       )
 
-                      const onOpenRelated = () => {
-                        window.open(item.link, '_blank', 'noopener')
-                        logClick(item.source, item.link, 'open_related', {
-                          parent: news.link,
-                          index: idx,
-                        })
-                      }
-
-                      const onPreviewRelated = (
+                      const onClickRelated = (
                         e: MouseEvent<HTMLButtonElement>,
                       ) => {
                         e.preventDefault()
                         e.stopPropagation()
-                        setPreview({ url: item.link, source: item.source })
+                        window.open(item.link, '_blank', 'noopener')
+                        sendBeacon({
+                          source: item.source,
+                          url: item.link,
+                          action: 'open_related',
+                          meta: { parent: news.link, index: idx },
+                        })
                       }
 
                       return (
-                        <div
+                        <button
                           key={item.link + '|' + idx}
-                          onClick={onOpenRelated}
-                          className="group w-full rounded-lg bg-gray-900/70 hover:bg-gray-800/95 border border-gray-800/80 px-2 py-1.5 flex items-start gap-2 transition-colors cursor-pointer"
+                          onClick={onClickRelated}
+                          className="group/rel w-full text-left rounded-lg bg-gray-900/60 hover:bg-gray-800/90 border border-gray-800/80 px-2 py-1.5 flex items-start gap-2 transition-colors relative"
                         >
-                          <div className="flex flex-col items-center gap-1 pt-[2px]">
+                          <div className="flex flex-col items-center justify-start mt-[2px]">
                             {logo ? (
                               <Image
                                 src={logo}
                                 alt={item.source}
                                 width={20}
                                 height={20}
-                                className="h-5 w-5 rounded-full bg-gray-100 dark:bg-gray-700 object-cover opacity-60 group-hover:opacity-100 transition-opacity"
+                                className="h-5 w-5 rounded-full bg-gray-100 dark:bg-gray-700 object-cover opacity-60 group-hover/rel:opacity-100 transition-opacity"
                               />
                             ) : (
-                              <span className="h-5 w-5 rounded-full bg-gray-700 flex items-center justify-center text-[10px] text-gray-300 opacity-70 group-hover:opacity-100 transition-opacity">
+                              <span className="h-5 w-5 rounded-full bg-gray-700 flex items-center justify-center text-[10px] text-gray-300 opacity-60 group-hover/rel:opacity-100 transition-opacity">
                                 {item.source.slice(0, 2).toUpperCase()}
                               </span>
                             )}
-
-                            {/* oko za predogled (pod logotom) */}
+                            {/* oko pod logotom, samo na hover */}
                             <button
-                              onClick={onPreviewRelated}
-                              aria-label="Predogled članka"
-                              className="h-5 w-5 rounded-full border border-gray-700/80 bg-gray-900/90 text-gray-300 hover:bg-gray-100 hover:text-gray-900 flex items-center justify-center transition-colors"
+                              type="button"
+                              onClick={(e) => {
+                                e.preventDefault()
+                                e.stopPropagation()
+                                setShowPreview(true)
+                                preloadPreview(item.link).catch(() => {})
+                              }}
+                              aria-label="Predogled drugega vira"
+                              className="mt-1 h-4 w-4 grid place-items-center rounded-full bg-black/40 text-gray-200 opacity-0 group-hover/rel:opacity-100 transition-opacity"
                             >
                               <svg
                                 viewBox="0 0 24 24"
@@ -623,17 +616,17 @@ export default function TrendingCard({ news }: Props) {
                                 aria-hidden="true"
                               >
                                 <path
-                                  d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z"
+                                  d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12Z"
                                   stroke="currentColor"
-                                  strokeWidth="1.6"
+                                  strokeWidth="2"
                                   fill="none"
                                 />
                                 <circle
                                   cx="12"
                                   cy="12"
-                                  r="2.8"
+                                  r="3.2"
                                   stroke="currentColor"
-                                  strokeWidth="1.6"
+                                  strokeWidth="2"
                                   fill="none"
                                 />
                               </svg>
@@ -642,7 +635,7 @@ export default function TrendingCard({ news }: Props) {
 
                           <div className="flex-1 min-w-0">
                             <div className="flex items-baseline justify-between gap-2">
-                              <span className="text-[11px] font-medium text-gray-200 truncate">
+                              <span className="text-[11px] font-medium text-gray-200">
                                 {item.source}
                               </span>
                               {relTime && (
@@ -655,7 +648,7 @@ export default function TrendingCard({ news }: Props) {
                               {item.title}
                             </p>
                           </div>
-                        </div>
+                        </button>
                       )
                     })}
                   </div>
@@ -666,11 +659,8 @@ export default function TrendingCard({ news }: Props) {
         </div>
       </a>
 
-      {preview && (
-        <ArticlePreview
-          url={preview.url}
-          onClose={() => setPreview(null)}
-        />
+      {showPreview && (
+        <ArticlePreview url={news.link} onClose={() => setShowPreview(false)} />
       )}
     </>
   )
