@@ -263,11 +263,13 @@ function rowToItem(r: Row): NewsItem {
 
 /* ---------------- TRENDING: clustering nad DB (runtime) ---------------- */
 
-// NASTAVITVE ZA TRENDING (Optimizirano)
-const TREND_WINDOW_HOURS = 24 
+// 1. Zmanjšano okno na 6 ur (prej 24)
+const TREND_WINDOW_HOURS = 6 
 const TREND_MIN_SOURCES = 2   
 const TREND_MIN_OVERLAP = 2
 const TREND_MAX_ITEMS = 5
+// 2. Najnovejši članek v zgodbi ne sme biti starejši od 4 ur, da je "Hot"
+const TREND_HOT_CUTOFF_HOURS = 4
 
 type StoryArticle = {
   source: string
@@ -289,38 +291,25 @@ type TrendGroup = {
 }
 
 /**
- * STOP WORDS - Zelo obsežen seznam za čiščenje šuma.
+ * STOP WORDS
  */
 const STORY_STOPWORDS = new Set<string>([
-  // Pomožni glagoli in vezniki
   'v', 'na', 'ob', 'po', 'pri', 'pod', 'nad', 'za', 'do', 'od', 'z', 's',
   'in', 'ali', 'pa', 'kot', 'je', 'so', 'se', 'bo', 'bodo', 'bil', 'bila',
   'bili', 'bilo', 'bi', 'ko', 'ker', 'da', 'ne', 'ni', 'sta', 'ste', 'smo',
-  
-  // Časovni prislovi
   'danes', 'vceraj', 'nocoj', 'noc', 'jutri', 'letos', 'lani', 'ze', 'se',
-  
-  // Geografija
   'slovenija', 'sloveniji', 'slovenije', 'slovenijo', 
   'slovenski', 'slovenska', 'slovensko', 'slovenskih',
   'ljubljana', 'ljubljani', 'maribor', 'celje', 'koper', 
   'svet', 'svetu', 'evropa', 'eu', 'zda',
-  
-  // Novinarski žargon
   'video', 'foto', 'galerija', 'intervju', 'clanek', 'novice', 'kronika', 
   'novo', 'ekskluzivno', 'v zivo', 'preberite', 'poglejte',
-  
-  // Vprašalnice in zaimki
   'iz', 'ter', 'kjer', 'kako', 'zakaj', 'kaj', 'kdo', 'kam', 'kadar',
   'razlog', 'zaradi', 'glede', 'proti', 'brez', 'med', 'pred', 'cez',
   'lahko', 'morajo', 'mora', 'imajo', 'ima', 'gre', 'pravi', 'pravijo',
-  
-  // Količine in pridevniki
   'znano', 'znane', 'znani', 'podrobnosti', 'razkrivamo', 'vec', 'manj', 'veliko',
   'prvi', 'prva', 'prvo', 'drugi', 'druga', 'tretji', 'novi', 'nova', 
   'dober', 'dobra', 'slaba', 'velik', 'malo',
-  
-  // Čas in enote
   'let', 'leta', 'leto', 'letnik', 'letnika', 'letih', 'letni', 'letna',
   'letošnji', 'letošnja', 'starost', 'star', 'stara',
   'teden', 'tedna', 'mesec', 'meseca', 'dan', 'dni', 'ura', 'ure'
@@ -437,12 +426,14 @@ function computeTrendingFromRows(
     }
   }
 
+  const nowMs = Date.now()
+
   type ScoredGroup = {
     group: TrendGroup
     rep: RowMeta
     sourceCount: number
     articleCount: number
-    newestMs: number // Dodan timestamp najnovejše novice
+    newestMs: number
   }
 
   const scored: ScoredGroup[] = []
@@ -470,22 +461,24 @@ function computeTrendingFromRows(
     for (let ri = 1; ri < g.rows.length; ri++) {
       if (g.rows[ri].ms > newestMs) newestMs = g.rows[ri].ms
     }
+
+    // FILTER SVEŽOSTI: Če nihče ni pisal o tem v zadnjih 6h (HOT_CUTOFF),
+    // potem to ni več trending, ampak zgodovina.
+    const ageHours = Math.max(0, (nowMs - newestMs) / 3_600_000)
+    if (ageHours > TREND_HOT_CUTOFF_HOURS) {
+      continue
+    }
     
-    // Namesto score formule, samo shranimo podatke
     scored.push({ group: g, rep, sourceCount, articleCount, newestMs })
   }
 
-  // ==========================================
-  // NOVO SORTIRANJE (TIE-BREAKER):
-  // 1. Najprej po številu različnih virov (več je bolje)
-  // 2. Če je virov enako, zmaga tista, ki ima novejši "zadnji update"
-  // ==========================================
+  // TIE-BREAKER SORTIRANJE
   scored.sort((a, b) => {
-    // 1. Kriterij: Število virov (padajoče)
+    // 1. Več virov je bolje
     if (b.sourceCount !== a.sourceCount) {
       return b.sourceCount - a.sourceCount
     }
-    // 2. Kriterij: Čas zadnje objave (padajoče - novejši zgoraj)
+    // 2. Novejši članek zmaga
     return b.newestMs - a.newestMs
   })
 
