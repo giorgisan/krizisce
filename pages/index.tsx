@@ -156,28 +156,15 @@ export default function Home({ initialNews }: Props) {
   const [news, setNews] = useState<NewsItem[]>(initialNews)
   const [mode, setMode] = useState<Mode>('latest')
 
-  // mobile detection (za posebna pravila prikaza)
+  // mobile detection
   const [isMobile, setIsMobile] = useState(false)
   useEffect(() => {
     if (typeof window === 'undefined') return
     const mq = window.matchMedia('(max-width: 768px)')
     const update = () => setIsMobile(mq.matches)
     update()
-    if (mq.addEventListener) {
-      mq.addEventListener('change', update)
-    } else {
-      // stari Safari
-      // @ts-ignore
-      mq.addListener(update)
-    }
-    return () => {
-      if (mq.removeEventListener) {
-        mq.removeEventListener('change', update)
-      } else {
-        // @ts-ignore
-        mq.removeListener(update)
-      }
-    }
+    mq.addEventListener('change', update)
+    return () => mq.removeEventListener('change', update)
   }, [])
 
   // Single-select filter
@@ -192,7 +179,7 @@ export default function Home({ initialNews }: Props) {
   })
   const deferredSource = useDeferredValue(selectedSource)
 
-  // filter vrstica (toggle iz Headerja)
+  // filter vrstica
   const [filterOpen, setFilterOpen] = useState<boolean>(false)
   useEffect(() => {
     const onToggle = () => setFilterOpen((v) => !v)
@@ -215,31 +202,18 @@ export default function Home({ initialNews }: Props) {
   const [hasMore, setHasMore] = useState(true)
   const [cursor, setCursor] = useState<number | null>(null)
 
-  // initial refresh
+  // initial refresh - POPRAVEK: Ne osvežujemo takoj, če smo na "latest" (ker imamo SSG data)
   const [bootRefreshed, setBootRefreshed] = useState(false)
+  
   useEffect(() => {
-    const ctrl = new AbortController()
-    ;(async () => {
-      const fresh = await loadNews(mode, ctrl.signal)
-      if (fresh && fresh.length) {
-        const currentLinks = new Set(initialNews.map((n) => n.link))
-        const hasNewLink = fresh.some(
-          (n) => n.link && !currentLinks.has(n.link),
-        )
-        if (hasNewLink) {
-          startTransition(() => {
-            setNews(fresh)
-            setDisplayCount(mode === 'trending' ? 40 : 20)
-          })
-        }
-      }
-      kickSyncIfStale(5 * 60_000)
-      setBootRefreshed(true)
-    })()
-    return () => ctrl.abort()
-  }, [initialNews, mode])
+    // Samo sprožimo background sync, ne menjamo stanja UI-ja, da ne skače.
+    kickSyncIfStale(5 * 60_000)
+    
+    // Omogočimo polling
+    setBootRefreshed(true)
+  }, [])
 
-  // polling (upošteva trenutno izbran vir in mode)
+  // polling
   const [freshNews, setFreshNews] = useState<NewsItem[] | null>(null)
   const missCountRef = useRef(0)
   const timerRef = useRef<number | null>(null)
@@ -268,7 +242,10 @@ export default function Home({ initialNews }: Props) {
         filterBySelection(fresh),
         filterBySelection(news),
       )
+      // Shranimo freshNews, ampak NE zamenjamo stanja avtomatsko.
+      // Uporabnik bo dobil obvestilo (če imaš UI za to) ali pa se bo osvežilo ob naslednji interakciji.
       setFreshNews(fresh)
+      
       if (hasNewer && newLinks > 0) {
         window.dispatchEvent(
           new CustomEvent('news-has-new', { detail: true }),
@@ -297,14 +274,17 @@ export default function Home({ initialNews }: Props) {
       ) as unknown as number
     }
 
-    runCheckSimple()
+    // Prvi check zamaknemo za 10s, da ne obremenjujemo loadanja
+    const initialTimer = setTimeout(runCheckSimple, 10000)
     schedule()
+
     const onVis = () => {
       if (document.visibilityState === 'visible') runCheckSimple()
       schedule()
     }
     document.addEventListener('visibilitychange', onVis)
     return () => {
+      clearTimeout(initialTimer)
       if (timerRef.current) window.clearInterval(timerRef.current)
       document.removeEventListener('visibilitychange', onVis)
     }
@@ -407,7 +387,7 @@ export default function Home({ initialNews }: Props) {
     [filteredNews, effectiveDisplayCount],
   )
 
-  // cursor calc (samo latest ga res rabi)
+  // cursor calc
   useEffect(() => {
     if (!filteredNews.length) {
       setCursor(null)
@@ -486,6 +466,9 @@ export default function Home({ initialNews }: Props) {
       setDisplayCount(20)
       setHasMore(true)
       setCursor(null)
+      // Če gremo nazaj na "latest", ne rabimo nujno takoj fetchat, če že imamo podatke,
+      // ampak za "svež" občutek je ok, če naredimo tihi refresh.
+      // Zaenkrat pustimo, da uporabi trenutno stanje ali pa naredi fetch.
       const fresh = await loadNews('latest')
       if (fresh && fresh.length) setNews(fresh)
     } else {
@@ -493,12 +476,13 @@ export default function Home({ initialNews }: Props) {
       setDisplayCount(40)
       setHasMore(false)
       setCursor(null)
+      // Tu PA moramo fetchat, ker initialNews nima trending podatkov
+      setNews([]) // Očistimo za loading efekt (opcijsko)
       const fresh = await loadNews('trending')
       if (fresh && fresh.length) setNews(fresh)
     }
   }
 
-  // grid layout – trending na mobile 1 stolpec, drugače kot prej
   const gridClasses =
     mode === 'trending'
       ? 'grid gap-6 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5'
@@ -526,7 +510,6 @@ export default function Home({ initialNews }: Props) {
         open={filterOpen}
       />
 
-      {/* Tabs: Najnovejše vs. Aktualno */}
       <div className="px-4 md:px-8 lg:px-16 mt-3 mb-1">
         <NewsTabs active={mode} onChange={handleTabChange} />
       </div>
@@ -541,11 +524,15 @@ export default function Home({ initialNews }: Props) {
         tabIndex={-1}
       >
         {visibleNews.length === 0 ? (
-          <p className="text-gray-500 dark:text-gray-400 text-center w-full mt-10">
-            Ni novic za izbrani vir ali napaka pri nalaganju.
-          </p>
+          <div className="flex flex-col items-center justify-center pt-20 pb-20 opacity-60">
+             {mode === 'trending' ? (
+                <p>Trenutno ni dovolj vročih novic za prikaz.</p>
+             ) : (
+                <p>Nalagam novice ...</p>
+             )}
+          </div>
         ) : (
-          <AnimatePresence>
+          <AnimatePresence mode='popLayout'>
             <motion.div
               key={deferredSource + '|' + mode}
               initial={{ opacity: 0, y: 8 }}
@@ -572,7 +559,7 @@ export default function Home({ initialNews }: Props) {
           </AnimatePresence>
         )}
 
-        {mode === 'latest' && hasMore && (
+        {mode === 'latest' && hasMore && visibleNews.length > 0 && (
           <div className="text-center mt-8 mb-10">
             <button
               onClick={handleLoadMore}
