@@ -263,10 +263,11 @@ function rowToItem(r: Row): NewsItem {
 
 /* ---------------- TRENDING: clustering nad DB (runtime) ---------------- */
 
-const TREND_WINDOW_HOURS = 10 // Povečano za boljši zajem dnevnih novic
-const TREND_MIN_SOURCES = 2
-const TREND_MIN_OVERLAP = 2 // min. št. skupnih "močnih" ključnih besed
-const TREND_MAX_ITEMS = 5
+// POZOR: Spremenjeni parametri za boljše zaznavanje "Breaking News"
+const TREND_WINDOW_HOURS = 24 // Gledamo zadnjih 24 ur (prej 6)
+const TREND_MIN_SOURCES = 2   // Varovalka: vsaj 2 različna vira
+const TREND_MIN_OVERLAP = 1   // DOVOLJ JE 1 močna skupna beseda (prej 2)
+const TREND_MAX_ITEMS = 6     // Max število trending kartic
 
 type StoryArticle = {
   source: string
@@ -279,107 +280,57 @@ type StoryArticle = {
 type RowMeta = {
   row: Row
   ms: number
-  keywords: string[]          // vsi keywordi iz naslova
-  strongKeywords: string[]    // "IDF-težki" keywordi za klastriranje
+  keywords: string[]
 }
 
 type TrendGroup = {
   rows: RowMeta[]
-  keywords: string[] // unija strongKeywords v skupini
+  keywords: string[]
 }
 
 /**
- * Stop-words za slovenske naslove – generične besede.
+ * Stop-words za slovenske naslove.
+ * Te besede so prepovedane pri združevanju.
  */
 const STORY_STOPWORDS = new Set<string>([
-  'v',
-  'na',
-  'ob',
-  'po',
-  'pri',
-  'pod',
-  'nad',
-  'za',
-  'do',
-  'od',
-  'z',
-  's',
-  'in',
-  'ali',
-  'pa',
-  'kot',
-  'je',
-  'so',
-  'se',
-  'bo',
-  'bodo',
-  'bil',
-  'bila',
-  'bili',
-  'bilo',
-  'danes',
-  'vceraj',
-  'nocoj',
-  'noc',
-  'slovenija',
-  'sloveniji',
-  'slovenski',
-  'slovenska',
-  'slovensko',
-  'video',
-  'foto',
-  'galerija',
-  'intervju',
-  'clanek',
-  'novice',
-  'kronika',
-  // kronika / nesreče - besede so preveč pogoste, raje lovimo kraj
-  'nesreca',
-  'nesreci',
-  'prometna',
-  'prometni',
-  'prometne',
-  'tragedija',
-  'smrt',
-  'smrti',
-  'umrl',
-  'umrla',
-  'umrli',
-  'umrle',
-  'letnik',
-  'letnika',
-  'letniki',
-  'znano',
-  'znane',
-  'znani',
-  'podrobnosti',
-  'razlog',
-  'zaradi',
+  'v', 'na', 'ob', 'po', 'pri', 'pod', 'nad', 'za', 'do', 'od', 'z', 's',
+  'in', 'ali', 'pa', 'kot', 'je', 'so', 'se', 'bo', 'bodo', 'bil', 'bila',
+  'bili', 'bilo', 'že', 'še', 'bi', 'ko', 'ker', 'da', 'ne', 'ni',
+  'danes', 'vceraj', 'nocoj', 'noc',
+  'slovenija', 'sloveniji', 'slovenski', 'slovenska', 'slovensko',
+  'video', 'foto', 'galerija', 'intervju', 'clanek', 'novice', 'kronika', 'novo',
+  'iz', 'ter', 'kjer', 'kako', 'zakaj', 'kaj', 'kdo', 'kam',
+  'razlog', 'zaradi', 'glede', 'proti', 'brez', 'med', 'pred', 'cez',
+  'lahko', 'morajo', 'mora', 'imajo', 'ima',
+  'znano', 'znane', 'znani', 'podrobnosti', 'razkrivamo', 'vec', 'manj',
+  'prvi', 'prva', 'prvo', 'drugi', 'druga', 'tretji', 'novi', 'nova', 'novo'
 ])
 
 /**
- * IZBOLJŠAN STEMMER za slovenske naslove.
- * Cilj: Ujeti sklanjatve (Golob/Goloba, Požar/Požaru).
+ * Stemmer: poskuša ujeti koren besede.
+ * "Kek" -> "Kek"
+ * "Golob" -> "Golob" / "Goloba" -> "Golob"
  */
 function stemToken(raw: string): string {
   if (!raw) return raw
-  // Številke pustimo pri miru
   if (/^\d+$/.test(raw)) return raw
 
   const w = raw
   
-  // Če je beseda dovolj dolga, odrežemo končnico
-  if (w.length > 4) {
-    // Če je daljša od 6 znakov, smo bolj agresivni (2 znaka), sicer 1
-    const cutLen = w.length > 6 ? 2 : 1
-    return w.substring(0, w.length - cutLen)
+  // Besede dolžine 3 in 4 pustimo pri miru (Kek, NZS, ZDA, Tim)
+  if (w.length <= 4) return w
+
+  // Pri daljših besedah smo previdni pri rezanju
+  if (w.length > 6) {
+    // Odrežemo 2 znaka (Goloba -> Golo, Zmagovalec -> Zmagoval)
+    return w.substring(0, w.length - 2)
   }
-  
-  return w
+  // Srednje dolge (5-6) odrežemo za 1 (Golob -> Golo)
+  return w.substring(0, w.length - 1)
 }
 
 /**
- * Ekstrakcija ključnih besed iz naslova.
+ * Ekstrakcija ključnih besed.
  */
 function extractKeywordsFromTitle(title: string): string[] {
   const base = unaccent(title || '').toLowerCase()
@@ -391,11 +342,13 @@ function extractKeywordsFromTitle(title: string): string[] {
   for (let i = 0; i < tokens.length; i++) {
     let w = tokens[i]
     if (!w) continue
-
     if (STORY_STOPWORDS.has(w)) continue
 
     w = stemToken(w)
-    if (w.length < 3) continue // dovolimo krajše korene (npr. Krk)
+    
+    // SPREMEMBA: Dovolimo besede dolžine 3 (Kek, NZS...)
+    if (w.length < 3) continue 
+    
     if (STORY_STOPWORDS.has(w)) continue
 
     if (out.indexOf(w) === -1) out.push(w)
@@ -415,7 +368,7 @@ async function fetchTrendingRows(): Promise<Row[]> {
     )
     .gt('publishedat', cutoffMs)
     .order('publishedat', { ascending: false })
-    .limit(200)
+    .limit(300) // Povečano na 300 za širši zajem
 
   if (error) throw new Error(`DB trending: ${error.message}`)
   return (data || []) as Row[]
@@ -424,7 +377,7 @@ async function fetchTrendingRows(): Promise<Row[]> {
 function computeTrendingFromRows(
   rows: Row[],
 ): (NewsItem & { storyArticles: StoryArticle[] })[] {
-  // 1) osnovni meta-podatki + keywords iz naslovov
+  // 1) Priprava podatkov
   const metas: RowMeta[] = rows
     .map((row) => {
       const ms =
@@ -436,63 +389,30 @@ function computeTrendingFromRows(
         Date.now()
 
       const keywords = extractKeywordsFromTitle(row.title || '')
-      return { row, ms, keywords, strongKeywords: [] }
+      return { row, ms, keywords }
     })
     .filter((m) => m.keywords.length > 0)
 
   if (!metas.length) return []
 
-  // 2) frekvence keywordov (IDF komponenta)
-  const freq = new Map<string, number>()
-  for (const m of metas) {
-    for (const kw of m.keywords) {
-      freq.set(kw, (freq.get(kw) || 0) + 1)
-    }
-  }
-
-  // 3) strongKeywords = redkejši / informativni keywordi
-  for (const m of metas) {
-    const strong: string[] = []
-
-    for (const kw of m.keywords) {
-      const f = freq.get(kw) || 0
-
-      // unikatne ali zelo redke besede
-      if (f <= 2) { 
-        strong.push(kw)
-        continue
-      }
-      
-      // malo pogostejše, če so dolge
-      if (kw.length >= 5 && f <= 5) {
-        strong.push(kw)
-        continue
-      }
-    }
-
-    // fallback
-    if (!strong.length && m.keywords.length) {
-      const sortedByFreq = [...m.keywords].sort(
-        (a, b) => (freq.get(a) || 0) - (freq.get(b) || 0),
-      )
-      strong.push(...sortedByFreq.slice(0, 2))
-    }
-
-    m.strongKeywords = strong
-  }
+  // 2) Statistika frekvenc (samo za info, ne filtriramo več strogo)
+  // Če se beseda pojavi velikokrat, je to signal za "Breaking News"
+  // pod pogojem, da ni v STOPWORDS seznamu.
 
   // novejši najprej
   metas.sort((a, b) => b.ms - a.ms)
 
   const groups: TrendGroup[] = []
 
-  // 4) greedy klastriranje po overlapu strongKeywords
+  // 3) Klastriranje
   for (let i = 0; i < metas.length; i++) {
     const m = metas[i]
-    const mKW = m.strongKeywords.length ? m.strongKeywords : m.keywords
+    const mKW = m.keywords
 
     let attachedIndex = -1
-    let bestScore = 0
+    // Jaccard similarity je lahko nizek, ker so naslovi kratki.
+    // Iščemo katerokoli močno ujemanje.
+    let bestOverlap = 0
 
     for (let gi = 0; gi < groups.length; gi++) {
       const g = groups[gi]
@@ -508,15 +428,12 @@ function computeTrendingFromRows(
         if (gKW.indexOf(kw) !== -1) intersect++
       }
 
-      if (intersect < TREND_MIN_OVERLAP) continue
-
-      const unionSize = new Set([...mKW, ...gKW]).size
-      const jaccard = unionSize > 0 ? intersect / unionSize : 0
-
-      // iščemo skupino z največjo podobnostjo
-      if (jaccard > bestScore) {
-        bestScore = jaccard
-        attachedIndex = gi
+      // SPREMEMBA: Dovolj je 1 skupna beseda (npr. "Kek"), če ni stopword
+      if (intersect >= TREND_MIN_OVERLAP) {
+        if (intersect > bestOverlap) {
+          bestOverlap = intersect
+          attachedIndex = gi
+        }
       }
     }
 
@@ -525,9 +442,8 @@ function computeTrendingFromRows(
       g.rows.push(m)
       
       // dodamo nove keyworde v grupo
-      const mKWset = mKW
-      for (let ki = 0; ki < mKWset.length; ki++) {
-        const kw = mKWset[ki]
+      for (let ki = 0; ki < mKW.length; ki++) {
+        const kw = mKW[ki]
         if (g.keywords.indexOf(kw) === -1) g.keywords.push(kw)
       }
     } else {
@@ -551,7 +467,7 @@ function computeTrendingFromRows(
     const g = groups[gi]
     if (!g.rows.length) continue
 
-    // različni viri
+    // Filter: vsaj 2 različna vira
     const srcs: string[] = []
     for (let ri = 0; ri < g.rows.length; ri++) {
       const s = (g.rows[ri].row.source || '').trim()
@@ -566,28 +482,25 @@ function computeTrendingFromRows(
       if (g.rows[ri].ms > rep.ms) rep = g.rows[ri]
     }
 
-    // recency: gledamo najmlajši članek v skupini
+    // točkovanje
+    const articleCount = g.rows.length
+    
+    // Koliko je stara "zgodba" (najmlajši članek)
     let newestMs = g.rows[0].ms
     for (let ri = 1; ri < g.rows.length; ri++) {
       if (g.rows[ri].ms > newestMs) newestMs = g.rows[ri].ms
     }
-
-    const ageHoursNewest = Math.max(0, (nowMs - newestMs) / 3_600_000)
-    const recencyWeight = 1 / (1 + ageHoursNewest)
-
-    const articleCount = g.rows.length
-
-    const score =
-      sourceCount * 10 + Math.min(articleCount, 6) * 2 + recencyWeight * 5
+    const ageHours = Math.max(0, (nowMs - newestMs) / 3_600_000)
+    
+    // Breaking news formula:
+    // Veliko virov = dobro (max 50 točk)
+    // Svežost = zelo pomembna
+    const score = (sourceCount * 15) + (articleCount * 5) - (ageHours * 10)
 
     scored.push({ group: g, rep, sourceCount, articleCount, score })
   }
 
-  scored.sort((a, b) => {
-    if (b.score !== a.score) return b.score - a.score
-    if (b.sourceCount !== a.sourceCount) return b.sourceCount - a.sourceCount
-    return b.rep.ms - a.rep.ms
-  })
+  scored.sort((a, b) => b.score - a.score)
 
   const top = scored.slice(0, TREND_MAX_ITEMS)
 
@@ -600,12 +513,17 @@ function computeTrendingFromRows(
     const storyArticles: StoryArticle[] = []
     const seenSrc: string[] = []
 
+    // Razvrstimo članke v zgodbi po datumu (najnovejši zgoraj)
+    sg.group.rows.sort((a, b) => b.ms - a.ms)
+
     for (let ri = 0; ri < sg.group.rows.length; ri++) {
       const meta = sg.group.rows[ri]
       const r = meta.row
       const srcName = (r.source || '').trim()
       const link = r.link_canonical || r.link || ''
       if (!srcName || !link) continue
+      
+      // V "Drugi viri" ne želimo podvajati virov, razen če je res breaking
       if (seenSrc.indexOf(srcName) !== -1) continue
       seenSrc.push(srcName)
 
@@ -622,8 +540,6 @@ function computeTrendingFromRows(
         publishedAt: meta.ms,
       })
     }
-
-    storyArticles.sort((a, b) => b.publishedAt - a.publishedAt)
 
     result.push({ ...base, storyArticles })
   }
