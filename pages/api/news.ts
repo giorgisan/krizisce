@@ -1,3 +1,29 @@
+Se opravičujem za spremembo števila kartic na 6 brez vprašanja. To je bila moja napaka v presoji – vrnil sem nazaj na 5.
+
+Glede napačnega združevanja:
+Težava je nastala, ker sem preveč sprostil pogoje (Overlap = 1). Besede, kot so "let" (iz 65-letnik in 13-letnik) ali "Slovenije" (Pošta Slovenije vs. Slovenija), so postale vezni člen, ker niso bile na seznamu prepovedanih besed (stopwords).
+
+Rešitev v novi kodi:
+
+Nazaj na 5 novic.
+
+Strožji pogoj: Za združitev sta spet potrebni vsaj 2 skupni besedi (npr. "Matjaž" in "Kek" ali "Kek" in "NZS"). Ker sem ohranil dovoljenje za kratke besede (3 črke), bo "Kek" zdaj štel kot ena beseda, druga pa bo verjetno "selektor", "Matjaž" ali "NZS". To bo preprečilo "Pošta Slovenije" vdor.
+
+Dodane prepovedane besede: Dodal sem "let", "leta", "leto", "slovenije" in druge, ki so povzročale težave na tvoji sliki.
+
+API Link za preverjanje
+
+Če želiš videti, kaj točno vrača algoritem (JSON format), lahko odpreš to povezavo v brskalniku (ko boš naložil novo kodo):
+https://tvoja-stran.si/api/news?variant=trending
+(Tam boš videl polje storyArticles in katere novice so notri).
+
+Tukaj je popravljena koda za pages/api/news.ts:
+
+code
+TypeScript
+download
+content_copy
+expand_less
 // pages/api/news.ts
 import type { NextApiRequest, NextApiResponse } from 'next'
 import { createClient } from '@supabase/supabase-js'
@@ -263,11 +289,11 @@ function rowToItem(r: Row): NewsItem {
 
 /* ---------------- TRENDING: clustering nad DB (runtime) ---------------- */
 
-// POZOR: Spremenjeni parametri za boljše zaznavanje "Breaking News"
-const TREND_WINDOW_HOURS = 24 // Gledamo zadnjih 24 ur (prej 6)
-const TREND_MIN_SOURCES = 2   // Varovalka: vsaj 2 različna vira
-const TREND_MIN_OVERLAP = 1   // DOVOLJ JE 1 močna skupna beseda (prej 2)
-const TREND_MAX_ITEMS = 6     // Max število trending kartic
+// NASTAVITVE ZA TRENDING
+const TREND_WINDOW_HOURS = 24 
+const TREND_MIN_SOURCES = 2   
+const TREND_MIN_OVERLAP = 2   // SPREMEMBA: Nazaj na 2 (varovalka pred "Pošta Slovenije")
+const TREND_MAX_ITEMS = 5     // SPREMEMBA: Nazaj na 5 kartic
 
 type StoryArticle = {
   source: string
@@ -290,26 +316,33 @@ type TrendGroup = {
 
 /**
  * Stop-words za slovenske naslove.
- * Te besede so prepovedane pri združevanju.
+ * POSODOBITEV: Dodane besede "let", "slovenije", "ljubljana" itd.
  */
 const STORY_STOPWORDS = new Set<string>([
   'v', 'na', 'ob', 'po', 'pri', 'pod', 'nad', 'za', 'do', 'od', 'z', 's',
   'in', 'ali', 'pa', 'kot', 'je', 'so', 'se', 'bo', 'bodo', 'bil', 'bila',
   'bili', 'bilo', 'že', 'še', 'bi', 'ko', 'ker', 'da', 'ne', 'ni',
   'danes', 'vceraj', 'nocoj', 'noc',
-  'slovenija', 'sloveniji', 'slovenski', 'slovenska', 'slovensko',
+  
+  // Geografske splošne besede, ki delajo zmedo
+  'slovenija', 'sloveniji', 'slovenije', 'slovenski', 'slovenska', 'slovensko',
+  'ljubljana', 'ljubljani', 'maribor', 'celje', 
+
+  // Format novic
   'video', 'foto', 'galerija', 'intervju', 'clanek', 'novice', 'kronika', 'novo',
   'iz', 'ter', 'kjer', 'kako', 'zakaj', 'kaj', 'kdo', 'kam',
   'razlog', 'zaradi', 'glede', 'proti', 'brez', 'med', 'pred', 'cez',
   'lahko', 'morajo', 'mora', 'imajo', 'ima',
   'znano', 'znane', 'znani', 'podrobnosti', 'razkrivamo', 'vec', 'manj',
-  'prvi', 'prva', 'prvo', 'drugi', 'druga', 'tretji', 'novi', 'nova', 'novo'
+  'prvi', 'prva', 'prvo', 'drugi', 'druga', 'tretji', 'novi', 'nova', 'novo',
+  
+  // Časovne in količinske besede (KRIVCI za 65-letnik napake)
+  'let', 'leta', 'leto', 'letnik', 'letnika', 'letih', 'letošnji', 'letošnja',
+  'teden', 'tedna', 'mesec', 'meseca', 'dan', 'dni'
 ])
 
 /**
- * Stemmer: poskuša ujeti koren besede.
- * "Kek" -> "Kek"
- * "Golob" -> "Golob" / "Goloba" -> "Golob"
+ * Stemmer: Preprost rezalnik končnic
  */
 function stemToken(raw: string): string {
   if (!raw) return raw
@@ -317,15 +350,13 @@ function stemToken(raw: string): string {
 
   const w = raw
   
-  // Besede dolžine 3 in 4 pustimo pri miru (Kek, NZS, ZDA, Tim)
+  // Besede dolžine 3 in 4 pustimo (Kek, NZS, ZDA, Tim)
   if (w.length <= 4) return w
 
-  // Pri daljših besedah smo previdni pri rezanju
+  // Pri daljših besedah režemo končnice
   if (w.length > 6) {
-    // Odrežemo 2 znaka (Goloba -> Golo, Zmagovalec -> Zmagoval)
     return w.substring(0, w.length - 2)
   }
-  // Srednje dolge (5-6) odrežemo za 1 (Golob -> Golo)
   return w.substring(0, w.length - 1)
 }
 
@@ -342,16 +373,21 @@ function extractKeywordsFromTitle(title: string): string[] {
   for (let i = 0; i < tokens.length; i++) {
     let w = tokens[i]
     if (!w) continue
+    
+    // Prvo preverjanje stopwords (pred stemmingom)
     if (STORY_STOPWORDS.has(w)) continue
 
-    w = stemToken(w)
+    const stem = stemToken(w)
     
-    // SPREMEMBA: Dovolimo besede dolžine 3 (Kek, NZS...)
-    if (w.length < 3) continue 
-    
-    if (STORY_STOPWORDS.has(w)) continue
+    // Drugo preverjanje (če je stem postal stopword, npr. slovenije -> slovenija)
+    // Ker nimamo mapiranja, samo preverimo, če je stem v stopwords
+    // (To sicer ni nujno, če imamo dober stopword list, a ne škodi)
+    if (STORY_STOPWORDS.has(stem)) continue
 
-    if (out.indexOf(w) === -1) out.push(w)
+    // Dovolimo besede dolžine 3 (Kek, NZS...), krajše pa ne
+    if (stem.length < 3) continue 
+    
+    if (out.indexOf(stem) === -1) out.push(stem)
   }
 
   return out
@@ -368,7 +404,7 @@ async function fetchTrendingRows(): Promise<Row[]> {
     )
     .gt('publishedat', cutoffMs)
     .order('publishedat', { ascending: false })
-    .limit(300) // Povečano na 300 za širši zajem
+    .limit(300)
 
   if (error) throw new Error(`DB trending: ${error.message}`)
   return (data || []) as Row[]
@@ -395,23 +431,17 @@ function computeTrendingFromRows(
 
   if (!metas.length) return []
 
-  // 2) Statistika frekvenc (samo za info, ne filtriramo več strogo)
-  // Če se beseda pojavi velikokrat, je to signal za "Breaking News"
-  // pod pogojem, da ni v STOPWORDS seznamu.
-
   // novejši najprej
   metas.sort((a, b) => b.ms - a.ms)
 
   const groups: TrendGroup[] = []
 
-  // 3) Klastriranje
+  // 2) Klastriranje
   for (let i = 0; i < metas.length; i++) {
     const m = metas[i]
     const mKW = m.keywords
 
     let attachedIndex = -1
-    // Jaccard similarity je lahko nizek, ker so naslovi kratki.
-    // Iščemo katerokoli močno ujemanje.
     let bestOverlap = 0
 
     for (let gi = 0; gi < groups.length; gi++) {
@@ -428,7 +458,11 @@ function computeTrendingFromRows(
         if (gKW.indexOf(kw) !== -1) intersect++
       }
 
-      // SPREMEMBA: Dovolj je 1 skupna beseda (npr. "Kek"), če ni stopword
+      // VAROVALKA: Spet zahtevamo vsaj 2 skupni besedi
+      // To prepreči, da bi samo ena beseda (kot je "Pošta" ali neujet stopword)
+      // združila napačne članke.
+      // Ker "Kek" in "NZS" in "selektor" niso stop-words, se bo zgodba o Keku
+      // še vedno združila (Kek + selektor = 2 besedi).
       if (intersect >= TREND_MIN_OVERLAP) {
         if (intersect > bestOverlap) {
           bestOverlap = intersect
@@ -492,9 +526,7 @@ function computeTrendingFromRows(
     }
     const ageHours = Math.max(0, (nowMs - newestMs) / 3_600_000)
     
-    // Breaking news formula:
-    // Veliko virov = dobro (max 50 točk)
-    // Svežost = zelo pomembna
+    // Score formula
     const score = (sourceCount * 15) + (articleCount * 5) - (ageHours * 10)
 
     scored.push({ group: g, rep, sourceCount, articleCount, score })
@@ -523,7 +555,7 @@ function computeTrendingFromRows(
       const link = r.link_canonical || r.link || ''
       if (!srcName || !link) continue
       
-      // V "Drugi viri" ne želimo podvajati virov, razen če je res breaking
+      // V "Drugi viri" ne želimo podvajati virov
       if (seenSrc.indexOf(srcName) !== -1) continue
       seenSrc.push(srcName)
 
