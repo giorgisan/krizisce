@@ -1,29 +1,3 @@
-Se opravičujem za spremembo števila kartic na 6 brez vprašanja. To je bila moja napaka v presoji – vrnil sem nazaj na 5.
-
-Glede napačnega združevanja:
-Težava je nastala, ker sem preveč sprostil pogoje (Overlap = 1). Besede, kot so "let" (iz 65-letnik in 13-letnik) ali "Slovenije" (Pošta Slovenije vs. Slovenija), so postale vezni člen, ker niso bile na seznamu prepovedanih besed (stopwords).
-
-Rešitev v novi kodi:
-
-Nazaj na 5 novic.
-
-Strožji pogoj: Za združitev sta spet potrebni vsaj 2 skupni besedi (npr. "Matjaž" in "Kek" ali "Kek" in "NZS"). Ker sem ohranil dovoljenje za kratke besede (3 črke), bo "Kek" zdaj štel kot ena beseda, druga pa bo verjetno "selektor", "Matjaž" ali "NZS". To bo preprečilo "Pošta Slovenije" vdor.
-
-Dodane prepovedane besede: Dodal sem "let", "leta", "leto", "slovenije" in druge, ki so povzročale težave na tvoji sliki.
-
-API Link za preverjanje
-
-Če želiš videti, kaj točno vrača algoritem (JSON format), lahko odpreš to povezavo v brskalniku (ko boš naložil novo kodo):
-https://tvoja-stran.si/api/news?variant=trending
-(Tam boš videl polje storyArticles in katere novice so notri).
-
-Tukaj je popravljena koda za pages/api/news.ts:
-
-code
-TypeScript
-download
-content_copy
-expand_less
 // pages/api/news.ts
 import type { NextApiRequest, NextApiResponse } from 'next'
 import { createClient } from '@supabase/supabase-js'
@@ -289,11 +263,11 @@ function rowToItem(r: Row): NewsItem {
 
 /* ---------------- TRENDING: clustering nad DB (runtime) ---------------- */
 
-// NASTAVITVE ZA TRENDING
+// NASTAVITVE ZA TRENDING (Optimizirano)
 const TREND_WINDOW_HOURS = 24 
 const TREND_MIN_SOURCES = 2   
-const TREND_MIN_OVERLAP = 2   // SPREMEMBA: Nazaj na 2 (varovalka pred "Pošta Slovenije")
-const TREND_MAX_ITEMS = 5     // SPREMEMBA: Nazaj na 5 kartic
+const TREND_MIN_OVERLAP = 2   // NUJNO 2, da se izognemo naključnim ujemanjem
+const TREND_MAX_ITEMS = 5
 
 type StoryArticle = {
   source: string
@@ -315,30 +289,42 @@ type TrendGroup = {
 }
 
 /**
- * Stop-words za slovenske naslove.
- * POSODOBITEV: Dodane besede "let", "slovenije", "ljubljana" itd.
+ * STOP WORDS - Zelo obsežen seznam za čiščenje šuma.
+ * Vključuje pomožne glagole, zaimke, geografijo in splošne besede.
  */
 const STORY_STOPWORDS = new Set<string>([
+  // Pomožni glagoli in vezniki (najpomembnejše!)
   'v', 'na', 'ob', 'po', 'pri', 'pod', 'nad', 'za', 'do', 'od', 'z', 's',
   'in', 'ali', 'pa', 'kot', 'je', 'so', 'se', 'bo', 'bodo', 'bil', 'bila',
-  'bili', 'bilo', 'že', 'še', 'bi', 'ko', 'ker', 'da', 'ne', 'ni',
-  'danes', 'vceraj', 'nocoj', 'noc',
+  'bili', 'bilo', 'bi', 'ko', 'ker', 'da', 'ne', 'ni', 'sta', 'ste', 'smo',
   
-  // Geografske splošne besede, ki delajo zmedo
-  'slovenija', 'sloveniji', 'slovenije', 'slovenski', 'slovenska', 'slovensko',
-  'ljubljana', 'ljubljani', 'maribor', 'celje', 
-
-  // Format novic
-  'video', 'foto', 'galerija', 'intervju', 'clanek', 'novice', 'kronika', 'novo',
-  'iz', 'ter', 'kjer', 'kako', 'zakaj', 'kaj', 'kdo', 'kam',
+  // Časovni prislovi
+  'danes', 'vceraj', 'nocoj', 'noc', 'jutri', 'letos', 'lani', 'ze', 'se',
+  
+  // Geografija (povzroča lažna ujemanja, če je tema "lokalna")
+  'slovenija', 'sloveniji', 'slovenije', 'slovenijo', 
+  'slovenski', 'slovenska', 'slovensko', 'slovenskih',
+  'ljubljana', 'ljubljani', 'maribor', 'celje', 'koper', 
+  'svet', 'svetu', 'evropa', 'eu', 'zda',
+  
+  // Novinarski žargon
+  'video', 'foto', 'galerija', 'intervju', 'clanek', 'novice', 'kronika', 
+  'novo', 'ekskluzivno', 'v zivo', 'preberite', 'poglejte',
+  
+  // Vprašalnice in zaimki
+  'iz', 'ter', 'kjer', 'kako', 'zakaj', 'kaj', 'kdo', 'kam', 'kadar',
   'razlog', 'zaradi', 'glede', 'proti', 'brez', 'med', 'pred', 'cez',
-  'lahko', 'morajo', 'mora', 'imajo', 'ima',
-  'znano', 'znane', 'znani', 'podrobnosti', 'razkrivamo', 'vec', 'manj',
-  'prvi', 'prva', 'prvo', 'drugi', 'druga', 'tretji', 'novi', 'nova', 'novo',
+  'lahko', 'morajo', 'mora', 'imajo', 'ima', 'gre', 'pravi', 'pravijo',
   
-  // Časovne in količinske besede (KRIVCI za 65-letnik napake)
-  'let', 'leta', 'leto', 'letnik', 'letnika', 'letih', 'letošnji', 'letošnja',
-  'teden', 'tedna', 'mesec', 'meseca', 'dan', 'dni'
+  // Količine in pridevniki
+  'znano', 'znane', 'znani', 'podrobnosti', 'razkrivamo', 'vec', 'manj', 'veliko',
+  'prvi', 'prva', 'prvo', 'drugi', 'druga', 'tretji', 'novi', 'nova', 
+  'dober', 'dobra', 'slaba', 'velik', 'malo',
+  
+  // Čas in enote (KRITIČNO za "65-letnik")
+  'let', 'leta', 'leto', 'letnik', 'letnika', 'letih', 'letni', 'letna',
+  'letošnji', 'letošnja', 'starost', 'star', 'stara',
+  'teden', 'tedna', 'mesec', 'meseca', 'dan', 'dni', 'ura', 'ure'
 ])
 
 /**
@@ -350,7 +336,7 @@ function stemToken(raw: string): string {
 
   const w = raw
   
-  // Besede dolžine 3 in 4 pustimo (Kek, NZS, ZDA, Tim)
+  // Kratke besede (3-4 črke) pustimo pri miru (Kek, NZS, ZDA, Tim)
   if (w.length <= 4) return w
 
   // Pri daljših besedah režemo končnice
@@ -374,14 +360,12 @@ function extractKeywordsFromTitle(title: string): string[] {
     let w = tokens[i]
     if (!w) continue
     
-    // Prvo preverjanje stopwords (pred stemmingom)
+    // 1. Filter pred stemmanjem
     if (STORY_STOPWORDS.has(w)) continue
 
     const stem = stemToken(w)
     
-    // Drugo preverjanje (če je stem postal stopword, npr. slovenije -> slovenija)
-    // Ker nimamo mapiranja, samo preverimo, če je stem v stopwords
-    // (To sicer ni nujno, če imamo dober stopword list, a ne škodi)
+    // 2. Filter po stemmanju (če je stem postal stopword)
     if (STORY_STOPWORDS.has(stem)) continue
 
     // Dovolimo besede dolžine 3 (Kek, NZS...), krajše pa ne
@@ -459,10 +443,6 @@ function computeTrendingFromRows(
       }
 
       // VAROVALKA: Spet zahtevamo vsaj 2 skupni besedi
-      // To prepreči, da bi samo ena beseda (kot je "Pošta" ali neujet stopword)
-      // združila napačne članke.
-      // Ker "Kek" in "NZS" in "selektor" niso stop-words, se bo zgodba o Keku
-      // še vedno združila (Kek + selektor = 2 besedi).
       if (intersect >= TREND_MIN_OVERLAP) {
         if (intersect > bestOverlap) {
           bestOverlap = intersect
