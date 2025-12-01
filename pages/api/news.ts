@@ -1,5 +1,4 @@
-// pages/api/news.ts — upsert usklajen z DB (UNIQUE na link_key), varno ignorira duplikate
-
+// pages/api/news.ts
 import type { NextApiRequest, NextApiResponse } from 'next'
 import { createClient } from '@supabase/supabase-js'
 import fetchRSSFeeds from '@/lib/fetchRSSFeeds'
@@ -264,7 +263,7 @@ function rowToItem(r: Row): NewsItem {
 
 /* ---------------- TRENDING: clustering nad DB (runtime) ---------------- */
 
-const TREND_WINDOW_HOURS = 6
+const TREND_WINDOW_HOURS = 10 // Povečano za boljši zajem dnevnih novic
 const TREND_MIN_SOURCES = 2
 const TREND_MIN_OVERLAP = 2 // min. št. skupnih "močnih" ključnih besed
 const TREND_MAX_ITEMS = 5
@@ -290,8 +289,7 @@ type TrendGroup = {
 }
 
 /**
- * Stop-words za slovenske naslove – generične besede, ki ne nosijo
- * informacij o sami zgodbi (nesreča, znano, danes, 18-letnik, ...).
+ * Stop-words za slovenske naslove – generične besede.
  */
 const STORY_STOPWORDS = new Set<string>([
   'v',
@@ -335,7 +333,7 @@ const STORY_STOPWORDS = new Set<string>([
   'clanek',
   'novice',
   'kronika',
-  // kronika / nesreče
+  // kronika / nesreče - besede so preveč pogoste, raje lovimo kraj
   'nesreca',
   'nesreci',
   'prometna',
@@ -355,33 +353,33 @@ const STORY_STOPWORDS = new Set<string>([
   'znane',
   'znani',
   'podrobnosti',
+  'razlog',
+  'zaradi',
 ])
 
 /**
- * Zelo grob "stemmer" za slovenske naslove:
- * - številk ne spreminjamo,
- * - daljše besede odrežemo na začetni del (približek korena).
- *
- * Ideja: šmartinki / šmartinski / šmartinska → "smarti",
- * kar je dovolj, da se zgodbe o isti lokaciji vidijo kot iste.
+ * IZBOLJŠAN STEMMER za slovenske naslove.
+ * Cilj: Ujeti sklanjatve (Golob/Goloba, Požar/Požaru).
  */
 function stemToken(raw: string): string {
   if (!raw) return raw
+  // Številke pustimo pri miru
   if (/^\d+$/.test(raw)) return raw
 
-  let w = raw
-  if (w.length > 7) return w.slice(0, 6)
-  if (w.length > 5) return w.slice(0, 5)
+  const w = raw
+  
+  // Če je beseda dovolj dolga, odrežemo končnico
+  if (w.length > 4) {
+    // Če je daljša od 6 znakov, smo bolj agresivni (2 znaka), sicer 1
+    const cutLen = w.length > 6 ? 2 : 1
+    return w.substring(0, w.length - cutLen)
+  }
+  
   return w
 }
 
 /**
  * Ekstrakcija ključnih besed iz naslova.
- * - normalizacija (lowercase, brez šumnikov),
- * - razbitje po ne-alfa znakov,
- * - odstranitev stop-words,
- * - "stemmanje" z cut-na-začetek,
- * - filtriranje na dolžino in unikatnost.
  */
 function extractKeywordsFromTitle(title: string): string[] {
   const base = unaccent(title || '').toLowerCase()
@@ -397,7 +395,7 @@ function extractKeywordsFromTitle(title: string): string[] {
     if (STORY_STOPWORDS.has(w)) continue
 
     w = stemToken(w)
-    if (w.length < 4) continue
+    if (w.length < 3) continue // dovolimo krajše korene (npr. Krk)
     if (STORY_STOPWORDS.has(w)) continue
 
     if (out.indexOf(w) === -1) out.push(w)
@@ -423,20 +421,6 @@ async function fetchTrendingRows(): Promise<Row[]> {
   return (data || []) as Row[]
 }
 
-/**
- * computeTrendingFromRows
- *
- * Ključne točke:
- * - iz naslova izlušči keywords in jim da grob "stem",
- * - naredi frekvenčno statistiko keywordov (IDF-ish),
- * - za klastriranje uporablja samo "močne" (redkejše) keyworde,
- * - skupino obdrži samo, če ima vsaj TREND_MIN_SOURCES različnih virov.
- *
- * S tem:
- * - nesreča v Kamniku in nesreča na Šmartinki se NE združita,
- * - vse variacije Šmartinke (Šmartinski cesti, ...), ki imajo iste
- *   redke keyworde, se lepo zlepijo v eno zgodbo.
- */
 function computeTrendingFromRows(
   rows: Row[],
 ): (NewsItem & { storyArticles: StoryArticle[] })[] {
@@ -473,26 +457,20 @@ function computeTrendingFromRows(
     for (const kw of m.keywords) {
       const f = freq.get(kw) || 0
 
-      // popolnoma unikatne besede so vedno močne
-      if (f <= 1) {
+      // unikatne ali zelo redke besede
+      if (f <= 2) { 
         strong.push(kw)
         continue
       }
-
-      // daljši, srednje redki keywordi so OK
-      if (kw.length >= 7 && f <= 6) {
-        strong.push(kw)
-        continue
-      }
-
-      if (kw.length >= 5 && f <= 4) {
+      
+      // malo pogostejše, če so dolge
+      if (kw.length >= 5 && f <= 5) {
         strong.push(kw)
         continue
       }
     }
 
-    // fallback: če je vse "generično", vzemi 1–2 najredkejši besedi,
-    // da sploh lahko kaj primerjamo
+    // fallback
     if (!strong.length && m.keywords.length) {
       const sortedByFreq = [...m.keywords].sort(
         (a, b) => (freq.get(a) || 0) - (freq.get(b) || 0),
@@ -545,7 +523,8 @@ function computeTrendingFromRows(
     if (attachedIndex >= 0) {
       const g = groups[attachedIndex]
       g.rows.push(m)
-
+      
+      // dodamo nove keyworde v grupo
       const mKWset = mKW
       for (let ki = 0; ki < mKWset.length; ki++) {
         const kw = mKWset[ki]
@@ -749,51 +728,4 @@ export default async function handler(
   } catch (e: any) {
     return res.status(500).json({ error: e?.message || 'Unexpected error' })
   }
-}
-
-/* ================= SSG (ISR) ================= */
-
-export async function getStaticProps() {
-  const { createClient } = await import('@supabase/supabase-js')
-  const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL as string
-  const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string
-  const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-    auth: { persistSession: false },
-  })
-
-  type Row = {
-    id: number
-    link: string
-    title: string
-    source: string
-    summary: string | null
-    contentsnippet: string | null
-    image: string | null
-    published_at: string | null
-    publishedat: number | null
-  }
-
-  const { data } = await supabase
-    .from('news')
-    .select(
-      'id, link, title, source, summary, contentsnippet, image, published_at, publishedat',
-    )
-    .order('publishedat', { ascending: false })
-    .limit(60)
-
-  const rows = (data ?? []) as Row[]
-
-  const initialNews: NewsItem[] = rows.map((r) => ({
-    title: r.title,
-    link: r.link,
-    source: r.source,
-    contentSnippet: r.contentsnippet ?? r.summary ?? '',
-    image: r.image ?? null,
-    publishedAt:
-      (r.publishedat ??
-        (r.published_at ? Date.parse(r.published_at) : 0)) || 0,
-    isoDate: r.published_at,
-  }))
-
-  return { props: { initialNews }, revalidate: 60 }
 }
