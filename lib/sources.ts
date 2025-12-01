@@ -13,17 +13,38 @@ export const SOURCES = [
   'Svet24',
 ] as const
 
+/**
+ * Barve prilagojene za Dark Mode (svetlejši odtenki za boljšo čitljivost).
+ * Usklajene z logotipi portalov.
+ */
 export const sourceColors: Record<string, string> = {
-  RTVSLO: '#3263ad',
-  '24ur': '#404faf',
-  'Siol.net': '#413f93',
-  'Slovenske novice': '#D1482E',
-  Delo: '#0052a1',
-  Dnevnik: '#c60000',
-  Zurnal24: '#678ca3',
-  N1: '#253d9c',
-  Svet24: '#ee9999',
-  Vse: '#9E9E9E',
+  // --- MODRI ODTENKI (Pazimo, da so različni) ---
+  
+  // Žurnal24: Svetlo modra (kot "24" v logotipu)
+  'Zurnal24': '#7dd3fc',      // Sky 300 (Baby Blue)
+  
+  // 24ur: Klasična modra
+  '24ur': '#60a5fa',          // Blue 400
+  
+  // Delo: Temnejša/Resnejša modra
+  'Delo': '#38bdf8',          // Sky 400
+  
+  // Siol: Bolj "električno" modra
+  'Siol.net': '#0ea5e9',      // Sky 500
+  
+  // RTV: Turkizna
+  'RTVSLO': '#22d3ee',        // Cyan 400
+  
+  // N1: Vijolično-modra (Indigo)
+  'N1': '#818cf8',            // Indigo 400
+
+  // --- RDEČI ODTENKI ---
+  'Slovenske novice': '#f87171', // Red 400 (Svetlo rdeča)
+  'Dnevnik': '#fb7185',          // Rose 400 (Roza rdeča)
+  'Svet24': '#ef4444',           // Red 500 (Živo rdeča)
+  
+  // Ostalo
+  'Vse': '#9ca3af',              // Siva (Gray 400)
 }
 
 export const feeds: Record<string, string> = {
