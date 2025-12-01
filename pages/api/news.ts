@@ -266,7 +266,7 @@ function rowToItem(r: Row): NewsItem {
 // NASTAVITVE ZA TRENDING (Optimizirano)
 const TREND_WINDOW_HOURS = 24 
 const TREND_MIN_SOURCES = 2   
-const TREND_MIN_OVERLAP = 2   // NUJNO 2, da se izognemo naključnim ujemanjem
+const TREND_MIN_OVERLAP = 2
 const TREND_MAX_ITEMS = 5
 
 type StoryArticle = {
@@ -290,10 +290,9 @@ type TrendGroup = {
 
 /**
  * STOP WORDS - Zelo obsežen seznam za čiščenje šuma.
- * Vključuje pomožne glagole, zaimke, geografijo in splošne besede.
  */
 const STORY_STOPWORDS = new Set<string>([
-  // Pomožni glagoli in vezniki (najpomembnejše!)
+  // Pomožni glagoli in vezniki
   'v', 'na', 'ob', 'po', 'pri', 'pod', 'nad', 'za', 'do', 'od', 'z', 's',
   'in', 'ali', 'pa', 'kot', 'je', 'so', 'se', 'bo', 'bodo', 'bil', 'bila',
   'bili', 'bilo', 'bi', 'ko', 'ker', 'da', 'ne', 'ni', 'sta', 'ste', 'smo',
@@ -301,7 +300,7 @@ const STORY_STOPWORDS = new Set<string>([
   // Časovni prislovi
   'danes', 'vceraj', 'nocoj', 'noc', 'jutri', 'letos', 'lani', 'ze', 'se',
   
-  // Geografija (povzroča lažna ujemanja, če je tema "lokalna")
+  // Geografija
   'slovenija', 'sloveniji', 'slovenije', 'slovenijo', 
   'slovenski', 'slovenska', 'slovensko', 'slovenskih',
   'ljubljana', 'ljubljani', 'maribor', 'celje', 'koper', 
@@ -321,34 +320,24 @@ const STORY_STOPWORDS = new Set<string>([
   'prvi', 'prva', 'prvo', 'drugi', 'druga', 'tretji', 'novi', 'nova', 
   'dober', 'dobra', 'slaba', 'velik', 'malo',
   
-  // Čas in enote (KRITIČNO za "65-letnik")
+  // Čas in enote
   'let', 'leta', 'leto', 'letnik', 'letnika', 'letih', 'letni', 'letna',
   'letošnji', 'letošnja', 'starost', 'star', 'stara',
   'teden', 'tedna', 'mesec', 'meseca', 'dan', 'dni', 'ura', 'ure'
 ])
 
-/**
- * Stemmer: Preprost rezalnik končnic
- */
 function stemToken(raw: string): string {
   if (!raw) return raw
   if (/^\d+$/.test(raw)) return raw
 
   const w = raw
-  
-  // Kratke besede (3-4 črke) pustimo pri miru (Kek, NZS, ZDA, Tim)
   if (w.length <= 4) return w
-
-  // Pri daljših besedah režemo končnice
   if (w.length > 6) {
     return w.substring(0, w.length - 2)
   }
   return w.substring(0, w.length - 1)
 }
 
-/**
- * Ekstrakcija ključnih besed.
- */
 function extractKeywordsFromTitle(title: string): string[] {
   const base = unaccent(title || '').toLowerCase()
   if (!base) return []
@@ -359,21 +348,12 @@ function extractKeywordsFromTitle(title: string): string[] {
   for (let i = 0; i < tokens.length; i++) {
     let w = tokens[i]
     if (!w) continue
-    
-    // 1. Filter pred stemmanjem
     if (STORY_STOPWORDS.has(w)) continue
-
     const stem = stemToken(w)
-    
-    // 2. Filter po stemmanju (če je stem postal stopword)
     if (STORY_STOPWORDS.has(stem)) continue
-
-    // Dovolimo besede dolžine 3 (Kek, NZS...), krajše pa ne
     if (stem.length < 3) continue 
-    
     if (out.indexOf(stem) === -1) out.push(stem)
   }
-
   return out
 }
 
@@ -397,7 +377,6 @@ async function fetchTrendingRows(): Promise<Row[]> {
 function computeTrendingFromRows(
   rows: Row[],
 ): (NewsItem & { storyArticles: StoryArticle[] })[] {
-  // 1) Priprava podatkov
   const metas: RowMeta[] = rows
     .map((row) => {
       const ms =
@@ -415,23 +394,19 @@ function computeTrendingFromRows(
 
   if (!metas.length) return []
 
-  // novejši najprej
   metas.sort((a, b) => b.ms - a.ms)
 
   const groups: TrendGroup[] = []
 
-  // 2) Klastriranje
   for (let i = 0; i < metas.length; i++) {
     const m = metas[i]
     const mKW = m.keywords
-
     let attachedIndex = -1
     let bestOverlap = 0
 
     for (let gi = 0; gi < groups.length; gi++) {
       const g = groups[gi]
       const gKW = g.keywords
-
       let intersect = 0
       const seen = new Set<string>()
 
@@ -442,7 +417,6 @@ function computeTrendingFromRows(
         if (gKW.indexOf(kw) !== -1) intersect++
       }
 
-      // VAROVALKA: Spet zahtevamo vsaj 2 skupni besedi
       if (intersect >= TREND_MIN_OVERLAP) {
         if (intersect > bestOverlap) {
           bestOverlap = intersect
@@ -454,8 +428,6 @@ function computeTrendingFromRows(
     if (attachedIndex >= 0) {
       const g = groups[attachedIndex]
       g.rows.push(m)
-      
-      // dodamo nove keyworde v grupo
       for (let ki = 0; ki < mKW.length; ki++) {
         const kw = mKW[ki]
         if (g.keywords.indexOf(kw) === -1) g.keywords.push(kw)
@@ -481,7 +453,6 @@ function computeTrendingFromRows(
     const g = groups[gi]
     if (!g.rows.length) continue
 
-    // Filter: vsaj 2 različna vira
     const srcs: string[] = []
     for (let ri = 0; ri < g.rows.length; ri++) {
       const s = (g.rows[ri].row.source || '').trim()
@@ -490,28 +461,30 @@ function computeTrendingFromRows(
     const sourceCount = srcs.length
     if (sourceCount < TREND_MIN_SOURCES) continue
 
-    // predstavnik: najnovejši
     let rep = g.rows[0]
     for (let ri = 1; ri < g.rows.length; ri++) {
       if (g.rows[ri].ms > rep.ms) rep = g.rows[ri]
     }
 
-    // točkovanje
     const articleCount = g.rows.length
     
-    // Koliko je stara "zgodba" (najmlajši članek)
     let newestMs = g.rows[0].ms
     for (let ri = 1; ri < g.rows.length; ri++) {
       if (g.rows[ri].ms > newestMs) newestMs = g.rows[ri].ms
     }
     const ageHours = Math.max(0, (nowMs - newestMs) / 3_600_000)
     
-    // Score formula
-    const score = (sourceCount * 15) + (articleCount * 5) - (ageHours * 10)
+    // ==========================================
+    // POPRAVEK FORMULE ZA SORTIRANJE:
+    // Povečana teža virov (iz 15 na 25)
+    // Zmanjšana kazen za starost (iz 10 na 3)
+    // ==========================================
+    const score = (sourceCount * 25) + (articleCount * 5) - (ageHours * 3)
 
     scored.push({ group: g, rep, sourceCount, articleCount, score })
   }
 
+  // Sortiranje po score (največji score zgoraj)
   scored.sort((a, b) => b.score - a.score)
 
   const top = scored.slice(0, TREND_MAX_ITEMS)
@@ -525,7 +498,6 @@ function computeTrendingFromRows(
     const storyArticles: StoryArticle[] = []
     const seenSrc: string[] = []
 
-    // Razvrstimo članke v zgodbi po datumu (najnovejši zgoraj)
     sg.group.rows.sort((a, b) => b.ms - a.ms)
 
     for (let ri = 0; ri < sg.group.rows.length; ri++) {
@@ -535,7 +507,6 @@ function computeTrendingFromRows(
       const link = r.link_canonical || r.link || ''
       if (!srcName || !link) continue
       
-      // V "Drugi viri" ne želimo podvajati virov
       if (seenSrc.indexOf(srcName) !== -1) continue
       seenSrc.push(srcName)
 
@@ -552,10 +523,8 @@ function computeTrendingFromRows(
         publishedAt: meta.ms,
       })
     }
-
     result.push({ ...base, storyArticles })
   }
-
   return result
 }
 
@@ -574,7 +543,6 @@ export default async function handler(
     const source = (req.query.source as string) || null
     const variant = (req.query.variant as string) || 'latest'
 
-    // --- TRENDING BRANCH ---
     if (variant === 'trending') {
       try {
         const rows = await fetchTrendingRows()
@@ -588,19 +556,14 @@ export default async function handler(
       }
     }
 
-    // --- INGEST GUARD (samo za "latest" varianto) ---
-    const headerSecret = (req.headers['x-cron-secret'] as string | undefined)
-      ?.trim()
-    const isCronCaller =
-      Boolean(CRON_SECRET && headerSecret && headerSecret === CRON_SECRET)
+    const headerSecret = (req.headers['x-cron-secret'] as string | undefined)?.trim()
+    const isCronCaller = Boolean(CRON_SECRET && headerSecret && headerSecret === CRON_SECRET)
     const isInternalIngest = req.headers['x-krizisce-ingest'] === '1'
     const isDev = process.env.NODE_ENV !== 'production'
-
     const tokenOk = CRON_SECRET && req.query.token === CRON_SECRET
     const allowPublic = process.env.ALLOW_PUBLIC_REFRESH === '1'
 
-    const canIngest =
-      isCronCaller || isInternalIngest || isDev || tokenOk || allowPublic
+    const canIngest = isCronCaller || isInternalIngest || isDev || tokenOk || allowPublic
 
     if (!paged && wantsFresh && canIngest) {
       try {
@@ -611,21 +574,12 @@ export default async function handler(
       }
     }
 
-    const limit = Math.min(
-      Math.max(
-        parseInt(String(req.query.limit ?? (paged ? 40 : 60)), 10) ||
-          (paged ? 40 : 60),
-        1,
-      ),
-      200,
-    )
+    const limit = Math.min(Math.max(parseInt(String(req.query.limit ?? (paged ? 40 : 60)), 10) || (paged ? 40 : 60), 1), 200)
     const cursor = req.query.cursor ? Number(req.query.cursor) : null
 
     let q = supabaseRead
       .from('news')
-      .select(
-        'id, link, link_canonical, link_key, title, source, image, contentsnippet, summary, isodate, pubdate, published_at, publishedat, created_at',
-      )
+      .select('id, link, link_canonical, link_key, title, source, image, contentsnippet, summary, isodate, pubdate, published_at, publishedat, created_at')
       .gt('publishedat', 0)
       .order('publishedat', { ascending: false })
       .order('id', { ascending: false })
@@ -639,16 +593,9 @@ export default async function handler(
 
     const rows = (data || []) as Row[]
     const rawItems = rows.map(rowToItem)
-    const items = softDedupe(rawItems).sort(
-      (a, b) => b.publishedAt - a.publishedAt,
-    )
+    const items = softDedupe(rawItems).sort((a, b) => b.publishedAt - a.publishedAt)
 
-    const nextCursor =
-      rows.length === limit
-        ? rows[rows.length - 1].publishedat
-          ? Number(rows[rows.length - 1].publishedat)
-          : null
-        : null
+    const nextCursor = rows.length === limit ? (rows[rows.length - 1].publishedat ? Number(rows[rows.length - 1].publishedat) : null) : null
 
     res.setHeader('Cache-Control', 'no-store')
     if (paged) return res.status(200).json({ items, nextCursor })
