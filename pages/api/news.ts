@@ -437,14 +437,12 @@ function computeTrendingFromRows(
     }
   }
 
-  const nowMs = Date.now()
-
   type ScoredGroup = {
     group: TrendGroup
     rep: RowMeta
     sourceCount: number
     articleCount: number
-    score: number
+    newestMs: number // Dodan timestamp najnovejše novice
   }
 
   const scored: ScoredGroup[] = []
@@ -472,20 +470,24 @@ function computeTrendingFromRows(
     for (let ri = 1; ri < g.rows.length; ri++) {
       if (g.rows[ri].ms > newestMs) newestMs = g.rows[ri].ms
     }
-    const ageHours = Math.max(0, (nowMs - newestMs) / 3_600_000)
     
-    // ==========================================
-    // POPRAVEK FORMULE ZA SORTIRANJE:
-    // Povečana teža virov (iz 15 na 25)
-    // Zmanjšana kazen za starost (iz 10 na 3)
-    // ==========================================
-    const score = (sourceCount * 25) + (articleCount * 5) - (ageHours * 3)
-
-    scored.push({ group: g, rep, sourceCount, articleCount, score })
+    // Namesto score formule, samo shranimo podatke
+    scored.push({ group: g, rep, sourceCount, articleCount, newestMs })
   }
 
-  // Sortiranje po score (največji score zgoraj)
-  scored.sort((a, b) => b.score - a.score)
+  // ==========================================
+  // NOVO SORTIRANJE (TIE-BREAKER):
+  // 1. Najprej po številu različnih virov (več je bolje)
+  // 2. Če je virov enako, zmaga tista, ki ima novejši "zadnji update"
+  // ==========================================
+  scored.sort((a, b) => {
+    // 1. Kriterij: Število virov (padajoče)
+    if (b.sourceCount !== a.sourceCount) {
+      return b.sourceCount - a.sourceCount
+    }
+    // 2. Kriterij: Čas zadnje objave (padajoče - novejši zgoraj)
+    return b.newestMs - a.newestMs
+  })
 
   const top = scored.slice(0, TREND_MAX_ITEMS)
 
