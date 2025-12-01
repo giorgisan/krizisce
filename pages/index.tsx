@@ -49,10 +49,6 @@ function timeout(ms: number) {
   )
 }
 
-/**
- * Primarni klic gre na naš /api/news (Vercel).
- * Če pade/timeouta → fallback: direktno na Supabase (anon key).
- */
 async function loadNews(mode: Mode, signal?: AbortSignal): Promise<NewsItem[] | null> {
   const qs = mode === 'trending' ? '?variant=trending' : ''
 
@@ -68,53 +64,39 @@ async function loadNews(mode: Mode, signal?: AbortSignal): Promise<NewsItem[] | 
     }
   } catch {}
 
-  // 2) fallback: direkt Supabase (vedno "latest")
-  try {
-    const { createClient } = await import('@supabase/supabase-js')
-    const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL as string
-    const SUPABASE_ANON_KEY = process.env
-      .NEXT_PUBLIC_SUPABASE_ANON_KEY as string
-    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-      auth: { persistSession: false },
-    })
+  // 2) fallback (samo za latest)
+  if (mode === 'latest') {
+    try {
+      const { createClient } = await import('@supabase/supabase-js')
+      const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL as string
+      const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string
+      const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+        auth: { persistSession: false },
+      })
 
-    type Row = {
-      link: string
-      title: string
-      source: string
-      contentsnippet: string | null
-      summary: string | null
-      image: string | null
-      published_at: string | null
-      publishedat: number | null
+      const { data, error } = await supabase
+        .from('news')
+        .select('link,title,source,contentsnippet,summary,image,published_at,publishedat')
+        .order('publishedat', { ascending: false })
+        .limit(60)
+
+      if (error || !data) return null
+
+      const items: NewsItem[] = (data as any[]).map((r) => ({
+        title: r.title,
+        link: r.link,
+        source: r.source,
+        contentSnippet: r.contentsnippet ?? r.summary ?? '',
+        image: r.image ?? null,
+        publishedAt: (r.publishedat ?? (r.published_at ? Date.parse(r.published_at) : 0)) || 0,
+        isoDate: r.published_at,
+      }))
+      return items.length ? items : null
+    } catch {
+      return null
     }
-
-    const { data, error } = await supabase
-      .from('news')
-      .select(
-        'link,title,source,contentsnippet,summary,image,published_at,publishedat',
-      )
-      .order('publishedat', { ascending: false })
-      .limit(60)
-
-    if (error || !data) return null
-
-    const items: NewsItem[] = (data as Row[]).map((r) => ({
-      title: r.title,
-      link: r.link,
-      source: r.source,
-      contentSnippet: r.contentsnippet ?? r.summary ?? '',
-      image: r.image ?? null,
-      publishedAt:
-        (r.publishedat ??
-          (r.published_at ? Date.parse(r.published_at) : 0)) || 0,
-      isoDate: r.published_at,
-    }))
-
-    return items.length ? items : null
-  } catch {
-    return null
   }
+  return null
 }
 
 const NEWNESS_GRACE_MS = 30_000
@@ -122,10 +104,7 @@ const diffFresh = (fresh: NewsItem[], current: NewsItem[]) => {
   if (!fresh?.length) return { newLinks: 0, hasNewer: false }
   const curSet = new Set(current.map((n) => n.link))
   const newLinks = fresh.filter((n) => !curSet.has(n.link)).length
-  const maxCurrent = current.reduce(
-    (a, n) => Math.max(a, n.publishedAt || 0),
-    0,
-  )
+  const maxCurrent = current.reduce((a, n) => Math.max(a, n.publishedAt || 0), 0)
   const maxFresh = fresh.reduce((a, n) => Math.max(a, n.publishedAt || 0), 0)
   const hasNewer = maxFresh > maxCurrent + NEWNESS_GRACE_MS
   return { newLinks, hasNewer }
@@ -153,8 +132,14 @@ function saveFirstSeen(map: FirstSeenMap) {
 type Props = { initialNews: NewsItem[] }
 
 export default function Home({ initialNews }: Props) {
-  const [news, setNews] = useState<NewsItem[]>(initialNews)
+  // LOČENA STANJA ZA PODATKE
+  // itemsLatest se inicializira takoj s podatki iz SSG
+  const [itemsLatest, setItemsLatest] = useState<NewsItem[]>(initialNews)
+  // itemsTrending so sprva prazni, naložijo se ob prvem kliku
+  const [itemsTrending, setItemsTrending] = useState<NewsItem[]>([])
+  
   const [mode, setMode] = useState<Mode>('latest')
+  const [trendingLoaded, setTrendingLoaded] = useState(false)
 
   // mobile detection
   const [isMobile, setIsMobile] = useState(false)
@@ -188,8 +173,7 @@ export default function Home({ initialNews }: Props) {
       const u = new URL(window.location.href)
       if (u.searchParams.get('filters') === '1') setFilterOpen(true)
     } catch {}
-    return () =>
-      window.removeEventListener('ui:toggle-filters', onToggle as EventListener)
+    return () => window.removeEventListener('ui:toggle-filters', onToggle as EventListener)
   }, [])
   useEffect(() => {
     window.dispatchEvent(
@@ -201,64 +185,50 @@ export default function Home({ initialNews }: Props) {
   const [firstSeen, setFirstSeen] = useState<FirstSeenMap>(() => loadFirstSeen())
   const [hasMore, setHasMore] = useState(true)
   const [cursor, setCursor] = useState<number | null>(null)
+  const [isLoadingMore, setIsLoadingMore] = useState(false)
 
-  // initial refresh - POPRAVEK: Ne osvežujemo takoj, če smo na "latest" (ker imamo SSG data)
   const [bootRefreshed, setBootRefreshed] = useState(false)
   
   useEffect(() => {
-    // Samo sprožimo background sync, ne menjamo stanja UI-ja, da ne skače.
     kickSyncIfStale(5 * 60_000)
-    
-    // Omogočimo polling
     setBootRefreshed(true)
   }, [])
 
-  // polling
-  const [freshNews, setFreshNews] = useState<NewsItem[] | null>(null)
+  // Izberemo pravi nabor podatkov glede na mode
+  const currentRawItems = mode === 'latest' ? itemsLatest : itemsTrending
+
+  // polling - posodablja tisti seznam, ki je trenutno aktiven
   const missCountRef = useRef(0)
   const timerRef = useRef<number | null>(null)
 
   useEffect(() => {
     if (!bootRefreshed) return
 
-    const filterBySelection = (arr: NewsItem[]) =>
-      deferredSource === 'Vse' ? arr : arr.filter((n) => n.source === deferredSource)
-
     const runCheckSimple = async () => {
+      // Polling delamo samo za 'latest', ker je 'trending' bolj statičen
+      // oz. ga ne želimo osveževati preagresivno v ozadju.
       if (mode !== 'latest') return
+
       kickSyncIfStale(10 * 60_000)
       const fresh = await loadNews('latest')
+      
       if (!fresh || fresh.length === 0) {
-        window.dispatchEvent(
-          new CustomEvent('news-has-new', { detail: false }),
-        )
-        missCountRef.current = Math.min(
-          POLL_MAX_BACKOFF,
-          missCountRef.current + 1,
-        )
+        window.dispatchEvent(new CustomEvent('news-has-new', { detail: false }))
+        missCountRef.current = Math.min(POLL_MAX_BACKOFF, missCountRef.current + 1)
         return
       }
-      const { newLinks, hasNewer } = diffFresh(
-        filterBySelection(fresh),
-        filterBySelection(news),
-      )
-      // Shranimo freshNews, ampak NE zamenjamo stanja avtomatsko.
-      // Uporabnik bo dobil obvestilo (če imaš UI za to) ali pa se bo osvežilo ob naslednji interakciji.
-      setFreshNews(fresh)
+
+      const curSet = new Set(itemsLatest.map((n) => n.link))
+      const newLinks = fresh.filter((n) => !curSet.has(n.link)).length
       
-      if (hasNewer && newLinks > 0) {
-        window.dispatchEvent(
-          new CustomEvent('news-has-new', { detail: true }),
-        )
+      if (newLinks > 0) {
+        window.dispatchEvent(new CustomEvent('news-has-new', { detail: true }))
         missCountRef.current = 0
+        // Tu lahko opcijsko avtomatsko posodobiš:
+        // setItemsLatest(prev => [...fresh, ...prev]) // previdno s tem
       } else {
-        window.dispatchEvent(
-          new CustomEvent('news-has-new', { detail: false }),
-        )
-        missCountRef.current = Math.min(
-          POLL_MAX_BACKOFF,
-          missCountRef.current + 1,
-        )
+        window.dispatchEvent(new CustomEvent('news-has-new', { detail: false }))
+        missCountRef.current = Math.min(POLL_MAX_BACKOFF, missCountRef.current + 1)
       }
     }
 
@@ -268,13 +238,9 @@ export default function Home({ initialNews }: Props) {
       const base = hidden ? HIDDEN_POLL_MS : POLL_MS
       const extra = missCountRef.current * 10_000
       if (timerRef.current) window.clearInterval(timerRef.current)
-      timerRef.current = window.setInterval(
-        runCheckSimple,
-        base + extra,
-      ) as unknown as number
+      timerRef.current = window.setInterval(runCheckSimple, base + extra) as unknown as number
     }
 
-    // Prvi check zamaknemo za 10s, da ne obremenjujemo loadanja
     const initialTimer = setTimeout(runCheckSimple, 10000)
     schedule()
 
@@ -288,56 +254,42 @@ export default function Home({ initialNews }: Props) {
       if (timerRef.current) window.clearInterval(timerRef.current)
       document.removeEventListener('visibilitychange', onVis)
     }
-  }, [news, bootRefreshed, deferredSource, mode])
+  }, [itemsLatest, bootRefreshed, mode]) // Spremljamo itemsLatest namesto 'news'
 
   // manual refresh
   useEffect(() => {
     const onRefresh = () => {
-      window.dispatchEvent(
-        new CustomEvent('news-refreshing', { detail: true }),
-      )
+      window.dispatchEvent(new CustomEvent('news-refreshing', { detail: true }))
+      
       startTransition(() => {
-        const finish = () => {
-          window.dispatchEvent(
-            new CustomEvent('news-refreshing', { detail: false }),
-          )
-          window.dispatchEvent(
-            new CustomEvent('news-has-new', { detail: false }),
-          )
-          missCountRef.current = 0
-          if (mode === 'latest') {
-            setHasMore(true)
-            setCursor(null)
-            setDisplayCount(20)
-          } else {
-            setHasMore(false)
-            setCursor(null)
-            setDisplayCount(40)
+        loadNews(mode).then((fresh) => {
+          if (fresh && fresh.length) {
+            if (mode === 'latest') {
+              setItemsLatest(fresh)
+              setHasMore(true)
+              setCursor(null)
+              setDisplayCount(20)
+            } else {
+              setItemsTrending(fresh)
+              setDisplayCount(40)
+            }
           }
-        }
-        if (freshNews && mode === 'latest') {
-          setNews(freshNews)
-          finish()
-        } else {
-          loadNews(mode).then((fresh) => {
-            if (fresh && fresh.length) setNews(fresh)
-            finish()
-          })
-        }
+          window.dispatchEvent(new CustomEvent('news-refreshing', { detail: false }))
+          window.dispatchEvent(new CustomEvent('news-has-new', { detail: false }))
+          missCountRef.current = 0
+        })
       })
     }
     window.addEventListener('refresh-news', onRefresh as EventListener)
-    return () =>
-      window.removeEventListener('refresh-news', onRefresh as EventListener)
-  }, [freshNews, mode])
+    return () => window.removeEventListener('refresh-news', onRefresh as EventListener)
+  }, [mode])
 
-  // stableAt shaping
+  // stableAt shaping - velja za currentRawItems
   const shapedNews = useMemo(() => {
     const map = { ...firstSeen }
     let changed = false
-    const withStable = news.map((n) => {
-      const published =
-        typeof n.publishedAt === 'number' ? n.publishedAt : 0
+    const withStable = currentRawItems.map((n) => {
+      const published = typeof n.publishedAt === 'number' ? n.publishedAt : 0
       const link = n.link || ''
       if (link && map[link] == null) {
         map[link] = published || Date.now()
@@ -352,18 +304,17 @@ export default function Home({ initialNews }: Props) {
       saveFirstSeen(map)
     }
     return withStable
-  }, [news, firstSeen])
+  }, [currentRawItems, firstSeen])
 
-  // filter + sort + paginate
-  const sortedNews = useMemo(
-    () =>
-      mode === 'trending'
-        ? shapedNews // trending uporabi vrstni red iz API
-        : [...shapedNews].sort(
-            (a, b) => (b as any).stableAt - (a as any).stableAt,
-          ),
-    [shapedNews, mode],
-  )
+  // filter + sort
+  const sortedNews = useMemo(() => {
+    if (mode === 'trending') {
+      // Trending je že sortiran iz API-ja, ne tikamo vrstnega reda
+      return shapedNews
+    }
+    // Latest sortiramo po stableAt
+    return [...shapedNews].sort((a, b) => (b as any).stableAt - (a as any).stableAt)
+  }, [shapedNews, mode])
 
   const filteredNews = useMemo(
     () =>
@@ -373,7 +324,6 @@ export default function Home({ initialNews }: Props) {
     [sortedNews, deferredSource],
   )
 
-  // na mobile + trending omejimo na 4 kartice
   const effectiveDisplayCount = useMemo(
     () =>
       mode === 'trending' && isMobile
@@ -387,8 +337,9 @@ export default function Home({ initialNews }: Props) {
     [filteredNews, effectiveDisplayCount],
   )
 
-  // cursor calc
+  // cursor calc (samo za latest)
   useEffect(() => {
+    if (mode === 'trending') return 
     if (!filteredNews.length) {
       setCursor(null)
       setHasMore(true)
@@ -399,12 +350,10 @@ export default function Home({ initialNews }: Props) {
       filteredNews[0].publishedAt || 0,
     )
     setCursor(minMs || null)
-  }, [deferredSource, news])
+  }, [deferredSource, filteredNews, mode])
 
-  // paging
-  const [isLoadingMore, setIsLoadingMore] = useState(false)
+  // Paging fetcher
   type PagePayload = { items: NewsItem[]; nextCursor: number | null }
-
   async function fetchPage(params: {
     cursor?: number | null
     limit?: number
@@ -434,10 +383,10 @@ export default function Home({ initialNews }: Props) {
         limit: 40,
         source: deferredSource,
       })
-      const seen = new Set(news.map((n) => n.link))
+      const seen = new Set(itemsLatest.map((n) => n.link))
       const fresh = items.filter((i) => !seen.has(i.link))
       if (fresh.length) {
-        setNews((prev) => [...prev, ...fresh])
+        setItemsLatest((prev) => [...prev, ...fresh])
         setDisplayCount((prev) => prev + fresh.length)
       }
       if (!nextCursor || nextCursor === cursor || items.length === 0) {
@@ -461,25 +410,35 @@ export default function Home({ initialNews }: Props) {
   const handleTabChange = async (next: Mode) => {
     if (next === mode) return
 
+    // 1. Takoj preklopimo UI (ker imamo ločene state spremenljivke,
+    // se bo takoj prikazala vsebina iz drugega predala, če obstaja)
+    setMode(next)
+
     if (next === 'latest') {
-      setMode('latest')
       setDisplayCount(20)
       setHasMore(true)
       setCursor(null)
-      // Če gremo nazaj na "latest", ne rabimo nujno takoj fetchat, če že imamo podatke,
-      // ampak za "svež" občutek je ok, če naredimo tihi refresh.
-      // Zaenkrat pustimo, da uporabi trenutno stanje ali pa naredi fetch.
-      const fresh = await loadNews('latest')
-      if (fresh && fresh.length) setNews(fresh)
+      // Ni nujno ponovno nalagati, če itemsLatest že imamo.
+      // Lahko pa v ozadju preverimo za sveže:
+      /*
+      loadNews('latest').then(fresh => {
+         if (fresh && fresh.length) setItemsLatest(fresh)
+      })
+      */
     } else {
-      setMode('trending')
+      // Trending
       setDisplayCount(40)
       setHasMore(false)
       setCursor(null)
-      // Tu PA moramo fetchat, ker initialNews nima trending podatkov
-      setNews([]) // Očistimo za loading efekt (opcijsko)
-      const fresh = await loadNews('trending')
-      if (fresh && fresh.length) setNews(fresh)
+      
+      // Če trending še ni bil naložen, ga naložimo zdaj
+      if (!trendingLoaded) {
+        const fresh = await loadNews('trending')
+        if (fresh && fresh.length) {
+          setItemsTrending(fresh)
+          setTrendingLoaded(true)
+        }
+      }
     }
   }
 
@@ -525,7 +484,9 @@ export default function Home({ initialNews }: Props) {
       >
         {visibleNews.length === 0 ? (
           <div className="flex flex-col items-center justify-center pt-20 pb-20 opacity-60">
-             {mode === 'trending' ? (
+             {mode === 'trending' && !trendingLoaded ? (
+                <p className="animate-pulse">Nalagam najbolj vroče novice ...</p>
+             ) : mode === 'trending' ? (
                 <p>Trenutno ni izpostavljenih novic.</p>
              ) : (
                 <p>Nalagam novice ...</p>
@@ -585,8 +546,7 @@ export default function Home({ initialNews }: Props) {
 export async function getStaticProps() {
   const { createClient } = await import('@supabase/supabase-js')
   const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL as string
-  const SUPABASE_ANON_KEY = process.env
-    .NEXT_PUBLIC_SUPABASE_ANON_KEY as string
+  const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string
   const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
     auth: { persistSession: false },
   })
