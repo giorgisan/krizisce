@@ -4,8 +4,8 @@
 /* =========================================================
    TrendingCard.tsx — kartica za zavihek "Trending"/"Aktualno"
    ---------------------------------------------------------
-   - temelji na ArticleCard (klik, tracking, proxy slike…)
-   - spodaj pokaže "Zadnja objava" + lijak "Drugi viri"
+   - Prikazuje glavno novico + lijak "Drugi viri"
+   - Posodobljen "hover" efekt na očesu v seznamu virov
    ========================================================= */
 
 import { NewsItem } from '@/types'
@@ -46,11 +46,6 @@ type RelatedItem = {
   isoDate?: string | null
 }
 
-/**
- * Domneva:
- *  - news.storyArticles | news.storyItems | news.otherSources | news.related | news.members
- *    je array objektov { source, title, link, publishedAt?, isoDate? }
- */
 function extractRelatedItems(news: any): RelatedItem[] {
   const raw =
     news.storyArticles ||
@@ -76,7 +71,6 @@ function extractRelatedItems(news: any): RelatedItem[] {
     .filter(Boolean) as RelatedItem[]
 }
 
-/** Izberi primarni vir (zadnja objava); fallback je news.source */
 function getPrimarySource(news: any): string {
   const storyPrimary =
     Array.isArray(news.storyArticles) && news.storyArticles.length
@@ -92,7 +86,6 @@ function getPrimarySource(news: any): string {
   )
 }
 
-/** Formatiraj "pred X min" */
 function formatRelativeTime(
   msOrIso: number | string | null | undefined,
   now: number,
@@ -211,7 +204,7 @@ export default function TrendingCard({ news }: Props) {
     }
   }
 
-  const [isPriority] = useState<boolean>(false) // trending kartice niso priority
+  const [isPriority] = useState<boolean>(false)
 
   // preload
   useEffect(() => {
@@ -597,7 +590,8 @@ export default function TrendingCard({ news }: Props) {
                                 {item.source.slice(0, 2).toUpperCase()}
                               </span>
                             )}
-                            {/* oko pod logotom, samo na hover */}
+                            
+                            {/* POPRAVLJENO OKO ZA DRUGE VIRE: */}
                             <button
                               type="button"
                               onClick={(e) => {
@@ -607,7 +601,7 @@ export default function TrendingCard({ news }: Props) {
                                 preloadPreview(item.link).catch(() => {})
                               }}
                               aria-label="Predogled drugega vira"
-                              className="mt-1 h-4 w-4 grid place-items-center rounded-full bg-black/40 text-gray-200 opacity-0 group-hover/rel:opacity-100 transition-opacity"
+                              className="mt-1 h-4 w-4 grid place-items-center rounded-full bg-black/40 text-gray-200 opacity-0 group-hover/rel:opacity-100 transition-all duration-200 hover:scale-125 hover:bg-black/60"
                             >
                               <svg
                                 viewBox="0 0 24 24"
