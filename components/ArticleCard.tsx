@@ -1,8 +1,10 @@
+// components/ArticleCard.tsx
 'use client'
 
 /* =========================================================
    ArticleCard.tsx — robustno nalaganje slik (mobile friendly)
-   + “pred X min” se osveži vsako minuto (poslušamo 'ui:minute')
+   + Logotip vira poleg imena
+   + “pred X min” se osveži vsako minuto
    ========================================================= */
 
 import { NewsItem } from '@/types'
@@ -15,9 +17,11 @@ import {
   ComponentType,
 } from 'react'
 import dynamic from 'next/dynamic'
+import Image from 'next/image' // <--- NOVO
 import { proxiedImage, buildSrcSet } from '@/lib/img'
 import { preloadPreview, canPrefetch, warmImage } from '@/lib/previewPrefetch'
 import { sourceColors } from '@/lib/sources'
+import { getSourceLogoPath } from '@/lib/sourceMeta' // <--- NOVO
 
 type PreviewProps = { url: string; onClose: () => void }
 const ArticlePreview = dynamic(() => import('./ArticlePreview'), { ssr: false }) as ComponentType<PreviewProps>
@@ -28,7 +32,7 @@ const IMAGE_WIDTHS = [320, 480, 640, 960, 1280]
 interface Props { news: NewsItem; priority?: boolean }
 
 export default function ArticleCard({ news, priority = false }: Props) {
-  // --- minute tick iz Headerja: ob 'ui:minute' rerenderiramo formatirani čas
+  // --- minute tick
   const [minuteTick, setMinuteTick] = useState(0)
   useEffect(() => {
     const onMinute = () => setMinuteTick((m) => (m + 1) % 60)
@@ -55,6 +59,11 @@ export default function ArticleCard({ news, priority = false }: Props) {
     return (sourceColors as Record<string, string>)[news.source] || '#fc9c6c'
   }, [news.source])
 
+  // --- LOGO LOGIKA ---
+  const logoPath = useMemo(() => {
+    return getSourceLogoPath(news.source)
+  }, [news.source])
+
   const [isTouch, setIsTouch] = useState(false)
   useEffect(() => {
     try {
@@ -67,7 +76,7 @@ export default function ArticleCard({ news, priority = false }: Props) {
   }, [])
 
   const rawImg = news.image ?? null
-  const proxyInitiallyOn = !!rawImg // proxy je privzeto vedno vklopljen
+  const proxyInitiallyOn = !!rawImg 
 
   const [useProxy, setUseProxy]       = useState<boolean>(proxyInitiallyOn)
   const [useFallback, setUseFallback] = useState<boolean>(!rawImg)
@@ -83,7 +92,6 @@ export default function ArticleCard({ news, priority = false }: Props) {
     return rawImg
   }, [rawImg, useProxy])
 
-  // srcSet uporabljamo samo, dokler je proxy v igri
   const srcSet = useMemo(() => {
     if (!rawImg || !useProxy) return ''
     return buildSrcSet(rawImg, IMAGE_WIDTHS, ASPECT)
@@ -103,14 +111,12 @@ export default function ArticleCard({ news, priority = false }: Props) {
   }, [news.link, rawImg])
 
   const handleImgError = () => {
-    // 1. poskus: če je bil proxy, preklopi to kartico na originalni URL
     if (rawImg && useProxy) {
       setUseProxy(false)
       setImgLoaded(false)
       setImgKey(k => k + 1)
       return
     }
-    // 2. poskus: če crkne še original, pokaži fallback “Ni slike”
     if (!useFallback) {
       setUseFallback(true)
       setImgLoaded(false)
@@ -120,7 +126,6 @@ export default function ArticleCard({ news, priority = false }: Props) {
   const [isPriority, setIsPriority] = useState<boolean>(priority)
   useEffect(() => { if (priority) setIsPriority(true) }, [priority])
 
-  // preload za priority kartice (brez inView gate)
   useEffect(() => {
     if (!isPriority || !rawImg) return
     const rectW  = Math.max(1, Math.round(cardRef.current?.getBoundingClientRect().width || 480))
@@ -164,11 +169,6 @@ export default function ArticleCard({ news, priority = false }: Props) {
         source: news.source,
         url:    news.link,
         action: 'preview_open',
-        meta: {
-          dpr: typeof window !== 'undefined' ? window.devicePixelRatio : 1,
-          vw:  typeof window !== 'undefined' ? window.innerWidth  : null,
-          vh:  typeof window !== 'undefined' ? window.innerHeight : null,
-        },
       })
     } else if (previewOpenedAtRef.current) {
       const duration = Date.now() - previewOpenedAtRef.current
@@ -306,13 +306,30 @@ export default function ArticleCard({ news, priority = false }: Props) {
 
         {/* ========== BESEDILO ========== */}
         <div className="p-2.5 min-h-[10rem] sm:min-h-[10rem] md:min-h-[9.75rem] lg:min-h-[9.5rem] xl:min-h-[9.5rem] overflow-hidden">
-          <div className="mb-1 grid grid-cols-[1fr_auto] items-baseline gap-x-2">
-            <span className="truncate text-[12px] font-medium tracking-[0.01em]" style={{ color: sourceColor }}>
-              {news.source}
-            </span>
-            <span className="text-[11px] text-gray-500 dark:text-gray-400">{formattedDate}</span>
+          <div className="mb-1 flex items-center justify-between">
+            {/* VIR Z LOGOTIPOM */}
+            <div className="flex items-center gap-2 min-w-0">
+              {logoPath && (
+                <div className="relative h-4 w-4 shrink-0 rounded-full overflow-hidden bg-gray-100 dark:bg-gray-700">
+                  <Image 
+                    src={logoPath} 
+                    alt={news.source} 
+                    width={16} 
+                    height={16}
+                    className="object-cover h-full w-full"
+                  />
+                </div>
+              )}
+              <span className="truncate text-[12px] font-medium tracking-[0.01em]" style={{ color: sourceColor }}>
+                {news.source}
+              </span>
+            </div>
+            
+            {/* ČAS */}
+            <span className="text-[11px] text-gray-500 dark:text-gray-400 shrink-0 ml-2">{formattedDate}</span>
           </div>
-          <h3 className="line-clamp-3 text-[15px] font-semibold leading-tight text-gray-900 dark:text-gray-100">{news.title}</h3>
+          
+          <h3 className="line-clamp-3 text-[15px] font-semibold leading-tight text-gray-900 dark:text-gray-100 mt-1">{news.title}</h3>
           <p className="mt-1 line-clamp-3 text-[13px] text-gray-700 dark:text-gray-300">{news.contentSnippet}</p>
         </div>
       </a>
