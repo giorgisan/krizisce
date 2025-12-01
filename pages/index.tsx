@@ -485,7 +485,7 @@ export default function Home({ initialNews }: Props) {
         {visibleNews.length === 0 ? (
           <div className="flex flex-col items-center justify-center pt-20 pb-20 opacity-60">
              {mode === 'trending' && !trendingLoaded ? (
-                <p className="animate-pulse">Nalagam najbolj vroče novice ...</p>
+                <p className="animate-pulse">Nalagam najbolj obravnavane novice ...</p>
              ) : mode === 'trending' ? (
                 <p>Trenutno ni izpostavljenih novic.</p>
              ) : (
