@@ -542,7 +542,7 @@ export default async function handler(
       try {
         const rows = await fetchTrendingRows()
         const items = computeTrendingFromRows(rows)
-        res.setHeader('Cache-Control', 'no-store')
+        res.setHeader('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=30') // Pomeni: Vercel si zapomni odgovor za 60 sekund. 
         return res.status(200).json(items as any)
       } catch (err: any) {
         return res
@@ -592,7 +592,7 @@ export default async function handler(
 
     const nextCursor = rows.length === limit ? (rows[rows.length - 1].publishedat ? Number(rows[rows.length - 1].publishedat) : null) : null
 
-    res.setHeader('Cache-Control', 'no-store')
+    res.setHeader('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=30') // Pomeni: Vercel si zapomni odgovor za 60 sekund. 
     if (paged) return res.status(200).json({ items, nextCursor })
     return res.status(200).json(items)
   } catch (e: any) {
