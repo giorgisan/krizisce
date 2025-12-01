@@ -1,7 +1,8 @@
-// components/NewsTabs.tsx
 'use client'
 
 import React from 'react'
+import { motion } from 'framer-motion'
+import clsx from 'clsx' // Če nimaš clsx, lahko uporabiš navadne stringe
 
 export type NewsTabId = 'latest' | 'trending'
 
@@ -10,49 +11,74 @@ interface NewsTabsProps {
   onChange: (tab: NewsTabId) => void
 }
 
-const TABS: { id: NewsTabId; label: React.ReactNode }[] = [
-  { id: 'latest', label: 'Najnovejše' },
-  { id: 'trending', label: <>🔥 Aktualno</> },
+const TABS: { id: NewsTabId; label: string; icon?: React.ReactNode }[] = [
+  { 
+    id: 'latest', 
+    label: 'Najnovejše',
+    // Preprosta ikona ure (ali brez)
+    icon: (
+      <svg className="w-4 h-4 mr-1.5 opacity-70" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+         <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+    )
+  },
+  { 
+    id: 'trending', 
+    label: 'Aktualno',
+    // Ikona ognja, a monokromatska za resnejši videz (obarva se le, ko je aktivna)
+    icon: (
+      <svg className="w-4 h-4 mr-1.5 opacity-70" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 18.657A8 8 0 016.343 7.343S7 9 9 10c0-2 .5-5 2.986-7C14 5 16.09 5.777 17.656 7.343A7.975 7.975 0 0120 13a7.975 7.975 0 01-2.343 5.657z" />
+        <path strokeLinecap="round" strokeLinejoin="round" d="M9.879 16.121A3 3 0 1012.015 11L11 14H9c0 .768.293 1.536.879 2.121z" />
+      </svg>
+    ) 
+  },
 ]
 
 export default function NewsTabs({ active, onChange }: NewsTabsProps) {
-  const makeClasses = (isActive: boolean) => {
-    const base =
-      'relative pb-2 text-sm md:text-[15px] font-medium transition-colors select-none outline-none'
-    const idle =
-      'text-gray-400 hover:text-gray-200 focus-visible:text-gray-100'
-    const activeCls = 'text-white'
-    return `${base} ${isActive ? activeCls : idle}`
-  }
-
   return (
-    <div className="mb-3 md:mb-4">
-      <div
-        className="flex items-end gap-6 border-b border-gray-800/80"
-        role="tablist"
-        aria-label="Pogled novic"
-      >
+    <div className="flex justify-start mb-6 md:mb-8">
+      {/* Container - deluje kot stikalo */}
+      <div className="relative flex p-1 bg-gray-200/50 dark:bg-gray-800/60 rounded-full backdrop-blur-sm border border-gray-200 dark:border-gray-700/50">
         {TABS.map((tab) => {
           const isActive = tab.id === active
           return (
             <button
               key={tab.id}
-              type="button"
-              role="tab"
-              aria-selected={isActive}
-              aria-controls={`news-panel-${tab.id}`}
-              className={makeClasses(isActive)}
               onClick={() => onChange(tab.id)}
+              className={clsx(
+                'relative z-10 flex items-center px-4 py-1.5 text-sm font-medium transition-colors duration-200 rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500',
+                isActive 
+                  ? 'text-gray-900 dark:text-white' 
+                  : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
+              )}
+              style={{
+                WebkitTapHighlightColor: 'transparent',
+              }}
             >
-              <span>{tab.label}</span>
-              <span
-                aria-hidden="true"
-                className={[
-                  'pointer-events-none absolute left-0 right-0 -bottom-[1px] h-[2px] rounded-full bg-orange-400',
-                  'transform-gpu transition duration-200 origin-center',
-                  isActive ? 'opacity-100 scale-x-100' : 'opacity-0 scale-x-75',
-                ].join(' ')}
-              />
+              {/* Ikona + Label */}
+              <span className={clsx("flex items-center relative z-20", isActive && tab.id === 'trending' ? "text-orange-500 dark:text-orange-400" : "")}>
+                {/* Če je trending aktiven, obarvamo ikono oranžno, sicer sledi textu */}
+                {tab.id === 'trending' && isActive ? (
+                   <span className="text-orange-500 dark:text-orange-400">{tab.icon}</span>
+                ) : (
+                   <span>{tab.icon}</span>
+                )}
+                
+                {tab.id !== 'trending' && !isActive && tab.icon} 
+                {tab.id !== 'trending' && isActive && tab.icon}
+
+                {tab.label}
+              </span>
+
+              {/* Drseče ozadje (samo za aktivni tab) */}
+              {isActive && (
+                <motion.div
+                  layoutId="active-pill"
+                  className="absolute inset-0 bg-white dark:bg-gray-700 shadow-sm rounded-full z-10"
+                  transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+                />
+              )}
             </button>
           )
         })}
