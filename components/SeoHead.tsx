@@ -14,10 +14,15 @@ export default function SeoHead({
   title = 'Križišče',
   description = 'Agregator najnovejših novic iz slovenskih medijev. Članki so last izvornih portalov.',
   url = 'https://krizisce.si/',
-  image = 'logos/logo.png',
+  // POPRAVEK: Tukaj smo zamenjali staro pot z novo datoteko, ki si jo naložil.
+  // Pazimo na točen zapis končnice (.JPG), kot je na sliki.
+  image = 'og-default.JPG',
   jsonLd,
 }: Props) {
   const fullTitle = title === 'Križišče' ? 'Križišče' : `${title} · Križišče`
+  
+  // Logika: če je slika absolutni URL (http...), jo uporabi, 
+  // sicer jo sestavi z osnovnim URL-jem (https://krizisce.si/og-default.JPG)
   const ogImage = image.startsWith('http') ? image : new URL(image, url).toString()
 
   const fallbackJsonLd = {
@@ -31,7 +36,10 @@ export default function SeoHead({
       '@type': 'Organization',
       name: 'Križišče',
       url,
-      logo: new URL('/logos/logo.png', url).toString(),
+      // Preveri, če imaš logotip še vedno v mapi 'logos' ali v rootu public. 
+      // Glede na tvoj screenshot imaš zdaj 'logo.png' direktno v public mapi,
+      // zato sem tukaj popravil pot na '/logo.png'.
+      logo: new URL('/logo.png', url).toString(),
     },
     potentialAction: {
       '@type': 'SearchAction',
@@ -79,10 +87,10 @@ export default function SeoHead({
 
       {/* Preconnect na image CDN za hitrejši prvi handshake */}
       <link rel="preconnect" href="https://images.weserv.nl" crossOrigin="anonymous" />
-      {/* Dodatno: DNS-prefetch (ne škodi, pogosto malenkost pomaga) */}
+      {/* Dodatno: DNS-prefetch */}
       <link rel="dns-prefetch" href="https://images.weserv.nl" />
 
-      {/* Globalna politika pošiljanja Referrer-ja (po defoltu je podobna, a jo tu utrdimo) */}
+      {/* Globalna politika pošiljanja Referrer-ja */}
       <meta name="referrer" content="strict-origin-when-cross-origin" />
     </Head>
   )
