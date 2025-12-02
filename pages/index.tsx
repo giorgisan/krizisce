@@ -1,3 +1,4 @@
+// pages/index.tsx
 'use client'
 
 import React, {
@@ -14,11 +15,15 @@ import { NewsItem } from '@/types'
 import Footer from '@/components/Footer'
 import Header from '@/components/Header'
 import ArticleCard from '@/components/ArticleCard'
+import TrendingCard from '@/components/TrendingCard'
 import SeoHead from '@/components/SeoHead'
 import BackToTop from '@/components/BackToTop'
 import SourceFilter from '@/components/SourceFilter'
+import NewsTabs from '@/components/NewsTabs'
 
 /* ================= Helpers & constants ================= */
+
+type Mode = 'latest' | 'trending'
 
 const POLL_MS = 60_000
 const HIDDEN_POLL_MS = 5 * 60_000
@@ -30,25 +35,27 @@ async function kickSyncIfStale(maxAgeMs = 5 * 60_000) {
     const now = Date.now()
     const last = Number(localStorage.getItem(SYNC_KEY) || '0')
     if (!last || now - last > maxAgeMs) {
-      fetch('/api/news?forceFresh=1', { cache: 'no-store', keepalive: true }).catch(() => {})
+      fetch('/api/news?forceFresh=1', { cache: 'no-store', keepalive: true }).catch(
+        () => {},
+      )
       localStorage.setItem(SYNC_KEY, String(now))
     }
   } catch {}
 }
 
 function timeout(ms: number) {
-  return new Promise((_, rej) => setTimeout(() => rej(new Error('Request timeout')), ms))
+  return new Promise((_, rej) =>
+    setTimeout(() => rej(new Error('Request timeout')), ms),
+  )
 }
 
-/**
- * Primarni klic gre na naš /api/news (Vercel).
- * Če pade/timeouta → fallback: direktno na Supabase (anon key).
- */
-async function loadNews(signal?: AbortSignal): Promise<NewsItem[] | null> {
+async function loadNews(mode: Mode, signal?: AbortSignal): Promise<NewsItem[] | null> {
+  const qs = mode === 'trending' ? '?variant=trending' : ''
+
   // 1) prek Vercela
   try {
     const res = (await Promise.race([
-      fetch('/api/news', { cache: 'no-store', signal }),
+      fetch(`/api/news${qs}`, { cache: 'no-store', signal }),
       timeout(12_000),
     ])) as Response
     if (res.ok) {
@@ -57,56 +64,49 @@ async function loadNews(signal?: AbortSignal): Promise<NewsItem[] | null> {
     }
   } catch {}
 
-  // 2) fallback: direkt Supabase
-  try {
-    const { createClient } = await import('@supabase/supabase-js')
-    const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL as string
-    const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string
-    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: false } })
+  // 2) fallback (samo za latest)
+  if (mode === 'latest') {
+    try {
+      const { createClient } = await import('@supabase/supabase-js')
+      const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL as string
+      const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string
+      const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+        auth: { persistSession: false },
+      })
 
-    type Row = {
-      link: string
-      title: string
-      source: string
-      contentsnippet: string | null
-      summary: string | null
-      image: string | null
-      published_at: string | null
-      publishedat: number | null
+      const { data, error } = await supabase
+        .from('news')
+        .select('link,title,source,contentsnippet,summary,image,published_at,publishedat')
+        .order('publishedat', { ascending: false })
+        .limit(60)
+
+      if (error || !data) return null
+
+      const items: NewsItem[] = (data as any[]).map((r) => ({
+        title: r.title,
+        link: r.link,
+        source: r.source,
+        contentSnippet: r.contentsnippet ?? r.summary ?? '',
+        image: r.image ?? null,
+        publishedAt: (r.publishedat ?? (r.published_at ? Date.parse(r.published_at) : 0)) || 0,
+        isoDate: r.published_at,
+      }))
+      return items.length ? items : null
+    } catch {
+      return null
     }
-
-    const { data, error } = await supabase
-      .from('news')
-      .select('link,title,source,contentsnippet,summary,image,published_at,publishedat')
-      .order('publishedat', { ascending: false })
-      .limit(60)
-
-    if (error || !data) return null
-
-    const items: NewsItem[] = (data as Row[]).map(r => ({
-      title: r.title,
-      link: r.link,
-      source: r.source,
-      contentSnippet: r.contentsnippet ?? r.summary ?? '',
-      image: r.image ?? null,
-      publishedAt: (r.publishedat ?? (r.published_at ? Date.parse(r.published_at) : 0)) || 0,
-      isoDate: r.published_at,
-    }))
-
-    return items.length ? items : null
-  } catch {
-    return null
   }
+  return null
 }
 
 const NEWNESS_GRACE_MS = 30_000
 const diffFresh = (fresh: NewsItem[], current: NewsItem[]) => {
   if (!fresh?.length) return { newLinks: 0, hasNewer: false }
-  const curSet = new Set(current.map(n => n.link))
-  const newLinks = fresh.filter(n => !curSet.has(n.link)).length
+  const curSet = new Set(current.map((n) => n.link))
+  const newLinks = fresh.filter((n) => !curSet.has(n.link)).length
   const maxCurrent = current.reduce((a, n) => Math.max(a, n.publishedAt || 0), 0)
-  const maxFresh   = fresh.reduce((a, n) => Math.max(a, n.publishedAt || 0), 0)
-  const hasNewer   = maxFresh > maxCurrent + NEWNESS_GRACE_MS
+  const maxFresh = fresh.reduce((a, n) => Math.max(a, n.publishedAt || 0), 0)
+  const hasNewer = maxFresh > maxCurrent + NEWNESS_GRACE_MS
   return { newLinks, hasNewer }
 }
 
@@ -115,10 +115,16 @@ const LS_FIRST_SEEN = 'krizisce_first_seen_v1'
 type FirstSeenMap = Record<string, number>
 function loadFirstSeen(): FirstSeenMap {
   if (typeof window === 'undefined') return {}
-  try { return JSON.parse(window.localStorage.getItem(LS_FIRST_SEEN) || '{}') } catch { return {} }
+  try {
+    return JSON.parse(window.localStorage.getItem(LS_FIRST_SEEN) || '{}')
+  } catch {
+    return {}
+  }
 }
 function saveFirstSeen(map: FirstSeenMap) {
-  try { window.localStorage.setItem(LS_FIRST_SEEN, JSON.stringify(map)) } catch {}
+  try {
+    window.localStorage.setItem(LS_FIRST_SEEN, JSON.stringify(map))
+  } catch {}
 }
 
 /* ================= Page ================= */
@@ -126,7 +132,25 @@ function saveFirstSeen(map: FirstSeenMap) {
 type Props = { initialNews: NewsItem[] }
 
 export default function Home({ initialNews }: Props) {
-  const [news, setNews] = useState<NewsItem[]>(initialNews)
+  // LOČENA STANJA ZA PODATKE
+  // itemsLatest se inicializira takoj s podatki iz SSG
+  const [itemsLatest, setItemsLatest] = useState<NewsItem[]>(initialNews)
+  // itemsTrending so sprva prazni, naložijo se ob prvem kliku
+  const [itemsTrending, setItemsTrending] = useState<NewsItem[]>([])
+  
+  const [mode, setMode] = useState<Mode>('latest')
+  const [trendingLoaded, setTrendingLoaded] = useState(false)
+
+  // mobile detection
+  const [isMobile, setIsMobile] = useState(false)
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const mq = window.matchMedia('(max-width: 768px)')
+    const update = () => setIsMobile(mq.matches)
+    update()
+    mq.addEventListener('change', update)
+    return () => mq.removeEventListener('change', update)
+  }, [])
 
   // Single-select filter
   const [selectedSource, setSelectedSource] = useState<string>(() => {
@@ -134,14 +158,16 @@ export default function Home({ initialNews }: Props) {
       const raw = localStorage.getItem('selectedSources')
       const arr = raw ? JSON.parse(raw) : []
       return Array.isArray(arr) && arr[0] ? String(arr[0]) : 'Vse'
-    } catch { return 'Vse' }
+    } catch {
+      return 'Vse'
+    }
   })
   const deferredSource = useDeferredValue(selectedSource)
 
-  // filter vrstica (toggle iz Headerja)
+  // filter vrstica
   const [filterOpen, setFilterOpen] = useState<boolean>(false)
   useEffect(() => {
-    const onToggle = () => setFilterOpen(v => !v)
+    const onToggle = () => setFilterOpen((v) => !v)
     window.addEventListener('ui:toggle-filters', onToggle as EventListener)
     try {
       const u = new URL(window.location.href)
@@ -150,56 +176,56 @@ export default function Home({ initialNews }: Props) {
     return () => window.removeEventListener('ui:toggle-filters', onToggle as EventListener)
   }, [])
   useEffect(() => {
-    window.dispatchEvent(new CustomEvent('ui:filters-state', { detail: { open: filterOpen } }))
+    window.dispatchEvent(
+      new CustomEvent('ui:filters-state', { detail: { open: filterOpen } }),
+    )
   }, [filterOpen])
 
   const [displayCount, setDisplayCount] = useState(20)
   const [firstSeen, setFirstSeen] = useState<FirstSeenMap>(() => loadFirstSeen())
   const [hasMore, setHasMore] = useState(true)
   const [cursor, setCursor] = useState<number | null>(null)
+  const [isLoadingMore, setIsLoadingMore] = useState(false)
 
-  // initial refresh
   const [bootRefreshed, setBootRefreshed] = useState(false)
+  
   useEffect(() => {
-    const ctrl = new AbortController()
-    ;(async () => {
-      const fresh = await loadNews(ctrl.signal)
-      if (fresh && fresh.length) {
-        const currentLinks = new Set(initialNews.map(n => n.link))
-        const hasNewLink = fresh.some(n => n.link && !currentLinks.has(n.link))
-        if (hasNewLink) startTransition(() => { setNews(fresh); setDisplayCount(20) })
-      }
-      kickSyncIfStale(5 * 60_000)
-      setBootRefreshed(true)
-    })()
-    return () => ctrl.abort()
-  }, [initialNews])
+    kickSyncIfStale(5 * 60_000)
+    setBootRefreshed(true)
+  }, [])
 
-  // polling (UPD: upoštevaj trenutno izbran vir, da se banner ne kaže lažno)
-  const [freshNews, setFreshNews] = useState<NewsItem[] | null>(null)
+  // Izberemo pravi nabor podatkov glede na mode
+  const currentRawItems = mode === 'latest' ? itemsLatest : itemsTrending
+
+  // polling - posodablja tisti seznam, ki je trenutno aktiven
   const missCountRef = useRef(0)
   const timerRef = useRef<number | null>(null)
 
   useEffect(() => {
     if (!bootRefreshed) return
 
-    const filterBySelection = (arr: NewsItem[]) =>
-      (deferredSource === 'Vse' ? arr : arr.filter(n => n.source === deferredSource))
+    const runCheckSimple = async () => {
+      // Polling delamo samo za 'latest', ker je 'trending' bolj statičen
+      // oz. ga ne želimo osveževati preagresivno v ozadju.
+      if (mode !== 'latest') return
 
-    const runCheck = async () => {
       kickSyncIfStale(10 * 60_000)
-      const ctrl = new AbortController()
-      const fresh = await loadNews(ctrl.signal)
+      const fresh = await loadNews('latest')
+      
       if (!fresh || fresh.length === 0) {
         window.dispatchEvent(new CustomEvent('news-has-new', { detail: false }))
         missCountRef.current = Math.min(POLL_MAX_BACKOFF, missCountRef.current + 1)
         return
       }
-      const { newLinks, hasNewer } = diffFresh(filterBySelection(fresh), filterBySelection(news))
-      setFreshNews(fresh)
-      if (hasNewer && newLinks > 0) {
+
+      const curSet = new Set(itemsLatest.map((n) => n.link))
+      const newLinks = fresh.filter((n) => !curSet.has(n.link)).length
+      
+      if (newLinks > 0) {
         window.dispatchEvent(new CustomEvent('news-has-new', { detail: true }))
         missCountRef.current = 0
+        // Tu lahko opcijsko avtomatsko posodobiš:
+        // setItemsLatest(prev => [...fresh, ...prev]) // previdno s tem
       } else {
         window.dispatchEvent(new CustomEvent('news-has-new', { detail: false }))
         missCountRef.current = Math.min(POLL_MAX_BACKOFF, missCountRef.current + 1)
@@ -207,97 +233,219 @@ export default function Home({ initialNews }: Props) {
     }
 
     const schedule = () => {
+      if (mode !== 'latest') return
       const hidden = document.visibilityState === 'hidden'
       const base = hidden ? HIDDEN_POLL_MS : POLL_MS
       const extra = missCountRef.current * 10_000
       if (timerRef.current) window.clearInterval(timerRef.current)
-      timerRef.current = window.setInterval(runCheck, base + extra) as unknown as number
+      timerRef.current = window.setInterval(runCheckSimple, base + extra) as unknown as number
     }
 
-    runCheck(); schedule()
-    const onVis = () => { if (document.visibilityState === 'visible') runCheck(); schedule() }
+    const initialTimer = setTimeout(runCheckSimple, 10000)
+    schedule()
+
+    const onVis = () => {
+      if (document.visibilityState === 'visible') runCheckSimple()
+      schedule()
+    }
     document.addEventListener('visibilitychange', onVis)
-    return () => { if (timerRef.current) window.clearInterval(timerRef.current); document.removeEventListener('visibilitychange', onVis) }
-  }, [news, bootRefreshed, deferredSource])
+    return () => {
+      clearTimeout(initialTimer)
+      if (timerRef.current) window.clearInterval(timerRef.current)
+      document.removeEventListener('visibilitychange', onVis)
+    }
+  }, [itemsLatest, bootRefreshed, mode]) // Spremljamo itemsLatest namesto 'news'
 
   // manual refresh
   useEffect(() => {
     const onRefresh = () => {
       window.dispatchEvent(new CustomEvent('news-refreshing', { detail: true }))
+      
       startTransition(() => {
-        const finish = () => {
+        loadNews(mode).then((fresh) => {
+          if (fresh && fresh.length) {
+            if (mode === 'latest') {
+              setItemsLatest(fresh)
+              setHasMore(true)
+              setCursor(null)
+              setDisplayCount(20)
+            } else {
+              setItemsTrending(fresh)
+              setDisplayCount(40)
+            }
+          }
           window.dispatchEvent(new CustomEvent('news-refreshing', { detail: false }))
           window.dispatchEvent(new CustomEvent('news-has-new', { detail: false }))
           missCountRef.current = 0
-          setHasMore(true); setCursor(null); setDisplayCount(20)
-        }
-        if (freshNews) { setNews(freshNews); finish() }
-        else loadNews().then((fresh) => { if (fresh && fresh.length) setNews(fresh); finish() })
+        })
       })
     }
     window.addEventListener('refresh-news', onRefresh as EventListener)
     return () => window.removeEventListener('refresh-news', onRefresh as EventListener)
-  }, [freshNews])
+  }, [mode])
 
-  // stableAt shaping
+  // stableAt shaping - velja za currentRawItems
   const shapedNews = useMemo(() => {
-    const map = { ...firstSeen }; let changed = false
-    const withStable = news.map(n => {
+    const map = { ...firstSeen }
+    let changed = false
+    const withStable = currentRawItems.map((n) => {
       const published = typeof n.publishedAt === 'number' ? n.publishedAt : 0
       const link = n.link || ''
-      if (link && map[link] == null) { map[link] = published || Date.now(); changed = true }
+      if (link && map[link] == null) {
+        map[link] = published || Date.now()
+        changed = true
+      }
       const first = map[link] ?? published
       const stableAt = Math.min(first || Infinity, published || Infinity)
       return { ...n, stableAt } as NewsItem & { stableAt: number }
     })
-    if (changed) { setFirstSeen(map); saveFirstSeen(map) }
+    if (changed) {
+      setFirstSeen(map)
+      saveFirstSeen(map)
+    }
     return withStable
-  }, [news, firstSeen])
+  }, [currentRawItems, firstSeen])
 
-  // filter + sort + paginate
-  const sortedNews = useMemo(() => [...shapedNews].sort((a, b) => (b as any).stableAt - (a as any).stableAt), [shapedNews])
-  const filteredNews = useMemo(() => deferredSource === 'Vse' ? sortedNews : sortedNews.filter(a => a.source === deferredSource), [sortedNews, deferredSource])
-  const visibleNews = useMemo(() => filteredNews.slice(0, displayCount), [filteredNews, displayCount])
+  // filter + sort
+  const sortedNews = useMemo(() => {
+    if (mode === 'trending') {
+      // Trending je že sortiran iz API-ja, ne tikamo vrstnega reda
+      return shapedNews
+    }
+    // Latest sortiramo po stableAt
+    return [...shapedNews].sort((a, b) => (b as any).stableAt - (a as any).stableAt)
+  }, [shapedNews, mode])
 
-  // cursor calc
+  const filteredNews = useMemo(
+    () =>
+      deferredSource === 'Vse'
+        ? sortedNews
+        : sortedNews.filter((a) => a.source === deferredSource),
+    [sortedNews, deferredSource],
+  )
+
+  const effectiveDisplayCount = useMemo(
+    () =>
+      mode === 'trending' && isMobile
+        ? Math.min(displayCount, 4)
+        : displayCount,
+    [displayCount, mode, isMobile],
+  )
+
+  const visibleNews = useMemo(
+    () => filteredNews.slice(0, effectiveDisplayCount),
+    [filteredNews, effectiveDisplayCount],
+  )
+
+  // cursor calc (samo za latest)
   useEffect(() => {
-    if (!filteredNews.length) { setCursor(null); setHasMore(true); return }
-    const minMs = filteredNews.reduce((acc, n) => Math.min(acc, n.publishedAt || acc), filteredNews[0].publishedAt || 0)
+    if (mode === 'trending') return 
+    if (!filteredNews.length) {
+      setCursor(null)
+      setHasMore(true)
+      return
+    }
+    const minMs = filteredNews.reduce(
+      (acc, n) => Math.min(acc, n.publishedAt || acc),
+      filteredNews[0].publishedAt || 0,
+    )
     setCursor(minMs || null)
-  }, [deferredSource, news])
+  }, [deferredSource, filteredNews, mode])
 
-  // paging
-  const [isLoadingMore, setIsLoadingMore] = useState(false)
+  // Paging fetcher
   type PagePayload = { items: NewsItem[]; nextCursor: number | null }
-  async function fetchPage(params: { cursor?: number | null; limit?: number; source?: string | null }): Promise<PagePayload> {
+  async function fetchPage(params: {
+    cursor?: number | null
+    limit?: number
+    source?: string | null
+  }): Promise<PagePayload> {
     const { cursor, limit = 40, source } = params
     const qs = new URLSearchParams()
-    qs.set('paged', '1'); qs.set('limit', String(limit))
+    qs.set('paged', '1')
+    qs.set('limit', String(limit))
     if (cursor != null) qs.set('cursor', String(cursor))
     if (source && source !== 'Vse') qs.set('source', source)
     const res = await fetch(`/api/news?${qs.toString()}`, { cache: 'no-store' })
     if (!res.ok) return { items: [], nextCursor: null }
     const data = (await res.json()) as PagePayload
-    if (!data || !Array.isArray(data.items)) return { items: [], nextCursor: null }
+    if (!data || !Array.isArray(data.items))
+      return { items: [], nextCursor: null }
     return data
   }
+
   const handleLoadMore = async () => {
+    if (mode !== 'latest') return
     if (isLoadingMore || !hasMore || cursor == null || cursor <= 0) return
     setIsLoadingMore(true)
     try {
-      const { items, nextCursor } = await fetchPage({ cursor, limit: 40, source: deferredSource })
-      const seen = new Set(news.map(n => n.link))
-      const fresh = items.filter(i => !seen.has(i.link))
-      if (fresh.length) { setNews(prev => [...prev, ...fresh]); setDisplayCount(prev => prev + fresh.length) }
-      if (!nextCursor || nextCursor === cursor || items.length === 0) { setHasMore(false); setCursor(null) }
-      else { setCursor(nextCursor); setHasMore(true) }
-    } finally { setIsLoadingMore(false) }
+      const { items, nextCursor } = await fetchPage({
+        cursor,
+        limit: 40,
+        source: deferredSource,
+      })
+      const seen = new Set(itemsLatest.map((n) => n.link))
+      const fresh = items.filter((i) => !seen.has(i.link))
+      if (fresh.length) {
+        setItemsLatest((prev) => [...prev, ...fresh])
+        setDisplayCount((prev) => prev + fresh.length)
+      }
+      if (!nextCursor || nextCursor === cursor || items.length === 0) {
+        setHasMore(false)
+        setCursor(null)
+      } else {
+        setCursor(nextCursor)
+        setHasMore(true)
+      }
+    } finally {
+      setIsLoadingMore(false)
+    }
   }
 
   const prefersReducedMotion =
     typeof window !== 'undefined' &&
     window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
   const motionDuration = prefersReducedMotion ? 0.08 : 0.14
+
+  // === handler za tabs (preklop med latest/trending) ===
+  const handleTabChange = async (next: Mode) => {
+    if (next === mode) return
+
+    // 1. Takoj preklopimo UI (ker imamo ločene state spremenljivke,
+    // se bo takoj prikazala vsebina iz drugega predala, če obstaja)
+    setMode(next)
+
+    if (next === 'latest') {
+      setDisplayCount(20)
+      setHasMore(true)
+      setCursor(null)
+      // Ni nujno ponovno nalagati, če itemsLatest že imamo.
+      // Lahko pa v ozadju preverimo za sveže:
+      /*
+      loadNews('latest').then(fresh => {
+         if (fresh && fresh.length) setItemsLatest(fresh)
+      })
+      */
+    } else {
+      // Trending
+      setDisplayCount(40)
+      setHasMore(false)
+      setCursor(null)
+      
+      // Če trending še ni bil naložen, ga naložimo zdaj
+      if (!trendingLoaded) {
+        const fresh = await loadNews('trending')
+        if (fresh && fresh.length) {
+          setItemsTrending(fresh)
+          setTrendingLoaded(true)
+        }
+      }
+    }
+  }
+
+  const gridClasses =
+    mode === 'trending'
+      ? 'grid gap-6 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5'
+      : 'grid gap-6 grid-cols-2 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5'
 
   return (
     <>
@@ -308,35 +456,71 @@ export default function Home({ initialNews }: Props) {
         onChange={(next) => {
           startTransition(() => {
             setSelectedSource(next)
-            setDisplayCount(20)
-            setHasMore(true)
-            setCursor(null)
+            setDisplayCount(mode === 'trending' ? 40 : 20)
+            if (mode === 'latest') {
+              setHasMore(true)
+              setCursor(null)
+            } else {
+              setHasMore(false)
+              setCursor(null)
+            }
           })
         }}
         open={filterOpen}
       />
 
-      <SeoHead title="Križišče" description="Agregator najnovejših novic iz slovenskih medijev. Članki so last izvornih portalov." />
+      <div className="px-4 md:px-8 lg:px-16 mt-3 mb-1">
+        <NewsTabs active={mode} onChange={handleTabChange} />
+      </div>
 
-      <main className="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white px-4 md:px-8 lg:px-16 pt-4 pb-24" tabIndex={-1}>
+      <SeoHead
+        title="Križišče"
+        description="Agregator najnovejših novic iz slovenskih medijev. Članki so last izvornih portalov."
+      />
+
+      <main
+        className="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white px-4 md:px-8 lg:px-16 pt-4 pb-24"
+        tabIndex={-1}
+      >
         {visibleNews.length === 0 ? (
-          <p className="text-gray-500 dark:text-gray-400 text-center w-full mt-10">Ni novic za izbrani vir ali napaka pri nalaganju.</p>
+          <div className="flex flex-col items-center justify-center pt-20 pb-20 opacity-60">
+             {mode === 'trending' && !trendingLoaded ? (
+                <p className="animate-pulse">Nalagam najbolj obravnavane novice ...</p>
+             ) : mode === 'trending' ? (
+                <p>Trenutno ni izpostavljenih novic.</p>
+             ) : (
+                <p>Nalagam novice ...</p>
+             )}
+          </div>
         ) : (
-          <AnimatePresence>
+          <AnimatePresence mode='popLayout'>
             <motion.div
-              key={deferredSource}
-              initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
+              key={deferredSource + '|' + mode}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
               transition={{ duration: motionDuration }}
-              className="grid gap-6 grid-cols-2 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5"
+              className={gridClasses}
             >
-              {visibleNews.map((article, i) => (
-                <ArticleCard key={article.link} news={article as any} priority={i === 0} />
-              ))}
+              {visibleNews.map((article, i) =>
+                mode === 'trending' ? (
+                  <TrendingCard
+                    key={article.link + '|' + i}
+                    news={article as any}
+                  />
+                ) : (
+                  <ArticleCard
+                    key={article.link}
+                    news={article as any}
+                    priority={i === 0}
+                  />
+                ),
+              )}
             </motion.div>
           </AnimatePresence>
         )}
 
-        {hasMore && (
+        {mode === 'latest' && hasMore && visibleNews.length > 0 && (
           <div className="text-center mt-8 mb-10">
             <button
               onClick={handleLoadMore}
@@ -363,7 +547,9 @@ export async function getStaticProps() {
   const { createClient } = await import('@supabase/supabase-js')
   const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL as string
   const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string
-  const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: false } })
+  const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    auth: { persistSession: false },
+  })
 
   type Row = {
     id: number
@@ -379,19 +565,23 @@ export async function getStaticProps() {
 
   const { data } = await supabase
     .from('news')
-    .select('id, link, title, source, summary, contentsnippet, image, published_at, publishedat')
+    .select(
+      'id, link, title, source, summary, contentsnippet, image, published_at, publishedat',
+    )
     .order('publishedat', { ascending: false })
     .limit(60)
 
   const rows = (data ?? []) as Row[]
 
-  const initialNews: NewsItem[] = rows.map(r => ({
+  const initialNews: NewsItem[] = rows.map((r) => ({
     title: r.title,
     link: r.link,
     source: r.source,
     contentSnippet: r.contentsnippet ?? r.summary ?? '',
     image: r.image ?? null,
-    publishedAt: (r.publishedat ?? (r.published_at ? Date.parse(r.published_at) : 0)) || 0,
+    publishedAt:
+      (r.publishedat ??
+        (r.published_at ? Date.parse(r.published_at) : 0)) || 0,
     isoDate: r.published_at,
   }))
 
