@@ -11,37 +11,44 @@ type FetchOpts = { forceFresh?: boolean }
  */
 const BLOCK_URLS: RegExp[] = [
   /siol\.net\/novice\/posel-danes\//i,
-  /\/promo\//i,       // Vsi URLji, ki vsebujejo /promo/
-  /\/oglasi\//i,      // Vsi URLji, ki vsebujejo /oglasi/
+  /\/promo\//i,       // URLji s /promo/ so ponavadi vedno oglasi
+  /\/oglasi\//i,      
   /\/advertorial\//i,
 ]
 
 /** 
  * 2. BLOKADA NA PODLAGI VSEBINE (Naslov, Opis, HTML)
- * Dodani so izrazi iz tvojih screenshotov ("Promo Delo", "Vsebino omogoča")
+ * POPRAVEK: Odstranjen splošen "promo", da ne blokiramo besed kot "promocija".
  */
 const BLOCK_PATTERNS: string[] = [
+  // Eksplicitne oznake
   'oglasno sporočilo','oglasno sporocilo',
   'promocijsko sporočilo','promocijsko sporocilo',
   'oglasni prispevek','komercialno sporočilo',
   'sponzorirano','partner vsebina','branded content',
-  'vsebino omogoča','vsebino omogoca', // <--- Tvoj screenshot Medicofit
+  'vsebino omogoča','vsebino omogoca', 
   'pr članek','pr clanek',
-  'vam svetuje','priporoča','priporoca',
-  'promo delo', // <--- Tvoj screenshot Delo
-  'promo',      // <--- Splošno za Delo/Slovenske novice
-  'advertorial'
+  'advertorial',
+  
+  // Specifične fraze medijev (varno)
+  'promo delo',      // Delo uporablja to
+  'promo slovenske', // Če bi slučajno uporabili
+  'promo prispevek',
+  
+  // Te so na meji, ampak običajno v naslovih pomenijo oglas (advice columns)
+  'vam svetuje','vam priporoča', 
 ]
 
 const BLOCK_BRANDS: string[] = [
   'daikin','viberate','inoquant','bks naložbe','bks nalozbe',
-  'medicofit', // <--- Dodano na podlagi screenshota
-  'studio moderna'
+  'medicofit', 
+  'studio moderna',
+  'top shop'
 ]
 
 /** ====== GENERIČNI HTML CHECK ====== */
 const ENABLE_HTML_CHECK = true
-const MAX_HTML_CHECKS = 10 // Povečano, da ujamemo več sumljivih
+const MAX_HTML_CHECKS = 10 
 const HTML_CHECK_HOSTS = [
   'rtvslo.si','siol.net','delo.si','slovenskenovice.si','delo.si','24ur.com','zurnal24.si', 'n1info.si','dnevnik.si'
 ]
@@ -49,7 +56,7 @@ const HTML_MARKERS = [
   'oglasno sporočilo','promocijsko sporočilo','plačana objava',
   'sponzorirano','vsebino omogoča','partner vsebina','advertorial',
   'sponsored content','article__pr_box','promo-box', 
-  'promo delo' // <--- HTML marker za Delo
+  'promo delo'
 ]
 
 /* ====== Pomožne ====== */
@@ -98,7 +105,7 @@ const parser: Parser = new Parser({
       ['media:group', 'mediaGroup'],
       'enclosure',
       'image',
-      'category', // Pomembno: preberemo kategorije
+      'category', 
     ],
   },
 })
@@ -166,20 +173,18 @@ function isBlockedBasic(i: {
   categories?: string[] 
 }) {
   const url = i.link || ''
-  // Ustvarimo "seno" (haystack) iz vseh besedil
   const hay = `${i.title || ''}\n${i.contentSnippet || ''}\n${i.content || ''}`.toLowerCase()
   
   // 1. URL check
   if (BLOCK_URLS.some(rx => rx.test(url))) return true
   
-  // 2. Vsebinski vzorci (npr. "Promo Delo", "Vsebino omogoča")
+  // 2. Vsebinski vzorci
   if (BLOCK_PATTERNS.some(k => hay.includes(k.toLowerCase()))) return true
   
-  // 3. Brand check (npr. "Medicofit")
+  // 3. Brand check
   if (BLOCK_BRANDS.some(k => hay.includes(k.toLowerCase()))) return true
 
-  // 4. RSS Kategorije (Zelo pomembno!)
-  // Če je kategorija "Promo", "Oglasi", "Sponzorirano" -> Blokiraj
+  // 4. RSS Kategorije (Zelo varno, ker to določi urednik)
   if (i.categories && i.categories.length > 0) {
     const badCats = ['promo', 'oglas', 'oglasi', 'sponzorirano', 'partner', 'advertorial']
     const hasBadCat = i.categories.some(cat => 
@@ -250,7 +255,6 @@ export default async function fetchRSSFeeds(opts: FetchOpts = {}): Promise<NewsI
              finalImage = await scrapeOgImage(link)
           }
 
-          // Pretvorimo RSS categories v navaden array stringov
           const categories = item.categories 
             ? (Array.isArray(item.categories) ? item.categories : [item.categories])
             : []
@@ -265,7 +269,7 @@ export default async function fetchRSSFeeds(opts: FetchOpts = {}): Promise<NewsI
             source,
             image: finalImage,
             publishedAt,
-            categories, // Dodano za filter
+            categories, 
           }
         })
 
