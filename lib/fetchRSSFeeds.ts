@@ -52,6 +52,40 @@ function absolutize(src: string | undefined | null, baseHref: string): string | 
   }
 }
 
+/** 
+ * NOVO: Funkcija za reševanje manjkajočih slik.
+ * Če v RSS ni slike, gremo pogledat na originalno stran in poiščemo og:image.
+ */
+async function scrapeOgImage(url: string): Promise<string | null> {
+  try {
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 2000) // 2s timeout (hitro)
+
+    const res = await fetch(url, { 
+      signal: controller.signal,
+      headers: {
+        'User-Agent': 'KrizisceBot/1.0 (+https://krizisce.si)' 
+      }
+    })
+    clearTimeout(timeout)
+
+    if (!res.ok) return null
+    
+    // Preberemo samo začetek HTML-ja (običajno dovolj za <head>)
+    const chunk = await res.text() 
+    
+    // Iščemo <meta property="og:image" content="..." />
+    const match = chunk.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i)
+    
+    if (match && match[1]) {
+      return match[1].trim()
+    }
+    return null
+  } catch (e) {
+    return null
+  }
+}
+
 const parser: Parser = new Parser({
   customFields: {
     item: [
@@ -178,12 +212,19 @@ export default async function fetchRSSFeeds(opts: FetchOpts = {}): Promise<NewsI
         const feed = await parser.parseString(xml)
         if (!feed.items?.length) return []
 
-        const items: NewsItem[] = feed.items.slice(0, 25).map((item: any) => {
+        // SPREMEMBA: Uporabimo Promise.all, da lahko asinhrono pobiramo manjkajoče slike
+        const itemsPromise = feed.items.slice(0, 25).map(async (item: any) => {
           const iso = (item.isoDate ?? item.pubDate ?? new Date().toISOString()) as string
           const publishedAt = toUnixMs(iso)
           const link = item.link ?? ''
-          const rawImage = extractImage(item, link)
-          const finalImage = rawImage ?? null
+          
+          // 1. Poskusi dobiti sliko iz RSS
+          let finalImage = extractImage(item, link)
+
+          // 2. ČE SLIKE NI: Poskusi dobiti og:image iz strani (fallback)
+          if (!finalImage && link) {
+             finalImage = await scrapeOgImage(link)
+          }
 
           return {
             title: item.title ?? '',
@@ -198,6 +239,7 @@ export default async function fetchRSSFeeds(opts: FetchOpts = {}): Promise<NewsI
           }
         })
 
+        const items = await Promise.all(itemsPromise)
         return items
       } catch {
         return []
