@@ -1,5 +1,6 @@
 // pages/index.tsx
 
+
 'use client'
 
 import React, {
@@ -255,7 +256,6 @@ export default function Home({ initialNews }: Props) {
               setCursor(null)
             } else {
               setItemsTrending(fresh)
-              // Pustimo logiko posodobitve
               setTrendingLoaded(true)
             }
           }
@@ -310,7 +310,7 @@ export default function Home({ initialNews }: Props) {
   const effectiveDisplayCount = useMemo(
     () =>
       mode === 'trending'
-        ? 5 // Prikažemo 5 trending novic
+        ? 5 // Za trending vedno 5 (na desktopu bo to 1 vrstica)
         : displayCount,
     [displayCount, mode],
   )
@@ -408,12 +408,17 @@ export default function Home({ initialNews }: Props) {
     }
   }
 
-  // --- GRID CONFIG ---
-  // Vrnemo se na preprost GRID brez Hero elementov.
-  // Nastavimo 'xl:grid-cols-5' za OBA načina (latest in trending).
-  // S tem bo Latest imel 5 stolpcev, Trending pa bo vseh 5 novic prikazal v eni vrsti (ker jih je max 5).
-  // Če bi želeli 4 za trending, bi 5. novica visela v novi vrstici, zato je 5 boljše.
-  const gridClasses = 'grid gap-6 grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5'
+  // --- POPRAVEK GRID-A (Mobile vs Desktop) ---
+  // Na mobilnikih (privzeto):
+  // - Trending: 'grid-cols-1' (da imajo kartice prostor)
+  // - Latest: 'grid-cols-2' (dva stolpca)
+  // Na velikih zaslonih (xl):
+  // - Obe imata 'xl:grid-cols-5'
+  
+  const gridClasses =
+    mode === 'trending'
+      ? 'grid gap-6 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5'
+      : 'grid gap-6 grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5'
 
   return (
     <>
@@ -446,7 +451,7 @@ export default function Home({ initialNews }: Props) {
         description="Agregator najnovejših novic iz slovenskih medijev. Članki so last izvornih portalov."
       />
 
-      {/* Padding: Na XL zaslonih malo zmanjšamo robove (px-8), da 5 stolpcev lepše sede. */}
+      {/* Na XL zaslonih zmanjšamo padding (px-8), da 5 stolpcev lepo stoji */}
       <main
         className="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white px-4 md:px-8 lg:px-12 xl:px-8 2xl:px-16 pt-4 pb-24"
         tabIndex={-1}
@@ -471,14 +476,12 @@ export default function Home({ initialNews }: Props) {
         ) : (
           <div className={gridClasses}>
             {visibleNews.map((article, i) => {
-              // PREPROST PRIKAZ BREZ HERO LOGIKE
               return (
                 <div 
                   key={article.link + '|' + i}
                   className="col-span-1"
                 >
                   {mode === 'trending' ? (
-                    // Trending card mora biti 100% višine, da so poravnane
                     <div className="h-full">
                       <TrendingCard
                         news={article as any}
