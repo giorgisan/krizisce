@@ -408,12 +408,13 @@ export default function Home({ initialNews }: Props) {
     }
   }
 
-  // --- POPRAVEK GRID-A ---
-  // Odstranil sem 'xl:grid-cols-5' in zamenjal z 'xl:grid-cols-4', kot je bilo prej.
+  // --- GRID POPRAVEK ZA 5 STOLPCEV ---
+  // Dodal sem 'xl:grid-cols-5' za velike zaslone.
+  // 'lg:grid-cols-4' zagotavlja, da na laptopih ne bo preveč stisnjeno.
   const gridClasses =
     mode === 'trending'
-      ? 'grid gap-6 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4'
-      : 'grid gap-6 grid-cols-2 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4'
+      ? 'grid gap-6 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5'
+      : 'grid gap-6 grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5'
 
   return (
     <>
@@ -446,8 +447,13 @@ export default function Home({ initialNews }: Props) {
         description="Agregator najnovejših novic iz slovenskih medijev. Članki so last izvornih portalov."
       />
 
+      {/* POPRAVEK PADDING-A:
+        Na 'xl' zaslonih sem zmanjšal padding iz px-16 na px-8.
+        To omogoča 5 stolpcem, da "dihajo" in niso stisnjeni.
+        Na '2xl' pa vrnemo večji padding px-16.
+      */}
       <main
-        className="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white px-4 md:px-8 lg:px-16 pt-4 pb-24"
+        className="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white px-4 md:px-8 lg:px-12 xl:px-8 2xl:px-16 pt-4 pb-24"
         tabIndex={-1}
       >
         {visibleNews.length === 0 ? (
@@ -456,7 +462,7 @@ export default function Home({ initialNews }: Props) {
                 // Stanje: Nalagam trending novice
                 <p className="animate-pulse opacity-60">Nalagam najbolj obravnavane novice ...</p>
               ) : mode === 'trending' ? (
-                // Stanje: Trending naložen, vendar je prazen seznam (želeni izpis)
+                // Stanje: Trending naložen, vendar je prazen seznam
                 <div className="p-6 bg-gray-900/50 dark:bg-gray-800/80 rounded-xl shadow-lg border border-gray-700/50 text-center max-w-lg mx-auto">
                   <p className="text-xl font-bold text-gray-100 mb-2">
                     Dobro jutro.
@@ -471,7 +477,6 @@ export default function Home({ initialNews }: Props) {
               )}
           </div>
         ) : (
-          /* POPRAVEK: Odstranjen AnimatePresence in motion.div, uporabljen navaden div */
           <div className={gridClasses}>
             {visibleNews.map((article, i) =>
               mode === 'trending' ? (
