@@ -255,9 +255,7 @@ export default function Home({ initialNews }: Props) {
               setCursor(null)
             } else {
               setItemsTrending(fresh)
-              // Za trending ne rabimo več setDisplayCount na 40, ker imamo fiksno postavitev 5
-              // ampak pustimo logiko, da naloži dovolj elementov
-              setItemsTrending(fresh)
+              // Pustimo logiko posodobitve
               setTrendingLoaded(true)
             }
           }
@@ -312,7 +310,7 @@ export default function Home({ initialNews }: Props) {
   const effectiveDisplayCount = useMemo(
     () =>
       mode === 'trending'
-        ? 5 // Za trending vedno pokažemo top 5 v tej novi postavitvi
+        ? 5 // Prikažemo 5 trending novic
         : displayCount,
     [displayCount, mode],
   )
@@ -410,13 +408,12 @@ export default function Home({ initialNews }: Props) {
     }
   }
 
-  // --- GRID POSTAVITEV ---
-  // Vrnemo se na stabilnih 4 stolpcev za XL.
-  // Če smo v 'trending', bomo prvo kartico raztegnili, da ustvarimo layout 1+4.
-  const gridClasses =
-    mode === 'trending'
-      ? 'grid gap-6 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 auto-rows-fr'
-      : 'grid gap-6 grid-cols-2 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4'
+  // --- GRID CONFIG ---
+  // Vrnemo se na preprost GRID brez Hero elementov.
+  // Nastavimo 'xl:grid-cols-5' za OBA načina (latest in trending).
+  // S tem bo Latest imel 5 stolpcev, Trending pa bo vseh 5 novic prikazal v eni vrsti (ker jih je max 5).
+  // Če bi želeli 4 za trending, bi 5. novica visela v novi vrstici, zato je 5 boljše.
+  const gridClasses = 'grid gap-6 grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5'
 
   return (
     <>
@@ -449,8 +446,9 @@ export default function Home({ initialNews }: Props) {
         description="Agregator najnovejših novic iz slovenskih medijev. Članki so last izvornih portalov."
       />
 
+      {/* Padding: Na XL zaslonih malo zmanjšamo robove (px-8), da 5 stolpcev lepše sede. */}
       <main
-        className="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white px-4 md:px-8 lg:px-16 pt-4 pb-24"
+        className="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white px-4 md:px-8 lg:px-12 xl:px-8 2xl:px-16 pt-4 pb-24"
         tabIndex={-1}
       >
         {visibleNews.length === 0 ? (
@@ -473,18 +471,14 @@ export default function Home({ initialNews }: Props) {
         ) : (
           <div className={gridClasses}>
             {visibleNews.map((article, i) => {
-              // LOGIKA ZA "BENTO" GRID (samo za Trending)
-              // Prvi element (index 0) zasede 2 stolpca in 2 vrstici na velikih zaslonih.
-              // To z 4 manjšimi elementi ustvari popoln blok 5 elementov.
-              const isTrendingHero = mode === 'trending' && i === 0;
-              
+              // PREPROST PRIKAZ BREZ HERO LOGIKE
               return (
                 <div 
                   key={article.link + '|' + i}
-                  className={isTrendingHero ? 'col-span-1 sm:col-span-2 md:col-span-2 xl:col-span-2 xl:row-span-2' : 'col-span-1'}
+                  className="col-span-1"
                 >
                   {mode === 'trending' ? (
-                    // Ovijemo TrendingCard, da se raztegne po višini
+                    // Trending card mora biti 100% višine, da so poravnane
                     <div className="h-full">
                       <TrendingCard
                         news={article as any}
