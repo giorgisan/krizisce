@@ -80,18 +80,19 @@ export default function Footer() {
   }, [open])
 
   return (
-    /* SPREMEMBA: 
-       - Uporabljen #0a0a0a (zelo temna nevtralna siva), ki nima modrega pridiha.
-       - Rob je spremenjen v border-white/5 za bolj subtilen prehod.
+    /* POPRAVEK: 
+       1. bg-[#0b101b] -> To je zelo temna modro-siva, ki se ujema s temo strani (ni črna!).
+       2. border-brand/30 -> Dodana subtilna oranžna črta zgoraj, da vnese barvo in loči nogo.
     */
-    <footer className="mt-16 w-full border-t border-gray-200 dark:border-white/5 bg-gray-100/50 dark:bg-[#0a0a0a] pt-12 pb-12 transition-colors">
+    <footer className="mt-16 w-full border-t border-brand/20 dark:border-brand/30 bg-gray-100/50 dark:bg-[#0b101b] pt-12 pb-12 transition-colors">
       <div className="mx-auto max-w-6xl px-4 md:px-8 lg:px-16 text-gray-800 dark:text-gray-400">
         {/* Vsebina */}
         <div className="grid gap-8 sm:grid-cols-3 items-start">
           {/* Levo */}
           <div>
             <div className="flex items-center mb-4">
-              <Image src="/logo.png" alt="Križišče" width={32} height={32} className="w-8 h-8 rounded-md mr-2 grayscale opacity-90" />
+              {/* Logo brez grayscale, da se vidi barva */}
+              <Image src="/logo.png" alt="Križišče" width={32} height={32} className="w-8 h-8 rounded-md mr-2" />
               <h4 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-gray-200">Križišče</h4>
             </div>
             <p className="text-sm leading-relaxed text-gray-600 dark:text-gray-500">
@@ -104,16 +105,16 @@ export default function Footer() {
           <div>
             <h4 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-gray-200 mb-4">Povezave</h4>
             <ul className="space-y-2 text-sm text-gray-600 dark:text-gray-500">
-              <li><Link href="/arhiv" className="hover:text-gray-900 dark:hover:text-gray-300 transition">Arhiv</Link></li>
-              <li><Link href="/projekt" className="hover:text-gray-900 dark:hover:text-gray-300 transition">O projektu</Link></li>
-              <li><Link href="/pogoji" className="hover:text-gray-900 dark:hover:text-gray-300 transition">Pogoji uporabe</Link></li>
+              <li><Link href="/arhiv" className="hover:text-brand dark:hover:text-brand transition">Arhiv</Link></li>
+              <li><Link href="/projekt" className="hover:text-brand dark:hover:text-brand transition">O projektu</Link></li>
+              <li><Link href="/pogoji" className="hover:text-brand dark:hover:text-brand transition">Pogoji uporabe</Link></li>
             </ul>
           </div>
 
           {/* Desno */}
           <div>
             <h4 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-gray-200 mb-4">Kontakt</h4>
-            <a href="mailto:gjkcme@gmail.com" className="text-sm text-gray-600 dark:text-gray-500 hover:text-gray-900 dark:hover:text-gray-300 transition">
+            <a href="mailto:gjkcme@gmail.com" className="text-sm text-gray-600 dark:text-gray-500 hover:text-brand dark:hover:text-brand transition">
               Pošljite nam sporočilo
             </a>
           </div>
@@ -128,7 +129,7 @@ export default function Footer() {
               onClick={() => setOpen(v => !v)}
               className="inline-flex items-center gap-2 rounded-full px-5 py-2 ring-1 ring-black/5 dark:ring-white/5
                          text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-200
-                         bg-white hover:bg-gray-50 dark:bg-[#111] dark:hover:bg-[#161616]
+                         bg-white hover:bg-gray-50 dark:bg-[#151a25] dark:hover:bg-[#1c2230]
                          transition shadow-sm"
               aria-haspopup="dialog"
               aria-expanded={open}
@@ -142,7 +143,7 @@ export default function Footer() {
                 ref={popRef}
                 className="absolute left-1/2 -translate-x-1/2 bottom-full mb-3
                            w-[min(92vw,64rem)] rounded-2xl
-                           bg-white/95 dark:bg-[#0a0a0a]/95 backdrop-blur-xl
+                           bg-white/95 dark:bg-[#0b101b]/95 backdrop-blur-xl
                            ring-1 ring-black/10 dark:ring-white/10 shadow-2xl p-4 sm:p-6 animate-popoverFade z-50"
                 role="dialog"
                 aria-label="Viri novic"
@@ -160,7 +161,7 @@ export default function Footer() {
                         target="_blank"
                         rel="noopener noreferrer"
                         className="flex items-center gap-2 px-2 py-2 rounded-lg text-gray-700 dark:text-gray-300
-                                   hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800 transition"
+                                   hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800/50 transition"
                       >
                         <LogoImg slug={it.slug} origin={origin} label={it.name} />
                         <span className="text-sm">{it.name}</span>
