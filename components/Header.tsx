@@ -114,19 +114,20 @@ export default function Header() {
     if (busyRef.current) return
     busyRef.current = true
     try {
-      // POPRAVEK: Odstranjen scroll na vrh IN odstranjen main.focus()
-      // Zdaj se ne bo zgodil noben premik ekrana.
+      // POPRAVEK: Dodan smooth scroll na vrh.
+      // Odstranjen pa je main.focus(), ki je povzročal skakanje.
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+      
       setRefreshing(true)
       window.dispatchEvent(new CustomEvent('refresh-news'))
     } finally {
-      setTimeout(() => { busyRef.current = false }, 50)
+      setTimeout(() => { busyRef.current = false }, 500)
     }
   }
 
   /* ========= Navigacija ========= */
   const onBrandClick: React.MouseEventHandler<HTMLAnchorElement> = async (e) => {
     e.preventDefault()
-    // Ob kliku na logo še vedno želimo skok na vrh
     try {
       window.scrollTo({ top: 0, behavior: 'smooth' })
     } catch {}
