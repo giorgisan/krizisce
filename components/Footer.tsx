@@ -77,11 +77,16 @@ export default function Footer() {
 
   return (
     <footer className="mt-12 w-full relative">
-      {/* GRADIENT SEPARATOR: Mehak prehod namesto trde črte */}
-      <div className="w-full h-px bg-gradient-to-r from-transparent via-gray-300 dark:via-gray-700/40 to-transparent opacity-80"></div>
+      {/* GRADIENT SEPARATOR: 
+          To ustvari mehak prehod (fade). 
+          from-transparent -> via-brand/15 (zelo nežna sredina) -> to-transparent
+      */}
+      <div className="w-full h-px bg-gradient-to-r from-transparent via-brand/15 dark:via-white/10 to-transparent opacity-80"></div>
 
-      {/* OZADJE: Nevtralna temna (Zinc 950) */}
-      <div className="bg-gray-50/80 dark:bg-[#09090b] pt-12 pb-12 transition-colors">
+      {/* OZADJE: 
+          Uporabljen #0b101b za bogato temno barvo, ki se ujema s stranjo.
+      */}
+      <div className="bg-gray-50/80 dark:bg-[#0b101b] pt-12 pb-12 transition-colors">
         <div className="mx-auto max-w-6xl px-4 md:px-8 lg:px-16 text-gray-800 dark:text-gray-400">
           <div className="grid gap-8 sm:grid-cols-3 items-start">
             <div>
@@ -131,7 +136,7 @@ export default function Footer() {
                   ref={popRef}
                   className="absolute left-1/2 -translate-x-1/2 bottom-full mb-3
                              w-[min(92vw,64rem)] rounded-2xl
-                             bg-white/95 dark:bg-[#09090b]/95 backdrop-blur-xl
+                             bg-white/95 dark:bg-[#0b101b]/95 backdrop-blur-xl
                              ring-1 ring-black/10 dark:ring-white/10 shadow-2xl p-4 sm:p-6 animate-popoverFade z-50"
                   role="dialog"
                   aria-label="Viri novic"
