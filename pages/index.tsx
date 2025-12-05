@@ -419,7 +419,8 @@ export default function Home({ initialNews }: Props) {
         open={filterOpen}
       />
 
-      <div className="px-4 md:px-8 lg:px-16 mt-2">
+      {/* POPRAVEK: Dodan enak horizontalni padding (px) kot na glavnem gridu, in dodan navpični margin (my-6) za dihanje */}
+      <div className="px-4 md:px-8 lg:px-12 xl:px-8 2xl:px-16 my-6">
         <NewsTabs active={mode} onChange={handleTabChange} />
       </div>
 
@@ -428,9 +429,9 @@ export default function Home({ initialNews }: Props) {
         description="Agregator najnovejših novic iz slovenskih medijev. Članki so last izvornih portalov."
       />
 
-      {/* POPRAVEK: Zmanjšan padding spodaj (pb-12) in odstranjen <hr> */}
+      {/* POPRAVEK: Zmanjšan pb (pb-8) za manj prostora pred footerjem */}
       <main
-        className="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white px-4 md:px-8 lg:px-12 xl:px-8 2xl:px-16 pt-1 pb-12"
+        className="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white px-4 md:px-8 lg:px-12 xl:px-8 2xl:px-16 pt-0 pb-8"
         tabIndex={-1}
       >
         {visibleNews.length === 0 ? (
@@ -477,7 +478,8 @@ export default function Home({ initialNews }: Props) {
         )}
 
         {mode === 'latest' && hasMore && visibleNews.length > 0 && (
-          <div className="text-center mt-8 mb-10">
+          /* POPRAVEK: Zmanjšan margin na gumbu (mb-4) za manj prostora pred footerjem */
+          <div className="text-center mt-8 mb-4">
             <button
               onClick={handleLoadMore}
               disabled={isLoadingMore}
@@ -487,8 +489,6 @@ export default function Home({ initialNews }: Props) {
             </button>
           </div>
         )}
-        
-        {/* ODSTRANJEN <hr ... /> ZA LEPŠI PREHOD V FOOTER */}
       </main>
 
       <BackToTop threshold={200} />
