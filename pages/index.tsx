@@ -52,6 +52,7 @@ function timeout(ms: number) {
 async function loadNews(mode: Mode, signal?: AbortSignal): Promise<NewsItem[] | null> {
   const qs = mode === 'trending' ? '?variant=trending' : ''
 
+  // 1) prek Vercela
   try {
     const res = (await Promise.race([
       fetch(`/api/news${qs}`, { cache: 'no-store', signal }),
@@ -63,6 +64,7 @@ async function loadNews(mode: Mode, signal?: AbortSignal): Promise<NewsItem[] | 
     }
   } catch {}
 
+  // 2) fallback (samo za latest)
   if (mode === 'latest') {
     try {
       const { createClient } = await import('@supabase/supabase-js')
@@ -99,6 +101,7 @@ async function loadNews(mode: Mode, signal?: AbortSignal): Promise<NewsItem[] | 
 
 const NEWNESS_GRACE_MS = 30_000
 
+// stableAt
 const LS_FIRST_SEEN = 'krizisce_first_seen_v1'
 type FirstSeenMap = Record<string, number>
 function loadFirstSeen(): FirstSeenMap {
@@ -120,12 +123,14 @@ function saveFirstSeen(map: FirstSeenMap) {
 type Props = { initialNews: NewsItem[] }
 
 export default function Home({ initialNews }: Props) {
+  // LOČENA STANJA ZA PODATKE
   const [itemsLatest, setItemsLatest] = useState<NewsItem[]>(initialNews)
   const [itemsTrending, setItemsTrending] = useState<NewsItem[]>([])
   
   const [mode, setMode] = useState<Mode>('latest')
   const [trendingLoaded, setTrendingLoaded] = useState(false)
 
+  // mobile detection
   const [isMobile, setIsMobile] = useState(false)
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -136,6 +141,7 @@ export default function Home({ initialNews }: Props) {
     return () => mq.removeEventListener('change', update)
   }, [])
 
+  // Single-select filter
   const [selectedSource, setSelectedSource] = useState<string>(() => {
     try {
       const raw = localStorage.getItem('selectedSources')
@@ -147,6 +153,7 @@ export default function Home({ initialNews }: Props) {
   })
   const deferredSource = useDeferredValue(selectedSource)
 
+  // filter vrstica
   const [filterOpen, setFilterOpen] = useState<boolean>(false)
   useEffect(() => {
     const onToggle = () => setFilterOpen((v) => !v)
@@ -176,8 +183,10 @@ export default function Home({ initialNews }: Props) {
     setBootRefreshed(true)
   }, [])
 
+  // Izberemo pravi nabor podatkov glede na mode
   const currentRawItems = mode === 'latest' ? itemsLatest : itemsTrending
 
+  // polling
   const missCountRef = useRef(0)
   const timerRef = useRef<number | null>(null)
 
@@ -232,6 +241,7 @@ export default function Home({ initialNews }: Props) {
     }
   }, [itemsLatest, bootRefreshed, mode])
 
+  // manual refresh
   useEffect(() => {
     const onRefresh = () => {
       window.dispatchEvent(new CustomEvent('news-refreshing', { detail: true }))
@@ -258,6 +268,7 @@ export default function Home({ initialNews }: Props) {
     return () => window.removeEventListener('refresh-news', onRefresh as EventListener)
   }, [mode])
 
+  // stableAt shaping
   const shapedNews = useMemo(() => {
     const map = { ...firstSeen }
     let changed = false
@@ -279,6 +290,7 @@ export default function Home({ initialNews }: Props) {
     return withStable
   }, [currentRawItems, firstSeen])
 
+  // filter + sort
   const sortedNews = useMemo(() => {
     if (mode === 'trending') {
       return shapedNews
@@ -297,7 +309,7 @@ export default function Home({ initialNews }: Props) {
   const effectiveDisplayCount = useMemo(
     () =>
       mode === 'trending'
-        ? 5 
+        ? 5 // Za trending vedno 5 (na desktopu bo to 1 vrstica)
         : displayCount,
     [displayCount, mode],
   )
@@ -307,6 +319,7 @@ export default function Home({ initialNews }: Props) {
     [filteredNews, effectiveDisplayCount],
   )
 
+  // cursor calc
   useEffect(() => {
     if (mode === 'trending') return 
     if (!filteredNews.length) {
@@ -321,6 +334,7 @@ export default function Home({ initialNews }: Props) {
     setCursor(minMs || null)
   }, [deferredSource, filteredNews, mode])
 
+  // Paging fetcher
   type PagePayload = { items: NewsItem[]; nextCursor: number | null }
   async function fetchPage(params: {
     cursor?: number | null
@@ -369,6 +383,7 @@ export default function Home({ initialNews }: Props) {
     }
   }
 
+  // Handler za tabs
   const handleTabChange = async (next: Mode) => {
     if (next === mode) return
 
@@ -392,6 +407,7 @@ export default function Home({ initialNews }: Props) {
     }
   }
 
+  // --- GRID KONFIGURACIJA ---
   const gridClasses =
     mode === 'trending'
       ? 'grid gap-6 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5'
@@ -419,11 +435,10 @@ export default function Home({ initialNews }: Props) {
         open={filterOpen}
       />
 
-      {/* POPRAVEK: 
-          - my-6 (24px) za zračnost. 
-          - Padding (px) usklajen z main containerjem. 
+      {/* POPRAVEK ZA NEWS TABS: mt-5 mb-3 
+          To je optimalen razmak glede na vašo željo: ne preveč diha, a ne zadavljeno.
       */}
-      <div className="px-4 md:px-8 lg:px-16 my-6">
+      <div className="px-4 md:px-8 lg:px-16 mt-5 mb-3">
         <NewsTabs active={mode} onChange={handleTabChange} />
       </div>
 
@@ -480,7 +495,6 @@ export default function Home({ initialNews }: Props) {
         )}
 
         {mode === 'latest' && hasMore && visibleNews.length > 0 && (
-          /* POPRAVEK: mb-4 namesto mb-10 */
           <div className="text-center mt-8 mb-4">
             <button
               onClick={handleLoadMore}
@@ -491,8 +505,6 @@ export default function Home({ initialNews }: Props) {
             </button>
           </div>
         )}
-        
-        {/* ODSTRANJEN <hr> */}
       </main>
 
       <BackToTop threshold={200} />
@@ -501,7 +513,13 @@ export default function Home({ initialNews }: Props) {
   )
 }
 
+/* ================= SSR (Server-Side Rendering) ================= */
+
 export const getServerSideProps: GetServerSideProps = async ({ res }) => {
+  // Nastavi Cache-Control:
+  // - public: lahko se cachira (npr. na CDN)
+  // - s-maxage=60: sveže 60 sekund (CDN servira iz cache-a)
+  // - stale-while-revalidate=30: po 60s servira staro verzijo še 30s, medtem ko v ozadju osvežuje
   res.setHeader(
     'Cache-Control',
     'public, s-maxage=60, stale-while-revalidate=30'
