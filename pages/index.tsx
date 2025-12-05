@@ -1,6 +1,4 @@
 // pages/index.tsx
-
-
 'use client'
 
 import React, {
@@ -11,6 +9,7 @@ import React, {
   startTransition,
   useRef,
 } from 'react'
+import { GetServerSideProps } from 'next' // Dodan uvoz za tip
 
 import { NewsItem } from '@/types'
 import Footer from '@/components/Footer'
@@ -520,9 +519,18 @@ export default function Home({ initialNews }: Props) {
   )
 }
 
-/* ================= SSG (ISR) ================= */
+/* ================= SSR (Server-Side Rendering) ================= */
 
-export async function getStaticProps() {
+export const getServerSideProps: GetServerSideProps = async ({ res }) => {
+  // Nastavi Cache-Control:
+  // - public: lahko se cachira (npr. na CDN)
+  // - s-maxage=60: sveže 60 sekund (CDN servira iz cache-a)
+  // - stale-while-revalidate=30: po 60s servira staro verzijo še 30s, medtem ko v ozadju osvežuje
+  res.setHeader(
+    'Cache-Control',
+    'public, s-maxage=60, stale-while-revalidate=30'
+  )
+
   const { createClient } = await import('@supabase/supabase-js')
   const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL as string
   const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string
@@ -564,5 +572,5 @@ export async function getStaticProps() {
     isoDate: r.published_at,
   }))
 
-  return { props: { initialNews }, revalidate: 60 }
+  return { props: { initialNews } }
 }
