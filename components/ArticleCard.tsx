@@ -1,12 +1,6 @@
 // components/ArticleCard.tsx
 'use client'
 
-/* =========================================================
-   ArticleCard.tsx — robustno nalaganje slik (mobile friendly)
-   + Logotip vira poleg imena
-   + “pred X min” se osveži vsako minuto
-   ========================================================= */
-
 import { NewsItem } from '@/types'
 import {
   MouseEvent,
@@ -17,11 +11,11 @@ import {
   ComponentType,
 } from 'react'
 import dynamic from 'next/dynamic'
-import Image from 'next/image' // <--- NOVO
+import Image from 'next/image'
 import { proxiedImage, buildSrcSet } from '@/lib/img'
 import { preloadPreview, canPrefetch, warmImage } from '@/lib/previewPrefetch'
 import { sourceColors } from '@/lib/sources'
-import { getSourceLogoPath } from '@/lib/sourceMeta' // <--- NOVO
+import { getSourceLogoPath } from '@/lib/sourceMeta'
 
 type PreviewProps = { url: string; onClose: () => void }
 const ArticlePreview = dynamic(() => import('./ArticlePreview'), { ssr: false }) as ComponentType<PreviewProps>
@@ -32,7 +26,6 @@ const IMAGE_WIDTHS = [320, 480, 640, 960, 1280]
 interface Props { news: NewsItem; priority?: boolean }
 
 export default function ArticleCard({ news, priority = false }: Props) {
-  // --- minute tick
   const [minuteTick, setMinuteTick] = useState(0)
   useEffect(() => {
     const onMinute = () => setMinuteTick((m) => (m + 1) % 60)
@@ -47,8 +40,8 @@ export default function ArticleCard({ news, priority = false }: Props) {
     const min = Math.floor(diff / 60_000)
     const hr  = Math.floor(min / 60)
     if (diff < 60_000) return 'pred nekaj sekundami'
-    if (min  < 60)     return `pred ${min} min`
-    if (hr   < 24)     return `pred ${hr} h`
+    if (min  < 60)      return `pred ${min} min`
+    if (hr   < 24)      return `pred ${hr} h`
     const d    = new Date(ms)
     const date = new Intl.DateTimeFormat('sl-SI', { day: 'numeric', month: 'short' }).format(d)
     const time = new Intl.DateTimeFormat('sl-SI', { hour: '2-digit', minute: '2-digit' }).format(d)
@@ -59,7 +52,6 @@ export default function ArticleCard({ news, priority = false }: Props) {
     return (sourceColors as Record<string, string>)[news.source] || '#fc9c6c'
   }, [news.source])
 
-  // --- LOGO LOGIKA ---
   const logoPath = useMemo(() => {
     return getSourceLogoPath(news.source)
   }, [news.source])
@@ -219,14 +211,15 @@ export default function ArticleCard({ news, priority = false }: Props) {
         onClick={handleClick}
         onAuxClick={handleAuxClick}
         onMouseEnter={() => { setEyeVisible(true); triggerPrefetch() }}
-        onMouseLeave={() => setEyeVisible(false)}
+        onMouseLeave={() => { setEyeVisible(false); setEyeHover(false) }}
         onFocus={() => { setEyeVisible(true); triggerPrefetch() }}
-        onBlur={() => setEyeVisible(false)}
+        onBlur={() => { setEyeVisible(false); setEyeHover(false) }}
         onTouchStart={() => { triggerPrefetch() }}
-        className="cv-auto group block no-underline bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden transition-all duration-200 hover:scale-[1.02] hover:shadow-lg hover:bg-gray-100 dark:hover:bg-gray-700"
+        /* POPRAVEK: h-full, flex, flex-col zagotovijo enako višino v gridu */
+        className="cv-auto group flex flex-col h-full no-underline bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden transition-all duration-200 hover:scale-[1.02] hover:shadow-lg hover:bg-gray-100 dark:hover:bg-gray-700"
       >
         <div
-          className="relative w-full aspect-[16/9] overflow-hidden"
+          className="relative w-full aspect-[16/9] overflow-hidden shrink-0"
           style={
             !imgLoaded && lqipSrc
               ? { backgroundImage: `url(${lqipSrc})`, backgroundSize: 'cover', backgroundPosition: 'center', filter: 'blur(12px)', transform: 'scale(1.05)' }
@@ -304,9 +297,9 @@ export default function ArticleCard({ news, priority = false }: Props) {
           )}
         </div>
 
-        {/* ========== BESEDILO ========== */}
-        <div className="p-2.5 min-h-[10rem] sm:min-h-[10rem] md:min-h-[9.75rem] lg:min-h-[9.5rem] xl:min-h-[9.5rem] overflow-hidden">
-          <div className="mb-1 flex items-center justify-between">
+        {/* ========== BESEDILO (flex-1 da zapolni prostor) ========== */}
+        <div className="p-3 flex flex-col flex-1">
+          <div className="mb-2 flex items-center justify-between">
             {/* VIR Z LOGOTIPOM */}
             <div className="flex items-center gap-2 min-w-0">
               {logoPath && (
@@ -329,8 +322,10 @@ export default function ArticleCard({ news, priority = false }: Props) {
             <span className="text-[11px] text-gray-500 dark:text-gray-400 shrink-0 ml-2">{formattedDate}</span>
           </div>
           
-          <h3 className="line-clamp-3 text-[15px] font-semibold leading-tight text-gray-900 dark:text-gray-100 mt-1">{news.title}</h3>
-          <p className="mt-1 line-clamp-3 text-[13px] text-gray-700 dark:text-gray-300">{news.contentSnippet}</p>
+          <h3 className="line-clamp-3 text-[15px] font-semibold leading-tight text-gray-900 dark:text-gray-100 mb-1">{news.title}</h3>
+          
+          {/* Vsebina (flex-grow potisne spodnji rob, če bi imeli footer znotraj kartice, ampak tu služi za enakomerno porazdelitev) */}
+          <p className="line-clamp-3 text-[13px] text-gray-700 dark:text-gray-300 flex-1">{news.contentSnippet}</p>
         </div>
       </a>
 
