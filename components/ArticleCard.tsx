@@ -215,7 +215,6 @@ export default function ArticleCard({ news, priority = false }: Props) {
         onFocus={() => { setEyeVisible(true); triggerPrefetch() }}
         onBlur={() => { setEyeVisible(false); setEyeHover(false) }}
         onTouchStart={() => { triggerPrefetch() }}
-        /* POPRAVEK: h-full, flex, flex-col zagotovijo enako višino v gridu */
         className="cv-auto group flex flex-col h-full no-underline bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden transition-all duration-200 hover:scale-[1.02] hover:shadow-lg hover:bg-gray-100 dark:hover:bg-gray-700"
       >
         <div
@@ -297,10 +296,9 @@ export default function ArticleCard({ news, priority = false }: Props) {
           )}
         </div>
 
-        {/* ========== BESEDILO (flex-1 da zapolni prostor) ========== */}
+        {/* ========== BESEDILO ========== */}
         <div className="p-3 flex flex-col flex-1">
           <div className="mb-2 flex items-center justify-between">
-            {/* VIR Z LOGOTIPOM */}
             <div className="flex items-center gap-2 min-w-0">
               {logoPath && (
                 <div className="relative h-4 w-4 shrink-0 rounded-full overflow-hidden bg-gray-100 dark:bg-gray-700">
@@ -318,14 +316,13 @@ export default function ArticleCard({ news, priority = false }: Props) {
               </span>
             </div>
             
-            {/* ČAS */}
             <span className="text-[11px] text-gray-500 dark:text-gray-400 shrink-0 ml-2">{formattedDate}</span>
           </div>
           
           <h3 className="line-clamp-3 text-[15px] font-semibold leading-tight text-gray-900 dark:text-gray-100 mb-1">{news.title}</h3>
           
-          {/* Vsebina (flex-grow potisne spodnji rob, če bi imeli footer znotraj kartice, ampak tu služi za enakomerno porazdelitev) */}
-          <p className="line-clamp-3 text-[13px] text-gray-700 dark:text-gray-300 flex-1">{news.contentSnippet}</p>
+          {/* POPRAVEK: text-gray-600 in dark:text-gray-400 za manjši kontrast */}
+          <p className="line-clamp-3 text-[13px] text-gray-600 dark:text-gray-400 flex-1">{news.contentSnippet}</p>
         </div>
       </a>
 
