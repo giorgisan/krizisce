@@ -1,4 +1,4 @@
-// components/Header.tsx — COMPACT (fixed archive icon color)
+// components/Header.tsx
 'use client'
 
 import Link from 'next/link'
@@ -110,34 +110,23 @@ export default function Header() {
   /* ========= Scroll-then-refresh + anti-anchoring ========= */
   const busyRef = useRef(false)
   
-  // POPRAVEK: Odstranjena funkcija waitForTop in logika za scrollanje
-  
   const refreshNow = async () => {
     if (busyRef.current) return
     busyRef.current = true
     try {
-      // POPRAVEK: Odstranjeno avtomatsko scrollanje na vrh
-      // if (window.scrollY > 0) { ... }
-      
-      const main = document.querySelector('main') as HTMLElement | null
-      try { main?.focus?.() } catch {}
-      
+      // POPRAVEK: Odstranjen scroll na vrh IN odstranjen main.focus()
+      // Zdaj se ne bo zgodil noben premik ekrana.
       setRefreshing(true)
       window.dispatchEvent(new CustomEvent('refresh-news'))
     } finally {
       setTimeout(() => { busyRef.current = false }, 50)
     }
   }
-  
-  // POPRAVEK: Odstranjena logika za anti-anchoring, ker ni več scrollanja
-  /* const prevRefreshing = useRef(false)
-  useEffect(() => { ... }, [refreshing])
-  */
 
   /* ========= Navigacija ========= */
   const onBrandClick: React.MouseEventHandler<HTMLAnchorElement> = async (e) => {
     e.preventDefault()
-    // Pri kliku na logo pa ohranimo scroll-to-top
+    // Ob kliku na logo še vedno želimo skok na vrh
     try {
       window.scrollTo({ top: 0, behavior: 'smooth' })
     } catch {}
