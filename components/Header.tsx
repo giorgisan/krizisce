@@ -114,8 +114,7 @@ export default function Header() {
     if (busyRef.current) return
     busyRef.current = true
     try {
-      // POPRAVEK: Dodan smooth scroll na vrh.
-      // Odstranjen pa je main.focus(), ki je povzročal skakanje.
+      // POPRAVEK: Vrnjeno pomikanje na vrh (scroll to top)
       window.scrollTo({ top: 0, behavior: 'smooth' })
       
       setRefreshing(true)
