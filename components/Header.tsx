@@ -109,63 +109,37 @@ export default function Header() {
 
   /* ========= Scroll-then-refresh + anti-anchoring ========= */
   const busyRef = useRef(false)
-  function waitForTop(timeoutMs = 1200): Promise<void> {
-    return new Promise((resolve) => {
-      const done = () => { cleanup(); resolve() }
-      const onScroll = () => { if (window.scrollY <= 0) done() }
-      const cleanup = () => {
-        window.removeEventListener('scroll', onScroll as EventListener)
-        clearTimeout(tid)
-      }
-      if (window.scrollY <= 0) return resolve()
-      window.addEventListener('scroll', onScroll as EventListener, { passive: true })
-      const tid = window.setTimeout(done, timeoutMs)
-    })
-  }
+  
+  // POPRAVEK: Odstranjena funkcija waitForTop in logika za scrollanje
+  
   const refreshNow = async () => {
     if (busyRef.current) return
     busyRef.current = true
     try {
-      if (window.scrollY > 0) {
-        window.scrollTo({ top: 0, behavior: 'smooth' })
-        await waitForTop(1200)
-      }
+      // POPRAVEK: Odstranjeno avtomatsko scrollanje na vrh
+      // if (window.scrollY > 0) { ... }
+      
       const main = document.querySelector('main') as HTMLElement | null
       try { main?.focus?.() } catch {}
+      
       setRefreshing(true)
       window.dispatchEvent(new CustomEvent('refresh-news'))
     } finally {
       setTimeout(() => { busyRef.current = false }, 50)
     }
   }
-  const prevRefreshing = useRef(false)
-  useEffect(() => {
-    if (prevRefreshing.current && !refreshing) {
-      const html = document.documentElement
-      const prevBehavior = html.style.scrollBehavior
-      const prevAnchor = (document.body.style as any).overflowAnchor
-      try {
-        html.style.scrollBehavior = 'auto'
-        ;(document.body.style as any).overflowAnchor = 'none'
-        requestAnimationFrame(() => {
-          window.scrollTo(0, 0)
-          requestAnimationFrame(() => {
-            window.scrollTo(0, 0)
-            html.style.scrollBehavior = prevBehavior
-            ;(document.body.style as any).overflowAnchor = prevAnchor
-          })
-        })
-      } catch { window.scrollTo(0, 0) }
-    }
-    prevRefreshing.current = refreshing
-  }, [refreshing])
+  
+  // POPRAVEK: Odstranjena logika za anti-anchoring, ker ni več scrollanja
+  /* const prevRefreshing = useRef(false)
+  useEffect(() => { ... }, [refreshing])
+  */
 
   /* ========= Navigacija ========= */
   const onBrandClick: React.MouseEventHandler<HTMLAnchorElement> = async (e) => {
     e.preventDefault()
+    // Pri kliku na logo pa ohranimo scroll-to-top
     try {
       window.scrollTo({ top: 0, behavior: 'smooth' })
-      await waitForTop(800)
     } catch {}
     if (!isHome) router.push('/')
   }
