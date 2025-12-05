@@ -77,16 +77,10 @@ export default function Footer() {
 
   return (
     <footer className="mt-12 w-full relative">
-      {/* GRADIENT SEPARATOR: 
-         Namesto border-t uporabimo div z gradientom.
-         from-transparent -> via-brand/20 (sredina) -> to-transparent
-         To ustvari "fade" učinek črte.
-      */}
+      {/* GRADIENT SEPARATOR: Črta, ki zbledi na robovih */}
       <div className="w-full h-px bg-gradient-to-r from-transparent via-brand/20 to-transparent opacity-60"></div>
 
-      {/* OZADJE FOOTERJA:
-         Uporabljen bg-gradient-to-b za mehak prehod v globino.
-      */}
+      {/* OZADJE FOOTERJA: Gradient v globino */}
       <div className="bg-gray-50/80 dark:bg-gradient-to-b dark:from-[#0f1218] dark:to-[#05070a] pt-12 pb-12 transition-colors">
         <div className="mx-auto max-w-6xl px-4 md:px-8 lg:px-16 text-gray-800 dark:text-gray-400">
           <div className="grid gap-8 sm:grid-cols-3 items-start">
