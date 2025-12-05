@@ -80,11 +80,8 @@ export default function Footer() {
   }, [open])
 
   return (
-    /* SPREMEMBA BARVE: 
-       - Namesto črne (#050505) uporabimo #030712 (zelo temna sivo-modra).
-       - To se bolje ujema z vašo "slate/gray-900" temo strani.
-    */
-    <footer className="mt-16 w-full border-t border-gray-200 dark:border-gray-800 bg-gray-100/50 dark:bg-[#030712] pt-12 pb-12 transition-colors">
+    /* SPREMEMBA: Uporabil sem #0f172a (Slate 900) za malenkost svetlejši ton */
+    <footer className="mt-16 w-full border-t border-gray-200 dark:border-gray-800 bg-gray-100/50 dark:bg-[#0f172a] pt-12 pb-12 transition-colors">
       <div className="mx-auto max-w-6xl px-4 md:px-8 lg:px-16 text-gray-800 dark:text-gray-300">
         {/* Vsebina */}
         <div className="grid gap-8 sm:grid-cols-3 items-start">
