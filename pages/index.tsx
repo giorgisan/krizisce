@@ -438,7 +438,7 @@ export default function Home({ initialNews }: Props) {
       {/* POPRAVEK ZA NEWS TABS: mt-5 mb-3 
           To je optimalen razmak glede na vašo željo: ne preveč diha, a ne zadavljeno.
       */}
-      <div className="px-4 md:px-8 lg:px-16 mt-5 mb-3">
+      <div className="px-4 md:px-8 lg:px-16 mt-3 mb-3">
         <NewsTabs active={mode} onChange={handleTabChange} />
       </div>
 
