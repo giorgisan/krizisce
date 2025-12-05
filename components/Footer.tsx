@@ -80,52 +80,53 @@ export default function Footer() {
   }, [open])
 
   return (
-    <footer className="mt-8">
+    // SPREMEMBA TUKAJ: Dodan border-t, barva ozadja in padding
+    <footer className="mt-16 w-full border-t border-gray-200 dark:border-gray-800 bg-gray-100/50 dark:bg-[#050505] pt-12 pb-12 transition-colors">
       <div className="mx-auto max-w-6xl px-4 md:px-8 lg:px-16 text-gray-800 dark:text-gray-300">
         {/* Vsebina */}
-        <div className="grid gap-6 sm:grid-cols-3 items-start">
+        <div className="grid gap-8 sm:grid-cols-3 items-start">
           {/* Levo */}
           <div>
-            <div className="flex items-center mb-3">
+            <div className="flex items-center mb-4">
               <Image src="/logo.png" alt="Križišče" width={32} height={32} className="w-8 h-8 rounded-md mr-2" />
               <h4 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white">Križišče</h4>
             </div>
-            <p className="text-sm leading-relaxed text-gray-700 dark:text-gray-300">
+            <p className="text-sm leading-relaxed text-gray-600 dark:text-gray-400">
               Agregator najnovejših novic slovenskih medijev. <br />
               Članki so last izvornih portalov.
             </p>
           </div>
 
-          {/* Sredina – diskretne povezave, brez CTA boxa */}
+          {/* Sredina */}
           <div>
-            <h4 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white mb-3">Povezave</h4>
-            <ul className="space-y-1.5 text-sm">
-              <li><Link href="/arhiv" className="hover:text-gray-900 dark:hover:text-white transition">Arhiv</Link></li>
-              <li><Link href="/projekt" className="hover:text-gray-900 dark:hover:text-white transition">O projektu</Link></li>
-              <li><Link href="/pogoji" className="hover:text-gray-900 dark:hover:text-white transition">Pogoji uporabe</Link></li>
+            <h4 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white mb-4">Povezave</h4>
+            <ul className="space-y-2 text-sm text-gray-600 dark:text-gray-400">
+              <li><Link href="/arhiv" className="hover:text-brand dark:hover:text-brand transition">Arhiv</Link></li>
+              <li><Link href="/projekt" className="hover:text-brand dark:hover:text-brand transition">O projektu</Link></li>
+              <li><Link href="/pogoji" className="hover:text-brand dark:hover:text-brand transition">Pogoji uporabe</Link></li>
             </ul>
           </div>
 
           {/* Desno */}
           <div>
-            <h4 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white mb-3">Kontakt</h4>
-            <a href="mailto:gjkcme@gmail.com" className="text-sm hover:text-gray-900 dark:hover:text-white transition">
+            <h4 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white mb-4">Kontakt</h4>
+            <a href="mailto:gjkcme@gmail.com" className="text-sm text-gray-600 dark:text-gray-400 hover:text-brand dark:hover:text-brand transition">
               Pošljite nam sporočilo
             </a>
           </div>
         </div>
 
-        {/* Viri – ostane kot nevtralen popover */}
-        <div className="mt-6 flex justify-center">
+        {/* Viri */}
+        <div className="mt-10 flex justify-center">
           <div className="relative">
             <button
               ref={btnRef}
               type="button"
               onClick={() => setOpen(v => !v)}
-              className="inline-flex items-center gap-2 rounded-full px-4 py-2 ring-1 ring-black/10 dark:ring-white/10
+              className="inline-flex items-center gap-2 rounded-full px-5 py-2 ring-1 ring-black/10 dark:ring-white/10
                          text-gray-700 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white
-                         bg-white/60 hover:bg-white/80 dark:bg-gray-900/60 dark:hover:bg-gray-900/80 
-                         backdrop-blur-md transition"
+                         bg-white hover:bg-gray-50 dark:bg-gray-900 dark:hover:bg-gray-800 
+                         transition shadow-sm"
               aria-haspopup="dialog"
               aria-expanded={open}
             >
@@ -138,8 +139,8 @@ export default function Footer() {
                 ref={popRef}
                 className="absolute left-1/2 -translate-x-1/2 bottom-full mb-3
                            w-[min(92vw,64rem)] rounded-2xl
-                           bg-white/90 dark:bg-gray-900/85 backdrop-blur-md
-                           ring-1 ring-black/10 dark:ring-white/10 shadow-2xl p-4 sm:p-6 animate-popoverFade"
+                           bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl
+                           ring-1 ring-black/10 dark:ring-white/10 shadow-2xl p-4 sm:p-6 animate-popoverFade z-50"
                 role="dialog"
                 aria-label="Viri novic"
               >
@@ -156,7 +157,7 @@ export default function Footer() {
                         target="_blank"
                         rel="noopener noreferrer"
                         className="flex items-center gap-2 px-2 py-2 rounded-lg text-gray-700 dark:text-gray-300
-                                   hover:text-gray-900 dark:hover:text-white hover:bg-gray-100/70 dark:hover:bg-gray-800/70 transition"
+                                   hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800 transition"
                       >
                         <LogoImg slug={it.slug} origin={origin} label={it.name} />
                         <span className="text-sm">{it.name}</span>
@@ -171,10 +172,10 @@ export default function Footer() {
         </div>
 
         {/* Ločnica + copyright */}
-        <div className="border-t border-gray-200 dark:border-gray-800 mt-8 pt-4 text-center text-sm text-gray-600 dark:text-gray-500
-                        pb-[calc(env(safe-area-inset-bottom,0px)+24px)]">
-          <p className="italic mb-2">“Informacija ni znanje. Edino razumevanje šteje.” — Albert Einstein</p>
-          <p>© {year} Križišče – Vse pravice pridržane.</p>
+        <div className="border-t border-gray-200 dark:border-gray-800 mt-10 pt-6 text-center text-sm text-gray-500 dark:text-gray-500
+                        pb-[calc(env(safe-area-inset-bottom,0px)+12px)]">
+          <p className="italic mb-2 opacity-80">“Informacija ni znanje. Edino razumevanje šteje.” — Albert Einstein</p>
+          <p className="opacity-80">© {year} Križišče – Vse pravice pridržane.</p>
         </div>
       </div>
 
