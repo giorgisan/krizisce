@@ -35,8 +35,7 @@ const TABS: { id: NewsTabId; label: string; icon?: React.ReactNode }[] = [
 
 export default function NewsTabs({ active, onChange }: NewsTabsProps) {
   return (
-    // ODSTRANJEN mb-6 md:mb-8. Zdaj je samo flex container.
-    <div className="flex justify-start">
+    <div className="flex justify-start w-full">
       <div className="relative flex p-1 bg-gray-200/50 dark:bg-gray-800/60 rounded-full backdrop-blur-sm border border-gray-200 dark:border-gray-700/50">
         {TABS.map((tab) => {
           const isActive = tab.id === active
