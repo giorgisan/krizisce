@@ -9,7 +9,7 @@ import React, {
   startTransition,
   useRef,
 } from 'react'
-import { GetServerSideProps } from 'next'
+import { GetServerSideProps } from 'next' // Dodan uvoz za tip
 
 import { NewsItem } from '@/types'
 import Footer from '@/components/Footer'
@@ -309,7 +309,7 @@ export default function Home({ initialNews }: Props) {
   const effectiveDisplayCount = useMemo(
     () =>
       mode === 'trending'
-        ? 5 // Za trending vedno 5
+        ? 5 // Za trending vedno 5 (na desktopu bo to 1 vrstica)
         : displayCount,
     [displayCount, mode],
   )
@@ -407,7 +407,13 @@ export default function Home({ initialNews }: Props) {
     }
   }
 
-  // --- GRID POPRAVEK (Mobile vs Desktop) ---
+  // --- POPRAVEK GRID-A (Mobile vs Desktop) ---
+  // Na mobilnikih (privzeto):
+  // - Trending: 'grid-cols-1' (da imajo kartice prostor)
+  // - Latest: 'grid-cols-2' (dva stolpca)
+  // Na velikih zaslonih (xl):
+  // - Obe imata 'xl:grid-cols-5'
+  
   const gridClasses =
     mode === 'trending'
       ? 'grid gap-6 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5'
@@ -435,8 +441,7 @@ export default function Home({ initialNews }: Props) {
         open={filterOpen}
       />
 
-      {/* POPRAVEK: Zmanjšan razmak (odstranjen mb-1) */}
-      <div className="px-4 md:px-8 lg:px-16 mt-3">
+      <div className="px-4 md:px-8 lg:px-16 mt-3 mb-1">
         <NewsTabs active={mode} onChange={handleTabChange} />
       </div>
 
@@ -445,9 +450,9 @@ export default function Home({ initialNews }: Props) {
         description="Agregator najnovejših novic iz slovenskih medijev. Članki so last izvornih portalov."
       />
 
-      {/* POPRAVEK: Zmanjšan padding-top (pt-2 namesto pt-4) */}
+      {/* Na XL zaslonih zmanjšamo padding (px-8), da 5 stolpcev lepo stoji */}
       <main
-        className="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white px-4 md:px-8 lg:px-12 xl:px-8 2xl:px-16 pt-2 pb-24"
+        className="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white px-4 md:px-8 lg:px-12 xl:px-8 2xl:px-16 pt-4 pb-24"
         tabIndex={-1}
       >
         {visibleNews.length === 0 ? (
@@ -517,6 +522,10 @@ export default function Home({ initialNews }: Props) {
 /* ================= SSR (Server-Side Rendering) ================= */
 
 export const getServerSideProps: GetServerSideProps = async ({ res }) => {
+  // Nastavi Cache-Control:
+  // - public: lahko se cachira (npr. na CDN)
+  // - s-maxage=60: sveže 60 sekund (CDN servira iz cache-a)
+  // - stale-while-revalidate=30: po 60s servira staro verzijo še 30s, medtem ko v ozadju osvežuje
   res.setHeader(
     'Cache-Control',
     'public, s-maxage=60, stale-while-revalidate=30'
