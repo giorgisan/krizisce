@@ -266,7 +266,8 @@ function rowToItem(r: Row): NewsItem {
 // 1. Zmanjšano okno na 6 ur (prej 24)
 const TREND_WINDOW_HOURS = 6 
 const TREND_MIN_SOURCES = 2   
-const TREND_MIN_OVERLAP = 2
+// --- SPREMEMBA: Povečan overlap iz 2 na 3, ker zdaj preverjamo tudi summary ---
+const TREND_MIN_OVERLAP = 3 
 const TREND_MAX_ITEMS = 5
 // 2. Najnovejši članek v zgodbi ne sme biti starejši od 4 ur, da je "Hot"
 const TREND_HOT_CUTOFF_HOURS = 4
@@ -293,6 +294,7 @@ type TrendGroup = {
 /**
  * STOP WORDS
  */
+// --- SPREMEMBA: Dodani "evri", "dolarji", števila, generične besede (policija) ---
 const STORY_STOPWORDS = new Set<string>([
   'v', 'na', 'ob', 'po', 'pri', 'pod', 'nad', 'za', 'do', 'od', 'z', 's',
   'in', 'ali', 'pa', 'kot', 'je', 'so', 'se', 'bo', 'bodo', 'bil', 'bila',
@@ -312,7 +314,11 @@ const STORY_STOPWORDS = new Set<string>([
   'dober', 'dobra', 'slaba', 'velik', 'malo',
   'let', 'leta', 'leto', 'letnik', 'letnika', 'letih', 'letni', 'letna',
   'letošnji', 'letošnja', 'starost', 'star', 'stara',
-  'teden', 'tedna', 'mesec', 'meseca', 'dan', 'dni', 'ura', 'ure'
+  'teden', 'tedna', 'mesec', 'meseca', 'dan', 'dni', 'ura', 'ure',
+  // DODANO: Valute in pogoste besede, ki ne določajo teme
+  'evrov', 'evro', 'evra', 'eur', 'dolarjev', 'dolar', 'frankov', 
+  'tisoč', 'milijon', 'milijard', 'odstotkov', 'odstotke', 'procentov',
+  'policija', 'policisti', 'gasilci', 'resevalci' 
 ])
 
 function stemToken(raw: string): string {
@@ -327,23 +333,33 @@ function stemToken(raw: string): string {
   return w.substring(0, w.length - 1)
 }
 
-function extractKeywordsFromTitle(title: string): string[] {
-  const base = unaccent(title || '').toLowerCase()
-  if (!base) return []
+// --- SPREMEMBA: Preimenovano v extractKeywords (prej ...FromTitle)
+// --- SPREMEMBA: Dodana logika za odstranjevanje čistih številk in html tagov
+function extractKeywords(text: string): string[] {
+  // Odstranimo HTML tage, če so kje ostali
+  const cleanText = text.replace(/<[^>]*>/g, ' ');
+  const base = unaccent(cleanText || '').toLowerCase();
+  if (!base) return [];
 
-  const tokens = base.split(/[^a-z0-9]+/i).filter(Boolean)
-  const out: string[] = []
+  const tokens = base.split(/[^a-z0-9]+/i).filter(Boolean);
+  const out: string[] = [];
 
   for (let i = 0; i < tokens.length; i++) {
-    let w = tokens[i]
-    if (!w) continue
-    if (STORY_STOPWORDS.has(w)) continue
-    const stem = stemToken(w)
-    if (STORY_STOPWORDS.has(stem)) continue
-    if (stem.length < 3) continue 
-    if (out.indexOf(stem) === -1) out.push(stem)
+    let w = tokens[i];
+    if (!w) continue;
+    
+    // --- SPREMEMBA: Če je token samo številka (npr. "25000" ali "164"), ga preskoči
+    if (/^\d+$/.test(w)) continue;
+
+    if (STORY_STOPWORDS.has(w)) continue;
+    const stem = stemToken(w);
+    if (STORY_STOPWORDS.has(stem)) continue;
+    
+    if (stem.length < 3) continue; 
+    
+    if (out.indexOf(stem) === -1) out.push(stem);
   }
-  return out
+  return out;
 }
 
 async function fetchTrendingRows(): Promise<Row[]> {
@@ -376,7 +392,10 @@ function computeTrendingFromRows(
         toMs(row.created_at) ||
         Date.now()
 
-      const keywords = extractKeywordsFromTitle(row.title || '')
+      // --- SPREMEMBA: Združimo title + summary + snippet za boljšo analizo ---
+      const combinedText = `${row.title} ${row.summary || ''} ${row.contentsnippet || ''}`;
+      const keywords = extractKeywords(combinedText);
+
       return { row, ms, keywords }
     })
     .filter((m) => m.keywords.length > 0)
