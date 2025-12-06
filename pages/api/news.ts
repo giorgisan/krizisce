@@ -263,13 +263,12 @@ function rowToItem(r: Row): NewsItem {
 
 /* ---------------- TRENDING: clustering nad DB (runtime) ---------------- */
 
-// 1. Zmanjšano okno na 6 ur (prej 24)
+// 1. Zmanjšano okno na 6 ur
 const TREND_WINDOW_HOURS = 6 
 const TREND_MIN_SOURCES = 2   
-// --- SPREMEMBA: Povečan overlap iz 2 na 3, ker zdaj preverjamo tudi summary ---
-const TREND_MIN_OVERLAP = 3 
+// 2. Overlap nastavimo nazaj na 2, ker bomo uporabljali "Leader" logiko, ki je bolj stroga
+const TREND_MIN_OVERLAP = 2 
 const TREND_MAX_ITEMS = 5
-// 2. Najnovejši članek v zgodbi ne sme biti starejši od 4 ur, da je "Hot"
 const TREND_HOT_CUTOFF_HOURS = 4
 
 type StoryArticle = {
@@ -287,21 +286,22 @@ type RowMeta = {
 }
 
 type TrendGroup = {
+  // --- SPREMEMBA: Hranimo "leaderja", s katerim primerjamo vse ostale
+  leader: RowMeta 
   rows: RowMeta[]
-  keywords: string[]
 }
 
 /**
- * STOP WORDS
+ * STOP WORDS - POSODOBITEV:
+ * Dodali smo "zmaga", "rekord", "tekma", "uspeh", ki povzročajo napačna združevanja.
  */
-// --- SPREMEMBA: Dodani "evri", "dolarji", števila, generične besede (policija) ---
 const STORY_STOPWORDS = new Set<string>([
   'v', 'na', 'ob', 'po', 'pri', 'pod', 'nad', 'za', 'do', 'od', 'z', 's',
   'in', 'ali', 'pa', 'kot', 'je', 'so', 'se', 'bo', 'bodo', 'bil', 'bila',
   'bili', 'bilo', 'bi', 'ko', 'ker', 'da', 'ne', 'ni', 'sta', 'ste', 'smo',
   'danes', 'vceraj', 'nocoj', 'noc', 'jutri', 'letos', 'lani', 'ze', 'se',
   'slovenija', 'sloveniji', 'slovenije', 'slovenijo', 
-  'slovenski', 'slovenska', 'slovensko', 'slovenskih',
+  'slovenski', 'slovenska', 'slovensko', 'slovenskih', 'slovenci',
   'ljubljana', 'ljubljani', 'maribor', 'celje', 'koper', 
   'svet', 'svetu', 'evropa', 'eu', 'zda',
   'video', 'foto', 'galerija', 'intervju', 'clanek', 'novice', 'kronika', 
@@ -315,10 +315,16 @@ const STORY_STOPWORDS = new Set<string>([
   'let', 'leta', 'leto', 'letnik', 'letnika', 'letih', 'letni', 'letna',
   'letošnji', 'letošnja', 'starost', 'star', 'stara',
   'teden', 'tedna', 'mesec', 'meseca', 'dan', 'dni', 'ura', 'ure',
-  // DODANO: Valute in pogoste besede, ki ne določajo teme
   'evrov', 'evro', 'evra', 'eur', 'dolarjev', 'dolar', 'frankov', 
   'tisoč', 'milijon', 'milijard', 'odstotkov', 'odstotke', 'procentov',
-  'policija', 'policisti', 'gasilci', 'resevalci' 
+  'policija', 'policisti', 'gasilci', 'resevalci',
+  // --- NOVI STOPWORDS ZA PREPREČEVANJE ZDRUŽEVANJA ŠPORTA/RAZLIČNIH TEM ---
+  'zmaga', 'zmage', 'zmago', 'zmagal', 'zmagala', 'zmagali',
+  'poraz', 'izgubil', 'izgubila',
+  'tekma', 'tekme', 'tekmi', 'spopad',
+  'rekord', 'rekorda', 'rekorde', 'rekordno',
+  'uspeh', 'neuspeh', 'cilj', 'cilja', 'nastop',
+  'pokal', 'pokala', 'prvenstvo', 'prvenstva', 'lige', 'liga'
 ])
 
 function stemToken(raw: string): string {
@@ -333,10 +339,7 @@ function stemToken(raw: string): string {
   return w.substring(0, w.length - 1)
 }
 
-// --- SPREMEMBA: Preimenovano v extractKeywords (prej ...FromTitle)
-// --- SPREMEMBA: Dodana logika za odstranjevanje čistih številk in html tagov
 function extractKeywords(text: string): string[] {
-  // Odstranimo HTML tage, če so kje ostali
   const cleanText = text.replace(/<[^>]*>/g, ' ');
   const base = unaccent(cleanText || '').toLowerCase();
   if (!base) return [];
@@ -348,8 +351,7 @@ function extractKeywords(text: string): string[] {
     let w = tokens[i];
     if (!w) continue;
     
-    // --- SPREMEMBA: Če je token samo številka (npr. "25000" ali "164"), ga preskoči
-    if (/^\d+$/.test(w)) continue;
+    if (/^\d+$/.test(w)) continue; // Brez cistih stevilk
 
     if (STORY_STOPWORDS.has(w)) continue;
     const stem = stemToken(w);
@@ -382,6 +384,8 @@ async function fetchTrendingRows(): Promise<Row[]> {
 function computeTrendingFromRows(
   rows: Row[],
 ): (NewsItem & { storyArticles: StoryArticle[] })[] {
+  
+  // 1. Priprava metapodatkov
   const metas: RowMeta[] = rows
     .map((row) => {
       const ms =
@@ -392,56 +396,66 @@ function computeTrendingFromRows(
         toMs(row.created_at) ||
         Date.now()
 
-      // --- SPREMEMBA: Združimo title + summary + snippet za boljšo analizo ---
-      const combinedText = `${row.title} ${row.summary || ''} ${row.contentsnippet || ''}`;
-      const keywords = extractKeywords(combinedText);
+      // Združimo title in summary, ampak pazimo na duplikate
+      const t = (row.title || '').trim();
+      const s = (row.summary || '').trim();
+      const sn = (row.contentsnippet || '').trim();
+      
+      // Če je summary enak snippetu, uporabi samo enega
+      let content = t;
+      if (s && s !== t) content += ' ' + s;
+      if (sn && sn !== s && sn !== t) content += ' ' + sn;
 
+      const keywords = extractKeywords(content);
       return { row, ms, keywords }
     })
     .filter((m) => m.keywords.length > 0)
 
   if (!metas.length) return []
 
+  // Sortiramo po času (najnovejši prvi), da "vodja" skupine postane najnovejši članek
+  // ALI pa najbolj relevanten. Za breaking news je najnovejši ponavadi najboljši leader.
   metas.sort((a, b) => b.ms - a.ms)
 
   const groups: TrendGroup[] = []
 
-  for (let i = 0; i < metas.length; i++) {
-    const m = metas[i]
-    const mKW = m.keywords
-    let attachedIndex = -1
-    let bestOverlap = 0
+  // 2. Grupiranje z logiko "Leaderja"
+  for (const m of metas) {
+    let bestGroupIndex = -1;
+    let bestOverlap = 0;
 
     for (let gi = 0; gi < groups.length; gi++) {
-      const g = groups[gi]
-      const gKW = g.keywords
-      let intersect = 0
-      const seen = new Set<string>()
-
-      for (let ki = 0; ki < mKW.length; ki++) {
-        const kw = mKW[ki]
-        if (seen.has(kw)) continue
-        seen.add(kw)
-        if (gKW.indexOf(kw) !== -1) intersect++
+      const group = groups[gi];
+      // PRIMERJAVA S SAMO LEADERJEM (ne z vsemi v skupini)
+      // To prepreči "drsečo temo"
+      const leaderKW = group.leader.keywords;
+      
+      let intersect = 0;
+      for (const k of m.keywords) {
+        if (leaderKW.includes(k)) {
+          intersect++;
+        }
       }
 
       if (intersect >= TREND_MIN_OVERLAP) {
         if (intersect > bestOverlap) {
-          bestOverlap = intersect
-          attachedIndex = gi
+          bestOverlap = intersect;
+          bestGroupIndex = gi;
         }
       }
     }
 
-    if (attachedIndex >= 0) {
-      const g = groups[attachedIndex]
-      g.rows.push(m)
-      for (let ki = 0; ki < mKW.length; ki++) {
-        const kw = mKW[ki]
-        if (g.keywords.indexOf(kw) === -1) g.keywords.push(kw)
-      }
+    if (bestGroupIndex >= 0) {
+      // Dodaj v obstoječo skupino
+      groups[bestGroupIndex].rows.push(m);
+      // POMEMBNO: NE dodajamo novih ključnih besed v skupino!
+      // Skupina je definirana s ključnimi besedami leaderja.
     } else {
-      groups.push({ rows: [m], keywords: mKW.slice() })
+      // Ustvari novo skupino, ta članek je leader
+      groups.push({
+        leader: m,
+        rows: [m]
+      });
     }
   }
 
@@ -461,28 +475,27 @@ function computeTrendingFromRows(
     const g = groups[gi]
     if (!g.rows.length) continue
 
-    const srcs: string[] = []
-    for (let ri = 0; ri < g.rows.length; ri++) {
-      const s = (g.rows[ri].row.source || '').trim()
-      if (s && srcs.indexOf(s) === -1) srcs.push(s)
+    // Preštej unikatne vire
+    const srcs = new Set<string>();
+    for (const r of g.rows) {
+      const s = (r.row.source || '').trim()
+      if (s) srcs.add(s);
     }
-    const sourceCount = srcs.length
+    const sourceCount = srcs.size;
+
     if (sourceCount < TREND_MIN_SOURCES) continue
 
-    let rep = g.rows[0]
-    for (let ri = 1; ri < g.rows.length; ri++) {
-      if (g.rows[ri].ms > rep.ms) rep = g.rows[ri]
-    }
-
+    // Reprezentativni članek je kar leader (saj po njem grupiramo)
+    const rep = g.leader; 
     const articleCount = g.rows.length
     
-    let newestMs = g.rows[0].ms
-    for (let ri = 1; ri < g.rows.length; ri++) {
-      if (g.rows[ri].ms > newestMs) newestMs = g.rows[ri].ms
+    // Poišči najnovejši čas v skupini (lahko je leader, lahko kdo drug, če bi sortirali drugače)
+    let newestMs = 0;
+    for(const r of g.rows) {
+      if(r.ms > newestMs) newestMs = r.ms;
     }
 
-    // FILTER SVEŽOSTI: Če nihče ni pisal o tem v zadnjih 6h (HOT_CUTOFF),
-    // potem to ni več trending, ampak zgodovina.
+    // Filter svežosti
     const ageHours = Math.max(0, (nowMs - newestMs) / 3_600_000)
     if (ageHours > TREND_HOT_CUTOFF_HOURS) {
       continue
@@ -491,38 +504,37 @@ function computeTrendingFromRows(
     scored.push({ group: g, rep, sourceCount, articleCount, newestMs })
   }
 
-  // TIE-BREAKER SORTIRANJE
+  // Sortiranje rezultatov
   scored.sort((a, b) => {
-    // 1. Več virov je bolje
-    if (b.sourceCount !== a.sourceCount) {
-      return b.sourceCount - a.sourceCount
-    }
-    // 2. Novejši članek zmaga
+    // 1. Več virov
+    if (b.sourceCount !== a.sourceCount) return b.sourceCount - a.sourceCount
+    // 2. Več člankov
+    if (b.articleCount !== a.articleCount) return b.articleCount - a.articleCount
+    // 3. Novejši
     return b.newestMs - a.newestMs
   })
 
   const top = scored.slice(0, TREND_MAX_ITEMS)
-
   const result: (NewsItem & { storyArticles: StoryArticle[] })[] = []
 
-  for (let si = 0; si < top.length; si++) {
-    const sg = top[si]
+  for (const sg of top) {
     const base = rowToItem(sg.rep.row)
-
     const storyArticles: StoryArticle[] = []
-    const seenSrc: string[] = []
+    const seenSrc = new Set<string>();
 
+    // Sortiraj članke v zgodbi po času
     sg.group.rows.sort((a, b) => b.ms - a.ms)
 
-    for (let ri = 0; ri < sg.group.rows.length; ri++) {
-      const meta = sg.group.rows[ri]
+    for (const meta of sg.group.rows) {
       const r = meta.row
       const srcName = (r.source || '').trim()
       const link = r.link_canonical || r.link || ''
-      if (!srcName || !link) continue
       
-      if (seenSrc.indexOf(srcName) !== -1) continue
-      seenSrc.push(srcName)
+      if (!srcName || !link) continue
+      // Ne želimo duplikatov istega vira v "drugih virih" za lepši izgled, 
+      // razen če gre za res pomembno zgodbo, ampak ponavadi je 1 link na vir dovolj.
+      if (seenSrc.has(srcName)) continue
+      seenSrc.add(srcName);
 
       const summary =
         (r.summary && r.summary.trim()) ||
@@ -561,7 +573,7 @@ export default async function handler(
       try {
         const rows = await fetchTrendingRows()
         const items = computeTrendingFromRows(rows)
-        res.setHeader('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=30') // Pomeni: Vercel si zapomni odgovor za 60 sekund. 
+        res.setHeader('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=30') 
         return res.status(200).json(items as any)
       } catch (err: any) {
         return res
@@ -611,7 +623,7 @@ export default async function handler(
 
     const nextCursor = rows.length === limit ? (rows[rows.length - 1].publishedat ? Number(rows[rows.length - 1].publishedat) : null) : null
 
-    res.setHeader('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=30') // Pomeni: Vercel si zapomni odgovor za 60 sekund. 
+    res.setHeader('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=30') 
     if (paged) return res.status(200).json({ items, nextCursor })
     return res.status(200).json(items)
   } catch (e: any) {
