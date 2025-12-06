@@ -126,9 +126,12 @@ export default function Home({ initialNews }: Props) {
   // LOČENA STANJA ZA PODATKE
   const [itemsLatest, setItemsLatest] = useState<NewsItem[]>(initialNews)
   const [itemsTrending, setItemsTrending] = useState<NewsItem[]>([])
-  
+   
   const [mode, setMode] = useState<Mode>('latest')
   const [trendingLoaded, setTrendingLoaded] = useState(false)
+  
+  // --- SPREMEMBA: Ref za shranjevanje časa zadnjega fetch-a za trending ---
+  const lastTrendingFetchRef = useRef<number>(0)
 
   // mobile detection
   const [isMobile, setIsMobile] = useState(false)
@@ -177,7 +180,7 @@ export default function Home({ initialNews }: Props) {
   const [isLoadingMore, setIsLoadingMore] = useState(false)
 
   const [bootRefreshed, setBootRefreshed] = useState(false)
-  
+   
   useEffect(() => {
     kickSyncIfStale(5 * 60_000)
     setBootRefreshed(true)
@@ -256,6 +259,7 @@ export default function Home({ initialNews }: Props) {
             } else {
               setItemsTrending(fresh)
               setTrendingLoaded(true)
+              lastTrendingFetchRef.current = Date.now() // Posodobimo čas tudi pri ročnem refreshu
             }
           }
           window.dispatchEvent(new CustomEvent('news-refreshing', { detail: false }))
@@ -383,7 +387,7 @@ export default function Home({ initialNews }: Props) {
     }
   }
 
-  // Handler za tabs
+  // --- SPREMEMBA: Izboljšan handleTabChange ---
   const handleTabChange = async (next: Mode) => {
     if (next === mode) return
 
@@ -397,11 +401,21 @@ export default function Home({ initialNews }: Props) {
       setHasMore(false)
       setCursor(null)
       
-      if (!trendingLoaded) {
-        const fresh = await loadNews('trending')
-        if (fresh) {
-          setItemsTrending(fresh)
-          setTrendingLoaded(true)
+      const now = Date.now()
+      // Preveri, če je minilo več kot 5 minut od zadnjega nalaganja
+      const isStale = (now - lastTrendingFetchRef.current) > 5 * 60_000
+
+      // Naloži, če še ni naloženo (prvi klik) ALI če so podatki stari
+      if (!trendingLoaded || isStale) {
+        try {
+          const fresh = await loadNews('trending')
+          if (fresh) {
+            setItemsTrending(fresh)
+            setTrendingLoaded(true)
+            lastTrendingFetchRef.current = Date.now() // Posodobi časovni žig
+          }
+        } catch (e) {
+            console.error(e)
         }
       }
     }
