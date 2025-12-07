@@ -188,7 +188,7 @@ function feedItemToDbRow(item: FeedNewsItem) {
   }
 }
 
-// !!! ORIGINAL LOGIKA ZA SINHRONIZACIJO !!!
+// !!! ORIGINAL LOGIKA ZA SINHRONIZACIJO (Z AWAIT) !!!
 async function syncToSupabase(items: FeedNewsItem[]) {
   if (!supabaseWrite) return
 
@@ -231,14 +231,14 @@ function rowToItem(r: Row): NewsItem {
 }
 
 /* ==========================================================================
-   4. TRENDING ALGORITHM (NEW & IMPROVED)
+   4. TRENDING ALGORITHM (FIXED FOR CRONIKA MIX-UP)
    ========================================================================== */
 
 const TREND_WINDOW_HOURS = 6 
 const TREND_MIN_SOURCES = 2
 const TREND_MAX_ITEMS = 50
-const TREND_HOT_CUTOFF_HOURS = 5 // Malo popuščeno
-const SIMILARITY_THRESHOLD = 0.22 // Prag prilagojen za trigrame in kratke naslove
+const TREND_HOT_CUTOFF_HOURS = 5
+const SIMILARITY_THRESHOLD = 0.25 
 
 type StoryArticle = {
   source: string
@@ -248,40 +248,35 @@ type StoryArticle = {
   publishedAt: number
 }
 
-// Stop words (šum), ki ga odstranimo pred analizo
+// TUKAJ JE KLJUČ: Odstranimo besede, ki povzročajo napačno združevanje
 const STOP_WORDS = new Set([
   'v', 'na', 'ob', 'po', 'pri', 'pod', 'nad', 'za', 'do', 'od', 'z', 's',
   'in', 'ali', 'pa', 'kot', 'je', 'so', 'se', 'bo', 'bodo', 'bil', 'bila',
   'bili', 'bilo', 'bi', 'ko', 'ker', 'da', 'ne', 'ni', 'sta', 'ste', 'smo',
   'danes', 'vceraj', 'jutri', 'letos', 'lani', 'ze', 'se', 'tudi',
   'slovenija', 'sloveniji', 'foto', 'video', 'novice', 'clanek', 'preberite',
-  'ljubljana', 'maribor', 'celje', // Lokacije so včasih šum, če so edina skupna točka
-  'policija', 'policisti' // Da ne združi vseh kroničnih novic skupaj samo zaradi besede "policija"
+  
+  // !!! CRUCIAL FIX: Odstranimo generične policijske besede, da se novice združujejo
+  // le po LOKACIJI (Preddvor/Komenda) in DEJANJU (Vlom/Grožnja), ne pa po tem, kdo je posredoval.
+  'policija', 'policisti', 'policijska', 'kriminalisti', 'uprava', 'pu', 'kranj', 'celje', 'ljubljana'
 ]);
 
-// Funkcija za izdelavo trigramov (rešuje sklanjanje in morfologijo)
 function getTrigrams(text: string): Map<string, number> {
-  // 1. Čiščenje
   let clean = unaccent(text).toLowerCase()
-    .replace(/<[^>]+>/g, ' ') // HTML
-    .replace(/[^a-z0-9\s]/g, '') // Ločila
+    .replace(/<[^>]+>/g, ' ') 
+    .replace(/[^a-z0-9\s]/g, '') 
     .replace(/\s+/g, ' ')
     .trim();
 
-  // 2. Odstranjevanje stop words
+  // Odstranimo stop besede PRED generiranjem trigramov
   const words = clean.split(' ').filter(w => !STOP_WORDS.has(w) && w.length > 2);
-  clean = words.join(' '); // Sestavimo nazaj za trigrame
+  clean = words.join(' '); 
 
   const trigrams = new Map<string, number>();
-  
-  // Če je tekst po čiščenju prazen ali prekratek
   if (clean.length < 3) return trigrams;
 
-  // 3. Generiranje trigramov (drsno okno)
-  // Primer: "komenda" -> 'kom', 'ome', 'men', 'end', 'nda'
   for (let i = 0; i < clean.length - 2; i++) {
     const gram = clean.slice(i, i + 3);
-    // Ignoriramo trigrame, ki so samo presledki
     if (!gram.includes(' ')) {
         trigrams.set(gram, (trigrams.get(gram) || 0) + 1);
     }
@@ -289,7 +284,6 @@ function getTrigrams(text: string): Map<string, number> {
   return trigrams;
 }
 
-// Izračun podobnosti (Cosine Similarity)
 function cosineSimilarity(v1: Map<string, number>, v2: Map<string, number>): number {
   let dot = 0, mag1 = 0, mag2 = 0;
   
@@ -318,7 +312,7 @@ async function fetchTrendingRows(): Promise<Row[]> {
 
   const { data, error } = await supabaseRead
     .from('news')
-    .select('*') // Vzamemo vse, da ne zgrešimo
+    .select('*') 
     .gt('publishedat', cutoffMs)
     .order('publishedat', { ascending: false })
     .limit(350)
@@ -328,14 +322,13 @@ async function fetchTrendingRows(): Promise<Row[]> {
 }
 
 function computeTrendingFromRows(rows: Row[]): (NewsItem & { storyArticles: StoryArticle[] })[] {
-  // Priprava podatkov
   const docs = rows.map((r, idx) => {
       const ms = (r.publishedat && Number(r.publishedat)) || toMs(r.published_at) || Date.now();
       const title = (r.title || '').trim();
       const summary = (r.summary || r.contentsnippet || '').trim();
       
-      // Naslovu damo večjo težo (ga ponovimo), ker je najbolj relevanten
-      const text = `${title} ${title} ${summary}`;
+      // POMEMBNO: Naslovu damo 3x težo, da preglasimo podobnosti v povzetkih
+      const text = `${title} ${title} ${title} ${summary}`;
       
       return {
           id: idx,
@@ -345,7 +338,6 @@ function computeTrendingFromRows(rows: Row[]): (NewsItem & { storyArticles: Stor
       };
   }).filter(d => d.vector.size > 0);
 
-  // Clustering (Greedy)
   const clusters: typeof docs[] = [];
   const assigned = new Set<number>();
 
@@ -362,8 +354,6 @@ function computeTrendingFromRows(rows: Row[]): (NewsItem & { storyArticles: Stor
 
           const sim = cosineSimilarity(doc.vector, other.vector);
 
-          // Dinamičen prag: Če so novice časovno zelo blizu, smo bolj strogi.
-          // Če so narazen, dopustimo manjšo podobnost (ker se naslovi spreminjajo).
           if (sim > SIMILARITY_THRESHOLD) {
               cluster.push(other);
               assigned.add(other.id);
@@ -372,20 +362,16 @@ function computeTrendingFromRows(rows: Row[]): (NewsItem & { storyArticles: Stor
       clusters.push(cluster);
   }
 
-  // Formatiranje
   const nowMs = Date.now();
   const results: (NewsItem & { storyArticles: StoryArticle[] })[] = [];
 
   for (const cluster of clusters) {
-      // Filtriraj premajhne
       const distinctSources = new Set(cluster.map(c => c.row.source));
       if (distinctSources.size < TREND_MIN_SOURCES) continue;
 
-      // Določi vodilno novico (najnovejša)
       cluster.sort((a, b) => b.ms - a.ms);
       const leader = cluster[0];
 
-      // Filter svežosti
       const ageHours = (nowMs - leader.ms) / 3_600_000;
       if (ageHours > TREND_HOT_CUTOFF_HOURS) continue;
 
@@ -405,15 +391,10 @@ function computeTrendingFromRows(rows: Row[]): (NewsItem & { storyArticles: Stor
       });
   }
 
-  // Sortiranje končnega seznama (Največje in najnovejše na vrh)
   results.sort((a, b) => {
-      // Prioriteta: Velikost grozda
       const countA = 1 + a.storyArticles.length;
-      const countB = 1 + b.storyArticles.length; // +1 za leadera
-      
+      const countB = 1 + b.storyArticles.length;
       if (countA !== countB) return countB - countA;
-      
-      // Sekundarno: Čas
       return b.publishedAt - a.publishedAt;
   });
 
@@ -421,7 +402,7 @@ function computeTrendingFromRows(rows: Row[]): (NewsItem & { storyArticles: Stor
 }
 
 /* ==========================================================================
-   5. API HANDLER (Original Structure)
+   5. HANDLER (Original Structure)
    ========================================================================== */
 type PagedOk = { items: NewsItem[]; nextCursor: number | null }
 type ListOk = NewsItem[]
