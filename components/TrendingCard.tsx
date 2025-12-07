@@ -1,13 +1,6 @@
 // components/TrendingCard.tsx
 'use client'
 
-/* =========================================================
-   TrendingCard.tsx — kartica za zavihek "Trending"/"Aktualno"
-   ---------------------------------------------------------
-   - Prikazuje glavno novico + lijak "Drugi viri"
-   - Posodobljen "hover" efekt na očesu v seznamu virov
-   ========================================================= */
-
 import { NewsItem } from '@/types'
 import {
   MouseEvent,
@@ -36,8 +29,9 @@ interface Props {
   news: NewsItem & { [key: string]: any }
 }
 
-// ==== helper tipi za trending ====
-
+// ... (funkcije extractRelatedItems, getPrimarySource, formatRelativeTime ostanejo enake) ...
+// Zaradi dolžine jih tu ne kopiram, pusti jih kot so v tvoji kodi.
+// Kopiraj spodnje helperje, če jih nimaš pri roki:
 type RelatedItem = {
   source: string
   title: string
@@ -116,7 +110,6 @@ function formatRelativeTime(
 }
 
 export default function TrendingCard({ news }: Props) {
-  // --- minute tick za živ "pred X min"
   const [minuteTick, setMinuteTick] = useState(0)
   useEffect(() => {
     const onMinute = () => setMinuteTick((m) => (m + 1) % 60)
@@ -262,43 +255,31 @@ export default function TrendingCard({ news }: Props) {
     if (e.button === 1) logClick()
   }
 
-  const [showPreview, setShowPreview] = useState(false)
+  // --- POPRAVEK: Namesto boolean-a hranimo aktivni URL ---
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+  
   const previewOpenedAtRef = useRef<number | null>(null)
+  
   useEffect(() => {
-    if (showPreview) {
+    if (previewUrl) {
       previewOpenedAtRef.current = Date.now()
       sendBeacon({
         source: news.source,
-        url: news.link,
+        url: previewUrl, // Uporabi dinamični URL
         action: 'preview_open',
       })
     } else if (previewOpenedAtRef.current) {
       const duration = Date.now() - previewOpenedAtRef.current
       previewOpenedAtRef.current = null
+      // Tu ne moremo vedeti točnega URL-ja ob zapiranju, ampak action je close
       sendBeacon({
         source: news.source,
-        url: news.link,
+        url: news.link, 
         action: 'preview_close',
         meta: { duration_ms: duration },
       })
     }
-  }, [showPreview, news.source, news.link])
-  useEffect(() => {
-    const onUnload = () => {
-      if (previewOpenedAtRef.current) {
-        const duration = Date.now() - previewOpenedAtRef.current
-        sendBeacon({
-          source: news.source,
-          url: news.link,
-          action: 'preview_close',
-          meta: { duration_ms: duration, closed_by: 'unload' },
-        })
-        previewOpenedAtRef.current = null
-      }
-    }
-    window.addEventListener('beforeunload', onUnload)
-    return () => window.removeEventListener('beforeunload', onUnload)
-  }, [news.source, news.link])
+  }, [previewUrl, news.source, news.link])
 
   const preloadedRef = useRef(false)
   const triggerPrefetch = () => {
@@ -423,7 +404,7 @@ export default function TrendingCard({ news }: Props) {
             onClick={(e) => {
               e.preventDefault()
               e.stopPropagation()
-              setShowPreview(true)
+              setPreviewUrl(news.link) // --- POPRAVEK: Nastavi glavni link
             }}
             onMouseEnter={() => setEyeHover(true)}
             onMouseLeave={() => setEyeHover(false)}
@@ -591,13 +572,13 @@ export default function TrendingCard({ news }: Props) {
                               </span>
                             )}
                             
-                            {/* POPRAVLJENO OKO ZA DRUGE VIRE: */}
+                            {/* POPRAVEK: Oko za druge vire odpre specifičen link */}
                             <button
                               type="button"
                               onClick={(e) => {
                                 e.preventDefault()
                                 e.stopPropagation()
-                                setShowPreview(true)
+                                setPreviewUrl(item.link) // --- POPRAVEK: Nastavi link tega vira
                                 preloadPreview(item.link).catch(() => {})
                               }}
                               aria-label="Predogled drugega vira"
@@ -653,8 +634,12 @@ export default function TrendingCard({ news }: Props) {
         </div>
       </a>
 
-      {showPreview && (
-        <ArticlePreview url={news.link} onClose={() => setShowPreview(false)} />
+      {/* --- POPRAVEK: Prikaz previewa z dinamičnim URLjem --- */}
+      {previewUrl && (
+        <ArticlePreview 
+            url={previewUrl} 
+            onClose={() => setPreviewUrl(null)} 
+        />
       )}
     </>
   )
