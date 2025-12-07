@@ -39,7 +39,6 @@ function cleanUrl(raw: string): URL | null {
       if (TRACK.some((rx) => rx.test(k))) u.searchParams.delete(k)
     }
 
-    // Cleanup specific path issues
     u.pathname = u.pathname.replace(/\/amp\/?$/i, '/')
     if (u.pathname.length > 1) u.pathname = u.pathname.replace(/\/+$/, '')
     u.hash = ''
@@ -223,12 +222,11 @@ function rowToItem(r: Row): NewsItem {
    4. ADVANCED CLUSTERING (TF-IDF & COSINE SIMILARITY)
    ========================================================================== */
 
-const TREND_WINDOW_HOURS = 12 // Povečano okno za zaznavanje, a zmanjšana relevantnost
+const TREND_WINDOW_HOURS = 12 
 const TREND_MIN_SOURCES = 2
 const TREND_MAX_ITEMS = 60
-const SIMILARITY_THRESHOLD = 0.35 // Cosine similarity: 0 = različno, 1 = identično. 0.35 je dober prag za kratke tekste.
+const SIMILARITY_THRESHOLD = 0.35 
 
-// Razširjen seznam stop besed
 const STOPWORDS = new Set([
   'v', 'na', 'ob', 'po', 'pri', 'pod', 'nad', 'za', 'do', 'od', 'z', 's',
   'in', 'ali', 'pa', 'kot', 'je', 'so', 'se', 'bo', 'bodo', 'bil', 'bila',
@@ -240,7 +238,7 @@ const STOPWORDS = new Set([
   'slovenija', 'sloveniji', 'slovenije', 'svet', 'evropa',
   'prvi', 'drugi', 'tretji', 'nova', 'novi', 'novo', 'velik', 'malo', 'več',
   'zaradi', 'glede', 'proti', 'brez', 'med', 'pred', 'čez',
-  'policija', 'sporočili', 'uprava', 'agencija', // generični viri
+  'policija', 'sporočili', 'uprava', 'agencija', 
 ]);
 
 type StoryArticle = {
@@ -251,32 +249,26 @@ type StoryArticle = {
   publishedAt: number;
 }
 
-// Tokenizacija in čiščenje
 function tokenize(text: string): string[] {
-  // Ohranimo alfanumerične znake in šumnike
   const clean = text.replace(/<[^>]+>/g, ' ').toLowerCase();
-  const normalized = unaccent(clean); // Odstranimo šumnike za ujemanje
-  // Razbijemo na besede, ohranimo številke (pomembno za 81-letnica)
+  const normalized = unaccent(clean); 
   return normalized
     .split(/[^a-z0-9]+/)
     .filter(w => w.length > 2 && !STOPWORDS.has(w));
 }
 
-// Ekstrakcija "močnih" entitet (Besede z veliko začetnico v originalu)
 function extractEntities(text: string): Set<string> {
     const entities = new Set<string>();
-    // Odstranimo HTML
     const clean = text.replace(/<[^>]+>/g, ' ');
-    // Najdemo besede z veliko začetnico, ki niso na začetku stavka (preprosta hevristika)
-    // Ali pa preprosto vse z veliko začetnico, če so daljše od 3 črk
     const words = clean.split(/\s+/);
-    for (const w of words) {
+    
+    // Uporabimo standardno for zanko za polno kompatibilnost
+    for (let i = 0; i < words.length; i++) {
+        const w = words[i];
         const cleanW = w.replace(/[.,:;!?()"']/g, '');
         if (cleanW.length > 3 && /^[A-ZČŠŽ]/.test(cleanW)) {
-             // Normaliziramo entiteto
              entities.add(unaccent(cleanW.toLowerCase()));
         }
-        // Dodamo številke kot entitete (starosti, rezultati)
         if (/\d+/.test(cleanW)) {
             entities.add(cleanW);
         }
@@ -284,17 +276,18 @@ function extractEntities(text: string): Set<string> {
     return entities;
 }
 
-// Izračun TF-IDF vektorjev
 function computeTFIDFVectors(docs: { id: number, tokens: string[], entities: Set<string> }[]) {
-    const df = new Map<string, number>(); // Document Frequency
+    const df = new Map<string, number>(); 
     const N = docs.length;
 
-    // 1. Izračun DF (v koliko dokumentih se pojavi beseda)
-    for (const doc of docs) {
-        const seen = new Set(doc.tokens);
-        for (const token of seen) {
-            df.set(token, (df.get(token) || 0) + 1);
-        }
+    // 1. Izračun DF - POPRAVEK: Izogibanje iteracije po Set-u direktno
+    for (let i = 0; i < docs.length; i++) {
+        const doc = docs[i];
+        // Pretvorimo Set v Array za varno iteracijo v ES5
+        const seenTokens = Array.from(new Set(doc.tokens));
+        seenTokens.forEach(token => {
+             df.set(token, (df.get(token) || 0) + 1);
+        });
     }
 
     // 2. Kreiranje vektorjev
@@ -302,27 +295,26 @@ function computeTFIDFVectors(docs: { id: number, tokens: string[], entities: Set
         const vec = new Map<string, number>();
         const tf = new Map<string, number>();
         
-        // Term Frequency
-        for (const t of doc.tokens) tf.set(t, (tf.get(t) || 0) + 1);
+        doc.tokens.forEach(t => {
+            tf.set(t, (tf.get(t) || 0) + 1);
+        });
 
         let magnitudeSq = 0;
 
-        for (const [term, freq] of tf.entries()) {
-            // IDF: log(N / (df + 1)) + 1
+        // POPRAVEK: Iteracija po Map s forEach namesto for..of
+        tf.forEach((freq, term) => {
             const docFreq = df.get(term) || 0;
             const idf = Math.log(N / (docFreq + 1)) + 1;
             
             let weight = freq * idf;
 
-            // BONUS: Če je beseda tudi prepoznana ENTITETA (Velika začetnica/Številka),
-            // ji drastično povečamo težo (x 2.5). To reši problem "Kristina Hojs".
             if (doc.entities.has(term)) {
                 weight *= 2.5; 
             }
 
             vec.set(term, weight);
             magnitudeSq += weight * weight;
-        }
+        });
 
         return { 
             id: doc.id, 
@@ -332,20 +324,19 @@ function computeTFIDFVectors(docs: { id: number, tokens: string[], entities: Set
     });
 }
 
-// Kosinusna podobnost
 function cosineSimilarity(v1: Map<string, number>, mag1: number, v2: Map<string, number>, mag2: number): number {
     if (mag1 === 0 || mag2 === 0) return 0;
     
     let dot = 0;
-    // Iteriramo čez manjši vektor za hitrost
     const [smaller, larger] = v1.size < v2.size ? [v1, v2] : [v2, v1];
     
-    for (const [term, val1] of smaller.entries()) {
+    // POPRAVEK: Iteracija po Map s forEach
+    smaller.forEach((val1, term) => {
         const val2 = larger.get(term);
         if (val2) {
             dot += val1 * val2;
         }
-    }
+    });
     
     return dot / (mag1 * mag2);
 }
@@ -357,7 +348,7 @@ async function fetchTrendingRows(): Promise<Row[]> {
     .select('id, link, link_canonical, link_key, title, source, image, contentsnippet, summary, publishedat, isodate, pubdate, created_at')
     .gt('publishedat', cutoffMs)
     .order('publishedat', { ascending: false })
-    .limit(300) // Vzamemo večji set za boljši IDF kontekst
+    .limit(300) 
 
   if (error) throw new Error(`DB trending: ${error.message}`)
   return (data || []) as Row[]
@@ -366,44 +357,38 @@ async function fetchTrendingRows(): Promise<Row[]> {
 function computeTrendingFromRows(rows: Row[]): (NewsItem & { storyArticles: StoryArticle[] })[] {
     if (!rows.length) return [];
 
-    // 1. Priprava dokumentov za NLP
     const docs = rows.map((r, idx) => {
         const title = (r.title || '').trim();
         const snippet = (r.summary || r.contentsnippet || '').trim();
-        // Združimo naslov in kratek del vsebine, naslov ponovimo 2x za večjo težo
         const text = `${title} ${title} ${snippet}`; 
         
         return {
             id: idx,
             row: r,
             tokens: tokenize(text),
-            entities: extractEntities(title + ' ' + snippet), // Iščemo entitete v originalnem tekstu
+            entities: extractEntities(title + ' ' + snippet), 
             ms: (r.publishedat && Number(r.publishedat)) || toMs(r.published_at) || Date.now()
         };
     }).filter(d => d.tokens.length > 0);
 
-    // 2. Izračun vektorjev (TF-IDF)
     const vectors = computeTFIDFVectors(docs.map(d => ({ id: d.id, tokens: d.tokens, entities: d.entities })));
 
-    // Povežemo vektorje nazaj z metapodatki
     const enrichedDocs = docs.map((d, i) => ({ ...d, vector: vectors[i] }));
-
-    // 3. Clustering (Hierarchical / Greedy Agglomerative approach)
-    // Razvrstimo po času (najnovejši prvi so "centri" grozdov)
     enrichedDocs.sort((a, b) => b.ms - a.ms);
 
     const clusters: typeof enrichedDocs[] = [];
     const assigned = new Set<number>();
 
-    for (const doc of enrichedDocs) {
+    // POPRAVEK: Uporaba standardne for zanke namesto for..of kjer je to kritično
+    for (let i = 0; i < enrichedDocs.length; i++) {
+        const doc = enrichedDocs[i];
         if (assigned.has(doc.id)) continue;
 
-        // Ustvari nov cluster z trenutnim člankom kot jedrom
         const currentCluster = [doc];
         assigned.add(doc.id);
 
-        // Poišči vse ostale ne-dodeljene članke, ki so dovolj podobni
-        for (const other of enrichedDocs) {
+        for (let j = 0; j < enrichedDocs.length; j++) {
+            const other = enrichedDocs[j];
             if (assigned.has(other.id)) continue;
 
             const similarity = cosineSimilarity(
@@ -411,11 +396,9 @@ function computeTrendingFromRows(rows: Row[]): (NewsItem & { storyArticles: Stor
                 other.vector.vec, other.vector.magnitude
             );
 
-            // Dinamičen prag: Če je časovna razlika majhna (< 4h), je prag nižji.
-            // Če je velika, mora biti podobnost zelo visoka.
             const timeDiffHours = Math.abs(doc.ms - other.ms) / 36e5;
             let threshold = SIMILARITY_THRESHOLD;
-            if (timeDiffHours > 6) threshold += 0.15; // Penalty za stare novice
+            if (timeDiffHours > 6) threshold += 0.15; 
 
             if (similarity > threshold) {
                 currentCluster.push(other);
@@ -425,20 +408,18 @@ function computeTrendingFromRows(rows: Row[]): (NewsItem & { storyArticles: Stor
         clusters.push(currentCluster);
     }
 
-    // 4. Filtriranje in oblikovanje rezultatov
     const results: (NewsItem & { storyArticles: StoryArticle[] })[] = [];
 
-    for (const cluster of clusters) {
-        // Filtriraj clustre, ki nimajo dovolj različnih virov (prepreči spam enega medija)
+    // POPRAVEK: Standardna iteracija
+    for (let i = 0; i < clusters.length; i++) {
+        const cluster = clusters[i];
         const sources = new Set(cluster.map(c => c.row.source));
         if (sources.size < TREND_MIN_SOURCES) continue;
 
-        // Najdi "glavni" članek (najbolj svež ali najbolj reprezentativen)
-        // Ker smo sortirali na začetku po času, je cluster[0] najnovejši
         const leader = cluster[0];
         
         const stories: StoryArticle[] = cluster
-            .filter(c => c.id !== leader.id) // Vsi razen glavnega
+            .filter(c => c.id !== leader.id) 
             .map(c => ({
                 source: c.row.source,
                 link: c.row.link_canonical || c.row.link,
@@ -453,12 +434,10 @@ function computeTrendingFromRows(rows: Row[]): (NewsItem & { storyArticles: Stor
         });
     }
 
-    // 5. Ranking - najbolj vroče novice na vrh
-    // Formula: (število virov * 2) + (novost v urah * -1)
     results.sort((a, b) => {
         const scoreA = (new Set(a.storyArticles.map(s => s.source)).size + 1) * 10;
         const scoreB = (new Set(b.storyArticles.map(s => s.source)).size + 1) * 10;
-        // Penaliziraj starejše od 12h
+        
         const ageA = (Date.now() - a.publishedAt) / 36e5;
         const ageB = (Date.now() - b.publishedAt) / 36e5;
         
@@ -485,7 +464,7 @@ export default async function handler(
     const source = (req.query.source as string) || null
     const variant = (req.query.variant as string) || 'latest'
 
-    // --- TRENDING VARIANT (Improved) ---
+    // --- TRENDING VARIANT ---
     if (variant === 'trending') {
       try {
         const rows = await fetchTrendingRows()
@@ -508,8 +487,6 @@ export default async function handler(
     const canIngest = isCronCaller || isInternalIngest || isDev || tokenOk || allowPublic
 
     if (!paged && wantsFresh && canIngest) {
-       // Fire and forget ingest if possible, or await slightly
-       // console.log("Triggering RSS fetch...")
        fetchRSSFeeds({ forceFresh: true })
         .then(rss => rss?.length ? syncToSupabase(rss.slice(0, 250)) : null)
         .catch(err => console.error('RSS Sync error:', err));
