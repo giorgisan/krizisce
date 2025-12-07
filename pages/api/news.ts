@@ -23,502 +23,447 @@ const supabaseWrite = SUPABASE_SERVICE_ROLE_KEY
   : null
 
 /* ==========================================================================
-   2. URL HANDLING
+   2. SLOVENIAN NLP LOGIC (The "Missing" Part)
+   ========================================================================== */
+
+// 2.1. Obsežen seznam slovenskih mašil (Stopwords)
+// To preprečuje, da bi se novice združevale na podlagi pogostih, a nepomembnih besed.
+const SLO_STOPWORDS = new Set([
+  // Predlogi in vezniki
+  'v', 'na', 'ob', 'po', 'pri', 'pod', 'nad', 'za', 'do', 'od', 'z', 's',
+  'in', 'ali', 'pa', 'kot', 'kjer', 'ker', 'da', 'ter', 'med', 'pred', 'čez',
+  'zaradi', 'glede', 'proti', 'brez', 'kako', 'zakaj', 'kaj', 'kdo', 'kam',
+  
+  // Glagoli (pomožni in pogosti)
+  'je', 'so', 'se', 'bo', 'bodo', 'bil', 'bila', 'bili', 'bilo', 'bi',
+  'ni', 'niso', 'ne', 'sta', 'ste', 'smo', 'imajo', 'ima', 'gre', 'lahko',
+  'mora', 'morajo', 'sporočili', 'pravi', 'pravijo', 'dodali',
+  
+  // Čas in količina
+  'danes', 'včeraj', 'jutri', 'letos', 'lani', 'že', 'še', 'samo', 'le', 'tudi',
+  'več', 'manj', 'veliko', 'malo', 'prvi', 'prva', 'prvo', 'drugi', 'nova', 'novi',
+  'teden', 'tedna', 'mesec', 'meseca', 'leto', 'leta', 'dan', 'dni', 'ura', 'ure',
+  
+  // Generične novinarske besede (pomembno za odstranitev šuma)
+  'foto', 'video', 'galerija', 'preberite', 'poglejte', 'članek', 'novice',
+  'slovenija', 'sloveniji', 'slovenije', 'ljubljana', 'maribor', // Lokacije pogosto ne določajo *teme* dogodka
+  'policija', 'policisti', 'uprava', 'agencija' // Institucije so pogosto v vseh novicah
+]);
+
+// 2.2. Slovenski Stemmer (Luščenje korenov)
+// To rešuje problem: "Komenda" != "Komendi". S to funkcijo sta obe "komend".
+function slovenianStemmer(word: string): string {
+  if (word.length < 4) return word; // Prekratkih ne diramo
+  
+  const w = word.toLowerCase();
+  
+  // Vrstni red je važen: najprej daljše končnice
+  const suffixes = [
+    'ega', 'em', 'ih', 'im', 'om', 'a', 'e', 'i', 'o', 'u', 'je', 'ju', 'ama', 'ami'
+  ];
+
+  for (let i = 0; i < suffixes.length; i++) {
+    const suffix = suffixes[i];
+    if (w.endsWith(suffix)) {
+      // Zagotovimo, da koren ostane dovolj dolg (vsaj 3 črke)
+      const potentialStem = w.slice(0, -suffix.length);
+      if (potentialStem.length >= 3) {
+        return potentialStem;
+      }
+    }
+  }
+  return w;
+}
+
+// 2.3. Tokenizacija (Čiščenje teksta)
+const unaccent = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+
+function tokenize(text: string): string[] {
+  // Odstranimo HTML in posebne znake
+  const clean = text.replace(/<[^>]+>/g, ' ').toLowerCase();
+  const normalized = unaccent(clean);
+  
+  // Razbijemo na besede
+  const rawTokens = normalized.split(/[^a-z0-9čšž]+/);
+  const validTokens: string[] = [];
+
+  for (let i = 0; i < rawTokens.length; i++) {
+    const t = rawTokens[i];
+    // Filtriramo kratke besede in stop besede
+    if (t.length > 2 && !SLO_STOPWORDS.has(t)) {
+      // Uporabimo stemmer na vsaki besedi
+      validTokens.push(slovenianStemmer(t));
+    }
+  }
+  return validTokens;
+}
+
+/* ==========================================================================
+   3. HELPER FUNCTIONS (URL, Dates)
    ========================================================================== */
 function cleanUrl(raw: string): URL | null {
   try {
     const u = new URL(raw.trim())
     u.protocol = 'https:'
     u.host = u.host.toLowerCase().replace(/^www\./, '')
-
-    const TRACK = [
-      /^utm_/i, /^fbclid$/i, /^gclid$/i, /^ref$/i, /^src$/i, /^from$/i,
-      /^si_src$/i, /^mc_cid$/i, /^mc_eid$/i,
-    ]
-    for (const [k] of Array.from(u.searchParams.entries())) {
-      if (TRACK.some((rx) => rx.test(k))) u.searchParams.delete(k)
+    const TRACK = [/^utm_/i, /^fbclid$/i, /^gclid$/i, /^ref$/i, /^src$/i, /^si_src$/i]
+    
+    // Uporaba Array.from za kompatibilnost
+    const params = Array.from(u.searchParams.entries());
+    for (let i = 0; i < params.length; i++) {
+        if (TRACK.some((rx) => rx.test(params[i][0]))) {
+            u.searchParams.delete(params[i][0]);
+        }
     }
 
-    u.pathname = u.pathname.replace(/\/amp\/?$/i, '/')
-    if (u.pathname.length > 1) u.pathname = u.pathname.replace(/\/+$/, '')
+    u.pathname = u.pathname.replace(/\/amp\/?$/i, '/').replace(/\/+$/, '')
     u.hash = ''
     if (u.host.endsWith('rtvslo.si')) u.host = 'rtvslo.si'
-
     return u
-  } catch {
-    return null
-  }
-}
-
-function yyyymmdd(iso?: string | null): string | null {
-  if (!iso) return null
-  const d = new Date(iso)
-  if (Number.isNaN(+d)) return null
-  const y = d.getUTCFullYear()
-  const m = String(d.getUTCMonth() + 1).padStart(2, '0')
-  const dd = String(d.getUTCDate()).padStart(2, '0')
-  return `${y}${m}${dd}`
+  } catch { return null }
 }
 
 function makeLinkKey(raw: string, iso?: string | null): string {
   const u = cleanUrl(raw)
   if (!u) return raw.trim()
-
+  
   const nums: string[] = []
   const pathNums = u.pathname.match(/\d{6,}/g)
   if (pathNums) nums.push(...pathNums)
 
-  for (const [, v] of Array.from(u.searchParams.entries())) {
-    if (/^\d{6,}$/.test(v)) nums.push(v)
+  // Array.from za kompatibilnost
+  const params = Array.from(u.searchParams.entries());
+  for (let i = 0; i < params.length; i++) {
+      if (/^\d{6,}$/.test(params[i][1])) nums.push(params[i][1])
   }
 
-  const numericId = nums.sort((a, b) => b.length - a.length)[0]
-  if (numericId) return `https://${u.host}/a/${numericId}`
+  if (nums.length > 0) {
+      nums.sort((a, b) => b.length - a.length);
+      return `https://${u.host}/a/${nums[0]}`
+  }
 
   const parts = u.pathname.split('/').filter(Boolean)
-  let last = parts.length ? parts[parts.length - 1] : ''
-  last = last.replace(/\.[a-z0-9]+$/i, '')
-
-  const day = yyyymmdd(iso) ?? ''
+  const last = (parts.length ? parts[parts.length - 1] : '').replace(/\.[a-z0-9]+$/i, '')
+  
+  let day = '';
+  if (iso) {
+      const d = new Date(iso);
+      if (!Number.isNaN(+d)) {
+          day = d.toISOString().slice(0, 10).replace(/-/g, '');
+      }
+  }
+  
   if (last && day) return `https://${u.host}/a/${day}-${last.toLowerCase()}`
-  if (last) return `https://${u.host}/a/${last.toLowerCase()}`
-
   return `https://${u.host}${u.pathname}`
 }
 
 /* ==========================================================================
-   3. DB TYPES & HELPERS
+   4. DB & DATA MAPPING
    ========================================================================== */
-type Row = {
-  id: number
-  link: string
-  link_canonical: string | null
-  link_key: string | null
-  title: string
-  source: string
-  image: string | null
-  contentsnippet: string | null
-  summary: string | null
-  isodate: string | null
-  pubdate: string | null
-  published_at: string | null
-  publishedat: number | null
-  created_at: string | null
-}
-
-export type NewsItem = {
-  title: string
-  link: string
-  source: string
-  image?: string | null
-  contentSnippet?: string | null
-  publishedAt: number
-  isoDate?: string | null
-}
-
-const unaccent = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-const normTitle = (s: string) => unaccent(s).toLowerCase().replace(/\s+/g, ' ').trim()
-const tsSec = (ms?: number | null) => Math.max(0, Math.floor((typeof ms === 'number' ? ms : 0) / 1000))
-
-function softDedupe<T extends { source?: string; title?: string; publishedAt?: number }>(arr: T[]): T[] {
-  const byKey = new Map<string, T>()
-  for (const it of arr) {
-    const key = `${(it.source || '').trim()}|${normTitle(it.title || '')}|${tsSec(it.publishedAt || 0)}`
-    const prev = byKey.get(key)
-    if (!prev || (it.publishedAt || 0) > (prev.publishedAt || 0)) {
-      byKey.set(key, it)
-    }
-  }
-  return Array.from(byKey.values())
-}
-
-function normalizeSnippet(item: FeedNewsItem): string | null {
-  const snippet = (item.contentSnippet || '').trim()
-  if (snippet) return snippet
-  const fromContent = (item.content || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
-  return fromContent || null
-}
-
 function resolveTimestamps(item: FeedNewsItem) {
-  const parse = (value?: string | null) => {
-    if (!value) return null
-    const t = Date.parse(value)
-    return Number.isNaN(t) ? null : { raw: value, ms: t, iso: new Date(t).toISOString() }
-  }
-  const fromIso = parse(item.isoDate)
-  const fromPub = parse(item.pubDate)
-  const msFromNumber = typeof item.publishedAt === 'number' && item.publishedAt > 0 ? item.publishedAt : null
-  
-  const ms = fromIso?.ms ?? fromPub?.ms ?? msFromNumber ?? Date.now()
-  const iso = fromIso?.iso ?? fromPub?.iso ?? new Date(ms).toISOString()
-  
-  return { ms: Math.round(ms), iso, isoRaw: fromIso?.raw ?? fromPub?.raw ?? iso, pubRaw: fromPub?.raw ?? null }
+  const parse = (v?: string | null) => v ? Date.parse(v) : NaN
+  let ms = parse(item.isoDate) || parse(item.pubDate) || (typeof item.publishedAt === 'number' ? item.publishedAt : Date.now())
+  if (Number.isNaN(ms)) ms = Date.now()
+  return { ms, iso: new Date(ms).toISOString() }
 }
 
 function feedItemToDbRow(item: FeedNewsItem) {
   const linkRaw = (item.link || '').trim()
   const ts = resolveTimestamps(item)
-  const linkCanonical = cleanUrl(linkRaw)?.toString() || linkRaw
   const linkKey = makeLinkKey(linkRaw, ts.iso)
-  const title = (item.title || '').trim()
-  const source = (item.source || '').trim()
+  if (!linkKey || !item.title) return null
   
-  if (!linkKey || !title || !source) return null
-  const snippet = normalizeSnippet(item)
+  const snippet = (item.contentSnippet || item.content || '').replace(/<[^>]+>/g, ' ').slice(0, 500).trim()
 
   return {
     link: linkRaw,
-    link_canonical: linkCanonical,
+    link_canonical: cleanUrl(linkRaw)?.toString() || linkRaw,
     link_key: linkKey,
-    title,
-    source,
+    title: item.title.trim(),
+    source: (item.source || '').trim(),
     image: item.image?.trim() || null,
     contentsnippet: snippet,
     summary: snippet,
-    isodate: ts.isoRaw,
-    pubdate: ts.pubRaw,
     published_at: ts.iso,
     publishedat: ts.ms,
   }
 }
 
-async function syncToSupabase(items: FeedNewsItem[]) {
-  if (!supabaseWrite) return
-  const shaped = items.map((i) => {
-    const t = resolveTimestamps(i)
-    return { ...i, title: i.title || '', source: i.source || '', publishedAt: t.ms }
-  })
-  const dedupedIn = softDedupe(shaped)
-  const rows = dedupedIn.map(feedItemToDbRow).filter(Boolean) as any[]
-  if (!rows.length) return
-
-  const { error } = await (supabaseWrite as any).from('news').upsert(rows, {
-    onConflict: 'link_key',
-    ignoreDuplicates: true,
-  })
-  if (error) throw error
-}
-
-const toMs = (s?: string | null) => {
-  if (!s) return 0
-  const v = Date.parse(s)
-  return Number.isFinite(v) ? v : 0
-}
-
-function rowToItem(r: Row): NewsItem {
-  const ms = (r.publishedat && Number(r.publishedat)) || toMs(r.published_at) || toMs(r.pubdate) || Date.now()
+function rowToItem(r: any): any {
   return {
     title: r.title,
-    link: r.link_canonical || r.link || '',
+    link: r.link_canonical || r.link,
     source: r.source,
-    image: r.image || null,
-    contentSnippet: r.summary?.trim() || r.contentsnippet?.trim() || null,
-    publishedAt: ms,
-    isoDate: r.published_at || r.isodate || null,
+    image: r.image,
+    contentSnippet: r.summary || r.contentsnippet,
+    publishedAt: Number(r.publishedat) || 0
   }
 }
 
 /* ==========================================================================
-   4. ADVANCED CLUSTERING (TF-IDF & COSINE SIMILARITY)
+   5. CLUSTERING LOGIC (TF-IDF + COSINE SIMILARITY)
    ========================================================================== */
-
-const TREND_WINDOW_HOURS = 12 
+const TREND_WINDOW_HOURS = 18
 const TREND_MIN_SOURCES = 2
 const TREND_MAX_ITEMS = 60
-const SIMILARITY_THRESHOLD = 0.35 
+const SIMILARITY_THRESHOLD = 0.30 // Malenkost nižji prag za boljšo občutljivost
 
-const STOPWORDS = new Set([
-  'v', 'na', 'ob', 'po', 'pri', 'pod', 'nad', 'za', 'do', 'od', 'z', 's',
-  'in', 'ali', 'pa', 'kot', 'je', 'so', 'se', 'bo', 'bodo', 'bil', 'bila',
-  'bili', 'bilo', 'bi', 'ko', 'ker', 'da', 'ne', 'ni', 'sta', 'ste', 'smo',
-  'iz', 'ter', 'kjer', 'kako', 'zakaj', 'kaj', 'kdo', 'kam', 'kadar',
-  'le', 'še', 'samo', 'tudi', 'lahko', 'mora', 'morajo', 'gre', 'imajo', 'ima',
-  'danes', 'včeraj', 'jutri', 'teden', 'mesec', 'leto', 'čas', 'ura',
-  'video', 'foto', 'preberite', 'poglejte', 'novice', 'članek', 'podrobnosti',
-  'slovenija', 'sloveniji', 'slovenije', 'svet', 'evropa',
-  'prvi', 'drugi', 'tretji', 'nova', 'novi', 'novo', 'velik', 'malo', 'več',
-  'zaradi', 'glede', 'proti', 'brez', 'med', 'pred', 'čez',
-  'policija', 'sporočili', 'uprava', 'agencija', 
-]);
+function computeVectors(docs: { id: number, tokens: string[] }[]) {
+  const df = new Map<string, number>();
+  const N = docs.length;
 
-type StoryArticle = {
-  source: string;
-  link: string;
-  title: string;
-  summary: string | null;
-  publishedAt: number;
-}
+  // 1. Document Frequency
+  for (let i = 0; i < docs.length; i++) {
+    // Unique tokens per doc
+    const unique = new Set(docs[i].tokens);
+    const uniqueArr = Array.from(unique); // Kompatibilnost
+    for(let j=0; j<uniqueArr.length; j++) {
+        const t = uniqueArr[j];
+        df.set(t, (df.get(t) || 0) + 1);
+    }
+  }
 
-function tokenize(text: string): string[] {
-  const clean = text.replace(/<[^>]+>/g, ' ').toLowerCase();
-  const normalized = unaccent(clean); 
-  return normalized
-    .split(/[^a-z0-9]+/)
-    .filter(w => w.length > 2 && !STOPWORDS.has(w));
-}
-
-function extractEntities(text: string): Set<string> {
-    const entities = new Set<string>();
-    const clean = text.replace(/<[^>]+>/g, ' ');
-    const words = clean.split(/\s+/);
+  // 2. TF-IDF Vectors
+  return docs.map(doc => {
+    const vec = new Map<string, number>();
+    const tf = new Map<string, number>();
     
-    // Uporabimo standardno for zanko za polno kompatibilnost
-    for (let i = 0; i < words.length; i++) {
-        const w = words[i];
-        const cleanW = w.replace(/[.,:;!?()"']/g, '');
-        if (cleanW.length > 3 && /^[A-ZČŠŽ]/.test(cleanW)) {
-             entities.add(unaccent(cleanW.toLowerCase()));
-        }
-        if (/\d+/.test(cleanW)) {
-            entities.add(cleanW);
-        }
-    }
-    return entities;
-}
-
-function computeTFIDFVectors(docs: { id: number, tokens: string[], entities: Set<string> }[]) {
-    const df = new Map<string, number>(); 
-    const N = docs.length;
-
-    // 1. Izračun DF - POPRAVEK: Izogibanje iteracije po Set-u direktno
-    for (let i = 0; i < docs.length; i++) {
-        const doc = docs[i];
-        // Pretvorimo Set v Array za varno iteracijo v ES5
-        const seenTokens = Array.from(new Set(doc.tokens));
-        seenTokens.forEach(token => {
-             df.set(token, (df.get(token) || 0) + 1);
-        });
+    // Count TF
+    for(let k=0; k<doc.tokens.length; k++) {
+        const t = doc.tokens[k];
+        tf.set(t, (tf.get(t) || 0) + 1);
     }
 
-    // 2. Kreiranje vektorjev
-    return docs.map(doc => {
-        const vec = new Map<string, number>();
-        const tf = new Map<string, number>();
+    let magnitudeSq = 0;
+    
+    // Calculate weights
+    // Uporabljamo Array.from za iteracijo map-a zaradi kompatibilnosti
+    const tfEntries = Array.from(tf.entries());
+    for(let m=0; m<tfEntries.length; m++) {
+        const [term, count] = tfEntries[m];
+        const docFreq = df.get(term) || 0;
+        const idf = Math.log(N / (docFreq + 1)) + 1;
+        const weight = count * idf;
         
-        doc.tokens.forEach(t => {
-            tf.set(t, (tf.get(t) || 0) + 1);
-        });
+        vec.set(term, weight);
+        magnitudeSq += weight * weight;
+    }
 
-        let magnitudeSq = 0;
-
-        // POPRAVEK: Iteracija po Map s forEach namesto for..of
-        tf.forEach((freq, term) => {
-            const docFreq = df.get(term) || 0;
-            const idf = Math.log(N / (docFreq + 1)) + 1;
-            
-            let weight = freq * idf;
-
-            if (doc.entities.has(term)) {
-                weight *= 2.5; 
-            }
-
-            vec.set(term, weight);
-            magnitudeSq += weight * weight;
-        });
-
-        return { 
-            id: doc.id, 
-            vec, 
-            magnitude: Math.sqrt(magnitudeSq) 
-        };
-    });
+    return { id: doc.id, vec, magnitude: Math.sqrt(magnitudeSq) };
+  });
 }
 
 function cosineSimilarity(v1: Map<string, number>, mag1: number, v2: Map<string, number>, mag2: number): number {
-    if (mag1 === 0 || mag2 === 0) return 0;
-    
-    let dot = 0;
-    const [smaller, larger] = v1.size < v2.size ? [v1, v2] : [v2, v1];
-    
-    // POPRAVEK: Iteracija po Map s forEach
-    smaller.forEach((val1, term) => {
-        const val2 = larger.get(term);
-        if (val2) {
-            dot += val1 * val2;
-        }
-    });
-    
-    return dot / (mag1 * mag2);
+  if (!mag1 || !mag2) return 0;
+  
+  let dot = 0;
+  // Optimizacija: iteriramo po manjšem vektorju
+  const [smaller, larger] = v1.size < v2.size ? [v1, v2] : [v2, v1];
+  
+  const entries = Array.from(smaller.entries());
+  for(let i=0; i<entries.length; i++) {
+      const [term, val1] = entries[i];
+      const val2 = larger.get(term);
+      if (val2) {
+          dot += val1 * val2;
+      }
+  }
+  
+  return dot / (mag1 * mag2);
 }
 
-async function fetchTrendingRows(): Promise<Row[]> {
-  const cutoffMs = Date.now() - TREND_WINDOW_HOURS * 3_600_000
-  const { data, error } = await supabaseRead
+async function getTrendingItems() {
+  const cutoff = Date.now() - TREND_WINDOW_HOURS * 3600000;
+  
+  // Pridobimo podatke iz baze
+  const { data: rows, error } = await supabaseRead
     .from('news')
-    .select('id, link, link_canonical, link_key, title, source, image, contentsnippet, summary, publishedat, isodate, pubdate, created_at')
-    .gt('publishedat', cutoffMs)
+    .select('*')
+    .gt('publishedat', cutoff)
     .order('publishedat', { ascending: false })
-    .limit(300) 
+    .limit(400);
 
-  if (error) throw new Error(`DB trending: ${error.message}`)
-  return (data || []) as Row[]
-}
+  if (error || !rows || !rows.length) return [];
 
-function computeTrendingFromRows(rows: Row[]): (NewsItem & { storyArticles: StoryArticle[] })[] {
-    if (!rows.length) return [];
+  // Priprava dokumentov za analizo
+  const docs = rows.map((r, i) => {
+    // Združimo naslov in povzetek, naslov ponovimo za večjo težo
+    const text = `${r.title} ${r.title} ${r.summary || ''}`;
+    return {
+        id: i,
+        row: r,
+        tokens: tokenize(text), // Tu se zgodi čarovnija (Stopwords + Stemming)
+        ms: Number(r.publishedat)
+    };
+  }).filter(d => d.tokens.length > 0);
 
-    const docs = rows.map((r, idx) => {
-        const title = (r.title || '').trim();
-        const snippet = (r.summary || r.contentsnippet || '').trim();
-        const text = `${title} ${title} ${snippet}`; 
-        
-        return {
-            id: idx,
-            row: r,
-            tokens: tokenize(text),
-            entities: extractEntities(title + ' ' + snippet), 
-            ms: (r.publishedat && Number(r.publishedat)) || toMs(r.published_at) || Date.now()
-        };
-    }).filter(d => d.tokens.length > 0);
+  // Izračun vektorjev
+  const vectors = computeVectors(docs.map(d => ({ id: d.id, tokens: d.tokens })));
+  const enriched = docs.map((d, i) => ({ ...d, ...vectors[i] }));
 
-    const vectors = computeTFIDFVectors(docs.map(d => ({ id: d.id, tokens: d.tokens, entities: d.entities })));
+  // Grupiranje (Clustering)
+  const clusters: typeof enriched[] = [];
+  const assigned = new Set<number>();
 
-    const enrichedDocs = docs.map((d, i) => ({ ...d, vector: vectors[i] }));
-    enrichedDocs.sort((a, b) => b.ms - a.ms);
+  // Sortiramo po času (novejši so "magneti" za grupiranje)
+  enriched.sort((a, b) => b.ms - a.ms);
 
-    const clusters: typeof enrichedDocs[] = [];
-    const assigned = new Set<number>();
+  for (let i = 0; i < enriched.length; i++) {
+      const doc = enriched[i];
+      if (assigned.has(doc.id)) continue;
 
-    // POPRAVEK: Uporaba standardne for zanke namesto for..of kjer je to kritično
-    for (let i = 0; i < enrichedDocs.length; i++) {
-        const doc = enrichedDocs[i];
-        if (assigned.has(doc.id)) continue;
+      const cluster = [doc];
+      assigned.add(doc.id);
 
-        const currentCluster = [doc];
-        assigned.add(doc.id);
+      for (let j = 0; j < enriched.length; j++) {
+          const other = enriched[j];
+          if (assigned.has(other.id)) continue;
 
-        for (let j = 0; j < enrichedDocs.length; j++) {
-            const other = enrichedDocs[j];
-            if (assigned.has(other.id)) continue;
+          const sim = cosineSimilarity(doc.vec, doc.magnitude, other.vec, other.magnitude);
+          
+          // Časovni penalty: starejše novice morajo biti bolj podobne, da se združijo
+          const hoursDiff = Math.abs(doc.ms - other.ms) / 36e5;
+          let threshold = SIMILARITY_THRESHOLD;
+          if (hoursDiff > 10) threshold += 0.15;
 
-            const similarity = cosineSimilarity(
-                doc.vector.vec, doc.vector.magnitude,
-                other.vector.vec, other.vector.magnitude
-            );
+          if (sim > threshold) {
+              cluster.push(other);
+              assigned.add(other.id);
+          }
+      }
+      clusters.push(cluster);
+  }
 
-            const timeDiffHours = Math.abs(doc.ms - other.ms) / 36e5;
-            let threshold = SIMILARITY_THRESHOLD;
-            if (timeDiffHours > 6) threshold += 0.15; 
+  // Formatiranje rezultatov
+  const results = [];
+  for (let i = 0; i < clusters.length; i++) {
+      const cluster = clusters[i];
+      
+      const sources = new Set(cluster.map(c => c.row.source));
+      if (sources.size < TREND_MIN_SOURCES) continue; // Ignoriramo teme, ki jih pokriva le en vir
 
-            if (similarity > threshold) {
-                currentCluster.push(other);
-                assigned.add(other.id);
-            }
-        }
-        clusters.push(currentCluster);
-    }
+      const leader = cluster[0]; // Najnovejši članek je glavni
+      const storyArticles = cluster
+        .filter(c => c.id !== leader.id)
+        .map(c => ({
+            source: c.row.source,
+            link: c.row.link_canonical || c.row.link,
+            title: c.row.title,
+            publishedAt: c.ms
+        }));
 
-    const results: (NewsItem & { storyArticles: StoryArticle[] })[] = [];
+      results.push({
+          ...rowToItem(leader.row),
+          storyArticles,
+          clusterSize: sources.size,
+          freshness: leader.ms
+      });
+  }
 
-    // POPRAVEK: Standardna iteracija
-    for (let i = 0; i < clusters.length; i++) {
-        const cluster = clusters[i];
-        const sources = new Set(cluster.map(c => c.row.source));
-        if (sources.size < TREND_MIN_SOURCES) continue;
+  // Končno sortiranje: "Vročina" novice
+  results.sort((a, b) => {
+      // Formula: (število različnih virov * 3) - (starost v urah)
+      const ageHoursA = (Date.now() - a.freshness) / 36e5;
+      const ageHoursB = (Date.now() - b.freshness) / 36e5;
+      
+      const scoreA = (a.clusterSize * 3) - ageHoursA;
+      const scoreB = (b.clusterSize * 3) - ageHoursB;
+      
+      return scoreB - scoreA;
+  });
 
-        const leader = cluster[0];
-        
-        const stories: StoryArticle[] = cluster
-            .filter(c => c.id !== leader.id) 
-            .map(c => ({
-                source: c.row.source,
-                link: c.row.link_canonical || c.row.link,
-                title: c.row.title,
-                summary: c.row.summary || c.row.contentsnippet,
-                publishedAt: c.ms
-            }));
-
-        results.push({
-            ...rowToItem(leader.row),
-            storyArticles: stories
-        });
-    }
-
-    results.sort((a, b) => {
-        const scoreA = (new Set(a.storyArticles.map(s => s.source)).size + 1) * 10;
-        const scoreB = (new Set(b.storyArticles.map(s => s.source)).size + 1) * 10;
-        
-        const ageA = (Date.now() - a.publishedAt) / 36e5;
-        const ageB = (Date.now() - b.publishedAt) / 36e5;
-        
-        return (scoreB - ageB) - (scoreA - ageA);
-    });
-
-    return results.slice(0, TREND_MAX_ITEMS);
+  return results.slice(0, TREND_MAX_ITEMS);
 }
 
 /* ==========================================================================
-   5. API HANDLER
+   6. API HANDLER
    ========================================================================== */
-type PagedOk = { items: NewsItem[]; nextCursor: number | null }
-type ListOk = NewsItem[]
-type Err = { error: string }
-
-export default async function handler(
-  req: NextApiRequest,
-  res: NextApiResponse<PagedOk | ListOk | Err>,
-) {
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
-    const paged = req.query.paged === '1'
-    const wantsFresh = req.query.forceFresh === '1'
-    const source = (req.query.source as string) || null
-    const variant = (req.query.variant as string) || 'latest'
+    const { variant, forceFresh } = req.query;
 
-    // --- TRENDING VARIANT ---
+    // A) Vrača grupirane "Trending" novice
     if (variant === 'trending') {
       try {
-        const rows = await fetchTrendingRows()
-        const items = computeTrendingFromRows(rows)
-        res.setHeader('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=60') 
-        return res.status(200).json(items as any)
+        const items = await getTrendingItems();
+        res.setHeader('Cache-Control', 'public, s-maxage=120, stale-while-revalidate=60');
+        return res.status(200).json(items);
       } catch (err: any) {
-        console.error('Trending fail:', err)
-        return res.status(500).json({ error: err?.message || 'Trending error' })
+        console.error("Trending Error:", err);
+        return res.status(500).json({ error: err.message });
       }
     }
 
-    // --- INGEST LOGIC ---
-    const headerSecret = (req.headers['x-cron-secret'] as string | undefined)?.trim()
-    const isCronCaller = Boolean(CRON_SECRET && headerSecret && headerSecret === CRON_SECRET)
-    const isInternalIngest = req.headers['x-krizisce-ingest'] === '1'
-    const isDev = process.env.NODE_ENV !== 'production'
-    const tokenOk = CRON_SECRET && req.query.token === CRON_SECRET
-    const allowPublic = process.env.ALLOW_PUBLIC_REFRESH === '1'
-    const canIngest = isCronCaller || isInternalIngest || isDev || tokenOk || allowPublic
+    // B) Ingest (Osveževanje virov)
+    const canIngest = forceFresh === '1' && (
+        process.env.ALLOW_PUBLIC_REFRESH === '1' || 
+        req.query.token === CRON_SECRET ||
+        process.env.NODE_ENV !== 'production'
+    );
 
-    if (!paged && wantsFresh && canIngest) {
-       fetchRSSFeeds({ forceFresh: true })
-        .then(rss => rss?.length ? syncToSupabase(rss.slice(0, 250)) : null)
-        .catch(err => console.error('RSS Sync error:', err));
+    if (canIngest) {
+      // Asinhrono osveževanje (ne čakamo, da se konča)
+      fetchRSSFeeds({ forceFresh: true })
+        .then(rss => {
+           if (rss && rss.length) {
+               const rows = rss.map(feedItemToDbRow).filter(Boolean);
+               if (supabaseWrite) {
+                   return (supabaseWrite as any).from('news').upsert(rows, { 
+                       onConflict: 'link_key', 
+                       ignoreDuplicates: true 
+                   });
+               }
+           }
+        })
+        .catch(err => console.error("Ingest Error:", err));
     }
 
-    // --- STANDARD LIST LOGIC ---
-    const limit = Math.min(Math.max(parseInt(String(req.query.limit ?? (paged ? 40 : 60)), 10) || 60, 1), 200)
-    const cursor = req.query.cursor ? Number(req.query.cursor) : null
+    // C) Navaden seznam novic (Latest)
+    const limit = Math.min(Number(req.query.limit) || 60, 100);
+    const cursor = req.query.cursor ? Number(req.query.cursor) : null;
 
     let q = supabaseRead
-      .from('news')
-      .select('id, link, link_canonical, link_key, title, source, image, contentsnippet, summary, isodate, pubdate, published_at, publishedat, created_at')
-      .gt('publishedat', 0)
-      .order('publishedat', { ascending: false })
-      .order('id', { ascending: false })
+        .from('news')
+        .select('*')
+        .order('publishedat', { ascending: false })
+        .limit(limit);
 
-    if (source && source !== 'Vse') q = q.eq('source', source)
-    if (cursor && cursor > 0) q = q.lt('publishedat', cursor)
-    q = q.limit(limit)
+    if (req.query.source && req.query.source !== 'Vse') {
+        q = q.eq('source', req.query.source);
+    }
+    if (cursor) {
+        q = q.lt('publishedat', cursor);
+    }
+    
+    const { data, error } = await q;
+    
+    if (error) throw error;
+    
+    const items = (data || []).map(rowToItem);
+    
+    // De-duplikacija za navaden seznam (mehka)
+    const dedupedItems = [];
+    const seenKeys = new Set();
+    
+    for(const item of items) {
+        // Enostavnejši key za dedup: vir + normaliziran naslov
+        const key = item.source + '|' + unaccent(item.title).toLowerCase().slice(0, 20);
+        if(!seenKeys.has(key)) {
+            dedupedItems.push(item);
+            seenKeys.add(key);
+        }
+    }
 
-    const { data, error } = await q
-    if (error) return res.status(500).json({ error: `DB: ${error.message}` })
+    const nextCursor = data && data.length === limit ? data[data.length-1].publishedat : null;
+    
+    res.setHeader('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=30');
+    if (req.query.paged === '1') {
+        return res.status(200).json({ items: dedupedItems, nextCursor });
+    }
+    return res.status(200).json(dedupedItems);
 
-    const rows = (data || []) as Row[]
-    const rawItems = rows.map(rowToItem)
-    const items = softDedupe(rawItems).sort((a, b) => b.publishedAt - a.publishedAt)
-    const nextCursor = rows.length === limit ? (rows[rows.length - 1].publishedat ? Number(rows[rows.length - 1].publishedat) : null) : null
-
-    res.setHeader('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=30') 
-    if (paged) return res.status(200).json({ items, nextCursor })
-    return res.status(200).json(items)
   } catch (e: any) {
-    return res.status(500).json({ error: e?.message || 'Unexpected error' })
+    console.error("API Error:", e);
+    res.status(500).json({ error: e.message || 'Unknown error' });
   }
 }
