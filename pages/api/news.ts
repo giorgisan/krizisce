@@ -6,16 +6,16 @@ import fetchRSSFeeds from '@/lib/fetchRSSFeeds'
 import type { NewsItem as FeedNewsItem } from '@/types'
 
 /* ==========================================================================
-   1. CONFIG & SUPABASE
+   1. KONFIGURACIJA
    ========================================================================== */
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL as string
 const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY as string | undefined
 const CRON_SECRET = process.env.CRON_SECRET as string | undefined
 
-// KONFIGURACIJA GRUPIRANJA
-const TREND_WINDOW_HOURS = 6;  // Samo zadnjih 6 ur
-const TREND_MIN_SOURCES = 2;   // Vsaj 2 vira
+// Nastavitve za "Aktualno" (Trending)
+const TREND_WINDOW_HOURS = 6;     // Zadnjih 6 ur
+const TREND_MIN_SOURCES = 2;      // Vsaj 2 različna vira
 const TREND_MAX_ITEMS = 50;
 const SIMILARITY_THRESHOLD = 0.25; // Prag za trigrame
 
@@ -29,7 +29,7 @@ const supabaseWrite = SUPABASE_SERVICE_ROLE_KEY
   : null
 
 /* ==========================================================================
-   2. URL & HELPERJI (Iz vaše originalne kode)
+   2. URL & HELPERJI (Iz originalne kode)
    ========================================================================== */
 function cleanUrl(raw: string): URL | null {
   try {
@@ -50,16 +50,19 @@ function cleanUrl(raw: string): URL | null {
 function makeLinkKey(raw: string, iso?: string | null): string {
   const u = cleanUrl(raw)
   if (!u) return raw.trim()
+  
   const nums: string[] = []
   const pathNums = u.pathname.match(/\d{6,}/g)
   if (pathNums) nums.push(...pathNums)
   for (const [, v] of Array.from(u.searchParams.entries())) {
     if (/^\d{6,}$/.test(v)) nums.push(v)
   }
+  
   if (nums.length > 0) {
       nums.sort((a, b) => b.length - a.length);
       return `https://${u.host}/a/${nums[0]}`
   }
+
   const parts = u.pathname.split('/').filter(Boolean)
   const last = (parts.length ? parts[parts.length - 1] : '').replace(/\.[a-z0-9]+$/i, '')
   let day = '';
@@ -71,7 +74,9 @@ function makeLinkKey(raw: string, iso?: string | null): string {
   return `https://${u.host}${u.pathname}`
 }
 
-// Helperji za bazo
+/* ==========================================================================
+   3. DB HELPERJI
+   ========================================================================== */
 type Row = {
   id: number; link: string; link_canonical: string | null; link_key: string | null;
   title: string; source: string; image: string | null; contentsnippet: string | null; summary: string | null;
@@ -121,22 +126,30 @@ function rowToItem(r: any): NewsItem {
   }
 }
 
-// Funkcija za sinhronizacijo (iz vaše stare kode - NUJNA za osveževanje)
+// ORIGINALNA FUNKCIJA ZA ZAPIS (Obvezno potrebna za await)
 async function syncToSupabase(items: FeedNewsItem[]) {
   if (!supabaseWrite) return
-  const rows = items.map(feedItemToDbRow).filter(Boolean) as any[]
+  
+  // Dedup na vhodu
+  const byKey = new Map<string, FeedNewsItem>();
+  items.forEach(i => {
+      const link = (i.link || '').trim();
+      if(link) byKey.set(link, i);
+  });
+  const uniqueItems = Array.from(byKey.values());
+
+  const rows = uniqueItems.map(feedItemToDbRow).filter(Boolean) as any[]
   if (!rows.length) return
 
-  // Uporabimo upsert, da ne podvajamo
   const { error } = await (supabaseWrite as any)
     .from('news')
     .upsert(rows, { onConflict: 'link_key', ignoreDuplicates: true })
-  
+
   if (error) throw error
 }
 
 /* ==========================================================================
-   3. TRIGRAM LOGIKA (Za pravilno združevanje Vloma/Vlamljanja)
+   4. TRIGRAM LOGIKA (Ohranjena za boljše združevanje)
    ========================================================================== */
 function getCharacterTrigrams(text: string): Map<string, number> {
   const clean = text.toLowerCase()
@@ -152,14 +165,19 @@ function getCharacterTrigrams(text: string): Map<string, number> {
 
 function cosineSimilarityTrigrams(v1: Map<string, number>, v2: Map<string, number>): number {
   let dot = 0, mag1 = 0, mag2 = 0;
-  const vals1 = Array.from(v1.values());
-  for(let i=0; i<vals1.length; i++) mag1 += vals1[i]**2;
-  const vals2 = Array.from(v2.values());
-  for(let i=0; i<vals2.length; i++) mag2 += vals2[i]**2;
+  
+  // Iteracija z Array.from za kompatibilnost
+  const v1Vals = Array.from(v1.values());
+  for(let i=0; i<v1Vals.length; i++) mag1 += v1Vals[i]**2;
+  
+  const v2Vals = Array.from(v2.values());
+  for(let i=0; i<v2Vals.length; i++) mag2 += v2Vals[i]**2;
+  
   if (!mag1 || !mag2) return 0;
 
   const [smaller, larger] = v1.size < v2.size ? [v1, v2] : [v2, v1];
   const smallEntries = Array.from(smaller.entries());
+  
   for(let i=0; i<smallEntries.length; i++) {
       const [gram, count] = smallEntries[i];
       const count2 = larger.get(gram);
@@ -198,6 +216,7 @@ async function getTrendingItems() {
       for (let j = 0; j < docs.length; j++) {
           const other = docs[j];
           if (assigned.has(other.id)) continue;
+          
           const sim = cosineSimilarityTrigrams(doc.trigrams, other.trigrams);
           if (sim > SIMILARITY_THRESHOLD) {
               cluster.push(other);
@@ -211,11 +230,14 @@ async function getTrendingItems() {
   for (const cluster of clusters) {
       const sources = new Set(cluster.map(c => c.row.source));
       if (sources.size < TREND_MIN_SOURCES) continue;
+      
       cluster.sort((a, b) => b.ms - a.ms);
       const leader = cluster[0];
+      
       const storyArticles = cluster.filter(c => c.id !== leader.id).map(c => ({
           source: c.row.source, link: c.row.link_canonical || c.row.link, title: c.row.title, publishedAt: c.ms
       }));
+      
       results.push({
           ...rowToItem(leader.row),
           storyArticles,
@@ -223,12 +245,13 @@ async function getTrendingItems() {
           freshness: leader.ms
       });
   }
+  
   results.sort((a, b) => (b.clusterSize - a.clusterSize) || (b.freshness - a.freshness));
   return results.slice(0, TREND_MAX_ITEMS);
 }
 
 /* ==========================================================================
-   4. API HANDLER (POPRAVLJEN INGEST)
+   5. API HANDLER (POPRAVLJEN INGEST!)
    ========================================================================== */
 type PagedOk = { items: NewsItem[]; nextCursor: number | null }
 type ListOk = NewsItem[]
@@ -244,7 +267,7 @@ export default async function handler(
     const source = (req.query.source as string) || null
     const variant = (req.query.variant as string) || 'latest'
 
-    // 1. TRENDING (AKTUALNO)
+    // --- 1. TRENDING / AKTUALNO ---
     if (variant === 'trending') {
       try {
         const items = await getTrendingItems();
@@ -255,8 +278,9 @@ export default async function handler(
       }
     }
 
-    // 2. INGEST LOGIKA (POPRAVLJENA - Vzeta iz vaše stare kode)
-    // Preverjanje pravic
+    // --- 2. INGEST LOGIKA (POPRAVLJENO!) ---
+    // Tukaj je bil problem. Vrnjen je "await", da Vercel ne prekine procesa.
+    
     const headerSecret = (req.headers['x-cron-secret'] as string | undefined)?.trim()
     const isCronCaller = Boolean(CRON_SECRET && headerSecret && headerSecret === CRON_SECRET)
     const isInternalIngest = req.headers['x-krizisce-ingest'] === '1'
@@ -266,19 +290,20 @@ export default async function handler(
     
     const canIngest = isCronCaller || isInternalIngest || isDev || tokenOk || allowPublic
 
-    // TU JE BILA NAPAKA: Vrnjen je "await", da Vercel ne ubije procesa
     if (!paged && wantsFresh && canIngest) {
       try {
+        // AWAIT je nujen!
         const rss = await fetchRSSFeeds({ forceFresh: true })
         if (rss?.length) {
             await syncToSupabase(rss.slice(0, 250))
         }
       } catch (err) {
         console.error('❌ RSS sync error:', err)
+        // Nadaljujemo, da vsaj vrnemo stare novice, če ingest spodleti
       }
     }
 
-    // 3. REGULAR LIST (NAJNOVEJŠE)
+    // --- 3. SEZNAM (LATEST) ---
     const limit = Math.min(Math.max(parseInt(String(req.query.limit ?? (paged ? 40 : 60)), 10) || (paged ? 40 : 60), 1), 200)
     const cursor = req.query.cursor ? Number(req.query.cursor) : null
 
@@ -296,14 +321,15 @@ export default async function handler(
     if (error) return res.status(500).json({ error: `DB: ${error.message}` })
 
     const rows = (data || []) as Row[]
+    const rawItems = rows.map(rowToItem)
     
     // Mehka de-duplikacija za seznam
-    const rawItems = rows.map(rowToItem)
     const dedupedItems = [];
     const seenKeys = new Set();
     const simpleNorm = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 
     for(const item of rawItems) {
+        // Ključ: Vir + Prvih 20 znakov naslova
         const key = item.source + '|' + simpleNorm(item.title).slice(0, 20);
         if(!seenKeys.has(key)) {
             dedupedItems.push(item);
