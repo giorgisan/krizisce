@@ -1,4 +1,8 @@
 // pages/api/news.ts
+
+/* ==========================================================================
+   1. IMPORTS & CONFIG
+   ========================================================================== */
 import type { NextApiRequest, NextApiResponse } from 'next'
 import { createClient } from '@supabase/supabase-js'
 import fetchRSSFeeds from '@/lib/fetchRSSFeeds'
@@ -20,7 +24,9 @@ const supabaseWrite = SUPABASE_SERVICE_ROLE_KEY
     })
   : null
 
-/* ---------------- URL kanonikalizacija + ključ ---------------- */
+/* ==========================================================================
+   2. URL HANDLING (Canonicalization & Keys)
+   ========================================================================== */
 function cleanUrl(raw: string): URL | null {
   try {
     const u = new URL(raw.trim())
@@ -93,7 +99,9 @@ function makeLinkKey(raw: string, iso?: string | null): string {
   return `https://${u.host}${u.pathname}`
 }
 
-/* ---------------- helperji ---------------- */
+/* ==========================================================================
+   3. DB HELPERS & TYPES
+   ========================================================================== */
 type Row = {
   id: number
   link: string
@@ -261,20 +269,72 @@ function rowToItem(r: Row): NewsItem {
   }
 }
 
-/* ---------------- TRENDING: clustering nad DB (runtime) ---------------- */
+/* ==========================================================================
+   4. CLUSTERING CONFIG & STOPWORDS
+   ========================================================================== */
 
-// 1. Nastavitve za grupiranje
 const TREND_WINDOW_HOURS = 6 
 const TREND_MIN_SOURCES = 2   
 const TREND_MAX_ITEMS = 5
 const TREND_HOT_CUTOFF_HOURS = 4
 
-// --- SPREMEMBA: Točkovni prag namesto fixnega overlapa
-// Potrebujemo vsaj 4 točke. (Bigram = 3 točke, Beseda = 1 točka).
-// To pomeni vsaj 1 bigram in 1 besedo, ali 4 besede.
-const SCORE_THRESHOLD = 4;
-const WEIGHT_BIGRAM = 3;
-const WEIGHT_WORD = 1;
+// Uteži in pragovi
+const SCORE_THRESHOLD = 10; // Potrebujemo vsaj 10 točk za združitev
+const WEIGHT_BIGRAM = 10;   // Skupni bigram prinese 10 točk (takojšnje ujemanje)
+const WEIGHT_WORD = 1;      // Skupna beseda prinese 1 točko
+
+// Razširjen seznam Stopwords za preprečevanje "tematskega zdrsa"
+const STORY_STOPWORDS = new Set<string>([
+  // Osnovni vezniki in predlogi
+  'v', 'na', 'ob', 'po', 'pri', 'pod', 'nad', 'za', 'do', 'od', 'z', 's',
+  'in', 'ali', 'pa', 'kot', 'je', 'so', 'se', 'bo', 'bodo', 'bil', 'bila',
+  'bili', 'bilo', 'bi', 'ko', 'ker', 'da', 'ne', 'ni', 'sta', 'ste', 'smo',
+  'iz', 'ter', 'kjer', 'kako', 'zakaj', 'kaj', 'kdo', 'kam', 'kadar',
+  'razlog', 'zaradi', 'glede', 'proti', 'brez', 'med', 'pred', 'cez',
+  
+  // Čas in količina
+  'danes', 'vceraj', 'nocoj', 'noc', 'jutri', 'letos', 'lani', 'ze', 'se',
+  'teden', 'tedna', 'mesec', 'meseca', 'dan', 'dni', 'ura', 'ure',
+  'vec', 'manj', 'veliko', 'malo', 'prvi', 'prva', 'prvo', 'drugi', 'druga', 'tretji',
+  'novi', 'nova', 'dober', 'dobra', 'slaba', 'velik',
+  
+  // Geografija (Generična)
+  'slovenija', 'sloveniji', 'slovenije', 'slovenijo', 
+  'slovenski', 'slovenska', 'slovensko', 'slovenskih', 'slovenci',
+  'ljubljana', 'ljubljani', 'maribor', 'celje', 'koper', 
+  'svet', 'svetu', 'evropa', 'eu', 'zda',
+  
+  // Novinarski žargon
+  'video', 'foto', 'galerija', 'intervju', 'clanek', 'novice', 
+  'novo', 'ekskluzivno', 'v zivo', 'preberite', 'poglejte',
+  'znano', 'znane', 'znani', 'podrobnosti', 'razkrivamo',
+  'pravi', 'pravijo', 'imajo', 'ima', 'gre', 'lahko', 'morajo', 'mora',
+  
+  // Denar in števila
+  'evrov', 'evro', 'evra', 'eur', 'dolarjev', 'dolar', 'frankov', 
+  'tisoč', 'milijon', 'milijard', 'odstotkov', 'odstotke', 'procentov',
+  
+  // === KRONIKA (Generic words that merge unrelated tragedies) ===
+  'policija', 'policisti', 'gasilci', 'resevalci', 
+  'zrtve', 'zrtev', 'stevilo', 'ljudi', 'oseb', 'mrtvih', 'mrtvi', 'umrli', 'umrl', 'umrlo',
+  'ranjenih', 'poskodovanih', 'nesreca', 'trcenje', 'ogenj', 'pozar', 
+  'napad', 'streljanje', 'ubil', 'umor',
+  'moski', 'zenska', 'otrok', 'otroci', 'starost', 'neurje', 'poplave',
+  
+  // === ŠPORT (Generic words that merge unrelated matches) ===
+  'zmaga', 'zmage', 'zmago', 'zmagal', 'zmagala', 'zmagali',
+  'poraz', 'izgubil', 'izgubila', 'slavil', 'slavila',
+  'tekma', 'tekme', 'tekmi', 'spopad', 'dvoboj',
+  'rekord', 'rekorda', 'rekorde', 'rekordno',
+  'uspeh', 'neuspeh', 'cilj', 'cilja', 'nastop',
+  'pokal', 'pokala', 'prvenstvo', 'prvenstva', 'lige', 'liga',
+  'finale', 'polfinale', 'cetrtfinale',
+  'mesto', 'mesta', 'uvrstitev', 'tock', 'tocke'
+])
+
+/* ==========================================================================
+   5. CLUSTERING LOGIC (Features, Scoring, Grouping)
+   ========================================================================== */
 
 type StoryArticle = {
   source: string
@@ -284,7 +344,7 @@ type StoryArticle = {
   publishedAt: number
 }
 
-// Struktura za "features" članka
+// Features: Unigrami (words) in Bigrami (pairs)
 type Features = {
     words: Set<string>;
     bigrams: Set<string>;
@@ -301,82 +361,38 @@ type TrendGroup = {
   rows: RowMeta[]
 }
 
-// --- STOPWORDS SEZNAM ---
-const STORY_STOPWORDS = new Set<string>([
-  'v', 'na', 'ob', 'po', 'pri', 'pod', 'nad', 'za', 'do', 'od', 'z', 's',
-  'in', 'ali', 'pa', 'kot', 'je', 'so', 'se', 'bo', 'bodo', 'bil', 'bila',
-  'bili', 'bilo', 'bi', 'ko', 'ker', 'da', 'ne', 'ni', 'sta', 'ste', 'smo',
-  'danes', 'vceraj', 'nocoj', 'noc', 'jutri', 'letos', 'lani', 'ze', 'se',
-  'slovenija', 'sloveniji', 'slovenije', 'slovenijo', 
-  'slovenski', 'slovenska', 'slovensko', 'slovenskih', 'slovenci',
-  'ljubljana', 'ljubljani', 'maribor', 'celje', 'koper', 
-  'svet', 'svetu', 'evropa', 'eu', 'zda',
-  'video', 'foto', 'galerija', 'intervju', 'clanek', 'novice', 'kronika', 
-  'novo', 'ekskluzivno', 'v zivo', 'preberite', 'poglejte',
-  'iz', 'ter', 'kjer', 'kako', 'zakaj', 'kaj', 'kdo', 'kam', 'kadar',
-  'razlog', 'zaradi', 'glede', 'proti', 'brez', 'med', 'pred', 'cez',
-  'lahko', 'morajo', 'mora', 'imajo', 'ima', 'gre', 'pravi', 'pravijo',
-  'znano', 'znane', 'znani', 'podrobnosti', 'razkrivamo', 'vec', 'manj', 'veliko',
-  'prvi', 'prva', 'prvo', 'drugi', 'druga', 'tretji', 'novi', 'nova', 
-  'dober', 'dobra', 'slaba', 'velik', 'malo',
-  'let', 'leta', 'leto', 'letnik', 'letnika', 'letih', 'letni', 'letna',
-  'letošnji', 'letošnja', 'starost', 'star', 'stara',
-  'teden', 'tedna', 'mesec', 'meseca', 'dan', 'dni', 'ura', 'ure',
-  'evrov', 'evro', 'evra', 'eur', 'dolarjev', 'dolar', 'frankov', 
-  'tisoč', 'milijon', 'milijard', 'odstotkov', 'odstotke', 'procentov',
-  'policija', 'policisti', 'gasilci', 'resevalci', 'zrtve', 'zrtev',
-  'stevilo', 'ljudi', 'oseb', 'moski', 'zenska', 'otrok', 'otroci',
-  
-  // Športni in generični izrazi, ki povzročajo lepljenje
-  'zmaga', 'zmage', 'zmago', 'zmagal', 'zmagala', 'zmagali',
-  'poraz', 'izgubil', 'izgubila', 'slavil', 'slavila',
-  'tekma', 'tekme', 'tekmi', 'spopad',
-  'rekord', 'rekorda', 'rekorde', 'rekordno',
-  'uspeh', 'neuspeh', 'cilj', 'cilja', 'nastop',
-  'pokal', 'pokala', 'prvenstvo', 'prvenstva', 'lige', 'liga',
-  'finale', 'polfinale', 'cetrtfinale',
-  'mesto', 'mesta', 'uvrstitev', 'tock', 'tocke'
-])
-
 function stemToken(raw: string): string {
   if (!raw) return raw
-  // Če je samo številka, vrni nespremenjeno (v extractFeatures jo bomo itak ignorirali)
-  if (/^\d+$/.test(raw)) return raw
+  if (/^\d+$/.test(raw)) return raw // Ne stemamo številk
 
   const w = raw
   // Zelo blag stemmer - samo odstrani 'a', 'i', 'o', 'e' na koncu, če je dolga beseda
   if (w.length <= 4) return w
-  
-  // Odstrani zadnji samoglasnik, če obstaja, za osnovno ujemanje sklonov
   if (/[aeiou]$/.test(w)) {
       return w.slice(0, -1);
   }
   return w
 }
 
-// --- SPREMEMBA: Ekstrakcija besed IN bigramov (dvojic)
 function extractFeatures(text: string): Features {
   const cleanText = text.replace(/<[^>]*>/g, ' ');
   const base = unaccent(cleanText || '').toLowerCase();
   
   // Razbijemo na tokene (samo črke in številke)
   const rawTokens = base.split(/[^a-z0-9čšž]+/i).filter(Boolean);
-  
   const validTokens: string[] = [];
 
   for (const t of rawTokens) {
      if (/^\d+$/.test(t)) continue; // Ignoriraj čiste številke
      if (t.length < 3) continue; // Ignoriraj kratke besede
      if (STORY_STOPWORDS.has(t)) continue; // Ignoriraj stop words
-     
-     // Dodaj v valid tokens (brez steminga za bigrame, da ohranimo "tara vovk")
      validTokens.push(t);
   }
 
   const words = new Set<string>();
   const bigrams = new Set<string>();
 
-  // 1. Unigrami (z blagim stemingom)
+  // 1. Unigrami (stemmed)
   for (const t of validTokens) {
       const stem = stemToken(t);
       if (!STORY_STOPWORDS.has(stem)) {
@@ -384,34 +400,40 @@ function extractFeatures(text: string): Features {
       }
   }
 
-  // 2. Bigrami (dvojice) - zelo močan signal za imena (npr. "tara vovk", "juzna afrika")
+  // 2. Bigrami (original pairs) - močan signal
   for (let i = 0; i < validTokens.length - 1; i++) {
       const b1 = validTokens[i];
       const b2 = validTokens[i+1];
-      // Ne tvorimo bigramov čez stopworde, ker smo jih že odstranili iz validTokens
-      // Bigram je "tara vovk"
       bigrams.add(`${b1} ${b2}`);
   }
 
   return { words, bigrams };
 }
 
-// Izračun točk ujemanja med dvema člankoma
 function calculateSimilarityScore(f1: Features, f2: Features): number {
     let score = 0;
 
-    // Točke za skupne bigrame (visoka utež)
+    // A. Bigrami (10 točk)
     for (const bg of Array.from(f1.bigrams)) {
         if (f2.bigrams.has(bg)) {
             score += WEIGHT_BIGRAM;
         }
     }
 
-    // Točke za skupne besede (nizka utež)
+    // B. Besede (Fallback če ni bigramov)
+    let commonWords = 0;
     for (const w of Array.from(f1.words)) {
         if (f2.words.has(w)) {
-            score += WEIGHT_WORD;
+            commonWords++;
         }
+    }
+    
+    // Če imamo >= 3 zelo specifične skupne besede, to šteje kot "match" (10 točk)
+    // Tudi če ni bigrama (npr. zaradi zamenjanega vrstnega reda)
+    if (commonWords >= 3) {
+        score += 10; 
+    } else {
+        score += commonWords * WEIGHT_WORD;
     }
 
     return score;
@@ -438,7 +460,7 @@ function computeTrendingFromRows(
   rows: Row[],
 ): (NewsItem & { storyArticles: StoryArticle[] })[] {
   
-  // 1. Priprava metapodatkov in feature-jev
+  // 1. Priprava metapodatkov
   const metas: RowMeta[] = rows
     .map((row) => {
       const ms =
@@ -451,18 +473,14 @@ function computeTrendingFromRows(
 
       const t = (row.title || '').trim();
       const s = (row.summary || '').trim();
-      const sn = (row.contentsnippet || '').trim();
       
       let content = t;
-      // Dodamo summary samo, če ni enak naslovu
+      // Summary dodamo le, če ni preveč podoben naslovu
       if (s && !t.includes(s)) content += ' ' + s;
       
-      // Izluščimo feature-je (besede in bigrame)
       const features = extractFeatures(content);
-      
       return { row, ms, features }
     })
-    // Filtriramo tiste, ki nimajo nobenih uporabnih besed
     .filter((m) => m.features.words.size > 0)
 
   if (!metas.length) return []
@@ -472,15 +490,14 @@ function computeTrendingFromRows(
 
   const groups: TrendGroup[] = []
 
-  // 2. Grupiranje
+  // 2. Grupiranje (Leader-based)
   for (const m of metas) {
     let bestGroupIndex = -1;
     let bestScore = 0;
 
     for (let gi = 0; gi < groups.length; gi++) {
       const group = groups[gi];
-      
-      // Primerjamo z LEADERJEM skupine
+      // Primerjamo samo z Leaderjem
       const score = calculateSimilarityScore(group.leader.features, m.features);
 
       if (score >= SCORE_THRESHOLD) {
@@ -501,6 +518,7 @@ function computeTrendingFromRows(
     }
   }
 
+  // 3. Točkovanje in filtriranje skupin
   const nowMs = Date.now()
 
   type ScoredGroup = {
@@ -542,12 +560,14 @@ function computeTrendingFromRows(
     scored.push({ group: g, rep, sourceCount, articleCount, newestMs })
   }
 
+  // 4. Sortiranje rezultatov (Hotness ranking)
   scored.sort((a, b) => {
     if (b.sourceCount !== a.sourceCount) return b.sourceCount - a.sourceCount
     if (b.articleCount !== a.articleCount) return b.articleCount - a.articleCount
     return b.newestMs - a.newestMs
   })
 
+  // 5. Priprava outputa
   const top = scored.slice(0, TREND_MAX_ITEMS)
   const result: (NewsItem & { storyArticles: StoryArticle[] })[] = []
 
@@ -564,7 +584,6 @@ function computeTrendingFromRows(
       const link = r.link_canonical || r.link || ''
       
       if (!srcName || !link) continue
-      
       if (seenSrc.has(srcName)) continue
       seenSrc.add(srcName);
 
@@ -586,7 +605,9 @@ function computeTrendingFromRows(
   return result
 }
 
-/* ---------------- handler ---------------- */
+/* ==========================================================================
+   6. API HANDLER (Main Export)
+   ========================================================================== */
 type PagedOk = { items: NewsItem[]; nextCursor: number | null }
 type ListOk = NewsItem[]
 type Err = { error: string }
@@ -601,6 +622,7 @@ export default async function handler(
     const source = (req.query.source as string) || null
     const variant = (req.query.variant as string) || 'latest'
 
+    // --- TRENDING VARIANT ---
     if (variant === 'trending') {
       try {
         const rows = await fetchTrendingRows()
@@ -614,6 +636,7 @@ export default async function handler(
       }
     }
 
+    // --- LATEST / INGEST LOGIC ---
     const headerSecret = (req.headers['x-cron-secret'] as string | undefined)?.trim()
     const isCronCaller = Boolean(CRON_SECRET && headerSecret && headerSecret === CRON_SECRET)
     const isInternalIngest = req.headers['x-krizisce-ingest'] === '1'
