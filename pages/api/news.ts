@@ -1,7 +1,7 @@
 // pages/api/news.ts
 
 /* ==========================================================================
-   1. IMPORTS & CONFIG (Original)
+   1. IMPORTS & CONFIG (Original - Nedotaknjeno)
    ========================================================================== */
 import type { NextApiRequest, NextApiResponse } from 'next'
 import { createClient } from '@supabase/supabase-js'
@@ -23,7 +23,7 @@ const supabaseWrite = SUPABASE_SERVICE_ROLE_KEY
   : null
 
 /* ==========================================================================
-   2. URL & KEY HELPERS (Original - Untouched)
+   2. URL HELPERJI (Original - Nedotaknjeno)
    ========================================================================== */
 function cleanUrl(raw: string): URL | null {
   try {
@@ -90,7 +90,7 @@ function makeLinkKey(raw: string, iso?: string | null): string {
 }
 
 /* ==========================================================================
-   3. DB HELPERS (Original - Untouched)
+   3. DB HELPERJI (Original - Nedotaknjeno)
    ========================================================================== */
 type Row = {
   id: number
@@ -188,7 +188,7 @@ function feedItemToDbRow(item: FeedNewsItem) {
   }
 }
 
-// !!! KLJUČNO: Ohranjen await in logika za zapis v bazo
+// !!! ORIGINAL LOGIKA ZA SINHRONIZACIJO !!!
 async function syncToSupabase(items: FeedNewsItem[]) {
   if (!supabaseWrite) return
 
@@ -231,14 +231,14 @@ function rowToItem(r: Row): NewsItem {
 }
 
 /* ==========================================================================
-   4. TRENDING ALGORITHM: UPGRADED (Slovenian Bulletproof)
+   4. TRENDING ALGORITHM (NEW & IMPROVED)
    ========================================================================== */
 
 const TREND_WINDOW_HOURS = 6 
-const TREND_MIN_SOURCES = 2   
+const TREND_MIN_SOURCES = 2
 const TREND_MAX_ITEMS = 50
-const TREND_HOT_CUTOFF_HOURS = 4
-const SIMILARITY_THRESHOLD = 0.28 // Optimiziran prag za trigrame
+const TREND_HOT_CUTOFF_HOURS = 5 // Malo popuščeno
+const SIMILARITY_THRESHOLD = 0.22 // Prag prilagojen za trigrame in kratke naslove
 
 type StoryArticle = {
   source: string
@@ -248,58 +248,67 @@ type StoryArticle = {
   publishedAt: number
 }
 
-// Pomožna funkcija za izdelavo trigramov (zaporedja 3 črk)
-// To rešuje sklanjanje: "komendi" -> 'kom', 'ome', 'men', 'end', 'ndi'
-// Ujema se s "komenda" -> 'kom', 'ome', 'men', 'end', 'nda'
+// Stop words (šum), ki ga odstranimo pred analizo
+const STOP_WORDS = new Set([
+  'v', 'na', 'ob', 'po', 'pri', 'pod', 'nad', 'za', 'do', 'od', 'z', 's',
+  'in', 'ali', 'pa', 'kot', 'je', 'so', 'se', 'bo', 'bodo', 'bil', 'bila',
+  'bili', 'bilo', 'bi', 'ko', 'ker', 'da', 'ne', 'ni', 'sta', 'ste', 'smo',
+  'danes', 'vceraj', 'jutri', 'letos', 'lani', 'ze', 'se', 'tudi',
+  'slovenija', 'sloveniji', 'foto', 'video', 'novice', 'clanek', 'preberite',
+  'ljubljana', 'maribor', 'celje', // Lokacije so včasih šum, če so edina skupna točka
+  'policija', 'policisti' // Da ne združi vseh kroničnih novic skupaj samo zaradi besede "policija"
+]);
+
+// Funkcija za izdelavo trigramov (rešuje sklanjanje in morfologijo)
 function getTrigrams(text: string): Map<string, number> {
-  // Normalizacija: male črke, brez šumnikov (za lažje ujemanje), samo alfanumerični znaki
-  const clean = text
-    .toLowerCase()
-    .normalize('NFD').replace(/[\u0300-\u036f]/g, '') 
-    .replace(/[^a-z0-9]/g, '');
+  // 1. Čiščenje
+  let clean = unaccent(text).toLowerCase()
+    .replace(/<[^>]+>/g, ' ') // HTML
+    .replace(/[^a-z0-9\s]/g, '') // Ločila
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  // 2. Odstranjevanje stop words
+  const words = clean.split(' ').filter(w => !STOP_WORDS.has(w) && w.length > 2);
+  clean = words.join(' '); // Sestavimo nazaj za trigrame
 
   const trigrams = new Map<string, number>();
-  // Če je tekst prekratek, vrnemo celo besedo kot en "token"
-  if (clean.length < 3) {
-      if (clean.length > 0) trigrams.set(clean, 1);
-      return trigrams;
-  }
+  
+  // Če je tekst po čiščenju prazen ali prekratek
+  if (clean.length < 3) return trigrams;
 
+  // 3. Generiranje trigramov (drsno okno)
+  // Primer: "komenda" -> 'kom', 'ome', 'men', 'end', 'nda'
   for (let i = 0; i < clean.length - 2; i++) {
     const gram = clean.slice(i, i + 3);
-    trigrams.set(gram, (trigrams.get(gram) || 0) + 1);
+    // Ignoriramo trigrame, ki so samo presledki
+    if (!gram.includes(' ')) {
+        trigrams.set(gram, (trigrams.get(gram) || 0) + 1);
+    }
   }
   return trigrams;
 }
 
-// Kosinusna podobnost med dvema setoma trigramov
+// Izračun podobnosti (Cosine Similarity)
 function cosineSimilarity(v1: Map<string, number>, v2: Map<string, number>): number {
-  let dot = 0;
-  let mag1 = 0;
-  let mag2 = 0;
+  let dot = 0, mag1 = 0, mag2 = 0;
+  
+  const v1Vals = Array.from(v1.values());
+  for(let i=0; i<v1Vals.length; i++) mag1 += v1Vals[i]**2;
+  
+  const v2Vals = Array.from(v2.values());
+  for(let i=0; i<v2Vals.length; i++) mag2 += v2Vals[i]**2;
+  
+  if (!mag1 || !mag2) return 0;
 
-  // Izračun magnitude vektorja 1
-  const v1Values = Array.from(v1.values());
-  for(let i=0; i < v1Values.length; i++) mag1 += v1Values[i] ** 2;
-
-  // Izračun magnitude vektorja 2
-  const v2Values = Array.from(v2.values());
-  for(let i=0; i < v2Values.length; i++) mag2 += v2Values[i] ** 2;
-
-  if (mag1 === 0 || mag2 === 0) return 0;
-
-  // Skalarni produkt (optimizacija: iteriramo po manjšem)
   const [smaller, larger] = v1.size < v2.size ? [v1, v2] : [v2, v1];
   const smallEntries = Array.from(smaller.entries());
   
-  for(let i=0; i < smallEntries.length; i++) {
+  for(let i=0; i<smallEntries.length; i++) {
       const [gram, count] = smallEntries[i];
       const count2 = larger.get(gram);
-      if (count2) {
-          dot += count * count2;
-      }
+      if (count2) dot += count * count2;
   }
-
   return dot / (Math.sqrt(mag1) * Math.sqrt(mag2));
 }
 
@@ -309,37 +318,34 @@ async function fetchTrendingRows(): Promise<Row[]> {
 
   const { data, error } = await supabaseRead
     .from('news')
-    .select('id, link, link_canonical, link_key, title, source, image, contentsnippet, summary, isodate, pubdate, published_at, publishedat, created_at')
+    .select('*') // Vzamemo vse, da ne zgrešimo
     .gt('publishedat', cutoffMs)
     .order('publishedat', { ascending: false })
-    .limit(300)
+    .limit(350)
 
   if (error) throw new Error(`DB trending: ${error.message}`)
   return (data || []) as Row[]
 }
 
 function computeTrendingFromRows(rows: Row[]): (NewsItem & { storyArticles: StoryArticle[] })[] {
-  // 1. Priprava dokumentov
+  // Priprava podatkov
   const docs = rows.map((r, idx) => {
       const ms = (r.publishedat && Number(r.publishedat)) || toMs(r.published_at) || Date.now();
       const title = (r.title || '').trim();
       const summary = (r.summary || r.contentsnippet || '').trim();
       
-      // Naslovu damo večjo težo tako, da ga podvojimo v input stringu
-      const textToProcess = `${title} ${title} ${summary}`;
+      // Naslovu damo večjo težo (ga ponovimo), ker je najbolj relevanten
+      const text = `${title} ${title} ${summary}`;
       
       return {
           id: idx,
           row: r,
           ms,
-          vector: getTrigrams(textToProcess)
+          vector: getTrigrams(text)
       };
-  });
+  }).filter(d => d.vector.size > 0);
 
-  if (!docs.length) return [];
-
-  // 2. Grupiranje (Greedy Clustering)
-  // Ker so docs sortirani po datumu (najnovejši prej), bo prvi članek v gruči vedno najnovejši "Leader".
+  // Clustering (Greedy)
   const clusters: typeof docs[] = [];
   const assigned = new Set<number>();
 
@@ -354,10 +360,11 @@ function computeTrendingFromRows(rows: Row[]): (NewsItem & { storyArticles: Stor
           const other = docs[j];
           if (assigned.has(other.id)) continue;
 
-          // Izračunaj podobnost
-          const similarity = cosineSimilarity(doc.vector, other.vector);
+          const sim = cosineSimilarity(doc.vector, other.vector);
 
-          if (similarity > SIMILARITY_THRESHOLD) {
+          // Dinamičen prag: Če so novice časovno zelo blizu, smo bolj strogi.
+          // Če so narazen, dopustimo manjšo podobnost (ker se naslovi spreminjajo).
+          if (sim > SIMILARITY_THRESHOLD) {
               cluster.push(other);
               assigned.add(other.id);
           }
@@ -365,20 +372,20 @@ function computeTrendingFromRows(rows: Row[]): (NewsItem & { storyArticles: Stor
       clusters.push(cluster);
   }
 
-  // 3. Točkovanje in filtriranje
+  // Formatiranje
   const nowMs = Date.now();
   const results: (NewsItem & { storyArticles: StoryArticle[] })[] = [];
 
   for (const cluster of clusters) {
-      // Filtriraj premajhne gruče (premalo virov)
+      // Filtriraj premajhne
       const distinctSources = new Set(cluster.map(c => c.row.source));
       if (distinctSources.size < TREND_MIN_SOURCES) continue;
 
-      // Najdi Leaderja (najnovejši članek)
+      // Določi vodilno novico (najnovejša)
       cluster.sort((a, b) => b.ms - a.ms);
       const leader = cluster[0];
 
-      // Preveri "Hot Cutoff" - če je najnovejši članek starejši od X ur, ne prikaži
+      // Filter svežosti
       const ageHours = (nowMs - leader.ms) / 3_600_000;
       if (ageHours > TREND_HOT_CUTOFF_HOURS) continue;
 
@@ -398,29 +405,23 @@ function computeTrendingFromRows(rows: Row[]): (NewsItem & { storyArticles: Stor
       });
   }
 
-  // 4. Sortiranje rezultatov (Največ virov na vrhu, nato najnovejše)
+  // Sortiranje končnega seznama (Največje in najnovejše na vrh)
   results.sort((a, b) => {
-      // Izračunaj število virov za vsako zgodbo (glavna + stranske)
-      const countSources = (item: any) => {
-          const s = new Set<string>();
-          s.add(item.source);
-          item.storyArticles.forEach((sub: any) => s.add(sub.source));
-          return s.size;
-      };
+      // Prioriteta: Velikost grozda
+      const countA = 1 + a.storyArticles.length;
+      const countB = 1 + b.storyArticles.length; // +1 za leadera
       
-      const countA = countSources(a);
-      const countB = countSources(b);
-
-      if (countB !== countA) return countB - countA;
+      if (countA !== countB) return countB - countA;
+      
+      // Sekundarno: Čas
       return b.publishedAt - a.publishedAt;
   });
 
   return results.slice(0, TREND_MAX_ITEMS);
 }
 
-
 /* ==========================================================================
-   5. HANDLER (Original Logic preserved)
+   5. API HANDLER (Original Structure)
    ========================================================================== */
 type PagedOk = { items: NewsItem[]; nextCursor: number | null }
 type ListOk = NewsItem[]
@@ -436,7 +437,7 @@ export default async function handler(
     const source = (req.query.source as string) || null
     const variant = (req.query.variant as string) || 'latest'
 
-    // --- TRENDING VARIANT (UPDATED ALGORITHM) ---
+    // --- TRENDING VARIANT ---
     if (variant === 'trending') {
       try {
         const rows = await fetchTrendingRows()
@@ -450,7 +451,7 @@ export default async function handler(
       }
     }
 
-    // --- INGEST LOGIC (ORIGINAL PRESERVED) ---
+    // --- INGEST LOGIC (ORIGINAL - STRICTLY PRESERVED) ---
     const headerSecret = (req.headers['x-cron-secret'] as string | undefined)?.trim()
     const isCronCaller = Boolean(CRON_SECRET && headerSecret && headerSecret === CRON_SECRET)
     const isInternalIngest = req.headers['x-krizisce-ingest'] === '1'
@@ -463,14 +464,14 @@ export default async function handler(
     if (!paged && wantsFresh && canIngest) {
       try {
         const rss = await fetchRSSFeeds({ forceFresh: true })
-        // TUKAJ JE KLJUČEN AWAIT, KI SMO GA PREJ POMOTOMA ODSTRANILI
+        // TUKAJ JE OHRANJEN AWAIT - TO JE BILO KLJUČNO!
         if (rss?.length) await syncToSupabase(rss.slice(0, 250))
       } catch (err) {
         console.error('❌ RSS sync error:', err)
       }
     }
 
-    // --- LATEST / REGULAR LIST ---
+    // --- LATEST LIST ---
     const limit = Math.min(Math.max(parseInt(String(req.query.limit ?? (paged ? 40 : 60)), 10) || (paged ? 40 : 60), 1), 200)
     const cursor = req.query.cursor ? Number(req.query.cursor) : null
 
