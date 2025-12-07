@@ -188,7 +188,7 @@ function feedItemToDbRow(item: FeedNewsItem) {
   }
 }
 
-// !!! ORIGINAL LOGIKA ZA SINHRONIZACIJO (Z AWAIT) !!!
+// !!! ZELO POMEMBNO: Originalni AWAIT sync, ki deluje !!!
 async function syncToSupabase(items: FeedNewsItem[]) {
   if (!supabaseWrite) return
 
@@ -231,14 +231,14 @@ function rowToItem(r: Row): NewsItem {
 }
 
 /* ==========================================================================
-   4. TRENDING ALGORITHM (FIXED FOR CRONIKA MIX-UP)
+   4. NOVI ALGORITEM: KEYWORD INTERSECTION (Strict Mode)
    ========================================================================== */
 
 const TREND_WINDOW_HOURS = 6 
 const TREND_MIN_SOURCES = 2
-const TREND_MAX_ITEMS = 50
-const TREND_HOT_CUTOFF_HOURS = 5
-const SIMILARITY_THRESHOLD = 0.25 
+const TREND_MAX_ITEMS = 60
+const TREND_HOT_CUTOFF_HOURS = 4 // Če je zadnja novica starejša od 4h, ne prikaži
+const INTERSECTION_THRESHOLD = 0.35 // Potrebujemo 35% prekrivanje UNIKATNIH besed
 
 type StoryArticle = {
   source: string
@@ -248,62 +248,64 @@ type StoryArticle = {
   publishedAt: number
 }
 
-// TUKAJ JE KLJUČ: Odstranimo besede, ki povzročajo napačno združevanje
+// Razširjen seznam besed, ki jih IGNORIRAMO, ker povzročajo napačne povezave (Dončić/Dragojević, Preddvor/Nesreča)
 const STOP_WORDS = new Set([
   'v', 'na', 'ob', 'po', 'pri', 'pod', 'nad', 'za', 'do', 'od', 'z', 's',
   'in', 'ali', 'pa', 'kot', 'je', 'so', 'se', 'bo', 'bodo', 'bil', 'bila',
   'bili', 'bilo', 'bi', 'ko', 'ker', 'da', 'ne', 'ni', 'sta', 'ste', 'smo',
-  'danes', 'vceraj', 'jutri', 'letos', 'lani', 'ze', 'se', 'tudi',
-  'slovenija', 'sloveniji', 'foto', 'video', 'novice', 'clanek', 'preberite',
-  
-  // !!! CRUCIAL FIX: Odstranimo generične policijske besede, da se novice združujejo
-  // le po LOKACIJI (Preddvor/Komenda) in DEJANJU (Vlom/Grožnja), ne pa po tem, kdo je posredoval.
-  'policija', 'policisti', 'policijska', 'kriminalisti', 'uprava', 'pu', 'kranj', 'celje', 'ljubljana'
+  'danes', 'vceraj', 'jutri', 'letos', 'lani', 'ze', 'se', 'tudi', 'samo', 'le',
+  'slovenija', 'sloveniji', 'slovenski', 'novice', 'clanek', 'preberite', 'foto', 'video',
+  // Kronika šum
+  'policija', 'policisti', 'kriminalisti', 'pu', 'uprava', 'prijet', 'prijeti', 
+  'odvzeta', 'prostost', 'vozilo', 'nesreca', 'kraj', 'kraju', 'pomoc', 'gasilci',
+  'oseba', 'osebe', 'reševalci', 'bolnišnica', 'ukc', 'ljubljana', 'maribor', 'celje', 'kranj',
+  // Zabava šum (Dončić vs Dragojević)
+  'praznoval', 'praznovanje', 'rojstni', 'dan', 'rojstvo', 'obletnica', 'zvezdnik', 
+  'legenda', 'glasbenik', 'športnik', 'znan', 'znani', 'razkril', 'razkrila',
+  'letnik', 'letnica', 'starost', 'umrl', 'poslovil', 'zivljenje'
 ]);
 
-function getTrigrams(text: string): Map<string, number> {
-  let clean = unaccent(text).toLowerCase()
-    .replace(/<[^>]+>/g, ' ') 
-    .replace(/[^a-z0-9\s]/g, '') 
-    .replace(/\s+/g, ' ')
+// 1. Tokenizacija
+function getTokens(text: string): Set<string> {
+  const clean = unaccent(text).toLowerCase()
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/[^a-z0-9\s]/g, '')
     .trim();
-
-  // Odstranimo stop besede PRED generiranjem trigramov
-  const words = clean.split(' ').filter(w => !STOP_WORDS.has(w) && w.length > 2);
-  clean = words.join(' '); 
-
-  const trigrams = new Map<string, number>();
-  if (clean.length < 3) return trigrams;
-
-  for (let i = 0; i < clean.length - 2; i++) {
-    const gram = clean.slice(i, i + 3);
-    if (!gram.includes(' ')) {
-        trigrams.set(gram, (trigrams.get(gram) || 0) + 1);
+    
+  const tokens = new Set<string>();
+  clean.split(/\s+/).forEach(w => {
+    if (w.length > 2 && !STOP_WORDS.has(w)) {
+      // Zelo blag "stemming": če se konča na 'a', 'i', 'o', 'e', odrežemo zadnjo črko
+      // To pomaga pri Komenda/Komendi, Vlom/Vloma
+      let stem = w;
+      if (/[aeiou]$/.test(w) && w.length > 4) {
+          stem = w.slice(0, -1);
+      }
+      tokens.add(stem);
     }
-  }
-  return trigrams;
+  });
+  return tokens;
 }
 
-function cosineSimilarity(v1: Map<string, number>, v2: Map<string, number>): number {
-  let dot = 0, mag1 = 0, mag2 = 0;
-  
-  const v1Vals = Array.from(v1.values());
-  for(let i=0; i<v1Vals.length; i++) mag1 += v1Vals[i]**2;
-  
-  const v2Vals = Array.from(v2.values());
-  for(let i=0; i<v2Vals.length; i++) mag2 += v2Vals[i]**2;
-  
-  if (!mag1 || !mag2) return 0;
+// 2. Izračun podobnosti (Jaccard Index)
+// Formula: (A presek B) / (A unija B)
+// Ampak gledamo samo unikatne, pomembne besede
+function calculateSimilarity(tokens1: Set<string>, tokens2: Set<string>): number {
+  if (tokens1.size === 0 || tokens2.size === 0) return 0;
 
-  const [smaller, larger] = v1.size < v2.size ? [v1, v2] : [v2, v1];
-  const smallEntries = Array.from(smaller.entries());
+  let intersection = 0;
+  // Preverimo koliko tokenov iz 1 je tudi v 2 (ali pa so podnizi)
+  const t2Array = Array.from(tokens2);
   
-  for(let i=0; i<smallEntries.length; i++) {
-      const [gram, count] = smallEntries[i];
-      const count2 = larger.get(gram);
-      if (count2) dot += count * count2;
-  }
-  return dot / (Math.sqrt(mag1) * Math.sqrt(mag2));
+  tokens1.forEach(t1 => {
+      // Direktno ujemanje ali pa je koren enega v drugem (Vlom vs Vlamljanje)
+      if (tokens2.has(t1) || t2Array.some(t2 => t2.includes(t1) || t1.includes(t2))) {
+          intersection++;
+      }
+  });
+
+  const union = new Set([...Array.from(tokens1), ...t2Array]).size;
+  return intersection / union;
 }
 
 async function fetchTrendingRows(): Promise<Row[]> {
@@ -312,32 +314,32 @@ async function fetchTrendingRows(): Promise<Row[]> {
 
   const { data, error } = await supabaseRead
     .from('news')
-    .select('*') 
+    .select('*')
     .gt('publishedat', cutoffMs)
     .order('publishedat', { ascending: false })
-    .limit(350)
+    .limit(400)
 
   if (error) throw new Error(`DB trending: ${error.message}`)
   return (data || []) as Row[]
 }
 
 function computeTrendingFromRows(rows: Row[]): (NewsItem & { storyArticles: StoryArticle[] })[] {
+  // Priprava
   const docs = rows.map((r, idx) => {
       const ms = (r.publishedat && Number(r.publishedat)) || toMs(r.published_at) || Date.now();
       const title = (r.title || '').trim();
       const summary = (r.summary || r.contentsnippet || '').trim();
       
-      // POMEMBNO: Naslovu damo 3x težo, da preglasimo podobnosti v povzetkih
-      const text = `${title} ${title} ${title} ${summary}`;
-      
       return {
           id: idx,
           row: r,
           ms,
-          vector: getTrigrams(text)
+          // Naslov je najpomembnejši
+          tokens: getTokens(title + " " + title + " " + summary)
       };
-  }).filter(d => d.vector.size > 0);
+  }).filter(d => d.tokens.size > 0);
 
+  // Clustering
   const clusters: typeof docs[] = [];
   const assigned = new Set<number>();
 
@@ -352,9 +354,10 @@ function computeTrendingFromRows(rows: Row[]): (NewsItem & { storyArticles: Stor
           const other = docs[j];
           if (assigned.has(other.id)) continue;
 
-          const sim = cosineSimilarity(doc.vector, other.vector);
+          // Tukaj je magija: Strict similarity
+          const sim = calculateSimilarity(doc.tokens, other.tokens);
 
-          if (sim > SIMILARITY_THRESHOLD) {
+          if (sim >= INTERSECTION_THRESHOLD) {
               cluster.push(other);
               assigned.add(other.id);
           }
@@ -362,6 +365,7 @@ function computeTrendingFromRows(rows: Row[]): (NewsItem & { storyArticles: Stor
       clusters.push(cluster);
   }
 
+  // Formatiranje
   const nowMs = Date.now();
   const results: (NewsItem & { storyArticles: StoryArticle[] })[] = [];
 
@@ -372,6 +376,7 @@ function computeTrendingFromRows(rows: Row[]): (NewsItem & { storyArticles: Stor
       cluster.sort((a, b) => b.ms - a.ms);
       const leader = cluster[0];
 
+      // Hot cutoff
       const ageHours = (nowMs - leader.ms) / 3_600_000;
       if (ageHours > TREND_HOT_CUTOFF_HOURS) continue;
 
@@ -391,9 +396,10 @@ function computeTrendingFromRows(rows: Row[]): (NewsItem & { storyArticles: Stor
       });
   }
 
+  // Sortiranje: Večje zgodbe in novejše zgodbe na vrh
   results.sort((a, b) => {
-      const countA = 1 + a.storyArticles.length;
-      const countB = 1 + b.storyArticles.length;
+      const countA = a.storyArticles.length;
+      const countB = b.storyArticles.length;
       if (countA !== countB) return countB - countA;
       return b.publishedAt - a.publishedAt;
   });
@@ -402,7 +408,7 @@ function computeTrendingFromRows(rows: Row[]): (NewsItem & { storyArticles: Stor
 }
 
 /* ==========================================================================
-   5. HANDLER (Original Structure)
+   5. HANDLER (Original Structure Preserved)
    ========================================================================== */
 type PagedOk = { items: NewsItem[]; nextCursor: number | null }
 type ListOk = NewsItem[]
@@ -426,13 +432,11 @@ export default async function handler(
         res.setHeader('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=30') 
         return res.status(200).json(items as any)
       } catch (err: any) {
-        return res
-          .status(500)
-          .json({ error: err?.message || 'Trending error' })
+        return res.status(500).json({ error: err?.message || 'Trending error' })
       }
     }
 
-    // --- INGEST LOGIC (ORIGINAL - STRICTLY PRESERVED) ---
+    // --- INGEST LOGIC (ORIGINAL - AWAIT PRESERVED) ---
     const headerSecret = (req.headers['x-cron-secret'] as string | undefined)?.trim()
     const isCronCaller = Boolean(CRON_SECRET && headerSecret && headerSecret === CRON_SECRET)
     const isInternalIngest = req.headers['x-krizisce-ingest'] === '1'
