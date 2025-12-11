@@ -1,4 +1,5 @@
-// types.ts
+import { CategoryId } from './lib/categories' // Preveri pot
+
 export type NewsItem = {
   title: string
   link: string
@@ -8,6 +9,7 @@ export type NewsItem = {
   content?: string
   pubDate?: string
   isoDate?: string
-  /** Normaliziran čas objave (Unix ms). UI naj uporablja to polje. */
   publishedAt: number
+  // NOVO:
+  category: CategoryId
 }
