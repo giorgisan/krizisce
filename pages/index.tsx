@@ -50,13 +50,17 @@ function timeout(ms: number) {
   )
 }
 
-async function loadNews(mode: Mode, signal?: AbortSignal): Promise<NewsItem[] | null> {
-  const qs = mode === 'trending' ? '?variant=trending' : ''
+// POSODOBITEV: loadNews sprejme source in category
+async function loadNews(mode: Mode, source: string, category: CategoryId | 'vse', signal?: AbortSignal): Promise<NewsItem[] | null> {
+  const qs = new URLSearchParams()
+  if (mode === 'trending') qs.set('variant', 'trending')
+  if (source !== 'Vse') qs.set('source', source)
+  if (category !== 'vse') qs.set('category', category)
 
   // 1) prek Vercela
   try {
     const res = (await Promise.race([
-      fetch(`/api/news${qs}`, { cache: 'no-store', signal }),
+      fetch(`/api/news?${qs.toString()}`, { cache: 'no-store', signal }),
       timeout(12_000),
     ])) as Response
     if (res.ok) {
@@ -65,8 +69,8 @@ async function loadNews(mode: Mode, signal?: AbortSignal): Promise<NewsItem[] | 
     }
   } catch {}
 
-  // 2) fallback (samo za latest)
-  if (mode === 'latest') {
+  // 2) fallback (samo za latest in brez filtrov, ker client fallback nima filtrov)
+  if (mode === 'latest' && source === 'Vse' && category === 'vse') {
     try {
       const { createClient } = await import('@supabase/supabase-js')
       const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL as string
@@ -83,7 +87,6 @@ async function loadNews(mode: Mode, signal?: AbortSignal): Promise<NewsItem[] | 
 
       if (error || !data) return null
 
-      // Tu nimamo kategorije v bazi, zato jo določimo "on the fly"
       const items: NewsItem[] = (data as any[]).map((r) => {
           const link = r.link || ''
           return {
@@ -104,8 +107,6 @@ async function loadNews(mode: Mode, signal?: AbortSignal): Promise<NewsItem[] | 
   }
   return null
 }
-
-const NEWNESS_GRACE_MS = 30_000
 
 // stableAt
 const LS_FIRST_SEEN = 'krizisce_first_seen_v1'
@@ -149,19 +150,8 @@ export default function Home({ initialNews }: Props) {
     return () => mq.removeEventListener('change', update)
   }, [])
 
-  // Single-select filter SOURCE
-  const [selectedSource, setSelectedSource] = useState<string>(() => {
-    try {
-      const raw = localStorage.getItem('selectedSources')
-      const arr = raw ? JSON.parse(raw) : []
-      return Array.isArray(arr) && arr[0] ? String(arr[0]) : 'Vse'
-    } catch {
-      return 'Vse'
-    }
-  })
-  const deferredSource = useDeferredValue(selectedSource)
-
-  // Single-select filter CATEGORY (NOVO)
+  // Filtri
+  const [selectedSource, setSelectedSource] = useState<string>('Vse')
   const [selectedCategory, setSelectedCategory] = useState<CategoryId | 'vse'>('vse')
 
   // filter vrstica
@@ -181,11 +171,11 @@ export default function Home({ initialNews }: Props) {
     )
   }, [filterOpen])
 
-  const [displayCount, setDisplayCount] = useState(20)
   const [firstSeen, setFirstSeen] = useState<FirstSeenMap>(() => loadFirstSeen())
   const [hasMore, setHasMore] = useState(true)
   const [cursor, setCursor] = useState<number | null>(null)
   const [isLoadingMore, setIsLoadingMore] = useState(false)
+  const [isRefreshing, setIsRefreshing] = useState(false)
 
   const [bootRefreshed, setBootRefreshed] = useState(false)
     
@@ -193,6 +183,33 @@ export default function Home({ initialNews }: Props) {
     kickSyncIfStale(5 * 60_000)
     setBootRefreshed(true)
   }, [])
+
+  // === GLAVNA SPREMEMBA: Fetch ob spremembi filtra ===
+  useEffect(() => {
+    if (!bootRefreshed) return
+    
+    // Če smo v trending, filtri ne vplivajo (zaenkrat)
+    if (mode === 'trending') return
+
+    const fetchData = async () => {
+        setIsRefreshing(true)
+        setCursor(null)
+        setHasMore(true)
+        
+        // Pokličemo API s filtri
+        const fresh = await loadNews('latest', selectedSource, selectedCategory)
+        
+        if (fresh) {
+            setItemsLatest(fresh)
+        } else {
+            setItemsLatest([])
+        }
+        setIsRefreshing(false)
+    }
+    
+    fetchData()
+  }, [selectedSource, selectedCategory, mode, bootRefreshed])
+
 
   // Izberemo pravi nabor podatkov glede na mode
   const currentRawItems = mode === 'latest' ? itemsLatest : itemsTrending
@@ -208,7 +225,7 @@ export default function Home({ initialNews }: Props) {
       if (mode !== 'latest') return
 
       kickSyncIfStale(10 * 60_000)
-      const fresh = await loadNews('latest')
+      const fresh = await loadNews('latest', selectedSource, selectedCategory)
       
       if (!fresh || fresh.length === 0) {
         window.dispatchEvent(new CustomEvent('news-has-new', { detail: false }))
@@ -250,7 +267,7 @@ export default function Home({ initialNews }: Props) {
       if (timerRef.current) window.clearInterval(timerRef.current)
       document.removeEventListener('visibilitychange', onVis)
     }
-  }, [itemsLatest, bootRefreshed, mode])
+  }, [itemsLatest, bootRefreshed, mode, selectedSource, selectedCategory])
 
   // manual refresh
   useEffect(() => {
@@ -258,7 +275,7 @@ export default function Home({ initialNews }: Props) {
       window.dispatchEvent(new CustomEvent('news-refreshing', { detail: true }))
       
       startTransition(() => {
-        loadNews(mode).then((fresh) => {
+        loadNews(mode, selectedSource, selectedCategory).then((fresh) => {
           if (fresh) {
             if (mode === 'latest') {
               setItemsLatest(fresh)
@@ -278,7 +295,7 @@ export default function Home({ initialNews }: Props) {
     }
     window.addEventListener('refresh-news', onRefresh as EventListener)
     return () => window.removeEventListener('refresh-news', onRefresh as EventListener)
-  }, [mode])
+  }, [mode, selectedSource, selectedCategory])
 
   // stableAt shaping
   const shapedNews = useMemo(() => {
@@ -310,50 +327,23 @@ export default function Home({ initialNews }: Props) {
     return [...shapedNews].sort((a, b) => (b as any).stableAt - (a as any).stableAt)
   }, [shapedNews, mode])
 
-  // filter
-  const filteredNews = useMemo(() => {
-    let output = sortedNews
-
-    // 1. Filter Source
-    if (deferredSource !== 'Vse') {
-      output = output.filter((a) => a.source === deferredSource)
-    }
-
-    // 2. Filter Category (NOVO)
-    if (selectedCategory !== 'vse') {
-      output = output.filter((a) => a.category === selectedCategory)
-    }
-
-    return output
-  }, [sortedNews, deferredSource, selectedCategory])
-
-  const effectiveDisplayCount = useMemo(
-    () =>
-      mode === 'trending'
-        ? 5 
-        : displayCount,
-    [displayCount, mode],
-  )
-
-  const visibleNews = useMemo(
-    () => filteredNews.slice(0, effectiveDisplayCount),
-    [filteredNews, effectiveDisplayCount],
-  )
+  // ODSTRANJEN FILTEREDNEWS USEMEMO - Zdaj API vrača že filtrirane podatke
+  const visibleNews = sortedNews 
 
   // cursor calc
   useEffect(() => {
     if (mode === 'trending') return 
-    if (!filteredNews.length) {
+    if (!visibleNews.length) {
       setCursor(null)
-      setHasMore(true)
+      // Ne nastavimo nujno hasMore na true, če je seznam prazen po fetchu
       return
     }
-    const minMs = filteredNews.reduce(
+    const minMs = visibleNews.reduce(
       (acc, n) => Math.min(acc, n.publishedAt || acc),
-      filteredNews[0].publishedAt || 0,
+      visibleNews[0].publishedAt || 0,
     )
     setCursor(minMs || null)
-  }, [deferredSource, selectedCategory, filteredNews, mode])
+  }, [visibleNews, mode])
 
   // Paging fetcher
   type PagePayload = { items: NewsItem[]; nextCursor: number | null }
@@ -361,13 +351,16 @@ export default function Home({ initialNews }: Props) {
     cursor?: number | null
     limit?: number
     source?: string | null
+    category?: string | null
   }): Promise<PagePayload> {
-    const { cursor, limit = 40, source } = params
+    const { cursor, limit = 40, source, category } = params
     const qs = new URLSearchParams()
     qs.set('paged', '1')
     qs.set('limit', String(limit))
     if (cursor != null) qs.set('cursor', String(cursor))
     if (source && source !== 'Vse') qs.set('source', source)
+    if (category && category !== 'vse') qs.set('category', category)
+      
     const res = await fetch(`/api/news?${qs.toString()}`, { cache: 'no-store' })
     if (!res.ok) return { items: [], nextCursor: null }
     const data = (await res.json()) as PagePayload
@@ -384,18 +377,17 @@ export default function Home({ initialNews }: Props) {
       const { items, nextCursor } = await fetchPage({
         cursor,
         limit: 40,
-        source: deferredSource,
+        source: selectedSource,
+        category: selectedCategory, // Dodamo kategorijo v paginacijo
       })
       const seen = new Set(itemsLatest.map((n) => n.link))
       
-      // Tudi tu določimo kategorijo, če slučajno ni v API response-u
       const fresh = items
         .filter((i) => !seen.has(i.link))
         .map(i => ({ ...i, category: i.category || determineCategory({ link: i.link, categories: [] }) }))
 
       if (fresh.length) {
         setItemsLatest((prev) => [...prev, ...fresh])
-        setDisplayCount((prev) => prev + fresh.length)
       }
       if (!nextCursor || nextCursor === cursor || items.length === 0) {
         setHasMore(false)
@@ -415,7 +407,6 @@ export default function Home({ initialNews }: Props) {
     setMode(next)
 
     if (next === 'latest') {
-      setDisplayCount(20)
       setHasMore(true)
       setCursor(null)
     } else {
@@ -427,7 +418,7 @@ export default function Home({ initialNews }: Props) {
 
       if (!trendingLoaded || isStale) {
         try {
-          const fresh = await loadNews('trending')
+          const fresh = await loadNews('trending', 'Vse', 'vse')
           if (fresh) {
             setItemsTrending(fresh)
             setTrendingLoaded(true)
@@ -455,14 +446,7 @@ export default function Home({ initialNews }: Props) {
         onChange={(next) => {
           startTransition(() => {
             setSelectedSource(next)
-            if (mode === 'latest') {
-              setDisplayCount(20)
-              setHasMore(true)
-              setCursor(null)
-            } else {
-              setHasMore(false)
-              setCursor(null)
-            }
+            // Reset se zgodi v useEffect-u
           })
         }}
         open={filterOpen}
@@ -472,16 +456,12 @@ export default function Home({ initialNews }: Props) {
         <NewsTabs active={mode} onChange={handleTabChange} />
       </div>
 
-      {/* --- NOVO: CATEGORY FILTER --- */}
       <CategoryFilter 
         selected={selectedCategory}
         onChange={(cat) => {
            startTransition(() => {
              setSelectedCategory(cat)
-             // Reset paginacije ob menjavi kategorije
-             setDisplayCount(20)
-             setHasMore(true)
-             setCursor(null)
+             // Reset se zgodi v useEffect-u
            })
         }}
       />
@@ -495,7 +475,11 @@ export default function Home({ initialNews }: Props) {
         className="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white px-4 md:px-8 lg:px-16 pt-0 pb-8"
         tabIndex={-1}
       >
-        {visibleNews.length === 0 ? (
+        {isRefreshing && visibleNews.length === 0 ? (
+           <div className="flex flex-col items-center justify-center pt-20 pb-20">
+             <p className="opacity-60">Nalagam novice ...</p>
+           </div>
+        ) : visibleNews.length === 0 ? (
           <div className="flex flex-col items-center justify-center pt-20 pb-20">
               {mode === 'trending' && !trendingLoaded ? (
                 <p className="animate-pulse opacity-60">Nalagam najbolj obravnavane novice ...</p>
@@ -509,7 +493,7 @@ export default function Home({ initialNews }: Props) {
                   </p>
                 </div>
               ) : (
-                <p className="opacity-60">Nalagam novice ...</p>
+                <p className="opacity-60">Ni novic v tej kategoriji.</p>
               )}
           </div>
         ) : (
@@ -557,8 +541,7 @@ export default function Home({ initialNews }: Props) {
   )
 }
 
-/* ================= SSR (Server-Side Rendering) ================= */
-
+// ... getServerSideProps ostane enak ...
 export const getServerSideProps: GetServerSideProps = async ({ res }) => {
   res.setHeader(
     'Cache-Control',
@@ -606,7 +589,6 @@ export const getServerSideProps: GetServerSideProps = async ({ res }) => {
         (r.publishedat ??
           (r.published_at ? Date.parse(r.published_at) : 0)) || 0,
       isoDate: r.published_at,
-      // Določi kategorijo za SSR podatke
       category: determineCategory({ link, categories: [] }) 
     }
   })
