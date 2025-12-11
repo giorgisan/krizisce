@@ -3,7 +3,7 @@ import type { NextApiRequest, NextApiResponse } from 'next'
 import { createClient } from '@supabase/supabase-js'
 import fetchRSSFeeds from '@/lib/fetchRSSFeeds'
 import type { NewsItem as FeedNewsItem } from '@/types'
-import { getKeywordsForCategory } from '@/lib/categories' // <--- NOVO: Uvoz
+import { getKeywordsForCategory } from '@/lib/categories' // Uvozimo keywords logiko
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL as string
 const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string
@@ -262,14 +262,12 @@ function rowToItem(r: Row): NewsItem {
   }
 }
 
-/* ---------------- TRENDING: clustering nad DB (runtime) ---------------- */
-
-// 1. Zmanjšano okno na 6 ur (prej 24)
+/* ---------------- TRENDING ---------------- */
+// Ohranimo tvojo trending logiko
 const TREND_WINDOW_HOURS = 6 
 const TREND_MIN_SOURCES = 2    
 const TREND_MIN_OVERLAP = 2
 const TREND_MAX_ITEMS = 5
-// 2. Najnovejši članek v zgodbi ne sme biti starejši od 4 ur, da je "Hot"
 const TREND_HOT_CUTOFF_HOURS = 4
 
 type StoryArticle = {
@@ -291,9 +289,6 @@ type TrendGroup = {
   keywords: string[]
 }
 
-/**
- * STOP WORDS
- */
 const STORY_STOPWORDS = new Set<string>([
   'v', 'na', 'ob', 'po', 'pri', 'pod', 'nad', 'za', 'do', 'od', 'z', 's',
   'in', 'ali', 'pa', 'kot', 'je', 'so', 'se', 'bo', 'bodo', 'bil', 'bila',
@@ -463,8 +458,6 @@ function computeTrendingFromRows(
       if (g.rows[ri].ms > newestMs) newestMs = g.rows[ri].ms
     }
 
-    // FILTER SVEŽOSTI: Če nihče ni pisal o tem v zadnjih 6h (HOT_CUTOFF),
-    // potem to ni več trending, ampak zgodovina.
     const ageHours = Math.max(0, (nowMs - newestMs) / 3_600_000)
     if (ageHours > TREND_HOT_CUTOFF_HOURS) {
       continue
@@ -473,13 +466,10 @@ function computeTrendingFromRows(
     scored.push({ group: g, rep, sourceCount, articleCount, newestMs })
   }
 
-  // TIE-BREAKER SORTIRANJE
   scored.sort((a, b) => {
-    // 1. Več virov je bolje
     if (b.sourceCount !== a.sourceCount) {
       return b.sourceCount - a.sourceCount
     }
-    // 2. Novejši članek zmaga
     return b.newestMs - a.newestMs
   })
 
@@ -588,12 +578,12 @@ export default async function handler(
     // 2. Filter po kursorju
     if (cursor && cursor > 0) q = q.lt('publishedat', cursor)
 
-    // 3. NOVO: Filter po kategoriji (iskanje po ključnih besedah)
+    // 3. NOVO: Filter po kategoriji (iskanje po URL segmentih)
     if (category && category !== 'vse' && category !== 'ostalo') {
       const keywords = getKeywordsForCategory(category)
       if (keywords.length > 0) {
         // Zgradimo "OR" query za Supabase: link.ilike.%word1%,link.ilike.%word2%...
-        // Iščemo samo po LINKu, ker je najbolj zanesljivo.
+        // To je KLJUČ: Iščemo samo po LINKu, ker je tam URL struktura (npr. /sport/, /sportal/)
         const orQuery = keywords.map(k => `link.ilike.%${k}%`).join(',')
         q = q.or(orQuery)
       }
