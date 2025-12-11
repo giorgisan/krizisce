@@ -1,4 +1,3 @@
-// pages/index.tsx
 'use client'
 
 import React, {
@@ -20,6 +19,8 @@ import SeoHead from '@/components/SeoHead'
 import BackToTop from '@/components/BackToTop'
 import SourceFilter from '@/components/SourceFilter'
 import NewsTabs from '@/components/NewsTabs'
+import CategoryFilter from '@/components/CategoryFilter'
+import { CategoryId, determineCategory } from '@/lib/categories'
 
 /* ================= Helpers & constants ================= */
 
@@ -82,15 +83,20 @@ async function loadNews(mode: Mode, signal?: AbortSignal): Promise<NewsItem[] | 
 
       if (error || !data) return null
 
-      const items: NewsItem[] = (data as any[]).map((r) => ({
-        title: r.title,
-        link: r.link,
-        source: r.source,
-        contentSnippet: r.contentsnippet ?? r.summary ?? '',
-        image: r.image ?? null,
-        publishedAt: (r.publishedat ?? (r.published_at ? Date.parse(r.published_at) : 0)) || 0,
-        isoDate: r.published_at,
-      }))
+      // Tu nimamo kategorije v bazi, zato jo določimo "on the fly"
+      const items: NewsItem[] = (data as any[]).map((r) => {
+          const link = r.link || ''
+          return {
+            title: r.title,
+            link,
+            source: r.source,
+            contentSnippet: r.contentsnippet ?? r.summary ?? '',
+            image: r.image ?? null,
+            publishedAt: (r.publishedat ?? (r.published_at ? Date.parse(r.published_at) : 0)) || 0,
+            isoDate: r.published_at,
+            category: determineCategory({ link, categories: [] })
+          }
+      })
       return items.length ? items : []
     } catch {
       return null
@@ -126,11 +132,10 @@ export default function Home({ initialNews }: Props) {
   // LOČENA STANJA ZA PODATKE
   const [itemsLatest, setItemsLatest] = useState<NewsItem[]>(initialNews)
   const [itemsTrending, setItemsTrending] = useState<NewsItem[]>([])
-   
+    
   const [mode, setMode] = useState<Mode>('latest')
   const [trendingLoaded, setTrendingLoaded] = useState(false)
   
-  // --- SPREMEMBA: Ref za shranjevanje časa zadnjega fetch-a za trending ---
   const lastTrendingFetchRef = useRef<number>(0)
 
   // mobile detection
@@ -144,7 +149,7 @@ export default function Home({ initialNews }: Props) {
     return () => mq.removeEventListener('change', update)
   }, [])
 
-  // Single-select filter
+  // Single-select filter SOURCE
   const [selectedSource, setSelectedSource] = useState<string>(() => {
     try {
       const raw = localStorage.getItem('selectedSources')
@@ -155,6 +160,9 @@ export default function Home({ initialNews }: Props) {
     }
   })
   const deferredSource = useDeferredValue(selectedSource)
+
+  // Single-select filter CATEGORY (NOVO)
+  const [selectedCategory, setSelectedCategory] = useState<CategoryId | 'vse'>('vse')
 
   // filter vrstica
   const [filterOpen, setFilterOpen] = useState<boolean>(false)
@@ -180,7 +188,7 @@ export default function Home({ initialNews }: Props) {
   const [isLoadingMore, setIsLoadingMore] = useState(false)
 
   const [bootRefreshed, setBootRefreshed] = useState(false)
-   
+    
   useEffect(() => {
     kickSyncIfStale(5 * 60_000)
     setBootRefreshed(true)
@@ -259,7 +267,7 @@ export default function Home({ initialNews }: Props) {
             } else {
               setItemsTrending(fresh)
               setTrendingLoaded(true)
-              lastTrendingFetchRef.current = Date.now() // Posodobimo čas tudi pri ročnem refreshu
+              lastTrendingFetchRef.current = Date.now() 
             }
           }
           window.dispatchEvent(new CustomEvent('news-refreshing', { detail: false }))
@@ -294,7 +302,7 @@ export default function Home({ initialNews }: Props) {
     return withStable
   }, [currentRawItems, firstSeen])
 
-  // filter + sort
+  // sort
   const sortedNews = useMemo(() => {
     if (mode === 'trending') {
       return shapedNews
@@ -302,18 +310,27 @@ export default function Home({ initialNews }: Props) {
     return [...shapedNews].sort((a, b) => (b as any).stableAt - (a as any).stableAt)
   }, [shapedNews, mode])
 
-  const filteredNews = useMemo(
-    () =>
-      deferredSource === 'Vse'
-        ? sortedNews
-        : sortedNews.filter((a) => a.source === deferredSource),
-    [sortedNews, deferredSource],
-  )
+  // filter
+  const filteredNews = useMemo(() => {
+    let output = sortedNews
+
+    // 1. Filter Source
+    if (deferredSource !== 'Vse') {
+      output = output.filter((a) => a.source === deferredSource)
+    }
+
+    // 2. Filter Category (NOVO)
+    if (selectedCategory !== 'vse') {
+      output = output.filter((a) => a.category === selectedCategory)
+    }
+
+    return output
+  }, [sortedNews, deferredSource, selectedCategory])
 
   const effectiveDisplayCount = useMemo(
     () =>
       mode === 'trending'
-        ? 5 // Za trending vedno 5 (na desktopu bo to 1 vrstica)
+        ? 5 
         : displayCount,
     [displayCount, mode],
   )
@@ -336,7 +353,7 @@ export default function Home({ initialNews }: Props) {
       filteredNews[0].publishedAt || 0,
     )
     setCursor(minMs || null)
-  }, [deferredSource, filteredNews, mode])
+  }, [deferredSource, selectedCategory, filteredNews, mode])
 
   // Paging fetcher
   type PagePayload = { items: NewsItem[]; nextCursor: number | null }
@@ -370,7 +387,12 @@ export default function Home({ initialNews }: Props) {
         source: deferredSource,
       })
       const seen = new Set(itemsLatest.map((n) => n.link))
-      const fresh = items.filter((i) => !seen.has(i.link))
+      
+      // Tudi tu določimo kategorijo, če slučajno ni v API response-u
+      const fresh = items
+        .filter((i) => !seen.has(i.link))
+        .map(i => ({ ...i, category: i.category || determineCategory({ link: i.link, categories: [] }) }))
+
       if (fresh.length) {
         setItemsLatest((prev) => [...prev, ...fresh])
         setDisplayCount((prev) => prev + fresh.length)
@@ -387,7 +409,6 @@ export default function Home({ initialNews }: Props) {
     }
   }
 
-  // --- SPREMEMBA: Izboljšan handleTabChange ---
   const handleTabChange = async (next: Mode) => {
     if (next === mode) return
 
@@ -402,17 +423,15 @@ export default function Home({ initialNews }: Props) {
       setCursor(null)
       
       const now = Date.now()
-      // Preveri, če je minilo več kot 5 minut od zadnjega nalaganja
       const isStale = (now - lastTrendingFetchRef.current) > 5 * 60_000
 
-      // Naloži, če še ni naloženo (prvi klik) ALI če so podatki stari
       if (!trendingLoaded || isStale) {
         try {
           const fresh = await loadNews('trending')
           if (fresh) {
             setItemsTrending(fresh)
             setTrendingLoaded(true)
-            lastTrendingFetchRef.current = Date.now() // Posodobi časovni žig
+            lastTrendingFetchRef.current = Date.now() 
           }
         } catch (e) {
             console.error(e)
@@ -449,12 +468,23 @@ export default function Home({ initialNews }: Props) {
         open={filterOpen}
       />
 
-      {/* POPRAVEK ZA NEWS TABS: mt-5 mb-3 
-          To je optimalen razmak glede na vašo željo: ne preveč diha, a ne zadavljeno.
-      */}
       <div className="px-4 md:px-8 lg:px-16 mt-3 mb-3">
         <NewsTabs active={mode} onChange={handleTabChange} />
       </div>
+
+      {/* --- NOVO: CATEGORY FILTER --- */}
+      <CategoryFilter 
+        selected={selectedCategory}
+        onChange={(cat) => {
+           startTransition(() => {
+             setSelectedCategory(cat)
+             // Reset paginacije ob menjavi kategorije
+             setDisplayCount(20)
+             setHasMore(true)
+             setCursor(null)
+           })
+        }}
+      />
 
       <SeoHead
         title="Križišče"
@@ -467,7 +497,7 @@ export default function Home({ initialNews }: Props) {
       >
         {visibleNews.length === 0 ? (
           <div className="flex flex-col items-center justify-center pt-20 pb-20">
-             {mode === 'trending' && !trendingLoaded ? (
+              {mode === 'trending' && !trendingLoaded ? (
                 <p className="animate-pulse opacity-60">Nalagam najbolj obravnavane novice ...</p>
               ) : mode === 'trending' ? (
                 <div className="p-6 bg-gray-900/50 dark:bg-gray-800/80 rounded-xl shadow-lg border border-gray-700/50 text-center max-w-lg mx-auto">
@@ -530,10 +560,6 @@ export default function Home({ initialNews }: Props) {
 /* ================= SSR (Server-Side Rendering) ================= */
 
 export const getServerSideProps: GetServerSideProps = async ({ res }) => {
-  // Nastavi Cache-Control:
-  // - public: lahko se cachira (npr. na CDN)
-  // - s-maxage=60: sveže 60 sekund (CDN servira iz cache-a)
-  // - stale-while-revalidate=30: po 60s servira staro verzijo še 30s, medtem ko v ozadju osvežuje
   res.setHeader(
     'Cache-Control',
     'public, s-maxage=60, stale-while-revalidate=30'
@@ -568,17 +594,22 @@ export const getServerSideProps: GetServerSideProps = async ({ res }) => {
 
   const rows = (data ?? []) as Row[]
 
-  const initialNews: NewsItem[] = rows.map((r) => ({
-    title: r.title,
-    link: r.link,
-    source: r.source,
-    contentSnippet: r.contentsnippet ?? r.summary ?? '',
-    image: r.image ?? null,
-    publishedAt:
-      (r.publishedat ??
-        (r.published_at ? Date.parse(r.published_at) : 0)) || 0,
-    isoDate: r.published_at,
-  }))
+  const initialNews: NewsItem[] = rows.map((r) => {
+    const link = r.link || ''
+    return {
+      title: r.title,
+      link,
+      source: r.source,
+      contentSnippet: r.contentsnippet ?? r.summary ?? '',
+      image: r.image ?? null,
+      publishedAt:
+        (r.publishedat ??
+          (r.published_at ? Date.parse(r.published_at) : 0)) || 0,
+      isoDate: r.published_at,
+      // Določi kategorijo za SSR podatke
+      category: determineCategory({ link, categories: [] }) 
+    }
+  })
 
   return { props: { initialNews } }
 }
