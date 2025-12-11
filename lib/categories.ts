@@ -97,15 +97,14 @@ export function determineCategory(item: { link: string; categories?: string[] })
   const tags = (item.categories || []).map(t => t.toLowerCase())
   const combined = [url, ...tags].join(' ')
 
-  // 1. Prioriteta: Preveri URL segmente (zelo zanesljivo)
+  // 1. Prioriteta: Preveri URL segmente
   for (const cat of CATEGORIES) {
-    // Preverimo če URL vsebuje ključne besede (npr. /sport/, /sportal/)
     if (cat.keywords.some(k => url.includes(k))) {
       return cat.id
     }
   }
 
-  // 2. Prioriteta: Če URL ne da odgovora, preveri še RSS tage
+  // 2. Prioriteta: Preveri RSS tage
   for (const cat of CATEGORIES) {
     if (tags.some(t => cat.keywords.some(k => t.includes(k)))) {
       return cat.id
@@ -113,4 +112,10 @@ export function determineCategory(item: { link: string; categories?: string[] })
   }
 
   return 'ostalo'
+}
+
+// Pomožna funkcija za API
+export function getKeywordsForCategory(catId: string): string[] {
+  const cat = CATEGORIES.find(c => c.id === catId)
+  return cat ? cat.keywords : []
 }
