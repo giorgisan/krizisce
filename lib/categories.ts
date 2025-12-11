@@ -73,7 +73,7 @@ export const CATEGORIES: CategoryDef[] = [
   },
   {
     id: 'tech',
-    label: 'Sci/Tech',
+    label: 'Znanost/Tehnologija',
     color: 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900/40 dark:text-cyan-300',
     keywords: [
       'znanost', 'tehnologija', 'auto', 'avtomoto', 'mobitel', 'vesolje', 'pametni', 'ai', 
