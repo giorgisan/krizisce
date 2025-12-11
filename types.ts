@@ -1,4 +1,4 @@
-import { CategoryId } from './lib/categories' // Preveri pot
+import { CategoryId } from './lib/categories'
 
 export type NewsItem = {
   title: string
@@ -9,7 +9,8 @@ export type NewsItem = {
   content?: string
   pubDate?: string
   isoDate?: string
+  /** Normaliziran čas objave (Unix ms). UI naj uporablja to polje. */
   publishedAt: number
-  // NOVO:
+  /** Kategorija novice (npr. 'sport', 'slovenija', ...) */
   category: CategoryId
 }
