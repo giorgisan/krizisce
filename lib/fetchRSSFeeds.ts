@@ -1,13 +1,12 @@
-// lib/fetchRSSFeeds.ts
 import Parser from 'rss-parser'
 import type { NewsItem } from '../types'
 import { feeds } from './sources'
 import { excludeAds } from './adFilter'
+import { determineCategory } from './categories'
 
 type FetchOpts = { forceFresh?: boolean }
 
-/** 
- * 1. BLOKADA NA PODLAGI URL-ja
+/** * 1. BLOKADA NA PODLAGI URL-ja
  */
 const BLOCK_URLS: RegExp[] = [
   /siol\.net\/novice\/posel-danes\//i,
@@ -16,9 +15,7 @@ const BLOCK_URLS: RegExp[] = [
   /\/advertorial\//i,
 ]
 
-/** 
- * 2. BLOKADA NA PODLAGI VSEBINE (Naslov, Opis, HTML)
- * POPRAVEK: Odstranjen splošen "promo", da ne blokiramo besed kot "promocija".
+/** * 2. BLOKADA NA PODLAGI VSEBINE (Naslov, Opis, HTML)
  */
 const BLOCK_PATTERNS: string[] = [
   // Eksplicitne oznake
@@ -31,7 +28,7 @@ const BLOCK_PATTERNS: string[] = [
   'advertorial',
   
   // Specifične fraze medijev (varno)
-  'promo delo',      // Delo uporablja to
+  'promo delo',       // Delo uporablja to
   'promo slovenske', // Če bi slučajno uporabili
   'promo prispevek',
   
@@ -71,8 +68,7 @@ function absolutize(src: string | undefined | null, baseHref: string): string | 
   }
 }
 
-/** 
- * Funkcija za reševanje manjkajočih slik (og:image).
+/** * Funkcija za reševanje manjkajočih slik (og:image).
  */
 async function scrapeOgImage(url: string): Promise<string | null> {
   try {
@@ -162,8 +158,7 @@ function toUnixMs(d?: string | null) {
   }
 }
 
-/** 
- * Enostaven filter: URL + naslov + snippet + content + KATEGORIJE 
+/** * Enostaven filter: URL + naslov + snippet + content + KATEGORIJE 
  */
 function isBlockedBasic(i: { 
   link?: string; 
@@ -259,6 +254,9 @@ export default async function fetchRSSFeeds(opts: FetchOpts = {}): Promise<NewsI
             ? (Array.isArray(item.categories) ? item.categories : [item.categories])
             : []
 
+          // Določanje kategorije
+          const categoryId = determineCategory({ link, categories })
+
           return {
             title: item.title ?? '',
             link,
@@ -270,6 +268,7 @@ export default async function fetchRSSFeeds(opts: FetchOpts = {}): Promise<NewsI
             image: finalImage,
             publishedAt,
             categories, 
+            category: categoryId,
           }
         })
 
