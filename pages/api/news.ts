@@ -3,6 +3,7 @@ import type { NextApiRequest, NextApiResponse } from 'next'
 import { createClient } from '@supabase/supabase-js'
 import fetchRSSFeeds from '@/lib/fetchRSSFeeds'
 import type { NewsItem as FeedNewsItem } from '@/types'
+import { getKeywordsForCategory } from '@/lib/categories' // <--- NOVO: Uvoz
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL as string
 const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string
@@ -265,7 +266,7 @@ function rowToItem(r: Row): NewsItem {
 
 // 1. Zmanjšano okno na 6 ur (prej 24)
 const TREND_WINDOW_HOURS = 6 
-const TREND_MIN_SOURCES = 2   
+const TREND_MIN_SOURCES = 2    
 const TREND_MIN_OVERLAP = 2
 const TREND_MAX_ITEMS = 5
 // 2. Najnovejši članek v zgodbi ne sme biti starejši od 4 ur, da je "Hot"
@@ -537,12 +538,13 @@ export default async function handler(
     const wantsFresh = req.query.forceFresh === '1'
     const source = (req.query.source as string) || null
     const variant = (req.query.variant as string) || 'latest'
+    const category = (req.query.category as string) || null // NOVO: beremo kategorijo
 
     if (variant === 'trending') {
       try {
         const rows = await fetchTrendingRows()
         const items = computeTrendingFromRows(rows)
-        res.setHeader('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=30') // Pomeni: Vercel si zapomni odgovor za 60 sekund. 
+        res.setHeader('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=30') 
         return res.status(200).json(items as any)
       } catch (err: any) {
         return res
@@ -572,6 +574,7 @@ export default async function handler(
     const limit = Math.min(Math.max(parseInt(String(req.query.limit ?? (paged ? 40 : 60)), 10) || (paged ? 40 : 60), 1), 200)
     const cursor = req.query.cursor ? Number(req.query.cursor) : null
 
+    // --- QUERY BUILDER ---
     let q = supabaseRead
       .from('news')
       .select('id, link, link_canonical, link_key, title, source, image, contentsnippet, summary, isodate, pubdate, published_at, publishedat, created_at')
@@ -579,8 +582,23 @@ export default async function handler(
       .order('publishedat', { ascending: false })
       .order('id', { ascending: false })
 
+    // 1. Filter po viru
     if (source && source !== 'Vse') q = q.eq('source', source)
+    
+    // 2. Filter po kursorju
     if (cursor && cursor > 0) q = q.lt('publishedat', cursor)
+
+    // 3. NOVO: Filter po kategoriji (iskanje po ključnih besedah)
+    if (category && category !== 'vse' && category !== 'ostalo') {
+      const keywords = getKeywordsForCategory(category)
+      if (keywords.length > 0) {
+        // Zgradimo "OR" query za Supabase: link.ilike.%word1%,link.ilike.%word2%...
+        // Iščemo samo po LINKu, ker je najbolj zanesljivo.
+        const orQuery = keywords.map(k => `link.ilike.%${k}%`).join(',')
+        q = q.or(orQuery)
+      }
+    }
+
     q = q.limit(limit)
 
     const { data, error } = await q
@@ -592,7 +610,7 @@ export default async function handler(
 
     const nextCursor = rows.length === limit ? (rows[rows.length - 1].publishedat ? Number(rows[rows.length - 1].publishedat) : null) : null
 
-    res.setHeader('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=30') // Pomeni: Vercel si zapomni odgovor za 60 sekund. 
+    res.setHeader('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=30') 
     if (paged) return res.status(200).json({ items, nextCursor })
     return res.status(200).json(items)
   } catch (e: any) {
