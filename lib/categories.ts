@@ -16,13 +16,19 @@ export type CategoryDef = {
   keywords: string[] 
 }
 
-// 1. VRSTNI RED PRIKAZA (UI) - Tako kot želiš v meniju
+// 1. VRSTNI RED PRIKAZA (UI)
 export const CATEGORIES: CategoryDef[] = [
   {
     id: 'slovenija',
     label: 'Slovenija',
     color: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300',
-    keywords: ['/slovenija/', '/lokalno/', '/obcine/', '/volitve/', 'vlada', 'poslanci', '/novice/slovenija/', 'domovina', 'notranja-politika']
+    keywords: [
+        '/slovenija/', '/lokalno/', '/obcine/', '/volitve/', 'vlada', 'poslanci', 
+        '/novice/slovenija/', 'domovina', 'notranja-politika',
+        // Dodana mesta in sklanjatve za Dnevnik/Siol lokalne novice
+        'ljubljana', 'maribor', 'koper', 'celje', 'kranj', 'novo-mesto', 
+        'slovenij' // Ujame "...v-sloveniji..."
+    ]
   },
   {
     id: 'svet',
@@ -46,7 +52,12 @@ export const CATEGORIES: CategoryDef[] = [
     id: 'magazin',
     label: 'Magazin',
     color: 'bg-pink-100 text-pink-800 dark:bg-pink-900/40 dark:text-pink-300',
-    keywords: ['/magazin/', '/popin/', '/trendi/', '/scena/', '/zvezde/', '/zabava/', '/lifestyle/', '/kulinarika/', '/astro/', 'suzy', 'lady', 'dom-in-vrt']
+    keywords: [
+        '/magazin/', '/popin/', '/trendi/', '/scena/', '/zvezde/', '/zabava/', 
+        '/lifestyle/', '/kulinarika/', '/okusno/', '/astro/', 'suzy', 'lady', 'dom-in-vrt',
+        // Dodano za Dnevnik Nedeljski
+        'prosti-cas', 'nedeljski', 'izleti'
+    ]
   },
   {
     id: 'gospodarstvo',
@@ -56,7 +67,7 @@ export const CATEGORIES: CategoryDef[] = [
   },
   {
     id: 'tech',
-    label: 'Znanost/Teh', // <--- PREIMENOVANO
+    label: 'Znanost/Teh', 
     color: 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900/40 dark:text-cyan-300',
     keywords: ['/znanost/', '/tehnologija/', '/tech/', '/auto/', '/avto/', '/mobilnost/', '/digisvet/', 'vesolje', 'telefoni', 'racunalnistvo']
   },
@@ -69,8 +80,6 @@ export const CATEGORIES: CategoryDef[] = [
 ]
 
 // 2. LOGIKA ZAZNAVANJA (DETECTION PRIORITY)
-// Pazi: Gospodarstvo in Šport sta pred Slovenijo!
-// Slovenija je čisto na koncu, da ne "požre" ostalih.
 const PRIORITY_CHECK_ORDER: CategoryId[] = [
   'sport', 
   'magazin', 
@@ -79,7 +88,7 @@ const PRIORITY_CHECK_ORDER: CategoryId[] = [
   'kronika', 
   'kultura',
   'svet',
-  'slovenija' // Catch-all za slovenske novice
+  'slovenija' // Catch-all na koncu
 ]
 
 export function determineCategory(item: { link: string; categories?: string[] }): CategoryId {
