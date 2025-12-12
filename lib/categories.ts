@@ -16,7 +16,7 @@ export type CategoryDef = {
   keywords: string[] 
 }
 
-// 1. VRSTNI RED PRIKAZA (UI) - Tvoji originalni podatki
+// 1. VRSTNI RED PRIKAZA (UI)
 export const CATEGORIES: CategoryDef[] = [
   {
     id: 'slovenija',
@@ -45,7 +45,7 @@ export const CATEGORIES: CategoryDef[] = [
     id: 'kultura',
     label: 'Kultura',
     color: 'bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300',
-    keywords: ['/kultura/', '/kultur/', 'film', 'glasba', 'knjige', 'razstave', 'gledalisce', 'umetnost']
+    keywords: ['/kultura/', '/kultur/', 'film', 'glasba', 'knjige', 'razstave', 'gledalisce', 'umetnost', 'koncert', 'festival']
   },
   {
     id: 'magazin',
@@ -54,7 +54,9 @@ export const CATEGORIES: CategoryDef[] = [
     keywords: [
         '/magazin/', '/popin/', '/trendi/', '/scena/', '/zvezde/', '/zabava/', 
         '/lifestyle/', '/kulinarika/', '/okusno/', '/astro/', 'suzy', 'lady', 'dom-in-vrt',
-        'prosti-cas', 'nedeljski', 'izleti'
+        'prosti-cas', 'nedeljski', 'izleti',
+        // DODANO: Bulvar in podkategorije (vendar bo Kultura imela prednost zaradi vrstnega reda spodaj)
+        '/bulvar/', '/tuji-traci/', '/domaci-traci/', '/ljudje/', '/stil/', '/zanimivosti/'
     ]
   },
   {
@@ -78,13 +80,14 @@ export const CATEGORIES: CategoryDef[] = [
 ]
 
 // 2. LOGIKA ZAZNAVANJA (Prioriteta)
+// POMEMBNO: Vrstni red določa, katera kategorija zmaga, če jih ustreza več.
 const PRIORITY_CHECK_ORDER: CategoryId[] = [
   'sport', 
-  'magazin', 
   'tech', 
   'gospodarstvo', 
-  'kronika', 
-  'kultura',
+  'kronika',
+  'kultura',  // PREMAKNJENO VIŠJE: Kultura se preveri PRED Magazinom
+  'magazin',  // Če ni kultura (film, glasba...), potem preveri, če je Magazin (bulvar, trači...)
   'svet',
   'slovenija'
 ]
@@ -93,18 +96,14 @@ const PRIORITY_CHECK_ORDER: CategoryId[] = [
 const unaccent = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
 
 export function determineCategory(item: { link: string; categories?: string[] }): CategoryId {
-  // 1. KORAK: Preveri RSS kategorije (To je tista izboljšava!)
-  // Če medij sam reče "Šport", mu verjamemo.
+  // 1. KORAK: Preveri RSS kategorije
   if (item.categories && item.categories.length > 0) {
-    // Združimo vse kategorije v en string za lažje iskanje
     const rssCats = item.categories.map(c => unaccent(c)).join(' ')
     
     for (const id of PRIORITY_CHECK_ORDER) {
       const cat = CATEGORIES.find(c => c.id === id)
-      // Preverimo, če se katera od ključnih besed pojavi v RSS kategorijah
-      // (npr. če RSS vsebuje "Gospodarstvo", bo keyword 'gospodarstvo' to ujel)
       if (cat && cat.keywords.some(k => {
-         const cleanK = unaccent(k.replace(/\//g, '')) // Očistimo keyword (odstranimo poševnice)
+         const cleanK = unaccent(k.replace(/\//g, '')) 
          return cleanK.length > 3 && rssCats.includes(cleanK) 
       })) {
         return cat.id
@@ -112,7 +111,7 @@ export function determineCategory(item: { link: string; categories?: string[] })
     }
   }
 
-  // 2. KORAK: Preveri URL (Tvoja stara, dobra logika)
+  // 2. KORAK: Preveri URL
   const url = item.link.toLowerCase()
   for (const id of PRIORITY_CHECK_ORDER) {
     const cat = CATEGORIES.find(c => c.id === id)
