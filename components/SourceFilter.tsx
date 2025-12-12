@@ -14,7 +14,7 @@ const LOGO_MAP: Record<string, string> = {
 }
 
 type Props = {
-  value: string[] // Sprejme array nizov
+  value: string[] 
   onChange: (sources: string[]) => void
   open: boolean 
   onClose: () => void
@@ -34,11 +34,9 @@ export default function SourceFilter({ value, onChange, open, onClose }: Props) 
 
   const toggleSource = (source: string) => {
     if (source === 'Vse') {
-      onChange([]) // Prazen array pomeni "Vse"
+      onChange([]) 
       return
     }
-    
-    // Če je bil izbran "Vse" (prazen array), začnemo z novim izborom
     let newSelection = [...value]
     if (newSelection.includes(source)) {
       newSelection = newSelection.filter(s => s !== source)
@@ -123,8 +121,21 @@ export default function SourceFilter({ value, onChange, open, onClose }: Props) 
           </div>
         </div>
         
-        {/* Footer z gumbom za potrditev (ker je multi-select) */}
-        <div className="p-4 border-t border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-900/50 flex justify-end">
+        {/* Footer */}
+        <div className="p-4 border-t border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-900/50 flex justify-between items-center">
+            
+            {/* Gumb POČISTI (samo če ni Vse) */}
+            <div>
+              {!isAll && (
+                <button
+                  onClick={() => onChange([])}
+                  className="text-sm text-red-500 hover:text-red-600 font-medium px-2 py-1 rounded hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                >
+                  Počisti izbor
+                </button>
+              )}
+            </div>
+
             <button 
                 onClick={onClose}
                 className="px-6 py-2 bg-brand text-white font-medium rounded-full hover:bg-brand-hover transition shadow-sm"
