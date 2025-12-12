@@ -17,7 +17,6 @@ export type CategoryDef = {
 }
 
 // 1. VRSTNI RED ZA PRIKAZ V MENIJU (UI)
-// Točno tako, kot si želel:
 export const CATEGORIES: CategoryDef[] = [
   {
     id: 'slovenija',
@@ -70,7 +69,6 @@ export const CATEGORIES: CategoryDef[] = [
 ]
 
 // 2. LOGIKA ZAZNAVANJA (DETECTION PRIORITY)
-// Najprej preverimo specifične teme, da jih "Slovenija" ne požre.
 const PRIORITY_CHECK_ORDER: CategoryId[] = [
   'sport', 
   'magazin', 
