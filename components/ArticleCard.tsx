@@ -42,7 +42,6 @@ export default function ArticleCard({ news, priority = false }: Props) {
 
     return () => clearTimeout(timeoutId)
   }, [])
-  // ------------------------------------------------
 
   // --- LOGIKA ZA DATUM ---
   const formattedDate = useMemo(() => {
@@ -75,7 +74,7 @@ export default function ArticleCard({ news, priority = false }: Props) {
     return getSourceLogoPath(news.source)
   }, [news.source])
 
-  // Določimo kategorijo za prikaz na sliki
+  // Kategorija za prikaz na sliki
   const categoryDef = useMemo(() => {
     const catId = news.category || determineCategory({ link: news.link, categories: [] })
     return CATEGORIES.find(c => c.id === catId)
@@ -289,12 +288,12 @@ export default function ArticleCard({ news, priority = false }: Props) {
               data-ok={imgLoaded}
             />
           )}
-          
-          {/* KATEGORIJA NA SLIKI - BOLJ TRANSPARENTNA (bg-white/60 namesto /90) */}
+
+          {/* KATEGORIJA NA SLIKI - SPODAJ DESNO */}
           {categoryDef && categoryDef.id !== 'ostalo' && (
-            <span className={`absolute bottom-2 right-2 z-10 text-[10px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded shadow-sm text-gray-900 dark:text-white bg-white/60 dark:bg-gray-900/60 backdrop-blur-sm border border-black/5 dark:border-white/10`}>
-                {categoryDef.label}
-            </span>
+             <span className={`absolute bottom-2 right-2 z-10 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-gray-900 dark:text-white bg-white/60 dark:bg-black/60 backdrop-blur-md rounded shadow-sm border border-white/20 dark:border-white/10 pointer-events-none`}>
+               {categoryDef.label}
+             </span>
           )}
 
           <button
@@ -317,7 +316,7 @@ export default function ArticleCard({ news, priority = false }: Props) {
           </button>
         </div>
 
-        {/* ========== BESEDILO ========== */}
+        {/* ========== BESEDILO (BREZ KATEGORIJE SPODAJ) ========== */}
         <div className="p-3 flex flex-col flex-1">
           <div className="mb-2 flex items-center justify-between flex-wrap gap-y-1">
             <div className="flex items-center gap-2 min-w-0">
@@ -337,6 +336,7 @@ export default function ArticleCard({ news, priority = false }: Props) {
               </span>
             </div>
             
+            {/* TUKAJ JE SAMO ŠE ČAS */}
             <span className="text-[11px] text-gray-500 dark:text-gray-400 shrink-0 tabular-nums">
                {formattedDate}
             </span>
