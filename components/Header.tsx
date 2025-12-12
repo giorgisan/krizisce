@@ -14,7 +14,7 @@ type Props = {
   activeSource?: string
   activeCategory?: CategoryId | 'vse'
   onSelectCategory?: (cat: CategoryId | 'vse') => void
-  onReset?: () => void // NOVO: Za reset ob kliku na logo
+  onReset?: () => void
 }
 
 export default function Header({ 
@@ -67,7 +67,7 @@ export default function Header({
 
   const refreshNow = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' })
-    setRefreshing(true)
+    // Pošljemo event za refresh
     window.dispatchEvent(new CustomEvent('refresh-news'))
   }
 
@@ -113,7 +113,6 @@ export default function Header({
       <div className="w-full border-b border-gray-100 dark:border-gray-800/60">
         <div className="max-w-[1800px] mx-auto px-4 md:px-8 lg:px-16 h-16 flex items-center justify-between gap-4">
           
-          {/* LEVO: Logo */}
           <div className="flex items-center gap-4 shrink-0 mr-auto">
             <Link href="/" onClick={handleLogoClick} className="flex items-center gap-3 group">
                 <div className="relative w-8 h-8 md:w-9 md:h-9">
@@ -129,7 +128,7 @@ export default function Header({
                 </div>
             </Link>
 
-            {/* FRESH NEWS PILL */}
+            {/* FRESH NEWS PILL (ZELENA) */}
             <AnimatePresence initial={false}>
                 {hasNew && !refreshing && !isArhiv && (
                 <motion.button
@@ -138,11 +137,11 @@ export default function Header({
                     animate={{ opacity: 1, scale: 1 }}
                     exit={{ opacity: 0, scale: 0.9 }}
                     onClick={refreshNow}
-                    className="flex items-center gap-2 px-3 py-1 bg-brand/10 text-brand text-xs font-bold rounded-full hover:bg-brand/20 transition-colors cursor-pointer"
+                    className="flex items-center gap-2 px-3 py-1 bg-emerald-500 text-white text-xs font-bold rounded-full hover:bg-emerald-600 transition-colors cursor-pointer shadow-sm"
                 >
                     <span className="relative flex h-2 w-2">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-brand opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-2 w-2 bg-brand"></span>
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-white"></span>
                     </span>
                     <span className="hidden sm:inline">Nove novice</span>
                 </motion.button>
@@ -150,10 +149,9 @@ export default function Header({
             </AnimatePresence>
           </div>
 
-          {/* DESNO: Search + Orodja */}
           <div className="flex items-center gap-2 md:gap-4 shrink-0 ml-auto">
             
-            {/* SEARCH (Bolj desno) */}
+            {/* SEARCH */}
             {!isArhiv && (
               <div className="hidden md:block w-64 lg:w-80">
                 <form onSubmit={handleSubmit} className="relative group">
@@ -164,7 +162,7 @@ export default function Header({
                   </div>
                   <input
                     type="search"
-                    placeholder="Išči..."
+                    placeholder="Išči po naslovu ali vsebini..."
                     className="block w-full pl-10 pr-3 py-1.5 bg-gray-100 dark:bg-gray-800 border border-transparent 
                               focus:bg-white dark:focus:bg-black focus:border-brand/30 focus:ring-2 focus:ring-brand/10
                               rounded-md text-sm transition-all placeholder-gray-500 text-gray-900 dark:text-white"
@@ -197,6 +195,7 @@ export default function Header({
               </button>
             )}
 
+            {/* ARHIV */}
             <Link
               href="/arhiv"
               className={`p-2 rounded-md transition-colors text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800 ${router.pathname === '/arhiv' ? 'text-brand' : ''}`}
@@ -211,6 +210,7 @@ export default function Header({
               </svg>
             </Link>
 
+            {/* TEMA */}
             {mounted && (
               <button
                 onClick={() => setTheme(isDark ? 'light' : 'dark')}
@@ -231,7 +231,7 @@ export default function Header({
         </div>
       </div>
 
-      {/* --- SPODNJA VRSTICA (Navigacija) - Skrita na arhivu --- */}
+      {/* --- SPODNJA VRSTICA (Navigacija) --- */}
       {!isArhiv && (
         <div className="w-full bg-white dark:bg-gray-900">
           <div className="max-w-[1800px] mx-auto px-4 md:px-8 lg:px-16">
