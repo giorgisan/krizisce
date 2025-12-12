@@ -288,10 +288,10 @@ export default function ArticleCard({ news, priority = false }: Props) {
               data-ok={imgLoaded}
             />
           )}
-          
-          {/* KATEGORIJA: Zelo subtilna in prosojna (bg-white/40) */}
+
+          {/* KATEGORIJA: Skrita na mobilnih (hidden), vidna na večjih (sm:block), zelo prosojna (bg/30) */}
           {categoryDef && categoryDef.id !== 'ostalo' && (
-             <span className={`absolute bottom-2 right-2 z-10 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-gray-900 dark:text-white bg-white/40 dark:bg-black/40 backdrop-blur-md rounded shadow-sm border border-white/10 dark:border-white/5 pointer-events-none`}>
+             <span className={`hidden sm:block absolute bottom-2 right-2 z-10 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-gray-900 dark:text-white bg-white/30 dark:bg-black/30 backdrop-blur-md rounded shadow-sm border border-white/20 dark:border-white/10 pointer-events-none`}>
                {categoryDef.label}
              </span>
           )}
@@ -316,7 +316,7 @@ export default function ArticleCard({ news, priority = false }: Props) {
           </button>
         </div>
 
-        {/* ========== BESEDILO (Brez kategorije) ========== */}
+        {/* ========== BESEDILO (Brez kategorije spodaj) ========== */}
         <div className="p-3 flex flex-col flex-1">
           <div className="mb-2 flex items-center justify-between flex-wrap gap-y-1">
             <div className="flex items-center gap-2 min-w-0">
@@ -336,6 +336,7 @@ export default function ArticleCard({ news, priority = false }: Props) {
               </span>
             </div>
             
+            {/* Dinamičen čas */}
             <span className="text-[11px] text-gray-500 dark:text-gray-400 shrink-0 tabular-nums">
                {formattedDate}
             </span>
