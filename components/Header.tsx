@@ -134,7 +134,7 @@ export default function Header({
                 </div>
             </Link>
 
-            {/* FRESH NEWS PILL - ZELEN GUMB KOT PREJ */}
+            {/* FRESH NEWS PILL - PRENOVLJEN, BOLJ ELEGANTEN */}
             <AnimatePresence initial={false}>
                 {hasNew && !refreshing && !isArhiv && (
                 <motion.button
@@ -143,13 +143,19 @@ export default function Header({
                     animate={{ opacity: 1, scale: 1, x: 0 }}
                     exit={{ opacity: 0, scale: 0.9, x: -10 }}
                     onClick={refreshNow}
-                    // ZELEN GUMB
-                    className="flex items-center gap-2 px-3 py-1.5 bg-[#10b981] text-white text-xs font-bold rounded-full hover:bg-[#059669] transition-all shadow-md cursor-pointer ml-2 md:ml-4"
+                    // SPREMENJENI STILI: Transparentno zeleno ozadje, zeleno besedilo, tanka obroba
+                    className="flex items-center gap-2 px-3 py-1.5 
+                               bg-[#10b981]/20 dark:bg-[#10b981]/30 
+                               text-[#10b981] dark:text-[#34d399] 
+                               border border-[#10b981]/30
+                               text-xs font-bold rounded-full 
+                               hover:bg-[#10b981]/30 dark:hover:bg-[#10b981]/40 
+                               transition-all cursor-pointer ml-2 md:ml-4"
                 >
-                    {/* Bela utripajoča pika */}
+                    {/* Zelena utripajoča pika */}
                     <span className="relative flex h-2 w-2">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
-                      <span className="relative inline-flex rounded-full h-2 w-2 bg-white"></span>
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#10b981] opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-[#10b981]"></span>
                     </span>
                     <span>Nove novice</span>
                 </motion.button>
