@@ -17,9 +17,9 @@ import ArticleCard from '@/components/ArticleCard'
 import TrendingCard from '@/components/TrendingCard'
 import SeoHead from '@/components/SeoHead'
 import BackToTop from '@/components/BackToTop'
-import SourceFilter from '@/components/SourceFilter' // Zdaj je to MODAL
+import SourceFilter from '@/components/SourceFilter' 
 import NewsTabs from '@/components/NewsTabs'
-import CategoryFilter from '@/components/CategoryFilter'
+// CategoryFilter import ni več potreben v renderju, ampak logiko še rabimo
 import { CategoryId, determineCategory } from '@/lib/categories'
 
 /* ================= Helpers & constants ================= */
@@ -44,7 +44,6 @@ function timeout(ms: number) {
   return new Promise((_, rej) => setTimeout(() => rej(new Error('Request timeout')), ms))
 }
 
-// UPDATE: loadNews now accepts searchQuery
 async function loadNews(mode: Mode, source: string, category: CategoryId | 'vse', query: string | null, signal?: AbortSignal): Promise<NewsItem[] | null> {
   const qs = new URLSearchParams()
   if (mode === 'trending') qs.set('variant', 'trending')
@@ -63,9 +62,7 @@ async function loadNews(mode: Mode, source: string, category: CategoryId | 'vse'
     }
   } catch {}
   
-  // Client-side fallback (le za osnovni view)
   if (mode === 'latest' && source === 'Vse' && category === 'vse' && !query) {
-    // ... fallback logiko lahko pustimo, ampak za Search je nujno, da gre preko API
     return null 
   }
   return null
@@ -96,7 +93,7 @@ export default function Home({ initialNews }: Props) {
   // FILTRI
   const [selectedSource, setSelectedSource] = useState<string>('Vse')
   const [selectedCategory, setSelectedCategory] = useState<CategoryId | 'vse'>('vse')
-  const [searchQuery, setSearchQuery] = useState<string>('') // NOVO: Iskanje
+  const [searchQuery, setSearchQuery] = useState<string>('') 
 
   // MODAL CONTROL
   const [filterModalOpen, setFilterModalOpen] = useState(false)
@@ -125,7 +122,6 @@ export default function Home({ initialNews }: Props) {
         setCursor(null)
         setHasMore(true)
         
-        // Klic z vsemi parametri
         const fresh = await loadNews('latest', selectedSource, selectedCategory, searchQuery)
         
         if (fresh) {
@@ -136,13 +132,12 @@ export default function Home({ initialNews }: Props) {
         setIsRefreshing(false)
     }
     
-    // Debounce za iskanje (da ne išče ob vsaki črki takoj, ampak počaka malo)
     const timeoutId = setTimeout(fetchData, searchQuery ? 500 : 0)
     return () => clearTimeout(timeoutId)
 
   }, [selectedSource, selectedCategory, searchQuery, mode, bootRefreshed])
 
-  // POLLING (Auto-refresh)
+  // POLLING
   const missCountRef = useRef(0)
   const timerRef = useRef<number | null>(null)
 
@@ -151,7 +146,6 @@ export default function Home({ initialNews }: Props) {
 
     const runCheckSimple = async () => {
       if (mode !== 'latest') return
-      // Če uporabnik išče, ne delamo auto-refresh v ozadju, da ne skače
       if (searchQuery) return 
 
       kickSyncIfStale(10 * 60_000)
@@ -266,7 +260,6 @@ export default function Home({ initialNews }: Props) {
     } finally { setIsLoadingMore(false) }
   }
 
-  // Tabs
   const handleTabChange = async (next: Mode) => {
     if (next === mode) return
     setMode(next)
@@ -293,34 +286,33 @@ export default function Home({ initialNews }: Props) {
 
   return (
     <>
+      {/* Header zdaj vsebuje VSE: 
+        Logo, Slogan, Search, Filters, Tools in Kategorije 
+      */}
       <Header 
         onOpenFilter={() => setFilterModalOpen(true)}
         onSearch={setSearchQuery} 
         activeSource={selectedSource}
+        activeCategory={selectedCategory}
+        onSelectCategory={(cat) => {
+           startTransition(() => {
+             setSelectedCategory(cat)
+           })
+        }}
       />
 
-      {/* FILTER MODAL */}
       <SourceFilter
         open={filterModalOpen}
         onClose={() => setFilterModalOpen(false)}
         value={selectedSource}
-        onChange={(src) => {
-          setSelectedSource(src)
-          // Reset se zgodi avtomatsko preko useEffect
-        }}
+        onChange={(src) => setSelectedSource(src)}
       />
 
-      {/* GLAVNI CATEGORY BAR (Sticky under header effect usually done via CSS, keeping simple here) */}
-      <div className="pt-2"> 
-        <CategoryFilter 
-          selected={selectedCategory}
-          onChange={(cat) => setSelectedCategory(cat)}
-        />
-      </div>
+      {/* ODSTRANJEN CategoryFilter, ker je zdaj v Headerju */}
 
-      {/* MALI TABS (Manj vpadljivi) */}
-      <div className="px-4 md:px-8 lg:px-16 mb-4 flex items-center justify-between">
-         <div className="scale-90 origin-left">
+      {/* MALI TABS */}
+      <div className="px-4 md:px-8 lg:px-16 mt-6 mb-4 flex items-center justify-between">
+         <div className="scale-95 origin-left">
            <NewsTabs active={mode} onChange={handleTabChange} />
          </div>
       </div>
@@ -329,7 +321,6 @@ export default function Home({ initialNews }: Props) {
 
       <main className="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white px-4 md:px-8 lg:px-16 pt-0 pb-8">
         
-        {/* Loading / Empty States */}
         {isRefreshing && visibleNews.length === 0 ? (
            <div className="flex flex-col items-center justify-center pt-20 pb-20">
              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand mb-4"></div>
@@ -376,7 +367,7 @@ export default function Home({ initialNews }: Props) {
   )
 }
 
-// getServerSideProps (nespremenjeno - kopiraj iz prejšnjega če rabiš ali pusti obstoječe)
+// getServerSideProps (nespremenjeno)
 export const getServerSideProps: GetServerSideProps = async ({ res }) => {
   res.setHeader('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=30')
   const { createClient } = await import('@supabase/supabase-js')
