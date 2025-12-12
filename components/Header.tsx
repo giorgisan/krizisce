@@ -54,10 +54,11 @@ export default function Header({
     return () => window.removeEventListener('scroll', onScroll)
   }, [])
 
-  // Ob spremembi vnosa (če želiš live search, sicer to pusti, submit je na Enter)
+  // Iskanje: pošlje poizvedbo takoj, ko tipkaš (zamik ureja index.tsx)
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setSearchVal(e.target.value)
-    if(e.target.value === '') onSearch('')
+    const val = e.target.value
+    setSearchVal(val)
+    onSearch(val)
   }
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -77,7 +78,7 @@ export default function Header({
         ${scrolled ? 'shadow-md' : ''}
       `}
     >
-      {/* --- ZGORNJA VRSTICA: Logo, Search, Orodja --- */}
+      {/* --- ZGORNJA VRSTICA --- */}
       <div className="w-full border-b border-gray-100 dark:border-gray-800/60">
         <div className="max-w-[1800px] mx-auto px-4 md:px-8 lg:px-16 h-16 flex items-center justify-between gap-4">
           
@@ -100,31 +101,30 @@ export default function Header({
           <div className="flex-1 max-w-lg mx-4 hidden md:block">
             <form onSubmit={handleSubmit} className="relative group">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <svg className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <svg className="h-4 w-4 text-gray-400 group-focus-within:text-brand transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                 </svg>
               </div>
               <input
                 type="search"
-                placeholder="Išči novice..."
-                className="block w-full pl-10 pr-3 py-1.5 bg-gray-100 dark:bg-gray-800 border-none rounded-full text-sm 
-                           focus:ring-2 focus:ring-brand/30 focus:bg-white dark:focus:bg-black transition-all
-                           text-gray-900 dark:text-white placeholder-gray-500"
+                placeholder="Išči..."
+                className="block w-full pl-10 pr-3 py-1.5 bg-gray-100 dark:bg-gray-800 border border-transparent 
+                           focus:bg-white dark:focus:bg-black focus:border-brand/30 focus:ring-2 focus:ring-brand/10
+                           rounded-md text-sm transition-all placeholder-gray-500 text-gray-900 dark:text-white"
                 value={searchVal}
                 onChange={handleSearchChange}
               />
             </form>
           </div>
 
-          {/* DESNO: Orodja (Ura, Filter, Arhiv-Koledar, Tema) */}
+          {/* DESNO: Orodja */}
           <div className="flex items-center gap-1 sm:gap-2 shrink-0">
             
-            {/* URA */}
             <span className="hidden lg:inline-block font-mono text-xs text-gray-500 dark:text-gray-400 mr-2 border-r border-gray-200 dark:border-gray-700 pr-3">
               {time}
             </span>
 
-            {/* FILTER (Lijak) */}
+            {/* FILTER */}
             <button 
               onClick={onOpenFilter}
               className={`p-2 rounded-md transition-colors ${activeSource !== 'Vse' ? 'text-brand bg-brand/10' : 'text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800'}`}
@@ -135,18 +135,22 @@ export default function Header({
               </svg>
             </button>
 
-            {/* ARHIV (Koledar ikona) */}
+            {/* ARHIV - KOLEDAR IKONA (Popravljeno) */}
             <Link
               href="/arhiv"
               className={`p-2 rounded-md transition-colors text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800 ${router.pathname === '/arhiv' ? 'text-brand' : ''}`}
               title="Arhiv"
             >
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                <line x1="16" y1="2" x2="16" y2="6" />
+                <line x1="8" y1="2" x2="8" y2="6" />
+                <line x1="3" y1="10" x2="21" y2="10" />
+                <path d="M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01M16 18h.01" strokeLinecap="round" />
               </svg>
             </Link>
 
-            {/* TEMA (Sonce/Luna) */}
+            {/* TEMA */}
             {mounted && (
               <button
                 onClick={() => setTheme(isDark ? 'light' : 'dark')}
@@ -167,12 +171,11 @@ export default function Header({
         </div>
       </div>
 
-      {/* --- SPODNJA VRSTICA: Navigacija (Profesionalna) --- */}
+      {/* --- SPODNJA VRSTICA: Navigacija --- */}
       <div className="w-full bg-white dark:bg-gray-900">
         <div className="max-w-[1800px] mx-auto px-4 md:px-8 lg:px-16">
           <nav className="flex items-center gap-6 overflow-x-auto no-scrollbar">
             
-            {/* Vse Novice */}
             <button
               onClick={() => onSelectCategory('vse')}
               className={`
@@ -188,7 +191,6 @@ export default function Header({
               )}
             </button>
 
-            {/* Kategorije */}
             {CATEGORIES.map((cat) => {
               const isActive = activeCategory === cat.id
               return (
@@ -206,9 +208,8 @@ export default function Header({
                   {isActive && (
                     <span 
                       className="absolute bottom-0 left-0 w-full h-0.5 rounded-t-md" 
-                      style={{ backgroundColor: activeSource !== 'Vse' ? undefined : (cat.color.includes('emerald') ? '#10b981' : cat.color.includes('blue') ? '#3b82f6' : cat.color.includes('red') ? '#ef4444' : '#6366f1') }} // Fallback na brand color ali specific color
+                      style={{ backgroundColor: activeSource !== 'Vse' ? undefined : (cat.color.includes('emerald') ? '#10b981' : cat.color.includes('blue') ? '#3b82f6' : cat.color.includes('red') ? '#ef4444' : '#6366f1') }} 
                     >
-                        {/* Hack za barvno črto: v realnosti je lažje imeti samo brand barvo, ampak lahko poskusimo category-specific */}
                         <span className={`absolute inset-0 ${isActive ? 'bg-brand' : ''}`} />
                     </span>
                   )}
