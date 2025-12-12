@@ -33,20 +33,32 @@ export default function ArticleCard({ news, priority = false }: Props) {
     return () => window.removeEventListener('ui:minute', onMinute as EventListener)
   }, [])
 
+  // --- POPRAVEK DATUMA: Prikaži datum za starejše od 24h ---
   const formattedDate = useMemo(() => {
     const ms = news.publishedAt ?? (news.isoDate ? Date.parse(news.isoDate) : 0)
     if (!ms) return ''
-    const diff = Date.now() - ms
+    
+    const now = Date.now()
+    const diff = now - ms
+    const oneDayMs = 24 * 60 * 60 * 1000
+
+    // Če je novica starejša od 24 ur, izpiši datum (npr. 12. dec)
+    if (diff > oneDayMs) {
+       const d = new Date(ms)
+       return new Intl.DateTimeFormat('sl-SI', { day: 'numeric', month: 'short' }).format(d)
+    }
+
+    // Sicer izpiši relativni čas
     const min = Math.floor(diff / 60_000)
     const hr  = Math.floor(min / 60)
+    
     if (diff < 60_000) return 'zdaj'
     if (min  < 60)      return `${min} min`
     if (hr   < 24)      return `${hr} h`
-    const d    = new Date(ms)
-    // const date = new Intl.DateTimeFormat('sl-SI', { day: 'numeric', month: 'short' }).format(d)
-    const time = new Intl.DateTimeFormat('sl-SI', { hour: '2-digit', minute: '2-digit' }).format(d)
-    return `${time}`
+    
+    return '' // Fallback
   }, [news.publishedAt, news.isoDate, minuteTick])
+  // ---------------------------------------------------------
 
   const sourceColor = useMemo(() => {
     return (sourceColors as Record<string, string>)[news.source] || '#fc9c6c'
@@ -56,13 +68,10 @@ export default function ArticleCard({ news, priority = false }: Props) {
     return getSourceLogoPath(news.source)
   }, [news.source])
 
-  // --- KATEGORIJE LOGIKA ---
   const categoryDef = useMemo(() => {
-    // Če je kategorija že v objektu, jo uporabi, sicer jo izračunaj
     const catId = news.category || determineCategory({ link: news.link, categories: [] })
     return CATEGORIES.find(c => c.id === catId)
   }, [news.category, news.link])
-  // -------------------------
 
   const [isTouch, setIsTouch] = useState(false)
   useEffect(() => {
@@ -314,13 +323,14 @@ export default function ArticleCard({ news, priority = false }: Props) {
             </div>
             
             <div className="flex items-center">
-                {/* CATEGORY BADGE */}
                 {categoryDef && categoryDef.id !== 'ostalo' && (
                     <span className={`mr-2 text-[10px] px-1.5 py-0.5 rounded font-medium ${categoryDef.color}`}>
                         {categoryDef.label}
                     </span>
                 )}
-                <span className="text-[11px] text-gray-500 dark:text-gray-400 shrink-0">{formattedDate}</span>
+                <span className="text-[11px] text-gray-500 dark:text-gray-400 shrink-0 tabular-nums">
+                  {formattedDate}
+                </span>
             </div>
           </div>
           
