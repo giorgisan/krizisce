@@ -37,6 +37,7 @@ export default function Header({
 
   const isArhiv = router.pathname === '/arhiv'
 
+  // Ura
   useEffect(() => {
     setMounted(true)
     setNowMs(Date.now())
@@ -54,6 +55,7 @@ export default function Header({
     ? new Intl.DateTimeFormat('sl-SI', { hour: '2-digit', minute: '2-digit' }).format(new Date(nowMs))
     : '--:--'
 
+  // Logika za "Nove novice"
   useEffect(() => {
     const onHasNew = (e: Event) => setHasNew(Boolean((e as CustomEvent).detail))
     const onRefreshing = (e: Event) => setRefreshing(Boolean((e as CustomEvent).detail))
@@ -67,10 +69,11 @@ export default function Header({
 
   const refreshNow = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' })
-    // Pošljemo event za refresh
+    setRefreshing(true)
     window.dispatchEvent(new CustomEvent('refresh-news'))
   }
 
+  // Scroll senca
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 10)
     window.addEventListener('scroll', onScroll)
@@ -90,12 +93,11 @@ export default function Header({
     if (activeEl) activeEl.blur()
   }
 
-  // Funkcija za klik na logo
   const handleLogoClick = (e: React.MouseEvent) => {
     if (!isArhiv) {
       e.preventDefault()
-      setSearchVal('') // Počisti search input
-      onReset()        // Pokliče reset v index.tsx
+      setSearchVal('')
+      onReset()        
       window.scrollTo({ top: 0, behavior: 'smooth' })
     }
   }
@@ -113,45 +115,45 @@ export default function Header({
       <div className="w-full border-b border-gray-100 dark:border-gray-800/60">
         <div className="max-w-[1800px] mx-auto px-4 md:px-8 lg:px-16 h-16 flex items-center justify-between gap-4">
           
+          {/* LEVO: Logo & Slogan */}
           <div className="flex items-center gap-4 shrink-0 mr-auto">
             <Link href="/" onClick={handleLogoClick} className="flex items-center gap-3 group">
                 <div className="relative w-8 h-8 md:w-9 md:h-9">
-                <Image src="/logo.png" alt="Logo" fill className="object-contain" />
+                  <Image src="/logo.png" alt="Logo" fill className="object-contain" />
                 </div>
                 <div className="flex flex-col justify-center">
-                <span className="text-xl font-bold tracking-tight text-gray-900 dark:text-white leading-none">
-                    Križišče
-                </span>
-                <span className="text-[10px] font-medium text-gray-500 dark:text-gray-400 leading-none mt-1 hidden sm:block">
-                    Zadnje novice slovenskih medijev
-                </span>
+                  <span className="text-xl font-bold tracking-tight text-gray-900 dark:text-white leading-none">
+                      Križišče
+                  </span>
+                  {/* POVEČAN SLOGAN */}
+                  <span className="text-xs font-medium text-gray-500 dark:text-gray-400 leading-none mt-1 hidden sm:block">
+                      Zadnje novice slovenskih medijev
+                  </span>
                 </div>
             </Link>
 
-            {/* FRESH NEWS PILL (ZELENA) */}
+            {/* FRESH NEWS PILL - ZELEN GUMB KOT PREJ */}
             <AnimatePresence initial={false}>
                 {hasNew && !refreshing && !isArhiv && (
                 <motion.button
                     key="fresh-pill"
-                    initial={{ opacity: 0, scale: 0.9 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.9 }}
+                    initial={{ opacity: 0, scale: 0.9, x: -10 }}
+                    animate={{ opacity: 1, scale: 1, x: 0 }}
+                    exit={{ opacity: 0, scale: 0.9, x: -10 }}
                     onClick={refreshNow}
-                    className="flex items-center gap-2 px-3 py-1 bg-emerald-500 text-white text-xs font-bold rounded-full hover:bg-emerald-600 transition-colors cursor-pointer shadow-sm"
+                    className="flex items-center gap-2 px-4 py-1.5 bg-[#10b981] text-white text-sm font-bold rounded-full hover:bg-[#059669] transition-all shadow-md cursor-pointer ml-4"
                 >
-                    <span className="relative flex h-2 w-2">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-2 w-2 bg-white"></span>
-                    </span>
-                    <span className="hidden sm:inline">Nove novice</span>
+                    {/* Bela pika */}
+                    <span className="w-2 h-2 bg-white rounded-full animate-pulse" />
+                    <span>Nove novice</span>
                 </motion.button>
                 )}
             </AnimatePresence>
           </div>
 
+          {/* DESNO: Search + Orodja */}
           <div className="flex items-center gap-2 md:gap-4 shrink-0 ml-auto">
             
-            {/* SEARCH */}
             {!isArhiv && (
               <div className="hidden md:block w-64 lg:w-80">
                 <form onSubmit={handleSubmit} className="relative group">
@@ -162,7 +164,7 @@ export default function Header({
                   </div>
                   <input
                     type="search"
-                    placeholder="Vnesite iskano besedo ..."
+                    placeholder="Išči po naslovu ali vsebini..."
                     className="block w-full pl-10 pr-3 py-1.5 bg-gray-100 dark:bg-gray-800 border border-transparent 
                               focus:bg-white dark:focus:bg-black focus:border-brand/30 focus:ring-2 focus:ring-brand/10
                               rounded-md text-sm transition-all placeholder-gray-500 text-gray-900 dark:text-white"
@@ -237,7 +239,6 @@ export default function Header({
           <div className="max-w-[1800px] mx-auto px-4 md:px-8 lg:px-16">
             <nav className="flex items-center gap-6 overflow-x-auto no-scrollbar">
               
-              {/* SEARCH ZA MOBILE */}
               <div className="md:hidden py-2 min-w-[140px]">
                 <input
                   type="search"
