@@ -1,16 +1,17 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { useTheme } from 'next-themes'
 import { useRouter } from 'next/router'
 import { CATEGORIES, CategoryId } from '../lib/categories'
+import { motion, AnimatePresence } from 'framer-motion' // Dodan import
 
 type Props = {
   onOpenFilter?: () => void
   onSearch?: (query: string) => void
-  activeSource?: string
+  activeSource?: string // To bomo v indexu pretvorili v display string
   activeCategory?: CategoryId | 'vse'
   onSelectCategory?: (cat: CategoryId | 'vse') => void
 }
@@ -26,6 +27,10 @@ export default function Header({
   const [searchVal, setSearchVal] = useState('')
   const [mounted, setMounted] = useState(false)
   
+  // --- FRESH NEWS STATE ---
+  const [hasNew, setHasNew] = useState(false)
+  const [refreshing, setRefreshing] = useState(false)
+
   // --- URA ---
   const [nowMs, setNowMs] = useState<number>(0)
   const { theme, setTheme, resolvedTheme } = useTheme()
@@ -48,13 +53,30 @@ export default function Header({
     ? new Intl.DateTimeFormat('sl-SI', { hour: '2-digit', minute: '2-digit' }).format(new Date(nowMs))
     : '--:--'
 
+  // --- POSLUŠALCI ZA SVEŽE NOVICE ---
+  useEffect(() => {
+    const onHasNew = (e: Event) => setHasNew(Boolean((e as CustomEvent).detail))
+    const onRefreshing = (e: Event) => setRefreshing(Boolean((e as CustomEvent).detail))
+    window.addEventListener('news-has-new', onHasNew as EventListener)
+    window.addEventListener('news-refreshing', onRefreshing as EventListener)
+    return () => {
+      window.removeEventListener('news-has-new', onHasNew as EventListener)
+      window.removeEventListener('news-refreshing', onRefreshing as EventListener)
+    }
+  }, [])
+
+  const refreshNow = () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+    setRefreshing(true)
+    window.dispatchEvent(new CustomEvent('refresh-news'))
+  }
+
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 10)
     window.addEventListener('scroll', onScroll)
     return () => window.removeEventListener('scroll', onScroll)
   }, [])
 
-  // Iskanje: pošlje poizvedbo takoj, ko tipkaš (zamik ureja index.tsx)
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value
     setSearchVal(val)
@@ -82,26 +104,48 @@ export default function Header({
       <div className="w-full border-b border-gray-100 dark:border-gray-800/60">
         <div className="max-w-[1800px] mx-auto px-4 md:px-8 lg:px-16 h-16 flex items-center justify-between gap-4">
           
-          {/* LEVO: Logo */}
-          <Link href="/" className="flex items-center gap-3 shrink-0 group">
-            <div className="relative w-8 h-8 md:w-9 md:h-9">
-               <Image src="/logo.png" alt="Logo" fill className="object-contain" />
-            </div>
-            <div className="flex flex-col justify-center">
-               <span className="text-xl font-bold tracking-tight text-gray-900 dark:text-white leading-none">
-                 Križišče
-               </span>
-               <span className="text-[10px] font-medium text-gray-500 dark:text-gray-400 leading-none mt-1 hidden sm:block">
-                 Zadnje novice slovenskih medijev
-               </span>
-            </div>
-          </Link>
+          {/* LEVO: Logo + FRESH NEWS INDICATOR */}
+          <div className="flex items-center gap-4 shrink-0">
+            <Link href="/" className="flex items-center gap-3 group">
+                <div className="relative w-8 h-8 md:w-9 md:h-9">
+                <Image src="/logo.png" alt="Logo" fill className="object-contain" />
+                </div>
+                <div className="flex flex-col justify-center">
+                <span className="text-xl font-bold tracking-tight text-gray-900 dark:text-white leading-none">
+                    Križišče
+                </span>
+                <span className="text-[10px] font-medium text-gray-500 dark:text-gray-400 leading-none mt-1 hidden sm:block">
+                    Zadnje novice slovenskih medijev
+                </span>
+                </div>
+            </Link>
+
+            {/* SVEŽE NOVICE PILL */}
+            <AnimatePresence initial={false}>
+                {hasNew && !refreshing && (
+                <motion.button
+                    key="fresh-pill"
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.9 }}
+                    onClick={refreshNow}
+                    className="flex items-center gap-2 px-3 py-1 bg-brand/10 text-brand text-xs font-bold rounded-full hover:bg-brand/20 transition-colors cursor-pointer"
+                >
+                    <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-brand opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-brand"></span>
+                    </span>
+                    <span className="hidden sm:inline">Nove novice</span>
+                </motion.button>
+                )}
+            </AnimatePresence>
+          </div>
 
           {/* SREDINA: Iskalnik */}
           <div className="flex-1 max-w-lg mx-4 hidden md:block">
             <form onSubmit={handleSubmit} className="relative group">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <svg className="h-4 w-4 text-gray-400 group-focus-within:text-brand transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <svg className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                 </svg>
               </div>
@@ -124,18 +168,21 @@ export default function Header({
               {time}
             </span>
 
-            {/* FILTER */}
+            {/* FILTER (Lijak - Prikazuje piko če je filter aktiven) */}
             <button 
               onClick={onOpenFilter}
-              className={`p-2 rounded-md transition-colors ${activeSource !== 'Vse' ? 'text-brand bg-brand/10' : 'text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800'}`}
+              className={`relative p-2 rounded-md transition-colors ${activeSource !== 'Vse' ? 'text-brand bg-brand/10' : 'text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800'}`}
               title="Filtriraj po viru"
             >
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
               </svg>
+              {activeSource !== 'Vse' && (
+                  <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-brand rounded-full ring-2 ring-white dark:ring-gray-900" />
+              )}
             </button>
 
-            {/* ARHIV - KOLEDAR IKONA (Popravljeno) */}
+            {/* ARHIV */}
             <Link
               href="/arhiv"
               className={`p-2 rounded-md transition-colors text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800 ${router.pathname === '/arhiv' ? 'text-brand' : ''}`}
@@ -171,7 +218,7 @@ export default function Header({
         </div>
       </div>
 
-      {/* --- SPODNJA VRSTICA: Navigacija --- */}
+      {/* --- SPODNJA VRSTICA (Navigacija) --- */}
       <div className="w-full bg-white dark:bg-gray-900">
         <div className="max-w-[1800px] mx-auto px-4 md:px-8 lg:px-16">
           <nav className="flex items-center gap-6 overflow-x-auto no-scrollbar">
