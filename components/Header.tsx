@@ -108,9 +108,11 @@ export default function Header({
   return (
     <header 
       className={`
-        sticky top-0 z-40 w-full flex flex-col transition-all duration-200
-        bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800
-        ${scrolled ? 'shadow-md' : ''}
+        sticky top-0 z-40 w-full flex flex-col transition-all duration-300
+        border-b border-gray-200 dark:border-gray-800
+        ${scrolled 
+            ? 'bg-white/80 dark:bg-gray-900/80 backdrop-blur-md shadow-sm support-[backdrop-filter]:bg-white/60' 
+            : 'bg-white dark:bg-gray-900'}
       `}
     >
       <div className="w-full border-b border-gray-100 dark:border-gray-800/60">
@@ -132,7 +134,7 @@ export default function Header({
                 </div>
             </Link>
 
-            {/* --- FRESH NEWS PILL (STARA VERZIJA S PROSOJNOSTJO IN POČASNIM UTRIPANJEM) --- */}
+            {/* --- FRESH NEWS PILL --- */}
             <AnimatePresence initial={false}>
                 {hasNew && !refreshing && !isArhiv && (
                 <motion.button
@@ -141,7 +143,6 @@ export default function Header({
                     animate={{ opacity: 1, scale: 1, y: 0 }}
                     exit={{ opacity: 0, scale: 0.95, y: 5 }}
                     onClick={refreshNow}
-                    // SPREMENJENI STILI: Vrnitev na prosojno ozadje, zeleno besedilo in border. Dodan backdrop-blur.
                     className="hidden md:flex items-center gap-3 px-4 py-2 
                                bg-[#10b981]/10 dark:bg-[#10b981]/20 
                                border border-[#10b981]/30
@@ -150,17 +151,13 @@ export default function Header({
                                text-xs md:text-sm rounded-full 
                                transition-all cursor-pointer ml-4 backdrop-blur-sm"
                 >
-                    {/* Zelena pika s počasnim, estetskim utripanjem (3s) */}
                     <span className="relative flex h-2.5 w-2.5">
-                       {/* Tukaj uporabimo 'arbitrary value' za podaljšanje animacije na 3 sekunde */}
                       <span className="absolute inline-flex h-full w-full rounded-full bg-[#10b981] opacity-75 animate-[ping_3s_cubic-bezier(0,0,0.2,1)_infinite]"></span>
                       <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-[#10b981]"></span>
                     </span>
                     
-                    {/* Besedilo (zeleno) */}
                     <span className="flex items-center leading-none">
                         <span className="font-bold">Na voljo so sveže novice</span>
-                         {/* Drugi del malo bolj prosojen */}
                         <span className="ml-1.5 font-normal opacity-80">— kliknite za osvežitev</span>
                     </span>
                 </motion.button>
@@ -253,7 +250,7 @@ export default function Header({
 
       {/* --- SPODNJA VRSTICA (Navigacija) --- */}
       {!isArhiv && (
-        <div className="w-full bg-white dark:bg-gray-900">
+        <div className="w-full bg-white dark:bg-gray-900 bg-transparent">
           <div className="max-w-[1800px] mx-auto px-4 md:px-8 lg:px-16">
             <nav className="flex items-center gap-6 overflow-x-auto no-scrollbar">
               
