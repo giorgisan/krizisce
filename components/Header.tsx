@@ -132,36 +132,36 @@ export default function Header({
                 </div>
             </Link>
 
-            {/* --- FRESH NEWS PILL (STARA VERZIJA S PROSOJNOSTJO IN POČASNIM UTRIPANJEM) --- */}
+            {/* --- FRESH NEWS PILL (SUBTILNA VERZIJA) --- */}
             <AnimatePresence initial={false}>
                 {hasNew && !refreshing && !isArhiv && (
                 <motion.button
                     key="fresh-pill"
-                    initial={{ opacity: 0, scale: 0.95, y: 5 }}
+                    initial={{ opacity: 0, scale: 0.95, y: 3 }}
                     animate={{ opacity: 1, scale: 1, y: 0 }}
-                    exit={{ opacity: 0, scale: 0.95, y: 5 }}
+                    exit={{ opacity: 0, scale: 0.95, y: 3 }}
                     onClick={refreshNow}
-                    // SPREMENJENI STILI: Vrnitev na prosojno ozadje, zeleno besedilo in border. Dodan backdrop-blur.
-                    className="hidden md:flex items-center gap-3 px-4 py-2 
-                               bg-[#10b981]/10 dark:bg-[#10b981]/20 
-                               border border-[#10b981]/30
-                               hover:bg-[#10b981]/20 dark:hover:bg-[#10b981]/30
-                               text-[#10b981] dark:text-[#34d399]
-                               text-xs md:text-sm rounded-full 
-                               transition-all cursor-pointer ml-4 backdrop-blur-sm"
+                    // SPREMENJENO: 
+                    // - manjši padding (px-3 py-1)
+                    // - zelo prosojno ozadje (bg-emerald-500/5)
+                    // - tanek in prosojen border
+                    className="hidden md:flex items-center gap-2 px-3 py-1 
+                               bg-emerald-500/5 hover:bg-emerald-500/10 
+                               border border-emerald-500/20
+                               text-emerald-600 dark:text-emerald-400
+                               text-xs rounded-full 
+                               transition-all cursor-pointer ml-3 backdrop-blur-sm select-none"
                 >
-                    {/* Zelena pika s počasnim, estetskim utripanjem (3s) */}
-                    <span className="relative flex h-2.5 w-2.5">
-                       {/* Tukaj uporabimo 'arbitrary value' za podaljšanje animacije na 3 sekunde */}
-                      <span className="absolute inline-flex h-full w-full rounded-full bg-[#10b981] opacity-75 animate-[ping_3s_cubic-bezier(0,0,0.2,1)_infinite]"></span>
-                      <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-[#10b981]"></span>
+                    {/* Pika (ohranjeno počasno utripanje) */}
+                    <span className="relative flex h-2 w-2">
+                      <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-75 animate-[ping_3s_cubic-bezier(0,0,0.2,1)_infinite]"></span>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
                     </span>
                     
-                    {/* Besedilo (zeleno) */}
-                    <span className="flex items-center leading-none">
+                    {/* Besedilo */}
+                    <span className="flex items-center leading-none mt-0.5">
                         <span className="font-bold">Na voljo so sveže novice</span>
-                         {/* Drugi del malo bolj prosojen */}
-                        <span className="ml-1.5 font-normal opacity-80">— kliknite za osvežitev</span>
+                        <span className="ml-1.5 font-normal opacity-70">— kliknite za osvežitev</span>
                     </span>
                 </motion.button>
                 )}
@@ -251,14 +251,15 @@ export default function Header({
         </div>
       </div>
 
-      {/* --- SPODNJA VRSTICA (Navigacija) --- */}
+      {/* --- SPODNJA VRSTICA (Navigacija - POPRAVLJENO V EDITORIAL STIL) --- */}
       {!isArhiv && (
         <div className="w-full bg-white dark:bg-gray-900">
           <div className="max-w-[1800px] mx-auto px-4 md:px-8 lg:px-16">
-            <nav className="flex items-center gap-6 overflow-x-auto no-scrollbar">
+            {/* Dodal sem 'items-center' in fiksno višino 'h-12' za lepšo poravnavo */}
+            <nav className="flex items-center gap-6 md:gap-8 h-12 overflow-x-auto no-scrollbar">
               
               {/* SEARCH ZA MOBILE */}
-              <div className="md:hidden py-2 min-w-[140px]">
+              <div className="md:hidden py-2 min-w-[140px] shrink-0">
                 <input
                   type="search"
                   placeholder="Išči..."
@@ -268,29 +269,36 @@ export default function Header({
                 />
               </div>
 
+              {/* GUMB VSE NOVICE - EDITORIAL STIL */}
               <button
                 onClick={() => onSelectCategory('vse')}
                 className={`
-                  relative py-3 text-sm font-bold uppercase tracking-wide whitespace-nowrap transition-colors
+                  relative h-full flex items-center
+                  text-sm font-bold uppercase tracking-wide whitespace-nowrap transition-colors select-none
                   ${activeCategory === 'vse' 
-                    ? 'text-brand' 
+                    ? 'text-orange-500' // Oranžna kot na sliki
                     : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'}
                 `}
               >
                 Vse novice
                 {activeCategory === 'vse' && (
-                  <span className="absolute bottom-0 left-0 w-full h-0.5 bg-brand rounded-t-md" />
+                  <span className="absolute bottom-0 left-0 w-full h-[3px] bg-orange-500 rounded-t-sm" />
                 )}
               </button>
 
+              {/* OSTALE KATEGORIJE - EDITORIAL STIL */}
               {CATEGORIES.map((cat) => {
                 const isActive = activeCategory === cat.id
+                // Barva črte (če je v configu nimaš, uporabi fallback modro/zeleno/rdečo)
+                const barColor = cat.color || '#10b981';
+
                 return (
                   <button
                     key={cat.id}
                     onClick={() => onSelectCategory(cat.id)}
                     className={`
-                      relative py-3 text-sm font-bold uppercase tracking-wide whitespace-nowrap transition-colors
+                      relative h-full flex items-center
+                      text-sm font-bold uppercase tracking-wide whitespace-nowrap transition-colors select-none
                       ${isActive 
                         ? 'text-gray-900 dark:text-white' 
                         : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'}
@@ -299,11 +307,9 @@ export default function Header({
                     {cat.label}
                     {isActive && (
                       <span 
-                        className="absolute bottom-0 left-0 w-full h-0.5 rounded-t-md" 
-                        style={{ backgroundColor: activeSource !== 'Vse' ? undefined : (cat.color.includes('emerald') ? '#10b981' : cat.color.includes('blue') ? '#3b82f6' : cat.color.includes('red') ? '#ef4444' : '#6366f1') }} 
-                      >
-                          <span className={`absolute inset-0 ${isActive ? 'bg-brand' : ''}`} />
-                      </span>
+                        className="absolute bottom-0 left-0 w-full h-[3px] rounded-t-sm" 
+                        style={{ backgroundColor: barColor }} 
+                      />
                     )}
                   </button>
                 )
