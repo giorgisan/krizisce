@@ -3,7 +3,7 @@ import type { NextApiRequest, NextApiResponse } from 'next'
 import { createClient } from '@supabase/supabase-js'
 import fetchRSSFeeds from '@/lib/fetchRSSFeeds'
 import type { NewsItem as FeedNewsItem } from '@/types'
-import { getKeywordsForCategory } from '@/lib/categories' // Uvozimo keywords logiko
+import { getKeywordsForCategory } from '@/lib/categories'
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL as string
 const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string
@@ -263,7 +263,6 @@ function rowToItem(r: Row): NewsItem {
 }
 
 /* ---------------- TRENDING ---------------- */
-// Ohranimo tvojo trending logiko
 const TREND_WINDOW_HOURS = 6 
 const TREND_MIN_SOURCES = 2    
 const TREND_MIN_OVERLAP = 2
@@ -528,7 +527,8 @@ export default async function handler(
     const wantsFresh = req.query.forceFresh === '1'
     const source = (req.query.source as string) || null
     const variant = (req.query.variant as string) || 'latest'
-    const category = (req.query.category as string) || null // NOVO: beremo kategorijo
+    const category = (req.query.category as string) || null 
+    const searchQuery = (req.query.q as string) || null // NOVO: Iskanje
 
     if (variant === 'trending') {
       try {
@@ -537,9 +537,7 @@ export default async function handler(
         res.setHeader('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=30') 
         return res.status(200).json(items as any)
       } catch (err: any) {
-        return res
-          .status(500)
-          .json({ error: err?.message || 'Trending error' })
+        return res.status(500).json({ error: err?.message || 'Trending error' })
       }
     }
 
@@ -578,15 +576,18 @@ export default async function handler(
     // 2. Filter po kursorju
     if (cursor && cursor > 0) q = q.lt('publishedat', cursor)
 
-    // 3. NOVO: Filter po kategoriji (iskanje po URL segmentih)
+    // 3. Filter po kategoriji
     if (category && category !== 'vse' && category !== 'ostalo') {
       const keywords = getKeywordsForCategory(category)
       if (keywords.length > 0) {
-        // Zgradimo "OR" query za Supabase: link.ilike.%word1%,link.ilike.%word2%...
-        // To je KLJUČ: Iščemo samo po LINKu, ker je tam URL struktura (npr. /sport/, /sportal/)
         const orQuery = keywords.map(k => `link.ilike.%${k}%`).join(',')
         q = q.or(orQuery)
       }
+    }
+
+    // 4. NOVO: SEARCH FILTER
+    if (searchQuery && searchQuery.trim().length > 0) {
+        q = q.ilike('title', `%${searchQuery.trim()}%`)
     }
 
     q = q.limit(limit)
