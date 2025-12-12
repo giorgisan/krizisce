@@ -26,17 +26,14 @@ const IMAGE_WIDTHS = [320, 480, 640, 960, 1280]
 interface Props { news: NewsItem; priority?: boolean }
 
 export default function ArticleCard({ news, priority = false }: Props) {
-  // --- POPRAVEK: ZAGOTOVLJENO OSVEŽEVANJE ČASA ---
-  // Uporabimo lokalno stanje za čas, da prisilimo React v ponovni izris
+  // --- ZAGOTOVLJENO OSVEŽEVANJE ČASA ---
   const [now, setNow] = useState(Date.now())
 
   useEffect(() => {
-    // Sinhronizacija z minuto (da se osveži točno, ko se zamenja minuta na uri)
     const timeToNextMinute = 60000 - (Date.now() % 60000)
     
     const timeoutId = setTimeout(() => {
       setNow(Date.now())
-      // Nato interval vsako minuto
       const intervalId = setInterval(() => {
         setNow(Date.now())
       }, 60000)
@@ -47,7 +44,7 @@ export default function ArticleCard({ news, priority = false }: Props) {
   }, [])
   // ------------------------------------------------
 
-  // --- LOGIKA ZA DATUM (Uporablja 'now' stanje) ---
+  // --- LOGIKA ZA DATUM ---
   const formattedDate = useMemo(() => {
     const ms = news.publishedAt ?? (news.isoDate ? Date.parse(news.isoDate) : 0)
     if (!ms) return ''
@@ -55,13 +52,11 @@ export default function ArticleCard({ news, priority = false }: Props) {
     const diff = now - ms
     const oneDayMs = 24 * 60 * 60 * 1000
 
-    // Če je starejše od 24 ur, pokaži datum
     if (diff > oneDayMs) {
        const d = new Date(ms)
        return new Intl.DateTimeFormat('sl-SI', { day: 'numeric', month: 'short' }).format(d)
     }
 
-    // Sicer relativni čas
     const min = Math.floor(diff / 60_000)
     const hr  = Math.floor(min / 60)
     
@@ -70,7 +65,7 @@ export default function ArticleCard({ news, priority = false }: Props) {
     if (hr   < 24)      return `pred ${hr} h`
     
     return ''
-  }, [news.publishedAt, news.isoDate, now]) // Odvisno od 'now', se osveži vsako minuto
+  }, [news.publishedAt, news.isoDate, now])
 
   const sourceColor = useMemo(() => {
     return (sourceColors as Record<string, string>)[news.source] || '#fc9c6c'
@@ -295,9 +290,9 @@ export default function ArticleCard({ news, priority = false }: Props) {
             />
           )}
           
-          {/* NOVO: KATEGORIJA NA SLIKI (Spodaj desno) */}
+          {/* KATEGORIJA NA SLIKI - BOLJ TRANSPARENTNA (bg-white/60 namesto /90) */}
           {categoryDef && categoryDef.id !== 'ostalo' && (
-            <span className={`absolute bottom-2 right-2 z-10 text-[10px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded shadow-sm text-gray-900 dark:text-white bg-white/90 dark:bg-gray-900/90 backdrop-blur-sm border border-black/5 dark:border-white/10`}>
+            <span className={`absolute bottom-2 right-2 z-10 text-[10px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded shadow-sm text-gray-900 dark:text-white bg-white/60 dark:bg-gray-900/60 backdrop-blur-sm border border-black/5 dark:border-white/10`}>
                 {categoryDef.label}
             </span>
           )}
@@ -322,7 +317,7 @@ export default function ArticleCard({ news, priority = false }: Props) {
           </button>
         </div>
 
-        {/* ========== BESEDILO (Brez kategorije spodaj) ========== */}
+        {/* ========== BESEDILO ========== */}
         <div className="p-3 flex flex-col flex-1">
           <div className="mb-2 flex items-center justify-between flex-wrap gap-y-1">
             <div className="flex items-center gap-2 min-w-0">
@@ -342,7 +337,6 @@ export default function ArticleCard({ news, priority = false }: Props) {
               </span>
             </div>
             
-            {/* Samo čas (ker je kategorija na sliki) */}
             <span className="text-[11px] text-gray-500 dark:text-gray-400 shrink-0 tabular-nums">
                {formattedDate}
             </span>
