@@ -28,6 +28,7 @@ export default function Header({
   const [scrolled, setScrolled] = useState(false)
   const [searchVal, setSearchVal] = useState('')
   const [mounted, setMounted] = useState(false)
+  
   const [hasNew, setHasNew] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
   
@@ -70,6 +71,7 @@ export default function Header({
   const refreshNow = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' })
     setRefreshing(true)
+    // Sproži event za refresh v index.tsx
     window.dispatchEvent(new CustomEvent('refresh-news'))
   }
 
@@ -96,8 +98,8 @@ export default function Header({
   const handleLogoClick = (e: React.MouseEvent) => {
     if (!isArhiv) {
       e.preventDefault()
-      setSearchVal('')
-      onReset()        
+      setSearchVal('') // Počisti search
+      onReset()        // Pokliče reset
       window.scrollTo({ top: 0, behavior: 'smooth' })
     }
   }
@@ -115,7 +117,7 @@ export default function Header({
       <div className="w-full border-b border-gray-100 dark:border-gray-800/60">
         <div className="max-w-[1800px] mx-auto px-4 md:px-8 lg:px-16 h-16 flex items-center justify-between gap-4">
           
-          {/* LEVO: Logo & Slogan */}
+          {/* LEVO: Logo & Slogan & Gumb */}
           <div className="flex items-center gap-4 shrink-0 mr-auto">
             <Link href="/" onClick={handleLogoClick} className="flex items-center gap-3 group">
                 <div className="relative w-8 h-8 md:w-9 md:h-9">
@@ -141,10 +143,14 @@ export default function Header({
                     animate={{ opacity: 1, scale: 1, x: 0 }}
                     exit={{ opacity: 0, scale: 0.9, x: -10 }}
                     onClick={refreshNow}
-                    className="flex items-center gap-2 px-4 py-1.5 bg-[#10b981] text-white text-sm font-bold rounded-full hover:bg-[#059669] transition-all shadow-md cursor-pointer ml-4"
+                    // ZELEN GUMB
+                    className="flex items-center gap-2 px-3 py-1.5 bg-[#10b981] text-white text-xs font-bold rounded-full hover:bg-[#059669] transition-all shadow-md cursor-pointer ml-2 md:ml-4"
                 >
-                    {/* Bela pika */}
-                    <span className="w-2 h-2 bg-white rounded-full animate-pulse" />
+                    {/* Bela utripajoča pika */}
+                    <span className="relative flex h-2 w-2">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-white"></span>
+                    </span>
                     <span>Nove novice</span>
                 </motion.button>
                 )}
@@ -154,6 +160,7 @@ export default function Header({
           {/* DESNO: Search + Orodja */}
           <div className="flex items-center gap-2 md:gap-4 shrink-0 ml-auto">
             
+            {/* SEARCH */}
             {!isArhiv && (
               <div className="hidden md:block w-64 lg:w-80">
                 <form onSubmit={handleSubmit} className="relative group">
@@ -181,7 +188,7 @@ export default function Header({
               {time}
             </span>
 
-            {/* FILTER */}
+            {/* FILTER (Lijak) */}
             {!isArhiv && (
               <button 
                 onClick={onOpenFilter}
@@ -197,7 +204,7 @@ export default function Header({
               </button>
             )}
 
-            {/* ARHIV */}
+            {/* ARHIV (Koledar) */}
             <Link
               href="/arhiv"
               className={`p-2 rounded-md transition-colors text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800 ${router.pathname === '/arhiv' ? 'text-brand' : ''}`}
@@ -239,6 +246,7 @@ export default function Header({
           <div className="max-w-[1800px] mx-auto px-4 md:px-8 lg:px-16">
             <nav className="flex items-center gap-6 overflow-x-auto no-scrollbar">
               
+              {/* SEARCH ZA MOBILE */}
               <div className="md:hidden py-2 min-w-[140px]">
                 <input
                   type="search"
