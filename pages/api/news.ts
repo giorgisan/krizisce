@@ -264,10 +264,13 @@ async function fetchTrendingRows(): Promise<Row[]> {
   const cutoffMs = nowMs - TREND_WINDOW_HOURS * 3_600_000
   const { data, error } = await supabaseRead
     .from('news')
-    .select('id, link, link_canonical, link_key, title, source, image, contentsnippet, summary, isodate, pubdate, published_at, publishedat, created_at')
+    .select(
+      'id, link, link_canonical, link_key, title, source, image, contentsnippet, summary, isodate, pubdate, published_at, publishedat, created_at',
+    )
     .gt('publishedat', cutoffMs)
     .order('publishedat', { ascending: false })
     .limit(300)
+
   if (error) throw new Error(`DB trending: ${error.message}`)
   return (data || []) as Row[]
 }
@@ -430,7 +433,7 @@ export default async function handler(
       .order('publishedat', { ascending: false })
       .order('id', { ascending: false })
 
-    // 1. FILTER SOURCE (Popravljen multi-select)
+    // 1. FILTER SOURCE (Multi-select)
     if (sourceParam && sourceParam !== 'Vse') {
       const sources = sourceParam.split(',').map(s => s.trim()).filter(Boolean)
       if (sources.length > 0) {
