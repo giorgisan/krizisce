@@ -17,7 +17,7 @@ import ArticleCard from '@/components/ArticleCard'
 import TrendingCard from '@/components/TrendingCard'
 import SeoHead from '@/components/SeoHead'
 import BackToTop from '@/components/BackToTop'
-import SourceFilter from '@/components/SourceFilter'
+import SourceFilter from '@/components/SourceFilter' 
 import NewsTabs from '@/components/NewsTabs'
 import { CategoryId, determineCategory } from '@/lib/categories'
 
@@ -43,10 +43,13 @@ function timeout(ms: number) {
   return new Promise((_, rej) => setTimeout(() => rej(new Error('Request timeout')), ms))
 }
 
-async function loadNews(mode: Mode, source: string, category: CategoryId | 'vse', query: string | null, signal?: AbortSignal): Promise<NewsItem[] | null> {
+async function loadNews(mode: Mode, source: string[], category: CategoryId | 'vse', query: string | null, signal?: AbortSignal): Promise<NewsItem[] | null> {
   const qs = new URLSearchParams()
   if (mode === 'trending') qs.set('variant', 'trending')
-  if (source !== 'Vse') qs.set('source', source)
+  
+  // Pošljemo vire kot z vejico ločen string (npr. "RTVSLO,24ur")
+  if (source.length > 0) qs.set('source', source.join(','))
+  
   if (category !== 'vse') qs.set('category', category)
   if (query) qs.set('q', query)
 
@@ -61,7 +64,7 @@ async function loadNews(mode: Mode, source: string, category: CategoryId | 'vse'
     }
   } catch {}
   
-  if (mode === 'latest' && source === 'Vse' && category === 'vse' && !query) {
+  if (mode === 'latest' && source.length === 0 && category === 'vse' && !query) {
     return null 
   }
   return null
@@ -89,8 +92,8 @@ export default function Home({ initialNews }: Props) {
   const [trendingLoaded, setTrendingLoaded] = useState(false)
   const lastTrendingFetchRef = useRef<number>(0)
 
-  // FILTRI
-  const [selectedSource, setSelectedSource] = useState<string>('Vse')
+  // FILTRI (source je zdaj array stringov)
+  const [selectedSources, setSelectedSources] = useState<string[]>([]) 
   const [selectedCategory, setSelectedCategory] = useState<CategoryId | 'vse'>('vse')
   const [searchQuery, setSearchQuery] = useState<string>('') 
 
@@ -120,7 +123,7 @@ export default function Home({ initialNews }: Props) {
         setCursor(null)
         setHasMore(true)
         
-        const fresh = await loadNews('latest', selectedSource, selectedCategory, searchQuery)
+        const fresh = await loadNews('latest', selectedSources, selectedCategory, searchQuery)
         
         if (fresh) {
             setItemsLatest(fresh)
@@ -133,7 +136,7 @@ export default function Home({ initialNews }: Props) {
     const timeoutId = setTimeout(fetchData, searchQuery ? 500 : 0)
     return () => clearTimeout(timeoutId)
 
-  }, [selectedSource, selectedCategory, searchQuery, mode, bootRefreshed])
+  }, [selectedSources, selectedCategory, searchQuery, mode, bootRefreshed])
 
   // POLLING
   const missCountRef = useRef(0)
@@ -147,7 +150,7 @@ export default function Home({ initialNews }: Props) {
       if (searchQuery) return 
 
       kickSyncIfStale(10 * 60_000)
-      const fresh = await loadNews('latest', selectedSource, selectedCategory, null)
+      const fresh = await loadNews('latest', selectedSources, selectedCategory, null)
       
       if (!fresh || fresh.length === 0) {
         window.dispatchEvent(new CustomEvent('news-has-new', { detail: false }))
@@ -182,7 +185,7 @@ export default function Home({ initialNews }: Props) {
       if (timerRef.current) window.clearInterval(timerRef.current)
       document.removeEventListener('visibilitychange', onVis)
     }
-  }, [itemsLatest, bootRefreshed, mode, selectedSource, selectedCategory, searchQuery])
+  }, [itemsLatest, bootRefreshed, mode, selectedSources, selectedCategory, searchQuery])
 
   // Stable ID logic
   const currentRawItems = mode === 'latest' ? itemsLatest : itemsTrending
@@ -228,7 +231,7 @@ export default function Home({ initialNews }: Props) {
     qs.set('paged', '1')
     qs.set('limit', '40')
     qs.set('cursor', String(cursorVal))
-    if (selectedSource !== 'Vse') qs.set('source', selectedSource)
+    if (selectedSources.length > 0) qs.set('source', selectedSources.join(','))
     if (selectedCategory !== 'vse') qs.set('category', selectedCategory)
     if (searchQuery) qs.set('q', searchQuery)
       
@@ -269,7 +272,7 @@ export default function Home({ initialNews }: Props) {
       const isStale = (now - lastTrendingFetchRef.current) > 5 * 60_000
       if (!trendingLoaded || isStale) {
         try {
-          const fresh = await loadNews('trending', 'Vse', 'vse', null)
+          const fresh = await loadNews('trending', [], 'vse', null)
           if (fresh) {
             setItemsTrending(fresh); setTrendingLoaded(true); lastTrendingFetchRef.current = Date.now() 
           }
@@ -282,12 +285,19 @@ export default function Home({ initialNews }: Props) {
       ? 'grid gap-6 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5'
       : 'grid gap-6 grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5'
 
+  // Helper za prikaz aktivnega filtra virov
+  const activeSourceLabel = selectedSources.length === 0 
+    ? 'Vse' 
+    : selectedSources.length === 1 
+      ? selectedSources[0] 
+      : `${selectedSources.length} virov`
+
   return (
     <>
       <Header 
         onOpenFilter={() => setFilterModalOpen(true)}
         onSearch={setSearchQuery} 
-        activeSource={selectedSource}
+        activeSource={activeSourceLabel}
         activeCategory={selectedCategory}
         onSelectCategory={(cat) => {
            startTransition(() => {
@@ -300,24 +310,23 @@ export default function Home({ initialNews }: Props) {
       <SourceFilter
         open={filterModalOpen}
         onClose={() => setFilterModalOpen(false)}
-        value={selectedSource}
-        onChange={(src) => setSelectedSource(src)}
+        value={selectedSources}
+        onChange={(srcs) => setSelectedSources(srcs)}
       />
 
       <SeoHead title="Križišče" description="Agregator najnovejših novic." />
 
       <main className="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white px-4 md:px-8 lg:px-16 pt-0 pb-8">
         
-        {/* PREKLOP: Najnovejše / Aktualno */}
+        {/* PREKLOP: Najnovejše / Aktualno + Info o filtru */}
         <div className="flex items-center justify-between py-4">
            <div className="scale-90 origin-left">
              <NewsTabs active={mode} onChange={handleTabChange} />
            </div>
            
-           {/* Tukaj lahko prikažeš aktivni filter, če je izbran */}
-           {selectedSource !== 'Vse' && (
+           {selectedSources.length > 0 && (
              <div className="text-xs text-brand font-medium border border-brand/20 bg-brand/5 px-2 py-1 rounded">
-               Vir: {selectedSource}
+               Filtri: {selectedSources.join(', ')}
              </div>
            )}
         </div>
