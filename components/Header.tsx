@@ -4,14 +4,24 @@ import Link from 'next/link'
 import Image from 'next/image'
 
 type Props = {
-  onOpenFilter: () => void
-  onSearch: (query: string) => void
-  activeSource: string
+  // Dodani vprašaji (?) pomenijo, da so ti parametri neobvezni
+  onOpenFilter?: () => void
+  onSearch?: (query: string) => void
+  activeSource?: string
 }
 
-export default function Header({ onOpenFilter, onSearch, activeSource }: Props) {
+export default function Header({ 
+  onOpenFilter = () => {}, // Privzeta vrednost (prazna funkcija)
+  onSearch = () => {},     // Privzeta vrednost (prazna funkcija)
+  activeSource = 'Vse'     // Privzeta vrednost
+}: Props) {
   const [scrolled, setScrolled] = useState(false)
   const [searchVal, setSearchVal] = useState('')
+
+  // Preverimo, če smo na strani, ki podpira iskanje (če je onSearch definiran izven defaulta)
+  // To je sicer vedno true zaradi defaulta, ampak za logiko prikaza:
+  // V tem primeru bomo iskalnik prikazali vedno, a na 404 strani ne bo delal nič (kar je ok),
+  // ali pa ga lahko skrijemo, če želimo. Zaenkrat pustimo, da je dizajn konsistenten.
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 10)
@@ -22,7 +32,6 @@ export default function Header({ onOpenFilter, onSearch, activeSource }: Props) 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     onSearch(searchVal)
-    // Na mobilniku lahko tu skriješ tipkovnico (blur)
     const activeEl = document.activeElement as HTMLElement
     if (activeEl) activeEl.blur()
   }
@@ -63,10 +72,7 @@ export default function Header({ onOpenFilter, onSearch, activeSource }: Props) 
                          focus:ring-2 focus:ring-brand/50 focus:bg-white dark:focus:bg-gray-900 transition-all
                          placeholder-gray-500 text-gray-900 dark:text-white"
               value={searchVal}
-              onChange={(e) => {
-                  setSearchVal(e.target.value)
-                  if(e.target.value === '') onSearch('') // Takojšen reset če zbriše
-              }}
+              onChange={(e) => setSearchVal(e.target.value)}
             />
           </form>
         </div>
@@ -93,7 +99,6 @@ export default function Header({ onOpenFilter, onSearch, activeSource }: Props) 
             )}
           </button>
           
-          {/* Tu bi bil še Dark Mode gumb, če ga želiš ohraniti */}
         </div>
       </div>
     </header>
