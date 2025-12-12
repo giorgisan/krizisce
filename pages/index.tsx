@@ -17,9 +17,8 @@ import ArticleCard from '@/components/ArticleCard'
 import TrendingCard from '@/components/TrendingCard'
 import SeoHead from '@/components/SeoHead'
 import BackToTop from '@/components/BackToTop'
-import SourceFilter from '@/components/SourceFilter' 
+import SourceFilter from '@/components/SourceFilter'
 import NewsTabs from '@/components/NewsTabs'
-// CategoryFilter import ni več potreben v renderju, ampak logiko še rabimo
 import { CategoryId, determineCategory } from '@/lib/categories'
 
 /* ================= Helpers & constants ================= */
@@ -98,12 +97,11 @@ export default function Home({ initialNews }: Props) {
   // MODAL CONTROL
   const [filterModalOpen, setFilterModalOpen] = useState(false)
 
-  const [displayCount, setDisplayCount] = useState(20)
-  const [firstSeen, setFirstSeen] = useState<FirstSeenMap>(() => loadFirstSeen())
   const [hasMore, setHasMore] = useState(true)
   const [cursor, setCursor] = useState<number | null>(null)
   const [isLoadingMore, setIsLoadingMore] = useState(false)
   const [isRefreshing, setIsRefreshing] = useState(false)
+  const [firstSeen, setFirstSeen] = useState<FirstSeenMap>(() => loadFirstSeen())
 
   const [bootRefreshed, setBootRefreshed] = useState(false)
     
@@ -286,9 +284,6 @@ export default function Home({ initialNews }: Props) {
 
   return (
     <>
-      {/* Header zdaj vsebuje VSE: 
-        Logo, Slogan, Search, Filters, Tools in Kategorije 
-      */}
       <Header 
         onOpenFilter={() => setFilterModalOpen(true)}
         onSearch={setSearchQuery} 
@@ -301,6 +296,7 @@ export default function Home({ initialNews }: Props) {
         }}
       />
 
+      {/* FILTER MODAL */}
       <SourceFilter
         open={filterModalOpen}
         onClose={() => setFilterModalOpen(false)}
@@ -308,19 +304,24 @@ export default function Home({ initialNews }: Props) {
         onChange={(src) => setSelectedSource(src)}
       />
 
-      {/* ODSTRANJEN CategoryFilter, ker je zdaj v Headerju */}
-
-      {/* MALI TABS */}
-      <div className="px-4 md:px-8 lg:px-16 mt-6 mb-4 flex items-center justify-between">
-         <div className="scale-95 origin-left">
-           <NewsTabs active={mode} onChange={handleTabChange} />
-         </div>
-      </div>
-
       <SeoHead title="Križišče" description="Agregator najnovejših novic." />
 
       <main className="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white px-4 md:px-8 lg:px-16 pt-0 pb-8">
         
+        {/* PREKLOP: Najnovejše / Aktualno */}
+        <div className="flex items-center justify-between py-4">
+           <div className="scale-90 origin-left">
+             <NewsTabs active={mode} onChange={handleTabChange} />
+           </div>
+           
+           {/* Tukaj lahko prikažeš aktivni filter, če je izbran */}
+           {selectedSource !== 'Vse' && (
+             <div className="text-xs text-brand font-medium border border-brand/20 bg-brand/5 px-2 py-1 rounded">
+               Vir: {selectedSource}
+             </div>
+           )}
+        </div>
+
         {isRefreshing && visibleNews.length === 0 ? (
            <div className="flex flex-col items-center justify-center pt-20 pb-20">
              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand mb-4"></div>
@@ -367,7 +368,6 @@ export default function Home({ initialNews }: Props) {
   )
 }
 
-// getServerSideProps (nespremenjeno)
 export const getServerSideProps: GetServerSideProps = async ({ res }) => {
   res.setHeader('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=30')
   const { createClient } = await import('@supabase/supabase-js')
