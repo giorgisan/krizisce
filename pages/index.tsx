@@ -46,10 +46,7 @@ function timeout(ms: number) {
 async function loadNews(mode: Mode, source: string[], category: CategoryId | 'vse', query: string | null, signal?: AbortSignal): Promise<NewsItem[] | null> {
   const qs = new URLSearchParams()
   if (mode === 'trending') qs.set('variant', 'trending')
-  
-  // Pošljemo vire kot z vejico ločen string (npr. "RTVSLO,24ur")
   if (source.length > 0) qs.set('source', source.join(','))
-  
   if (category !== 'vse') qs.set('category', category)
   if (query) qs.set('q', query)
 
@@ -92,7 +89,7 @@ export default function Home({ initialNews }: Props) {
   const [trendingLoaded, setTrendingLoaded] = useState(false)
   const lastTrendingFetchRef = useRef<number>(0)
 
-  // FILTRI (source je zdaj array stringov)
+  // FILTRI
   const [selectedSources, setSelectedSources] = useState<string[]>([]) 
   const [selectedCategory, setSelectedCategory] = useState<CategoryId | 'vse'>('vse')
   const [searchQuery, setSearchQuery] = useState<string>('') 
@@ -112,6 +109,19 @@ export default function Home({ initialNews }: Props) {
     kickSyncIfStale(5 * 60_000)
     setBootRefreshed(true)
   }, [])
+
+  // FUNKCIJA ZA RESET (Klik na logo)
+  const resetAll = () => {
+    startTransition(() => {
+      setSelectedSources([])
+      setSelectedCategory('vse')
+      setSearchQuery('')
+      setMode('latest')
+      setCursor(null)
+      setHasMore(true)
+      setItemsLatest(initialNews) // Vrni začetne, dokler se ne osveži
+    })
+  }
 
   // GLAVNI FETCH (Triggered by Filters/Search)
   useEffect(() => {
@@ -304,6 +314,7 @@ export default function Home({ initialNews }: Props) {
              setSelectedCategory(cat)
            })
         }}
+        onReset={resetAll} // Pass the reset function
       />
 
       {/* FILTER MODAL */}
