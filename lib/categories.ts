@@ -1,12 +1,12 @@
 export type CategoryId = 
-  | 'slovenija' 
-  | 'svet' 
   | 'sport' 
+  | 'magazin' 
+  | 'kronika' 
+  | 'tech' 
   | 'gospodarstvo' 
   | 'kultura' 
-  | 'kronika' 
-  | 'magazin' 
-  | 'tech' 
+  | 'slovenija' 
+  | 'svet' 
   | 'ostalo'
 
 export type CategoryDef = {
@@ -16,68 +16,17 @@ export type CategoryDef = {
   keywords: string[] 
 }
 
+// VRSTNI RED JE KLJUČEN! 
+// Najprej preverimo zelo specifične (Šport, Magazin), šele na koncu splošne (Svet).
 export const CATEGORIES: CategoryDef[] = [
-  {
-    id: 'slovenija',
-    label: 'Slovenija',
-    color: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300',
-    keywords: [
-      '/slovenija', 'lokalno', 'občine', 'volitve', 'vlada', 'poslanci', 'upokojenci', 'zdravstvo', 
-      'soočenja', 'referendum', 'državni zbor', '/novice/slovenija', 'domovina', 'notranja-politika'
-    ]
-  },
-  {
-    id: 'svet',
-    label: 'Svet',
-    color: 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300',
-    keywords: [
-      '/svet', '/tujina', 'evropa', 'zda', 'ukrajina', 'nato', 'eu', 'balkan', 'rusija', 'vojna',
-      'trump', 'putin', 'globus', '/novice/svet', 'zunanja-politika'
-    ]
-  },
-  {
-    id: 'gospodarstvo',
-    label: 'Gospodarstvo',
-    color: 'bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-300',
-    keywords: [
-      'gospodarstvo', 'posel', 'finance', 'borza', 'kripto', 'podjetja', 'delnice', 'nafta', 
-      'banke', 'nepremičnine', 'cekin', 'posel-danes', 'podjetništvo', 'ekonomija'
-    ]
-  },
   {
     id: 'sport',
     label: 'Šport',
     color: 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300',
     keywords: [
-      '/sport', 'sportal', 'nogomet', 'kosarka', 'tenis', 'kolesarstvo', 'zimski', 'atletika', 'rokomet',
-      'odbojka', 'moto', 'f1', 'nba', 'ekipa', 'snportal', 'ligaprvakov', 'sportna', 'rezultati'
-    ]
-  },
-  {
-    id: 'kronika',
-    label: 'Črna kronika',
-    color: 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300',
-    keywords: [
-      'kronika', 'crna-kronika', 'črna-kronika', 'policija', 'sodisce', 'kriminal', 'promet', 
-      'nesreca', 'gasilci', 'umor', 'nasilje', 'preiskava'
-    ]
-  },
-  {
-    id: 'kultura',
-    label: 'Kultura',
-    color: 'bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300',
-    keywords: [
-      'kultura', 'umetnost', 'film', 'glasba', 'knjige', 'gledalisce', 'razstave', 'oder', 
-      'literatura', 'koncert', 'kultur', 'razstava'
-    ]
-  },
-  {
-    id: 'tech',
-    label: 'Znanost/Tehnologija',
-    color: 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900/40 dark:text-cyan-300',
-    keywords: [
-      'znanost', 'tehnologija', 'auto', 'avtomoto', 'mobitel', 'vesolje', 'pametni', 'ai', 
-      'digitalno', 'internet', 'digisvet', 'znanstveni', 'telefoni', 'aplikacije', 'volan', 'avto-moto'
+      '/sport/', '/sportal', '/sportal/', 'ekipa24', 'nogomania', 'ligaprvakov', 
+      'f1', 'moto', 'zimski-sporti', 'kosarka', 'nogomet', 'tenis', 'kolesarstvo',
+      'sport.n1info.si'
     ]
   },
   {
@@ -85,34 +34,83 @@ export const CATEGORIES: CategoryDef[] = [
     label: 'Magazin',
     color: 'bg-pink-100 text-pink-800 dark:bg-pink-900/40 dark:text-pink-300',
     keywords: [
-      'magazin', 'popin', 'scena', 'zvezde', 'zabava', 'lifestyle', 'zdravje', 'kulinarika', 
-      'moda', 'astro', 'tv', 'resničnostni', 'trači', 'bulvar', 'zanimivosti', 'trendi', 'lepota',
-      'dobro-jutro', 'kmetija', 'sanjski-moški', 'vizita', 'okusno', 'prosti-cas', 'ture-avanture', 'dom-in-vrt',
-      'zabava-in-slog', 'zanimivosti'
+      '/magazin/', '/popin/', '/trendi/', '/zabava-in-slog/', '/scena/', '/zvezde/', 
+      '/lifestyle/', '/lepota/', '/zdravje/', '/kulinarika/', '/okusno/', 
+      '/tv-sovo/', '/dom-in-vrt/', '/stil/', '/astro/', '/lady/', '/bulvar/',
+      'slovenskenovice.si/suzy'
+    ]
+  },
+  {
+    id: 'tech',
+    label: 'Znanost in tehnologija',
+    color: 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900/40 dark:text-cyan-300',
+    keywords: [
+      '/znanost-in-tehnologija/', '/digisvet/', '/avtomoto/', '/avto/', '/mobilnost/', 
+      '/tech/', '/znanost/', '/vesolje/', '/telekomunikacije/', '/racunalnistvo/',
+      'racunalniske-novice', 'monitor.si', '/cekin/uporabno/'
+    ]
+  },
+  {
+    id: 'kronika',
+    label: 'Črna kronika',
+    color: 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300',
+    keywords: [
+      '/crna-kronika/', '/kronika/', 'policija', 'gasilci', 'nesreca', 'umor', 'sojenje'
+    ]
+  },
+  {
+    id: 'kultura',
+    label: 'Kultura',
+    color: 'bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300',
+    keywords: [
+      '/kultura/', '/razstave/', '/knjige/', '/glasba/', '/film/', '/gledalisce/', '/umetnost/'
+    ]
+  },
+  {
+    id: 'gospodarstvo',
+    label: 'Gospodarstvo',
+    color: 'bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-300',
+    keywords: [
+      '/gospodarstvo/', '/posel-danes/', '/posel/', '/finance/', '/borza/', '/kripto/', 
+      '/podjetnistvo/', '/novice/posel/', 'bloomberg', 'delnice'
+    ]
+  },
+  // SPLOŠNE KATEGORIJE NA KONCU
+  {
+    id: 'slovenija',
+    label: 'Slovenija',
+    color: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300',
+    keywords: [
+      '/slovenija/', '/novice/slovenija/', '/lokalno/', '/obcine/', '/volitve/'
+    ]
+  },
+  {
+    id: 'svet',
+    label: 'Svet',
+    color: 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300',
+    keywords: [
+      '/svet/', '/tujina/', '/novice/svet/', '/evropa/', '/zda/', '/balkan/'
     ]
   }
 ]
 
 export function determineCategory(item: { link: string; categories?: string[] }): CategoryId {
   const url = item.link.toLowerCase()
-  // const tags = (item.categories || []).map(t => t.toLowerCase()) // RSS tags so manj zanesljivi pri slovenskih virih
-
-  // 1. Prioriteta: Preveri URL segmente (Zelo zanesljivo za portale kot so RTV, 24ur, Siol)
+  
+  // 1. Prioriteta: Preveri URL segmente
   for (const cat of CATEGORIES) {
-    // Preverimo če URL vsebuje ključne besede (npr. /sport/, /sportal/)
     if (cat.keywords.some(k => url.includes(k))) {
       return cat.id
     }
   }
 
-  // 2. Če ni zadetka v URL, preverimo vsebino URL-ja za splošne besede, 
-  // ampak pazimo na "false positives" (npr. 'svet' je v 'svet24')
-  // To logiko prepuščamo API-ju, ki bo delal 'ILKE' query.
-  
+  // 2. Fallback (če URL ne pove ničesar, pustimo "ostalo" ali pa dodelimo splošno)
+  // Če je vir recimo "Siol", a nima /sportal/ ali /trendi/, je verjetno "Novice".
+  // Zaenkrat vrnemo ostalo, da ne mešamo.
   return 'ostalo'
 }
 
-// Pomožna funkcija za API
+// Pomožna funkcija za API (Search)
 export function getKeywordsForCategory(catId: string): string[] {
   const cat = CATEGORIES.find(c => c.id === catId)
   return cat ? cat.keywords : []
