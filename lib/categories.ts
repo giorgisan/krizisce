@@ -16,25 +16,26 @@ export type CategoryDef = {
   keywords: string[] 
 }
 
-// VRSTNI RED KATEGORIJ V GLAVI
+// 1. VRSTNI RED ZA PRIKAZ V MENIJU (UI)
+// Točno tako, kot si želel:
 export const CATEGORIES: CategoryDef[] = [
   {
     id: 'slovenija',
     label: 'Slovenija',
     color: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300',
-    keywords: ['/slovenija/', '/lokalno/', '/obcine/', '/volitve/', 'vlada', 'poslanci', '/novice/slovenija/', 'domovina']
+    keywords: ['/slovenija/', '/lokalno/', '/obcine/', '/volitve/', 'vlada', 'poslanci', '/novice/slovenija/', 'domovina', 'notranja-politika']
   },
   {
     id: 'svet',
     label: 'Svet',
     color: 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300',
-    keywords: ['/svet/', '/tujina/', '/evropa/', '/zda/', 'ukrajina', 'rusija', 'vojna', 'nato', 'trump', '/novice/svet/']
+    keywords: ['/svet/', '/tujina/', '/evropa/', '/zda/', 'ukrajina', 'rusija', 'vojna', 'nato', 'trump', '/novice/svet/', 'zunanja-politika']
   },
   {
     id: 'sport',
     label: 'Šport',
     color: 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300',
-    keywords: ['/sport/', '/sportal/', 'nogomet', 'kosarka', 'zimski', 'atletika', 'kolesarstvo', 'f1', 'moto', 'tenis', 'ekipa24']
+    keywords: ['/sport/', '/sportal/', 'nogomet', 'kosarka', 'zimski', 'atletika', 'kolesarstvo', 'f1', 'moto', 'tenis', 'ekipa24', 'sport.n1info.si']
   },
   {
     id: 'kultura',
@@ -46,13 +47,13 @@ export const CATEGORIES: CategoryDef[] = [
     id: 'magazin',
     label: 'Magazin',
     color: 'bg-pink-100 text-pink-800 dark:bg-pink-900/40 dark:text-pink-300',
-    keywords: ['/magazin/', '/popin/', '/trendi/', '/scena/', '/zvezde/', '/zabava/', '/lifestyle/', '/kulinarika/', '/astro/', 'suzy', 'lady']
+    keywords: ['/magazin/', '/popin/', '/trendi/', '/scena/', '/zvezde/', '/zabava/', '/lifestyle/', '/kulinarika/', '/astro/', 'suzy', 'lady', 'dom-in-vrt']
   },
   {
     id: 'gospodarstvo',
     label: 'Gospodarstvo',
     color: 'bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-300',
-    keywords: ['/gospodarstvo/', '/posel/', '/finance/', '/borza/', 'kripto', 'delnice', 'podjetnistvo', 'banke']
+    keywords: ['/gospodarstvo/', '/posel/', '/finance/', '/borza/', 'kripto', 'delnice', 'podjetnistvo', 'banke', 'druzbe', 'posel-danes']
   },
   {
     id: 'tech',
@@ -68,16 +69,34 @@ export const CATEGORIES: CategoryDef[] = [
   }
 ]
 
+// 2. LOGIKA ZAZNAVANJA (DETECTION PRIORITY)
+// Najprej preverimo specifične teme, da jih "Slovenija" ne požre.
+const PRIORITY_CHECK_ORDER: CategoryId[] = [
+  'sport', 
+  'magazin', 
+  'tech', 
+  'gospodarstvo', // Gospodarstvo preverimo PRED Slovenijo!
+  'kronika', 
+  'kultura',
+  'svet',
+  'slovenija'     // Slovenija je zadnja (kot fallback)
+]
+
 export function determineCategory(item: { link: string; categories?: string[] }): CategoryId {
   const url = item.link.toLowerCase()
-  for (const cat of CATEGORIES) {
-    if (cat.keywords.some(k => url.includes(k))) {
+  
+  // Gremo čez kategorije v VRSTNEM REDU PRIORITET
+  for (const id of PRIORITY_CHECK_ORDER) {
+    const cat = CATEGORIES.find(c => c.id === id)
+    if (cat && cat.keywords.some(k => url.includes(k))) {
       return cat.id
     }
   }
+
   return 'ostalo'
 }
 
+// Pomožna funkcija za API
 export function getKeywordsForCategory(catId: string): string[] {
   const cat = CATEGORIES.find(c => c.id === catId)
   return cat ? cat.keywords : []
