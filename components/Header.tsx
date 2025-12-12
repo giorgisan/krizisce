@@ -127,37 +127,38 @@ export default function Header({
                   <span className="text-xl font-bold tracking-tight text-gray-900 dark:text-white leading-none">
                       Križišče
                   </span>
-                  {/* POVEČAN SLOGAN */}
                   <span className="text-xs font-medium text-gray-500 dark:text-gray-400 leading-none mt-1 hidden sm:block">
                       Zadnje novice slovenskih medijev
                   </span>
                 </div>
             </Link>
 
-            {/* FRESH NEWS PILL - PRENOVLJEN, BOLJ ELEGANTEN */}
+            {/* --- FRESH NEWS PILL (PRENOVLJEN PO SLIKI) --- */}
             <AnimatePresence initial={false}>
                 {hasNew && !refreshing && !isArhiv && (
                 <motion.button
                     key="fresh-pill"
-                    initial={{ opacity: 0, scale: 0.9, x: -10 }}
-                    animate={{ opacity: 1, scale: 1, x: 0 }}
-                    exit={{ opacity: 0, scale: 0.9, x: -10 }}
+                    initial={{ opacity: 0, scale: 0.95, y: 5 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.95, y: 5 }}
                     onClick={refreshNow}
-                    // SPREMENJENI STILI: Transparentno zeleno ozadje, zeleno besedilo, tanka obroba
-                    className="flex items-center gap-2 px-3 py-1.5 
-                               bg-[#10b981]/20 dark:bg-[#10b981]/30 
-                               text-[#10b981] dark:text-[#34d399] 
-                               border border-[#10b981]/30
-                               text-xs font-bold rounded-full 
-                               hover:bg-[#10b981]/30 dark:hover:bg-[#10b981]/40 
-                               transition-all cursor-pointer ml-2 md:ml-4"
+                    // SPREMENJENI STILI: Temno ozadje, belo besedilo, brez roba
+                    className="hidden md:flex items-center gap-3 px-4 py-2 
+                               bg-[#064e3b] hover:bg-[#065f46] 
+                               text-white shadow-md
+                               text-xs md:text-sm rounded-full 
+                               transition-all cursor-pointer ml-4"
                 >
-                    {/* Zelena utripajoča pika */}
-                    <span className="relative flex h-2 w-2">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#10b981] opacity-75"></span>
-                      <span className="relative inline-flex rounded-full h-2 w-2 bg-[#10b981]"></span>
+                    {/* Zelena pika */}
+                    <span className="relative flex h-2.5 w-2.5">
+                      <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-[#10b981]"></span>
                     </span>
-                    <span>Nove novice</span>
+                    
+                    {/* Besedilo */}
+                    <span className="flex items-center">
+                        <span className="font-bold text-white">Na voljo so sveže novice</span>
+                        <span className="text-emerald-200 ml-1.5 font-normal opacity-90">— kliknite za osvežitev</span>
+                    </span>
                 </motion.button>
                 )}
             </AnimatePresence>
