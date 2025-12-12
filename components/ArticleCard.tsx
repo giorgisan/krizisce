@@ -15,7 +15,6 @@ import { proxiedImage, buildSrcSet } from '@/lib/img'
 import { preloadPreview, canPrefetch, warmImage } from '@/lib/previewPrefetch'
 import { sourceColors } from '@/lib/sources'
 import { getSourceLogoPath } from '@/lib/sourceMeta'
-import { CATEGORIES, determineCategory } from '@/lib/categories'
 
 type PreviewProps = { url: string; onClose: () => void }
 const ArticlePreview = dynamic(() => import('./ArticlePreview'), { ssr: false }) as ComponentType<PreviewProps>
@@ -26,6 +25,7 @@ const IMAGE_WIDTHS = [320, 480, 640, 960, 1280]
 interface Props { news: NewsItem; priority?: boolean }
 
 export default function ArticleCard({ news, priority = false }: Props) {
+  // MINUTE TICKER: To zagotavlja, da se čas osvežuje v brskalniku vsako minuto
   const [minuteTick, setMinuteTick] = useState(0)
   useEffect(() => {
     const onMinute = () => setMinuteTick((m) => (m + 1) % 60)
@@ -33,7 +33,7 @@ export default function ArticleCard({ news, priority = false }: Props) {
     return () => window.removeEventListener('ui:minute', onMinute as EventListener)
   }, [])
 
-  // --- POPRAVEK DATUMA: Prikaži datum za starejše od 24h ---
+  // FORMATIRANJE ČASA: Dinamično glede na minuteTick
   const formattedDate = useMemo(() => {
     const ms = news.publishedAt ?? (news.isoDate ? Date.parse(news.isoDate) : 0)
     if (!ms) return ''
@@ -42,23 +42,22 @@ export default function ArticleCard({ news, priority = false }: Props) {
     const diff = now - ms
     const oneDayMs = 24 * 60 * 60 * 1000
 
-    // Če je novica starejša od 24 ur, izpiši datum (npr. 12. dec)
+    // Če je starejše od 24 ur, pokaži datum
     if (diff > oneDayMs) {
        const d = new Date(ms)
        return new Intl.DateTimeFormat('sl-SI', { day: 'numeric', month: 'short' }).format(d)
     }
 
-    // Sicer izpiši relativni čas
+    // Sicer relativni čas (ki se osvežuje, ker je minuteTick v dependency arrayu)
     const min = Math.floor(diff / 60_000)
     const hr  = Math.floor(min / 60)
     
     if (diff < 60_000) return 'zdaj'
-    if (min  < 60)      return `${min} min`
-    if (hr   < 24)      return `${hr} h`
+    if (min  < 60)      return `pred ${min} min` // Tukaj!
+    if (hr   < 24)      return `pred ${hr} h`
     
-    return '' // Fallback
-  }, [news.publishedAt, news.isoDate, minuteTick])
-  // ---------------------------------------------------------
+    return ''
+  }, [news.publishedAt, news.isoDate, minuteTick]) // minuteTick sproži preračun
 
   const sourceColor = useMemo(() => {
     return (sourceColors as Record<string, string>)[news.source] || '#fc9c6c'
@@ -68,10 +67,7 @@ export default function ArticleCard({ news, priority = false }: Props) {
     return getSourceLogoPath(news.source)
   }, [news.source])
 
-  const categoryDef = useMemo(() => {
-    const catId = news.category || determineCategory({ link: news.link, categories: [] })
-    return CATEGORIES.find(c => c.id === catId)
-  }, [news.category, news.link])
+  // Kategorije smo odstranili iz kartice, kot si želel.
 
   const [isTouch, setIsTouch] = useState(false)
   useEffect(() => {
@@ -302,7 +298,7 @@ export default function ArticleCard({ news, priority = false }: Props) {
           </button>
         </div>
 
-        {/* ========== BESEDILO ========== */}
+        {/* ========== BESEDILO BREZ KATEGORIJE ========== */}
         <div className="p-3 flex flex-col flex-1">
           <div className="mb-2 flex items-center justify-between flex-wrap gap-y-1">
             <div className="flex items-center gap-2 min-w-0">
@@ -322,16 +318,9 @@ export default function ArticleCard({ news, priority = false }: Props) {
               </span>
             </div>
             
-            <div className="flex items-center">
-                {categoryDef && categoryDef.id !== 'ostalo' && (
-                    <span className={`mr-2 text-[10px] px-1.5 py-0.5 rounded font-medium ${categoryDef.color}`}>
-                        {categoryDef.label}
-                    </span>
-                )}
-                <span className="text-[11px] text-gray-500 dark:text-gray-400 shrink-0 tabular-nums">
-                  {formattedDate}
-                </span>
-            </div>
+            <span className="text-[11px] text-gray-500 dark:text-gray-400 shrink-0 tabular-nums">
+               {formattedDate}
+            </span>
           </div>
           
           <h3 className="line-clamp-3 text-[15px] font-semibold leading-tight text-gray-900 dark:text-gray-100 mb-1">{news.title}</h3>
