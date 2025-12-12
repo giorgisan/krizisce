@@ -162,7 +162,7 @@ export default function Header({
                   </div>
                   <input
                     type="search"
-                    placeholder="Išči po naslovu ali vsebini..."
+                    placeholder="Vnesite iskano besedo ..."
                     className="block w-full pl-10 pr-3 py-1.5 bg-gray-100 dark:bg-gray-800 border border-transparent 
                               focus:bg-white dark:focus:bg-black focus:border-brand/30 focus:ring-2 focus:ring-brand/10
                               rounded-md text-sm transition-all placeholder-gray-500 text-gray-900 dark:text-white"
