@@ -108,11 +108,9 @@ export default function Header({
   return (
     <header 
       className={`
-        sticky top-0 z-40 w-full flex flex-col transition-all duration-300
-        border-b border-gray-200 dark:border-gray-800
-        ${scrolled 
-            ? 'bg-white/80 dark:bg-gray-900/80 backdrop-blur-md shadow-sm support-[backdrop-filter]:bg-white/60' 
-            : 'bg-white dark:bg-gray-900'}
+        sticky top-0 z-40 w-full flex flex-col transition-all duration-200
+        bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800
+        ${scrolled ? 'shadow-md' : ''}
       `}
     >
       <div className="w-full border-b border-gray-100 dark:border-gray-800/60">
@@ -134,7 +132,7 @@ export default function Header({
                 </div>
             </Link>
 
-            {/* --- FRESH NEWS PILL --- */}
+            {/* --- FRESH NEWS PILL (Tvoja koda: prosojna in subtilna) --- */}
             <AnimatePresence initial={false}>
                 {hasNew && !refreshing && !isArhiv && (
                 <motion.button
@@ -151,11 +149,13 @@ export default function Header({
                                text-xs md:text-sm rounded-full 
                                transition-all cursor-pointer ml-4 backdrop-blur-sm"
                 >
+                    {/* Zelena pika s počasnim utripanjem */}
                     <span className="relative flex h-2.5 w-2.5">
                       <span className="absolute inline-flex h-full w-full rounded-full bg-[#10b981] opacity-75 animate-[ping_3s_cubic-bezier(0,0,0.2,1)_infinite]"></span>
                       <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-[#10b981]"></span>
                     </span>
                     
+                    {/* Besedilo */}
                     <span className="flex items-center leading-none">
                         <span className="font-bold">Na voljo so sveže novice</span>
                         <span className="ml-1.5 font-normal opacity-80">— kliknite za osvežitev</span>
@@ -248,14 +248,14 @@ export default function Header({
         </div>
       </div>
 
-      {/* --- SPODNJA VRSTICA (Navigacija) --- */}
+      {/* --- SPODNJA VRSTICA (Navigacija - EDITORIAL STIL) --- */}
       {!isArhiv && (
-        <div className="w-full bg-white dark:bg-gray-900 bg-transparent">
+        <div className="w-full bg-white dark:bg-gray-900">
           <div className="max-w-[1800px] mx-auto px-4 md:px-8 lg:px-16">
-            <nav className="flex items-center gap-6 overflow-x-auto no-scrollbar">
+            <nav className="flex items-center gap-6 md:gap-8 h-12 overflow-x-auto no-scrollbar">
               
               {/* SEARCH ZA MOBILE */}
-              <div className="md:hidden py-2 min-w-[140px]">
+              <div className="md:hidden py-2 min-w-[140px] shrink-0">
                 <input
                   type="search"
                   placeholder="Išči..."
@@ -265,29 +265,36 @@ export default function Header({
                 />
               </div>
 
+              {/* GUMB VSE NOVICE (Oranžen poudarek, editorial stil) */}
               <button
                 onClick={() => onSelectCategory('vse')}
                 className={`
-                  relative py-3 text-sm font-bold uppercase tracking-wide whitespace-nowrap transition-colors
+                  relative h-full flex items-center px-1
+                  text-sm font-bold uppercase tracking-wide whitespace-nowrap transition-colors select-none
                   ${activeCategory === 'vse' 
-                    ? 'text-brand' 
+                    ? 'text-orange-500' 
                     : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'}
                 `}
               >
                 Vse novice
                 {activeCategory === 'vse' && (
-                  <span className="absolute bottom-0 left-0 w-full h-0.5 bg-brand rounded-t-md" />
+                  <span className="absolute bottom-0 left-0 w-full h-[3px] bg-orange-500" />
                 )}
               </button>
 
+              {/* OSTALE KATEGORIJE (Editorial stil) */}
               {CATEGORIES.map((cat) => {
                 const isActive = activeCategory === cat.id
+                // Barva črte (fallback na zeleno, če ni definirana)
+                const barColor = cat.color || '#10b981';
+
                 return (
                   <button
                     key={cat.id}
                     onClick={() => onSelectCategory(cat.id)}
                     className={`
-                      relative py-3 text-sm font-bold uppercase tracking-wide whitespace-nowrap transition-colors
+                      relative h-full flex items-center px-1
+                      text-sm font-bold uppercase tracking-wide whitespace-nowrap transition-colors select-none
                       ${isActive 
                         ? 'text-gray-900 dark:text-white' 
                         : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'}
@@ -296,11 +303,9 @@ export default function Header({
                     {cat.label}
                     {isActive && (
                       <span 
-                        className="absolute bottom-0 left-0 w-full h-0.5 rounded-t-md" 
-                        style={{ backgroundColor: activeSource !== 'Vse' ? undefined : (cat.color.includes('emerald') ? '#10b981' : cat.color.includes('blue') ? '#3b82f6' : cat.color.includes('red') ? '#ef4444' : '#6366f1') }} 
-                      >
-                          <span className={`absolute inset-0 ${isActive ? 'bg-brand' : ''}`} />
-                      </span>
+                        className="absolute bottom-0 left-0 w-full h-[3px]" 
+                        style={{ backgroundColor: barColor }} 
+                      />
                     )}
                   </button>
                 )
