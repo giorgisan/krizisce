@@ -28,6 +28,7 @@ const HIDDEN_POLL_MS = 5 * 60_000
 const POLL_MAX_BACKOFF = 5
 
 const SYNC_KEY = 'krizisce_last_sync_ms'
+
 async function kickSyncIfStale(maxAgeMs = 5 * 60_000) {
   try {
     const now = Date.now()
@@ -43,25 +44,40 @@ function timeout(ms: number) {
   return new Promise((_, rej) => setTimeout(() => rej(new Error('Request timeout')), ms))
 }
 
-async function loadNews(mode: Mode, source: string[], category: CategoryId | 'vse', query: string | null, signal?: AbortSignal): Promise<NewsItem[] | null> {
+// Funkcija za nalaganje novic (z vsemi filtri in cache-bustingom)
+async function loadNews(
+  mode: Mode, 
+  source: string[], 
+  category: CategoryId | 'vse', 
+  query: string | null, 
+  forceRefresh = false, 
+  signal?: AbortSignal
+): Promise<NewsItem[] | null> {
+  
   const qs = new URLSearchParams()
+  
   if (mode === 'trending') qs.set('variant', 'trending')
   if (source.length > 0) qs.set('source', source.join(','))
   if (category !== 'vse') qs.set('category', category)
   if (query) qs.set('q', query)
+  
+  // Cache busting: Če je forceRefresh, dodamo timestamp, da preprečimo caching
+  if (forceRefresh) qs.set('_t', Date.now().toString())
 
   try {
     const res = (await Promise.race([
       fetch(`/api/news?${qs.toString()}`, { cache: 'no-store', signal }),
       timeout(12_000),
     ])) as Response
+    
     if (res.ok) {
       const data: NewsItem[] = await res.json()
       if (Array.isArray(data)) return data
     }
   } catch {}
   
-  if (mode === 'latest' && source.length === 0 && category === 'vse' && !query) {
+  // Če ni filtrov in ni rezultatov, vrnemo null (da ostanejo stari podatki ali SSR)
+  if (mode === 'latest' && source.length === 0 && category === 'vse' && !query && !forceRefresh) {
     return null 
   }
   return null
@@ -69,15 +85,17 @@ async function loadNews(mode: Mode, source: string[], category: CategoryId | 'vs
 
 const LS_FIRST_SEEN = 'krizisce_first_seen_v1'
 type FirstSeenMap = Record<string, number>
+
 function loadFirstSeen(): FirstSeenMap {
   if (typeof window === 'undefined') return {}
   try { return JSON.parse(window.localStorage.getItem(LS_FIRST_SEEN) || '{}') } catch { return {} }
 }
+
 function saveFirstSeen(map: FirstSeenMap) {
   try { window.localStorage.setItem(LS_FIRST_SEEN, JSON.stringify(map)) } catch {}
 }
 
-/* ================= Page ================= */
+/* ================= Page Component ================= */
 
 type Props = { initialNews: NewsItem[] }
 
@@ -97,6 +115,7 @@ export default function Home({ initialNews }: Props) {
   // MODAL CONTROL
   const [filterModalOpen, setFilterModalOpen] = useState(false)
 
+  // PAGINACIJA & STANJE
   const [hasMore, setHasMore] = useState(true)
   const [cursor, setCursor] = useState<number | null>(null)
   const [isLoadingMore, setIsLoadingMore] = useState(false)
@@ -119,11 +138,11 @@ export default function Home({ initialNews }: Props) {
       setMode('latest')
       setCursor(null)
       setHasMore(true)
-      setItemsLatest(initialNews) // Vrni začetne, dokler se ne osveži
+      setItemsLatest(initialNews) // Vrni začetne takoj
     })
   }
 
-  // GLAVNI FETCH (Triggered by Filters/Search)
+  // GLAVNI FETCH (Sproži se ob spremembi filtrov ali iskanja)
   useEffect(() => {
     if (!bootRefreshed) return
     if (mode === 'trending') return
@@ -143,12 +162,13 @@ export default function Home({ initialNews }: Props) {
         setIsRefreshing(false)
     }
     
+    // Debounce za iskanje (500ms zamika)
     const timeoutId = setTimeout(fetchData, searchQuery ? 500 : 0)
     return () => clearTimeout(timeoutId)
 
   }, [selectedSources, selectedCategory, searchQuery, mode, bootRefreshed])
 
-  // POLLING
+  // POLLING (Avtomatsko osveževanje v ozadju)
   const missCountRef = useRef(0)
   const timerRef = useRef<number | null>(null)
 
@@ -157,6 +177,7 @@ export default function Home({ initialNews }: Props) {
 
     const runCheckSimple = async () => {
       if (mode !== 'latest') return
+      // Ne osvežuj v ozadju, če uporabnik išče
       if (searchQuery) return 
 
       kickSyncIfStale(10 * 60_000)
@@ -197,7 +218,36 @@ export default function Home({ initialNews }: Props) {
     }
   }, [itemsLatest, bootRefreshed, mode, selectedSources, selectedCategory, searchQuery])
 
-  // Stable ID logic
+  // REFRESH HANDLER (Klik na gumb "Nove novice")
+  useEffect(() => {
+    const onRefresh = () => {
+      window.dispatchEvent(new CustomEvent('news-refreshing', { detail: true }))
+      
+      startTransition(() => {
+        // Tu je ključno: forceRefresh = true
+        loadNews(mode, selectedSources, selectedCategory, searchQuery, true).then((fresh) => {
+          if (fresh) {
+            if (mode === 'latest') {
+              setItemsLatest(fresh)
+              setHasMore(true)
+              setCursor(null)
+            } else {
+              setItemsTrending(fresh)
+              setTrendingLoaded(true)
+              lastTrendingFetchRef.current = Date.now() 
+            }
+          }
+          window.dispatchEvent(new CustomEvent('news-refreshing', { detail: false }))
+          window.dispatchEvent(new CustomEvent('news-has-new', { detail: false }))
+          missCountRef.current = 0
+        })
+      })
+    }
+    window.addEventListener('refresh-news', onRefresh as EventListener)
+    return () => window.removeEventListener('refresh-news', onRefresh as EventListener)
+  }, [mode, selectedSources, selectedCategory, searchQuery])
+
+  // STABLE SORT & FILTERING
   const currentRawItems = mode === 'latest' ? itemsLatest : itemsTrending
   const shapedNews = useMemo(() => {
     const map = { ...firstSeen }
@@ -224,7 +274,7 @@ export default function Home({ initialNews }: Props) {
 
   const visibleNews = sortedNews 
 
-  // Cursor logic
+  // CURSOR LOGIC
   useEffect(() => {
     if (mode === 'trending') return 
     if (!visibleNews.length) {
@@ -235,7 +285,7 @@ export default function Home({ initialNews }: Props) {
     setCursor(minMs || null)
   }, [visibleNews, mode])
 
-  // Paging
+  // PAGINACIJA
   async function fetchPage(cursorVal: number) {
     const qs = new URLSearchParams()
     qs.set('paged', '1')
@@ -314,7 +364,7 @@ export default function Home({ initialNews }: Props) {
              setSelectedCategory(cat)
            })
         }}
-        onReset={resetAll} // Pass the reset function
+        onReset={resetAll} 
       />
 
       {/* FILTER MODAL */}
@@ -329,19 +379,33 @@ export default function Home({ initialNews }: Props) {
 
       <main className="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white px-4 md:px-8 lg:px-16 pt-0 pb-8">
         
-        {/* PREKLOP: Najnovejše / Aktualno + Info o filtru */}
         <div className="flex items-center justify-between py-4">
+           {/* TABS (Najnovejše / Aktualno) */}
            <div className="scale-90 origin-left">
              <NewsTabs active={mode} onChange={handleTabChange} />
            </div>
            
+           {/* GUMB ZA ČIŠČENJE FILTROV (Rdeč koš za smeti) */}
            {selectedSources.length > 0 && (
-             <div className="text-xs text-brand font-medium border border-brand/20 bg-brand/5 px-2 py-1 rounded">
-               Filtri: {selectedSources.join(', ')}
+             <div className="flex items-center gap-2">
+                <div className="text-xs text-brand font-medium border border-brand/20 bg-brand/5 px-2 py-1 rounded">
+                  Filtri: {selectedSources.join(', ')}
+                </div>
+                <button 
+                  onClick={() => setSelectedSources([])} 
+                  className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md transition-colors" 
+                  title="Počisti filtre"
+                >
+                   {/* Ikona X */}
+                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                   </svg>
+                </button>
              </div>
            )}
         </div>
 
+        {/* LOADING & EMPTY STATES */}
         {isRefreshing && visibleNews.length === 0 ? (
            <div className="flex flex-col items-center justify-center pt-20 pb-20">
              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand mb-4"></div>
@@ -369,6 +433,7 @@ export default function Home({ initialNews }: Props) {
           </div>
         )}
 
+        {/* LOAD MORE BUTTON */}
         {mode === 'latest' && hasMore && visibleNews.length > 0 && (
           <div className="text-center mt-8 mb-4">
             <button
@@ -388,12 +453,33 @@ export default function Home({ initialNews }: Props) {
   )
 }
 
+/* ================= SSR (Server-Side Rendering) ================= */
 export const getServerSideProps: GetServerSideProps = async ({ res }) => {
-  res.setHeader('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=30')
+  // Nastavi Cache-Control: 60s sveže, 30s stale
+  res.setHeader(
+    'Cache-Control',
+    'public, s-maxage=60, stale-while-revalidate=30'
+  )
+
   const { createClient } = await import('@supabase/supabase-js')
-  const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, { auth: { persistSession: false } })
-  const { data } = await supabase.from('news').select('id, link, title, source, summary, contentsnippet, image, published_at, publishedat').order('publishedat', { ascending: false }).limit(60)
+  const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL as string
+  const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string
+  const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    auth: { persistSession: false },
+  })
+
+  // Pridobi začetne podatke iz baze
+  const { data } = await supabase
+    .from('news')
+    .select(
+      'id, link, title, source, summary, contentsnippet, image, published_at, publishedat',
+    )
+    .order('publishedat', { ascending: false })
+    .limit(60)
+
   const rows = (data ?? []) as any[]
+
+  // Mapiraj v NewsItem format
   const initialNews: NewsItem[] = rows.map((r) => {
     const link = r.link || ''
     return {
@@ -402,10 +488,14 @@ export const getServerSideProps: GetServerSideProps = async ({ res }) => {
       source: r.source,
       contentSnippet: r.contentsnippet ?? r.summary ?? '',
       image: r.image ?? null,
-      publishedAt: (r.publishedat ?? (r.published_at ? Date.parse(r.published_at) : 0)) || 0,
+      publishedAt:
+        (r.publishedat ??
+          (r.published_at ? Date.parse(r.published_at) : 0)) || 0,
       isoDate: r.published_at,
+      // Določi kategorijo (SSR)
       category: determineCategory({ link, categories: [] }) 
     }
   })
+
   return { props: { initialNews } }
 }
