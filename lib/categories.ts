@@ -16,7 +16,7 @@ export type CategoryDef = {
   keywords: string[] 
 }
 
-// 1. VRSTNI RED PRIKAZA (UI)
+// 1. VRSTNI RED PRIKAZA (UI) - Tvoji originalni podatki
 export const CATEGORIES: CategoryDef[] = [
   {
     id: 'slovenija',
@@ -25,7 +25,6 @@ export const CATEGORIES: CategoryDef[] = [
     keywords: [
         '/slovenija/', '/lokalno/', '/obcine/', '/volitve/', 'vlada', 'poslanci', 
         '/novice/slovenija/', 'domovina', 'notranja-politika',
-        // NOVO: Večja mesta in lokalne oznake (za Dnevnik, Večer...)
         'ljubljana', 'maribor', 'celje', 'koper', 'kranj', 'novo-mesto', 
         'regije', 'slovenij' 
     ]
@@ -55,7 +54,6 @@ export const CATEGORIES: CategoryDef[] = [
     keywords: [
         '/magazin/', '/popin/', '/trendi/', '/scena/', '/zvezde/', '/zabava/', 
         '/lifestyle/', '/kulinarika/', '/okusno/', '/astro/', 'suzy', 'lady', 'dom-in-vrt',
-        // NOVO: Za Dnevnik Nedeljski in podobno
         'prosti-cas', 'nedeljski', 'izleti'
     ]
   },
@@ -63,13 +61,13 @@ export const CATEGORIES: CategoryDef[] = [
     id: 'gospodarstvo',
     label: 'Gospodarstvo',
     color: 'bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-300',
-    keywords: ['/gospodarstvo/', '/posel/', '/finance/', '/borza/', 'kripto', 'delnice', 'podjetnistvo', 'banke', 'druzbe', 'posel-danes']
+    keywords: ['/gospodarstvo/', '/posel/', '/finance/', '/borza/', 'kripto', 'delnice', 'podjetnistvo', 'banke', 'druzbe', 'posel-danes', 'gospodarstvo']
   },
   {
     id: 'tech',
     label: 'Znanost/Teh',
     color: 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900/40 dark:text-cyan-300',
-    keywords: ['/znanost/', '/tehnologija/', '/tech/', '/auto/', '/avto/', '/mobilnost/', '/digisvet/', 'vesolje', 'telefoni', 'racunalnistvo']
+    keywords: ['/znanost/', '/tehnologija/', '/tech/', '/auto/', '/avto/', '/mobilnost/', '/digisvet/', 'vesolje', 'telefoni', 'racunalnistvo', 'znanost']
   },
   {
     id: 'kronika',
@@ -88,10 +86,33 @@ const PRIORITY_CHECK_ORDER: CategoryId[] = [
   'kronika', 
   'kultura',
   'svet',
-  'slovenija' // Slovenija na koncu, da ne "požre" ostalih
+  'slovenija'
 ]
 
+// Helper za odstranjevanje šumnikov
+const unaccent = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+
 export function determineCategory(item: { link: string; categories?: string[] }): CategoryId {
+  // 1. KORAK: Preveri RSS kategorije (To je tista izboljšava!)
+  // Če medij sam reče "Šport", mu verjamemo.
+  if (item.categories && item.categories.length > 0) {
+    // Združimo vse kategorije v en string za lažje iskanje
+    const rssCats = item.categories.map(c => unaccent(c)).join(' ')
+    
+    for (const id of PRIORITY_CHECK_ORDER) {
+      const cat = CATEGORIES.find(c => c.id === id)
+      // Preverimo, če se katera od ključnih besed pojavi v RSS kategorijah
+      // (npr. če RSS vsebuje "Gospodarstvo", bo keyword 'gospodarstvo' to ujel)
+      if (cat && cat.keywords.some(k => {
+         const cleanK = unaccent(k.replace(/\//g, '')) // Očistimo keyword (odstranimo poševnice)
+         return cleanK.length > 3 && rssCats.includes(cleanK) 
+      })) {
+        return cat.id
+      }
+    }
+  }
+
+  // 2. KORAK: Preveri URL (Tvoja stara, dobra logika)
   const url = item.link.toLowerCase()
   for (const id of PRIORITY_CHECK_ORDER) {
     const cat = CATEGORIES.find(c => c.id === id)
@@ -99,6 +120,7 @@ export function determineCategory(item: { link: string; categories?: string[] })
       return cat.id
     }
   }
+
   return 'ostalo'
 }
 
