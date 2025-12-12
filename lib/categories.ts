@@ -16,7 +16,6 @@ export type CategoryDef = {
   keywords: string[] 
 }
 
-// 1. VRSTNI RED ZA PRIKAZ V MENIJU (UI)
 export const CATEGORIES: CategoryDef[] = [
   {
     id: 'slovenija',
@@ -56,7 +55,7 @@ export const CATEGORIES: CategoryDef[] = [
   },
   {
     id: 'tech',
-    label: 'Sci/Tech',
+    label: 'Znanost/Teh', // <--- SPREMENJENO
     color: 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900/40 dark:text-cyan-300',
     keywords: ['/znanost/', '/tehnologija/', '/tech/', '/auto/', '/avto/', '/mobilnost/', '/digisvet/', 'vesolje', 'telefoni', 'racunalnistvo']
   },
@@ -68,33 +67,28 @@ export const CATEGORIES: CategoryDef[] = [
   }
 ]
 
-// 2. LOGIKA ZAZNAVANJA (DETECTION PRIORITY)
 const PRIORITY_CHECK_ORDER: CategoryId[] = [
   'sport', 
   'magazin', 
   'tech', 
-  'gospodarstvo', // Gospodarstvo preverimo PRED Slovenijo!
+  'gospodarstvo', 
   'kronika', 
   'kultura',
   'svet',
-  'slovenija'     // Slovenija je zadnja (kot fallback)
+  'slovenija'
 ]
 
 export function determineCategory(item: { link: string; categories?: string[] }): CategoryId {
   const url = item.link.toLowerCase()
-  
-  // Gremo čez kategorije v VRSTNEM REDU PRIORITET
   for (const id of PRIORITY_CHECK_ORDER) {
     const cat = CATEGORIES.find(c => c.id === id)
     if (cat && cat.keywords.some(k => url.includes(k))) {
       return cat.id
     }
   }
-
   return 'ostalo'
 }
 
-// Pomožna funkcija za API
 export function getKeywordsForCategory(catId: string): string[] {
   const cat = CATEGORIES.find(c => c.id === catId)
   return cat ? cat.keywords : []
