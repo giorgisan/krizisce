@@ -25,9 +25,9 @@ export const CATEGORIES: CategoryDef[] = [
     keywords: [
         '/slovenija/', '/lokalno/', '/obcine/', '/volitve/', 'vlada', 'poslanci', 
         '/novice/slovenija/', 'domovina', 'notranja-politika',
-        // Dodana mesta in sklanjatve za Dnevnik/Siol lokalne novice
-        'ljubljana', 'maribor', 'koper', 'celje', 'kranj', 'novo-mesto', 
-        'slovenij' // Ujame "...v-sloveniji..."
+        // NOVO: Večja mesta in lokalne oznake (za Dnevnik, Večer...)
+        'ljubljana', 'maribor', 'celje', 'koper', 'kranj', 'novo-mesto', 
+        'regije', 'slovenij' 
     ]
   },
   {
@@ -55,7 +55,7 @@ export const CATEGORIES: CategoryDef[] = [
     keywords: [
         '/magazin/', '/popin/', '/trendi/', '/scena/', '/zvezde/', '/zabava/', 
         '/lifestyle/', '/kulinarika/', '/okusno/', '/astro/', 'suzy', 'lady', 'dom-in-vrt',
-        // Dodano za Dnevnik Nedeljski
+        // NOVO: Za Dnevnik Nedeljski in podobno
         'prosti-cas', 'nedeljski', 'izleti'
     ]
   },
@@ -67,7 +67,7 @@ export const CATEGORIES: CategoryDef[] = [
   },
   {
     id: 'tech',
-    label: 'Znanost/Teh', 
+    label: 'Znanost/Teh',
     color: 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900/40 dark:text-cyan-300',
     keywords: ['/znanost/', '/tehnologija/', '/tech/', '/auto/', '/avto/', '/mobilnost/', '/digisvet/', 'vesolje', 'telefoni', 'racunalnistvo']
   },
@@ -79,7 +79,7 @@ export const CATEGORIES: CategoryDef[] = [
   }
 ]
 
-// 2. LOGIKA ZAZNAVANJA (DETECTION PRIORITY)
+// 2. LOGIKA ZAZNAVANJA (Prioriteta)
 const PRIORITY_CHECK_ORDER: CategoryId[] = [
   'sport', 
   'magazin', 
@@ -88,7 +88,7 @@ const PRIORITY_CHECK_ORDER: CategoryId[] = [
   'kronika', 
   'kultura',
   'svet',
-  'slovenija' // Catch-all na koncu
+  'slovenija' // Slovenija na koncu, da ne "požre" ostalih
 ]
 
 export function determineCategory(item: { link: string; categories?: string[] }): CategoryId {
