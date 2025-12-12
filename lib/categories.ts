@@ -16,7 +16,7 @@ export type CategoryDef = {
   keywords: string[] 
 }
 
-// 1. VRSTNI RED PRIKAZA (UI)
+// 1. VRSTNI RED PRIKAZA (UI) - Tako kot želiš v meniju
 export const CATEGORIES: CategoryDef[] = [
   {
     id: 'slovenija',
@@ -56,7 +56,7 @@ export const CATEGORIES: CategoryDef[] = [
   },
   {
     id: 'tech',
-    label: 'Znanost/Teh', 
+    label: 'Znanost/Teh', // <--- PREIMENOVANO
     color: 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900/40 dark:text-cyan-300',
     keywords: ['/znanost/', '/tehnologija/', '/tech/', '/auto/', '/avto/', '/mobilnost/', '/digisvet/', 'vesolje', 'telefoni', 'racunalnistvo']
   },
@@ -70,6 +70,7 @@ export const CATEGORIES: CategoryDef[] = [
 
 // 2. LOGIKA ZAZNAVANJA (DETECTION PRIORITY)
 // Pazi: Gospodarstvo in Šport sta pred Slovenijo!
+// Slovenija je čisto na koncu, da ne "požre" ostalih.
 const PRIORITY_CHECK_ORDER: CategoryId[] = [
   'sport', 
   'magazin', 
