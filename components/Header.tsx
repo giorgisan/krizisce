@@ -14,6 +14,7 @@ type Props = {
   activeSource?: string
   activeCategory?: CategoryId | 'vse'
   onSelectCategory?: (cat: CategoryId | 'vse') => void
+  onReset?: () => void // NOVO: Za reset ob kliku na logo
 }
 
 export default function Header({ 
@@ -21,7 +22,8 @@ export default function Header({
   onSearch = () => {}, 
   activeSource = 'Vse',
   activeCategory = 'vse',
-  onSelectCategory = () => {}
+  onSelectCategory = () => {},
+  onReset = () => {} 
 }: Props) {
   const [scrolled, setScrolled] = useState(false)
   const [searchVal, setSearchVal] = useState('')
@@ -33,7 +35,6 @@ export default function Header({
   const { theme, setTheme, resolvedTheme } = useTheme()
   const router = useRouter()
 
-  // Preverimo, če smo na Arhivu
   const isArhiv = router.pathname === '/arhiv'
 
   useEffect(() => {
@@ -89,6 +90,16 @@ export default function Header({
     if (activeEl) activeEl.blur()
   }
 
+  // Funkcija za klik na logo
+  const handleLogoClick = (e: React.MouseEvent) => {
+    if (!isArhiv) {
+      e.preventDefault()
+      setSearchVal('') // Počisti search input
+      onReset()        // Pokliče reset v index.tsx
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+    }
+  }
+
   const isDark = (theme === 'dark' || resolvedTheme === 'dark')
 
   return (
@@ -102,8 +113,9 @@ export default function Header({
       <div className="w-full border-b border-gray-100 dark:border-gray-800/60">
         <div className="max-w-[1800px] mx-auto px-4 md:px-8 lg:px-16 h-16 flex items-center justify-between gap-4">
           
-          <div className="flex items-center gap-4 shrink-0">
-            <Link href="/" className="flex items-center gap-3 group">
+          {/* LEVO: Logo */}
+          <div className="flex items-center gap-4 shrink-0 mr-auto">
+            <Link href="/" onClick={handleLogoClick} className="flex items-center gap-3 group">
                 <div className="relative w-8 h-8 md:w-9 md:h-9">
                 <Image src="/logo.png" alt="Logo" fill className="object-contain" />
                 </div>
@@ -117,6 +129,7 @@ export default function Header({
                 </div>
             </Link>
 
+            {/* FRESH NEWS PILL */}
             <AnimatePresence initial={false}>
                 {hasNew && !refreshing && !isArhiv && (
                 <motion.button
@@ -137,35 +150,38 @@ export default function Header({
             </AnimatePresence>
           </div>
 
-          {/* SREDINA: Iskalnik (Skrit na arhivu) */}
-          <div className="flex-1 max-w-lg mx-4 hidden md:block">
-            {!isArhiv && (
-              <form onSubmit={handleSubmit} className="relative group">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <svg className="h-4 w-4 text-gray-400 group-focus-within:text-brand transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                  </svg>
-                </div>
-                <input
-                  type="search"
-                  placeholder="Išči po naslovu ali vsebini..."
-                  className="block w-full pl-10 pr-3 py-1.5 bg-gray-100 dark:bg-gray-800 border border-transparent 
-                            focus:bg-white dark:focus:bg-black focus:border-brand/30 focus:ring-2 focus:ring-brand/10
-                            rounded-md text-sm transition-all placeholder-gray-500 text-gray-900 dark:text-white"
-                  value={searchVal}
-                  onChange={handleSearchChange}
-                />
-              </form>
-            )}
-          </div>
-
-          <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+          {/* DESNO: Search + Orodja */}
+          <div className="flex items-center gap-2 md:gap-4 shrink-0 ml-auto">
             
-            <span className="hidden lg:inline-block font-mono text-xs text-gray-500 dark:text-gray-400 mr-2 border-r border-gray-200 dark:border-gray-700 pr-3">
+            {/* SEARCH (Bolj desno) */}
+            {!isArhiv && (
+              <div className="hidden md:block w-64 lg:w-80">
+                <form onSubmit={handleSubmit} className="relative group">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <svg className="h-4 w-4 text-gray-400 group-focus-within:text-brand transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                  </div>
+                  <input
+                    type="search"
+                    placeholder="Išči..."
+                    className="block w-full pl-10 pr-3 py-1.5 bg-gray-100 dark:bg-gray-800 border border-transparent 
+                              focus:bg-white dark:focus:bg-black focus:border-brand/30 focus:ring-2 focus:ring-brand/10
+                              rounded-md text-sm transition-all placeholder-gray-500 text-gray-900 dark:text-white"
+                    value={searchVal}
+                    onChange={handleSearchChange}
+                  />
+                </form>
+              </div>
+            )}
+
+            <div className="h-6 w-px bg-gray-200 dark:bg-gray-700 hidden md:block"></div>
+            
+            <span className="hidden lg:inline-block font-mono text-xs text-gray-500 dark:text-gray-400">
               {time}
             </span>
 
-            {/* FILTER (Skrit na arhivu) */}
+            {/* FILTER */}
             {!isArhiv && (
               <button 
                 onClick={onOpenFilter}
@@ -215,12 +231,13 @@ export default function Header({
         </div>
       </div>
 
-      <div className="w-full bg-white dark:bg-gray-900">
-        <div className="max-w-[1800px] mx-auto px-4 md:px-8 lg:px-16">
-          <nav className="flex items-center gap-6 overflow-x-auto no-scrollbar">
-            
-            {/* SEARCH ZA MOBILE (skrit na arhivu) */}
-            {!isArhiv && (
+      {/* --- SPODNJA VRSTICA (Navigacija) - Skrita na arhivu --- */}
+      {!isArhiv && (
+        <div className="w-full bg-white dark:bg-gray-900">
+          <div className="max-w-[1800px] mx-auto px-4 md:px-8 lg:px-16">
+            <nav className="flex items-center gap-6 overflow-x-auto no-scrollbar">
+              
+              {/* SEARCH ZA MOBILE */}
               <div className="md:hidden py-2 min-w-[140px]">
                 <input
                   type="search"
@@ -230,51 +247,51 @@ export default function Header({
                   onChange={handleSearchChange}
                 />
               </div>
-            )}
 
-            <button
-              onClick={() => onSelectCategory('vse')}
-              className={`
-                relative py-3 text-sm font-bold uppercase tracking-wide whitespace-nowrap transition-colors
-                ${activeCategory === 'vse' 
-                  ? 'text-brand' 
-                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'}
-              `}
-            >
-              Vse novice
-              {activeCategory === 'vse' && (
-                <span className="absolute bottom-0 left-0 w-full h-0.5 bg-brand rounded-t-md" />
-              )}
-            </button>
+              <button
+                onClick={() => onSelectCategory('vse')}
+                className={`
+                  relative py-3 text-sm font-bold uppercase tracking-wide whitespace-nowrap transition-colors
+                  ${activeCategory === 'vse' 
+                    ? 'text-brand' 
+                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'}
+                `}
+              >
+                Vse novice
+                {activeCategory === 'vse' && (
+                  <span className="absolute bottom-0 left-0 w-full h-0.5 bg-brand rounded-t-md" />
+                )}
+              </button>
 
-            {CATEGORIES.map((cat) => {
-              const isActive = activeCategory === cat.id
-              return (
-                <button
-                  key={cat.id}
-                  onClick={() => onSelectCategory(cat.id)}
-                  className={`
-                    relative py-3 text-sm font-bold uppercase tracking-wide whitespace-nowrap transition-colors
-                    ${isActive 
-                      ? 'text-gray-900 dark:text-white' 
-                      : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'}
-                  `}
-                >
-                  {cat.label}
-                  {isActive && (
-                    <span 
-                      className="absolute bottom-0 left-0 w-full h-0.5 rounded-t-md" 
-                      style={{ backgroundColor: activeSource !== 'Vse' ? undefined : (cat.color.includes('emerald') ? '#10b981' : cat.color.includes('blue') ? '#3b82f6' : cat.color.includes('red') ? '#ef4444' : '#6366f1') }} 
-                    >
-                        <span className={`absolute inset-0 ${isActive ? 'bg-brand' : ''}`} />
-                    </span>
-                  )}
-                </button>
-              )
-            })}
-          </nav>
+              {CATEGORIES.map((cat) => {
+                const isActive = activeCategory === cat.id
+                return (
+                  <button
+                    key={cat.id}
+                    onClick={() => onSelectCategory(cat.id)}
+                    className={`
+                      relative py-3 text-sm font-bold uppercase tracking-wide whitespace-nowrap transition-colors
+                      ${isActive 
+                        ? 'text-gray-900 dark:text-white' 
+                        : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'}
+                    `}
+                  >
+                    {cat.label}
+                    {isActive && (
+                      <span 
+                        className="absolute bottom-0 left-0 w-full h-0.5 rounded-t-md" 
+                        style={{ backgroundColor: activeSource !== 'Vse' ? undefined : (cat.color.includes('emerald') ? '#10b981' : cat.color.includes('blue') ? '#3b82f6' : cat.color.includes('red') ? '#ef4444' : '#6366f1') }} 
+                      >
+                          <span className={`absolute inset-0 ${isActive ? 'bg-brand' : ''}`} />
+                      </span>
+                    )}
+                  </button>
+                )
+              })}
+            </nav>
+          </div>
         </div>
-      </div>
+      )}
     </header>
   )
 }
