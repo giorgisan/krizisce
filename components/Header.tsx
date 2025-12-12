@@ -71,7 +71,6 @@ export default function Header({
   const refreshNow = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' })
     setRefreshing(true)
-    // Sproži event za refresh v index.tsx
     window.dispatchEvent(new CustomEvent('refresh-news'))
   }
 
@@ -98,8 +97,8 @@ export default function Header({
   const handleLogoClick = (e: React.MouseEvent) => {
     if (!isArhiv) {
       e.preventDefault()
-      setSearchVal('') // Počisti search
-      onReset()        // Pokliče reset
+      setSearchVal('') 
+      onReset()        
       window.scrollTo({ top: 0, behavior: 'smooth' })
     }
   }
@@ -133,7 +132,7 @@ export default function Header({
                 </div>
             </Link>
 
-            {/* --- FRESH NEWS PILL (PRENOVLJEN PO SLIKI) --- */}
+            {/* --- FRESH NEWS PILL (STARA VERZIJA S PROSOJNOSTJO IN POČASNIM UTRIPANJEM) --- */}
             <AnimatePresence initial={false}>
                 {hasNew && !refreshing && !isArhiv && (
                 <motion.button
@@ -142,22 +141,27 @@ export default function Header({
                     animate={{ opacity: 1, scale: 1, y: 0 }}
                     exit={{ opacity: 0, scale: 0.95, y: 5 }}
                     onClick={refreshNow}
-                    // SPREMENJENI STILI: Temno ozadje, belo besedilo, brez roba
+                    // SPREMENJENI STILI: Vrnitev na prosojno ozadje, zeleno besedilo in border. Dodan backdrop-blur.
                     className="hidden md:flex items-center gap-3 px-4 py-2 
-                               bg-[#064e3b] hover:bg-[#065f46] 
-                               text-white shadow-md
+                               bg-[#10b981]/10 dark:bg-[#10b981]/20 
+                               border border-[#10b981]/30
+                               hover:bg-[#10b981]/20 dark:hover:bg-[#10b981]/30
+                               text-[#10b981] dark:text-[#34d399]
                                text-xs md:text-sm rounded-full 
-                               transition-all cursor-pointer ml-4"
+                               transition-all cursor-pointer ml-4 backdrop-blur-sm"
                 >
-                    {/* Zelena pika */}
+                    {/* Zelena pika s počasnim, estetskim utripanjem (3s) */}
                     <span className="relative flex h-2.5 w-2.5">
+                       {/* Tukaj uporabimo 'arbitrary value' za podaljšanje animacije na 3 sekunde */}
+                      <span className="absolute inline-flex h-full w-full rounded-full bg-[#10b981] opacity-75 animate-[ping_3s_cubic-bezier(0,0,0.2,1)_infinite]"></span>
                       <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-[#10b981]"></span>
                     </span>
                     
-                    {/* Besedilo */}
-                    <span className="flex items-center">
-                        <span className="font-bold text-white">Na voljo so sveže novice</span>
-                        <span className="text-emerald-200 ml-1.5 font-normal opacity-90">— kliknite za osvežitev</span>
+                    {/* Besedilo (zeleno) */}
+                    <span className="flex items-center leading-none">
+                        <span className="font-bold">Na voljo so sveže novice</span>
+                         {/* Drugi del malo bolj prosojen */}
+                        <span className="ml-1.5 font-normal opacity-80">— kliknite za osvežitev</span>
                     </span>
                 </motion.button>
                 )}
