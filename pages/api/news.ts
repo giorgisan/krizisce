@@ -3,7 +3,8 @@ import type { NextApiRequest, NextApiResponse } from 'next'
 import { createClient } from '@supabase/supabase-js'
 import fetchRSSFeeds from '@/lib/fetchRSSFeeds'
 import type { NewsItem as FeedNewsItem } from '@/types'
-import { getKeywordsForCategory } from '@/lib/categories'
+// 1. SPREMEMBA: Uvozimo še determineCategory
+import { getKeywordsForCategory, determineCategory } from '@/lib/categories'
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL as string
 const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string
@@ -179,8 +180,7 @@ async function syncToSupabase(items: FeedNewsItem[]) {
   
   if (!rows.length) return
 
-  // OPTIMIZACIJA: Odstranjen 'ignoreDuplicates: true'.
-  // Zdaj bo 'upsert' posodobil vrstico, če ta že obstaja (npr. dodal kategorijo).
+  // upsert bo posodobil vrstico in vpisal kategorijo, če manjka
   const { error } = await (supabaseWrite as any)
     .from('news')
     .upsert(rows, { onConflict: 'link_key' }) 
@@ -443,7 +443,17 @@ export default async function handler(
     if (!paged && wantsFresh && canIngest) {
       try {
         const rss = await fetchRSSFeeds({ forceFresh: true })
-        if (rss?.length) await syncToSupabase(rss.slice(0, 250))
+        if (rss?.length) {
+            // 2. SPREMEMBA: TUKAJ MANJKA IZRAČUN KATEGORIJE!
+            // Preden pošljemo v Supabase, moramo "obogatiti" podatke s kategorijo
+            const enriched = rss.map(item => ({
+                ...item,
+                // Izračunaj kategorijo na podlagi linka
+                category: determineCategory({ link: item.link, categories: [] })
+            }))
+            
+            await syncToSupabase(enriched.slice(0, 250))
+        }
       } catch (err) { console.error('❌ RSS sync error:', err) }
     }
 
@@ -472,19 +482,16 @@ export default async function handler(
     // 3. FILTER CATEGORY (OPTIMIZIRANO ZA HITROST)
     if (category && category !== 'vse') {
       if (category === 'ostalo') {
-         // Za "ostalo" poiščemo tiste, ki so eksplicitno 'ostalo' ali pa so (še) prazne
          q = q.or('category.is.null,category.eq.ostalo')
       } else {
-         // TURBO MODE: Iščemo SAMO po stolpcu category (izkorišča INDEX)
+         // TURBO MODE: Iščemo SAMO po stolpcu category
          q = q.eq('category', category)
       }
     }
 
-    // 4. SEARCH FILTER (Naslov + Vsebina)
+    // 4. SEARCH FILTER
     if (searchQuery && searchQuery.trim().length > 0) {
         const term = searchQuery.trim()
-        // OPOMBA: Za še hitrejše iskanje bi bilo idealno dodati 'pg_trgm' indekse na 'title' in 'contentsnippet'.
-        // SQL: CREATE INDEX IF NOT EXISTS news_title_trgm_idx ON public.news USING gin (title gin_trgm_ops);
         q = q.or(`title.ilike.%${term}%,contentsnippet.ilike.%${term}%,summary.ilike.%${term}%`)
     }
 
