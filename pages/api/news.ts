@@ -460,17 +460,16 @@ export default async function handler(
     // 2. FILTER CURSOR
     if (cursor && cursor > 0) q = q.lt('publishedat', cursor)
 
-    // 3. FILTER CATEGORY (POPRAVLJENO in poenostavljeno z DB stolpcem)
-    if (category && category !== 'vse' && category !== 'ostalo') {
-      const keywords = getKeywordsForCategory(category)
-      let orCond = `category.eq.${category}`
-      
-      // Če imamo keywords (za stare članke brez kategorije), jih dodamo
-      if (keywords.length > 0) {
-         const urlCond = keywords.map(k => `link.ilike.%${k}%`).join(',')
-         orCond += `,${urlCond}`
+// 3. FILTER CATEGORY (OPTIMIZIRANO ZA HITROST)
+    if (category && category !== 'vse') {
+      if (category === 'ostalo') {
+         // Za "ostalo" poiščemo tiste, ki so eksplicitno 'ostalo' ali pa so (še) prazne
+         q = q.or('category.is.null,category.eq.ostalo')
+      } else {
+         // TURBO MODE: Iščemo SAMO po stolpcu category.
+         // Ker imaš na tem stolpcu indeks, bo to delovalo v milisekundah.
+         q = q.eq('category', category)
       }
-      q = q.or(orCond)
     }
 
     // 4. SEARCH FILTER (Naslov + Vsebina)
