@@ -3,7 +3,7 @@ import type { NextApiRequest, NextApiResponse } from 'next'
 import { createClient } from '@supabase/supabase-js'
 import fetchRSSFeeds from '@/lib/fetchRSSFeeds'
 import type { NewsItem as FeedNewsItem } from '@/types'
-// 1. POPRAVEK: Ponovno uvozimo logiko za kategorije
+// Uvozimo logiko za kategorije
 import { determineCategory } from '@/lib/categories'
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL as string
@@ -151,8 +151,9 @@ function feedItemToDbRow(item: FeedNewsItem) {
   if (!linkKey || !title || !source) return null
   const snippet = normalizeSnippet(item)
   
-  // 2. POPRAVEK: Tukaj izračunamo kategorijo v KODI
-  const calculatedCategory = determineCategory({ link: linkRaw, categories: item.categories })
+  // POPRAVEK: Uporabimo (item as any), da dostopamo do categories, tudi če jih ni v tipu
+  const rawCategories = (item as any).categories || []
+  const calculatedCategory = determineCategory({ link: linkRaw, categories: rawCategories })
 
   return {
     link: linkRaw,
@@ -167,7 +168,7 @@ function feedItemToDbRow(item: FeedNewsItem) {
     pubdate: ts.pubRaw,
     published_at: ts.iso,
     publishedat: ts.ms,
-    category: calculatedCategory, // Pošljemo string (npr. 'sport'), ne null!
+    category: calculatedCategory, 
   }
 }
 
@@ -445,12 +446,12 @@ export default async function handler(
       try {
         const rss = await fetchRSSFeeds({ forceFresh: true })
         if (rss?.length) {
-            // TUKAJ NE RABIŠ SPREMINJATI NIČ VEČ, ker je logika že v feedItemToDbRow
             await syncToSupabase(rss.slice(0, 250))
         }
       } catch (err) { console.error('❌ RSS sync error:', err) }
     }
 
+    // Limit 25 za hitrost
     const limitParam = parseInt(String(req.query.limit), 10)
     const defaultLimit = 25 
     const limit = Math.min(Math.max(limitParam || defaultLimit, 1), 100)
