@@ -1,9 +1,8 @@
-// pages/api/news.ts
 import type { NextApiRequest, NextApiResponse } from 'next'
 import { createClient } from '@supabase/supabase-js'
 import fetchRSSFeeds from '@/lib/fetchRSSFeeds'
 import type { NewsItem as FeedNewsItem } from '@/types'
-// Uvozimo logiko za kategorije
+// Uvozimo logiko, ki si jo želel imeti v kodi
 import { determineCategory } from '@/lib/categories'
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL as string
@@ -11,7 +10,7 @@ const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY as string | undefined
 const CRON_SECRET = process.env.CRON_SECRET as string | undefined
 
-// Globalna povezava
+// 1. Globalna povezava (za hitrost)
 const supabaseRead = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: { persistSession: false },
 })
@@ -72,6 +71,7 @@ function makeLinkKey(raw: string, iso?: string | null): string {
 }
 
 /* ---------------- Tipi ---------------- */
+// Tipi so OK, ne spreminjaj
 type Row = {
   id: number
   link: string
@@ -151,7 +151,8 @@ function feedItemToDbRow(item: FeedNewsItem) {
   if (!linkKey || !title || !source) return null
   const snippet = normalizeSnippet(item)
   
-  // POPRAVEK: Uporabimo (item as any), da dostopamo do categories, tudi če jih ni v tipu
+  // --- POPRAVEK TUKAJ ---
+  // Uporabimo (item as any), da preprečimo TypeScript napako 'Property categories does not exist'
   const rawCategories = (item as any).categories || []
   const calculatedCategory = determineCategory({ link: linkRaw, categories: rawCategories })
 
@@ -168,6 +169,7 @@ function feedItemToDbRow(item: FeedNewsItem) {
     pubdate: ts.pubRaw,
     published_at: ts.iso,
     publishedat: ts.ms,
+    // Zdaj pošiljamo izračunano kategorijo v bazo!
     category: calculatedCategory, 
   }
 }
@@ -210,7 +212,7 @@ function rowToItem(r: Row): NewsItem {
   }
 }
 
-/* ---------------- TRENDING (Logika) ---------------- */
+/* ---------------- TRENDING (Ostane isto) ---------------- */
 const TREND_WINDOW_HOURS = 6 
 const TREND_MIN_SOURCES = 2    
 const TREND_MIN_OVERLAP = 2
@@ -451,7 +453,6 @@ export default async function handler(
       } catch (err) { console.error('❌ RSS sync error:', err) }
     }
 
-    // Limit 25 za hitrost
     const limitParam = parseInt(String(req.query.limit), 10)
     const defaultLimit = 25 
     const limit = Math.min(Math.max(limitParam || defaultLimit, 1), 100)
