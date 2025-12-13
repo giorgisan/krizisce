@@ -1,21 +1,17 @@
-// pages/api/news.ts
 import type { NextApiRequest, NextApiResponse } from 'next'
 import { createClient } from '@supabase/supabase-js'
 import fetchRSSFeeds from '@/lib/fetchRSSFeeds'
 import type { NewsItem as FeedNewsItem } from '@/types'
 
-// ENV spremenljivke
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL as string
 const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY as string | undefined
 const CRON_SECRET = process.env.CRON_SECRET as string | undefined
 
-// --- POPRAVEK 1: Povezava ustvarjena ENKRAT (Globalno), ne ob vsakem klicu ---
+// 1. Globalna povezava (za hitrost)
 const supabaseRead = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: { persistSession: false },
 })
-
-// Za pisanje uporabimo service key, če obstaja
 const supabaseWrite = SUPABASE_SERVICE_ROLE_KEY
   ? createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
       auth: { persistSession: false },
@@ -165,7 +161,7 @@ function feedItemToDbRow(item: FeedNewsItem) {
     pubdate: ts.pubRaw,
     published_at: ts.iso,
     publishedat: ts.ms,
-    category: null, // BAZA bo sama določila kategorijo s Triggerjem
+    category: null, 
   }
 }
 
@@ -207,7 +203,7 @@ function rowToItem(r: Row): NewsItem {
   }
 }
 
-/* ---------------- TRENDING (Logika) ---------------- */
+/* ---------------- TRENDING ---------------- */
 const TREND_WINDOW_HOURS = 6 
 const TREND_MIN_SOURCES = 2    
 const TREND_MIN_OVERLAP = 2
@@ -423,7 +419,7 @@ export default async function handler(
       try {
         const rows = await fetchTrendingRows()
         const items = computeTrendingFromRows(rows)
-        res.setHeader('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=60') 
+        res.setHeader('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=60') 
         return res.status(200).json(items as any)
       } catch (err: any) {
         return res.status(500).json({ error: err?.message || 'Trending error' })
@@ -438,7 +434,6 @@ export default async function handler(
     const allowPublic = process.env.ALLOW_PUBLIC_REFRESH === '1'
     const canIngest = isCronCaller || isInternalIngest || isDev || tokenOk || allowPublic
 
-    // INGEST LOGIKA
     if (!paged && wantsFresh && canIngest) {
       try {
         const rss = await fetchRSSFeeds({ forceFresh: true })
@@ -448,7 +443,10 @@ export default async function handler(
       } catch (err) { console.error('❌ RSS sync error:', err) }
     }
 
-    const limit = Math.min(Math.max(parseInt(String(req.query.limit ?? (paged ? 40 : 60)), 10) || (paged ? 40 : 60), 1), 200)
+    // --- SPREMEMBA: Omejimo na 25 ---
+    const limitParam = parseInt(String(req.query.limit), 10)
+    const defaultLimit = 25 
+    const limit = Math.min(Math.max(limitParam || defaultLimit, 1), 100)
     const cursor = req.query.cursor ? Number(req.query.cursor) : null
 
     // --- QUERY BUILDER ---
@@ -459,7 +457,6 @@ export default async function handler(
       .order('publishedat', { ascending: false })
       .order('id', { ascending: false })
 
-    // 1. FILTER SOURCE (Multi-select)
     if (sourceParam && sourceParam !== 'Vse') {
       const sources = sourceParam.split(',').map(s => s.trim()).filter(Boolean)
       if (sources.length > 0) {
@@ -467,10 +464,8 @@ export default async function handler(
       }
     }
     
-    // 2. FILTER CURSOR
     if (cursor && cursor > 0) q = q.lt('publishedat', cursor)
 
-    // 3. FILTER CATEGORY (OPTIMIZIRANO ZA HITROST)
     if (category && category !== 'vse') {
       if (category === 'ostalo') {
          q = q.or('category.is.null,category.eq.ostalo')
@@ -479,7 +474,6 @@ export default async function handler(
       }
     }
 
-    // 4. SEARCH FILTER
     if (searchQuery && searchQuery.trim().length > 0) {
         const term = searchQuery.trim()
         q = q.or(`title.ilike.%${term}%,contentsnippet.ilike.%${term}%,summary.ilike.%${term}%`)
