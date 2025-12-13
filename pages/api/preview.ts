@@ -1,4 +1,3 @@
-// pages/api/preview.ts
 import type { NextApiRequest, NextApiResponse } from 'next'
 import { JSDOM } from 'jsdom'
 import { Readability } from '@mozilla/readability'
@@ -17,22 +16,23 @@ type PreviewResponse =
 /**
  * VARNOST: Whitelist dovoljenih domen.
  * Strežnik bo zavrnil vse zahtevke, ki niso na tem seznamu.
- * To preprečuje SSRF (Server-Side Request Forgery) napade.
  */
 const ALLOWED_DOMAINS = [
   'rtvslo.si', 'www.rtvslo.si',
   '24ur.com', 'www.24ur.com',
   'siol.net', 'www.siol.net',
   'slovenskenovice.si', 'www.slovenskenovice.si',
+  'slovenskenovice.delo.si', 'www.slovenskenovice.delo.si', // <--- NOVO (ključno!)
+  'old.slovenskenovice.si',
   'delo.si', 'www.delo.si',
   'dnevnik.si', 'www.dnevnik.si',
   'zurnal24.si', 'www.zurnal24.si',
   'svet24.si', 'novice.svet24.si', 'www.svet24.si',
-  'n1info.si', 'www.n1info.si',
+  'n1info.si', 'www.n1info.si', 'n1info.si',
   'metropolitan.si', 'www.metropolitan.si',
   'vecer.com', 'www.vecer.com',
   'primorske.si', 'www.primorske.si',
-  // Lokalno testiranje (če rabiš)
+  // Lokalno testiranje
   'localhost'
 ]
 
@@ -78,13 +78,22 @@ export default async function handler(
     const ac = new AbortController()
     const to = setTimeout(() => ac.abort(), 8000)
 
+    // Lažni User-Agent in headerji, da izgledamo kot pravi Chrome brskalnik
+    const FAKE_USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
+
     const response = await fetch(url, {
       signal: ac.signal,
       headers: {
-        'User-Agent':
-          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-        'Accept-Language': 'sl-SI,sl;q=0.9,en-US;q=0.8,en;q=0.7',
-        Accept: 'text/html,application/xhtml+xml',
+        'User-Agent': FAKE_USER_AGENT,
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+        'Accept-Language': 'sl-SI,sl;q=0.9,en-GB;q=0.8,en;q=0.7',
+        'Cache-Control': 'no-cache',
+        'Pragma': 'no-cache',
+        'Upgrade-Insecure-Requests': '1',
+        'Sec-Fetch-Dest': 'document',
+        'Sec-Fetch-Mode': 'navigate',
+        'Sec-Fetch-Site': 'none',
+        'Sec-Fetch-User': '?1'
       },
       redirect: 'follow',
       cache: 'no-store',
