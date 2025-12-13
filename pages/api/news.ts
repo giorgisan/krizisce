@@ -1,8 +1,9 @@
+// pages/api/news.ts
 import type { NextApiRequest, NextApiResponse } from 'next'
 import { createClient } from '@supabase/supabase-js'
 import fetchRSSFeeds from '@/lib/fetchRSSFeeds'
 import type { NewsItem as FeedNewsItem } from '@/types'
-// 1. POPRAVEK: Uvozimo funkcijo za določanje kategorije
+// 1. POPRAVEK: Nujno moramo uvoziti determineCategory!
 import { getKeywordsForCategory, determineCategory } from '@/lib/categories'
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL as string
@@ -442,8 +443,9 @@ export default async function handler(
       try {
         const rss = await fetchRSSFeeds({ forceFresh: true })
         if (rss?.length) {
-            // 2. POPRAVEK: TUKAJ MANJKA IZRAČUN KATEGORIJE!
-            // Preden pošljemo v Supabase, "obogatimo" podatke s kategorijo
+            // 2. POPRAVEK: TUKAJ JE BILA NAPAKA.
+            // Prej si samo poslal 'rss' naprej, kar je pomenilo category: undefined -> null.
+            // Zdaj 'rss' predelamo v 'enriched', kjer IZRAČUNAMO kategorijo.
             const enriched = rss.map(item => ({
                 ...item,
                 // Izračunaj kategorijo na podlagi linka
