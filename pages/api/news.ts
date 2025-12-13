@@ -1,16 +1,13 @@
-// pages/api/news.ts
 import type { NextApiRequest, NextApiResponse } from 'next'
 import { createClient } from '@supabase/supabase-js'
 import fetchRSSFeeds from '@/lib/fetchRSSFeeds'
 import type { NewsItem as FeedNewsItem } from '@/types'
-// 1. POPRAVEK: Nujno moramo uvoziti determineCategory!
-import { getKeywordsForCategory, determineCategory } from '@/lib/categories'
+
+// OPOMBA: Ne rabimo več uvažati determineCategory, ker to zdaj dela BAZA (Trigger)!
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL as string
 const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string
-const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY as
-  | string
-  | undefined
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY as string | undefined
 const CRON_SECRET = process.env.CRON_SECRET as string | undefined
 
 const supabaseRead = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
@@ -165,7 +162,8 @@ function feedItemToDbRow(item: FeedNewsItem) {
     pubdate: ts.pubRaw,
     published_at: ts.iso,
     publishedat: ts.ms,
-    category: item.category || null,
+    // POZOR: Tu pošljemo null, ker bo BAZA (Trigger) sama izračunala kategorijo!
+    category: null, 
   }
 }
 
@@ -442,17 +440,9 @@ export default async function handler(
     if (!paged && wantsFresh && canIngest) {
       try {
         const rss = await fetchRSSFeeds({ forceFresh: true })
+        // TUKAJ JE SPREMEMBA: Samo pošljemo naprej, baza bo sama uredila kategorije!
         if (rss?.length) {
-            // 2. POPRAVEK: TUKAJ JE BILA NAPAKA.
-            // Prej si samo poslal 'rss' naprej, kar je pomenilo category: undefined -> null.
-            // Zdaj 'rss' predelamo v 'enriched', kjer IZRAČUNAMO kategorijo.
-            const enriched = rss.map(item => ({
-                ...item,
-                // Izračunaj kategorijo na podlagi linka
-                category: determineCategory({ link: item.link, categories: [] })
-            }))
-            
-            await syncToSupabase(enriched.slice(0, 250))
+            await syncToSupabase(rss.slice(0, 250))
         }
       } catch (err) { console.error('❌ RSS sync error:', err) }
     }
@@ -479,12 +469,12 @@ export default async function handler(
     // 2. FILTER CURSOR
     if (cursor && cursor > 0) q = q.lt('publishedat', cursor)
 
-    // 3. FILTER CATEGORY (OPTIMIZIRANO ZA HITROST)
+    // 3. FILTER CATEGORY (OPTIMIZIRANO)
+    // Z novimi indeksi v bazi bo tole letelo!
     if (category && category !== 'vse') {
       if (category === 'ostalo') {
          q = q.or('category.is.null,category.eq.ostalo')
       } else {
-         // TURBO MODE: Iščemo SAMO po stolpcu category
          q = q.eq('category', category)
       }
     }
