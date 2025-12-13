@@ -1,18 +1,21 @@
+// pages/api/news.ts
 import type { NextApiRequest, NextApiResponse } from 'next'
 import { createClient } from '@supabase/supabase-js'
 import fetchRSSFeeds from '@/lib/fetchRSSFeeds'
 import type { NewsItem as FeedNewsItem } from '@/types'
 
-// OPOMBA: Ne rabimo več uvažati determineCategory, ker to zdaj dela BAZA (Trigger)!
-
+// ENV spremenljivke
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL as string
 const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY as string | undefined
 const CRON_SECRET = process.env.CRON_SECRET as string | undefined
 
+// --- POPRAVEK 1: Povezava ustvarjena ENKRAT (Globalno), ne ob vsakem klicu ---
 const supabaseRead = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: { persistSession: false },
 })
+
+// Za pisanje uporabimo service key, če obstaja
 const supabaseWrite = SUPABASE_SERVICE_ROLE_KEY
   ? createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
       auth: { persistSession: false },
@@ -162,8 +165,7 @@ function feedItemToDbRow(item: FeedNewsItem) {
     pubdate: ts.pubRaw,
     published_at: ts.iso,
     publishedat: ts.ms,
-    // POZOR: Tu pošljemo null, ker bo BAZA (Trigger) sama izračunala kategorijo!
-    category: null, 
+    category: null, // BAZA bo sama določila kategorijo s Triggerjem
   }
 }
 
@@ -421,7 +423,7 @@ export default async function handler(
       try {
         const rows = await fetchTrendingRows()
         const items = computeTrendingFromRows(rows)
-        res.setHeader('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=60') 
+        res.setHeader('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=60') 
         return res.status(200).json(items as any)
       } catch (err: any) {
         return res.status(500).json({ error: err?.message || 'Trending error' })
@@ -440,7 +442,6 @@ export default async function handler(
     if (!paged && wantsFresh && canIngest) {
       try {
         const rss = await fetchRSSFeeds({ forceFresh: true })
-        // TUKAJ JE SPREMEMBA: Samo pošljemo naprej, baza bo sama uredila kategorije!
         if (rss?.length) {
             await syncToSupabase(rss.slice(0, 250))
         }
@@ -469,8 +470,7 @@ export default async function handler(
     // 2. FILTER CURSOR
     if (cursor && cursor > 0) q = q.lt('publishedat', cursor)
 
-    // 3. FILTER CATEGORY (OPTIMIZIRANO)
-    // Z novimi indeksi v bazi bo tole letelo!
+    // 3. FILTER CATEGORY (OPTIMIZIRANO ZA HITROST)
     if (category && category !== 'vse') {
       if (category === 'ostalo') {
          q = q.or('category.is.null,category.eq.ostalo')
