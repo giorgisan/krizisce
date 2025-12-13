@@ -38,6 +38,7 @@ function cleanUrl(raw: string): URL | null {
     return u
   } catch { return null }
 }
+
 function yyyymmdd(iso?: string | null): string | null {
   if (!iso) return null
   const d = new Date(iso)
@@ -47,6 +48,7 @@ function yyyymmdd(iso?: string | null): string | null {
   const dd = String(d.getUTCDate()).padStart(2, '0')
   return `${y}${m}${dd}`
 }
+
 function makeLinkKey(raw: string, iso?: string | null): string {
   const u = cleanUrl(raw)
   if (!u) return raw.trim()
@@ -85,7 +87,7 @@ type Row = {
   published_at: string | null
   publishedat: number | null
   created_at: string | null
-  category: string | null // POPRAVEK 1: Dodan category v tip
+  category: string | null
 }
 
 export type NewsItem = {
@@ -96,7 +98,7 @@ export type NewsItem = {
   contentSnippet?: string | null
   publishedAt: number
   isoDate?: string | null
-  category?: string | null // POPRAVEK: Da je kompatibilno
+  category?: string | null
 }
 
 const unaccent = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
@@ -162,7 +164,7 @@ function feedItemToDbRow(item: FeedNewsItem) {
     pubdate: ts.pubRaw,
     published_at: ts.iso,
     publishedat: ts.ms,
-    category: item.category || null, // POPRAVEK 2: Zapisovanje v bazo
+    category: item.category || null,
   }
 }
 
@@ -174,8 +176,15 @@ async function syncToSupabase(items: FeedNewsItem[]) {
   })
   const dedupedIn = softDedupe(shaped)
   const rows = dedupedIn.map(feedItemToDbRow).filter(Boolean) as any[]
+  
   if (!rows.length) return
-  const { error } = await (supabaseWrite as any).from('news').upsert(rows, { onConflict: 'link_key', ignoreDuplicates: true })
+
+  // OPTIMIZACIJA: Odstranjen 'ignoreDuplicates: true'.
+  // Zdaj bo 'upsert' posodobil vrstico, če ta že obstaja (npr. dodal kategorijo).
+  const { error } = await (supabaseWrite as any)
+    .from('news')
+    .upsert(rows, { onConflict: 'link_key' }) 
+  
   if (error) throw error
 }
 
@@ -195,11 +204,11 @@ function rowToItem(r: Row): NewsItem {
     contentSnippet: r.summary?.trim() || r.contentsnippet?.trim() || null,
     publishedAt: ms,
     isoDate: r.published_at || r.isodate || r.pubdate || null,
-    category: r.category || null, // POPRAVEK 3: Branje iz baze
+    category: r.category || null,
   }
 }
 
-/* ---------------- TRENDING (popolna logika) ---------------- */
+/* ---------------- TRENDING (Logika) ---------------- */
 const TREND_WINDOW_HOURS = 6 
 const TREND_MIN_SOURCES = 2    
 const TREND_MIN_OVERLAP = 2
@@ -279,7 +288,7 @@ async function fetchTrendingRows(): Promise<Row[]> {
   const { data, error } = await supabaseRead
     .from('news')
     .select(
-      'id, link, link_canonical, link_key, title, source, image, contentsnippet, summary, isodate, pubdate, published_at, publishedat, created_at, category', // POPRAVEK 4: Dodan category v select
+      'id, link, link_canonical, link_key, title, source, image, contentsnippet, summary, isodate, pubdate, published_at, publishedat, created_at, category',
     )
     .gt('publishedat', cutoffMs)
     .order('publishedat', { ascending: false })
@@ -415,7 +424,7 @@ export default async function handler(
       try {
         const rows = await fetchTrendingRows()
         const items = computeTrendingFromRows(rows)
-        res.setHeader('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=30') 
+        res.setHeader('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=60') 
         return res.status(200).json(items as any)
       } catch (err: any) {
         return res.status(500).json({ error: err?.message || 'Trending error' })
@@ -430,6 +439,7 @@ export default async function handler(
     const allowPublic = process.env.ALLOW_PUBLIC_REFRESH === '1'
     const canIngest = isCronCaller || isInternalIngest || isDev || tokenOk || allowPublic
 
+    // INGEST LOGIKA
     if (!paged && wantsFresh && canIngest) {
       try {
         const rss = await fetchRSSFeeds({ forceFresh: true })
@@ -443,7 +453,6 @@ export default async function handler(
     // --- QUERY BUILDER ---
     let q = supabaseRead
       .from('news')
-      // POPRAVEK 5: Tu dodamo 'category' v select, da ga dobimo ven
       .select('id, link, link_canonical, link_key, title, source, image, contentsnippet, summary, isodate, pubdate, published_at, publishedat, created_at, category')
       .gt('publishedat', 0)
       .order('publishedat', { ascending: false })
@@ -460,14 +469,13 @@ export default async function handler(
     // 2. FILTER CURSOR
     if (cursor && cursor > 0) q = q.lt('publishedat', cursor)
 
-// 3. FILTER CATEGORY (OPTIMIZIRANO ZA HITROST)
+    // 3. FILTER CATEGORY (OPTIMIZIRANO ZA HITROST)
     if (category && category !== 'vse') {
       if (category === 'ostalo') {
          // Za "ostalo" poiščemo tiste, ki so eksplicitno 'ostalo' ali pa so (še) prazne
          q = q.or('category.is.null,category.eq.ostalo')
       } else {
-         // TURBO MODE: Iščemo SAMO po stolpcu category.
-         // Ker imaš na tem stolpcu indeks, bo to delovalo v milisekundah.
+         // TURBO MODE: Iščemo SAMO po stolpcu category (izkorišča INDEX)
          q = q.eq('category', category)
       }
     }
@@ -475,6 +483,8 @@ export default async function handler(
     // 4. SEARCH FILTER (Naslov + Vsebina)
     if (searchQuery && searchQuery.trim().length > 0) {
         const term = searchQuery.trim()
+        // OPOMBA: Za še hitrejše iskanje bi bilo idealno dodati 'pg_trgm' indekse na 'title' in 'contentsnippet'.
+        // SQL: CREATE INDEX IF NOT EXISTS news_title_trgm_idx ON public.news USING gin (title gin_trgm_ops);
         q = q.or(`title.ilike.%${term}%,contentsnippet.ilike.%${term}%,summary.ilike.%${term}%`)
     }
 
