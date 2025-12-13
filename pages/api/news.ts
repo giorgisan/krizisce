@@ -10,7 +10,7 @@ const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY as string | undefined
 const CRON_SECRET = process.env.CRON_SECRET as string | undefined
 
-// 1. Globalna povezava (za hitrost)
+// 1. Globalna povezava (za hitrost) - zunaj funkcije handler
 const supabaseRead = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: { persistSession: false },
 })
@@ -71,7 +71,6 @@ function makeLinkKey(raw: string, iso?: string | null): string {
 }
 
 /* ---------------- Tipi ---------------- */
-// Tipi so OK, ne spreminjaj
 type Row = {
   id: number
   link: string
@@ -151,9 +150,11 @@ function feedItemToDbRow(item: FeedNewsItem) {
   if (!linkKey || !title || !source) return null
   const snippet = normalizeSnippet(item)
   
-  // --- POPRAVEK TUKAJ ---
-  // Uporabimo (item as any), da preprečimo TypeScript napako 'Property categories does not exist'
+  // --- POPRAVEK: Rešitev za TypeScript napako in izračun kategorije ---
+  // Uporabimo (item as any), da dostopamo do kategorij, tudi če jih TypeScript ne vidi
   const rawCategories = (item as any).categories || []
+  
+  // Izračunamo kategorijo TUKAJ v kodi
   const calculatedCategory = determineCategory({ link: linkRaw, categories: rawCategories })
 
   return {
@@ -169,8 +170,7 @@ function feedItemToDbRow(item: FeedNewsItem) {
     pubdate: ts.pubRaw,
     published_at: ts.iso,
     publishedat: ts.ms,
-    // Zdaj pošiljamo izračunano kategorijo v bazo!
-    category: calculatedCategory, 
+    category: calculatedCategory, // Pošljemo izračunano kategorijo v bazo
   }
 }
 
@@ -453,6 +453,7 @@ export default async function handler(
       } catch (err) { console.error('❌ RSS sync error:', err) }
     }
 
+    // Limit 25 za hitrost
     const limitParam = parseInt(String(req.query.limit), 10)
     const defaultLimit = 25 
     const limit = Math.min(Math.max(limitParam || defaultLimit, 1), 100)
