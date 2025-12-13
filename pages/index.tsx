@@ -44,7 +44,6 @@ function timeout(ms: number) {
   return new Promise((_, rej) => setTimeout(() => rej(new Error('Request timeout')), ms))
 }
 
-// Funkcija za nalaganje novic (z vsemi filtri in cache-bustingom)
 async function loadNews(
   mode: Mode, 
   source: string[], 
@@ -61,7 +60,6 @@ async function loadNews(
   if (category !== 'vse') qs.set('category', category)
   if (query) qs.set('q', query)
   
-  // Cache busting: Če je forceRefresh, dodamo timestamp, da preprečimo caching
   if (forceRefresh) qs.set('_t', Date.now().toString())
 
   try {
@@ -76,7 +74,6 @@ async function loadNews(
     }
   } catch {}
   
-  // Če ni filtrov in ni rezultatov, vrnemo null (da ostanejo stari podatki ali SSR)
   if (mode === 'latest' && source.length === 0 && category === 'vse' && !query && !forceRefresh) {
     return null 
   }
@@ -162,13 +159,17 @@ export default function Home({ initialNews }: Props) {
         setIsRefreshing(false)
     }
     
-    // Debounce za iskanje (500ms zamika)
-    const timeoutId = setTimeout(fetchData, searchQuery ? 500 : 0)
-    return () => clearTimeout(timeoutId)
+    // --- POPRAVEK 2: Debounce samo za iskanje, drugače takoj! ---
+    if (searchQuery) {
+        const timeoutId = setTimeout(fetchData, 500)
+        return () => clearTimeout(timeoutId)
+    } else {
+        fetchData()
+    }
 
   }, [selectedSources, selectedCategory, searchQuery, mode, bootRefreshed])
 
-  // POLLING (Avtomatsko osveževanje v ozadju)
+  // POLLING
   const missCountRef = useRef(0)
   const timerRef = useRef<number | null>(null)
 
@@ -177,7 +178,6 @@ export default function Home({ initialNews }: Props) {
 
     const runCheckSimple = async () => {
       if (mode !== 'latest') return
-      // Ne osvežuj v ozadju, če uporabnik išče
       if (searchQuery) return 
 
       kickSyncIfStale(10 * 60_000)
@@ -218,13 +218,12 @@ export default function Home({ initialNews }: Props) {
     }
   }, [itemsLatest, bootRefreshed, mode, selectedSources, selectedCategory, searchQuery])
 
-  // REFRESH HANDLER (Klik na gumb "Nove novice")
+  // REFRESH HANDLER
   useEffect(() => {
     const onRefresh = () => {
       window.dispatchEvent(new CustomEvent('news-refreshing', { detail: true }))
       
       startTransition(() => {
-        // Tu je ključno: forceRefresh = true
         loadNews(mode, selectedSources, selectedCategory, searchQuery, true).then((fresh) => {
           if (fresh) {
             if (mode === 'latest') {
@@ -345,7 +344,6 @@ export default function Home({ initialNews }: Props) {
       ? 'grid gap-6 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5'
       : 'grid gap-6 grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5'
 
-  // Helper za prikaz aktivnega filtra virov
   const activeSourceLabel = selectedSources.length === 0 
     ? 'Vse' 
     : selectedSources.length === 1 
@@ -380,12 +378,12 @@ export default function Home({ initialNews }: Props) {
       <main className="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white px-4 md:px-8 lg:px-16 pt-0 pb-8">
         
         <div className="flex items-center justify-between py-4">
-           {/* TABS (Najnovejše / Aktualno) */}
+           {/* TABS */}
            <div className="scale-90 origin-left">
              <NewsTabs active={mode} onChange={handleTabChange} />
            </div>
            
-           {/* GUMB ZA ČIŠČENJE FILTROV (Rdeč koš za smeti) */}
+           {/* GUMB ZA ČIŠČENJE FILTROV */}
            {selectedSources.length > 0 && (
              <div className="flex items-center gap-2">
                 <div className="text-xs text-brand font-medium border border-brand/20 bg-brand/5 px-2 py-1 rounded">
@@ -396,7 +394,6 @@ export default function Home({ initialNews }: Props) {
                   className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md transition-colors" 
                   title="Počisti filtre"
                 >
-                   {/* Ikona X */}
                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                    </svg>
@@ -455,7 +452,6 @@ export default function Home({ initialNews }: Props) {
 
 /* ================= SSR (Server-Side Rendering) ================= */
 export const getServerSideProps: GetServerSideProps = async ({ res }) => {
-  // Nastavi Cache-Control: 60s sveže, 30s stale
   res.setHeader(
     'Cache-Control',
     'public, s-maxage=60, stale-while-revalidate=30'
@@ -468,7 +464,6 @@ export const getServerSideProps: GetServerSideProps = async ({ res }) => {
     auth: { persistSession: false },
   })
 
-  // Pridobi začetne podatke iz baze
   const { data } = await supabase
     .from('news')
     .select(
@@ -479,7 +474,6 @@ export const getServerSideProps: GetServerSideProps = async ({ res }) => {
 
   const rows = (data ?? []) as any[]
 
-  // Mapiraj v NewsItem format
   const initialNews: NewsItem[] = rows.map((r) => {
     const link = r.link || ''
     return {
@@ -492,7 +486,6 @@ export const getServerSideProps: GetServerSideProps = async ({ res }) => {
         (r.publishedat ??
           (r.published_at ? Date.parse(r.published_at) : 0)) || 0,
       isoDate: r.published_at,
-      // Določi kategorijo (SSR)
       category: determineCategory({ link, categories: [] }) 
     }
   })
