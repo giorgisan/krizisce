@@ -2,7 +2,6 @@ import type { NextApiRequest, NextApiResponse } from 'next'
 import { createClient } from '@supabase/supabase-js'
 import fetchRSSFeeds from '@/lib/fetchRSSFeeds'
 import type { NewsItem as FeedNewsItem } from '@/types'
-// Uvozimo logiko, ki si jo želel imeti v kodi
 import { determineCategory } from '@/lib/categories'
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL as string
@@ -150,8 +149,7 @@ function feedItemToDbRow(item: FeedNewsItem) {
   if (!linkKey || !title || !source) return null
   const snippet = normalizeSnippet(item)
   
-  // --- POPRAVEK: Rešitev za TypeScript napako in izračun kategorije ---
-  // Uporabimo (item as any), da dostopamo do kategorij, tudi če jih TypeScript ne vidi
+  // POPRAVEK: Uporabimo (item as any), da preprečimo TypeScript napako
   const rawCategories = (item as any).categories || []
   
   // Izračunamo kategorijo TUKAJ v kodi
