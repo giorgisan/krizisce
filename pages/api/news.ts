@@ -85,7 +85,9 @@ type Row = {
   published_at: string | null
   publishedat: number | null
   created_at: string | null
+  category: string | null // POPRAVEK 1: Dodan category v tip
 }
+
 export type NewsItem = {
   title: string
   link: string
@@ -94,10 +96,13 @@ export type NewsItem = {
   contentSnippet?: string | null
   publishedAt: number
   isoDate?: string | null
+  category?: string | null // POPRAVEK: Da je kompatibilno
 }
+
 const unaccent = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
 const normTitle = (s: string) => unaccent(s).toLowerCase().replace(/\s+/g, ' ').trim()
 const tsSec = (ms?: number | null) => Math.max(0, Math.floor((typeof ms === 'number' ? ms : 0) / 1000))
+
 function softDedupe<T extends { source?: string; title?: string; publishedAt?: number }>(arr: T[]): T[] {
   const byKey = new Map<string, T>()
   for (const it of arr) {
@@ -109,12 +114,14 @@ function softDedupe<T extends { source?: string; title?: string; publishedAt?: n
   }
   return Array.from(byKey.values())
 }
+
 function normalizeSnippet(item: FeedNewsItem): string | null {
   const snippet = (item.contentSnippet || '').trim()
   if (snippet) return snippet
   const fromContent = (item.content || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
   return fromContent || null
 }
+
 function resolveTimestamps(item: FeedNewsItem) {
   const parse = (value?: string | null) => {
     if (!value) return null
@@ -131,6 +138,7 @@ function resolveTimestamps(item: FeedNewsItem) {
   const pubRaw = fromPub?.raw ?? null
   return { ms: Math.round(ms), iso, isoRaw, pubRaw }
 }
+
 function feedItemToDbRow(item: FeedNewsItem) {
   const linkRaw = (item.link || '').trim()
   const ts = resolveTimestamps(item)
@@ -140,6 +148,7 @@ function feedItemToDbRow(item: FeedNewsItem) {
   const source = (item.source || '').trim()
   if (!linkKey || !title || !source) return null
   const snippet = normalizeSnippet(item)
+  
   return {
     link: linkRaw,
     link_canonical: linkCanonical,
@@ -153,8 +162,10 @@ function feedItemToDbRow(item: FeedNewsItem) {
     pubdate: ts.pubRaw,
     published_at: ts.iso,
     publishedat: ts.ms,
+    category: item.category || null, // POPRAVEK 2: Zapisovanje v bazo
   }
 }
+
 async function syncToSupabase(items: FeedNewsItem[]) {
   if (!supabaseWrite) return
   const shaped = items.map((i) => {
@@ -167,11 +178,13 @@ async function syncToSupabase(items: FeedNewsItem[]) {
   const { error } = await (supabaseWrite as any).from('news').upsert(rows, { onConflict: 'link_key', ignoreDuplicates: true })
   if (error) throw error
 }
+
 const toMs = (s?: string | null) => {
   if (!s) return 0
   const v = Date.parse(s)
   return Number.isFinite(v) ? v : 0
 }
+
 function rowToItem(r: Row): NewsItem {
   const ms = (r.publishedat && Number(r.publishedat)) || toMs(r.published_at) || toMs(r.pubdate) || toMs(r.isodate) || toMs(r.created_at) || Date.now()
   return {
@@ -182,6 +195,7 @@ function rowToItem(r: Row): NewsItem {
     contentSnippet: r.summary?.trim() || r.contentsnippet?.trim() || null,
     publishedAt: ms,
     isoDate: r.published_at || r.isodate || r.pubdate || null,
+    category: r.category || null, // POPRAVEK 3: Branje iz baze
   }
 }
 
@@ -265,7 +279,7 @@ async function fetchTrendingRows(): Promise<Row[]> {
   const { data, error } = await supabaseRead
     .from('news')
     .select(
-      'id, link, link_canonical, link_key, title, source, image, contentsnippet, summary, isodate, pubdate, published_at, publishedat, created_at',
+      'id, link, link_canonical, link_key, title, source, image, contentsnippet, summary, isodate, pubdate, published_at, publishedat, created_at, category', // POPRAVEK 4: Dodan category v select
     )
     .gt('publishedat', cutoffMs)
     .order('publishedat', { ascending: false })
@@ -298,8 +312,9 @@ function computeTrendingFromRows(rows: Row[]): (NewsItem & { storyArticles: Stor
       const seen = new Set<string>()
       for (let ki = 0; ki < mKW.length; ki++) {
         const kw = mKW[ki]
-        if (seen.has(kw)) continue
+        const seenKW = seen.has(kw)
         seen.add(kw)
+        if (seenKW) continue
         if (gKW.indexOf(kw) !== -1) intersect++
       }
       if (intersect >= TREND_MIN_OVERLAP) {
@@ -428,7 +443,8 @@ export default async function handler(
     // --- QUERY BUILDER ---
     let q = supabaseRead
       .from('news')
-      .select('id, link, link_canonical, link_key, title, source, image, contentsnippet, summary, isodate, pubdate, published_at, publishedat, created_at')
+      // POPRAVEK 5: Tu dodamo 'category' v select, da ga dobimo ven
+      .select('id, link, link_canonical, link_key, title, source, image, contentsnippet, summary, isodate, pubdate, published_at, publishedat, created_at, category')
       .gt('publishedat', 0)
       .order('publishedat', { ascending: false })
       .order('id', { ascending: false })
@@ -444,19 +460,22 @@ export default async function handler(
     // 2. FILTER CURSOR
     if (cursor && cursor > 0) q = q.lt('publishedat', cursor)
 
-    // 3. FILTER CATEGORY
+    // 3. FILTER CATEGORY (POPRAVLJENO in poenostavljeno z DB stolpcem)
     if (category && category !== 'vse' && category !== 'ostalo') {
       const keywords = getKeywordsForCategory(category)
+      let orCond = `category.eq.${category}`
+      
+      // Če imamo keywords (za stare članke brez kategorije), jih dodamo
       if (keywords.length > 0) {
-        const orQuery = keywords.map(k => `link.ilike.%${k}%`).join(',')
-        q = q.or(orQuery)
+         const urlCond = keywords.map(k => `link.ilike.%${k}%`).join(',')
+         orCond += `,${urlCond}`
       }
+      q = q.or(orCond)
     }
 
     // 4. SEARCH FILTER (Naslov + Vsebina)
     if (searchQuery && searchQuery.trim().length > 0) {
         const term = searchQuery.trim()
-        // Iščemo po naslovu ALI povzetku (vsebini)
         q = q.or(`title.ilike.%${term}%,contentsnippet.ilike.%${term}%,summary.ilike.%${term}%`)
     }
 
