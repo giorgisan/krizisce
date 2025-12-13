@@ -55,8 +55,9 @@ export const CATEGORIES: CategoryDef[] = [
         '/magazin/', '/popin/', '/trendi/', '/scena/', '/zvezde/', '/zabava/', 
         '/lifestyle/', '/kulinarika/', '/okusno/', '/astro/', 'suzy', 'lady', 'dom-in-vrt',
         'prosti-cas', 'nedeljski', 'izleti',
-        // DODANO: Bulvar in podkategorije (vendar bo Kultura imela prednost zaradi vrstnega reda spodaj)
-        '/bulvar/', '/tuji-traci/', '/domaci-traci/', '/ljudje/', '/stil/', '/zanimivosti/'
+        '/bulvar/', '/tuji-traci/', '/domaci-traci/', '/ljudje/', '/stil/', '/zanimivosti/',
+        // --- NOVO: Dodani manjkajoči RTVSLO in ostali segmenti ---
+        'zabava-in-slog', 'svet-zavoda', 'na-lepse'
     ]
   },
   {
@@ -86,8 +87,8 @@ const PRIORITY_CHECK_ORDER: CategoryId[] = [
   'tech', 
   'gospodarstvo', 
   'kronika',
-  'kultura',  // PREMAKNJENO VIŠJE: Kultura se preveri PRED Magazinom
-  'magazin',  // Če ni kultura (film, glasba...), potem preveri, če je Magazin (bulvar, trači...)
+  'kultura',  // Kultura ima prednost pred Magazinom
+  'magazin',  
   'svet',
   'slovenija'
 ]
