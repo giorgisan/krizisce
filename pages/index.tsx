@@ -127,6 +127,7 @@ export default function Home({ initialNews }: Props) {
     setBootRefreshed(true)
   }, [])
 
+  // FUNKCIJA ZA RESET (Klik na logo)
   const resetAll = () => {
     startTransition(() => {
       setSelectedSources([])
@@ -135,11 +136,13 @@ export default function Home({ initialNews }: Props) {
       setMode('latest')
       setCursor(null)
       setHasMore(true)
-      setItemsLatest(initialNews)
+      setItemsLatest(initialNews) // Vrni začetne takoj
     })
+    // POPRAVEK: Vrni na vrh
+    window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
-  // GLAVNI FETCH
+  // GLAVNI FETCH (Sproži se ob spremembi filtrov ali iskanja)
   useEffect(() => {
     if (!bootRefreshed) return
     if (mode === 'trending') return
@@ -284,11 +287,11 @@ export default function Home({ initialNews }: Props) {
     setCursor(minMs || null)
   }, [visibleNews, mode])
 
-  // PAGINACIJA - POPRAVEK: limit 25
+  // PAGINACIJA - POPRAVEK: Limit 25
   async function fetchPage(cursorVal: number) {
     const qs = new URLSearchParams()
     qs.set('paged', '1')
-    qs.set('limit', '25') // SPREMEMBA: 25
+    qs.set('limit', '25') // POPRAVEK: 25
     qs.set('cursor', String(cursorVal))
     if (selectedSources.length > 0) qs.set('source', selectedSources.join(','))
     if (selectedCategory !== 'vse') qs.set('category', selectedCategory)
@@ -322,6 +325,10 @@ export default function Home({ initialNews }: Props) {
 
   const handleTabChange = async (next: Mode) => {
     if (next === mode) return
+    
+    // POPRAVEK: Scroll to top
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+
     setMode(next)
     if (next === 'latest') {
       setHasMore(true); setCursor(null)
@@ -361,10 +368,13 @@ export default function Home({ initialNews }: Props) {
            startTransition(() => {
              setSelectedCategory(cat)
            })
+           // POPRAVEK: Scroll to top ob menjavi kategorije
+           window.scrollTo({ top: 0, behavior: 'smooth' })
         }}
         onReset={resetAll} 
       />
 
+      {/* FILTER MODAL */}
       <SourceFilter
         open={filterModalOpen}
         onClose={() => setFilterModalOpen(false)}
@@ -377,10 +387,12 @@ export default function Home({ initialNews }: Props) {
       <main className="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white px-4 md:px-8 lg:px-16 pt-0 pb-8">
         
         <div className="flex items-center justify-between py-4">
+           {/* TABS */}
            <div className="scale-90 origin-left">
              <NewsTabs active={mode} onChange={handleTabChange} />
            </div>
            
+           {/* GUMB ZA ČIŠČENJE FILTROV */}
            {selectedSources.length > 0 && (
              <div className="flex items-center gap-2">
                 <div className="text-xs text-brand font-medium border border-brand/20 bg-brand/5 px-2 py-1 rounded">
@@ -399,6 +411,7 @@ export default function Home({ initialNews }: Props) {
            )}
         </div>
 
+        {/* LOADING & EMPTY STATES */}
         {isRefreshing && visibleNews.length === 0 ? (
            <div className="flex flex-col items-center justify-center pt-20 pb-20">
              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand mb-4"></div>
@@ -426,6 +439,7 @@ export default function Home({ initialNews }: Props) {
           </div>
         )}
 
+        {/* LOAD MORE BUTTON */}
         {mode === 'latest' && hasMore && visibleNews.length > 0 && (
           <div className="text-center mt-8 mb-4">
             <button
@@ -459,13 +473,14 @@ export const getServerSideProps: GetServerSideProps = async ({ res }) => {
     auth: { persistSession: false },
   })
 
+  // Pridobi začetne podatke iz baze (SSR)
   const { data } = await supabase
     .from('news')
     .select(
       'id, link, title, source, summary, contentsnippet, image, published_at, publishedat',
     )
     .order('publishedat', { ascending: false })
-    .limit(25) // SPREMEMBA: Omejimo na 25 za hitrejši začetni nalaganje
+    .limit(25) // POPRAVEK: Omejeno na 25 za hitrejši začetni load
 
   const rows = (data ?? []) as any[]
 
