@@ -1,14 +1,17 @@
+// pages/api/news.ts
 import type { NextApiRequest, NextApiResponse } from 'next'
 import { createClient } from '@supabase/supabase-js'
 import fetchRSSFeeds from '@/lib/fetchRSSFeeds'
 import type { NewsItem as FeedNewsItem } from '@/types'
+// 1. POPRAVEK: Ponovno uvozimo logiko za kategorije
+import { determineCategory } from '@/lib/categories'
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL as string
 const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY as string | undefined
 const CRON_SECRET = process.env.CRON_SECRET as string | undefined
 
-// 1. Globalna povezava (za hitrost)
+// Globalna povezava
 const supabaseRead = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: { persistSession: false },
 })
@@ -148,6 +151,9 @@ function feedItemToDbRow(item: FeedNewsItem) {
   if (!linkKey || !title || !source) return null
   const snippet = normalizeSnippet(item)
   
+  // 2. POPRAVEK: Tukaj izračunamo kategorijo v KODI
+  const calculatedCategory = determineCategory({ link: linkRaw, categories: item.categories })
+
   return {
     link: linkRaw,
     link_canonical: linkCanonical,
@@ -161,7 +167,7 @@ function feedItemToDbRow(item: FeedNewsItem) {
     pubdate: ts.pubRaw,
     published_at: ts.iso,
     publishedat: ts.ms,
-    category: null, 
+    category: calculatedCategory, // Pošljemo string (npr. 'sport'), ne null!
   }
 }
 
@@ -203,7 +209,7 @@ function rowToItem(r: Row): NewsItem {
   }
 }
 
-/* ---------------- TRENDING ---------------- */
+/* ---------------- TRENDING (Logika) ---------------- */
 const TREND_WINDOW_HOURS = 6 
 const TREND_MIN_SOURCES = 2    
 const TREND_MIN_OVERLAP = 2
@@ -434,16 +440,17 @@ export default async function handler(
     const allowPublic = process.env.ALLOW_PUBLIC_REFRESH === '1'
     const canIngest = isCronCaller || isInternalIngest || isDev || tokenOk || allowPublic
 
+    // INGEST LOGIKA
     if (!paged && wantsFresh && canIngest) {
       try {
         const rss = await fetchRSSFeeds({ forceFresh: true })
         if (rss?.length) {
+            // TUKAJ NE RABIŠ SPREMINJATI NIČ VEČ, ker je logika že v feedItemToDbRow
             await syncToSupabase(rss.slice(0, 250))
         }
       } catch (err) { console.error('❌ RSS sync error:', err) }
     }
 
-    // --- SPREMEMBA: Omejimo na 25 ---
     const limitParam = parseInt(String(req.query.limit), 10)
     const defaultLimit = 25 
     const limit = Math.min(Math.max(limitParam || defaultLimit, 1), 100)
