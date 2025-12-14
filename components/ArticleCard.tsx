@@ -43,9 +43,9 @@ export default function ArticleCard({ news, priority = false }: Props) {
     return () => clearTimeout(timeoutId)
   }, [])
 
-  // --- LOGIKA ZA DATUM ---
+  // --- LOGIKA ZA DATUM (Popravljeno na publishedAt) ---
   const formattedDate = useMemo(() => {
-    const ms = news.publishedAt ?? (news.isoDate ? Date.parse(news.isoDate) : 0)
+    const ms = news.publishedAt || 0
     if (!ms) return ''
     
     const diff = now - ms
@@ -64,7 +64,7 @@ export default function ArticleCard({ news, priority = false }: Props) {
     if (hr   < 24)      return `pred ${hr} h`
     
     return ''
-  }, [news.publishedAt, news.isoDate, now])
+  }, [news.publishedAt, now])
 
   const sourceColor = useMemo(() => {
     return (sourceColors as Record<string, string>)[news.source] || '#fc9c6c'
@@ -74,8 +74,9 @@ export default function ArticleCard({ news, priority = false }: Props) {
     return getSourceLogoPath(news.source)
   }, [news.source])
 
-  // Kategorija za prikaz na sliki
+  // Kategorija za prikaz na sliki (Popravljeno)
   const categoryDef = useMemo(() => {
+    // Če kategorija ni določena, jo poskusimo določiti
     const catId = news.category || determineCategory({ link: news.link, categories: [] })
     return CATEGORIES.find(c => c.id === catId)
   }, [news.category, news.link])
@@ -84,7 +85,7 @@ export default function ArticleCard({ news, priority = false }: Props) {
   useEffect(() => {
     try {
       const coarse   = typeof window !== 'undefined' && window.matchMedia?.('(pointer: coarse)').matches
-      const touchCap = typeof navigator !== 'undefined' && (navigator.maxTouchPoints || (navigator as any).msMaxTouchPoints) > 0
+      const touchCap = typeof navigator !== 'undefined' && ((navigator as any).maxTouchPoints || (navigator as any).msMaxTouchPoints) > 0
       setIsTouch(!!coarse || !!touchCap || 'ontouchstart' in window)
     } catch {
       setIsTouch(false)
@@ -142,6 +143,7 @@ export default function ArticleCard({ news, priority = false }: Props) {
   const [isPriority, setIsPriority] = useState<boolean>(priority)
   useEffect(() => { if (priority) setIsPriority(true) }, [priority])
 
+  // Preload (Ohranjeno)
   useEffect(() => {
     if (!isPriority || !rawImg) return
     const rectW  = Math.max(1, Math.round(cardRef.current?.getBoundingClientRect().width || 480))
@@ -157,6 +159,7 @@ export default function ArticleCard({ news, priority = false }: Props) {
     return () => { document.head.removeChild(link) }
   }, [isPriority, rawImg])
 
+  // Analitika (Ohranjeno)
   const sendBeacon = (payload: any) => {
     try {
       const json = JSON.stringify(payload)
@@ -192,6 +195,7 @@ export default function ArticleCard({ news, priority = false }: Props) {
       sendBeacon({ source: news.source, url: news.link, action: 'preview_close', meta: { duration_ms: duration } })
     }
   }, [showPreview, news.source, news.link])
+
   useEffect(() => {
     const onUnload = () => {
       if (previewOpenedAtRef.current) {
@@ -257,16 +261,12 @@ export default function ArticleCard({ news, priority = false }: Props) {
           )}
 
           {useFallback || !currentSrc ? (
-            (useFallback || !currentSrc)
-              ? (
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <div className="absolute inset-0 bg-gradient-to-br from-gray-200 via-gray-300 to-gray-200 dark:from-gray-700 dark:via-gray-800 dark:to-gray-700" />
-                  <span className="relative z-10 text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Križišče
-                  </span>
-                </div>
-              )
-              : null
+            <div className="absolute inset-0 flex items-center justify-center">
+               <div className="absolute inset-0 bg-gradient-to-br from-gray-200 via-gray-300 to-gray-200 dark:from-gray-700 dark:via-gray-800 dark:to-gray-700" />
+               <span className="relative z-10 text-sm font-medium text-gray-700 dark:text-gray-300">
+                 Križišče
+               </span>
+            </div>
           ) : (
             <img
               key={imgKey}
@@ -289,7 +289,7 @@ export default function ArticleCard({ news, priority = false }: Props) {
             />
           )}
 
-          {/* KATEGORIJA: Skrita na mobilnih (hidden), vidna na večjih (sm:block), zelo prosojna (bg/30) */}
+          {/* KATEGORIJA: Popravljena logika za prikaz */}
           {categoryDef && categoryDef.id !== 'ostalo' && (
              <span className={`hidden sm:block absolute bottom-2 right-2 z-10 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-gray-900 dark:text-white bg-white/30 dark:bg-black/30 backdrop-blur-md rounded shadow-sm border border-white/20 dark:border-white/10 pointer-events-none`}>
                {categoryDef.label}
@@ -316,7 +316,7 @@ export default function ArticleCard({ news, priority = false }: Props) {
           </button>
         </div>
 
-        {/* ========== BESEDILO (Brez kategorije spodaj) ========== */}
+        {/* ========== BESEDILO ========== */}
         <div className="p-3 flex flex-col flex-1">
           <div className="mb-2 flex items-center justify-between flex-wrap gap-y-1">
             <div className="flex items-center gap-2 min-w-0">
@@ -336,7 +336,6 @@ export default function ArticleCard({ news, priority = false }: Props) {
               </span>
             </div>
             
-            {/* Dinamičen čas */}
             <span className="text-[11px] text-gray-500 dark:text-gray-400 shrink-0 tabular-nums">
                {formattedDate}
             </span>
