@@ -31,7 +31,7 @@ export const CATEGORIES: CategoryDef[] = [
         '/mnenja/', '/pisma-bralcev/', '/sobotna-priloga/', '/kolumne/', '/bralci/',
         'javna-uprava', 'drzavni-zbor', 'zupan', 'obcina', 'studentski-dom', 'fakultet',
         'prenova', 'gradnja', 'vodovod', 'vrtec', 'sola', 'cesta', 'zeleznica', 'drugi-tir', 'prometna-infrastruktura',
-        // VREME (Dodano, ker je pogosto v ostalo)
+        // VREME
         'vreme', 'arso', 'vremenska', 'sneg', 'dezevje', 'poplave', 'neurje', 'toča', 'ciklon', 'temperatura'
     ]
   },
@@ -73,7 +73,8 @@ export const CATEGORIES: CategoryDef[] = [
         '/gospodarstvo/', '/posel/', '/finance/', '/borza/', 'kripto', 'delnice', 'podjetnistvo', 
         'banke', 'druzbe', 'posel-danes', 'gospodarstvo', 'inflacija', 'bitcoin', 'evro', 
         'zaposlitev', 'sluzba', 'odpustili', 'delavec', 'poklic', 'podjetje', 'direktor', 'stecaj',
-        'energetika', 'elektrika', 'cene', 'podrazitev', 'mastercard', 'nlb', 'prihodki'
+        'energetika', 'elektrika', 'podrazitev', 'mastercard', 'nlb', 'prihodki'
+        // 'cene' ODSTRANJENO, ker ujame "scene"
     ]
   },
   {
@@ -127,7 +128,11 @@ export const CATEGORIES: CategoryDef[] = [
         // ZDRAVJE (Razširjeno)
         'rak ', 'bolezen', 'ambulanta', 'zdravnik', 'medicina', 'bolniska', 'zdravstvo', 'srce', 'jetra', 'mineral', 'vitamin',
         'bozic', 'prazniki', 'darila', 'jelka', 'okraski', 'advent',
-        'vplivnez', 'moda', 'lepota', 'manekenka', 'kraljeva'
+        'vplivnez', 'moda', 'lepota', 'manekenka', 'kraljeva',
+        // NOVO:
+        'upokojen', 'senior', 'starost',
+        'coach', 'trener', 'cilj', 'motivacija', 'uspeh', 'karier',
+        'navdih', 'zadovoljstvo'
     ]
   },
   {
