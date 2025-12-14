@@ -4,10 +4,10 @@ export type CategoryId =
   | 'kronika' 
   | 'sport' 
   | 'gospodarstvo' 
-  | 'moto' 
-  | 'tech' 
-  | 'magazin' 
-  | 'kultura' 
+  | 'moto'          
+  | 'tech'          
+  | 'magazin'       
+  | 'kultura'       
   | 'ostalo'
 
 export type CategoryDef = {
@@ -27,39 +27,43 @@ export const CATEGORIES: CategoryDef[] = [
         '/slovenija/', '/lokalno/', '/obcine/', '/volitve/', 'vlada', 'poslanci', 
         '/novice/slovenija/', 'domovina', 'notranja-politika',
         'ljubljana', 'maribor', 'celje', 'koper', 'kranj', 'novo-mesto', 
-        'regije', 'slovenij', '/mnenja/', '/pisma-bralcev/', 'javna-uprava', 'drzavni-zbor'
+        'regije', 'slovenij', 
+        '/mnenja/', '/pisma-bralcev/', 'javna-uprava', 'drzavni-zbor'
     ]
   },
   {
     id: 'svet',
     label: 'Svet',
     color: 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300',
-    keywords: ['/svet/', '/tujina/', '/evropa/', '/zda/', 'ukrajina', 'rusija', 'vojna', 'nato', 'trump', '/novice/svet/', 'zunanja-politika', 'eu', 'bliznji-vzhod']
+    keywords: ['/svet/', '/tujina/', '/evropa/', '/zda/', 'ukrajina', 'rusija', 'vojna', 'nato', 'trump', '/novice/svet/', 'zunanja-politika', 'eu', 'bliznji-vzhod', 'gaza', 'izrael']
   },
   {
     id: 'kronika',
     label: 'Kronika',
     color: 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300',
-    keywords: ['/kronika/', '/crna-kronika/', 'policija', 'gasilci', 'nesreca', 'umor', 'sodisce', 'kriminal', 'tragicno', 'sojenje']
+    keywords: ['/kronika/', '/crna-kronika/', 'policija', 'gasilci', 'nesreca', 'umor', 'sodisce', 'kriminal', 'tragicno', 'sojenje', 'napad', 'rop']
   },
   {
     id: 'sport',
     label: 'Šport',
     color: 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300',
-    keywords: ['/sport/', '/sportal/', 'nogomet', 'kosarka', 'zimski', 'atletika', 'kolesarstvo', 'tenis', 'ekipa24', 'sport.n1info.si', 'odbojka', 'rokomet', 'nhl', 'nba']
+    keywords: ['/sport/', '/sportal/', 'nogomet', 'kosarka', 'zimski', 'atletika', 'kolesarstvo', 'tenis', 'ekipa24', 'sport.n1info.si', 'odbojka', 'rokomet', 'nhl', 'nba', 'doncic', 'kopitar', 'pogacar', 'roglic']
   },
   {
     id: 'gospodarstvo',
     label: 'Gospodarstvo',
     color: 'bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-300',
-    keywords: ['/gospodarstvo/', '/posel/', '/finance/', '/borza/', 'kripto', 'delnice', 'podjetnistvo', 'banke', 'druzbe', 'posel-danes', 'gospodarstvo', 'inflacija', 'bitcoin']
+    keywords: ['/gospodarstvo/', '/posel/', '/finance/', '/borza/', 'kripto', 'delnice', 'podjetnistvo', 'banke', 'druzbe', 'posel-danes', 'gospodarstvo', 'inflacija', 'bitcoin', 'evro']
   },
   {
     id: 'moto',
     label: 'Avto', 
     color: 'bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-300',
     keywords: [
-        '/auto/', '/avto/', '/avtomobilnost/', '/avtomobilno/', '/avtomoto/', 
+        '/auto/', '/avto/', 
+        '/avtomobilnost/', // RTVSLO
+        '/avtomobilno/',   // DELO
+        '/avtomoto/',      // Siol
         '/mobilnost/', '/motociklizem/', '/avtomotosport/', 
         'vozila', 'promet', 'elektricna-vozila', 'testi', 
         'avtomobilizem', 'volkswagen', 'bmw', 'audi', 'tesla', 'dizel', 'bencin', 'hibrid',
@@ -89,8 +93,13 @@ export const CATEGORIES: CategoryDef[] = [
         '/lifestyle/', '/kulinarika/', '/okusno/', '/astro/', 'suzy', 'lady', 'dom-in-vrt',
         'prosti-cas', 'nedeljski', 'izleti', 'zdravje', 'dobro-pocutje',
         '/bulvar/', '/tuji-traci/', '/domaci-traci/', '/ljudje/', '/stil/', '/zanimivosti/',
-        'zabava-in-slog', 'svet-zavoda', 'na-lepse', 'vrt', 'recepti', 'horoskop', 'resnicnostni-sov',
-        '/tv-oddaje/', 'kmetija', 'ljubezen-po-domace', 'sanjski-moski'
+        '/zabava-in-slog/', 'svet-zavoda', 'na-lepse', 'vrt', 'recepti', 'horoskop', 
+        '/tv-oddaje/', 'resnicnostni-sov', 'kmetija', 'ljubezen-po-domace', 'sanjski-moski',
+        // NOVO: Specifično za primere, ki si jih poslal
+        '/znani/', '/osebna-rast/', '/nedeljske-novice/', 
+        'senidah', 'koncert', 'stozice', // Pop kultura
+        'noseca', 'pricakuje-otroka', 'zvezdnik', 'partner', // Trači
+        'custva', 'psihologija', 'sreca', 'odnosi' // Osebna rast
     ]
   },
   {
@@ -99,10 +108,8 @@ export const CATEGORIES: CategoryDef[] = [
     color: 'bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300',
     keywords: [
         '/kultura/', '/kultur/', 'film', 'glasba', 'knjige', 'razstave', 'gledalisce', 
-        'umetnost', 'koncert', 'festival', 'literatura', 'oder', 
-        // NOVO: Besede, ki jih iščemo v naslovu/opisu
-        'pisatelj', 'pesnik', 'slikar', 'igralec', 'roman', 'premiera', 'kino', 
-        'knjig', 'portret', 'intervju'
+        'umetnost', 'festival', 'literatura', 'oder', 
+        'pisatelj', 'pesnik', 'slikar', 'igralec', 'roman', 'premiera', 'kino'
     ]
   }
 ]
@@ -111,18 +118,17 @@ export const CATEGORIES: CategoryDef[] = [
 const PRIORITY_CHECK_ORDER: CategoryId[] = [
   'kronika',      // 1.
   'moto',         // 2.
-  'sport',        // 3.
-  'tech',         // 4.
-  'gospodarstvo', // 5.
-  'kultura',      // 6.
-  'magazin',      // 7.
+  'magazin',      // 3. POZOR: Magazin je zdaj PRED Športom in Techom! (Da "noseča zvezdnica NFL" gre v Magazin)
+  'sport',        // 4.
+  'tech',         // 5.
+  'gospodarstvo', // 6.
+  'kultura',      // 7.
   'svet',         // 8.
   'slovenija'     // 9.
 ]
 
 const unaccent = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
 
-// SPREMENJENA FUNKCIJA: Sprejme tudi title in contentSnippet
 export function determineCategory(item: { 
   link: string; 
   title?: string; 
@@ -132,7 +138,7 @@ export function determineCategory(item: {
   
   const url = item.link.toLowerCase()
   
-  // 1. KORAK: Preveri URL (Najbolj zanesljivo)
+  // 1. URL check
   for (const id of PRIORITY_CHECK_ORDER) {
     const cat = CATEGORIES.find(c => c.id === id)
     if (cat && cat.keywords.some(k => k.startsWith('/') && url.includes(k))) {
@@ -140,7 +146,7 @@ export function determineCategory(item: {
     }
   }
 
-  // 2. KORAK: Preveri RSS kategorije
+  // 2. RSS tags check
   if (item.categories && item.categories.length > 0) {
     const rssCats = item.categories.map(c => unaccent(c)).join(' ')
     for (const id of PRIORITY_CHECK_ORDER) {
@@ -154,13 +160,10 @@ export function determineCategory(item: {
     }
   }
 
-  // 3. KORAK (NOVO): Preveri Naslov in Snippet za specifične ključne besede
-  // To reši "pisateljico Agato" v nedelu
+  // 3. Title/Snippet check
   const combinedText = unaccent((item.title || '') + ' ' + (item.contentSnippet || ''))
-  
   for (const id of PRIORITY_CHECK_ORDER) {
     const cat = CATEGORIES.find(c => c.id === id)
-    // Iščemo samo ključne besede, ki NISO url poti (nimajo /)
     if (cat && cat.keywords.some(k => !k.startsWith('/') && k.length > 3 && combinedText.includes(unaccent(k)))) {
       return cat.id
     }
