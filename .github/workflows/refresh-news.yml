@@ -3,8 +3,8 @@ name: Refresh news
 on:
   workflow_dispatch:
   schedule:
-    # vsakih 20 minut (varno za kvote, ~72×/dan)
-     - cron: "*/20 * * * *"
+    # Vsakih 20 minut (optimalno za Free Tier kvote)
+    - cron: "*/20 * * * *"
 
 jobs:
   hit-cron-endpoint:
@@ -16,8 +16,10 @@ jobs:
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
           set -eu
+          # Tvoj URL
           URL="https://krizisce.si/api/news?forceFresh=1&_cron=1"
           echo "Hitting: $URL"
+          # Pošljemo zahtevo in čakamo odgovor
           http_code=$(curl -sS -m 25 -w "%{http_code}" -H "x-cron-secret: $CRON_SECRET" "$URL" -o /tmp/resp.txt || true)
           echo "HTTP $http_code"
           tail -c 5000 /tmp/resp.txt || true
