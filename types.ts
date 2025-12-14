@@ -6,11 +6,15 @@ export type NewsItem = {
   source: string
   image?: string | null
   contentSnippet?: string
-  content?: string
-  pubDate?: string
-  isoDate?: string
-  /** Normaliziran čas objave (Unix ms). UI naj uporablja to polje. */
+  // content?: string // Tega v ArticleCard ne uporabljaš, lahko odstraniš
+  
+  /** Normaliziran čas objave (Unix ms). */
   publishedAt: number
-  /** Kategorija novice (npr. 'sport', 'slovenija', ...) */
+  
+  /** Kategorija novice */
   category: CategoryId
+  
+  // isoDate in pubDate smo v bazi brisali, tu ju lahko pustiš kot optional
+  // samo, če ju rabiš za kakšno legacy logiko na frontendu (ArticleCard uporablja formattedDate iz publishedAt)
+  isoDate?: string 
 }
