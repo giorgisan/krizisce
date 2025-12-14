@@ -26,11 +26,11 @@ export const CATEGORIES: CategoryDef[] = [
     keywords: [
         '/slovenija/', '/lokalno/', '/obcine/', '/volitve/', 'vlada', 'poslanci', 
         '/novice/slovenija/', 'domovina', 'notranja-politika',
-        'ljubljana', 'maribor', 'celje', 'koper', 'kranj', 'novo-mesto', 'velenje',
-        'regije', 'slovenij', '/lokalne-novice/', '/stajerska/',
-        // Mnenja in priloge
+        'ljubljana', 'maribor', 'celje', 'koper', 'kranj', 'novo-mesto', 'velenje', 'vrhnika', 'postojna',
+        'regije', 'slovenij', '/lokalne-novice/', '/stajerska/', '/dolenjska/', '/primorska/', '/gorenjska/',
         '/mnenja/', '/pisma-bralcev/', '/sobotna-priloga/', '/kolumne/', '/bralci/',
-        'javna-uprava', 'drzavni-zbor', 'zupan', 'obcina', 'studentski-dom', 'fakultet'
+        'javna-uprava', 'drzavni-zbor', 'zupan', 'obcina', 'studentski-dom', 'fakultet',
+        'prenova', 'gradnja', 'vodovod', 'vrtec', 'sola', 'cesta', 'zeleznica', 'drugi-tir'
     ]
   },
   {
@@ -40,7 +40,7 @@ export const CATEGORIES: CategoryDef[] = [
     keywords: [
         '/svet/', '/tujina/', '/evropa/', '/zda/', 'ukrajina', 'rusija', 'vojna', 'nato', 'trump', 
         '/novice/svet/', 'zunanja-politika', 'eu', 'bliznji-vzhod', 'gaza', 'izrael',
-        'evropska-unija', 'evropski-parlament', 'scholz', 'macron'
+        'evropska-unija', 'evropski-parlament', 'scholz', 'macron', 'biden', 'putin'
     ]
   },
   {
@@ -49,7 +49,8 @@ export const CATEGORIES: CategoryDef[] = [
     color: 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300',
     keywords: [
         '/kronika/', '/crna-kronika/', 'policija', 'gasilci', 'nesreca', 'umor', 'sodisce', 
-        'kriminal', 'tragicno', 'sojenje', 'napad', 'rop', 'ukradla', 'zapornik', 'zapor', 'panika'
+        'kriminal', 'tragicno', 'sojenje', 'napad', 'rop', 'ukradla', 'zapornik', 'zapor', 
+        'panika', 'pretep', 'droge', 'kokain', 'mamil', 'tihotap', 'aretacija'
     ]
   },
   {
@@ -59,7 +60,7 @@ export const CATEGORIES: CategoryDef[] = [
     keywords: [
         '/sport/', '/sportal/', 'nogomet', 'kosarka', 'zimski', 'atletika', 'kolesarstvo', 'tenis', 
         'ekipa24', 'sport.n1info.si', 'odbojka', 'rokomet', 'nhl', 'nba', 'doncic', 'kopitar', 
-        'pogacar', 'roglic', 'messi', 'olimpij'
+        'pogacar', 'roglic', 'messi', 'olimpij', 'liga', 'prvenstvo', 'trener'
     ]
   },
   {
@@ -69,7 +70,7 @@ export const CATEGORIES: CategoryDef[] = [
     keywords: [
         '/gospodarstvo/', '/posel/', '/finance/', '/borza/', 'kripto', 'delnice', 'podjetnistvo', 
         'banke', 'druzbe', 'posel-danes', 'gospodarstvo', 'inflacija', 'bitcoin', 'evro', 
-        'zaposlitev', 'sluzba', 'odpustili', 'delavec', 'poklic'
+        'zaposlitev', 'sluzba', 'odpustili', 'delavec', 'poklic', 'podjetje', 'direktor', 'stecaj'
     ]
   },
   {
@@ -78,10 +79,7 @@ export const CATEGORIES: CategoryDef[] = [
     color: 'bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-300',
     keywords: [
         '/auto/', '/avto/', 
-        '/avtomobilnost/', // RTVSLO
-        '/avtomobilno/',   // DELO
-        '/avtomoto/',      // Siol
-        '/svet-vozil/',    // Dnevnik
+        '/avtomobilnost/', '/avtomobilno/', '/avtomoto/', '/svet-vozil/',    
         '/mobilnost/', '/motociklizem/', '/avtomotosport/', 
         'vozila', 'promet', 'elektricna-vozila', 'testi', 
         'avtomobilizem', 'volkswagen', 'bmw', 'audi', 'tesla', 'dizel', 'bencin', 'hibrid',
@@ -95,12 +93,12 @@ export const CATEGORIES: CategoryDef[] = [
     label: 'Tehnologija',
     color: 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900/40 dark:text-cyan-300',
     keywords: [
-        '/znanost/', '/tehnologija/', '/tech/', '/digisvet/', '/znanost-in-tehnologija/',
+        '/znanost/', '/tehnologija/', '/tech/', '/digisvet/', '/znanost-in-tehnologija/', '/digitalna-odpornost/',
         'vesolje', 'telefoni', 'racunalnistvo', 'znanost', 'pametni', 
         'umetna-inteligenca', 
         'apple', 'samsung', 'google', 'microsoft', 'nvidia', 'chatgpt', 'openai',
         'inovacije', 'razvoj', 'digitalno', 'nasa', 'spacex', 'astronomija', 'mars', 'rover',
-        'aplikacija', 'internet', 'kibernet', 'odkritje', 'dnk', 'raziskav'
+        'aplikacija', 'internet', 'kibernet', 'odkritje', 'dnk', 'raziskav', 'znanstveniki'
     ]
   },
   {
@@ -118,13 +116,13 @@ export const CATEGORIES: CategoryDef[] = [
         'senidah', 'koncert', 'stozice', 
         'noseca', 'pricakuje-otroka', 'zvezdnik', 'partner', 
         'custva', 'psihologija', 'sreca', 'odnosi',
-        // NOVO iz tvojega seznama
         '/dom/', '/dekor/', '/gospodinjstvo/', '/gradnja-obnova/', '/pod-streho/',
         'recept', 'kosilo', 'sladica', 'kuhar', 'jedilnik', 'prehrana', 'dieta',
         'potovanje', 'izlet', 'popotnik', 'dozivetje', 'turist',
         'gradnja', 'hisna', 'vrtnarjenje', 'ciscenje', 'madezi', 'triki',
-        'rak', 'bolezen', 'ambulanta', 'zdravnik', 'medicina',
-        'bozic', 'prazniki', 'darila', 'jelka', 'okraski'
+        'rak', 'bolezen', 'ambulanta', 'zdravnik', 'medicina', 'bolniska', 'zdravstvo',
+        'bozic', 'prazniki', 'darila', 'jelka', 'okraski',
+        'vplivnez', 'moda', 'lepota'
     ]
   },
   {
@@ -135,7 +133,8 @@ export const CATEGORIES: CategoryDef[] = [
         '/kultura/', '/kultur/', 'film', 'glasba', 'knjige', 'razstave', 'gledalisce', 
         'umetnost', 'festival', 'literatura', 'oder', 
         'pisatelj', 'pesnik', 'slikar', 'igralec', 'roman', 'premiera', 'kino',
-        'bralne-urice', 'portret', 'intervju', 'dokumentarni-film', 'reziser'
+        'bralne-urice', 'portret', 'intervju', 'dokumentarni-film', 'reziser',
+        'muzej', 'dediscina', 'zgodovina', 'orkester', 'koncert', 'opera', 'balet'
     ]
   }
 ]
@@ -144,7 +143,7 @@ export const CATEGORIES: CategoryDef[] = [
 const PRIORITY_CHECK_ORDER: CategoryId[] = [
   'kronika',      // 1.
   'moto',         // 2.
-  'magazin',      // 3. (Visoka, da pobere "dom in vrt" in "zdravje")
+  'magazin',      // 3.
   'sport',        // 4.
   'tech',         // 5.
   'gospodarstvo', // 6.
