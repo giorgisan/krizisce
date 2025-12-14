@@ -1,8 +1,9 @@
+// pages/api/news.ts
+
 import type { NextApiRequest, NextApiResponse } from 'next'
 import { createClient } from '@supabase/supabase-js'
 import fetchRSSFeeds from '@/lib/fetchRSSFeeds'
 import type { NewsItem as FeedNewsItem } from '@/types'
-// Uvozimo logiko za kategorije
 import { determineCategory } from '@/lib/categories'
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL as string
@@ -10,7 +11,7 @@ const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY as string | undefined
 const CRON_SECRET = process.env.CRON_SECRET as string | undefined
 
-// 1. Globalna povezava (za hitrost) - zunaj funkcije handler
+// 1. Globalna povezava
 const supabaseRead = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: { persistSession: false },
 })
@@ -150,11 +151,8 @@ function feedItemToDbRow(item: FeedNewsItem) {
   if (!linkKey || !title || !source) return null
   const snippet = normalizeSnippet(item)
   
-  // --- TUKAJ JE BILA NAPAKA PREJ ---
-  // Uporabimo (item as any), da TypeScript ne jamra, da 'categories' ne obstaja
+  // Izračun kategorije
   const rawCategories = (item as any).categories || []
-  
-  // Izračunamo kategorijo TUKAJ v kodi
   const calculatedCategory = determineCategory({ link: linkRaw, categories: rawCategories })
 
   return {
@@ -170,26 +168,42 @@ function feedItemToDbRow(item: FeedNewsItem) {
     pubdate: ts.pubRaw,
     published_at: ts.iso,
     publishedat: ts.ms,
-    category: calculatedCategory, // Pošljemo izračunano kategorijo v bazo
+    category: calculatedCategory, 
   }
 }
 
 async function syncToSupabase(items: FeedNewsItem[]) {
   if (!supabaseWrite) return
+  
+  // Ohranimo celoten item objekt, da ne izgubimo categories polja
   const shaped = items.map((i) => {
     const t = resolveTimestamps(i)
     return { ...i, title: i.title || '', source: i.source || '', publishedAt: t.ms }
   })
+  
   const dedupedIn = softDedupe(shaped)
   const rows = dedupedIn.map(feedItemToDbRow).filter(Boolean) as any[]
   
   if (!rows.length) return
 
+  // --- DEBUGGING ---
+  // To se bo izpisalo v Vercel logih. Če tukaj vidiš category: 'neka_vrednost',
+  // v bazi pa je NULL, potem ti kategorijo briše DB Trigger.
+  if (process.env.NODE_ENV !== 'production' || rows.length > 0) {
+      console.log(`[Sync] Pripravljenih ${rows.length} vrstic za vpis.`)
+      // Izpišemo prvo vrstico za vzorec
+      console.log('[Sync] Vzorec vrstice (kategorija):', rows[0].title, '->', rows[0].category)
+  }
+  // ----------------
+
   const { error } = await (supabaseWrite as any)
     .from('news')
     .upsert(rows, { onConflict: 'link_key' }) 
   
-  if (error) throw error
+  if (error) {
+      console.error('[Sync] DB Error:', error)
+      throw error
+  }
 }
 
 const toMs = (s?: string | null) => {
@@ -212,7 +226,9 @@ function rowToItem(r: Row): NewsItem {
   }
 }
 
-/* ---------------- TRENDING (Ostane isto) ---------------- */
+/* ---------------- TRENDING ---------------- */
+// (Koda za trending ostane enaka, sem jo skrajšal za preglednost, ker se ni spremenila)
+// Kopiraj celotno logiko za trending, ki jo že imaš...
 const TREND_WINDOW_HOURS = 6 
 const TREND_MIN_SOURCES = 2    
 const TREND_MIN_OVERLAP = 2
