@@ -1,11 +1,13 @@
+// lib/categories.ts
+
 export type CategoryId = 
   | 'slovenija' 
   | 'svet' 
   | 'sport' 
-  | 'kultura' 
-  | 'magazin' 
+  | 'magazin'       // Vključuje kulturo, zabavo, zdravje
   | 'gospodarstvo' 
-  | 'tech' 
+  | 'moto'          // Avtomobilizem (ločeno zaradi popularnosti v SLO)
+  | 'tech'          // Znanost in tehnologija
   | 'kronika' 
   | 'ostalo'
 
@@ -42,53 +44,62 @@ export const CATEGORIES: CategoryDef[] = [
     keywords: ['/sport/', '/sportal/', 'nogomet', 'kosarka', 'zimski', 'atletika', 'kolesarstvo', 'f1', 'moto', 'tenis', 'ekipa24', 'sport.n1info.si']
   },
   {
-    id: 'kultura',
-    label: 'Kultura',
-    color: 'bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300',
-    keywords: ['/kultura/', '/kultur/', 'film', 'glasba', 'knjige', 'razstave', 'gledalisce', 'umetnost', 'koncert', 'festival']
-  },
-  {
-    id: 'magazin',
-    label: 'Magazin',
-    color: 'bg-pink-100 text-pink-800 dark:bg-pink-900/40 dark:text-pink-300',
-    keywords: [
-        '/magazin/', '/popin/', '/trendi/', '/scena/', '/zvezde/', '/zabava/', 
-        '/lifestyle/', '/kulinarika/', '/okusno/', '/astro/', 'suzy', 'lady', 'dom-in-vrt',
-        'prosti-cas', 'nedeljski', 'izleti',
-        '/bulvar/', '/tuji-traci/', '/domaci-traci/', '/ljudje/', '/stil/', '/zanimivosti/',
-        // --- NOVO: Dodani manjkajoči RTVSLO in ostali segmenti ---
-        'zabava-in-slog', 'svet-zavoda', 'na-lepse'
-    ]
-  },
-  {
     id: 'gospodarstvo',
     label: 'Gospodarstvo',
     color: 'bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-300',
     keywords: ['/gospodarstvo/', '/posel/', '/finance/', '/borza/', 'kripto', 'delnice', 'podjetnistvo', 'banke', 'druzbe', 'posel-danes', 'gospodarstvo']
   },
   {
+    id: 'magazin',
+    label: 'Magazin', // Združuje zabavo, kulturo, lifestyle
+    color: 'bg-pink-100 text-pink-800 dark:bg-pink-900/40 dark:text-pink-300',
+    keywords: [
+        '/magazin/', '/popin/', '/trendi/', '/scena/', '/zvezde/', '/zabava/', 
+        '/lifestyle/', '/kulinarika/', '/okusno/', '/astro/', 'suzy', 'lady', 'dom-in-vrt',
+        'prosti-cas', 'nedeljski', 'izleti', 'zdravje', 'dobro-pocutje',
+        '/bulvar/', '/tuji-traci/', '/domaci-traci/', '/ljudje/', '/stil/', '/zanimivosti/',
+        'zabava-in-slog', 'svet-zavoda', 'na-lepse',
+        // KULTURA keywords združeni tukaj:
+        '/kultura/', '/kultur/', 'film', 'glasba', 'knjige', 'razstave', 'gledalisce', 'umetnost', 'koncert', 'festival'
+    ]
+  },
+  {
+    id: 'moto',
+    label: 'Avto', // Kratko ime za UI
+    color: 'bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-300',
+    keywords: [
+        '/auto/', '/avto/', '/mobilnost/', '/motociklizem/', 
+        'vozila', 'promet', 'elektricna-vozila', 'testi', 'formula', 
+        'avtomobilizem', 'volkswagen', 'bmw', 'audi', 'tesla', 'dizel', 'bencin'
+    ]
+  },
+  {
     id: 'tech',
-    label: 'Znanost/Teh',
+    label: 'Tech',
     color: 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900/40 dark:text-cyan-300',
-    keywords: ['/znanost/', '/tehnologija/', '/tech/', '/auto/', '/avto/', '/mobilnost/', '/digisvet/', 'vesolje', 'telefoni', 'racunalnistvo', 'znanost']
+    keywords: [
+        '/znanost/', '/tehnologija/', '/tech/', '/digisvet/', 
+        'vesolje', 'telefoni', 'racunalnistvo', 'znanost', 'pametni', 
+        'umetna-inteligenca', 'ai', 'apple', 'samsung', 'google', 'microsoft',
+        'inovacije', 'razvoj', 'digitalno'
+    ]
   },
   {
     id: 'kronika',
-    label: 'Črna kronika',
+    label: 'Kronika',
     color: 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300',
-    keywords: ['/kronika/', '/crna-kronika/', 'policija', 'gasilci', 'nesreca', 'umor', 'sodisce']
+    keywords: ['/kronika/', '/crna-kronika/', 'policija', 'gasilci', 'nesreca', 'umor', 'sodisce', 'kriminal', 'tragicno']
   }
 ]
 
 // 2. LOGIKA ZAZNAVANJA (Prioriteta)
-// POMEMBNO: Vrstni red določa, katera kategorija zmaga, če jih ustreza več.
 const PRIORITY_CHECK_ORDER: CategoryId[] = [
+  'kronika',      // Kronika ima visoko prioriteto (specifični URL-ji)
   'sport', 
+  'moto',         // Preverimo moto pred techom in gospodarstvom
   'tech', 
   'gospodarstvo', 
-  'kronika',
-  'kultura',  // Kultura ima prednost pred Magazinom
-  'magazin',  
+  'magazin',      // Magazin "polovi" vse ostalo lifestyle/kultura
   'svet',
   'slovenija'
 ]
@@ -97,12 +108,13 @@ const PRIORITY_CHECK_ORDER: CategoryId[] = [
 const unaccent = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
 
 export function determineCategory(item: { link: string; categories?: string[] }): CategoryId {
-  // 1. KORAK: Preveri RSS kategorije
+  // 1. KORAK: Preveri RSS kategorije (če obstajajo)
   if (item.categories && item.categories.length > 0) {
     const rssCats = item.categories.map(c => unaccent(c)).join(' ')
     
     for (const id of PRIORITY_CHECK_ORDER) {
       const cat = CATEGORIES.find(c => c.id === id)
+      // Pri RSS kategorijah smo bolj strogi (ujemanje besed)
       if (cat && cat.keywords.some(k => {
          const cleanK = unaccent(k.replace(/\//g, '')) 
          return cleanK.length > 3 && rssCats.includes(cleanK) 
@@ -112,7 +124,7 @@ export function determineCategory(item: { link: string; categories?: string[] })
     }
   }
 
-  // 2. KORAK: Preveri URL
+  // 2. KORAK: Preveri URL (najbolj zanesljivo)
   const url = item.link.toLowerCase()
   for (const id of PRIORITY_CHECK_ORDER) {
     const cat = CATEGORIES.find(c => c.id === id)
