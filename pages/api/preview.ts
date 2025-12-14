@@ -16,19 +16,20 @@ type PreviewResponse =
 /**
  * VARNOST: Whitelist dovoljenih domen.
  * Strežnik bo zavrnil vse zahtevke, ki niso na tem seznamu.
+ * To preprečuje SSRF (Server-Side Request Forgery) napade.
  */
 const ALLOWED_DOMAINS = [
   'rtvslo.si', 'www.rtvslo.si',
   '24ur.com', 'www.24ur.com',
   'siol.net', 'www.siol.net',
   'slovenskenovice.si', 'www.slovenskenovice.si',
-  'slovenskenovice.delo.si', 'www.slovenskenovice.delo.si', // <--- NOVO (ključno!)
+  'slovenskenovice.delo.si', 'www.slovenskenovice.delo.si',
   'old.slovenskenovice.si',
   'delo.si', 'www.delo.si',
   'dnevnik.si', 'www.dnevnik.si',
   'zurnal24.si', 'www.zurnal24.si',
   'svet24.si', 'novice.svet24.si', 'www.svet24.si',
-  'n1info.si', 'www.n1info.si', 'n1info.si',
+  'n1info.si', 'www.n1info.si',
   'metropolitan.si', 'www.metropolitan.si',
   'vecer.com', 'www.vecer.com',
   'primorske.si', 'www.primorske.si',
