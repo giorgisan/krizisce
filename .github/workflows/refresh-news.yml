@@ -3,27 +3,24 @@ name: Refresh news
 on:
   workflow_dispatch:
   schedule:
-    # Vsakih 20 minut (optimalno za Free Tier kvote)
-    - cron: "*/20 * * * *"
+    # Teče ob polni uri in ob pol (2x na uro = 1440 min/mesec = VARNO)
+    - cron: "0,30 * * * *"
 
 jobs:
   hit-cron-endpoint:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 3
     steps:
       - name: Curl production endpoint
         env:
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
           set -eu
-          # Tvoj URL
-          URL="https://krizisce.si/api/news?forceFresh=1&_cron=1"
+          URL="https://krizisce.si/api/news?forceFresh=1&_cron=gh"
           echo "Hitting: $URL"
-          # Pošljemo zahtevo in čakamo odgovor
-          http_code=$(curl -sS -m 25 -w "%{http_code}" -H "x-cron-secret: $CRON_SECRET" "$URL" -o /tmp/resp.txt || true)
-          echo "HTTP $http_code"
-          tail -c 5000 /tmp/resp.txt || true
+          http_code=$(curl -sS -m 30 -w "%{http_code}" -H "x-cron-secret: $CRON_SECRET" "$URL" -o /tmp/resp.txt || true)
+          echo "HTTP Response Code: $http_code"
           case "$http_code" in
-            200|204) exit 0 ;;
-            *) echo "Request failed with HTTP $http_code"; exit 1 ;;
+            200|204) echo "✅ Success!"; exit 0 ;;
+            *) echo "❌ Error: $http_code"; exit 1 ;;
           esac
