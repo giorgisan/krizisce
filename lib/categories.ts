@@ -1,13 +1,13 @@
 export type CategoryId = 
   | 'slovenija' 
   | 'svet' 
+  | 'kronika'       // Premaknjeno višje
   | 'sport' 
   | 'gospodarstvo' 
-  | 'moto'          // Avto + F1 + Motošport
-  | 'tech'          // Tehnologija (samo to)
-  | 'kultura'       // Kultura (intervjuji, knjige)
+  | 'moto'          // Avto + F1
+  | 'tech'          // Tehnologija
   | 'magazin'       // Zabava, Lifestyle
-  | 'kronika' 
+  | 'kultura'       // Kultura
   | 'ostalo'
 
 export type CategoryDef = {
@@ -18,6 +18,7 @@ export type CategoryDef = {
 }
 
 // 1. VRSTNI RED PRIKAZA NA STRANI (UI)
+// To določa, kako si sledijo zavihki v meniju.
 export const CATEGORIES: CategoryDef[] = [
   {
     id: 'slovenija',
@@ -28,6 +29,7 @@ export const CATEGORIES: CategoryDef[] = [
         '/novice/slovenija/', 'domovina', 'notranja-politika',
         'ljubljana', 'maribor', 'celje', 'koper', 'kranj', 'novo-mesto', 
         'regije', 'slovenij', 
+        // Pisma bralcev in mnenja
         '/mnenja/', '/pisma-bralcev/', 'javna-uprava', 'drzavni-zbor'
     ]
   },
@@ -36,6 +38,12 @@ export const CATEGORIES: CategoryDef[] = [
     label: 'Svet',
     color: 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300',
     keywords: ['/svet/', '/tujina/', '/evropa/', '/zda/', 'ukrajina', 'rusija', 'vojna', 'nato', 'trump', '/novice/svet/', 'zunanja-politika', 'eu', 'bliznji-vzhod']
+  },
+  {
+    id: 'kronika',
+    label: 'Kronika',
+    color: 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300',
+    keywords: ['/kronika/', '/crna-kronika/', 'policija', 'gasilci', 'nesreca', 'umor', 'sodisce', 'kriminal', 'tragicno', 'sojenje']
   },
   {
     id: 'sport',
@@ -55,13 +63,14 @@ export const CATEGORIES: CategoryDef[] = [
     color: 'bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-300',
     keywords: [
         '/auto/', '/avto/', 
-        '/avtomobilnost/', // RTVSLO
-        '/avtomobilno/',   // DELO (Manjkajoči člen!)
+        '/avtomobilnost/', // RTVSLO specifika
+        '/avtomobilno/',   // DELO specifika
         '/avtomoto/',      // Siol/Splošno
         '/mobilnost/', '/motociklizem/', '/avtomotosport/', 
         'vozila', 'promet', 'elektricna-vozila', 'testi', 
         'avtomobilizem', 'volkswagen', 'bmw', 'audi', 'tesla', 'dizel', 'bencin', 'hibrid',
         'suv', 'limuzina', 'karavan', 'renault', 'toyota', 'peugeot', 'skoda', 'mercedes',
+        // Dirke in F1 (da gre sem in ne v sport)
         'formula-1', 'f1', 'verstappen', 'hamilton', 'rally', 'moto-gp', 'dirka'
     ]
   },
@@ -72,20 +81,10 @@ export const CATEGORIES: CategoryDef[] = [
     keywords: [
         '/znanost/', '/tehnologija/', '/tech/', '/digisvet/', 
         'vesolje', 'telefoni', 'racunalnistvo', 'znanost', 'pametni', 
-        'umetna-inteligenca', // PAZLJIVO: 'ai' odstranjen, ker povzroča napake (Hailee)
+        'umetna-inteligenca', // 'ai' odstranjen, ker povzroča napake
         'apple', 'samsung', 'google', 'microsoft', 'nvidia', 'chatgpt', 'openai',
         'inovacije', 'razvoj', 'digitalno', 'nasa', 'spacex', 'astronomija',
         'aplikacija', 'internet', 'kibernet'
-    ]
-  },
-  {
-    id: 'kultura',
-    label: 'Kultura',
-    color: 'bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300',
-    keywords: [
-        '/kultura/', '/kultur/', 'film', 'glasba', 'knjige', 'razstave', 'gledalisce', 
-        'umetnost', 'koncert', 'festival', 'literatura', 'oder', 
-        'pisatelj', 'pesnik', 'slikar', 'igralec', 'roman', 'premiera', 'kino'
     ]
   },
   {
@@ -97,44 +96,54 @@ export const CATEGORIES: CategoryDef[] = [
         '/lifestyle/', '/kulinarika/', '/okusno/', '/astro/', 'suzy', 'lady', 'dom-in-vrt',
         'prosti-cas', 'nedeljski', 'izleti', 'zdravje', 'dobro-pocutje',
         '/bulvar/', '/tuji-traci/', '/domaci-traci/', '/ljudje/', '/stil/', '/zanimivosti/',
-        'zabava-in-slog', 'svet-zavoda', 'na-lepse', 'vrt', 'recepti', 'horoskop', 'resnicnostni-sov'
+        'zabava-in-slog', 'svet-zavoda', 'na-lepse', 'vrt', 'recepti', 'horoskop', 'resnicnostni-sov',
+        // TV oddaje in resničnostni šovi
+        '/tv-oddaje/', 'kmetija', 'ljubezen-po-domace', 'sanjski-moski'
     ]
   },
   {
-    id: 'kronika',
-    label: 'Kronika',
-    color: 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300',
-    keywords: ['/kronika/', '/crna-kronika/', 'policija', 'gasilci', 'nesreca', 'umor', 'sodisce', 'kriminal', 'tragicno', 'sojenje']
+    id: 'kultura',
+    label: 'Kultura',
+    color: 'bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300',
+    keywords: [
+        '/kultura/', '/kultur/', 'film', 'glasba', 'knjige', 'razstave', 'gledalisce', 
+        'umetnost', 'koncert', 'festival', 'literatura', 'oder', 
+        'pisatelj', 'pesnik', 'slikar', 'igralec', 'roman', 'premiera', 'kino'
+    ]
   }
 ]
 
 // 2. LOGIKA ZAZNAVANJA (Prioriteta)
+// Vrstni red določa, katera kategorija "zmaga", če novice ustreza večim pogojem.
 const PRIORITY_CHECK_ORDER: CategoryId[] = [
-  'kronika',      // 1.
-  'moto',         // 2. (Visoka prioriteta)
-  'sport',        // 3.
-  'tech',         // 4.
+  'kronika',      // 1. Specifični URL-ji, vedno najprej
+  'moto',         // 2. MOTO mora biti PRED Sport (za F1) in PRED Tech (za EV avte)
+  'sport',        // 3. Šport
+  'tech',         // 4. Tehnologija (pred Magazinom)
   'gospodarstvo', // 5.
-  'kultura',      // 6.
-  'magazin',      // 7.
+  'kultura',      // 6. Kultura (pred Magazinom)
+  'magazin',      // 7. Vse ostalo "rumeno"
   'svet',         // 8.
   'slovenija'     // 9.
 ]
 
+// Helper za odstranjevanje šumnikov
 const unaccent = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
 
 export function determineCategory(item: { link: string; categories?: string[] }): CategoryId {
+  // 1. KORAK: Preveri URL (Najbolj zanesljivo)
   const url = item.link.toLowerCase()
-  // 1. URL check
   for (const id of PRIORITY_CHECK_ORDER) {
     const cat = CATEGORIES.find(c => c.id === id)
     if (cat && cat.keywords.some(k => url.includes(k))) {
       return cat.id
     }
   }
-  // 2. RSS tags check
+
+  // 2. KORAK: Preveri RSS kategorije (fallback)
   if (item.categories && item.categories.length > 0) {
     const rssCats = item.categories.map(c => unaccent(c)).join(' ')
+    
     for (const id of PRIORITY_CHECK_ORDER) {
       const cat = CATEGORIES.find(c => c.id === id)
       if (cat && cat.keywords.some(k => {
@@ -145,6 +154,7 @@ export function determineCategory(item: { link: string; categories?: string[] })
       }
     }
   }
+
   return 'ostalo'
 }
 
