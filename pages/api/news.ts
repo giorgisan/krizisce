@@ -4,14 +4,14 @@ import type { NextApiRequest, NextApiResponse } from 'next'
 import { createClient } from '@supabase/supabase-js'
 import fetchRSSFeeds from '@/lib/fetchRSSFeeds'
 import type { NewsItem as FeedNewsItem } from '@/types'
-import { determineCategory } from '@/lib/categories'
+// SPREMEMBA: Dodan uvoz CategoryId za tipizacijo
+import { determineCategory, CategoryId } from '@/lib/categories'
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL as string
 const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY as string | undefined
 const CRON_SECRET = process.env.CRON_SECRET as string | undefined
 
-// 1. Globalna povezava
 const supabaseRead = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: { persistSession: false },
 })
@@ -71,7 +71,7 @@ function makeLinkKey(raw: string, iso?: string | null): string {
   return `https://${u.host}${u.pathname}`
 }
 
-/* ---------------- Tipi (Usklajeni z novo DB shemo) ---------------- */
+/* ---------------- Tipi ---------------- */
 type Row = {
   id: number
   link: string
@@ -107,7 +107,6 @@ function softDedupe<T extends { source?: string; title?: string; publishedAt?: n
 function normalizeSnippet(item: FeedNewsItem): string | null {
   const snippet = (item.contentSnippet || '').trim()
   if (snippet) return snippet
-  // Ta vrstica je povzročala težave, če 'content' ni bil v tipih. Zdaj je popravljeno v types.ts.
   const fromContent = (item.content || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
   return fromContent || null
 }
@@ -204,7 +203,8 @@ function rowToItem(r: Row): FeedNewsItem {
     contentSnippet: r.contentsnippet?.trim() || r.summary?.trim() || null,
     publishedAt: ms,
     isoDate: r.published_at || null,
-    category: r.category || null,
+    // SPREMEMBA: Type Assertion (as CategoryId)
+    category: (r.category as CategoryId) || 'ostalo',
   }
 }
 
@@ -285,7 +285,7 @@ function extractKeywordsFromTitle(title: string): string[] {
 async function fetchTrendingRows(): Promise<Row[]> {
   const nowMs = Date.now()
   const cutoffMs = nowMs - TREND_WINDOW_HOURS * 3_600_000
-  // POPRAVEK: Odstranjena neobstoječa polja iz SELECT
+  
   const { data, error } = await supabaseRead
     .from('news')
     .select(
@@ -456,7 +456,6 @@ export default async function handler(
     const cursor = req.query.cursor ? Number(req.query.cursor) : null
 
     // --- QUERY BUILDER (OČIŠČEN) ---
-    // Tukaj ne smemo klicati stolpcev, ki ne obstajajo več (isodate, pubdate, link_canonical...)
     let q = supabaseRead
       .from('news')
       .select('id, link, link_key, title, source, image, contentsnippet, summary, published_at, publishedat, created_at, category')
