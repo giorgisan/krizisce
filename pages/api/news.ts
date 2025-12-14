@@ -4,7 +4,6 @@ import type { NextApiRequest, NextApiResponse } from 'next'
 import { createClient } from '@supabase/supabase-js'
 import fetchRSSFeeds from '@/lib/fetchRSSFeeds'
 import type { NewsItem as FeedNewsItem } from '@/types'
-// Uvozimo logiko za kategorije
 import { determineCategory } from '@/lib/categories'
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL as string
@@ -12,7 +11,7 @@ const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY as string | undefined
 const CRON_SECRET = process.env.CRON_SECRET as string | undefined
 
-// 1. Globalna povezava (za hitrost) - zunaj funkcije handler
+// 1. Globalna povezava
 const supabaseRead = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: { persistSession: false },
 })
@@ -72,19 +71,16 @@ function makeLinkKey(raw: string, iso?: string | null): string {
   return `https://${u.host}${u.pathname}`
 }
 
-/* ---------------- Tipi ---------------- */
+/* ---------------- Tipi (Posodobljeni - brez odvečnih polj) ---------------- */
 type Row = {
   id: number
   link: string
-  link_canonical: string | null
   link_key: string | null
   title: string
   source: string
   image: string | null
   contentsnippet: string | null
   summary: string | null
-  isodate: string | null
-  pubdate: string | null
   published_at: string | null
   publishedat: number | null
   created_at: string | null
@@ -137,22 +133,18 @@ function resolveTimestamps(item: FeedNewsItem) {
   const msFromNumber = typeof item.publishedAt === 'number' && Number.isFinite(item.publishedAt) && item.publishedAt > 0 ? item.publishedAt : null
   const ms = fromIso?.ms ?? fromPub?.ms ?? msFromNumber ?? Date.now()
   const iso = fromIso?.iso ?? fromPub?.iso ?? new Date(ms).toISOString()
-  const isoRaw = fromIso?.raw ?? fromPub?.raw ?? iso
-  const pubRaw = fromPub?.raw ?? null
-  return { ms: Math.round(ms), iso, isoRaw, pubRaw }
+  return { ms: Math.round(ms), iso }
 }
 
 function feedItemToDbRow(item: FeedNewsItem) {
   const linkRaw = (item.link || '').trim()
   const ts = resolveTimestamps(item)
-  const linkCanonical = cleanUrl(linkRaw)?.toString() || linkRaw
   const linkKey = makeLinkKey(linkRaw, ts.iso)
   const title = (item.title || '').trim()
   const source = (item.source || '').trim()
   if (!linkKey || !title || !source) return null
   const snippet = normalizeSnippet(item)
   
-  // --- SPREMEMBA: Uporaba posodobljene funkcije determineCategory ---
   const rawCategories = (item as any).categories || []
   const calculatedCategory = determineCategory({ 
     link: linkRaw, 
@@ -161,17 +153,15 @@ function feedItemToDbRow(item: FeedNewsItem) {
     categories: rawCategories 
   })
 
+  // OČIŠČENO: Brez link_canonical, isodate, pubdate, itd.
   return {
     link: linkRaw,
-    link_canonical: linkCanonical,
     link_key: linkKey,
     title,
     source,
     image: item.image?.trim() || null,
     contentsnippet: snippet,
-    summary: snippet,
-    isodate: ts.isoRaw,
-    pubdate: ts.pubRaw,
+    summary: snippet, // Pustimo kot fallback
     published_at: ts.iso,
     publishedat: ts.ms,
     category: calculatedCategory, 
@@ -191,11 +181,10 @@ async function syncToSupabase(items: FeedNewsItem[]) {
   
   if (!rows.length) return
 
-  // Logiranje za lažje odpravljanje napak v Vercelu
   if (process.env.NODE_ENV !== 'production' || rows.length > 0) {
       console.log(`[Sync] Pripravljenih ${rows.length} vrstic za vpis.`)
       if(rows.length > 0) {
-        console.log('[Sync] Primer vrstice (kategorija):', rows[0].title, '->', rows[0].category)
+        console.log('[Sync] Primer:', rows[0].title, '->', rows[0].category)
       }
   }
 
@@ -216,15 +205,16 @@ const toMs = (s?: string | null) => {
 }
 
 function rowToItem(r: Row): NewsItem {
-  const ms = (r.publishedat && Number(r.publishedat)) || toMs(r.published_at) || toMs(r.pubdate) || toMs(r.isodate) || toMs(r.created_at) || Date.now()
+  // Pustimo fallbacke, če so v bazi stari zapisi
+  const ms = (r.publishedat && Number(r.publishedat)) || toMs(r.published_at) || toMs(r.created_at) || Date.now()
   return {
     title: r.title,
-    link: r.link_canonical || r.link || '',
+    link: r.link || '',
     source: r.source,
     image: r.image || null,
-    contentSnippet: r.summary?.trim() || r.contentsnippet?.trim() || null,
+    contentSnippet: r.contentsnippet?.trim() || r.summary?.trim() || null,
     publishedAt: ms,
-    isoDate: r.published_at || r.isodate || r.pubdate || null,
+    isoDate: r.published_at || null,
     category: r.category || null,
   }
 }
@@ -306,10 +296,12 @@ function extractKeywordsFromTitle(title: string): string[] {
 async function fetchTrendingRows(): Promise<Row[]> {
   const nowMs = Date.now()
   const cutoffMs = nowMs - TREND_WINDOW_HOURS * 3_600_000
+  
+  // OČIŠČENO: Brez isodate, pubdate v selectu
   const { data, error } = await supabaseRead
     .from('news')
     .select(
-      'id, link, link_canonical, link_key, title, source, image, contentsnippet, summary, isodate, pubdate, published_at, publishedat, created_at, category',
+      'id, link, link_key, title, source, image, contentsnippet, summary, published_at, publishedat, created_at, category',
     )
     .gt('publishedat', cutoffMs)
     .order('publishedat', { ascending: false })
@@ -321,7 +313,7 @@ async function fetchTrendingRows(): Promise<Row[]> {
 
 function computeTrendingFromRows(rows: Row[]): (NewsItem & { storyArticles: StoryArticle[] })[] {
   const metas: RowMeta[] = rows.map((row) => {
-      const ms = (row.publishedat && Number(row.publishedat)) || toMs(row.published_at) || toMs(row.pubdate) || toMs(row.isodate) || toMs(row.created_at) || Date.now()
+      const ms = (row.publishedat && Number(row.publishedat)) || toMs(row.published_at) || toMs(row.created_at) || Date.now()
       const keywords = extractKeywordsFromTitle(row.title || '')
       return { row, ms, keywords }
     }).filter((m) => m.keywords.length > 0)
@@ -412,7 +404,7 @@ function computeTrendingFromRows(rows: Row[]): (NewsItem & { storyArticles: Stor
       const meta = sg.group.rows[ri]
       const r = meta.row
       const srcName = (r.source || '').trim()
-      const link = r.link_canonical || r.link || ''
+      const link = r.link || ''
       if (!srcName || !link) continue
       if (seenSrc.indexOf(srcName) !== -1) continue
       seenSrc.push(srcName)
@@ -475,10 +467,10 @@ export default async function handler(
     const limit = Math.min(Math.max(limitParam || defaultLimit, 1), 100)
     const cursor = req.query.cursor ? Number(req.query.cursor) : null
 
-    // --- QUERY BUILDER ---
+    // --- QUERY BUILDER (OČIŠČEN SELECT) ---
     let q = supabaseRead
       .from('news')
-      .select('id, link, link_canonical, link_key, title, source, image, contentsnippet, summary, isodate, pubdate, published_at, publishedat, created_at, category')
+      .select('id, link, link_key, title, source, image, contentsnippet, summary, published_at, publishedat, created_at, category')
       .gt('publishedat', 0)
       .order('publishedat', { ascending: false })
       .order('id', { ascending: false })
