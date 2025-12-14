@@ -4,6 +4,7 @@ import type { NextApiRequest, NextApiResponse } from 'next'
 import { createClient } from '@supabase/supabase-js'
 import fetchRSSFeeds from '@/lib/fetchRSSFeeds'
 import type { NewsItem as FeedNewsItem } from '@/types'
+// Uvozimo logiko za kategorije
 import { determineCategory } from '@/lib/categories'
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL as string
@@ -11,7 +12,7 @@ const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY as string | undefined
 const CRON_SECRET = process.env.CRON_SECRET as string | undefined
 
-// 1. Globalna povezava
+// 1. Globalna povezava (za hitrost) - zunaj funkcije handler
 const supabaseRead = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: { persistSession: false },
 })
@@ -151,9 +152,14 @@ function feedItemToDbRow(item: FeedNewsItem) {
   if (!linkKey || !title || !source) return null
   const snippet = normalizeSnippet(item)
   
-  // Izračun kategorije
+  // --- SPREMEMBA: Uporaba posodobljene funkcije determineCategory ---
   const rawCategories = (item as any).categories || []
-  const calculatedCategory = determineCategory({ link: linkRaw, categories: rawCategories })
+  const calculatedCategory = determineCategory({ 
+    link: linkRaw, 
+    title: title, 
+    contentSnippet: snippet || '', 
+    categories: rawCategories 
+  })
 
   return {
     link: linkRaw,
@@ -175,7 +181,6 @@ function feedItemToDbRow(item: FeedNewsItem) {
 async function syncToSupabase(items: FeedNewsItem[]) {
   if (!supabaseWrite) return
   
-  // Ohranimo celoten item objekt, da ne izgubimo categories polja
   const shaped = items.map((i) => {
     const t = resolveTimestamps(i)
     return { ...i, title: i.title || '', source: i.source || '', publishedAt: t.ms }
@@ -186,15 +191,13 @@ async function syncToSupabase(items: FeedNewsItem[]) {
   
   if (!rows.length) return
 
-  // --- DEBUGGING ---
-  // To se bo izpisalo v Vercel logih. Če tukaj vidiš category: 'neka_vrednost',
-  // v bazi pa je NULL, potem ti kategorijo briše DB Trigger.
+  // Logiranje za lažje odpravljanje napak v Vercelu
   if (process.env.NODE_ENV !== 'production' || rows.length > 0) {
       console.log(`[Sync] Pripravljenih ${rows.length} vrstic za vpis.`)
-      // Izpišemo prvo vrstico za vzorec
-      console.log('[Sync] Vzorec vrstice (kategorija):', rows[0].title, '->', rows[0].category)
+      if(rows.length > 0) {
+        console.log('[Sync] Primer vrstice (kategorija):', rows[0].title, '->', rows[0].category)
+      }
   }
-  // ----------------
 
   const { error } = await (supabaseWrite as any)
     .from('news')
@@ -226,9 +229,7 @@ function rowToItem(r: Row): NewsItem {
   }
 }
 
-/* ---------------- TRENDING ---------------- */
-// (Koda za trending ostane enaka, sem jo skrajšal za preglednost, ker se ni spremenila)
-// Kopiraj celotno logiko za trending, ki jo že imaš...
+/* ---------------- TRENDING (Nespremenjeno) ---------------- */
 const TREND_WINDOW_HOURS = 6 
 const TREND_MIN_SOURCES = 2    
 const TREND_MIN_OVERLAP = 2
