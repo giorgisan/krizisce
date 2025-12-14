@@ -28,7 +28,6 @@ const ALLOWED_DOMAINS = [
   'metropolitan.si', 'www.metropolitan.si',
   'vecer.com', 'www.vecer.com',
   'primorske.si', 'www.primorske.si',
-  'localhost'
 ]
 
 function getMeta(dom: JSDOM, name: string) {
