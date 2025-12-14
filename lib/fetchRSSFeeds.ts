@@ -2,25 +2,19 @@ import Parser from 'rss-parser'
 import type { NewsItem } from '../types'
 import { feeds } from './sources'
 import { excludeAds } from './adFilter'
-import { determineCategory } from './categories'
+// Uvozimo logiko
+import { determineCategory, CategoryId } from './categories'
 
 type FetchOpts = { forceFresh?: boolean }
 
-/** * 1. BLOKADA NA PODLAGI URL-ja
- * Odstranjen Siol Posel, ostajajo samo očitni oglasni URL-ji.
- */
 const BLOCK_URLS: RegExp[] = [
-  /\/promo\//i,       // URLji s /promo/ so ponavadi vedno oglasi
+  /\/promo\//i,       
   /\/oglasi\//i,      
   /\/advertorial\//i,
   /\/sponzorirano\//i,
 ]
 
-/** * 2. BLOKADA NA PODLAGI VSEBINE (Naslov, Opis, HTML)
- * Odstranjene fraze "vam svetuje", "vam priporoča" in specifična imena podjetij.
- */
 const BLOCK_PATTERNS: string[] = [
-  // Eksplicitne oznake za oglase
   'oglasno sporočilo','oglasno sporocilo',
   'promocijsko sporočilo','promocijsko sporocilo',
   'oglasni prispevek','komercialno sporočilo',
@@ -28,16 +22,11 @@ const BLOCK_PATTERNS: string[] = [
   'vsebino omogoča','vsebino omogoca', 
   'pr članek','pr clanek',
   'advertorial',
-  
-  // Specifične fraze medijev za oglase (varno)
   'promo delo',        
   'promo slovenske', 
   'promo prispevek',
 ]
 
-// BLOCK_BRANDS je v celoti odstranjen, da ne blokiramo novic o podjetjih.
-
-/** ====== GENERIČNI HTML CHECK ====== */
 const ENABLE_HTML_CHECK = true
 const MAX_HTML_CHECKS = 10 
 const HTML_CHECK_HOSTS = [
@@ -50,7 +39,6 @@ const HTML_MARKERS = [
   'promo delo'
 ]
 
-/* ====== Pomožne ====== */
 function absolutize(src: string | undefined | null, baseHref: string): string | null {
   if (!src) return null
   try {
@@ -62,8 +50,6 @@ function absolutize(src: string | undefined | null, baseHref: string): string | 
   }
 }
 
-/** * Funkcija za reševanje manjkajočih slik (og:image).
- */
 async function scrapeOgImage(url: string): Promise<string | null> {
   try {
     const controller = new AbortController()
@@ -152,40 +138,18 @@ function toUnixMs(d?: string | null) {
   }
 }
 
-/** * Enostaven filter: URL + naslov + snippet + KATEGORIJE 
- */
-function isBlockedBasic(i: { 
-  link?: string; 
-  title?: string; 
-  content?: string | null; 
-  contentSnippet?: string | null;
-  categories?: string[] 
-}) {
+function isBlockedBasic(i: NewsItem) {
   const url = i.link || ''
-  // Preverjamo samo naslov in snippet, vsebine (content) raje ne, da ne blokiramo po pomoti
   const hay = `${i.title || ''}\n${i.contentSnippet || ''}`.toLowerCase()
   
-  // 1. URL check
   if (BLOCK_URLS.some(rx => rx.test(url))) return true
   
-  // 2. Vsebinski vzorci (Oglasi)
   if (BLOCK_PATTERNS.some(k => hay.includes(k.toLowerCase()))) return true
   
-  // 3. Brand check je odstranjen.
-
-  // 4. RSS Kategorije (Zelo varno, ker to določi urednik)
-  if (i.categories && i.categories.length > 0) {
-    const badCats = ['promo', 'oglas', 'oglasi', 'sponzorirano', 'partner', 'advertorial']
-    const hasBadCat = i.categories.some(cat => 
-      badCats.some(bad => cat.toLowerCase().includes(bad))
-    )
-    if (hasBadCat) return true
-  }
-
+  // (Kategorije so zdaj v i.category, ampak RSS kategorije niso več v NewsItem - to je OK, ker uredniške kategorije filtriramo prej)
   return false
 }
 
-/* ---- HTML fetch s timeoutom ---- */
 let htmlChecks = 0
 async function hasSponsorMarker(url: string): Promise<boolean> {
   if (!ENABLE_HTML_CHECK) return false
@@ -216,7 +180,6 @@ async function hasSponsorMarker(url: string): Promise<boolean> {
   }
 }
 
-/** ====== GLAVNA FUNKCIJA ====== */
 export default async function fetchRSSFeeds(opts: FetchOpts = {}): Promise<NewsItem[]> {
   const { forceFresh = false } = opts
   htmlChecks = 0
@@ -233,7 +196,6 @@ export default async function fetchRSSFeeds(opts: FetchOpts = {}): Promise<NewsI
         const feed = await parser.parseString(xml)
         if (!feed.items?.length) return []
 
-        // Mapiramo in hkrati preverimo slike
         const itemsPromise = feed.items.slice(0, 25).map(async (item: any) => {
           const iso = (item.isoDate ?? item.pubDate ?? new Date().toISOString()) as string
           const publishedAt = toUnixMs(iso)
@@ -244,26 +206,32 @@ export default async function fetchRSSFeeds(opts: FetchOpts = {}): Promise<NewsI
              finalImage = await scrapeOgImage(link)
           }
 
-          const categories = item.categories 
+          const rawCats = item.categories 
             ? (Array.isArray(item.categories) ? item.categories : [item.categories])
             : []
 
-          // Določanje kategorije
-          const categoryId = determineCategory({ link, categories })
+          // Izračunaj kategorijo TUKAJ, takoj ob zajemu
+          const categoryId = determineCategory({ 
+            link, 
+            title: item.title,
+            contentSnippet: item.contentSnippet,
+            categories: rawCats
+          })
 
           return {
             title: item.title ?? '',
             link,
+            // pubDate in isoDate pustimo za vsak slučaj, če kje še rabimo stringe
             pubDate: item.pubDate ?? iso,
             isoDate: iso,
+            // content pustimo, ker ga rabimo za normalizeSnippet v api/news.ts
             content: item['content:encoded'] ?? item.content ?? '',
             contentSnippet: item.contentSnippet ?? '',
             source,
             image: finalImage,
             publishedAt,
-            categories, 
             category: categoryId,
-          }
+          } as NewsItem
         })
 
         const items = await Promise.all(itemsPromise)
@@ -274,15 +242,12 @@ export default async function fetchRSSFeeds(opts: FetchOpts = {}): Promise<NewsI
     }),
   )
 
-  // 1) Filtriraj (vključuje check za "Promo", "Vsebino omogoča" in RSS kategorije)
   let flat: NewsItem[] = results.flat().filter(i => !isBlockedBasic(i))
 
-  // 1.5) Dodatni RSS ad-filter
   flat = excludeAds(flat, 3, true)
 
   flat.sort((a, b) => (b.publishedAt || 0) - (a.publishedAt || 0))
 
-  // 2) HTML-check (če je preživel osnovni filter, preveri še HTML za skrite markerje)
   const kept: NewsItem[] = []
   let used = 0
   function hostAllowed(url: string) {
@@ -296,7 +261,7 @@ export default async function fetchRSSFeeds(opts: FetchOpts = {}): Promise<NewsI
     if (used < MAX_HTML_CHECKS && hostAllowed(it.link)) {
       const isAd = await hasSponsorMarker(it.link)
       used++
-      if (isAd) continue // Blokiraj če HTML vsebuje marker
+      if (isAd) continue 
     }
     kept.push(it)
   }
