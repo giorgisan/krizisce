@@ -1,13 +1,13 @@
 export type CategoryId = 
   | 'slovenija' 
   | 'svet' 
-  | 'kronika'       // Premaknjeno višje
+  | 'kronika' 
   | 'sport' 
   | 'gospodarstvo' 
-  | 'moto'          // Avto + F1
-  | 'tech'          // Tehnologija
-  | 'magazin'       // Zabava, Lifestyle
-  | 'kultura'       // Kultura
+  | 'moto' 
+  | 'tech' 
+  | 'magazin' 
+  | 'kultura' 
   | 'ostalo'
 
 export type CategoryDef = {
@@ -18,7 +18,6 @@ export type CategoryDef = {
 }
 
 // 1. VRSTNI RED PRIKAZA NA STRANI (UI)
-// To določa, kako si sledijo zavihki v meniju.
 export const CATEGORIES: CategoryDef[] = [
   {
     id: 'slovenija',
@@ -28,9 +27,7 @@ export const CATEGORIES: CategoryDef[] = [
         '/slovenija/', '/lokalno/', '/obcine/', '/volitve/', 'vlada', 'poslanci', 
         '/novice/slovenija/', 'domovina', 'notranja-politika',
         'ljubljana', 'maribor', 'celje', 'koper', 'kranj', 'novo-mesto', 
-        'regije', 'slovenij', 
-        // Pisma bralcev in mnenja
-        '/mnenja/', '/pisma-bralcev/', 'javna-uprava', 'drzavni-zbor'
+        'regije', 'slovenij', '/mnenja/', '/pisma-bralcev/', 'javna-uprava', 'drzavni-zbor'
     ]
   },
   {
@@ -62,15 +59,11 @@ export const CATEGORIES: CategoryDef[] = [
     label: 'Avto', 
     color: 'bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-300',
     keywords: [
-        '/auto/', '/avto/', 
-        '/avtomobilnost/', // RTVSLO specifika
-        '/avtomobilno/',   // DELO specifika
-        '/avtomoto/',      // Siol/Splošno
+        '/auto/', '/avto/', '/avtomobilnost/', '/avtomobilno/', '/avtomoto/', 
         '/mobilnost/', '/motociklizem/', '/avtomotosport/', 
         'vozila', 'promet', 'elektricna-vozila', 'testi', 
         'avtomobilizem', 'volkswagen', 'bmw', 'audi', 'tesla', 'dizel', 'bencin', 'hibrid',
         'suv', 'limuzina', 'karavan', 'renault', 'toyota', 'peugeot', 'skoda', 'mercedes',
-        // Dirke in F1 (da gre sem in ne v sport)
         'formula-1', 'f1', 'verstappen', 'hamilton', 'rally', 'moto-gp', 'dirka'
     ]
   },
@@ -81,7 +74,7 @@ export const CATEGORIES: CategoryDef[] = [
     keywords: [
         '/znanost/', '/tehnologija/', '/tech/', '/digisvet/', 
         'vesolje', 'telefoni', 'racunalnistvo', 'znanost', 'pametni', 
-        'umetna-inteligenca', // 'ai' odstranjen, ker povzroča napake
+        'umetna-inteligenca', 
         'apple', 'samsung', 'google', 'microsoft', 'nvidia', 'chatgpt', 'openai',
         'inovacije', 'razvoj', 'digitalno', 'nasa', 'spacex', 'astronomija',
         'aplikacija', 'internet', 'kibernet'
@@ -97,7 +90,6 @@ export const CATEGORIES: CategoryDef[] = [
         'prosti-cas', 'nedeljski', 'izleti', 'zdravje', 'dobro-pocutje',
         '/bulvar/', '/tuji-traci/', '/domaci-traci/', '/ljudje/', '/stil/', '/zanimivosti/',
         'zabava-in-slog', 'svet-zavoda', 'na-lepse', 'vrt', 'recepti', 'horoskop', 'resnicnostni-sov',
-        // TV oddaje in resničnostni šovi
         '/tv-oddaje/', 'kmetija', 'ljubezen-po-domace', 'sanjski-moski'
     ]
   },
@@ -108,42 +100,49 @@ export const CATEGORIES: CategoryDef[] = [
     keywords: [
         '/kultura/', '/kultur/', 'film', 'glasba', 'knjige', 'razstave', 'gledalisce', 
         'umetnost', 'koncert', 'festival', 'literatura', 'oder', 
-        'pisatelj', 'pesnik', 'slikar', 'igralec', 'roman', 'premiera', 'kino'
+        // NOVO: Besede, ki jih iščemo v naslovu/opisu
+        'pisatelj', 'pesnik', 'slikar', 'igralec', 'roman', 'premiera', 'kino', 
+        'knjig', 'portret', 'intervju'
     ]
   }
 ]
 
 // 2. LOGIKA ZAZNAVANJA (Prioriteta)
-// Vrstni red določa, katera kategorija "zmaga", če novice ustreza večim pogojem.
 const PRIORITY_CHECK_ORDER: CategoryId[] = [
-  'kronika',      // 1. Specifični URL-ji, vedno najprej
-  'moto',         // 2. MOTO mora biti PRED Sport (za F1) in PRED Tech (za EV avte)
-  'sport',        // 3. Šport
-  'tech',         // 4. Tehnologija (pred Magazinom)
+  'kronika',      // 1.
+  'moto',         // 2.
+  'sport',        // 3.
+  'tech',         // 4.
   'gospodarstvo', // 5.
-  'kultura',      // 6. Kultura (pred Magazinom)
-  'magazin',      // 7. Vse ostalo "rumeno"
+  'kultura',      // 6.
+  'magazin',      // 7.
   'svet',         // 8.
   'slovenija'     // 9.
 ]
 
-// Helper za odstranjevanje šumnikov
 const unaccent = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
 
-export function determineCategory(item: { link: string; categories?: string[] }): CategoryId {
-  // 1. KORAK: Preveri URL (Najbolj zanesljivo)
+// SPREMENJENA FUNKCIJA: Sprejme tudi title in contentSnippet
+export function determineCategory(item: { 
+  link: string; 
+  title?: string; 
+  contentSnippet?: string; 
+  categories?: string[] 
+}): CategoryId {
+  
   const url = item.link.toLowerCase()
+  
+  // 1. KORAK: Preveri URL (Najbolj zanesljivo)
   for (const id of PRIORITY_CHECK_ORDER) {
     const cat = CATEGORIES.find(c => c.id === id)
-    if (cat && cat.keywords.some(k => url.includes(k))) {
+    if (cat && cat.keywords.some(k => k.startsWith('/') && url.includes(k))) {
       return cat.id
     }
   }
 
-  // 2. KORAK: Preveri RSS kategorije (fallback)
+  // 2. KORAK: Preveri RSS kategorije
   if (item.categories && item.categories.length > 0) {
     const rssCats = item.categories.map(c => unaccent(c)).join(' ')
-    
     for (const id of PRIORITY_CHECK_ORDER) {
       const cat = CATEGORIES.find(c => c.id === id)
       if (cat && cat.keywords.some(k => {
@@ -152,6 +151,18 @@ export function determineCategory(item: { link: string; categories?: string[] })
       })) {
         return cat.id
       }
+    }
+  }
+
+  // 3. KORAK (NOVO): Preveri Naslov in Snippet za specifične ključne besede
+  // To reši "pisateljico Agato" v nedelu
+  const combinedText = unaccent((item.title || '') + ' ' + (item.contentSnippet || ''))
+  
+  for (const id of PRIORITY_CHECK_ORDER) {
+    const cat = CATEGORIES.find(c => c.id === id)
+    // Iščemo samo ključne besede, ki NISO url poti (nimajo /)
+    if (cat && cat.keywords.some(k => !k.startsWith('/') && k.length > 3 && combinedText.includes(unaccent(k)))) {
+      return cat.id
     }
   }
 
