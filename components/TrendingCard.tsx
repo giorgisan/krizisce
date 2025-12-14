@@ -1,4 +1,3 @@
-// components/TrendingCard.tsx
 'use client'
 
 import { NewsItem } from '@/types'
@@ -29,15 +28,11 @@ interface Props {
   news: NewsItem & { [key: string]: any }
 }
 
-// ... (funkcije extractRelatedItems, getPrimarySource, formatRelativeTime ostanejo enake) ...
-// Zaradi dolžine jih tu ne kopiram, pusti jih kot so v tvoji kodi.
-// Kopiraj spodnje helperje, če jih nimaš pri roki:
 type RelatedItem = {
   source: string
   title: string
   link: string
   publishedAt?: number | null
-  isoDate?: string | null
 }
 
 function extractRelatedItems(news: any): RelatedItem[] {
@@ -57,9 +52,7 @@ function extractRelatedItems(news: any): RelatedItem[] {
         source: String(r.source),
         title: String(r.title),
         link: String(r.link),
-        publishedAt:
-          typeof r.publishedAt === 'number' ? r.publishedAt : null,
-        isoDate: typeof r.isoDate === 'string' ? r.isoDate : null,
+        publishedAt: typeof r.publishedAt === 'number' ? r.publishedAt : null,
       }
     })
     .filter(Boolean) as RelatedItem[]
@@ -81,15 +74,9 @@ function getPrimarySource(news: any): string {
 }
 
 function formatRelativeTime(
-  msOrIso: number | string | null | undefined,
+  ms: number | null | undefined,
   now: number,
 ): string {
-  let ms: number | null = null
-  if (typeof msOrIso === 'number') ms = msOrIso
-  else if (typeof msOrIso === 'string') {
-    const t = Date.parse(msOrIso)
-    ms = Number.isNaN(t) ? null : t
-  }
   if (!ms) return ''
   const diff = now - ms
   const min = Math.floor(diff / 60_000)
@@ -119,13 +106,11 @@ export default function TrendingCard({ news }: Props) {
   }, [])
 
   const now = Date.now()
+  
+  // POPRAVEK: Uporabljamo publishedAt direktno
   const formattedDate = useMemo(() => {
-    const ms =
-      (news as any).publishedAt ??
-      ((news as any).isoDate ? Date.parse((news as any).isoDate) : 0)
-    return formatRelativeTime(ms, now)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [(news as any).publishedAt, (news as any).isoDate, minuteTick])
+    return formatRelativeTime(news.publishedAt, now)
+  }, [news.publishedAt, minuteTick])
 
   const sourceColor = useMemo(() => {
     return (sourceColors as Record<string, string>)[news.source] || '#fc9c6c'
@@ -148,7 +133,7 @@ export default function TrendingCard({ news }: Props) {
   }, [])
 
   // ==== slika ====
-  const rawImg = (news as any).image ?? null
+  const rawImg = news.image ?? null
   const proxyInitiallyOn = !!rawImg
 
   const [useProxy, setUseProxy] = useState<boolean>(proxyInitiallyOn)
@@ -199,7 +184,6 @@ export default function TrendingCard({ news }: Props) {
 
   const [isPriority] = useState<boolean>(false)
 
-  // preload
   useEffect(() => {
     if (!isPriority || !rawImg) return
     const rectW = Math.max(
@@ -221,7 +205,6 @@ export default function TrendingCard({ news }: Props) {
     }
   }, [isPriority, rawImg])
 
-  // ==== tracking ====
   const sendBeacon = (payload: any) => {
     try {
       const json = JSON.stringify(payload)
@@ -238,9 +221,7 @@ export default function TrendingCard({ news }: Props) {
           keepalive: true,
         })
       }
-    } catch {
-      // ignore
-    }
+    } catch {}
   }
   const logClick = () => {
     sendBeacon({ source: news.source, url: news.link, action: 'open' })
@@ -255,7 +236,6 @@ export default function TrendingCard({ news }: Props) {
     if (e.button === 1) logClick()
   }
 
-  // --- POPRAVEK: Namesto boolean-a hranimo aktivni URL ---
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   
   const previewOpenedAtRef = useRef<number | null>(null)
@@ -265,13 +245,12 @@ export default function TrendingCard({ news }: Props) {
       previewOpenedAtRef.current = Date.now()
       sendBeacon({
         source: news.source,
-        url: previewUrl, // Uporabi dinamični URL
+        url: previewUrl, 
         action: 'preview_open',
       })
     } else if (previewOpenedAtRef.current) {
       const duration = Date.now() - previewOpenedAtRef.current
       previewOpenedAtRef.current = null
-      // Tu ne moremo vedeti točnega URL-ja ob zapiranju, ampak action je close
       sendBeacon({
         source: news.source,
         url: news.link, 
@@ -305,18 +284,15 @@ export default function TrendingCard({ news }: Props) {
   const [eyeHover, setEyeHover] = useState(false)
   const showEye = isTouch ? true : eyeVisible
 
-  // ==== trending metadata ====
   const primarySource = getPrimarySource(news)
   const relatedAll = extractRelatedItems(news)
   const related = relatedAll.filter((r) => r.link !== news.link)
 
+  // POPRAVEK: Uporabljamo publishedAt
   const primaryTime = useMemo(() => {
-    const ms =
-      (news as any).publishedAt ??
-      ((news as any).isoDate ? Date.parse((news as any).isoDate) : null)
+    const ms = (news as any).publishedAt || 0
     return formatRelativeTime(ms, now)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [(news as any).publishedAt, (news as any).isoDate, minuteTick])
+  }, [news.publishedAt, minuteTick])
 
   return (
     <>
@@ -343,7 +319,6 @@ export default function TrendingCard({ news }: Props) {
         }}
         className="cv-auto block no-underline bg-gray-900/85 dark:bg-gray-800 rounded-xl shadow-md overflow-hidden transition-colors duration-200 hover:bg-gray-900 dark:hover:bg-gray-700"
       >
-        {/* SLika */}
         <div
           className="relative w-full aspect-[16/9] overflow-hidden"
           style={
@@ -399,12 +374,11 @@ export default function TrendingCard({ news }: Props) {
             />
           )}
 
-          {/* gumb za predogled glavne novice */}
           <button
             onClick={(e) => {
               e.preventDefault()
               e.stopPropagation()
-              setPreviewUrl(news.link) // --- POPRAVEK: Nastavi glavni link
+              setPreviewUrl(news.link)
             }}
             onMouseEnter={() => setEyeHover(true)}
             onMouseLeave={() => setEyeHover(false)}
@@ -438,21 +412,9 @@ export default function TrendingCard({ news }: Props) {
               />
             </svg>
           </button>
-
-          {!isTouch && (
-            <span
-              className="hidden md:block pointer-events-none absolute top-2 right-[calc(0.5rem+2rem+8px)]
-                             rounded-md px-2 py-1 text-xs font-medium bg-black/60 text-white backdrop-blur-sm drop-shadow-lg
-                             opacity-0 -translate-x-1 transition-opacity transition-transform duration-150 peer-hover:opacity-100 peer-hover:translate-x-0"
-            >
-              Predogled&nbsp;novice
-            </span>
-          )}
         </div>
 
-        {/* ========== BESEDILO + TRENDING META ========== */}
         <div className="p-2.5 min-h-[11rem] overflow-hidden flex flex-col gap-2">
-          {/* glava */}
           <div className="mb-1 grid grid-cols-[1fr_auto] items-baseline gap-x-2">
             <span
               className="truncate text-[12px] font-medium tracking-[0.01em]"
@@ -472,10 +434,8 @@ export default function TrendingCard({ news }: Props) {
             {(news as any).contentSnippet}
           </p>
 
-          {/* Lijak: Zadnja objava + drugi viri */}
           {(primarySource || related.length > 0) && (
             <div className="mt-3 rounded-xl border border-gray-800/80 bg-gray-900/70 dark:bg-gray-900/80 shadow-inner overflow-hidden">
-              {/* Zadnja objava */}
               <div className="flex items-center gap-2 px-2.5 pt-2.5 pb-2">
                 <div className="h-7 w-7 rounded-full bg-gradient-to-br from-orange-500/80 via-pink-500/80 to-indigo-500/80 flex items-center justify-center text-[11px] font-bold text-white/90 shadow-sm">
                   ↓
@@ -513,12 +473,10 @@ export default function TrendingCard({ news }: Props) {
                 </div>
               </div>
 
-              {/* Divider */}
               {related.length > 0 && (
                 <div className="h-px mx-2 bg-gradient-to-r from-transparent via-gray-700/80 to-transparent" />
               )}
 
-              {/* Drugi viri */}
               {related.length > 0 && (
                 <div className="px-2.5 pb-2.5 pt-2 flex flex-col gap-1.5">
                   <div className="flex items-center justify-between gap-2 mb-1">
@@ -533,7 +491,7 @@ export default function TrendingCard({ news }: Props) {
                     {related.map((item, idx) => {
                       const logo = getSourceLogoPath(item.source)
                       const relTime = formatRelativeTime(
-                        item.publishedAt ?? item.isoDate ?? null,
+                        item.publishedAt,
                         now,
                       )
 
@@ -572,13 +530,12 @@ export default function TrendingCard({ news }: Props) {
                               </span>
                             )}
                             
-                            {/* POPRAVEK: Oko za druge vire odpre specifičen link */}
                             <button
                               type="button"
                               onClick={(e) => {
                                 e.preventDefault()
                                 e.stopPropagation()
-                                setPreviewUrl(item.link) // --- POPRAVEK: Nastavi link tega vira
+                                setPreviewUrl(item.link) 
                                 preloadPreview(item.link).catch(() => {})
                               }}
                               aria-label="Predogled drugega vira"
@@ -591,7 +548,7 @@ export default function TrendingCard({ news }: Props) {
                                 aria-hidden="true"
                               >
                                 <path
-                                  d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12Z"
+                                  d="M1 12s4-7 11-7 11 7-4 7-11 7S1 12 1 12Z"
                                   stroke="currentColor"
                                   strokeWidth="2"
                                   fill="none"
@@ -634,7 +591,6 @@ export default function TrendingCard({ news }: Props) {
         </div>
       </a>
 
-      {/* --- POPRAVEK: Prikaz previewa z dinamičnim URLjem --- */}
       {previewUrl && (
         <ArticlePreview 
             url={previewUrl} 
