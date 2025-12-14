@@ -19,7 +19,8 @@ import SeoHead from '@/components/SeoHead'
 import BackToTop from '@/components/BackToTop'
 import SourceFilter from '@/components/SourceFilter' 
 import NewsTabs from '@/components/NewsTabs'
-import { CategoryId, determineCategory } from '@/lib/categories'
+// DODANO: CATEGORIES (za lep izpis naslova kategorije)
+import { CategoryId, determineCategory, CATEGORIES } from '@/lib/categories'
 
 /* ================= Helpers & constants ================= */
 type Mode = 'latest' | 'trending'
@@ -354,6 +355,11 @@ export default function Home({ initialNews }: Props) {
       ? selectedSources[0] 
       : `${selectedSources.length} virov`
 
+  // Pomožna spremenljivka za prikaz imena kategorije
+  const currentCategoryLabel = selectedCategory === 'vse' 
+    ? '' 
+    : CATEGORIES.find(c => c.id === selectedCategory)?.label || selectedCategory;
+
   return (
     <>
       <Header 
@@ -364,6 +370,12 @@ export default function Home({ initialNews }: Props) {
         onSelectCategory={(cat) => {
            startTransition(() => {
              setSelectedCategory(cat)
+             // SPREMEMBA: Če gremo na kategorijo, forsiraj "latest" (kronološko)
+             if (cat !== 'vse') {
+                setMode('latest')
+                setHasMore(true) // Resetiraj paginacijo za novo kategorijo
+                setCursor(null)
+             }
            })
            window.scrollTo({ top: 0, behavior: 'smooth' })
         }}
@@ -381,11 +393,20 @@ export default function Home({ initialNews }: Props) {
 
       <main className="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white px-4 md:px-8 lg:px-16 pt-0 pb-8">
         
-        <div className="flex items-center justify-between py-4">
-           {/* TABS */}
-           <div className="scale-90 origin-left">
-             <NewsTabs active={mode} onChange={handleTabChange} />
-           </div>
+        {/* ZGORNJA VRSTICA: TABS ali NASLOV KATEGORIJE */}
+        <div className="flex items-center justify-between py-4 min-h-[64px]">
+           {/* LOGIKA: Pokaži Tabs SAMO če smo na 'vse'. Sicer pokaži naslov kategorije. */}
+           {selectedCategory === 'vse' ? (
+             <div className="scale-90 origin-left">
+               <NewsTabs active={mode} onChange={handleTabChange} />
+             </div>
+           ) : (
+             <div className="flex items-center">
+                <span className="text-2xl font-bold tracking-tight text-gray-900 dark:text-white capitalize">
+                  {currentCategoryLabel}
+                </span>
+             </div>
+           )}
            
            {/* GUMB ZA ČIŠČENJE FILTROV */}
            {selectedSources.length > 0 && (
