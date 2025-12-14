@@ -7,12 +7,12 @@ export type NewsItem = {
   image?: string | null
   contentSnippet?: string
   
-  // TOLE VRNI NAZAJ (odkomentiraj):
+  // Potrebno za RSS parsanje (api/news.ts), čeprav ne shranjujemo v bazo
   content?: string 
   
-  // Te lahko pustiš, če jih koda za RSS potrebuje za začasno hrambo
-  pubDate?: string
-  isoDate?: string
+  // Potrebno za frontend (ArticleCard) kot fallback, če publishedAt manjka
+  isoDate?: string | null
+  pubDate?: string 
   
   /** Normaliziran čas objave (Unix ms). UI naj uporablja to polje. */
   publishedAt: number
