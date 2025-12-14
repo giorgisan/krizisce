@@ -136,9 +136,8 @@ export default function Home({ initialNews }: Props) {
       setMode('latest')
       setCursor(null)
       setHasMore(true)
-      setItemsLatest(initialNews) // Vrni začetne takoj
+      setItemsLatest(initialNews) 
     })
-    // POPRAVEK: Vrni na vrh
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
@@ -162,7 +161,6 @@ export default function Home({ initialNews }: Props) {
         setIsRefreshing(false)
     }
     
-    // --- OPTIMIZACIJA: Debounce samo če iščemo, drugače takoj! ---
     if (searchQuery) {
         const timeoutId = setTimeout(fetchData, 500)
         return () => clearTimeout(timeoutId)
@@ -287,11 +285,11 @@ export default function Home({ initialNews }: Props) {
     setCursor(minMs || null)
   }, [visibleNews, mode])
 
-  // PAGINACIJA - POPRAVEK: Limit 25
+  // PAGINACIJA
   async function fetchPage(cursorVal: number) {
     const qs = new URLSearchParams()
     qs.set('paged', '1')
-    qs.set('limit', '25') // POPRAVEK: 25
+    qs.set('limit', '25') 
     qs.set('cursor', String(cursorVal))
     if (selectedSources.length > 0) qs.set('source', selectedSources.join(','))
     if (selectedCategory !== 'vse') qs.set('category', selectedCategory)
@@ -326,7 +324,6 @@ export default function Home({ initialNews }: Props) {
   const handleTabChange = async (next: Mode) => {
     if (next === mode) return
     
-    // POPRAVEK: Scroll to top
     window.scrollTo({ top: 0, behavior: 'smooth' })
 
     setMode(next)
@@ -368,13 +365,11 @@ export default function Home({ initialNews }: Props) {
            startTransition(() => {
              setSelectedCategory(cat)
            })
-           // POPRAVEK: Scroll to top ob menjavi kategorije
            window.scrollTo({ top: 0, behavior: 'smooth' })
         }}
         onReset={resetAll} 
       />
 
-      {/* FILTER MODAL */}
       <SourceFilter
         open={filterModalOpen}
         onClose={() => setFilterModalOpen(false)}
@@ -459,7 +454,7 @@ export default function Home({ initialNews }: Props) {
   )
 }
 
-/* ================= SSR (Server-Side Rendering) ================= */
+/* ================= SSR ================= */
 export const getServerSideProps: GetServerSideProps = async ({ res }) => {
   res.setHeader(
     'Cache-Control',
@@ -473,14 +468,15 @@ export const getServerSideProps: GetServerSideProps = async ({ res }) => {
     auth: { persistSession: false },
   })
 
-  // Pridobi začetne podatke iz baze (SSR)
+  // SPREMEMBA: Type Assertion in casting category
+  // Tudi tukaj moramo castati, da zadovoljimo NewsItem tip
   const { data } = await supabase
     .from('news')
     .select(
-      'id, link, title, source, summary, contentsnippet, image, published_at, publishedat',
+      'id, link, title, source, summary, contentsnippet, image, published_at, publishedat, category',
     )
     .order('publishedat', { ascending: false })
-    .limit(25) // POPRAVEK: Omejeno na 25 za hitrejši začetni load
+    .limit(25)
 
   const rows = (data ?? []) as any[]
 
@@ -496,7 +492,8 @@ export const getServerSideProps: GetServerSideProps = async ({ res }) => {
         (r.publishedat ??
           (r.published_at ? Date.parse(r.published_at) : 0)) || 0,
       isoDate: r.published_at,
-      category: determineCategory({ link, categories: [] }) 
+      // SPREMEMBA: Tudi tukaj castamo v CategoryId in uporabimo fallback
+      category: (r.category as CategoryId) || determineCategory({ link, categories: [] }) 
     }
   })
 
