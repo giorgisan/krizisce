@@ -71,7 +71,7 @@ function makeLinkKey(raw: string, iso?: string | null): string {
   return `https://${u.host}${u.pathname}`
 }
 
-/* ---------------- Tipi (Posodobljeni - brez odvečnih polj) ---------------- */
+/* ---------------- Tipi (Usklajeni z novo DB shemo) ---------------- */
 type Row = {
   id: number
   link: string
@@ -87,17 +87,7 @@ type Row = {
   category: string | null
 }
 
-export type NewsItem = {
-  title: string
-  link: string
-  source: string
-  image?: string | null
-  contentSnippet?: string | null
-  publishedAt: number
-  isoDate?: string | null
-  category?: string | null
-}
-
+// Helperji
 const unaccent = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
 const normTitle = (s: string) => unaccent(s).toLowerCase().replace(/\s+/g, ' ').trim()
 const tsSec = (ms?: number | null) => Math.max(0, Math.floor((typeof ms === 'number' ? ms : 0) / 1000))
@@ -117,6 +107,7 @@ function softDedupe<T extends { source?: string; title?: string; publishedAt?: n
 function normalizeSnippet(item: FeedNewsItem): string | null {
   const snippet = (item.contentSnippet || '').trim()
   if (snippet) return snippet
+  // Ta vrstica je povzročala težave, če 'content' ni bil v tipih. Zdaj je popravljeno v types.ts.
   const fromContent = (item.content || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
   return fromContent || null
 }
@@ -153,7 +144,6 @@ function feedItemToDbRow(item: FeedNewsItem) {
     categories: rawCategories 
   })
 
-  // OČIŠČENO: Brez link_canonical, isodate, pubdate, itd.
   return {
     link: linkRaw,
     link_key: linkKey,
@@ -161,7 +151,7 @@ function feedItemToDbRow(item: FeedNewsItem) {
     source,
     image: item.image?.trim() || null,
     contentsnippet: snippet,
-    summary: snippet, // Pustimo kot fallback
+    summary: snippet,
     published_at: ts.iso,
     publishedat: ts.ms,
     category: calculatedCategory, 
@@ -204,8 +194,7 @@ const toMs = (s?: string | null) => {
   return Number.isFinite(v) ? v : 0
 }
 
-function rowToItem(r: Row): NewsItem {
-  // Pustimo fallbacke, če so v bazi stari zapisi
+function rowToItem(r: Row): FeedNewsItem {
   const ms = (r.publishedat && Number(r.publishedat)) || toMs(r.published_at) || toMs(r.created_at) || Date.now()
   return {
     title: r.title,
@@ -219,7 +208,7 @@ function rowToItem(r: Row): NewsItem {
   }
 }
 
-/* ---------------- TRENDING (Nespremenjeno) ---------------- */
+/* ---------------- TRENDING (Skrajšano) ---------------- */
 const TREND_WINDOW_HOURS = 6 
 const TREND_MIN_SOURCES = 2    
 const TREND_MIN_OVERLAP = 2
@@ -296,8 +285,7 @@ function extractKeywordsFromTitle(title: string): string[] {
 async function fetchTrendingRows(): Promise<Row[]> {
   const nowMs = Date.now()
   const cutoffMs = nowMs - TREND_WINDOW_HOURS * 3_600_000
-  
-  // OČIŠČENO: Brez isodate, pubdate v selectu
+  // POPRAVEK: Odstranjena neobstoječa polja iz SELECT
   const { data, error } = await supabaseRead
     .from('news')
     .select(
@@ -311,7 +299,7 @@ async function fetchTrendingRows(): Promise<Row[]> {
   return (data || []) as Row[]
 }
 
-function computeTrendingFromRows(rows: Row[]): (NewsItem & { storyArticles: StoryArticle[] })[] {
+function computeTrendingFromRows(rows: Row[]): (FeedNewsItem & { storyArticles: StoryArticle[] })[] {
   const metas: RowMeta[] = rows.map((row) => {
       const ms = (row.publishedat && Number(row.publishedat)) || toMs(row.published_at) || toMs(row.created_at) || Date.now()
       const keywords = extractKeywordsFromTitle(row.title || '')
@@ -392,7 +380,7 @@ function computeTrendingFromRows(rows: Row[]): (NewsItem & { storyArticles: Stor
   })
 
   const top = scored.slice(0, TREND_MAX_ITEMS)
-  const result: (NewsItem & { storyArticles: StoryArticle[] })[] = []
+  const result: (FeedNewsItem & { storyArticles: StoryArticle[] })[] = []
 
   for (let si = 0; si < top.length; si++) {
     const sg = top[si]
@@ -417,8 +405,8 @@ function computeTrendingFromRows(rows: Row[]): (NewsItem & { storyArticles: Stor
 }
 
 /* ---------------- handler ---------------- */
-type PagedOk = { items: NewsItem[]; nextCursor: number | null }
-type ListOk = NewsItem[]
+type PagedOk = { items: FeedNewsItem[]; nextCursor: number | null }
+type ListOk = FeedNewsItem[]
 type Err = { error: string }
 
 export default async function handler(
@@ -467,7 +455,8 @@ export default async function handler(
     const limit = Math.min(Math.max(limitParam || defaultLimit, 1), 100)
     const cursor = req.query.cursor ? Number(req.query.cursor) : null
 
-    // --- QUERY BUILDER (OČIŠČEN SELECT) ---
+    // --- QUERY BUILDER (OČIŠČEN) ---
+    // Tukaj ne smemo klicati stolpcev, ki ne obstajajo več (isodate, pubdate, link_canonical...)
     let q = supabaseRead
       .from('news')
       .select('id, link, link_key, title, source, image, contentsnippet, summary, published_at, publishedat, created_at, category')
