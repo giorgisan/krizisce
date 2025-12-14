@@ -33,7 +33,7 @@ export const CATEGORIES: CategoryDef[] = [
         '/mnenja/', '/pisma-bralcev/', '/sobotna-priloga/', '/kolumne/', '/bralci/',
         'javna-uprava', 'drzavni-zbor', 'zupan', 'obcina', 'studentski-dom', 'fakultet',
         'prenova', 'gradnja', 'vodovod', 'vrtec', 'sola', 'cesta', 'zeleznica', 'drugi-tir', 'prometna-infrastruktura',
-        'humanitarn', // Dodano za N1 članek
+        'humanitarn', // N1 fix
         // VREME
         'vreme', 'arso', 'vremenska', 'sneg', 'dezevje', 'poplave', 'neurje', 'toča', 'ciklon', 'temperatura'
     ]
@@ -66,7 +66,7 @@ export const CATEGORIES: CategoryDef[] = [
         '/sport/', '/sportal/', 'nogomet', 'kosarka', 'zimski', 'atletika', 'kolesarstvo', 'tenis', 
         'ekipa24', 'sport.n1info.si', 'odbojka', 'rokomet', 'nhl', 'nba', 'doncic', 'kopitar', 
         'pogacar', 'roglic', 'messi', 'olimpij', 'liga', 'prvenstvo', 'trener', 'reprezentanca', 'tekma',
-        'bayern', 'munchen' // Dodano za Bayern članek
+        'bayern', 'munchen' // Bayern fix
     ]
   },
   {
@@ -116,7 +116,7 @@ export const CATEGORIES: CategoryDef[] = [
     keywords: [
         '/magazin/', '/popin/', '/trendi/', '/scena/', '/zvezde/', '/zabava/', 
         '/lifestyle/', '/kulinarika/', '/okusno/', '/astro/', 'suzy', 'lady', 'dom-in-vrt',
-        '/nedeljski/', // KLJUČNO: ujame vse iz Dnevnik Nedeljski
+        '/nedeljski/', // Nedeljski Dnevnik
         'prosti-cas', 'nedeljski', 'izleti', 'zdravje', 'dobro-pocutje', '/ture-avanture/',
         '/bulvar/', '/tuji-traci/', '/domaci-traci/', '/ljudje/', '/stil/', '/zanimivosti/',
         '/zabava-in-slog/', 'svet-zavoda', 'na-lepse', 'vrt', 'recepti', 'horoskop', 
@@ -131,12 +131,11 @@ export const CATEGORIES: CategoryDef[] = [
         'gradnja', 'hisna', 'vrtnarjenje', 'ciscenje', 'madezi', 'triki',
         // ZDRAVJE (Razširjeno)
         'rak ', 'bolezen', 'ambulanta', 'zdravnik', 'medicina', 'bolniska', 'zdravstvo', 'srce', 'jetra', 'mineral', 'vitamin',
-        'bakterij', 'prebav', 'kosti', 'zivilo', 'repa', // Dodano za zdravstvene članke
+        'bakterij', 'prebav', 'kosti', 'zivilo', 'repa', 'superzelenjava',
         'bozic', 'prazniki', 'darila', 'jelka', 'okraski', 'advent',
         'vplivnez', 'moda', 'lepota', 'manekenka', 'kraljeva',
-        'viral', 'posnetek', // Dodano za Pilota
-        'horoskop', 'astro', 'zvezdni', // Dodano za Astro
-        // NOVO:
+        'viral', 'posnetek', 
+        'horoskop', 'astro', 'zvezdni',
         'upokojen', 'senior', 'starost',
         'coach', 'trener', 'cilj', 'motivacija', 'uspeh', 'karier',
         'navdih', 'zadovoljstvo'
@@ -153,7 +152,7 @@ export const CATEGORIES: CategoryDef[] = [
         'bralne-urice', 'portret', 'intervju', 'dokumentarni-film', 'reziser',
         'muzej', 'dediscina', 'zgodovina', 'orkester', 'koncert', 'opera', 'balet',
         'knjizni-sejem', 'liffe', 'animateka',
-        'grammy' // Dodano za Maka Grgića (če ne gre pod nedeljski)
+        'grammy' // Mak Grgić fix
     ]
   }
 ]
@@ -162,13 +161,13 @@ export const CATEGORIES: CategoryDef[] = [
 const PRIORITY_CHECK_ORDER: CategoryId[] = [
   'kronika',      // 1.
   'moto',         // 2.
-  'sport',        // 3. POZOR: Premaknjen pred magazin, da Bayern ne pade pod magazin zaradi "zvezdnika"
-  'magazin',      // 4. (Visoka, da pobere zdravje, astro, trače)
-  'tech',         // 5.
-  'gospodarstvo', // 6.
-  'kultura',      // 7.
+  'sport',        // 3. (Bayern > Magazin)
+  'kultura',      // 4. (Mak Grgić/Grammy > Magazin/Nedeljski) <--- TUKAJ JE FIX!
+  'magazin',      // 5. (Šele zdaj pobere ostale Nedeljske)
+  'tech',         // 6.
+  'gospodarstvo', // 7.
   'svet',         // 8.
-  'slovenija'     // 9. (Catch-all za lokalne novice)
+  'slovenija'     // 9.
 ]
 
 const unaccent = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
