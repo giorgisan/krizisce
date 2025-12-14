@@ -1,88 +1,149 @@
-// components/SourceFilter.tsx
-'use client'
+import React, { useEffect, useState } from 'react'
+import Image from 'next/image'
 
-import { useEffect, useMemo } from 'react'
-import { SOURCES } from '@/lib/sources'
-
-type Props = {
-  /** Trenutno izbran vir: 'Vse' ali npr. 'RTVSLO' */
-  value: string
-  /** Klicano, ko uporabnik izbere vir */
-  onChange: (next: string) => void
-  /** Ali je filter vrstica odprta; privzeto true (varno za SSR) */
-  open?: boolean
+const LOGO_MAP: Record<string, string> = {
+  'RTVSLO': 'rtvslo.png',
+  '24ur': '24ur.png',
+  'Siol.net': 'siol.png',
+  'Slovenske novice': 'slovenskenovice.png',
+  'Delo': 'delo.png',
+  'Dnevnik': 'dnevnik.png',
+  'Zurnal24': 'zurnal24.png',
+  'N1': 'n1.png',
+  'Svet24': 'svet24.png',
 }
 
-export default function SourceFilter({ value, onChange, open = true }: Props) {
-  // sticky offset = višina headerja
+type Props = {
+  value: string[] 
+  onChange: (sources: string[]) => void
+  open: boolean 
+  onClose: () => void
+}
+
+export default function SourceFilter({ value, onChange, open, onClose }: Props) {
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => setMounted(true), [])
+
   useEffect(() => {
-    const setHdr = () => {
-      const h = (document.getElementById('site-header')?.offsetHeight ?? 56)
-      document.documentElement.style.setProperty('--hdr-h', `${h}px`)
+    if (open) document.body.style.overflow = 'hidden'
+    else document.body.style.overflow = ''
+    return () => { document.body.style.overflow = '' }
+  }, [open])
+
+  if (!mounted || !open) return null
+
+  const toggleSource = (source: string) => {
+    if (source === 'Vse') {
+      onChange([]) 
+      return
     }
-    setHdr()
-    window.addEventListener('resize', setHdr)
-    return () => window.removeEventListener('resize', setHdr)
-  }, [])
-
-  // čipi (Vse prvi)
-  const chips = useMemo(() => ['Vse', ...SOURCES.filter(s => s !== 'Vse')], [])
-
-  const select = (s: string) => {
-    onChange(s)
-    // sync z obstoječim bridge-om (Header posluša selectedSources)
-    try { localStorage.setItem('selectedSources', JSON.stringify(s === 'Vse' ? [] : [s])) } catch {}
-    try { sessionStorage.setItem('filters_interacted', '1') } catch {}
-    try { window.dispatchEvent(new CustomEvent('filters:update', { detail: { sources: s === 'Vse' ? [] : [s] } })) } catch {}
+    let newSelection = [...value]
+    if (newSelection.includes(source)) {
+      newSelection = newSelection.filter(s => s !== source)
+    } else {
+      newSelection.push(source)
+    }
+    onChange(newSelection)
   }
 
-  return (
-    <div
-      className={[
-        // sticky bar; ko je skrit, ne pušča praznega prostora
-        'sticky top-[var(--hdr-h,56px)] z-40 overflow-hidden transition-[max-height,opacity] duration-150 ease-out',
-        open ? 'max-h-16 opacity-100' : 'max-h-0 opacity-0',
-        // blur + subtilen border + prosojno ozadje
-        'border-b border-black/10 dark:border-white/10 bg-white/35 dark:bg-gray-900/35 supports-[backdrop-filter]:backdrop-blur-md',
-      ].join(' ')}
-      role="region"
-      aria-label="Filtri virov"
-      aria-hidden={!open}
-    >
-      <div className="px-4 md:px-8 lg:px-16 py-1.5">
-        <div className="relative">
-          {/* fade robovi za namig scrolla */}
-          <div className="pointer-events-none absolute inset-y-0 left-0 w-6 bg-gradient-to-r from-white/35 dark:from-gray-900/35 to-transparent" />
-          <div className="pointer-events-none absolute inset-y-0 right-0 w-6 bg-gradient-to-l from-white/35 dark:from-gray-900/35 to-transparent" />
+  const isAll = value.length === 0
 
-          {/* ENA vrstica čipov (kompaktno, performančno) */}
-          <div
-            className="flex items-center gap-6 overflow-x-auto whitespace-nowrap scrollbar-thin"
-            style={{ scrollSnapType: 'x proximity' }}
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 sm:p-6">
+      <div 
+        className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity"
+        onClick={onClose}
+      />
+
+      <div className="relative w-full max-w-2xl bg-white dark:bg-gray-900 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[80vh] animate-in slide-in-from-bottom-10 fade-in duration-200">
+        
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-gray-800">
+          <h3 className="text-lg font-bold text-gray-900 dark:text-white">
+            Izberi vire
+          </h3>
+          <button 
+            onClick={onClose}
+            className="p-2 -mr-2 text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
           >
-            {chips.map((s) => {
-              const active = s === value
+            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        <div className="p-6 overflow-y-auto">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+            
+            {/* Gumb VSE */}
+            <button
+              onClick={() => toggleSource('Vse')}
+              className={`
+                flex items-center justify-center h-16 rounded-xl border-2 transition-all
+                ${isAll 
+                  ? 'border-brand bg-brand/5 dark:bg-brand/10 ring-1 ring-brand' 
+                  : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 bg-gray-50 dark:bg-gray-800'}
+              `}
+            >
+              <span className={`font-bold ${isAll ? 'text-brand' : 'text-gray-600 dark:text-gray-300'}`}>
+                Vsi viri
+              </span>
+            </button>
+
+            {Object.keys(LOGO_MAP).map((source) => {
+              const filename = LOGO_MAP[source]
+              const isSelected = value.includes(source)
+              
               return (
                 <button
-                  key={s}
-                  type="button"
-                  onClick={() => select(s)}
-                  aria-pressed={active}
-                  className={[
-                    'inline-flex items-center h-8 rounded-full px-3 text-[13px] scroll-ml-4',
-                    'transition-[background,transform,color,box-shadow] duration-120 ease-out will-change-transform',
-                    active
-                      ? 'text-gray-900 dark:text-white bg-black/12 dark:bg-white/12 ring-1 ring-black/15 dark:ring-white/15 scale-[0.995]'
-                      : 'text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-white/8',
-                  ].join(' ')}
-                  style={{ scrollSnapAlign: 'start' }}
+                  key={source}
+                  onClick={() => toggleSource(source)}
+                  className={`
+                    relative flex items-center justify-center h-16 rounded-xl border-2 transition-all group overflow-hidden
+                    ${isSelected 
+                      ? 'border-brand ring-1 ring-brand bg-white dark:bg-gray-800' 
+                      : 'border-gray-200 dark:border-gray-700 hover:border-brand/50 bg-white dark:bg-gray-800'}
+                  `}
                 >
-                  {s}
+                  <div className="relative w-3/4 h-3/4 flex items-center justify-center">
+                    <Image 
+                      src={`/logos/${filename}`} 
+                      alt={source}
+                      fill
+                      className={`object-contain p-2 transition-all ${isSelected ? '' : 'grayscale opacity-70 group-hover:grayscale-0 group-hover:opacity-100'}`}
+                    />
+                  </div>
+                  {isSelected && (
+                    <div className="absolute top-2 right-2 w-2 h-2 rounded-full bg-brand" />
+                  )}
                 </button>
               )
             })}
           </div>
         </div>
+        
+        {/* Footer */}
+        <div className="p-4 border-t border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-900/50 flex justify-between items-center">
+            
+            {/* Gumb POČISTI (samo če ni Vse) */}
+            <div>
+              {!isAll && (
+                <button
+                  onClick={() => onChange([])}
+                  className="text-sm text-red-500 hover:text-red-600 font-medium px-2 py-1 rounded hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                >
+                  Počisti izbor
+                </button>
+              )}
+            </div>
+
+            <button 
+                onClick={onClose}
+                className="px-6 py-2 bg-brand text-white font-medium rounded-full hover:bg-brand-hover transition shadow-sm"
+            >
+                Prikaži novice
+            </button>
+        </div>
+
       </div>
     </div>
   )

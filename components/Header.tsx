@@ -1,61 +1,62 @@
-// components/Header.tsx
 'use client'
 
+import React, { useState, useEffect } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { useTheme } from 'next-themes'
-import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/router'
+import { CATEGORIES, CategoryId } from '../lib/categories'
 import { motion, AnimatePresence } from 'framer-motion'
 
-export default function Header() {
-  const router = useRouter()
-  const { theme, resolvedTheme, setTheme } = useTheme()
-  const [mounted, setMounted] = useState(false)
+type Props = {
+  onOpenFilter?: () => void
+  onSearch?: (query: string) => void
+  activeSource?: string
+  activeCategory?: CategoryId | 'vse'
+  onSelectCategory?: (cat: CategoryId | 'vse') => void
+  onReset?: () => void
+}
 
+export default function Header({ 
+  onOpenFilter = () => {}, 
+  onSearch = () => {}, 
+  activeSource = 'Vse',
+  activeCategory = 'vse',
+  onSelectCategory = () => {},
+  onReset = () => {} 
+}: Props) {
+  const [scrolled, setScrolled] = useState(false)
+  const [searchVal, setSearchVal] = useState('')
+  const [mounted, setMounted] = useState(false)
+  
   const [hasNew, setHasNew] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
-  const [filtersOpen, setFiltersOpen] = useState(false)
+  
+  const [nowMs, setNowMs] = useState<number>(0)
+  const { theme, setTheme, resolvedTheme } = useTheme()
+  const router = useRouter()
 
-  const isHome = router.pathname === '/'
+  const isArhiv = router.pathname === '/arhiv'
 
-  /* ========= Ura (poravnana na :00) + global 'ui:minute' ========= */
-  const [nowMs, setNowMs] = useState<number>(() => Date.now())
+  // Ura
   useEffect(() => {
-    let intervalId: number | undefined
-    let timeoutId: number | undefined
-    const tick = () => {
-      setNowMs(Date.now())
-      try { window.dispatchEvent(new CustomEvent('ui:minute')) } catch {}
-    }
-    const startAligned = () => {
-      const toNext = 60_000 - (Date.now() % 60_000)
-      timeoutId = window.setTimeout(() => {
-        tick()
-        intervalId = window.setInterval(tick, 60_000) as unknown as number
-      }, toNext) as unknown as number
-    }
-    startAligned()
-    const onVis = () => {
-      if (document.visibilityState === 'visible') {
-        if (timeoutId) clearTimeout(timeoutId)
-        if (intervalId) clearInterval(intervalId)
-        tick()
-        startAligned()
-      }
-    }
-    document.addEventListener('visibilitychange', onVis)
-    return () => {
-      document.removeEventListener('visibilitychange', onVis)
-      if (timeoutId) clearTimeout(timeoutId)
-      if (intervalId) clearInterval(intervalId)
-    }
+    setMounted(true)
+    setNowMs(Date.now())
+    const tick = () => setNowMs(Date.now())
+    const toNext = 60_000 - (Date.now() % 60_000)
+    const timeoutId = window.setTimeout(() => {
+      tick()
+      const intervalId = window.setInterval(tick, 60_000)
+      return () => clearInterval(intervalId)
+    }, toNext)
+    return () => clearTimeout(timeoutId)
   }, [])
-  const time = new Intl.DateTimeFormat('sl-SI', { hour: '2-digit', minute: '2-digit' }).format(new Date(nowMs))
 
-  useEffect(() => setMounted(true), [])
+  const time = mounted 
+    ? new Intl.DateTimeFormat('sl-SI', { hour: '2-digit', minute: '2-digit' }).format(new Date(nowMs))
+    : '--:--'
 
-  /* ========= Signali (nove novice, refreshing, filter state) ========= */
+  // Logika za "Nove novice"
   useEffect(() => {
     const onHasNew = (e: Event) => setHasNew(Boolean((e as CustomEvent).detail))
     const onRefreshing = (e: Event) => setRefreshing(Boolean((e as CustomEvent).detail))
@@ -66,235 +67,250 @@ export default function Header() {
       window.removeEventListener('news-refreshing', onRefreshing as EventListener)
     }
   }, [])
-  useEffect(() => {
-    const onState = (e: Event) => {
-      const open = Boolean((e as CustomEvent).detail?.open)
-      setFiltersOpen(open)
-    }
-    window.addEventListener('ui:filters-state', onState as EventListener)
-    return () => window.removeEventListener('ui:filters-state', onState as EventListener)
-  }, [])
 
-  const hdrRef = useRef<HTMLElement | null>(null)
-  const mobBannerRef = useRef<HTMLDivElement | null>(null)
-
-  /* ========= CSS var za sticky offset ========= */
-  useEffect(() => {
-    const setHdr = () => {
-      const base = window.matchMedia('(min-width: 768px)').matches ? 60 : 56
-      const h = hdrRef.current?.offsetHeight || base
-      document.documentElement.style.setProperty('--hdr-h', `${h}px`)
-    }
-    setHdr()
-    window.addEventListener('resize', setHdr)
-    return () => window.removeEventListener('resize', setHdr)
-  }, [])
-
-  /* ========= Mobilni banner offset ========= */
-  useEffect(() => {
-    const updateVars = () => {
-      const isMobile = window.matchMedia('(max-width: 767px)').matches
-      const visible = hasNew && !refreshing && isMobile
-      const h = visible ? (mobBannerRef.current?.offsetHeight || 44) : 0
-      const shift = visible ? `calc(${h}px - 1.25rem)` : '0px'
-      document.documentElement.style.setProperty('--mob-shift', shift)
-    }
-    updateVars()
-    window.addEventListener('resize', updateVars)
-    return () => window.removeEventListener('resize', updateVars)
-  }, [hasNew, refreshing])
-
-  const currentTheme = (theme ?? resolvedTheme) || 'dark'
-  const isDark = currentTheme === 'dark'
-
-  /* ========= Scroll-then-refresh + anti-anchoring ========= */
-  const busyRef = useRef(false)
-  
-  const refreshNow = async () => {
-    if (busyRef.current) return
-    busyRef.current = true
-    try {
-      // POPRAVEK: Vrnjeno pomikanje na vrh (scroll to top)
-      window.scrollTo({ top: 0, behavior: 'smooth' })
-      
-      setRefreshing(true)
-      window.dispatchEvent(new CustomEvent('refresh-news'))
-    } finally {
-      setTimeout(() => { busyRef.current = false }, 500)
-    }
+  const refreshNow = () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+    setRefreshing(true)
+    window.dispatchEvent(new CustomEvent('refresh-news'))
   }
 
-  /* ========= Navigacija ========= */
-  const onBrandClick: React.MouseEventHandler<HTMLAnchorElement> = async (e) => {
+  // Scroll senca
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 10)
+    window.addEventListener('scroll', onScroll)
+    return () => window.removeEventListener('scroll', onScroll)
+  }, [])
+
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value
+    setSearchVal(val)
+    onSearch(val)
+  }
+
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    try {
-      window.scrollTo({ top: 0, behavior: 'smooth' })
-    } catch {}
-    if (!isHome) router.push('/')
+    onSearch(searchVal)
+    const activeEl = document.activeElement as HTMLElement
+    if (activeEl) activeEl.blur()
   }
-  const toggleFilters = () => window.dispatchEvent(new CustomEvent('ui:toggle-filters'))
-  const toggleTheme = () => setTheme(isDark ? 'light' : 'dark')
+
+  const handleLogoClick = (e: React.MouseEvent) => {
+    if (!isArhiv) {
+      e.preventDefault()
+      setSearchVal('') 
+      onReset()        
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+    }
+  }
+
+  const isDark = (theme === 'dark' || resolvedTheme === 'dark')
 
   return (
-    <header
-      ref={hdrRef}
-      id="site-header"
-      data-new={hasNew && !refreshing ? '1' : undefined}
-      className="sticky top-0 z-40
-                 bg-[#FAFAFA]/90 dark:bg-gray-900/80 backdrop-blur-md
-                 border-b border-black/10 dark:border-white/10
-                 shadow-[0_1px_10px_-6px_rgba(0,0,0,0.35)]
-                 supports-[backdrop-filter]:backdrop-saturate-150"
+    <header 
+      className={`
+        sticky top-0 z-40 w-full flex flex-col transition-all duration-300
+        border-b border-gray-200 dark:border-gray-800
+        ${scrolled 
+            ? 'bg-white/80 dark:bg-gray-900/80 backdrop-blur-md shadow-sm' 
+            : 'bg-white dark:bg-gray-900'}
+      `}
     >
-      <a
-        href="#main-content"
-        className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2
-                   focus:bg-black focus:text-white focus:px-3 focus:py-2 focus:rounded-md z-[100]"
-      >
-        Preskoči na vsebino
-      </a>
+      <div className="w-full border-b border-gray-100 dark:border-gray-800/60">
+        <div className="max-w-[1800px] mx-auto px-4 md:px-8 lg:px-16 h-16 flex items-center justify-between gap-4">
+          
+          {/* LEVO: Logo & Slogan & Gumb */}
+          <div className="flex items-center gap-4 shrink-0 mr-auto">
+            <Link href="/" onClick={handleLogoClick} className="flex items-center gap-3 group">
+                <div className="relative w-8 h-8 md:w-9 md:h-9">
+                  <Image src="/logo.png" alt="Logo" fill className="object-contain" />
+                </div>
+                <div className="flex flex-col justify-center">
+                  <span className="text-xl font-bold tracking-tight text-gray-900 dark:text-white leading-none">
+                      Križišče
+                  </span>
+                  <span className="text-xs font-medium text-gray-500 dark:text-gray-400 leading-none mt-1 hidden sm:block">
+                      Zadnje novice slovenskih medijev
+                  </span>
+                </div>
+            </Link>
 
-      <div className="px-4 md:px-8 lg:px-16 py-2 flex items-center justify-between gap-2">
-        <div className="flex items-center gap-3 min-w-0">
-          <Link href="/" onClick={onBrandClick} className="flex items-center gap-3 min-w-0">
-            <Image
-              src="/logo.png"
-              alt="Križišče"
-              width={32}
-              height={32}
-              priority
-              fetchPriority="high"
-              className="w-8 h-8 rounded-md"
-            />
-            <div className="min-w-0 leading-tight">
-              <h1 className="text-[18px] sm:text-[20px] font-bold text-gray-900 dark:text-white">Križišče</h1>
-              <p className="text-[11px] sm:text-[12px] text-gray-700 dark:text-gray-300/90">
-                Zadnje novice slovenskih medijev
-              </p>
-            </div>
-          </Link>
-
-          <AnimatePresence initial={false}>
-            {hasNew && !refreshing && (
-              <motion.button
-                key="fresh-pill-desktop"
-                initial={{ opacity: 0, y: -6 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -6 }}
-                transition={{ duration: 0.18, ease: 'easeOut' }}
-                onClick={refreshNow}
-                className="hidden md:inline-flex items-center gap-2 rounded-full px-3 py-1 text-[12px] font-medium
-                           bg-emerald-500/10 text-emerald-300 ring-1 ring-emerald-600/40 hover:bg-emerald-500/15 transition"
-                title="Osveži, da prikažeš nove spremembe"
-                aria-live="polite"
-              >
-                <span className="relative inline-flex">
-                  <span className="h-2 w-2 rounded-full bg-emerald-500 opacity-80"></span>
-                  <span className="absolute inset-0 rounded-full bg-emerald-500 animate-ping opacity-25"></span>
-                </span>
-                <span>Na voljo so sveže novice</span>
-                <span className="opacity-70">— kliknite za osvežitev</span>
-              </motion.button>
-            )}
-          </AnimatePresence>
-        </div>
-
-        <div className="flex items-center gap-1 sm:gap-1.5">
-          <span className="hidden sm:inline-block font-mono tabular-nums text-[12px] text-gray-600 dark:text-gray-300 select-none">
-            {time}
-          </span>
-
-          {isHome && (
-            <button
-              type="button"
-              onClick={toggleFilters}
-              aria-label={filtersOpen ? 'Skrij filtre' : 'Prikaži filtre'}
-              title={filtersOpen ? 'Skrij filtre' : 'Prikaži filtre'}
-              className={`inline-flex h-9 w-9 items-center justify-center rounded-md transition
-                          ${filtersOpen
-                            ? 'text-brand bg-brand/10 ring-1 ring-brand/30'
-                            : 'text-black/60 dark:text-white/70 hover:text-black/90 dark:hover:text-white/90 hover:bg-black/[0.04] dark:hover:bg-white/[0.06]'}`}
-            >
-              <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
-                <path d="M3 5h18l-7 8v5l-4 2v-7L3 5z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" fill="none" />
-              </svg>
-            </button>
-          )}
-
-          {/* ARHIV — fixed dark:text-white/70 */}
-          <Link
-            href="/arhiv"
-            aria-label="Arhiv"
-            title="Arhiv"
-            className="inline-flex h-9 w-9 items-center justify-center rounded-md transition
-                       text-black/60 dark:text-white/70 hover:text-black/90 dark:hover:text-white/90
-                       hover:bg-black/[0.04] dark:hover:bg-white/[0.06]"
-          >
-            <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
-              <g fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M7 3v3" />
-                <path d="M17 3v3" />
-                <rect x="3" y="5" width="18" height="16" rx="2" />
-                <path d="M3 9h18" />
-                <path d="M8 13h0M12 13h0M16 13h0M8 17h0M12 17h0M16 17h0" />
-              </g>
-              <span className="sr-only">Arhiv</span>
-            </svg>
-          </Link>
-
-          {mounted && (
-            <button
-              type="button"
-              onClick={() => setTheme(isDark ? 'light' : 'dark')}
-              aria-label={isDark ? 'Preklopi na svetlo' : 'Preklopi na temno'}
-              title={isDark ? 'Preklopi na svetlo' : 'Preklopi na temno'}
-              className="inline-flex h-9 w-9 items-center justify-center rounded-md
-                         text-black/60 dark:text-white/70 hover:text-black/90 dark:hover:text-white/90
-                         hover:bg-black/[0.04] dark:hover:bg-white/[0.06] transition"
-            >
-              <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
-                {isDark ? (
-                  <>
-                    <path d="M12 4V2M12 22v-2M4.93 4.93 3.52 3.52M20.48 20.48l-1.41-1.41M4 12H2M22 12h-2M4.93 19.07 3.52 20.48M20.48 3.52l-1.41 1.41" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-                    <circle cx="12" cy="12" r="4" stroke="currentColor" strokeWidth="2" fill="none"/>
-                  </>
-                ) : (
-                  <path d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 0 0 9.79 9.79Z" stroke="currentColor" strokeWidth="2" fill="none"/>
+            {/* --- FRESH NEWS PILL (ZMANJŠAN) --- */}
+            <AnimatePresence initial={false}>
+                {hasNew && !refreshing && !isArhiv && (
+                <motion.button
+                    key="fresh-pill"
+                    initial={{ opacity: 0, scale: 0.95, y: 5 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.95, y: 5 }}
+                    onClick={refreshNow}
+                    // SPREMENJENO: Manjši padding (px-3 py-1) in manjši font (text-[10px] md:text-xs)
+                    className="hidden md:flex items-center gap-2 px-3 py-1 
+                               bg-[#10b981]/10 dark:bg-[#10b981]/20 
+                               border border-[#10b981]/30
+                               hover:bg-[#10b981]/20 dark:hover:bg-[#10b981]/30
+                               text-[#10b981] dark:text-[#34d399]
+                               text-[10px] md:text-xs font-medium rounded-full 
+                               transition-all cursor-pointer ml-3 backdrop-blur-sm"
+                >
+                    <span className="relative flex h-2 w-2">
+                      <span className="absolute inline-flex h-full w-full rounded-full bg-[#10b981] opacity-75 animate-[ping_3s_cubic-bezier(0,0,0.2,1)_infinite]"></span>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-[#10b981]"></span>
+                    </span>
+                    
+                    <span className="flex items-center leading-none">
+                        <span className="font-bold">Na voljo so sveže novice</span>
+                        <span className="ml-1 opacity-80">— kliknite za osvežitev</span>
+                    </span>
+                </motion.button>
                 )}
+            </AnimatePresence>
+          </div>
+
+          {/* DESNO: Search + Orodja */}
+          <div className="flex items-center gap-2 md:gap-4 shrink-0 ml-auto">
+            
+            {/* SEARCH */}
+            {!isArhiv && (
+              <div className="hidden md:block w-64 lg:w-80">
+                <form onSubmit={handleSubmit} className="relative group">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <svg className="h-4 w-4 text-gray-400 group-focus-within:text-brand transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                  </div>
+                  <input
+                    type="search"
+                    placeholder="Išči po naslovu ali podnaslovu ..."
+                    className="block w-full pl-10 pr-3 py-1.5 bg-gray-100 dark:bg-gray-800 border border-transparent 
+                              focus:bg-white dark:focus:bg-black focus:border-brand/30 focus:ring-2 focus:ring-brand/10
+                              rounded-md text-sm transition-all placeholder-gray-500 text-gray-900 dark:text-white"
+                    value={searchVal}
+                    onChange={handleSearchChange}
+                  />
+                </form>
+              </div>
+            )}
+
+            <div className="h-6 w-px bg-gray-200 dark:bg-gray-700 hidden md:block"></div>
+            
+            <span className="hidden lg:inline-block font-mono text-xs text-gray-500 dark:text-gray-400">
+              {time}
+            </span>
+
+            {/* FILTER (Lijak) */}
+            {!isArhiv && (
+              <button 
+                onClick={onOpenFilter}
+                className={`relative p-2 rounded-md transition-colors ${activeSource !== 'Vse' ? 'text-brand bg-brand/10' : 'text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800'}`}
+                title="Filtriraj po viru"
+              >
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                </svg>
+                {activeSource !== 'Vse' && (
+                    <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-brand rounded-full ring-2 ring-white dark:ring-gray-900" />
+                )}
+              </button>
+            )}
+
+            {/* ARHIV (Koledar) */}
+            <Link
+              href="/arhiv"
+              className={`p-2 rounded-md transition-colors text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800 ${router.pathname === '/arhiv' ? 'text-brand' : ''}`}
+              title="Arhiv"
+            >
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                <line x1="16" y1="2" x2="16" y2="6" />
+                <line x1="8" y1="2" x2="8" y2="6" />
+                <line x1="3" y1="10" x2="21" y2="10" />
+                <path d="M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01M16 18h.01" strokeLinecap="round" />
               </svg>
-            </button>
-          )}
+            </Link>
+
+            {/* TEMA */}
+            {mounted && (
+              <button
+                onClick={() => setTheme(isDark ? 'light' : 'dark')}
+                className="p-2 rounded-md text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800 transition-colors"
+              >
+                {isDark ? (
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+                  </svg>
+                ) : (
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+                  </svg>
+                )}
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
-      <AnimatePresence initial={false}>
-        {hasNew && !refreshing && (
-          <motion.div
-            key="banner-mobile"
-            initial={{ opacity: 0, y: -8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            transition={{ duration: 0.18, ease: 'easeOut' }}
-            className="md:hidden fixed left-0 right-0 z-40 bg-[#FAFAFA]/95 dark:bg-gray-900/70 backdrop-blur-md"
-            style={{ top: 'var(--hdr-h, 56px)' }}
-          >
-            <div ref={mobBannerRef} className="px-4 md:px-8 lg:px-16 py-1.5 flex justify-center">
+      {/* --- SPODNJA VRSTICA (Navigacija) --- */}
+      {!isArhiv && (
+        // POPRAVEK: bg-transparent za transparentnost kategorij
+        <div className="w-full bg-transparent">
+          <div className="max-w-[1800px] mx-auto px-4 md:px-8 lg:px-16">
+            <nav className="flex items-center gap-6 overflow-x-auto no-scrollbar">
+              
+              {/* SEARCH ZA MOBILE */}
+              <div className="md:hidden py-2 min-w-[140px]">
+                <input
+                  type="search"
+                  placeholder="Išči..."
+                  className="w-full px-3 py-1 bg-gray-100 dark:bg-gray-800 border-none rounded-md text-xs"
+                  value={searchVal}
+                  onChange={handleSearchChange}
+                />
+              </div>
+
               <button
-                onClick={refreshNow}
-                className="group inline-flex items-center gap-2 rounded-full px-3.5 py-1.5 text-[13px] font-medium
-                           bg-emerald-500/10 text-emerald-300 ring-1 ring-emerald-600/40 hover:bg-emerald-500/15 transition"
-                title="Osveži, da prikažeš nove spremembe"
+                onClick={() => onSelectCategory('vse')}
+                className={`
+                  relative py-3 text-sm font-bold uppercase tracking-wide whitespace-nowrap transition-colors
+                  ${activeCategory === 'vse' 
+                    ? 'text-brand' 
+                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'}
+                `}
               >
-                <span className="relative inline-flex">
-                  <span className="h-2.5 w-2.5 rounded-full bg-emerald-500 opacity-80"></span>
-                  <span className="absolute inset-0 rounded-full bg-emerald-500 animate-ping opacity-25"></span>
-                </span>
-                <span>Na voljo so sveže novice</span>
+                Vse novice
+                {activeCategory === 'vse' && (
+                  <span className="absolute bottom-0 left-0 w-full h-0.5 bg-brand rounded-t-md" />
+                )}
               </button>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+
+              {CATEGORIES.map((cat) => {
+                const isActive = activeCategory === cat.id
+                return (
+                  <button
+                    key={cat.id}
+                    onClick={() => onSelectCategory(cat.id)}
+                    className={`
+                      relative py-3 text-sm font-bold uppercase tracking-wide whitespace-nowrap transition-colors
+                      ${isActive 
+                        ? 'text-gray-900 dark:text-white' 
+                        : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'}
+                    `}
+                  >
+                    {cat.label}
+                    {isActive && (
+                      <span 
+                        className="absolute bottom-0 left-0 w-full h-0.5 rounded-t-md" 
+                        style={{ backgroundColor: activeSource !== 'Vse' ? undefined : (cat.color.includes('emerald') ? '#10b981' : cat.color.includes('blue') ? '#3b82f6' : cat.color.includes('red') ? '#ef4444' : '#6366f1') }} 
+                      >
+                          <span className={`absolute inset-0 ${isActive ? 'bg-brand' : ''}`} />
+                      </span>
+                    )}
+                  </button>
+                )
+              })}
+            </nav>
+          </div>
+        </div>
+      )}
     </header>
   )
 }

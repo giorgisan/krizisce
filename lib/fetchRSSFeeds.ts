@@ -1,27 +1,26 @@
-// lib/fetchRSSFeeds.ts
 import Parser from 'rss-parser'
 import type { NewsItem } from '../types'
 import { feeds } from './sources'
 import { excludeAds } from './adFilter'
+import { determineCategory } from './categories'
 
 type FetchOpts = { forceFresh?: boolean }
 
-/** 
- * 1. BLOKADA NA PODLAGI URL-ja
+/** * 1. BLOKADA NA PODLAGI URL-ja
+ * Odstranjen Siol Posel, ostajajo samo očitni oglasni URL-ji.
  */
 const BLOCK_URLS: RegExp[] = [
-  /siol\.net\/novice\/posel-danes\//i,
   /\/promo\//i,       // URLji s /promo/ so ponavadi vedno oglasi
   /\/oglasi\//i,      
   /\/advertorial\//i,
+  /\/sponzorirano\//i,
 ]
 
-/** 
- * 2. BLOKADA NA PODLAGI VSEBINE (Naslov, Opis, HTML)
- * POPRAVEK: Odstranjen splošen "promo", da ne blokiramo besed kot "promocija".
+/** * 2. BLOKADA NA PODLAGI VSEBINE (Naslov, Opis, HTML)
+ * Odstranjene fraze "vam svetuje", "vam priporoča" in specifična imena podjetij.
  */
 const BLOCK_PATTERNS: string[] = [
-  // Eksplicitne oznake
+  // Eksplicitne oznake za oglase
   'oglasno sporočilo','oglasno sporocilo',
   'promocijsko sporočilo','promocijsko sporocilo',
   'oglasni prispevek','komercialno sporočilo',
@@ -30,21 +29,13 @@ const BLOCK_PATTERNS: string[] = [
   'pr članek','pr clanek',
   'advertorial',
   
-  // Specifične fraze medijev (varno)
-  'promo delo',      // Delo uporablja to
-  'promo slovenske', // Če bi slučajno uporabili
+  // Specifične fraze medijev za oglase (varno)
+  'promo delo',        
+  'promo slovenske', 
   'promo prispevek',
-  
-  // Te so na meji, ampak običajno v naslovih pomenijo oglas (advice columns)
-  'vam svetuje','vam priporoča', 
 ]
 
-const BLOCK_BRANDS: string[] = [
-  'daikin','viberate','inoquant','bks naložbe','bks nalozbe',
-  'medicofit', 
-  'studio moderna',
-  'top shop'
-]
+// BLOCK_BRANDS je v celoti odstranjen, da ne blokiramo novic o podjetjih.
 
 /** ====== GENERIČNI HTML CHECK ====== */
 const ENABLE_HTML_CHECK = true
@@ -71,8 +62,7 @@ function absolutize(src: string | undefined | null, baseHref: string): string | 
   }
 }
 
-/** 
- * Funkcija za reševanje manjkajočih slik (og:image).
+/** * Funkcija za reševanje manjkajočih slik (og:image).
  */
 async function scrapeOgImage(url: string): Promise<string | null> {
   try {
@@ -162,8 +152,7 @@ function toUnixMs(d?: string | null) {
   }
 }
 
-/** 
- * Enostaven filter: URL + naslov + snippet + content + KATEGORIJE 
+/** * Enostaven filter: URL + naslov + snippet + KATEGORIJE 
  */
 function isBlockedBasic(i: { 
   link?: string; 
@@ -173,16 +162,16 @@ function isBlockedBasic(i: {
   categories?: string[] 
 }) {
   const url = i.link || ''
-  const hay = `${i.title || ''}\n${i.contentSnippet || ''}\n${i.content || ''}`.toLowerCase()
+  // Preverjamo samo naslov in snippet, vsebine (content) raje ne, da ne blokiramo po pomoti
+  const hay = `${i.title || ''}\n${i.contentSnippet || ''}`.toLowerCase()
   
   // 1. URL check
   if (BLOCK_URLS.some(rx => rx.test(url))) return true
   
-  // 2. Vsebinski vzorci
+  // 2. Vsebinski vzorci (Oglasi)
   if (BLOCK_PATTERNS.some(k => hay.includes(k.toLowerCase()))) return true
   
-  // 3. Brand check
-  if (BLOCK_BRANDS.some(k => hay.includes(k.toLowerCase()))) return true
+  // 3. Brand check je odstranjen.
 
   // 4. RSS Kategorije (Zelo varno, ker to določi urednik)
   if (i.categories && i.categories.length > 0) {
@@ -259,6 +248,9 @@ export default async function fetchRSSFeeds(opts: FetchOpts = {}): Promise<NewsI
             ? (Array.isArray(item.categories) ? item.categories : [item.categories])
             : []
 
+          // Določanje kategorije
+          const categoryId = determineCategory({ link, categories })
+
           return {
             title: item.title ?? '',
             link,
@@ -270,6 +262,7 @@ export default async function fetchRSSFeeds(opts: FetchOpts = {}): Promise<NewsI
             image: finalImage,
             publishedAt,
             categories, 
+            category: categoryId,
           }
         })
 

@@ -1,4 +1,3 @@
-// components/ArticleCard.tsx
 'use client'
 
 import { NewsItem } from '@/types'
@@ -16,6 +15,7 @@ import { proxiedImage, buildSrcSet } from '@/lib/img'
 import { preloadPreview, canPrefetch, warmImage } from '@/lib/previewPrefetch'
 import { sourceColors } from '@/lib/sources'
 import { getSourceLogoPath } from '@/lib/sourceMeta'
+import { CATEGORIES, determineCategory } from '@/lib/categories'
 
 type PreviewProps = { url: string; onClose: () => void }
 const ArticlePreview = dynamic(() => import('./ArticlePreview'), { ssr: false }) as ComponentType<PreviewProps>
@@ -26,27 +26,45 @@ const IMAGE_WIDTHS = [320, 480, 640, 960, 1280]
 interface Props { news: NewsItem; priority?: boolean }
 
 export default function ArticleCard({ news, priority = false }: Props) {
-  const [minuteTick, setMinuteTick] = useState(0)
+  // --- ZAGOTOVLJENO OSVEŽEVANJE ČASA ---
+  const [now, setNow] = useState(Date.now())
+
   useEffect(() => {
-    const onMinute = () => setMinuteTick((m) => (m + 1) % 60)
-    window.addEventListener('ui:minute', onMinute as EventListener)
-    return () => window.removeEventListener('ui:minute', onMinute as EventListener)
+    const timeToNextMinute = 60000 - (Date.now() % 60000)
+    
+    const timeoutId = setTimeout(() => {
+      setNow(Date.now())
+      const intervalId = setInterval(() => {
+        setNow(Date.now())
+      }, 60000)
+      return () => clearInterval(intervalId)
+    }, timeToNextMinute)
+
+    return () => clearTimeout(timeoutId)
   }, [])
 
+  // --- LOGIKA ZA DATUM ---
   const formattedDate = useMemo(() => {
     const ms = news.publishedAt ?? (news.isoDate ? Date.parse(news.isoDate) : 0)
     if (!ms) return ''
-    const diff = Date.now() - ms
+    
+    const diff = now - ms
+    const oneDayMs = 24 * 60 * 60 * 1000
+
+    if (diff > oneDayMs) {
+       const d = new Date(ms)
+       return new Intl.DateTimeFormat('sl-SI', { day: 'numeric', month: 'short' }).format(d)
+    }
+
     const min = Math.floor(diff / 60_000)
     const hr  = Math.floor(min / 60)
-    if (diff < 60_000) return 'pred nekaj sekundami'
+    
+    if (diff < 60_000) return 'zdaj'
     if (min  < 60)      return `pred ${min} min`
     if (hr   < 24)      return `pred ${hr} h`
-    const d    = new Date(ms)
-    const date = new Intl.DateTimeFormat('sl-SI', { day: 'numeric', month: 'short' }).format(d)
-    const time = new Intl.DateTimeFormat('sl-SI', { hour: '2-digit', minute: '2-digit' }).format(d)
-    return `${date}, ${time}`
-  }, [news.publishedAt, news.isoDate, minuteTick])
+    
+    return ''
+  }, [news.publishedAt, news.isoDate, now])
 
   const sourceColor = useMemo(() => {
     return (sourceColors as Record<string, string>)[news.source] || '#fc9c6c'
@@ -55,6 +73,12 @@ export default function ArticleCard({ news, priority = false }: Props) {
   const logoPath = useMemo(() => {
     return getSourceLogoPath(news.source)
   }, [news.source])
+
+  // Kategorija za prikaz na sliki
+  const categoryDef = useMemo(() => {
+    const catId = news.category || determineCategory({ link: news.link, categories: [] })
+    return CATEGORIES.find(c => c.id === catId)
+  }, [news.category, news.link])
 
   const [isTouch, setIsTouch] = useState(false)
   useEffect(() => {
@@ -70,7 +94,7 @@ export default function ArticleCard({ news, priority = false }: Props) {
   const rawImg = news.image ?? null
   const proxyInitiallyOn = !!rawImg 
 
-  const [useProxy, setUseProxy]       = useState<boolean>(proxyInitiallyOn)
+  const [useProxy, setUseProxy]        = useState<boolean>(proxyInitiallyOn)
   const [useFallback, setUseFallback] = useState<boolean>(!rawImg)
   const [imgLoaded, setImgLoaded]     = useState<boolean>(false)
   const [imgKey, setImgKey]           = useState<number>(0)
@@ -229,9 +253,6 @@ export default function ArticleCard({ news, priority = false }: Props) {
             <div className="absolute inset-0 grid place-items-center pointer-events-none
                             bg-gradient-to-br from-gray-200 via-gray-300 to-gray-200
                             dark:from-gray-700 dark:via-gray-800 dark:to-gray-700 animate-pulse">
-              <span className="px-2 py-1 rounded text-[12px] font-medium bg-black/30 text-white backdrop-blur">
-                Nalagam sliko …
-              </span>
             </div>
           )}
 
@@ -241,7 +262,7 @@ export default function ArticleCard({ news, priority = false }: Props) {
                 <div className="absolute inset-0 flex items-center justify-center">
                   <div className="absolute inset-0 bg-gradient-to-br from-gray-200 via-gray-300 to-gray-200 dark:from-gray-700 dark:via-gray-800 dark:to-gray-700" />
                   <span className="relative z-10 text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Ni slike
+                    Križišče
                   </span>
                 </div>
               )
@@ -268,6 +289,13 @@ export default function ArticleCard({ news, priority = false }: Props) {
             />
           )}
 
+          {/* KATEGORIJA: Skrita na mobilnih (hidden), vidna na večjih (sm:block), zelo prosojna (bg/30) */}
+          {categoryDef && categoryDef.id !== 'ostalo' && (
+             <span className={`hidden sm:block absolute bottom-2 right-2 z-10 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-gray-900 dark:text-white bg-white/30 dark:bg-black/30 backdrop-blur-md rounded shadow-sm border border-white/20 dark:border-white/10 pointer-events-none`}>
+               {categoryDef.label}
+             </span>
+          )}
+
           <button
             onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowPreview(true) }}
             onMouseEnter={() => setEyeHover(true)}
@@ -286,19 +314,11 @@ export default function ArticleCard({ news, priority = false }: Props) {
               <circle cx="12" cy="12" r="3.5" stroke="currentColor" strokeWidth="2" fill="none" />
             </svg>
           </button>
-
-          {!isTouch && (
-            <span className="hidden md:block pointer-events-none absolute top-2 right-[calc(0.5rem+2rem+8px)]
-                             rounded-md px-2 py-1 text-xs font-medium bg-black/60 text-white backdrop-blur-sm drop-shadow-lg
-                             opacity-0 -translate-x-1 transition-opacity transition-transform duration-150 peer-hover:opacity-100 peer-hover:translate-x-0">
-              Predogled&nbsp;novice
-            </span>
-          )}
         </div>
 
-        {/* ========== BESEDILO ========== */}
+        {/* ========== BESEDILO (Brez kategorije spodaj) ========== */}
         <div className="p-3 flex flex-col flex-1">
-          <div className="mb-2 flex items-center justify-between">
+          <div className="mb-2 flex items-center justify-between flex-wrap gap-y-1">
             <div className="flex items-center gap-2 min-w-0">
               {logoPath && (
                 <div className="relative h-4 w-4 shrink-0 rounded-full overflow-hidden bg-gray-100 dark:bg-gray-700">
@@ -316,12 +336,14 @@ export default function ArticleCard({ news, priority = false }: Props) {
               </span>
             </div>
             
-            <span className="text-[11px] text-gray-500 dark:text-gray-400 shrink-0 ml-2">{formattedDate}</span>
+            {/* Dinamičen čas */}
+            <span className="text-[11px] text-gray-500 dark:text-gray-400 shrink-0 tabular-nums">
+               {formattedDate}
+            </span>
           </div>
           
           <h3 className="line-clamp-3 text-[15px] font-semibold leading-tight text-gray-900 dark:text-gray-100 mb-1">{news.title}</h3>
           
-          {/* POPRAVEK: text-gray-600 in dark:text-gray-400 za manjši kontrast */}
           <p className="line-clamp-3 text-[13px] text-gray-600 dark:text-gray-400 flex-1">{news.contentSnippet}</p>
         </div>
       </a>
