@@ -26,11 +26,13 @@ export const CATEGORIES: CategoryDef[] = [
     keywords: [
         '/slovenija/', '/lokalno/', '/obcine/', '/volitve/', 'vlada', 'poslanci', 
         '/novice/slovenija/', 'domovina', 'notranja-politika',
-        'ljubljana', 'maribor', 'celje', 'koper', 'kranj', 'novo-mesto', 'velenje', 'vrhnika', 'postojna',
-        'regije', 'slovenij', '/lokalne-novice/', '/stajerska/', '/dolenjska/', '/primorska/', '/gorenjska/',
+        'ljubljana', 'maribor', 'celje', 'koper', 'kranj', 'novo-mesto', 'velenje', 'vrhnika', 'postojna', 'kocevje', 'ptuj',
+        'regije', 'slovenij', '/lokalne-novice/', '/stajerska/', '/dolenjska/', '/primorska/', '/gorenjska/', '/prekmurje/', '/koroska/',
         '/mnenja/', '/pisma-bralcev/', '/sobotna-priloga/', '/kolumne/', '/bralci/',
         'javna-uprava', 'drzavni-zbor', 'zupan', 'obcina', 'studentski-dom', 'fakultet',
-        'prenova', 'gradnja', 'vodovod', 'vrtec', 'sola', 'cesta', 'zeleznica', 'drugi-tir'
+        'prenova', 'gradnja', 'vodovod', 'vrtec', 'sola', 'cesta', 'zeleznica', 'drugi-tir', 'prometna-infrastruktura',
+        // VREME (Dodano, ker je pogosto v ostalo)
+        'vreme', 'arso', 'vremenska', 'sneg', 'dezevje', 'poplave', 'neurje', 'toča', 'ciklon', 'temperatura'
     ]
   },
   {
@@ -40,7 +42,7 @@ export const CATEGORIES: CategoryDef[] = [
     keywords: [
         '/svet/', '/tujina/', '/evropa/', '/zda/', 'ukrajina', 'rusija', 'vojna', 'nato', 'trump', 
         '/novice/svet/', 'zunanja-politika', 'eu', 'bliznji-vzhod', 'gaza', 'izrael',
-        'evropska-unija', 'evropski-parlament', 'scholz', 'macron', 'biden', 'putin'
+        'evropska-unija', 'evropski-parlament', 'scholz', 'macron', 'biden', 'putin', 'zelenski'
     ]
   },
   {
@@ -50,7 +52,7 @@ export const CATEGORIES: CategoryDef[] = [
     keywords: [
         '/kronika/', '/crna-kronika/', 'policija', 'gasilci', 'nesreca', 'umor', 'sodisce', 
         'kriminal', 'tragicno', 'sojenje', 'napad', 'rop', 'ukradla', 'zapornik', 'zapor', 
-        'panika', 'pretep', 'droge', 'kokain', 'mamil', 'tihotap', 'aretacija'
+        'panika', 'pretep', 'droge', 'kokain', 'mamil', 'tihotap', 'aretacija', 'trcenje', 'smrt'
     ]
   },
   {
@@ -60,7 +62,7 @@ export const CATEGORIES: CategoryDef[] = [
     keywords: [
         '/sport/', '/sportal/', 'nogomet', 'kosarka', 'zimski', 'atletika', 'kolesarstvo', 'tenis', 
         'ekipa24', 'sport.n1info.si', 'odbojka', 'rokomet', 'nhl', 'nba', 'doncic', 'kopitar', 
-        'pogacar', 'roglic', 'messi', 'olimpij', 'liga', 'prvenstvo', 'trener'
+        'pogacar', 'roglic', 'messi', 'olimpij', 'liga', 'prvenstvo', 'trener', 'reprezentanca', 'tekma'
     ]
   },
   {
@@ -70,7 +72,8 @@ export const CATEGORIES: CategoryDef[] = [
     keywords: [
         '/gospodarstvo/', '/posel/', '/finance/', '/borza/', 'kripto', 'delnice', 'podjetnistvo', 
         'banke', 'druzbe', 'posel-danes', 'gospodarstvo', 'inflacija', 'bitcoin', 'evro', 
-        'zaposlitev', 'sluzba', 'odpustili', 'delavec', 'poklic', 'podjetje', 'direktor', 'stecaj'
+        'zaposlitev', 'sluzba', 'odpustili', 'delavec', 'poklic', 'podjetje', 'direktor', 'stecaj',
+        'energetika', 'elektrika', 'cene', 'podrazitev', 'mastercard', 'nlb', 'prihodki'
     ]
   },
   {
@@ -84,8 +87,9 @@ export const CATEGORIES: CategoryDef[] = [
         'vozila', 'promet', 'elektricna-vozila', 'testi', 
         'avtomobilizem', 'volkswagen', 'bmw', 'audi', 'tesla', 'dizel', 'bencin', 'hibrid',
         'suv', 'limuzina', 'karavan', 'renault', 'toyota', 'peugeot', 'skoda', 'mercedes', 'porsche', 'volvo', 'fiat',
+        'cupra', 'geely', 'byd', 'mazda', 'lexus', 'citroen', 'kia ', 'ford', 'opel',
         'formula-1', 'f1', 'verstappen', 'hamilton', 'rally', 'moto-gp', 'dirka', 
-        'motorji', 'zgorevanjem', 'avtomobilska-industrija'
+        'motorji', 'zgorevanjem', 'avtomobilska-industrija', 'vinjeta', 'dars'
     ]
   },
   {
@@ -96,9 +100,9 @@ export const CATEGORIES: CategoryDef[] = [
         '/znanost/', '/tehnologija/', '/tech/', '/digisvet/', '/znanost-in-tehnologija/', '/digitalna-odpornost/',
         'vesolje', 'telefoni', 'racunalnistvo', 'znanost', 'pametni', 
         'umetna-inteligenca', 
-        'apple', 'samsung', 'google', 'microsoft', 'nvidia', 'chatgpt', 'openai',
-        'inovacije', 'razvoj', 'digitalno', 'nasa', 'spacex', 'astronomija', 'mars', 'rover',
-        'aplikacija', 'internet', 'kibernet', 'odkritje', 'dnk', 'raziskav', 'znanstveniki'
+        'apple', 'samsung', 'google', 'microsoft', 'nvidia', 'chatgpt', 'openai', 'xiaomi', 'huawei',
+        'inovacije', 'razvoj', 'digitalno', 'nasa', 'spacex', 'astronomija', 'mars', 'rover', 'komet',
+        'aplikacija', 'internet', 'kibernet', 'odkritje', 'dnk', 'raziskav', 'znanstveniki', 'studija'
     ]
   },
   {
@@ -110,19 +114,20 @@ export const CATEGORIES: CategoryDef[] = [
         '/lifestyle/', '/kulinarika/', '/okusno/', '/astro/', 'suzy', 'lady', 'dom-in-vrt',
         'prosti-cas', 'nedeljski', 'izleti', 'zdravje', 'dobro-pocutje', '/ture-avanture/',
         '/bulvar/', '/tuji-traci/', '/domaci-traci/', '/ljudje/', '/stil/', '/zanimivosti/',
-        '/zabava-in-slog/', 'svet-zavoda', 'na-lepse', 'vrt', 'recepti', 'horoskop', 'resnicnostni-sov',
-        '/tv-oddaje/', 'kmetija', 'ljubezen-po-domace', 'sanjski-moski',
+        '/zabava-in-slog/', 'svet-zavoda', 'na-lepse', 'vrt', 'recepti', 'horoskop', 
+        '/tv-oddaje/', 'resnicnostni-sov', 'kmetija', 'ljubezen-po-domace', 'sanjski-moski', 'poroka-na-prvi-pogled', 'slovenija-ima-talent',
         '/znani/', '/osebna-rast/', '/nedeljske-novice/', '/lepota-bivanja/', '/napovedujemo/',
-        'senidah', 'koncert', 'stozice', 
-        'noseca', 'pricakuje-otroka', 'zvezdnik', 'partner', 
-        'custva', 'psihologija', 'sreca', 'odnosi',
+        'senidah', 'koncert', 'stozice', 'evrovizij', 'ema',
+        'noseca', 'pricakuje-otroka', 'zvezdnik', 'partner', 'poroka', 'locitev',
+        'custva', 'psihologija', 'sreca', 'odnosi', 'seks',
         '/dom/', '/dekor/', '/gospodinjstvo/', '/gradnja-obnova/', '/pod-streho/',
-        'recept', 'kosilo', 'sladica', 'kuhar', 'jedilnik', 'prehrana', 'dieta',
+        'recept', 'kosilo', 'sladica', 'kuhar', 'jedilnik', 'prehrana', 'dieta', 'hujšanje',
         'potovanje', 'izlet', 'popotnik', 'dozivetje', 'turist',
         'gradnja', 'hisna', 'vrtnarjenje', 'ciscenje', 'madezi', 'triki',
-        'rak', 'bolezen', 'ambulanta', 'zdravnik', 'medicina', 'bolniska', 'zdravstvo',
-        'bozic', 'prazniki', 'darila', 'jelka', 'okraski',
-        'vplivnez', 'moda', 'lepota'
+        // ZDRAVJE (Razširjeno)
+        'rak ', 'bolezen', 'ambulanta', 'zdravnik', 'medicina', 'bolniska', 'zdravstvo', 'srce', 'jetra', 'mineral', 'vitamin',
+        'bozic', 'prazniki', 'darila', 'jelka', 'okraski', 'advent',
+        'vplivnez', 'moda', 'lepota', 'manekenka', 'kraljeva'
     ]
   },
   {
@@ -132,9 +137,10 @@ export const CATEGORIES: CategoryDef[] = [
     keywords: [
         '/kultura/', '/kultur/', 'film', 'glasba', 'knjige', 'razstave', 'gledalisce', 
         'umetnost', 'festival', 'literatura', 'oder', 
-        'pisatelj', 'pesnik', 'slikar', 'igralec', 'roman', 'premiera', 'kino',
+        'pisatelj', 'pesnik', 'slikar', 'igralec', 'premiera', 'kino',
         'bralne-urice', 'portret', 'intervju', 'dokumentarni-film', 'reziser',
-        'muzej', 'dediscina', 'zgodovina', 'orkester', 'koncert', 'opera', 'balet'
+        'muzej', 'dediscina', 'zgodovina', 'orkester', 'koncert', 'opera', 'balet',
+        'knjizni-sejem', 'liffe', 'animateka'
     ]
   }
 ]
@@ -143,13 +149,13 @@ export const CATEGORIES: CategoryDef[] = [
 const PRIORITY_CHECK_ORDER: CategoryId[] = [
   'kronika',      // 1.
   'moto',         // 2.
-  'magazin',      // 3.
+  'magazin',      // 3. (Visoka, da pobere zdravje, astro, trače)
   'sport',        // 4.
   'tech',         // 5.
   'gospodarstvo', // 6.
   'kultura',      // 7.
   'svet',         // 8.
-  'slovenija'     // 9.
+  'slovenija'     // 9. (Catch-all za lokalne novice)
 ]
 
 const unaccent = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
@@ -189,6 +195,7 @@ export function determineCategory(item: {
   const combinedText = unaccent((item.title || '') + ' ' + (item.contentSnippet || ''))
   for (const id of PRIORITY_CHECK_ORDER) {
     const cat = CATEGORIES.find(c => c.id === id)
+    // Iščemo samo ključne besede, ki NISO url poti (nimajo /)
     if (cat && cat.keywords.some(k => !k.startsWith('/') && k.length > 3 && combinedText.includes(unaccent(k)))) {
       return cat.id
     }
