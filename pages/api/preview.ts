@@ -13,11 +13,6 @@ type PreviewResponse =
       url: string
     }
 
-/**
- * VARNOST: Whitelist dovoljenih domen.
- * Strežnik bo zavrnil vse zahtevke, ki niso na tem seznamu.
- * To preprečuje SSRF (Server-Side Request Forgery) napade.
- */
 const ALLOWED_DOMAINS = [
   'rtvslo.si', 'www.rtvslo.si',
   '24ur.com', 'www.24ur.com',
@@ -33,7 +28,6 @@ const ALLOWED_DOMAINS = [
   'metropolitan.si', 'www.metropolitan.si',
   'vecer.com', 'www.vecer.com',
   'primorske.si', 'www.primorske.si',
-  // Lokalno testiranje
   'localhost'
 ]
 
@@ -56,10 +50,9 @@ export default async function handler(
     return
   }
 
-  // --- VARNOSTNI PREGLED (Fix za SSRF) ---
+  // --- VARNOSTNI PREGLED ---
   try {
     const parsedUrl = new URL(url)
-    // Preverimo, če je hostname na seznamu dovoljenih
     if (!ALLOWED_DOMAINS.includes(parsedUrl.hostname)) {
       console.warn(`[Security] Blocked unauthorized preview attempt: ${parsedUrl.hostname}`)
       res.status(403).json({ error: 'Vir ni dovoljen (Unauthorized source)' })
@@ -69,17 +62,13 @@ export default async function handler(
     res.status(400).json({ error: 'Invalid URL format' })
     return
   }
-  // ----------------------------------------
 
-  // Edge cache: 5 min sveže + 10 min stale
   res.setHeader('Cache-Control', 's-maxage=300, stale-while-revalidate=600')
 
   try {
-    // 8s timeout je dovolj za preview
     const ac = new AbortController()
     const to = setTimeout(() => ac.abort(), 8000)
 
-    // Lažni User-Agent in headerji, da izgledamo kot pravi Chrome brskalnik
     const FAKE_USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
 
     const response = await fetch(url, {
@@ -106,7 +95,14 @@ export default async function handler(
     }
 
     const html = await response.text()
-    const dom = new JSDOM(html, { url }) // pomembno za absolutne poti
+
+    // --- POPRAVEK ZA JSDOM CSS CRASH ---
+    // Odstranimo vse <style> značke preden damo v JSDOM.
+    // To prepreči "Error: Could not parse CSS stylesheet" pri modernih CSS sintaksah (npr. &::before nesting).
+    const cleanHtmlForJSDom = html.replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "");
+    // -----------------------------------
+
+    const dom = new JSDOM(cleanHtmlForJSDom, { url })
     const doc = dom.window.document
 
     // Readability
@@ -122,13 +118,12 @@ export default async function handler(
     const title = (article?.title || ogTitle || doc.title || 'Predogled').trim()
     const site = (ogSite || new URL(url).hostname.replace(/^www\./, '') || 'Vir').trim()
 
-    // Vsebina: Readability → <article> → <body> fallback
     const rawContent =
       article?.content ||
       doc.querySelector('article')?.innerHTML ||
       doc.body.innerHTML
 
-    // SANITIZE (SSR) — JSDOM window pretvorimo v any, da rešimo TS WindowLike
+    // SANITIZE
     const DOMPurify = createDOMPurify(dom.window as unknown as any)
 
     const clean = DOMPurify.sanitize(rawContent, {
@@ -139,7 +134,6 @@ export default async function handler(
       ALLOWED_URI_REGEXP: /^(?:(?:https?|mailto|tel|data:image\/))/i,
     })
 
-    // Absolutizacija <img> in <a> + osnovna optimizacija
     const wrap = new JSDOM(`<div id="__preview_root">${clean}</div>`, { url })
     const wdoc = wrap.window.document
 
@@ -164,7 +158,6 @@ export default async function handler(
 
     const cleanedHTML = wdoc.getElementById('__preview_root')?.innerHTML || ''
 
-    // Minimalen, berljiv templating za preview (lahko kasneje “teme po domenah”)
     const finalHTML = `
       <article class="preview-article">
         ${ogImage ? `<img class="preview-cover" src="${ogImage}" alt="" />` : ''}
@@ -195,6 +188,7 @@ export default async function handler(
       url,
     })
   } catch (error) {
+    console.error('Preview error:', error)
     res.status(500).json({ error: 'Failed to fetch preview' })
   }
 }
