@@ -19,7 +19,7 @@ export default function Pogoji() {
                 
                 <h2 className="text-xl font-semibold mt-8 mb-4 text-gray-900 dark:text-white">1. O storitvi</h2>
                 <p className="mb-4">
-                  Spletno mesto <strong>Križišče</strong> deluje kot avtomatiziran agregator novic (iskalnik novic), ki na enem mestu zbirke javno dostopne vire različnih slovenskih medijskih portalov. Storitev je za končne uporabnike brezplačna.
+                  Spletno mesto <strong>Križišče</strong> deluje kot avtomatiziran agregator novic (iskalnik novic), ki na enem mestu zbira javno dostopne vire različnih slovenskih medijskih portalov. Storitev je za končne uporabnike brezplačna.
                 </p>
 
                 <h2 className="text-xl font-semibold mt-8 mb-4 text-gray-900 dark:text-white">2. Avtorske pravice in vsebina</h2>
