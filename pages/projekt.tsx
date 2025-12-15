@@ -29,7 +29,7 @@ export default function Projekt() {
                 <p className="mb-2">Pomembno je poudariti:</p>
                 <ul className="list-disc pl-5 space-y-2 mb-4">
                   <li><strong>Ne ustvarjamo novic:</strong> Smo le posrednik. Vsa mnenja in dejstva v člankih pripadajo njihovim avtorjem.</li>
-                  <li><strong>Spoštujemo vire:</strong> Na naših strežnikih ne gostujemo člankov. Vedno vas preusmerimo neposredno na originalni vir, s čimer podpiramo obiskanost slovenskih medijev.</li>
+                  <li><strong>Spoštujemo vire:</strong> na naših strežnikih ne gostujemo člankov. Vedno vas preusmerimo neposredno na originalni vir, s čimer podpiramo obiskanost slovenskih medijev.</li>
                 </ul>
 
                 <h2 className="text-xl font-semibold mt-8 mb-4 text-gray-900 dark:text-white">Stopite v stik</h2>
