@@ -31,9 +31,12 @@ export const CATEGORIES: CategoryDef[] = [
         'ljubljana', 'maribor', 'celje', 'koper', 'kranj', 'novo-mesto', 'velenje', 'vrhnika', 'postojna', 'kocevje', 'ptuj',
         'regije', 'slovenij', '/lokalne-novice/', '/stajerska/', '/dolenjska/', '/primorska/', '/gorenjska/', '/prekmurje/', '/koroska/',
         '/mnenja/', '/pisma-bralcev/', '/sobotna-priloga/', '/kolumne/', '/bralci/',
+        '/karikatura/', // Politične karikature
         'javna-uprava', 'drzavni-zbor', 'zupan', 'obcina', 'studentski-dom', 'fakultet',
         'prenova', 'gradnja', 'vodovod', 'vrtec', 'sola', 'cesta', 'zeleznica', 'drugi-tir', 'prometna-infrastruktura',
         'humanitarn', 'nvo', 'protest', 'stavka', 'sindikat',
+        // PROMET (Vlak, potniki)
+        'vlak', 'potniki', 'zeleznis', 'tir', 'sz', 'zeleznice', 'avtobus', 'lpp',
         // VREME
         'vreme', 'arso', 'vremenska', 'sneg', 'dezevje', 'poplave', 'neurje', 'toča', 'ciklon', 'temperatura', 'prognostik'
     ]
@@ -79,10 +82,13 @@ export const CATEGORIES: CategoryDef[] = [
     color: 'bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-300',
     keywords: [
         '/gospodarstvo/', '/posel/', '/finance/', '/borza/', 'kripto', 'delnice', 'podjetnistvo', 
+        '/posel-danes/',
         'banke', 'druzbe', 'posel-danes', 'gospodarstvo', 'inflacija', 'bitcoin', 'evro', 
         'zaposlitev', 'sluzba', 'odpustili', 'delavec', 'poklic', 'podjetje', 'direktor', 'stecaj',
         'energetika', 'elektrika', 'podrazitev', 'mastercard', 'nlb', 'prihodki', 'dobicek', 'izguba',
-        'bdp', 'obrestne mere', 'ecb', 'lagarde', 'nafta', 'plin', 'nepremicnine', 'stanovanja'
+        'bdp', 'obrestne mere', 'ecb', 'lagarde', 'nafta', 'plin', 'nepremicnine', 'stanovanja',
+        // POKOJNINE IN FINANCE
+        'pokojnina', 'upokojenec', 'delovna doba', 'zpis', 'pravni nasvet', 'zavarovanje', 'prispevki'
     ]
   },
   {
@@ -112,8 +118,6 @@ export const CATEGORIES: CategoryDef[] = [
         'apple', 'samsung', 'google', 'microsoft', 'nvidia', 'chatgpt', 'openai', 'xiaomi', 'huawei',
         'inovacije', 'razvoj', 'digitalno', 'nasa', 'spacex', 'astronomija', 'mars', 'rover', 'komet',
         'aplikacija', 'internet', 'kibernet', 'android', 'ios', 'windows', 'linux', 'robotika'
-        // ODSTRANJENO: 'studija', 'raziskav', 'odkritje', 'znanstveniki' -> To so preveč splošne besede, 
-        // ki mešajo zdravstvene študije s tehnologijo.
     ]
   },
   {
@@ -124,19 +128,23 @@ export const CATEGORIES: CategoryDef[] = [
         '/magazin/', '/popin/', '/trendi/', '/scena/', '/zvezde/', '/zabava/', 
         '/lifestyle/', '/kulinarika/', '/okusno/', '/astro/', 'suzy', 'lady', 'dom-in-vrt',
         '/nedeljski/', '/zdravje/', '/lepota/', '/odnosi/', '/bivanje/', '/zanimivosti/', '/duhovnost/',
-        // ZDRAVJE (Ključno: URL slug-i zgoraj, specifične besede spodaj)
+        '/nedelo/', '/pop-30/',
+        // ZDRAVJE
         'zdravje', 'bolezen', 'ambulanta', 'zdravnik', 'medicina', 'bolniska', 'zdravstvo', 'srce', 'jetra', 'mineral', 'vitamin',
         'bakterij', 'prebav', 'kosti', 'zivilo', 'repa', 'superzelenjava', 'rak ', 'simptomi', 'bolecine', 'imunski sistem',
         'holesterol', 'krvni tlak', 'sladkorna', 'dieta', 'hujsanje', 'vadba', 'recept', 'kalorije',
+        'savna', 'wellness', 'spa', 'masaza',
         // LIFESTYLE
         'prosti-cas', 'nedeljski', 'izleti', 'dobro-pocutje', '/ture-avanture/',
         '/bulvar/', '/tuji-traci/', '/domaci-traci/', '/ljudje/', '/stil/', 
         '/zabava-in-slog/', 'svet-zavoda', 'na-lepse', 'vrt', 'recepti', 'horoskop', 
+        'zodiak', 'znamenje',
         '/tv-oddaje/', 'resnicnostni-sov', 'kmetija', 'ljubezen-po-domace', 'sanjski-moski', 'poroka-na-prvi-pogled', 'slovenija-ima-talent',
         '/znani/', '/osebna-rast/', '/nedeljske-novice/', '/lepota-bivanja/', '/napovedujemo/',
         'senidah', 'koncert', 'stozice', 'evrovizij', 'ema',
         'noseca', 'pricakuje-otroka', 'zvezdnik', 'partner', 'poroka', 'locitev',
         'custva', 'psihologija', 'sreca', 'odnosi', 'seks', 'ljubezen',
+        'nostalgija', 'spomini', 'obletnica',
         '/dom/', '/dekor/', '/gospodinjstvo/', '/gradnja-obnova/', '/pod-streho/',
         'kosilo', 'sladica', 'kuhar', 'jedilnik', 'prehrana', 
         'potovanje', 'izlet', 'popotnik', 'dozivetje', 'turist',
@@ -165,17 +173,16 @@ export const CATEGORIES: CategoryDef[] = [
 ]
 
 // 2. LOGIKA ZAZNAVANJA (Prioriteta)
-// Pomembno: Magazin mora biti pred Tech, da "ujame" zdravstvene študije.
 const PRIORITY_CHECK_ORDER: CategoryId[] = [
   'kronika',      // 1. Zelo specifično
   'moto',         // 2. Zelo specifično
   'sport',        // 3. Zelo specifično
   'kultura',      // 4.
-  'magazin',      // 5. Zajame lifestyle, zdravje, trace
+  'magazin',      // 5. Zajame lifestyle, zdravje, trace, horoskop
   'tech',         // 6. Zajame kar ostane od "znanosti", telefonov itd.
   'gospodarstvo', // 7.
   'svet',         // 8.
-  'slovenija'     // 9. Najbolj splošno
+  'slovenija'     // 9. Najbolj splošno (policijske karikature, vlaki ipd.)
 ]
 
 const unaccent = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
@@ -190,7 +197,6 @@ export function determineCategory(item: {
   const url = item.link.toLowerCase()
   
   // 1. URL check (Najbolj zanesljivo)
-  // Tukaj bo zdaj ujel '/zdravje/', ker smo ga dodali v keywords z / spredaj
   for (const id of PRIORITY_CHECK_ORDER) {
     const cat = CATEGORIES.find(c => c.id === id)
     if (cat && cat.keywords.some(k => k.startsWith('/') && url.includes(k))) {
