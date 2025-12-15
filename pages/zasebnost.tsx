@@ -10,37 +10,39 @@ export default function Zasebnost() {
 
       <main className="flex-grow w-full max-w-[1800px] mx-auto px-4 md:px-8 lg:px-16 py-12 text-gray-900 dark:text-white">
         
-        <div className="max-w-3xl mx-auto">
-            <h1 className="text-3xl md:text-4xl font-bold mb-8">Politika zasebnosti</h1>
+        <div className="max-w-2xl mx-auto">
+            <h1 className="text-3xl md:text-4xl font-bold mb-8">Zasebnost na kratko</h1>
 
-            <div className="text-lg leading-relaxed text-gray-600 dark:text-gray-300">
+            <div className="text-lg leading-relaxed text-gray-600 dark:text-gray-300 space-y-6">
                 
-                <h2 className="text-xl font-semibold mt-8 mb-4 text-gray-900 dark:text-white">1. Katere podatke zbiramo?</h2>
-                <p className="mb-4">
-                  Portal <strong>Križišče</strong> ne zahteva registracije in ne zbira osebnih podatkov, kot so imena, e-poštni naslovi ali telefonske številke. Za namen izboljšave uporabniške izkušnje in statistiko pa beležimo naslednje anonimizirane podatke:
-                </p>
-                <ul className="list-disc pl-5 space-y-2 mb-4">
-                  <li><strong>Analitika klikov:</strong> Ko kliknete na novico, sistem zabeleži povezavo in tip vaše naprave (User-Agent). Te podatke uporabljamo izključno za razvrščanje najbolj priljubljenih novic ("Vroče").</li>
-                  <li><strong>Statistika obiska:</strong> Uporabljamo orodja Google Analytics 4 in Vercel Insights za merjenje obiskanosti in hitrosti strani. IP naslovi so v Google Analytics anonimizirani.</li>
-                </ul>
-
-                <h2 className="text-xl font-semibold mt-8 mb-4 text-gray-900 dark:text-white">2. Piškotki in lokalna shramba</h2>
-                <p className="mb-4">
-                  Uporabljamo minimalen nabor piškotkov in lokalne shrambe (LocalStorage):
-                </p>
-                <ul className="list-disc pl-5 space-y-2 mb-4">
-                  <li><strong>Nastavitve teme:</strong> V vašem brskalniku shranimo izbiro videza (svetlo/temno), da se ohrani ob naslednjem obisku.</li>
-                  <li><strong>Google Analytics:</strong> Google lahko na vašo napravo shrani piškotke za razlikovanje unikatnih obiskovalcev (npr. `_ga`).</li>
-                </ul>
-
-                <h2 className="text-xl font-semibold mt-8 mb-4 text-gray-900 dark:text-white">3. Povezave do tretjih oseb</h2>
-                <p className="mb-4">
-                  Križišče je agregator. Ko kliknete na naslov novice, boste preusmerjeni na spletno mesto izvornega medija (npr. RTV SLO, 24ur, Delo ...). Na teh spletnih mestih veljajo njihova lastna pravila zasebnosti, na katera mi nimamo vpliva.
-                </p>
-
-                <h2 className="text-xl font-semibold mt-8 mb-4 text-gray-900 dark:text-white">4. Kontakt</h2>
                 <p>
-                  Za vsa vprašanja glede delovanja strani ali zasebnosti nas lahko kontaktirate na naš e-poštni naslov, naveden v nogi spletne strani.
+                  Pri portalu <strong>Križišče</strong> verjamemo v preprostost. Ne zahtevamo registracije in od vas ne zbiramo nobenih osebnih podatkov (imen, emailov ali telefonskih številk).
+                </p>
+
+                <div className="bg-gray-50 dark:bg-gray-800 p-6 rounded-2xl border border-gray-100 dark:border-gray-700">
+                  <h2 className="text-lg font-semibold mb-3 text-gray-900 dark:text-white">Kaj beležimo?</h2>
+                  <ul className="space-y-2">
+                    <li className="flex gap-3">
+                      <span className="text-brand font-bold">✓</span>
+                      <span><strong>Statistika:</strong> Uporabljamo Google Analytics za merjenje obiska, da vemo, koliko ljudi nas bere. Podatki so anonimizirani.</span>
+                    </li>
+                    <li className="flex gap-3">
+                      <span className="text-brand font-bold">✓</span>
+                      <span><strong>Popularnost:</strong> Štejemo klike na novice, da lahko sestavimo seznam "Vroče".</span>
+                    </li>
+                    <li className="flex gap-3">
+                      <span className="text-brand font-bold">✓</span>
+                      <span><strong>Nastavitve:</strong> Zapomnimo si vašo izbiro teme (svetlo/temno), da je ni treba vsakič nastavljati.</span>
+                    </li>
+                  </ul>
+                </div>
+
+                <p>
+                  Ko kliknete na povezavo do novice, vas preusmerimo na izvorni medij (npr. RTV, 24ur, Delo). Tam veljajo njihova pravila zasebnosti.
+                </p>
+
+                <p>
+                  Za vsa vprašanja smo vam na voljo na našem e-naslovu.
                 </p>
             </div>
 
