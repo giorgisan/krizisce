@@ -41,9 +41,7 @@ export default function Zasebnost() {
                   Ko kliknete na povezavo do novice, vas preusmerimo na izvorni medij (npr. RTV, 24ur, Delo). Tam veljajo njihova pravila zasebnosti.
                 </p>
 
-                <p>
-                  Za vsa vprašanja smo vam na voljo na našem e-naslovu.
-                </p>
+              
             </div>
 
             <div className="mt-12 pt-6 border-t border-gray-200 dark:border-gray-800">
