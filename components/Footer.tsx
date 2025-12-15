@@ -1,4 +1,5 @@
 // components/Footer.tsx
+
 'use client'
 
 import Link from 'next/link'
@@ -76,17 +77,17 @@ export default function Footer() {
   }, [open])
 
   return (
-    // POPRAVEK: Zmanjšan mt-12 -> mt-8 za manjši razmak od vsebine
     <footer className="mt-8 w-full relative">
       <div className="w-full h-px bg-gradient-to-r from-transparent via-brand/30 dark:via-brand/30 to-transparent opacity-80"></div>
 
-      {/* POPRAVEK: Zmanjšan padding: pt-12 pb-12 -> pt-8 pb-8 */}
       <div className="bg-gray-50/80 dark:bg-[#0b101b] pt-8 pb-8 transition-colors">
         <div className="mx-auto max-w-6xl px-4 md:px-8 lg:px-16 text-gray-800 dark:text-gray-400">
           <div className="grid gap-6 sm:grid-cols-3 items-start">
+            
+            {/* Levi stolpec: Info */}
             <div>
-              <div className="flex items-center mb-2"> {/* mb-4 -> mb-2 */}
-                <Image src="/logo.png" alt="Križišče" width={32} height={32} className="w-6 h-6 rounded-md mr-2" /> {/* Manjši logo */}
+              <div className="flex items-center mb-2">
+                <Image src="/logo.png" alt="Križišče" width={32} height={32} className="w-6 h-6 rounded-md mr-2" />
                 <h4 className="text-base font-semibold text-gray-900 dark:text-gray-200">Križišče</h4>
               </div>
               <p className="text-xs sm:text-sm leading-relaxed text-gray-600 dark:text-gray-500">
@@ -95,17 +96,19 @@ export default function Footer() {
               </p>
             </div>
             
-            {/* Sredina */}
+            {/* Srednji stolpec: Povezave */}
             <div>
-              <h4 className="text-sm font-semibold text-gray-900 dark:text-gray-200 mb-2">Povezave</h4> {/* text-base -> text-sm, mb-4 -> mb-2 */}
-              <ul className="space-y-1 text-xs sm:text-sm text-gray-600 dark:text-gray-500"> {/* space-y-2 -> space-y-1 */}
+              <h4 className="text-sm font-semibold text-gray-900 dark:text-gray-200 mb-2">Povezave</h4>
+              <ul className="space-y-1 text-xs sm:text-sm text-gray-600 dark:text-gray-500">
                 <li><Link href="/arhiv" className="hover:text-brand dark:hover:text-brand transition">Arhiv</Link></li>
                 <li><Link href="/projekt" className="hover:text-brand dark:hover:text-brand transition">O projektu</Link></li>
                 <li><Link href="/pogoji" className="hover:text-brand dark:hover:text-brand transition">Pogoji uporabe</Link></li>
+                {/* DODANO: Povezava na zasebnost */}
+                <li><Link href="/zasebnost" className="hover:text-brand dark:hover:text-brand transition">Politika zasebnosti</Link></li>
               </ul>
             </div>
             
-            {/* Desno */}
+            {/* Desni stolpec: Kontakt */}
             <div>
               <h4 className="text-sm font-semibold text-gray-900 dark:text-gray-200 mb-2">Kontakt</h4>
               <a href="mailto:gjkcme@gmail.com" className="text-xs sm:text-sm text-gray-600 dark:text-gray-500 hover:text-brand dark:hover:text-brand transition">
@@ -114,14 +117,13 @@ export default function Footer() {
             </div>
           </div>
 
-          {/* Viri - Zmanjšan razmak zgoraj (mt-6 namesto mt-12) */}
+          {/* Gumb za Vire */}
           <div className="mt-6 flex justify-center">
             <div className="relative">
               <button
                 ref={btnRef}
                 type="button"
                 onClick={() => setOpen(v => !v)}
-                // Manjši gumb: px-4 py-1.5
                 className="inline-flex items-center gap-2 rounded-full px-4 py-1.5 ring-1 ring-black/5 dark:ring-white/5
                            text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-200
                            bg-white hover:bg-gray-50 dark:bg-[#151a25] dark:hover:bg-[#1c2230]
@@ -160,9 +162,9 @@ export default function Footer() {
             </div>
           </div>
 
-          {/* Copyright - Zmanjšan razmak (mt-6) in manjša pisava (text-xs) */}
+          {/* Copyright vrstica */}
           <div className="border-t border-gray-200 dark:border-white/5 mt-6 pt-4 text-center text-xs text-gray-500 dark:text-gray-600 pb-[calc(env(safe-area-inset-bottom,0px))]">
-            <p className="italic mb-1 opacity-80">“Informacija ni znanje. Edino razumevanje šteje.” — Albert Einstein</p>
+            <p className="italic mb-1 opacity-80 font-serif">“Informacija ni znanje. Edino razumevanje šteje.” — Albert Einstein</p>
             <p className="opacity-80">© {year} Križišče – Vse pravice pridržane.</p>
           </div>
         </div>
