@@ -15,21 +15,26 @@ export default function Projekt() {
         <div className="max-w-3xl mx-auto">
             <h1 className="text-3xl md:text-4xl font-bold mb-8">O projektu Križišče</h1>
 
-            <div className="space-y-6 text-lg leading-relaxed text-gray-600 dark:text-gray-300">
-                <p>
-                <strong>Križišče</strong> je neodvisen agregator najnovejših novic slovenskih medijev.
-                Spletna stran uporablja vire različnih portalov in jih združuje na enem mestu. Cilj projekta je izboljšati
-                pregled nad domačo medijsko krajino in omogočiti hiter dostop do najpomembnejših informacij na enem mestu.
+            <div className="text-lg leading-relaxed text-gray-600 dark:text-gray-300">
+                
+                <h2 className="text-xl font-semibold mt-8 mb-4 text-gray-900 dark:text-white">Zakaj Križišče?</h2>
+                <p className="mb-4">
+                  V poplavi informacij je včasih težko ostati na tekočem. <strong>Križišče</strong> je nastalo z enim preprostim ciljem: izboljšati pregled nad slovensko medijsko krajino in bralcem prihraniti čas. Namesto pregledovanja desetih različnih portalov, lahko najpomembnejše naslove preletite na enem mestu.
                 </p>
 
-                <p>
-                Novice se ne shranjujejo, temveč zgolj povzemajo in povezujejo na
-                originalne vire. Vse vsebine pripadajo posameznim medijem.
+                <h2 className="text-xl font-semibold mt-8 mb-4 text-gray-900 dark:text-white">Kako deluje?</h2>
+                <p className="mb-4">
+                  Križišče je neodvisen in nevtralen agregator. Naš sistem samodejno spremlja javne vire največjih slovenskih portalov in jih v realnem času razvršča v pregleden časovni trak.
                 </p>
+                <p className="mb-2">Pomembno je poudariti:</p>
+                <ul className="list-disc pl-5 space-y-2 mb-4">
+                  <li><strong>Ne ustvarjamo novic:</strong> Smo le posrednik. Vsa mnenja in dejstva v člankih pripadajo njihovim avtorjem.</li>
+                  <li><strong>Spoštujemo vire:</strong> Na naših strežnikih ne gostujemo člankov. Vedno vas preusmerimo neposredno na originalni vir, s čimer podpiramo obiskanost slovenskih medijev.</li>
+                </ul>
 
+                <h2 className="text-xl font-semibold mt-8 mb-4 text-gray-900 dark:text-white">Stopite v stik</h2>
                 <p>
-                Hvala, ker uporabljate Križišče. Veseli bomo vašega mnenja in
-                predlogov.
+                  Projekt nenehno razvijamo. Če imate predlog za izboljšavo ali ste opazili napako, bomo veseli vašega sporočila.
                 </p>
             </div>
 
