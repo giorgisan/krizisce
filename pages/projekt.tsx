@@ -19,7 +19,7 @@ export default function Projekt() {
                 
                 <h2 className="text-xl font-semibold mt-8 mb-4 text-gray-900 dark:text-white">Zakaj Križišče?</h2>
                 <p className="mb-4">
-                  V poplavi informacij je včasih težko ostati na tekočem. <strong>Križišče</strong> je nastalo z enim preprostim ciljem: izboljšati pregled nad slovensko medijsko krajino in bralcem prihraniti čas. Namesto pregledovanja desetih različnih portalov, lahko najpomembnejše naslove preletite na enem mestu.
+                  V poplavi informacij je včasih težko ostati na tekočem. <strong>Križišče</strong> je nastalo z enim preprostim ciljem: izboljšati pregled nad slovensko medijsko krajino in bralcem prihraniti čas. Namesto pregledovanja desetih različnih portalov lahko najpomembnejše naslove preletite na enem mestu.
                 </p>
 
                 <h2 className="text-xl font-semibold mt-8 mb-4 text-gray-900 dark:text-white">Kako deluje?</h2>
