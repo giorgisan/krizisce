@@ -34,7 +34,7 @@ export default function Zasebnost() {
                     <li className="flex gap-3 items-start">
                       <div className="min-w-[24px] h-[24px] flex items-center justify-center rounded-full bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 font-bold text-sm">✓</div>
                       <div>
-                        <strong>Prijazna statistika:</strong> uporabljamo orodje <em>Umami Analytics</em>, ki je zasnovano za zasebnost. Beležimo le splošne številke (npr. "danes smo imeli 15.000 bralcev"), ne pa kdo ti bralci so.
+                        <strong>Prijazna statistika:</strong> uporabljamo orodje <em>Umami Analytics</em>, ki je zasnovano za zasebnost. Beležimo le splošne številke (npr. "danes smo imeli 15.000 bralcev"), ne pa, kdo, ti bralci so.
                       </div>
                     </li>
                     <li className="flex gap-3 items-start">
@@ -47,7 +47,7 @@ export default function Zasebnost() {
                 </div>
 
                 <div className="mt-8 p-4 border-l-4 border-brand/50 bg-brand/5 text-sm">
-                  <strong>Dobro je vedeti:</strong> Križišče je agregator. Ko kliknete na naslov novice, vas preusmerimo na spletno stran izvornega medija (npr. RTV, 24ur, Delo). Na njihovih straneh veljajo njihova pravila zasebnosti.
+                  <strong>Dobro je vedeti:</strong> Križišče je agregator. Ko kliknete na naslov novice, vas preusmerimo na spletno stran izvornega medija (npr. RTV, 24ur, Delo ...). Na njihovih straneh veljajo njihova pravila zasebnosti.
                 </div>
             </div>
 
