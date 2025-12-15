@@ -4,7 +4,6 @@ import React, {
   useEffect,
   useMemo,
   useState,
-  useDeferredValue,
   startTransition,
   useRef,
 } from 'react'
@@ -19,7 +18,6 @@ import SeoHead from '@/components/SeoHead'
 import BackToTop from '@/components/BackToTop'
 import SourceFilter from '@/components/SourceFilter' 
 import NewsTabs from '@/components/NewsTabs'
-// DODANO: CATEGORIES (za lep izpis naslova kategorije)
 import { CategoryId, determineCategory, CATEGORIES } from '@/lib/categories'
 
 /* ================= Helpers & constants ================= */
@@ -82,23 +80,12 @@ async function loadNews(
   return null
 }
 
-const LS_FIRST_SEEN = 'krizisce_first_seen_v1'
-type FirstSeenMap = Record<string, number>
-
-function loadFirstSeen(): FirstSeenMap {
-  if (typeof window === 'undefined') return {}
-  try { return JSON.parse(window.localStorage.getItem(LS_FIRST_SEEN) || '{}') } catch { return {} }
-}
-
-function saveFirstSeen(map: FirstSeenMap) {
-  try { window.localStorage.setItem(LS_FIRST_SEEN, JSON.stringify(map)) } catch {}
-}
-
 /* ================= Page Component ================= */
 
 type Props = { initialNews: NewsItem[] }
 
 export default function Home({ initialNews }: Props) {
+  // Stanje novic - zaupamo vrstnemu redu iz API-ja (Server-Side Sorted)
   const [itemsLatest, setItemsLatest] = useState<NewsItem[]>(initialNews)
   const [itemsTrending, setItemsTrending] = useState<NewsItem[]>([])
     
@@ -119,7 +106,6 @@ export default function Home({ initialNews }: Props) {
   const [cursor, setCursor] = useState<number | null>(null)
   const [isLoadingMore, setIsLoadingMore] = useState(false)
   const [isRefreshing, setIsRefreshing] = useState(false)
-  const [firstSeen, setFirstSeen] = useState<FirstSeenMap>(() => loadFirstSeen())
 
   const [bootRefreshed, setBootRefreshed] = useState(false)
     
@@ -137,6 +123,8 @@ export default function Home({ initialNews }: Props) {
       setMode('latest')
       setCursor(null)
       setHasMore(true)
+      // Resetiramo na začetno stanje (ali pa bi tukaj lahko sprožili ponoven fetch)
+      // Če želimo res "svež" start, lahko pustimo initialNews ali sprožimo fetch
       setItemsLatest(initialNews) 
     })
     window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -171,7 +159,7 @@ export default function Home({ initialNews }: Props) {
 
   }, [selectedSources, selectedCategory, searchQuery, mode, bootRefreshed])
 
-  // POLLING
+  // POLLING (Preverjanje novih novic v ozadju)
   const missCountRef = useRef(0)
   const timerRef = useRef<number | null>(null)
 
@@ -183,6 +171,7 @@ export default function Home({ initialNews }: Props) {
       if (searchQuery) return 
 
       kickSyncIfStale(10 * 60_000)
+      // Fetchamo samo prvih par, da vidimo, če je kaj novega
       const fresh = await loadNews('latest', selectedSources, selectedCategory, null)
       
       if (!fresh || fresh.length === 0) {
@@ -190,10 +179,12 @@ export default function Home({ initialNews }: Props) {
         missCountRef.current = Math.min(POLL_MAX_BACKOFF, missCountRef.current + 1)
         return
       }
-      const curSet = new Set(itemsLatest.map((n) => n.link))
-      const newLinks = fresh.filter((n) => !curSet.has(n.link)).length
       
-      if (newLinks > 0) {
+      // Preverimo, če imamo v novem seznamu kakšen link, ki ga v trenutnem (itemsLatest) ni
+      const curSet = new Set(itemsLatest.map((n) => n.link))
+      const newLinksCount = fresh.filter((n) => !curSet.has(n.link)).length
+      
+      if (newLinksCount > 0) {
         window.dispatchEvent(new CustomEvent('news-has-new', { detail: true }))
         missCountRef.current = 0
       } else {
@@ -220,7 +211,7 @@ export default function Home({ initialNews }: Props) {
     }
   }, [itemsLatest, bootRefreshed, mode, selectedSources, selectedCategory, searchQuery])
 
-  // REFRESH HANDLER
+  // REFRESH HANDLER (Ko uporabnik klikne "Nove novice" ali pull-to-refresh)
   useEffect(() => {
     const onRefresh = () => {
       window.dispatchEvent(new CustomEvent('news-refreshing', { detail: true }))
@@ -248,40 +239,19 @@ export default function Home({ initialNews }: Props) {
     return () => window.removeEventListener('refresh-news', onRefresh as EventListener)
   }, [mode, selectedSources, selectedCategory, searchQuery])
 
-  // STABLE SORT & FILTERING
-  const currentRawItems = mode === 'latest' ? itemsLatest : itemsTrending
-  const shapedNews = useMemo(() => {
-    const map = { ...firstSeen }
-    let changed = false
-    const withStable = currentRawItems.map((n) => {
-      const published = typeof n.publishedAt === 'number' ? n.publishedAt : 0
-      const link = n.link || ''
-      if (link && map[link] == null) {
-        map[link] = published || Date.now()
-        changed = true
-      }
-      const first = map[link] ?? published
-      const stableAt = Math.min(first || Infinity, published || Infinity)
-      return { ...n, stableAt } as NewsItem & { stableAt: number }
-    })
-    if (changed) { setFirstSeen(map); saveFirstSeen(map) }
-    return withStable
-  }, [currentRawItems, firstSeen])
+  // STABLE SORT & FILTERING - OPTIMIZIRANO
+  // Tu smo odstranili vso "firstSeen" in "stableAt" logiko. 
+  // Zanašamo se na vrstni red, ki ga je vrnil server (itemsLatest / itemsTrending).
+  const visibleNews = mode === 'trending' ? itemsTrending : itemsLatest
 
-  const sortedNews = useMemo(() => {
-    if (mode === 'trending') return shapedNews
-    return [...shapedNews].sort((a, b) => (b as any).stableAt - (a as any).stableAt)
-  }, [shapedNews, mode])
-
-  const visibleNews = sortedNews 
-
-  // CURSOR LOGIC
+  // CURSOR LOGIC (Za infinite scroll)
   useEffect(() => {
     if (mode === 'trending') return 
     if (!visibleNews.length) {
       setCursor(null)
       return
     }
+    // Poiščemo najstarejši publishedAt v trenutnem seznamu
     const minMs = visibleNews.reduce((acc, n) => Math.min(acc, n.publishedAt || acc), visibleNews[0].publishedAt || 0)
     setCursor(minMs || null)
   }, [visibleNews, mode])
@@ -355,7 +325,6 @@ export default function Home({ initialNews }: Props) {
       ? selectedSources[0] 
       : `${selectedSources.length} virov`
 
-  // Pomožna spremenljivka za prikaz imena kategorije
   const currentCategoryLabel = selectedCategory === 'vse' 
     ? '' 
     : CATEGORIES.find(c => c.id === selectedCategory)?.label || selectedCategory;
@@ -370,10 +339,9 @@ export default function Home({ initialNews }: Props) {
         onSelectCategory={(cat) => {
            startTransition(() => {
              setSelectedCategory(cat)
-             // SPREMEMBA: Če gremo na kategorijo, forsiraj "latest" (kronološko)
              if (cat !== 'vse') {
                 setMode('latest')
-                setHasMore(true) // Resetiraj paginacijo za novo kategorijo
+                setHasMore(true)
                 setCursor(null)
              }
            })
@@ -395,7 +363,6 @@ export default function Home({ initialNews }: Props) {
         
         {/* ZGORNJA VRSTICA: TABS ali NASLOV KATEGORIJE */}
         <div className="flex items-center justify-between py-4 min-h-[64px]">
-           {/* LOGIKA: Pokaži Tabs SAMO če smo na 'vse'. Sicer pokaži naslov kategorije. */}
            {selectedCategory === 'vse' ? (
              <div className="scale-90 origin-left">
                <NewsTabs active={mode} onChange={handleTabChange} />
@@ -408,7 +375,6 @@ export default function Home({ initialNews }: Props) {
              </div>
            )}
            
-           {/* GUMB ZA ČIŠČENJE FILTROV */}
            {selectedSources.length > 0 && (
              <div className="flex items-center gap-2">
                 <div className="text-xs text-brand font-medium border border-brand/20 bg-brand/5 px-2 py-1 rounded">
@@ -489,8 +455,6 @@ export const getServerSideProps: GetServerSideProps = async ({ res }) => {
     auth: { persistSession: false },
   })
 
-  // SPREMEMBA: Type Assertion in casting category
-  // Tudi tukaj moramo castati, da zadovoljimo NewsItem tip
   const { data } = await supabase
     .from('news')
     .select(
@@ -513,7 +477,6 @@ export const getServerSideProps: GetServerSideProps = async ({ res }) => {
         (r.publishedat ??
           (r.published_at ? Date.parse(r.published_at) : 0)) || 0,
       isoDate: r.published_at,
-      // SPREMEMBA: Tudi tukaj castamo v CategoryId in uporabimo fallback
       category: (r.category as CategoryId) || determineCategory({ link, categories: [] }) 
     }
   })
