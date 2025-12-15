@@ -11,37 +11,44 @@ export default function Zasebnost() {
       <main className="flex-grow w-full max-w-[1800px] mx-auto px-4 md:px-8 lg:px-16 py-12 text-gray-900 dark:text-white">
         
         <div className="max-w-2xl mx-auto">
-            <h1 className="text-3xl md:text-4xl font-bold mb-8">Zasebnost na kratko</h1>
+            <h1 className="text-3xl md:text-4xl font-bold mb-8">Vaša zasebnost je zagotovljena</h1>
 
             <div className="text-lg leading-relaxed text-gray-600 dark:text-gray-300 space-y-6">
                 
                 <p>
-                  Pri portalu <strong>Križišče</strong> verjamemo v popolno preprostost in zasebnost. Ne zahtevamo registracije in od vas ne zbiramo osebnih podatkov.
+                  Pri portalu <strong>Križišče</strong> verjamemo, da mora biti branje novic sproščeno in varno. Zato smo stran zgradili tako, da spoštuje vašo anonimnost. 
+                </p>
+                <p>
+                  Ne zahtevamo registracije, ne zbiramo vaših osebnih podatkov in vas ne zasledujemo z oglasi.
                 </p>
 
-                <div className="bg-gray-50 dark:bg-gray-800 p-6 rounded-2xl border border-gray-100 dark:border-gray-700">
-                  <h2 className="text-lg font-semibold mb-3 text-gray-900 dark:text-white">Brez sledenja</h2>
-                  <p className="mb-4 text-sm opacity-90">
-                    Za razliko od večine spletnih mest, mi <strong>ne uporabljamo piškotkov za sledenje</strong> ali oglaševanje.
+                <div className="bg-gray-50 dark:bg-gray-800 p-6 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm mt-8">
+                  <h2 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white flex items-center gap-2">
+                    <span className="text-2xl">🛡️</span> Brez piškotkov, brez skrbi
+                  </h2>
+                  <p className="mb-6 text-sm opacity-90">
+                    Za razliko od večine spletnih mest, Križišče <strong>ne uporablja piškotkov za sledenje</strong>. Ko zapustite našo stran, ne vemo več, kdo ste in kje ste bili.
                   </p>
                   
-                  <ul className="space-y-3">
+                  <ul className="space-y-4">
                     <li className="flex gap-3 items-start">
-                      <span className="text-brand font-bold mt-1">✓</span>
-                      <span><strong>Anonimna statistika:</strong> uporabljamo orodje <em>Vercel Analytics</em>, ki meri obiskanost brez uporabe piškotkov in brez shranjevanja osebnih podatkov. Ne vemo, kdo ste, vemo le, da nekdo bere novice.</span>
+                      <div className="min-w-[24px] h-[24px] flex items-center justify-center rounded-full bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 font-bold text-sm">✓</div>
+                      <div>
+                        <strong>Prijazna statistika:</strong> uporabljamo orodje <em>Umami Analytics</em>, ki je zasnovano za zasebnost. Beležimo le splošne številke (npr. "danes smo imeli 100 bralcev"), ne pa kdo ti bralci so.
+                      </div>
                     </li>
                     <li className="flex gap-3 items-start">
-                      <span className="text-brand font-bold mt-1">✓</span>
-                      <span><strong>Lokalne nastavitve:</strong> v vašem brskalniku si zapomnimo le vašo izbiro teme (svetlo/temno), da je ni treba vsakič nastavljati.</span>
+                      <div className="min-w-[24px] h-[24px] flex items-center justify-center rounded-full bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 font-bold text-sm">✓</div>
+                      <div>
+                        <strong>Samo nujno:</strong> v vašem brskalniku si zapomnimo le vašo izbiro teme (svetlo ali temno ozadje), da vam je ni treba nastavljati ob vsakem obisku. To ostane na vaši napravi.
+                      </div>
                     </li>
                   </ul>
                 </div>
 
-                <p>
-                  Ko kliknete na povezavo do novice, vas preusmerimo na izvorni medij (npr. RTV, 24ur, Delo). Tam veljajo njihova pravila zasebnosti.
-                </p>
-
-              
+                <div className="mt-8 p-4 border-l-4 border-brand/50 bg-brand/5 text-sm">
+                  <strong>Dobro je vedeti:</strong> Križišče je agregator. Ko kliknete na naslov novice, vas preusmerimo na spletno stran izvornega medija (npr. RTV, 24ur, Delo). Na njihovih straneh veljajo njihova pravila zasebnosti.
+                </div>
             </div>
 
             <div className="mt-12 pt-6 border-t border-gray-200 dark:border-gray-800">
