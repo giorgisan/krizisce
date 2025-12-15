@@ -16,23 +16,23 @@ export default function Zasebnost() {
             <div className="text-lg leading-relaxed text-gray-600 dark:text-gray-300 space-y-6">
                 
                 <p>
-                  Pri portalu <strong>Križišče</strong> verjamemo v preprostost. Ne zahtevamo registracije in od vas ne zbiramo nobenih osebnih podatkov (imen, emailov ali telefonskih številk).
+                  Pri portalu <strong>Križišče</strong> verjamemo v popolno preprostost in zasebnost. Ne zahtevamo registracije in od vas ne zbiramo osebnih podatkov.
                 </p>
 
                 <div className="bg-gray-50 dark:bg-gray-800 p-6 rounded-2xl border border-gray-100 dark:border-gray-700">
-                  <h2 className="text-lg font-semibold mb-3 text-gray-900 dark:text-white">Kaj beležimo?</h2>
-                  <ul className="space-y-2">
-                    <li className="flex gap-3">
-                      <span className="text-brand font-bold">✓</span>
-                      <span><strong>Statistika:</strong> Uporabljamo Google Analytics za merjenje obiska, da vemo, koliko ljudi nas bere. Podatki so anonimizirani.</span>
+                  <h2 className="text-lg font-semibold mb-3 text-gray-900 dark:text-white">Brez sledenja</h2>
+                  <p className="mb-4 text-sm opacity-90">
+                    Za razliko od večine spletnih mest, mi <strong>ne uporabljamo piškotkov za sledenje</strong> ali oglaševanje.
+                  </p>
+                  
+                  <ul className="space-y-3">
+                    <li className="flex gap-3 items-start">
+                      <span className="text-brand font-bold mt-1">✓</span>
+                      <span><strong>Anonimna statistika:</strong> Uporabljamo orodje <em>Vercel Analytics</em>, ki meri obiskanost brez uporabe piškotkov in brez shranjevanja osebnih podatkov. Ne vemo, kdo ste, vemo le, da nekdo bere novice.</span>
                     </li>
-                    <li className="flex gap-3">
-                      <span className="text-brand font-bold">✓</span>
-                      <span><strong>Popularnost:</strong> Štejemo klike na novice, da lahko sestavimo seznam "Vroče".</span>
-                    </li>
-                    <li className="flex gap-3">
-                      <span className="text-brand font-bold">✓</span>
-                      <span><strong>Nastavitve:</strong> Zapomnimo si vašo izbiro teme (svetlo/temno), da je ni treba vsakič nastavljati.</span>
+                    <li className="flex gap-3 items-start">
+                      <span className="text-brand font-bold mt-1">✓</span>
+                      <span><strong>Lokalne nastavitve:</strong> V vašem brskalniku si zapomnimo le vašo izbiro teme (svetlo/temno), da je ni treba vsakič nastavljati.</span>
                     </li>
                   </ul>
                 </div>
