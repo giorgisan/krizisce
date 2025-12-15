@@ -15,28 +15,32 @@ export default function Zasebnost() {
 
             <div className="text-lg leading-relaxed text-gray-600 dark:text-gray-300">
                 
-                <h2 className="text-xl font-semibold mt-8 mb-4 text-gray-900 dark:text-white">1. Splošno</h2>
+                <h2 className="text-xl font-semibold mt-8 mb-4 text-gray-900 dark:text-white">1. Katere podatke zbiramo?</h2>
                 <p className="mb-4">
-                  Pri portalu <strong>Križišče</strong> spoštujemo vašo zasebnost. Ta dokument pojasnjuje, katere podatke zbiramo (če sploh) in kako jih uporabljamo. Naša temeljna zaveza je, da od uporabnikov zbiramo le tiste podatke, ki so nujno potrebni za delovanje spletnega mesta.
+                  Portal <strong>Križišče</strong> ne zahteva registracije in ne zbira osebnih podatkov, kot so imena, e-poštni naslovi ali telefonske številke. Za namen izboljšave uporabniške izkušnje in statistiko pa beležimo naslednje anonimizirane podatke:
                 </p>
+                <ul className="list-disc pl-5 space-y-2 mb-4">
+                  <li><strong>Analitika klikov:</strong> Ko kliknete na novico, sistem zabeleži povezavo in tip vaše naprave (User-Agent). Te podatke uporabljamo izključno za razvrščanje najbolj priljubljenih novic ("Vroče").</li>
+                  <li><strong>Statistika obiska:</strong> Uporabljamo orodja Google Analytics 4 in Vercel Insights za merjenje obiskanosti in hitrosti strani. IP naslovi so v Google Analytics anonimizirani.</li>
+                </ul>
 
                 <h2 className="text-xl font-semibold mt-8 mb-4 text-gray-900 dark:text-white">2. Piškotki in lokalna shramba</h2>
                 <p className="mb-4">
-                  Križišče ne uporablja invazivnih piškotkov za sledenje uporabnikom ali oglaševanje. Uporabljamo izključno tehnične mehanizme za shranjevanje vaših nastavitev:
+                  Uporabljamo minimalen nabor piškotkov in lokalne shrambe (LocalStorage):
                 </p>
                 <ul className="list-disc pl-5 space-y-2 mb-4">
-                  <li><strong>Tema (Dark/Light Mode):</strong> V vašem brskalniku (LocalStorage) shranimo podatek o izbrani temi, da vam je ni treba nastavljati ob vsakem obisku.</li>
-                  <li><strong>Zgodovina ogledov (Tehnično):</strong> Za namen preprečevanja podvajanja novic in pravilnega razvrščanja lahko brskalnik začasno hrani tehnične oznake že videnih vsebin. Ti podatki ne zapustijo vaše naprave.</li>
+                  <li><strong>Nastavitve teme:</strong> V vašem brskalniku shranimo izbiro videza (svetlo/temno), da se ohrani ob naslednjem obisku.</li>
+                  <li><strong>Google Analytics:</strong> Google lahko na vašo napravo shrani piškotke za razlikovanje unikatnih obiskovalcev (npr. `_ga`).</li>
                 </ul>
 
-                <h2 className="text-xl font-semibold mt-8 mb-4 text-gray-900 dark:text-white">3. Zunanji viri</h2>
+                <h2 className="text-xl font-semibold mt-8 mb-4 text-gray-900 dark:text-white">3. Povezave do tretjih oseb</h2>
                 <p className="mb-4">
-                  Ko kliknete na povezavo do novice, zapustite spletno mesto Križišče in ste preusmerjeni na spletno stran izvornega medija. Za politiko zasebnosti in uporabo piškotkov na teh zunanjih straneh ne odgovarjamo. Svetujemo vam, da preverite njihove pogoje uporabe.
+                  Križišče je agregator. Ko kliknete na naslov novice, boste preusmerjeni na spletno mesto izvornega medija (npr. RTV SLO, 24ur, Delo ...). Na teh spletnih mestih veljajo njihova lastna pravila zasebnosti, na katera mi nimamo vpliva.
                 </p>
 
                 <h2 className="text-xl font-semibold mt-8 mb-4 text-gray-900 dark:text-white">4. Kontakt</h2>
                 <p>
-                  Če nas kontaktirate preko e-pošte, bomo vaš naslov uporabili izključno za odgovor na vaše vprašanje ali predlog. Vaših kontaktnih podatkov ne bomo posredovali tretjim osebam.
+                  Za vsa vprašanja glede delovanja strani ali zasebnosti nas lahko kontaktirate na naš e-poštni naslov, naveden v nogi spletne strani.
                 </p>
             </div>
 
