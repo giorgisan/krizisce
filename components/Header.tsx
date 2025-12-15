@@ -36,7 +36,14 @@ export default function Header({
   const { theme, setTheme, resolvedTheme } = useTheme()
   const router = useRouter()
 
-  const isArhiv = router.pathname === '/arhiv'
+  // LOGIKA PRIKAZOVANJA:
+  // Kategorije in filtri so relevantni le na domači strani ('/').
+  // Na vseh ostalih podstraneh (/projekt, /pogoji, /arhiv) jih skrijemo.
+  const isHome = router.pathname === '/'
+  
+  // Če želiš kategorije prikazati tudi na arhivu, spremeni v:
+  // const showCategories = router.pathname === '/' || router.pathname === '/arhiv'
+  const showCategories = isHome 
 
   // Ura
   useEffect(() => {
@@ -95,12 +102,14 @@ export default function Header({
   }
 
   const handleLogoClick = (e: React.MouseEvent) => {
-    if (!isArhiv) {
+    // Resetiramo samo, če smo na domači strani
+    if (isHome) {
       e.preventDefault()
       setSearchVal('') 
       onReset()        
       window.scrollTo({ top: 0, behavior: 'smooth' })
     }
+    // Če nismo na domači (npr. smo na /projekt), Link poskrbi za navigacijo na /
   }
 
   const isDark = (theme === 'dark' || resolvedTheme === 'dark')
@@ -134,16 +143,15 @@ export default function Header({
                 </div>
             </Link>
 
-            {/* --- FRESH NEWS PILL (ZMANJŠAN) --- */}
+            {/* --- FRESH NEWS PILL --- */}
             <AnimatePresence initial={false}>
-                {hasNew && !refreshing && !isArhiv && (
+                {hasNew && !refreshing && isHome && (
                 <motion.button
                     key="fresh-pill"
                     initial={{ opacity: 0, scale: 0.95, y: 5 }}
                     animate={{ opacity: 1, scale: 1, y: 0 }}
                     exit={{ opacity: 0, scale: 0.95, y: 5 }}
                     onClick={refreshNow}
-                    // SPREMENJENO: Manjši padding (px-3 py-1) in manjši font (text-[10px] md:text-xs)
                     className="hidden md:flex items-center gap-2 px-3 py-1 
                                bg-[#10b981]/10 dark:bg-[#10b981]/20 
                                border border-[#10b981]/30
@@ -169,8 +177,9 @@ export default function Header({
           {/* DESNO: Search + Orodja */}
           <div className="flex items-center gap-2 md:gap-4 shrink-0 ml-auto">
             
-            {/* SEARCH */}
-            {!isArhiv && (
+            {/* SEARCH (Desktop) */}
+            {/* Prikazujemo le na domači strani, kjer iskanje dejansko filtrira feed */}
+            {isHome && (
               <div className="hidden md:block w-64 lg:w-80">
                 <form onSubmit={handleSubmit} className="relative group">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -197,8 +206,8 @@ export default function Header({
               {time}
             </span>
 
-            {/* FILTER (Lijak) */}
-            {!isArhiv && (
+            {/* FILTER (Lijak) - Samo na domači strani */}
+            {isHome && (
               <button 
                 onClick={onOpenFilter}
                 className={`relative p-2 rounded-md transition-colors ${activeSource !== 'Vse' ? 'text-brand bg-brand/10' : 'text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800'}`}
@@ -250,8 +259,8 @@ export default function Header({
       </div>
 
       {/* --- SPODNJA VRSTICA (Navigacija) --- */}
-      {!isArhiv && (
-        // POPRAVEK: bg-transparent za transparentnost kategorij
+      {/* Prikazana SAMO če je showCategories (torej samo na home page) */}
+      {showCategories && (
         <div className="w-full bg-transparent">
           <div className="max-w-[1800px] mx-auto px-4 md:px-8 lg:px-16">
             <nav className="flex items-center gap-6 overflow-x-auto no-scrollbar">
