@@ -61,7 +61,9 @@ export const CATEGORIES: CategoryDef[] = [
         'kriminal', 'tragicno', 'sojenje', 'napad', 'rop', 'ukradla', 'zapornik', 'zapor', 
         'panika', 'pretep', 'droge', 'kokain', 'mamil', 'tihotap', 'aretacija', 'trcenje', 'smrt',
         'pu ljubljana', 'pu maribor', 'pu celje', 'pu kranj', 'pu koper', 'pu novo mesto',
-        'gorska resevalna', 'resevalci', 'intervencija', 'pozar', 'utonil', 'truplo'
+        'gorska resevalna', 'resevalci', 'intervencija', 'pozar', 'utonil', 'truplo',
+      // Dodano v keywords za 'kronika':
+        'pripor', 'privedli', 'zasegli', 'preiskava', 'osumljenci'
     ]
   },
   {
