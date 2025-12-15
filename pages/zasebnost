@@ -1,0 +1,54 @@
+import Header from '@/components/Header'
+import Footer from '@/components/Footer'
+import Link from 'next/link'
+
+export default function Zasebnost() {
+  return (
+    <div className="flex flex-col min-h-screen bg-white dark:bg-gray-900 transition-colors duration-300">
+      
+      <Header />
+
+      <main className="flex-grow w-full max-w-[1800px] mx-auto px-4 md:px-8 lg:px-16 py-12 text-gray-900 dark:text-white">
+        
+        <div className="max-w-3xl mx-auto">
+            <h1 className="text-3xl md:text-4xl font-bold mb-8">Politika zasebnosti</h1>
+
+            <div className="text-lg leading-relaxed text-gray-600 dark:text-gray-300">
+                
+                <h2 className="text-xl font-semibold mt-8 mb-4 text-gray-900 dark:text-white">1. Splošno</h2>
+                <p className="mb-4">
+                  Pri portalu <strong>Križišče</strong> spoštujemo vašo zasebnost. Ta dokument pojasnjuje, katere podatke zbiramo (če sploh) in kako jih uporabljamo. Naša temeljna zaveza je, da od uporabnikov zbiramo le tiste podatke, ki so nujno potrebni za delovanje spletnega mesta.
+                </p>
+
+                <h2 className="text-xl font-semibold mt-8 mb-4 text-gray-900 dark:text-white">2. Piškotki in lokalna shramba</h2>
+                <p className="mb-4">
+                  Križišče ne uporablja invazivnih piškotkov za sledenje uporabnikom ali oglaševanje. Uporabljamo izključno tehnične mehanizme za shranjevanje vaših nastavitev:
+                </p>
+                <ul className="list-disc pl-5 space-y-2 mb-4">
+                  <li><strong>Tema (Dark/Light Mode):</strong> V vašem brskalniku (LocalStorage) shranimo podatek o izbrani temi, da vam je ni treba nastavljati ob vsakem obisku.</li>
+                  <li><strong>Zgodovina ogledov (Tehnično):</strong> Za namen preprečevanja podvajanja novic in pravilnega razvrščanja lahko brskalnik začasno hrani tehnične oznake že videnih vsebin. Ti podatki ne zapustijo vaše naprave.</li>
+                </ul>
+
+                <h2 className="text-xl font-semibold mt-8 mb-4 text-gray-900 dark:text-white">3. Zunanji viri</h2>
+                <p className="mb-4">
+                  Ko kliknete na povezavo do novice, zapustite spletno mesto Križišče in ste preusmerjeni na spletno stran izvornega medija. Za politiko zasebnosti in uporabo piškotkov na teh zunanjih straneh ne odgovarjamo. Svetujemo vam, da preverite njihove pogoje uporabe.
+                </p>
+
+                <h2 className="text-xl font-semibold mt-8 mb-4 text-gray-900 dark:text-white">4. Kontakt</h2>
+                <p>
+                  Če nas kontaktirate preko e-pošte, bomo vaš naslov uporabili izključno za odgovor na vaše vprašanje ali predlog. Vaših kontaktnih podatkov ne bomo posredovali tretjim osebam.
+                </p>
+            </div>
+
+            <div className="mt-12 pt-6 border-t border-gray-200 dark:border-gray-800">
+                <Link href="/" className="text-brand font-medium hover:underline inline-flex items-center gap-2">
+                    <span>←</span> Nazaj na glavno stran
+                </Link>
+            </div>
+        </div>
+      </main>
+
+      <Footer />
+    </div>
+  )
+}
