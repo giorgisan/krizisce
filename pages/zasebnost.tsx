@@ -34,7 +34,7 @@ export default function Zasebnost() {
                     <li className="flex gap-3 items-start">
                       <div className="min-w-[24px] h-[24px] flex items-center justify-center rounded-full bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 font-bold text-sm">✓</div>
                       <div>
-                        <strong>Prijazna statistika:</strong> uporabljamo orodje <em>Umami Analytics</em>, ki je zasnovano za zasebnost. Beležimo le splošne številke (npr. "danes smo imeli 100 bralcev"), ne pa kdo ti bralci so.
+                        <strong>Prijazna statistika:</strong> uporabljamo orodje <em>Umami Analytics</em>, ki je zasnovano za zasebnost. Beležimo le splošne številke (npr. "danes smo imeli 15.000 bralcev"), ne pa kdo ti bralci so.
                       </div>
                     </li>
                     <li className="flex gap-3 items-start">
