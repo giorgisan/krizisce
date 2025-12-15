@@ -28,11 +28,11 @@ export default function Zasebnost() {
                   <ul className="space-y-3">
                     <li className="flex gap-3 items-start">
                       <span className="text-brand font-bold mt-1">✓</span>
-                      <span><strong>Anonimna statistika:</strong> Uporabljamo orodje <em>Vercel Analytics</em>, ki meri obiskanost brez uporabe piškotkov in brez shranjevanja osebnih podatkov. Ne vemo, kdo ste, vemo le, da nekdo bere novice.</span>
+                      <span><strong>Anonimna statistika:</strong> uporabljamo orodje <em>Vercel Analytics</em>, ki meri obiskanost brez uporabe piškotkov in brez shranjevanja osebnih podatkov. Ne vemo, kdo ste, vemo le, da nekdo bere novice.</span>
                     </li>
                     <li className="flex gap-3 items-start">
                       <span className="text-brand font-bold mt-1">✓</span>
-                      <span><strong>Lokalne nastavitve:</strong> V vašem brskalniku si zapomnimo le vašo izbiro teme (svetlo/temno), da je ni treba vsakič nastavljati.</span>
+                      <span><strong>Lokalne nastavitve:</strong> v vašem brskalniku si zapomnimo le vašo izbiro teme (svetlo/temno), da je ni treba vsakič nastavljati.</span>
                     </li>
                   </ul>
                 </div>
