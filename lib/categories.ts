@@ -9,7 +9,8 @@ export type CategoryId =
   | 'moto'            
   | 'tech'            
   | 'magazin'        
-  | 'kultura'        
+  | 'kultura'
+  | 'oglas'  // <--- DODANO
   | 'ostalo'
 
 export type CategoryDef = {
