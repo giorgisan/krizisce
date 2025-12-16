@@ -8,6 +8,16 @@ import { useRouter } from 'next/router'
 import { CATEGORIES, CategoryId } from '../lib/categories'
 import { motion, AnimatePresence } from 'framer-motion'
 
+// --- 1. UVOZ NOVEGA FONTA ---
+import { Playfair_Display } from 'next/font/google'
+
+// --- 2. KONFIGURACIJA FONTA ---
+const logoFont = Playfair_Display({ 
+  subsets: ['latin'],
+  weight: ['700', '900'], // Uporabimo krepkejšo različico za močan karakter
+  display: 'swap',
+})
+
 type Props = {
   onOpenFilter?: () => void
   onSearch?: (query: string) => void
@@ -37,12 +47,7 @@ export default function Header({
   const router = useRouter()
 
   // LOGIKA PRIKAZOVANJA:
-  // Kategorije in filtri so relevantni le na domači strani ('/').
-  // Na vseh ostalih podstraneh (/projekt, /pogoji, /arhiv) jih skrijemo.
   const isHome = router.pathname === '/'
-  
-  // Če želiš kategorije prikazati tudi na arhivu, spremeni v:
-  // const showCategories = router.pathname === '/' || router.pathname === '/arhiv'
   const showCategories = isHome 
 
   // Ura
@@ -102,14 +107,12 @@ export default function Header({
   }
 
   const handleLogoClick = (e: React.MouseEvent) => {
-    // Resetiramo samo, če smo na domači strani
     if (isHome) {
       e.preventDefault()
       setSearchVal('') 
       onReset()        
       window.scrollTo({ top: 0, behavior: 'smooth' })
     }
-    // Če nismo na domači (npr. smo na /projekt), Link poskrbi za navigacijo na /
   }
 
   const isDark = (theme === 'dark' || resolvedTheme === 'dark')
@@ -134,7 +137,8 @@ export default function Header({
                   <Image src="/logo.png" alt="Logo" fill className="object-contain" />
                 </div>
                 <div className="flex flex-col justify-center">
-                  <span className="text-xl font-bold tracking-tight text-gray-900 dark:text-white leading-none">
+                  {/* --- 3. UPORABA FONTA --- */}
+                  <span className={`text-2xl font-bold tracking-tight text-gray-900 dark:text-white leading-none ${logoFont.className}`}>
                       Križišče
                   </span>
                   <span className="text-xs font-medium text-gray-500 dark:text-gray-400 leading-none mt-1 hidden sm:block">
@@ -178,7 +182,6 @@ export default function Header({
           <div className="flex items-center gap-2 md:gap-4 shrink-0 ml-auto">
             
             {/* SEARCH (Desktop) */}
-            {/* Prikazujemo le na domači strani, kjer iskanje dejansko filtrira feed */}
             {isHome && (
               <div className="hidden md:block w-64 lg:w-80">
                 <form onSubmit={handleSubmit} className="relative group">
@@ -259,7 +262,6 @@ export default function Header({
       </div>
 
       {/* --- SPODNJA VRSTICA (Navigacija) --- */}
-      {/* Prikazana SAMO če je showCategories (torej samo na home page) */}
       {showCategories && (
         <div className="w-full bg-transparent">
           <div className="max-w-[1800px] mx-auto px-4 md:px-8 lg:px-16">
