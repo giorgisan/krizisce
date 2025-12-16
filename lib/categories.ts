@@ -66,15 +66,18 @@ export const CATEGORIES: CategoryDef[] = [
         'pripor', 'privedli', 'zasegli', 'preiskava', 'osumljenci'
     ]
   },
-  {
+{
     id: 'sport',
     label: 'Šport',
     color: 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300',
     keywords: [
-        '/sport/', '/sportal/', 'nogomet', 'kosarka', 'zimski', 'atletika', 'kolesarstvo', 'tenis', 
+        '/sport/', '/sportal/', 
+        '/sport-', // <--- DODANO: To bo ujel tvoj članek (ker se link začne s /sport-...)
+        'nogomet', 'kosarka', 'zimski', 'atletika', 'kolesarstvo', 'tenis', 
         'ekipa24', 'sport.n1info.si', 'odbojka', 'rokomet', 'nhl', 'nba', 'doncic', 'kopitar', 
         'pogacar', 'roglic', 'messi', 'olimpij', 'liga', 'prvenstvo', 'trener', 'reprezentanca', 'tekma',
         'bayern', 'munchen', 'real madrid', 'barcelona', 'juventus', 'planica', 'skoki', 'alpsko smucanje',
+        'smucanje', // <--- DODANO: Za vsak slučaj še beseda
         'ilka stuhec', 'zlatko zahovic', 'kek', 'ceferin', 'uefa', 'fifa'
     ]
   },
