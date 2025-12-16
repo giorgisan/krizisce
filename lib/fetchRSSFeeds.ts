@@ -1,17 +1,20 @@
 import Parser from 'rss-parser'
 import type { NewsItem } from '../types'
 import { feeds } from './sources'
-import { excludeAds } from './adFilter'
-// Uvozimo logiko
+// --- 1. UVOZIM isLikelyAd ---
+import { isLikelyAd } from './adFilter' 
 import { determineCategory, CategoryId } from './categories'
 
 type FetchOpts = { forceFresh?: boolean }
 
+// --- Blokirani URL vzorci (tvoji obstoječi) ---
 const BLOCK_URLS: RegExp[] = [
   /\/promo\//i,       
   /\/oglasi\//i,      
   /\/advertorial\//i,
   /\/sponzorirano\//i,
+  /\/oglas\//i,       // Dodan splošen oglas
+  /\/trgovina\//i,    // Dodano (za "nakupovalne" članke)
 ]
 
 const BLOCK_PATTERNS: string[] = [
@@ -39,6 +42,7 @@ const HTML_MARKERS = [
   'promo delo'
 ]
 
+// --- Helperji za slike in datume (tvoji obstoječi) ---
 function absolutize(src: string | undefined | null, baseHref: string): string | null {
   if (!src) return null
   try {
@@ -138,15 +142,14 @@ function toUnixMs(d?: string | null) {
   }
 }
 
+// Stari basic filter (obdržimo ga kot hitri "pre-filter")
 function isBlockedBasic(i: NewsItem) {
   const url = i.link || ''
   const hay = `${i.title || ''}\n${i.contentSnippet || ''}`.toLowerCase()
   
   if (BLOCK_URLS.some(rx => rx.test(url))) return true
-  
   if (BLOCK_PATTERNS.some(k => hay.includes(k.toLowerCase()))) return true
   
-  // (Kategorije so zdaj v i.category, ampak RSS kategorije niso več v NewsItem - to je OK, ker uredniške kategorije filtriramo prej)
   return false
 }
 
@@ -180,6 +183,7 @@ async function hasSponsorMarker(url: string): Promise<boolean> {
   }
 }
 
+// --- GLAVNA FUNKCIJA FETCH ---
 export default async function fetchRSSFeeds(opts: FetchOpts = {}): Promise<NewsItem[]> {
   const { forceFresh = false } = opts
   htmlChecks = 0
@@ -197,6 +201,25 @@ export default async function fetchRSSFeeds(opts: FetchOpts = {}): Promise<NewsI
         if (!feed.items?.length) return []
 
         const itemsPromise = feed.items.slice(0, 25).map(async (item: any) => {
+          
+          // --- 1. PRVI HITRI FILTER (AdFilter) ---
+          // Preverimo oglas še preden karkoli procesiramo, da prihranimo čas
+          const tempCheckItem = {
+             title: item.title,
+             link: item.link,
+             contentSnippet: item.contentSnippet || item.content || '',
+             description: item.contentSnippet, // za adFilter združljivost
+             categories: item.categories
+          }
+          const adCheck = isLikelyAd(tempCheckItem)
+          if (adCheck.isAd) {
+             if (process.env.NODE_ENV !== 'production') {
+                 console.log(`[AdFilter] Blokirano (${source}): ${item.title} [${adCheck.matches.join(', ')}]`)
+             }
+             return null // Oglas!
+          }
+          // ----------------------------------------
+
           const iso = (item.isoDate ?? item.pubDate ?? new Date().toISOString()) as string
           const publishedAt = toUnixMs(iso)
           const link = item.link ?? ''
@@ -210,21 +233,18 @@ export default async function fetchRSSFeeds(opts: FetchOpts = {}): Promise<NewsI
             ? (Array.isArray(item.categories) ? item.categories : [item.categories])
             : []
 
-          // Izračunaj kategorijo TUKAJ, takoj ob zajemu
           const categoryId = determineCategory({ 
             link, 
-            title: item.title,
-            contentSnippet: item.contentSnippet,
+            title: item.title, 
+            contentSnippet: item.contentSnippet, 
             categories: rawCats
           })
 
           return {
             title: item.title ?? '',
             link,
-            // pubDate in isoDate pustimo za vsak slučaj, če kje še rabimo stringe
             pubDate: item.pubDate ?? iso,
             isoDate: iso,
-            // content pustimo, ker ga rabimo za normalizeSnippet v api/news.ts
             content: item['content:encoded'] ?? item.content ?? '',
             contentSnippet: item.contentSnippet ?? '',
             source,
@@ -234,7 +254,7 @@ export default async function fetchRSSFeeds(opts: FetchOpts = {}): Promise<NewsI
           } as NewsItem
         })
 
-        const items = await Promise.all(itemsPromise)
+        const items = (await Promise.all(itemsPromise)).filter(Boolean) as NewsItem[] // Odfiltriramo null (oglase)
         return items
       } catch {
         return []
@@ -244,7 +264,9 @@ export default async function fetchRSSFeeds(opts: FetchOpts = {}): Promise<NewsI
 
   let flat: NewsItem[] = results.flat().filter(i => !isBlockedBasic(i))
 
-  flat = excludeAds(flat, 3, true)
+  // Dodaten varnostni filter (če bi kaj spolzelo skozi)
+  // Uporabimo threshold 3 (strogo)
+  flat = flat.filter(item => !isLikelyAd(item, { threshold: 3, aggressive: true }).isAd)
 
   flat.sort((a, b) => (b.publishedAt || 0) - (a.publishedAt || 0))
 
@@ -261,7 +283,10 @@ export default async function fetchRSSFeeds(opts: FetchOpts = {}): Promise<NewsI
     if (used < MAX_HTML_CHECKS && hostAllowed(it.link)) {
       const isAd = await hasSponsorMarker(it.link)
       used++
-      if (isAd) continue 
+      if (isAd) {
+          if (process.env.NODE_ENV !== 'production') console.log(`[HTMLCheck] Blokirano: ${it.title}`)
+          continue 
+      }
     }
     kept.push(it)
   }
