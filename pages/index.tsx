@@ -85,7 +85,6 @@ async function loadNews(
 type Props = { initialNews: NewsItem[] }
 
 export default function Home({ initialNews }: Props) {
-  // Stanje novic - zaupamo vrstnemu redu iz API-ja (Server-Side Sorted)
   const [itemsLatest, setItemsLatest] = useState<NewsItem[]>(initialNews)
   const [itemsTrending, setItemsTrending] = useState<NewsItem[]>([])
     
@@ -123,8 +122,6 @@ export default function Home({ initialNews }: Props) {
       setMode('latest')
       setCursor(null)
       setHasMore(true)
-      // Resetiramo na začetno stanje (ali pa bi tukaj lahko sprožili ponoven fetch)
-      // Če želimo res "svež" start, lahko pustimo initialNews ali sprožimo fetch
       setItemsLatest(initialNews) 
     })
     window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -159,7 +156,7 @@ export default function Home({ initialNews }: Props) {
 
   }, [selectedSources, selectedCategory, searchQuery, mode, bootRefreshed])
 
-  // POLLING (Preverjanje novih novic v ozadju)
+  // POLLING
   const missCountRef = useRef(0)
   const timerRef = useRef<number | null>(null)
 
@@ -171,7 +168,6 @@ export default function Home({ initialNews }: Props) {
       if (searchQuery) return 
 
       kickSyncIfStale(10 * 60_000)
-      // Fetchamo samo prvih par, da vidimo, če je kaj novega
       const fresh = await loadNews('latest', selectedSources, selectedCategory, null)
       
       if (!fresh || fresh.length === 0) {
@@ -179,8 +175,6 @@ export default function Home({ initialNews }: Props) {
         missCountRef.current = Math.min(POLL_MAX_BACKOFF, missCountRef.current + 1)
         return
       }
-      
-      // Preverimo, če imamo v novem seznamu kakšen link, ki ga v trenutnem (itemsLatest) ni
       const curSet = new Set(itemsLatest.map((n) => n.link))
       const newLinksCount = fresh.filter((n) => !curSet.has(n.link)).length
       
@@ -211,7 +205,7 @@ export default function Home({ initialNews }: Props) {
     }
   }, [itemsLatest, bootRefreshed, mode, selectedSources, selectedCategory, searchQuery])
 
-  // REFRESH HANDLER (Ko uporabnik klikne "Nove novice" ali pull-to-refresh)
+  // REFRESH HANDLER
   useEffect(() => {
     const onRefresh = () => {
       window.dispatchEvent(new CustomEvent('news-refreshing', { detail: true }))
@@ -239,19 +233,15 @@ export default function Home({ initialNews }: Props) {
     return () => window.removeEventListener('refresh-news', onRefresh as EventListener)
   }, [mode, selectedSources, selectedCategory, searchQuery])
 
-  // STABLE SORT & FILTERING - OPTIMIZIRANO
-  // Tu smo odstranili vso "firstSeen" in "stableAt" logiko. 
-  // Zanašamo se na vrstni red, ki ga je vrnil server (itemsLatest / itemsTrending).
   const visibleNews = mode === 'trending' ? itemsTrending : itemsLatest
 
-  // CURSOR LOGIC (Za infinite scroll)
+  // CURSOR LOGIC
   useEffect(() => {
     if (mode === 'trending') return 
     if (!visibleNews.length) {
       setCursor(null)
       return
     }
-    // Poiščemo najstarejši publishedAt v trenutnem seznamu
     const minMs = visibleNews.reduce((acc, n) => Math.min(acc, n.publishedAt || acc), visibleNews[0].publishedAt || 0)
     setCursor(minMs || null)
   }, [visibleNews, mode])
@@ -460,8 +450,9 @@ export const getServerSideProps: GetServerSideProps = async ({ res }) => {
     .select(
       'id, link, title, source, summary, contentsnippet, image, published_at, publishedat, category',
     )
+    .neq('category', 'oglas') // <--- FILTRIRAJ OGLASE NA SERVERJU
     .order('publishedat', { ascending: false })
-    .order('id', { ascending: false }) // <--- DODAJ TO VRSTICO (Tie-breaker)
+    .order('id', { ascending: false })
     .limit(25)
 
   const rows = (data ?? []) as any[]
