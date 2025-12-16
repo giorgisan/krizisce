@@ -1,13 +1,23 @@
 // lib/adFilter.ts
-// Lokalni filter za sponzorirano/PR/oglasno vsebino (v3.2, ES5-safe).
-// - Odstranjena uporaba RegExp \p{...} in 'u' flag (zdaj dela z ES5 targetom).
-// - PR heuristika: "Brand vam svetuje/priporoča ...", "kako ...", finance-PR fraze,
-//   sekcijski namig za siol.net/novice/posel-danes, RSS kategorije (npr. "PR članek").
+// Lokalni filter za sponzorirano/PR/oglasno vsebino (v3.3 - SAFE MODE).
 
-export const AD_THRESHOLD = 3            // jasne oznake (nižje = bolj občutljivo)
-export const AGGRESSIVE_PR_THRESHOLD = 4 // PR jezik (višje = manj občutljivo)
+export const AD_THRESHOLD = 3            // jasne oznake
+export const AGGRESSIVE_PR_THRESHOLD = 4 // PR jezik
 
-// --- Jasne oznake ---
+// --- 1. VARNE BESEDE (WHITELIST) ---
+// Če članek vsebuje katero od teh besed, ga NIKOLI ne blokiraj,
+// tudi če zveni kot oglas. To rešuje politične in kronične novice.
+const SAFE_KEYWORDS = [
+  'vlada', 'minister', 'premier', 'golob', 'jansa', 'logar', 'pirc musar',
+  'poslanci', 'drzavni zbor', 'koalicija', 'opozicija', 'sindikat', 'stavka',
+  'policija', 'gasilci', 'resevalci', 'sodisce', 'tozilstvo', 'zapor', 'aretacija',
+  'umor', 'smrt', 'nesreca', 'trcenje', 'potres', 'poplave', 'pozar', 'neurje',
+  'vojna', 'ukrajina', 'rusija', 'gaza', 'izrael', 'nato', 'eu',
+  'nogomet', 'kosarka', 'sport', 'tekma', 'olimpijske',
+  'znanost', 'odkritje', 'vesolje',
+]
+
+// --- Jasne oznake (Oglasi) ---
 const KEYWORDS = [
   'oglasno sporočilo','promocijsko sporočilo','plačana objava','sponzorirano',
   'oglasni prispevek','komercialno sporočilo','oglasna vsebina','v sodelovanju z',
@@ -19,7 +29,7 @@ const STRONG_TOKENS = ['promo','oglas','advertorial','ad:','[ad]','pr:','[pr]','
 
 const WEAK = ['akcija','popust','kupon','super cena','kupite','naročite','prihrani','ponudba']
 
-// PR jezik / produktni žargon
+// PR jezik (Nevarno območje - tukaj smo previdni)
 const PR_PHRASES = [
   'je predstavil','je predstavila','so predstavili','predstavlja','predstavili',
   'platforma','rešitev','storitev','posodobitev','prenovljeno','lansiral','zagnal',
@@ -35,11 +45,9 @@ const FINANCE_PR = [
   'odpri račun','odprite račun','sklad','vzajemni sklad','borza','do %','% letno','prvo leto','brez vstopnih stroškov'
 ]
 
-// Dodatni “how-to PR” vzorci (brand -> vam svetuje/priporoča kako ...)
 const PR_VERBS_ADVICE = ['svetuje','priporoča','predlaga','prinaša nasvete']
 const HOWTO_HINTS = ['kako ', 'how to ']
 
-// Vzorci URL-jev (močni) + sekcijski namigi (šibki)
 const URL_PATTERNS_STRONG = [
   /\/oglas/i, /\/oglasi/i, /\/promo/i, /\/promocij/i, /\/sponzor/i, /\/advert/i, /[?&]utm_campaign=promo/i
 ]
@@ -57,10 +65,8 @@ const W = {
   WEAK: 1, SHOUT: 1, SHORT: 1, CATEGORY: 2, PR: 2, FIN: 2, HOWTO: 2, BRAND_ADVICE: 3
 }
 
-// ES5-safe odstranjevanje diakritikov (č,š,ž → c,s,z ...)
 function normalize(s?: string | null): string {
   if (!s) return ''
-  // NFD razgradi znake v osnovo + kombinacijske znake; nato odstranimo kombinacije U+0300–U+036F
   return s.toLowerCase()
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
@@ -81,10 +87,8 @@ function toCategories(x: any): string[] {
   return []
 }
 
-// Detekcija "Brand vam svetuje ... kako ..."
 function brandAdvicePattern(titleRaw: string): boolean {
   const t = (titleRaw || '').trim()
-  // Začetek z veliko začetnico (brand) + " vam|ti|nam " + (svetuje|priporoča|predlaga)
   const rx = /^[A-ZŠČŽĆĐ][^,.:!?]{1,60}\s+(vam|ti|nam)\s+(svetuje|priporoča|predlaga)\b/i
   return rx.test(t)
 }
@@ -101,7 +105,18 @@ export function scoreAd(item: any) {
   const url = String(item?.link || '')
   const author = normalize(item?.author || '')
   const categories = toCategories(item?.categories).map(normalize)
+  
   const hay = `${title}\n${desc}\n${html}`
+
+  // --- 0. VARNOSTNA ZAVORA (SAFEGUARD) ---
+  // Če najdemo "varno besedo", takoj vrnemo rezultat 0 (ni oglas)
+  // To prepreči, da bi npr. "Vlada predstavila rešitev" bilo označeno kot PR.
+  for (const safe of SAFE_KEYWORDS) {
+      if (hay.includes(safe)) {
+          return { score: 0, prScore: 0, matches: [`safe:${safe}`] }
+      }
+  }
+  // ---------------------------------------
 
   for (const k of KEYWORDS) if (hay.includes(normalize(k))) { score += W.KEYWORD; matches.push(`kw:${k}`) }
   for (const t of STRONG_TOKENS) if (title.includes(normalize(t)) || desc.includes(normalize(t))) { score += W.STRONG; matches.push(`strong:${t}`) }
@@ -110,13 +125,11 @@ export function scoreAd(item: any) {
   for (const p of PR_PHRASES) if (hay.includes(normalize(p))) { prScore += W.PR; matches.push(`pr:${p}`) }
   for (const p of FINANCE_PR) if (hay.includes(normalize(p))) { prScore += W.FIN; matches.push(`fin:${p}`) }
 
-  // how-to PR namigi
   if (PR_VERBS_ADVICE.some(v => hay.includes(normalize(v))) && HOWTO_HINTS.some(h => title.includes(normalize(h)))) {
     prScore += W.HOWTO
     matches.push('howto:advice+kako')
   }
 
-  // brandAdvice začetni vzorec
   if (brandAdvicePattern(titleRaw)) {
     prScore += W.BRAND_ADVICE
     matches.push('brand_advice:title')
@@ -126,7 +139,6 @@ export function scoreAd(item: any) {
   for (const rx of URL_SECTION_HINTS) if (rx.test(url)) { prScore += W.URL_HINT; matches.push(`urlhint:${rx.source}`) }
   for (const rx of AUTHOR_PATTERNS) if (rx.test(author)) { score += W.AUTHOR; matches.push(`author:${rx.source}`) }
 
-  // Kategorije v RSS: ujemi tudi "pr članek" (brez šumnikov -> "pr clanek")
   if (categories.some(c =>
     c.indexOf('sponzor') >= 0 || c.indexOf('promo') >= 0 || c.indexOf('oglas') >= 0 || c.indexOf('sponsored') >= 0 ||
     c.indexOf('pr clanek') >= 0 || c === 'pr' || (c && c.indexOf('pr:') === 0)
@@ -147,7 +159,14 @@ export function scoreAd(item: any) {
 export function isLikelyAd(item: any, opts?: { threshold?: number, aggressive?: boolean }) {
   const threshold = opts?.threshold ?? AD_THRESHOLD
   const aggressive = opts?.aggressive ?? true
+  
   const { score, prScore, matches } = scoreAd(item)
+  
+  // Če je "safe" (score 0 in match 'safe:...'), takoj vrni false
+  if (matches.some(m => m.startsWith('safe:'))) {
+      return { isAd: false, score: 0, matches, hard: false, pr: false }
+  }
+
   const isHardAd = score >= threshold
   const isPR = aggressive && prScore >= AGGRESSIVE_PR_THRESHOLD
   return { isAd: isHardAd || isPR, score: isHardAd ? score : prScore, matches, hard: isHardAd, pr: isPR }
