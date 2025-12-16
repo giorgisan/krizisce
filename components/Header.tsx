@@ -9,7 +9,6 @@ import { CATEGORIES, CategoryId } from '../lib/categories'
 import { motion, AnimatePresence } from 'framer-motion'
 
 // --- 1. UVOZ FONTOV ---
-// Playfair za Logo, Inter za UI/Kategorije
 import { Playfair_Display, Inter } from 'next/font/google'
 
 // --- 2. KONFIGURACIJA FONTOV ---
@@ -21,7 +20,7 @@ const logoFont = Playfair_Display({
 
 const uiFont = Inter({
   subsets: ['latin'],
-  weight: ['400', '500', '600'], // Medium in Semibold za UI
+  weight: ['400', '500', '600'], 
   display: 'swap',
 })
 
@@ -131,7 +130,7 @@ export default function Header({
         ${scrolled 
             ? 'bg-white/80 dark:bg-gray-900/80 backdrop-blur-md shadow-sm' 
             : 'bg-white dark:bg-gray-900'}
-        ${uiFont.className} /* Dodamo Inter font na celoten header za konsistentnost */
+        ${uiFont.className}
       `}
     >
       <div className="w-full border-b border-gray-100 dark:border-gray-800/60">
@@ -144,11 +143,13 @@ export default function Header({
                   <Image src="/logo.png" alt="Logo" fill className="object-contain" />
                 </div>
                 <div className="flex flex-col justify-center">
-                  {/* LOGO FONT */}
+                  {/* LOGO FONT - Playfair Display */}
                   <span className={`text-2xl font-bold tracking-tight text-gray-900 dark:text-white leading-none ${logoFont.className}`}>
                       Križišče
                   </span>
-                  <span className="text-xs font-medium tracking-wide text-gray-500 dark:text-gray-400 leading-none mt-1 hidden sm:block">
+                  
+                  {/* PODNAPIS - ZDAJ VIDEN TUDI NA MOBILE (odstranjen 'hidden sm:block') */}
+                  <span className="text-xs font-medium tracking-wide text-gray-500 dark:text-gray-400 leading-none mt-1">
                       Zadnje novice slovenskih medijev
                   </span>
                 </div>
@@ -188,6 +189,7 @@ export default function Header({
           {/* DESNO: Search + Orodja */}
           <div className="flex items-center gap-2 md:gap-4 shrink-0 ml-auto">
             
+            {/* SEARCH (Desktop only, da ne zasede preveč prostora na mobile headerju) */}
             {isHome && (
               <div className="hidden md:block w-64 lg:w-80">
                 <form onSubmit={handleSubmit} className="relative group">
@@ -247,6 +249,7 @@ export default function Header({
             {mounted && (
               <button
                 onClick={() => setTheme(isDark ? 'light' : 'dark')}
+                title={isDark ? 'Preklopi na svetlo temo' : 'Preklopi na temno temo'}
                 className="p-2 rounded-md text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800 transition-colors"
               >
                 {isDark ? (
@@ -270,6 +273,7 @@ export default function Header({
           <div className="max-w-[1800px] mx-auto px-4 md:px-8 lg:px-16">
             <nav className="flex items-center gap-6 overflow-x-auto no-scrollbar">
               
+              {/* SEARCH ZA MOBILE */}
               <div className="md:hidden py-2 min-w-[140px]">
                 <input
                   type="search"
@@ -284,7 +288,6 @@ export default function Header({
                 onClick={() => onSelectCategory('vse')}
                 className={`
                   relative py-3 text-sm uppercase tracking-wide whitespace-nowrap transition-colors
-                  /* SPREMEMBA: Uporaba font-semibold namesto bold za bolj eleganten videz */
                   font-semibold 
                   ${activeCategory === 'vse' 
                     ? 'text-brand' 
@@ -305,7 +308,6 @@ export default function Header({
                     onClick={() => onSelectCategory(cat.id)}
                     className={`
                       relative py-3 text-sm uppercase tracking-wide whitespace-nowrap transition-colors
-                      /* SPREMEMBA: Uporaba font-semibold namesto bold */
                       font-semibold
                       ${isActive 
                         ? 'text-gray-900 dark:text-white' 
