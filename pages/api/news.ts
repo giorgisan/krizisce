@@ -126,12 +126,13 @@ function feedItemToDbRow(item: FeedNewsItem) {
   if (!linkKey || !title || !source) return null
   const snippet = normalizeSnippet(item)
   
-  const rawCategories = (item as any).categories || []
-  const calculatedCategory = determineCategory({ 
+  // Kategorija je zdaj že določena v fetchRSSFeeds (lahko je 'oglas')
+  // Če bi bila null, jo ponovno izračunamo, sicer uporabimo obstoječo
+  const category = item.category || determineCategory({ 
     link: linkRaw, 
     title: title, 
     contentSnippet: snippet || '', 
-    categories: rawCategories 
+    categories: [] 
   })
 
   return {
@@ -144,7 +145,7 @@ function feedItemToDbRow(item: FeedNewsItem) {
     summary: snippet,
     published_at: ts.iso,
     publishedat: ts.ms,
-    category: calculatedCategory, 
+    category: category, 
   }
 }
 
@@ -213,10 +214,10 @@ function rowToItem(r: Row): FeedNewsItem {
 }
 
 /* -------------------------------------------------------------------------- */
-/* TRENDING LOGIKA (Vroče)                         */
+/* TRENDING LOGIKA (Vroče)                                  */
 /* -------------------------------------------------------------------------- */
 const TREND_WINDOW_HOURS = 6 
-const TREND_MIN_SOURCES = 2    
+const TREND_MIN_SOURCES = 2     
 const TREND_MIN_OVERLAP = 2
 const TREND_MAX_ITEMS = 5
 const TREND_HOT_CUTOFF_HOURS = 4
@@ -298,6 +299,9 @@ async function fetchTrendingRows(): Promise<Row[]> {
       'id, link, link_key, title, source, image, contentsnippet, summary, published_at, publishedat, created_at, category',
     )
     .gt('publishedat', cutoffMs)
+    // --- 1. FILTRIRANJE OGLASOV IZ TRENDINGA ---
+    .neq('category', 'oglas') 
+    // ------------------------------------------
     .order('publishedat', { ascending: false })
     .limit(300)
 
@@ -412,7 +416,7 @@ function computeTrendingFromRows(rows: Row[]): (FeedNewsItem & { storyArticles: 
 }
 
 /* -------------------------------------------------------------------------- */
-/* API HANDLER                                 */
+/* API HANDLER                                  */
 /* -------------------------------------------------------------------------- */
 type PagedOk = { items: FeedNewsItem[]; nextCursor: number | null }
 type ListOk = FeedNewsItem[]
@@ -472,6 +476,11 @@ export default async function handler(
       .select('id, link, link_key, title, source, image, contentsnippet, summary, published_at, publishedat, created_at, category')
       .gt('publishedat', 0)
       
+      // --- 4. FILTRIRANJE OGLASOV ---
+      // Skrij oglase uporabnikom, razen če bi morda kdaj želel admin panel
+      .neq('category', 'oglas') 
+      // -----------------------------
+      
     // SORTIRANJE:
     // Glavni sort po času + SEKUNDARNI sort po ID (Tie-breaker), da preprečimo "skakanje"
     q = q
@@ -503,14 +512,14 @@ export default async function handler(
 
     q = q.limit(limit)
 
-    // --- 4. IZVEDBA POIZVEDBE ---
+    // --- 5. IZVEDBA POIZVEDBE ---
     const { data, error } = await q
     if (error) return res.status(500).json({ error: `DB: ${error.message}` })
 
     const rows = (data || []) as Row[]
     const rawItems = rows.map(rowToItem)
     
-    // Še enkrat soft-sort za vsak slučaj, čeprav je DB že posortirala
+    // Še enkrat soft-sort za vsak slučaj
     const items = softDedupe(rawItems).sort((a, b) => b.publishedAt - a.publishedAt)
     
     // Kursor za infinite scroll
