@@ -461,6 +461,7 @@ export const getServerSideProps: GetServerSideProps = async ({ res }) => {
       'id, link, title, source, summary, contentsnippet, image, published_at, publishedat, category',
     )
     .order('publishedat', { ascending: false })
+    .order('id', { ascending: false }) // <--- DODAJ TO VRSTICO (Tie-breaker)
     .limit(25)
 
   const rows = (data ?? []) as any[]
