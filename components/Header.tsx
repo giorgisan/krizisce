@@ -148,7 +148,7 @@ export default function Header({
                   <span className={`text-2xl font-bold tracking-tight text-gray-900 dark:text-white leading-none ${logoFont.className}`}>
                       Križišče
                   </span>
-                  <span className="text-xs font-medium text-gray-500 dark:text-gray-400 leading-none mt-1 hidden sm:block">
+                  <span className="text-xs font-medium tracking-wide text-gray-500 dark:text-gray-400 leading-none mt-1 hidden sm:block">
                       Zadnje novice slovenskih medijev
                   </span>
                 </div>
