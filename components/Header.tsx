@@ -8,13 +8,20 @@ import { useRouter } from 'next/router'
 import { CATEGORIES, CategoryId } from '../lib/categories'
 import { motion, AnimatePresence } from 'framer-motion'
 
-// --- 1. UVOZ NOVEGA FONTA ---
-import { Playfair_Display } from 'next/font/google'
+// --- 1. UVOZ FONTOV ---
+// Playfair za Logo, Inter za UI/Kategorije
+import { Playfair_Display, Inter } from 'next/font/google'
 
-// --- 2. KONFIGURACIJA FONTA ---
+// --- 2. KONFIGURACIJA FONTOV ---
 const logoFont = Playfair_Display({ 
   subsets: ['latin'],
-  weight: ['700', '900'], // Uporabimo krepkejšo različico za močan karakter
+  weight: ['700', '900'], 
+  display: 'swap',
+})
+
+const uiFont = Inter({
+  subsets: ['latin'],
+  weight: ['400', '500', '600'], // Medium in Semibold za UI
   display: 'swap',
 })
 
@@ -46,7 +53,6 @@ export default function Header({
   const { theme, setTheme, resolvedTheme } = useTheme()
   const router = useRouter()
 
-  // LOGIKA PRIKAZOVANJA:
   const isHome = router.pathname === '/'
   const showCategories = isHome 
 
@@ -125,6 +131,7 @@ export default function Header({
         ${scrolled 
             ? 'bg-white/80 dark:bg-gray-900/80 backdrop-blur-md shadow-sm' 
             : 'bg-white dark:bg-gray-900'}
+        ${uiFont.className} /* Dodamo Inter font na celoten header za konsistentnost */
       `}
     >
       <div className="w-full border-b border-gray-100 dark:border-gray-800/60">
@@ -137,7 +144,7 @@ export default function Header({
                   <Image src="/logo.png" alt="Logo" fill className="object-contain" />
                 </div>
                 <div className="flex flex-col justify-center">
-                  {/* --- 3. UPORABA FONTA --- */}
+                  {/* LOGO FONT */}
                   <span className={`text-2xl font-bold tracking-tight text-gray-900 dark:text-white leading-none ${logoFont.className}`}>
                       Križišče
                   </span>
@@ -181,7 +188,6 @@ export default function Header({
           {/* DESNO: Search + Orodja */}
           <div className="flex items-center gap-2 md:gap-4 shrink-0 ml-auto">
             
-            {/* SEARCH (Desktop) */}
             {isHome && (
               <div className="hidden md:block w-64 lg:w-80">
                 <form onSubmit={handleSubmit} className="relative group">
@@ -209,7 +215,6 @@ export default function Header({
               {time}
             </span>
 
-            {/* FILTER (Lijak) - Samo na domači strani */}
             {isHome && (
               <button 
                 onClick={onOpenFilter}
@@ -225,7 +230,6 @@ export default function Header({
               </button>
             )}
 
-            {/* ARHIV (Koledar) */}
             <Link
               href="/arhiv"
               className={`p-2 rounded-md transition-colors text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800 ${router.pathname === '/arhiv' ? 'text-brand' : ''}`}
@@ -240,7 +244,6 @@ export default function Header({
               </svg>
             </Link>
 
-            {/* TEMA */}
             {mounted && (
               <button
                 onClick={() => setTheme(isDark ? 'light' : 'dark')}
@@ -267,7 +270,6 @@ export default function Header({
           <div className="max-w-[1800px] mx-auto px-4 md:px-8 lg:px-16">
             <nav className="flex items-center gap-6 overflow-x-auto no-scrollbar">
               
-              {/* SEARCH ZA MOBILE */}
               <div className="md:hidden py-2 min-w-[140px]">
                 <input
                   type="search"
@@ -281,7 +283,9 @@ export default function Header({
               <button
                 onClick={() => onSelectCategory('vse')}
                 className={`
-                  relative py-3 text-sm font-bold uppercase tracking-wide whitespace-nowrap transition-colors
+                  relative py-3 text-sm uppercase tracking-wide whitespace-nowrap transition-colors
+                  /* SPREMEMBA: Uporaba font-semibold namesto bold za bolj eleganten videz */
+                  font-semibold 
                   ${activeCategory === 'vse' 
                     ? 'text-brand' 
                     : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'}
@@ -300,7 +304,9 @@ export default function Header({
                     key={cat.id}
                     onClick={() => onSelectCategory(cat.id)}
                     className={`
-                      relative py-3 text-sm font-bold uppercase tracking-wide whitespace-nowrap transition-colors
+                      relative py-3 text-sm uppercase tracking-wide whitespace-nowrap transition-colors
+                      /* SPREMEMBA: Uporaba font-semibold namesto bold */
+                      font-semibold
                       ${isActive 
                         ? 'text-gray-900 dark:text-white' 
                         : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'}
