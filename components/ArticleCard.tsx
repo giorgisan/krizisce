@@ -95,10 +95,10 @@ export default function ArticleCard({ news, priority = false }: Props) {
   const rawImg = news.image ?? null
   const proxyInitiallyOn = !!rawImg 
 
-  const [useProxy, setUseProxy]        = useState<boolean>(proxyInitiallyOn)
+  const [useProxy, setUseProxy]         = useState<boolean>(proxyInitiallyOn)
   const [useFallback, setUseFallback] = useState<boolean>(!rawImg)
-  const [imgLoaded, setImgLoaded]     = useState<boolean>(false)
-  const [imgKey, setImgKey]           = useState<number>(0)
+  const [imgLoaded, setImgLoaded]      = useState<boolean>(false)
+  const [imgKey, setImgKey]            = useState<number>(0)
 
   const cardRef = useRef<HTMLAnchorElement>(null)
   const imgRef  = useRef<HTMLImageElement>(null)
@@ -173,6 +173,9 @@ export default function ArticleCard({ news, priority = false }: Props) {
   const logClick = () => { sendBeacon({ source: news.source, url: news.link, action: 'open' }) }
   const handleClick = (e: MouseEvent<HTMLAnchorElement>) => {
     if (e.metaKey || e.ctrlKey || e.button === 1) return
+    // UMAMI bo tukaj avtomatsko ujel klik zaradi data atributov spodaj,
+    // ne rabiš posebnega JS klica, razen če želiš pošiljati custom evente ročno.
+    // Atributi so dovolj.
     e.preventDefault()
     window.open(news.link, '_blank', 'noopener')
     logClick()
@@ -243,6 +246,13 @@ export default function ArticleCard({ news, priority = false }: Props) {
         onFocus={() => { setEyeVisible(true); triggerPrefetch() }}
         onBlur={() => { setEyeVisible(false); setEyeHover(false) }}
         onTouchStart={() => { triggerPrefetch() }}
+        
+        // --- UMAMI ANALYTICS ---
+        data-umami-event="Click News"
+        data-umami-event-source={news.source} // Npr. "24ur", "RTV SLO"
+        data-umami-event-type="feed"          // Tip: "feed" (navadna novica)
+        // -----------------------
+
         className="cv-auto group flex flex-col h-full no-underline bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden transition-all duration-200 hover:scale-[1.02] hover:shadow-lg hover:bg-gray-100 dark:hover:bg-gray-700"
       >
         <div
