@@ -6,8 +6,8 @@ export type CategoryId =
   | 'kronika' 
   | 'sport' 
   | 'gospodarstvo' 
-  | 'moto'           
-  | 'tech'           
+  | 'moto'            
+  | 'tech'            
   | 'magazin'        
   | 'kultura'        
   | 'ostalo'
@@ -62,23 +62,20 @@ export const CATEGORIES: CategoryDef[] = [
         'panika', 'pretep', 'droge', 'kokain', 'mamil', 'tihotap', 'aretacija', 'trcenje', 'smrt',
         'pu ljubljana', 'pu maribor', 'pu celje', 'pu kranj', 'pu koper', 'pu novo mesto',
         'gorska resevalna', 'resevalci', 'intervencija', 'pozar', 'utonil', 'truplo',
-      // Dodano v keywords za 'kronika':
         'pripor', 'privedli', 'zasegli', 'preiskava', 'osumljenci'
     ]
   },
-{
+  {
     id: 'sport',
     label: 'Šport',
     color: 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300',
     keywords: [
-        '/sport/', '/sportal/', 
-        '/sport-', // <--- DODANO: To bo ujel tvoj članek (ker se link začne s /sport-...)
+        '/sport/', '/sportal/', '/sport-', 
         'nogomet', 'kosarka', 'zimski', 'atletika', 'kolesarstvo', 'tenis', 
         'ekipa24', 'sport.n1info.si', 'odbojka', 'rokomet', 'nhl', 'nba', 'doncic', 'kopitar', 
         'pogacar', 'roglic', 'messi', 'olimpij', 'liga', 'prvenstvo', 'trener', 'reprezentanca', 'tekma',
         'bayern', 'munchen', 'real madrid', 'barcelona', 'juventus', 'planica', 'skoki', 'alpsko smucanje',
-        'smucanje', // <--- DODANO: Za vsak slučaj še beseda
-        'ilka stuhec', 'zlatko zahovic', 'kek', 'ceferin', 'uefa', 'fifa'
+        'smucanje', 'ilka stuhec', 'zlatko zahovic', 'kek', 'ceferin', 'uefa', 'fifa'
     ]
   },
   {
@@ -92,24 +89,27 @@ export const CATEGORIES: CategoryDef[] = [
         'zaposlitev', 'sluzba', 'odpustili', 'delavec', 'poklic', 'podjetje', 'direktor', 'stecaj',
         'energetika', 'elektrika', 'podrazitev', 'mastercard', 'nlb', 'prihodki', 'dobicek', 'izguba',
         'bdp', 'obrestne mere', 'ecb', 'lagarde', 'nafta', 'plin', 'nepremicnine', 'stanovanja',
-        // POKOJNINE IN FINANCE
-        'pokojnina', 'upokojenec', 'delovna doba', 'zpis', 'pravni nasvet', 'zavarovanje', 'prispevki'
+        'pokojnina', 'upokojenec', 'delovna doba', 'zpis', 'pravni nasvet', 'zavarovanje', 'prispevki',
+        // NOVO:
+        'hse', 'elektrarn', 'termoelektrarn', 'premog', 'rudarjenje', 'letalsk', 'letalisce', 'brnik', 'adria', 'lufthansa', 'eurowings'
     ]
   },
   {
     id: 'moto',
-    label: 'Avto', 
+    label: 'Avtomobilnost', 
     color: 'bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-300',
     keywords: [
         '/auto/', '/avto/', 
-        '/avtomobilnost/', '/avtomobilno/', '/avtomoto/', '/svet-vozil/',      
+        '/avtomobilnost/', '/avtomobilno/', '/avtomoto/', '/svet-vozil/',       
         '/mobilnost/', '/motociklizem/', '/avtomotosport/', 
         'vozila', 'promet', 'elektricna-vozila', 'testi', 
         'avtomobilizem', 'volkswagen', 'bmw', 'audi', 'tesla', 'dizel', 'bencin', 'hibrid',
         'suv', 'limuzina', 'karavan', 'renault', 'toyota', 'peugeot', 'skoda', 'mercedes', 'porsche', 'volvo', 'fiat',
         'cupra', 'geely', 'byd', 'mazda', 'lexus', 'citroen', 'kia ', 'ford', 'opel',
         'formula-1', 'f1', 'verstappen', 'hamilton', 'rally', 'moto-gp', 'dirka', 
-        'motorji', 'zgorevanjem', 'avtomobilska-industrija', 'vinjeta', 'dars', 'cestnina', 'predor'
+        'motorji', 'zgorevanjem', 'avtomobilska-industrija', 'vinjeta', 'dars', 'cestnina', 'predor',
+        // NOVO (Kazni):
+        'kazen', 'kazni', 'globa'
     ]
   },
   {
@@ -122,7 +122,9 @@ export const CATEGORIES: CategoryDef[] = [
         'umetna-inteligenca', 'ai', 'kriptovalute',
         'apple', 'samsung', 'google', 'microsoft', 'nvidia', 'chatgpt', 'openai', 'xiaomi', 'huawei',
         'inovacije', 'razvoj', 'digitalno', 'nasa', 'spacex', 'astronomija', 'mars', 'rover', 'komet',
-        'aplikacija', 'internet', 'kibernet', 'android', 'ios', 'windows', 'linux', 'robotika'
+        'aplikacija', 'internet', 'kibernet', 'android', 'ios', 'windows', 'linux', 'robotika',
+        // NOVO (Dinozavri/Znanost):
+        'dinozaver', 'pterozaver', 'fosil', 'odkritje', 'vrsta', 'znanoteh'
     ]
   },
   {
@@ -159,7 +161,9 @@ export const CATEGORIES: CategoryDef[] = [
         'viral', 'posnetek', 
         'upokojen', 'senior', 'starost',
         'coach', 'trener', 'cilj', 'motivacija', 'uspeh', 'karier',
-        'navdih', 'zadovoljstvo', 'nasvet'
+        'navdih', 'zadovoljstvo', 'nasvet',
+        // NOVO (Nakupovanje/Darila):
+        'nakup', 'trgovin', 'obdarovanje', 'darilo', 'stres', 'praznicn'
     ]
   },
   {
