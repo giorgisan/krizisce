@@ -31,13 +31,11 @@ export const CATEGORIES: CategoryDef[] = [
         'ljubljana', 'maribor', 'celje', 'koper', 'kranj', 'novo-mesto', 'velenje', 'vrhnika', 'postojna', 'kocevje', 'ptuj',
         'regije', 'slovenij', '/lokalne-novice/', '/stajerska/', '/dolenjska/', '/primorska/', '/gorenjska/', '/prekmurje/', '/koroska/',
         '/mnenja/', '/pisma-bralcev/', '/sobotna-priloga/', '/kolumne/', '/bralci/',
-        '/karikatura/', // Politične karikature
+        '/karikatura/', 
         'javna-uprava', 'drzavni-zbor', 'zupan', 'obcina', 'studentski-dom', 'fakultet',
         'prenova', 'gradnja', 'vodovod', 'vrtec', 'sola', 'cesta', 'zeleznica', 'drugi-tir', 'prometna-infrastruktura',
         'humanitarn', 'nvo', 'protest', 'stavka', 'sindikat',
-        // PROMET (Vlak, potniki)
         'vlak', 'potniki', 'zeleznis', 'tir', 'sz', 'zeleznice', 'avtobus', 'lpp',
-        // VREME
         'vreme', 'arso', 'vremenska', 'sneg', 'dezevje', 'poplave', 'neurje', 'toča', 'ciklon', 'temperatura', 'prognostik'
     ]
   },
@@ -90,7 +88,6 @@ export const CATEGORIES: CategoryDef[] = [
         'energetika', 'elektrika', 'podrazitev', 'mastercard', 'nlb', 'prihodki', 'dobicek', 'izguba',
         'bdp', 'obrestne mere', 'ecb', 'lagarde', 'nafta', 'plin', 'nepremicnine', 'stanovanja',
         'pokojnina', 'upokojenec', 'delovna doba', 'zpis', 'pravni nasvet', 'zavarovanje', 'prispevki',
-        // NOVO:
         'hse', 'elektrarn', 'termoelektrarn', 'premog', 'rudarjenje', 'letalsk', 'letalisce', 'brnik', 'adria', 'lufthansa', 'eurowings'
     ]
   },
@@ -108,7 +105,6 @@ export const CATEGORIES: CategoryDef[] = [
         'cupra', 'geely', 'byd', 'mazda', 'lexus', 'citroen', 'kia ', 'ford', 'opel',
         'formula-1', 'f1', 'verstappen', 'hamilton', 'rally', 'moto-gp', 'dirka', 
         'motorji', 'zgorevanjem', 'avtomobilska-industrija', 'vinjeta', 'dars', 'cestnina', 'predor',
-        // NOVO (Kazni):
         'kazen', 'kazni', 'globa'
     ]
   },
@@ -123,7 +119,6 @@ export const CATEGORIES: CategoryDef[] = [
         'apple', 'samsung', 'google', 'microsoft', 'nvidia', 'chatgpt', 'openai', 'xiaomi', 'huawei',
         'inovacije', 'razvoj', 'digitalno', 'nasa', 'spacex', 'astronomija', 'mars', 'rover', 'komet',
         'aplikacija', 'internet', 'kibernet', 'android', 'ios', 'windows', 'linux', 'robotika',
-        // NOVO (Dinozavri/Znanost):
         'dinozaver', 'pterozaver', 'fosil', 'odkritje', 'vrsta', 'znanoteh'
     ]
   },
@@ -136,7 +131,7 @@ export const CATEGORIES: CategoryDef[] = [
         '/lifestyle/', '/kulinarika/', '/okusno/', '/astro/', 'suzy', 'lady', 'dom-in-vrt',
         '/nedeljski/', '/zdravje/', '/lepota/', '/odnosi/', '/bivanje/', '/zanimivosti/', '/duhovnost/',
         '/nedelo/', '/pop-30/',
-        // ZDRAVJE
+        // ZDRAVJE in WELLNESS
         'zdravje', 'bolezen', 'ambulanta', 'zdravnik', 'medicina', 'bolniska', 'zdravstvo', 'srce', 'jetra', 'mineral', 'vitamin',
         'bakterij', 'prebav', 'kosti', 'zivilo', 'repa', 'superzelenjava', 'rak ', 'simptomi', 'bolecine', 'imunski sistem',
         'holesterol', 'krvni tlak', 'sladkorna', 'dieta', 'hujsanje', 'vadba', 'recept', 'kalorije',
@@ -162,7 +157,6 @@ export const CATEGORIES: CategoryDef[] = [
         'upokojen', 'senior', 'starost',
         'coach', 'trener', 'cilj', 'motivacija', 'uspeh', 'karier',
         'navdih', 'zadovoljstvo', 'nasvet',
-        // NOVO (Nakupovanje/Darila):
         'nakup', 'trgovin', 'obdarovanje', 'darilo', 'stres', 'praznicn'
     ]
   },
