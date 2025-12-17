@@ -13,8 +13,6 @@ const URL_BLOCK_PATTERNS = [
   /\/advertorial\//i,
   /\/sponzorirano\//i,
   /\/sponzor\//i,
-  /\/partner\//i,
-  /\/trgovina\//i,
   /\/nakup\//i,
   /\/marketing\//i,
   /[?&]utm_campaign=promo/i,
