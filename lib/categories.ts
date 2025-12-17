@@ -36,7 +36,8 @@ export const CATEGORIES: CategoryDef[] = [
         'prenova', 'gradnja', 'vodovod', 'vrtec', 'sola', 'cesta', 'zeleznica', 'drugi-tir', 'prometna-infrastruktura',
         'humanitarn', 'nvo', 'protest', 'stavka', 'sindikat', 'rasizem', 'diskriminacija', 'hostel', 'turist',
         'vlak', 'potniki', 'zeleznis', 'tir', 'sz', 'zeleznice', 'avtobus', 'lpp',
-        'vreme', 'arso', 'vremenska', 'sneg', 'dezevje', 'poplave', 'neurje', 'toča', 'ciklon', 'temperatura', 'prognostik'
+        'vreme', 'arso', 'vremenska', 'sneg', 'dezevje', 'poplave', 'neurje', 'toča', 'ciklon', 'temperatura', 'prognostik',
+        'dobrodeln', 'zbiranje pomoci', 'pomoc'
     ]
   },
   {
@@ -113,13 +114,14 @@ export const CATEGORIES: CategoryDef[] = [
     label: 'Tehnologija',
     color: 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900/40 dark:text-cyan-300',
     keywords: [
+        '/znanoteh/', // Dodano za Delo
         '/znanost/', '/tehnologija/', '/tech/', '/digisvet/', '/znanost-in-tehnologija/', '/digitalna-odpornost/',
         'vesolje', 'telefoni', 'racunalnistvo', 'pametni', 
         'umetna-inteligenca', 'ai', 'kriptovalute',
         'apple', 'samsung', 'google', 'microsoft', 'nvidia', 'chatgpt', 'openai', 'xiaomi', 'huawei',
         'inovacije', 'razvoj', 'digitalno', 'nasa', 'spacex', 'astronomija', 'mars', 'rover', 'komet',
         'aplikacija', 'internet', 'kibernet', 'android', 'ios', 'windows', 'linux', 'robotika',
-        'dinozaver', 'pterozaver', 'fosil', 'odkritje', 'vrsta', 'znanoteh'
+        'dinozaver', 'pterozaver', 'fosil', 'odkritje', 'vrsta', 'znanoteh', 'dnk', 'genetika'
     ]
   },
   {
@@ -157,7 +159,8 @@ export const CATEGORIES: CategoryDef[] = [
         'upokojen', 'senior', 'starost',
         'coach', 'trener', 'cilj', 'motivacija', 'uspeh', 'karier',
         'navdih', 'zadovoljstvo', 'nasvet',
-        'nakup', 'trgovin', 'obdarovanje', 'darilo', 'stres', 'praznicn'
+        'nakup', 'trgovin', 'obdarovanje', 'darilo', 'stres', 'praznicn',
+        'interier', 'arhitektura'
     ]
   },
   {
