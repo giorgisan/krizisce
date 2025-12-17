@@ -1,12 +1,12 @@
 // lib/adFilter.ts
-// Poenostavljen filter (v5.0 - URL ONLY MODE).
-// Blokira samo, če URL ali RSS kategorija eksplicitno vsebujeta "promo/oglas".
+// Poenostavljen filter (v6.0 - URL ONLY + SPECIFIC SECTIONS).
+// Blokira samo, če URL ali RSS kategorija eksplicitno vsebujeta "promo/oglas" ali znane promo sekcije.
 
 export const AD_THRESHOLD = 1 // Če najdemo match, je takoj oglas
 
 // 1. URL VZORCI (To je glavni filter)
-// Če URL vsebuje te nize, je 100% oglas.
 const URL_BLOCK_PATTERNS = [
+  // --- GENERIČNI VZORCI ---
   /\/promo\//i,
   /\/oglasi\//i,
   /\/oglas\//i,
@@ -16,8 +16,32 @@ const URL_BLOCK_PATTERNS = [
   /\/partner\//i,
   /\/trgovina\//i,
   /\/nakup\//i,
+  /\/marketing\//i,
   /[?&]utm_campaign=promo/i,
-  /[?&]utm_medium=pr/i
+  /[?&]utm_medium=pr/i,
+  /[?&]utm_source=advertorial/i,
+
+  // --- DELO.SI ---
+  /\/delov-poslovni-center\//i,
+  /\/podjetniske-zvezde\//i,
+  /\/svet-kapitala\//i, // Pogosto vsebuje PR vsebine
+  /\/dpc-/, // Delov Poslovni Center kratica v URL
+
+  // --- SLOVENSKE NOVICE ---
+  /\/avtor\/promo-/i, // Npr. /avtor/promo-slovenske-novice, /avtor/promo-deloindom
+  /\/promo-/, // Npr. promo-onaplus
+
+  // --- SIOL.NET ---
+  /\/advertorial-/i, // Siol ima pogosto obliko /novice/slovenija/advertorial-naslov-clanka
+
+  // --- FINANCE.SI ---
+  /\/promocijsko-sporocilo\//i,
+  
+  // --- ŽURNAL24 ---
+  /\/magazin\/promo\//i,
+  
+  // --- 24UR (Redkejše, a za vsak slučaj) ---
+  /\/sponzorirana-vsebina\//i
 ]
 
 // 2. RSS KATEGORIJE (Metadata iz vira)
@@ -30,7 +54,10 @@ const CATEGORY_BLOCK_PATTERNS = [
   'pr članek',
   'pr sporocilo',
   'plačana objava',
-  'vsebino omogoča'
+  'vsebino omogoča',
+  'promocijsko sporočilo',
+  'delov poslovni center',
+  'podjetniške zvezde'
 ]
 
 function normalize(s?: string | null): string {
