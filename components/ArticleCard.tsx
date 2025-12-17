@@ -23,6 +23,7 @@ const ArticlePreview = dynamic(() => import('./ArticlePreview'), { ssr: false })
 const ASPECT = 16 / 9
 const IMAGE_WIDTHS = [320, 480, 640, 960, 1280]
 
+// Tukaj definiramo, da komponenta sprejme 'priority'
 interface Props { news: NewsItem; priority?: boolean }
 
 export default function ArticleCard({ news, priority = false }: Props) {
@@ -139,10 +140,11 @@ export default function ArticleCard({ news, priority = false }: Props) {
     }
   }
 
+  // Preverimo priority
   const [isPriority, setIsPriority] = useState<boolean>(priority)
   useEffect(() => { if (priority) setIsPriority(true) }, [priority])
 
-  // Preload
+  // Preload logika (za hitrejši prikaz)
   useEffect(() => {
     if (!isPriority || !rawImg) return
     const rectW  = Math.max(1, Math.round(cardRef.current?.getBoundingClientRect().width || 480))
@@ -282,7 +284,9 @@ export default function ArticleCard({ news, priority = false }: Props) {
               sizes="(max-width: 640px) 100vw, (max-width: 1280px) 33vw, 20vw"
               onError={handleImgError}
               onLoadingComplete={() => setImgLoaded(true)}
-              priority={isPriority} // <--- TUKAJ JE KLJUČ
+              // --- TOLE JE KLJUČNO ZA HITROST SLIK ---
+              priority={isPriority} 
+              // ---------------------------------------
               data-ok={imgLoaded}
             />
           )}
