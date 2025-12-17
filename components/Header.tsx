@@ -9,7 +9,6 @@ import { CATEGORIES, CategoryId } from '../lib/categories'
 import { motion, AnimatePresence } from 'framer-motion'
 
 // --- 1. UVOZ FONTOV ---
-// Playfair Display za Logo, Inter za UI (menije)
 import { Playfair_Display, Inter } from 'next/font/google'
 
 // --- 2. KONFIGURACIJA FONTOV ---
@@ -21,6 +20,7 @@ const logoFont = Playfair_Display({
 
 const uiFont = Inter({
   subsets: ['latin'],
+  // Dodana teža '700' (Bold), da bo font-bold pravilno deloval v vseh brskalnikih
   weight: ['400', '500', '600', '700'], 
   display: 'swap',
 })
@@ -125,14 +125,13 @@ export default function Header({
 
   return (
     <header 
-      // TUKAJ UPORABIMO uiFont (Inter), da vsi pod-elementi (meniji) dedujejo ta font
       className={`
         sticky top-0 z-40 w-full flex flex-col transition-all duration-300
         border-b border-gray-200 dark:border-gray-800
         ${scrolled 
             ? 'bg-white/80 dark:bg-gray-900/80 backdrop-blur-md shadow-sm' 
             : 'bg-white dark:bg-gray-900'}
-        ${uiFont.className} 
+        ${uiFont.className}
       `}
     >
       <div className="w-full border-b border-gray-100 dark:border-gray-800/60">
@@ -142,17 +141,14 @@ export default function Header({
           <div className="flex items-center gap-4 shrink-0 mr-auto">
             <Link href="/" onClick={handleLogoClick} className="flex items-center gap-3 group">
                 <div className="relative w-8 h-8 md:w-9 md:h-9">
-                  {/* LOGO SLIKA: priority=true ker je v headerju */}
                   <Image src="/logo.png" alt="Logo" fill className="object-contain" priority />
                 </div>
                 
                 <div className="flex flex-col justify-center">
-                  {/* LOGO FONT - Playfair Display (Samo za napis Križišče) */}
                   <span className={`text-2xl md:text-3xl font-bold tracking-tight text-gray-900 dark:text-white leading-none ${logoFont.className}`}>
                       Križišče
                   </span>
                   
-                  {/* PODNAPIS - Inter (deduje od headerja) */}
                   <span className="text-[10px] md:text-xs font-medium tracking-wide text-gray-500 dark:text-gray-400 leading-none mt-1">
                       Zadnje novice slovenskih medijev
                   </span>
@@ -276,6 +272,7 @@ export default function Header({
           <div className="max-w-[1800px] mx-auto px-4 md:px-8 lg:px-16">
             <nav className="flex items-center gap-6 overflow-x-auto no-scrollbar">
               
+              {/* SEARCH ZA MOBILE */}
               <div className="md:hidden py-2 min-w-[140px]">
                 <input
                   type="search"
@@ -290,7 +287,7 @@ export default function Header({
                 onClick={() => onSelectCategory('vse')}
                 className={`
                   relative py-3 text-sm uppercase tracking-wide whitespace-nowrap transition-colors
-                  font-semibold 
+                  font-bold 
                   ${activeCategory === 'vse' 
                     ? 'text-brand' 
                     : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'}
@@ -310,7 +307,7 @@ export default function Header({
                     onClick={() => onSelectCategory(cat.id)}
                     className={`
                       relative py-3 text-sm uppercase tracking-wide whitespace-nowrap transition-colors
-                      font-semibold
+                      font-bold
                       ${isActive 
                         ? 'text-gray-900 dark:text-white' 
                         : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'}
