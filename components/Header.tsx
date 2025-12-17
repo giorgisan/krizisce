@@ -12,16 +12,21 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { Playfair_Display, Inter } from 'next/font/google'
 
 // --- 2. KONFIGURACIJA FONTOV ---
+
+// Playfair Display (Logo) - Tu lahko pustimo specific weights ali pa tudi damo variable
 const logoFont = Playfair_Display({ 
   subsets: ['latin'],
+  // Pri serifnih fontih je včasih bolje definirati teže, da so res 'crisp'
   weight: ['700', '900'], 
   display: 'swap',
 })
 
+// Inter (UI) - SPREMEMBA: Uporabimo VARIABLE font (brez definicije weight)
+// To drastično izboljša rendering na Windows/Firefox in zmanjša "skok" pri nalaganju.
 const uiFont = Inter({
   subsets: ['latin'],
-  weight: ['400', '500', '600'], 
   display: 'swap',
+  // weight: ... // IZBRISANO! Naj bo variable.
 })
 
 type Props = {
@@ -140,16 +145,15 @@ export default function Header({
           <div className="flex items-center gap-4 shrink-0 mr-auto">
             <Link href="/" onClick={handleLogoClick} className="flex items-center gap-3 group">
                 <div className="relative w-8 h-8 md:w-9 md:h-9">
-                  <Image src="/logo.png" alt="Logo" fill className="object-contain" />
+                  <Image src="/logo.png" alt="Logo" fill className="object-contain" priority />
                 </div>
+                
                 <div className="flex flex-col justify-center">
-                  {/* LOGO FONT - Playfair Display */}
-                  <span className={`text-2xl font-bold tracking-tight text-gray-900 dark:text-white leading-none ${logoFont.className}`}>
+                  <span className={`text-2xl md:text-3xl font-bold tracking-tight text-gray-900 dark:text-white leading-none ${logoFont.className}`}>
                       Križišče
                   </span>
                   
-                  {/* PODNAPIS - ZDAJ VIDEN TUDI NA MOBILE (odstranjen 'hidden sm:block') */}
-                  <span className="text-xs font-medium tracking-wide text-gray-500 dark:text-gray-400 leading-none mt-1">
+                  <span className="text-[10px] md:text-xs font-medium tracking-wide text-gray-500 dark:text-gray-400 leading-none mt-1">
                       Zadnje novice slovenskih medijev
                   </span>
                 </div>
@@ -189,7 +193,6 @@ export default function Header({
           {/* DESNO: Search + Orodja */}
           <div className="flex items-center gap-2 md:gap-4 shrink-0 ml-auto">
             
-            {/* SEARCH (Desktop only, da ne zasede preveč prostora na mobile headerju) */}
             {isHome && (
               <div className="hidden md:block w-64 lg:w-80">
                 <form onSubmit={handleSubmit} className="relative group">
@@ -288,7 +291,7 @@ export default function Header({
                 onClick={() => onSelectCategory('vse')}
                 className={`
                   relative py-3 text-sm uppercase tracking-wide whitespace-nowrap transition-colors
-                  font-semibold 
+                  font-bold 
                   ${activeCategory === 'vse' 
                     ? 'text-brand' 
                     : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'}
@@ -308,7 +311,7 @@ export default function Header({
                     onClick={() => onSelectCategory(cat.id)}
                     className={`
                       relative py-3 text-sm uppercase tracking-wide whitespace-nowrap transition-colors
-                      font-semibold
+                      font-bold
                       ${isActive 
                         ? 'text-gray-900 dark:text-white' 
                         : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'}
