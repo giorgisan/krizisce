@@ -11,7 +11,7 @@ import {
 } from 'react'
 import dynamic from 'next/dynamic'
 import Image from 'next/image'
-import { proxiedImage, buildSrcSet } from '@/lib/img'
+import { proxiedImage } from '@/lib/img' // buildSrcSet ni več rabljen
 import { preloadPreview, canPrefetch, warmImage } from '@/lib/previewPrefetch'
 import { sourceColors } from '@/lib/sources'
 import { getSourceLogoPath } from '@/lib/sourceMeta'
@@ -21,7 +21,6 @@ type PreviewProps = { url: string; onClose: () => void }
 const ArticlePreview = dynamic(() => import('./ArticlePreview'), { ssr: false }) as ComponentType<PreviewProps>
 
 const ASPECT = 16 / 9
-const IMAGE_WIDTHS = [320, 480, 640, 960, 1280]
 
 // Tukaj definiramo, da komponenta sprejme 'priority'
 interface Props { news: NewsItem; priority?: boolean }
@@ -103,15 +102,11 @@ export default function ArticleCard({ news, priority = false }: Props) {
   const cardRef = useRef<HTMLAnchorElement>(null)
   const imgRef  = useRef<HTMLImageElement>(null)
 
+  // Weserv že vrne optimizirano sliko širine 640px, kar je idealno za kartice
   const currentSrc = useMemo(() => {
     if (!rawImg) return null
     if (useProxy) return proxiedImage(rawImg, 640, 360, 1)
     return rawImg
-  }, [rawImg, useProxy])
-
-  const srcSet = useMemo(() => {
-    if (!rawImg || !useProxy) return ''
-    return buildSrcSet(rawImg, IMAGE_WIDTHS, ASPECT)
   }, [rawImg, useProxy])
 
   const lqipSrc = useMemo(() => {
@@ -281,13 +276,9 @@ export default function ArticleCard({ news, priority = false }: Props) {
               alt={news.title}
               fill
               className="object-cover transition-opacity duration-200 opacity-0 data-[ok=true]:opacity-100"
-              // --- OPTIMIZACIJA VELIKOSTI SLIK ---
-              // Mobile (2 stolpca): 50vw
-              // Tablet (3 stolpca): 33vw
-              // Desktop (4 stolpce): 25vw
-              // Big Screen (5 stolpcev): 20vw
-              sizes="(max-width: 768px) 50vw, (max-width: 1024px) 33vw, (max-width: 1280px) 25vw, 20vw"
-              // -----------------------------------
+              // Ko je unoptimized: true, 'sizes' ne vpliva na generiranje slik, 
+              // ampak služi le brskalniku kot informacija (če bi imeli srcset, ki ga zdaj nimamo).
+              // Lahko ga pustimo ali odstranimo.
               onError={handleImgError}
               onLoadingComplete={() => setImgLoaded(true)}
               priority={isPriority} 
