@@ -1,13 +1,10 @@
-'use client'
-
 import React, {
   useEffect,
-  useMemo,
   useState,
   startTransition,
   useRef,
 } from 'react'
-import { GetServerSideProps } from 'next'
+import { GetStaticProps } from 'next' // Changed from GetServerSideProps
 
 import { NewsItem } from '@/types'
 import Footer from '@/components/Footer'
@@ -431,13 +428,8 @@ export default function Home({ initialNews }: Props) {
   )
 }
 
-/* ================= SSR ================= */
-export const getServerSideProps: GetServerSideProps = async ({ res }) => {
-  res.setHeader(
-    'Cache-Control',
-    'public, s-maxage=60, stale-while-revalidate=30'
-  )
-
+/* ================= ISR ================= */
+export const getStaticProps: GetStaticProps = async () => {
   const { createClient } = await import('@supabase/supabase-js')
   const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL as string
   const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string
@@ -473,5 +465,8 @@ export const getServerSideProps: GetServerSideProps = async ({ res }) => {
     }
   })
 
-  return { props: { initialNews } }
+  return { 
+    props: { initialNews },
+    revalidate: 60 // Refresh page every 60 seconds
+  }
 }
