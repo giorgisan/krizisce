@@ -9,13 +9,13 @@ import { CATEGORIES, CategoryId } from '../lib/categories'
 import { motion, AnimatePresence } from 'framer-motion'
 
 // --- 1. UVOZ FONTOV ---
-// Zamenjava Playfair_Display z Montserrat za bolj moderen videz
-import { Montserrat, Inter } from 'next/font/google'
+// Zamenjava Montserrat z Oswald
+import { Oswald, Inter } from 'next/font/google'
 
 // --- 2. KONFIGURACIJA FONTOV ---
-const logoFont = Montserrat({ 
+const logoFont = Oswald({ 
   subsets: ['latin'],
-  weight: ['700', '900'], // Bold in Black za močan logotip
+  weight: ['500', '700'], // Uporabljamo Medium in Bold (brez Black, da ne bo pretežko)
   display: 'swap',
 })
 
@@ -145,13 +145,14 @@ export default function Header({
                 </div>
                 
                 <div className="flex flex-col justify-center">
-                  {/* LOGO FONT - Montserrat (Black weight za močan vtis) */}
-                  <span className={`text-2xl md:text-3xl font-black tracking-tight text-gray-900 dark:text-white leading-none ${logoFont.className}`}>
+                  {/* LOGO FONT - Oswald */}
+                  {/* Spremembe: uppercase, tracking-wide, text-3xl */}
+                  <span className={`text-3xl font-bold uppercase tracking-wide text-gray-900 dark:text-white leading-none ${logoFont.className}`}>
                       Križišče
                   </span>
                   
                   {/* PODNAPIS */}
-                  <span className="text-[10px] md:text-xs font-medium tracking-wide text-gray-500 dark:text-gray-400 leading-none mt-1">
+                  <span className="text-[10px] md:text-xs font-medium tracking-wider text-gray-500 dark:text-gray-400 leading-none mt-1 uppercase">
                       Zadnje novice slovenskih medijev
                   </span>
                 </div>
