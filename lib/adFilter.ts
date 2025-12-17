@@ -1,5 +1,5 @@
 // lib/adFilter.ts
-// Lokalni filter za sponzorirano/PR/oglasno vsebino (v4.1 - ENHANCED SAFE MODE).
+// Lokalni filter za sponzorirano/PR/oglasno vsebino (v4.2 - BULLETPROOF).
 
 export const AD_THRESHOLD = 3            
 export const AGGRESSIVE_PR_THRESHOLD = 5 
@@ -11,16 +11,16 @@ const SAFE_KEYWORDS = [
   'vlada', 'minister', 'premier', 'golob', 'jansa', 'logar', 'pirc musar',
   'poslanci', 'drzavni zbor', 'koalicija', 'opozicija', 'sindikat', 'stavka', 'stranka', 'referendum',
   
-  // KRONIKA, KRIMINAL & PREISKAVE (Ključno za SŽ primer!)
-  'policija', 'policist', 'gasilci', 'resevalci', 'sodisce', 'tozilstvo', 'zapor', 'aretacija',
+  // KRONIKA, SATORI, KRIMINAL (Zelo pomembno!)
+  'policija', 'policist', 'gasilci', 'resevalci', 'sodisce', 'tozilstvo', 'tozilec', 'zapor', 'aretacija',
   'umor', 'smrt', 'nesreca', 'trcenje', 'potres', 'poplave', 'pozar', 'neurje',
-  'nasilje', 'napad', 'rop', 'kriminal', 'streljanje', 'strel', 'krivda', 'obtozba',
-  'preiskav', 'hisna preiskava', 'hišna preiskava', 'kriminalist', 'korupci', 'fiktivn', 'goljufij', 
-  'sum ', 'sumi', 'nepravilnosti', 'zloraba', 'incident', 'inspektor',
+  'nasilje', 'napad', 'rop', 'kriminal', 'streljanje', 'strel', 'krivda', 'obtozba', 'obtozen',
+  'preiskav', 'hisna preiskava', 'kriminalist', 'korupci', 'fiktivn', 'goljufij', 'poslovna goljufija',
+  'sum ', 'sumi', 'nepravilnosti', 'zloraba', 'incident', 'inspektor', 'sojenje', 'zaporna kazen',
   
-  // MEDIJI & TV (Ključno za Planet TV primer!)
-  'televizij', 'oddaja', 'voditelj', 'resnicnostni sov', 'kmetija', 'film', 'serija',
-  'programski svet', 'rtv', 'pop tv', 'planet tv', 'gledalci', 'mediji',
+  // MEDIJI, TV & FILM
+  'televizij', 'oddaja', 'voditelj', 'resnicnostni sov', 'kmetija', 'film', 'serija', 'kino', 'premiera',
+  'programski svet', 'rtv', 'pop tv', 'planet tv', 'gledalci', 'mediji', 'avatar', 'spektakel',
   
   // SMRT & SLOVO
   'umrl', 'umrla', 'preminul', 'preminula', 'poslovil', 'slovo', 'osmrtnica', 'pokojni',
@@ -29,11 +29,15 @@ const SAFE_KEYWORDS = [
   'vojna', 'ukrajina', 'rusija', 'gaza', 'izrael', 'nato', 'eu', 'zda', 'trump', 'biden', 'putin',
   
   // ŠPORT
-  'nogomet', 'kosarka', 'sport', 'tekma', 'olimpijske', 'liga', 'prvenstvo', 'pokal',
-  'zadetek', 'gol', 'rezultat', 'lestvica', 'trener', 'igralec', 'reprezentanca',
+  'nogomet', 'kosarka', 'sport', 'tekma', 'olimpijske', 'liga', 'prvenstvo', 'pokal', 'stozice',
+  'zadetek', 'gol', 'rezultat', 'lestvica', 'trener', 'igralec', 'reprezentanca', 'izkljucen', 'sodnik',
   
-  // ZNANOST
-  'znanost', 'odkritje', 'vesolje', 'nasa', 'astronomija', 'umetna inteligenca', 'ai'
+  // ZNANOST & NARAVA
+  'znanost', 'odkritje', 'vesolje', 'nasa', 'astronomija', 'umetna inteligenca', 'ai', 
+  'dnk', 'genetika', 'raziskava', 'studija', 'znanstveniki', 'medved', 'zivali', 'okolje',
+  
+  // MAGAZIN / LIFESTYLE (Prevido pri ona-on, ampak če je "ljubezen", "zmenki", je to Magazin)
+  'ljubezen', 'zmenki', 'samski', 'poroka', 'locitev', 'horoskop'
 ]
 
 const KEYWORDS = [
@@ -134,7 +138,6 @@ export function scoreAd(item: any) {
   const hay = `${title}\n${desc}\n${html}`
 
   // --- 0. VARNOSTNA ZAVORA (SAFEGUARD) ---
-  // To je najpomembnejši del. Če najde "preiskava" ali "televizija", takoj konča.
   for (const safe of SAFE_KEYWORDS) {
       if (hay.includes(normalize(safe))) { // uporabi normalize za safe check
           return { score: 0, prScore: 0, matches: [`safe:${safe}`] }
