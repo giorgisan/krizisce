@@ -43,7 +43,7 @@ export default function ArticleCard({ news, priority = false }: Props) {
     return () => clearTimeout(timeoutId)
   }, [])
 
-  // --- LOGIKA ZA DATUM (Popravljeno na publishedAt) ---
+  // --- LOGIKA ZA DATUM ---
   const formattedDate = useMemo(() => {
     const ms = news.publishedAt || 0
     if (!ms) return ''
@@ -60,8 +60,8 @@ export default function ArticleCard({ news, priority = false }: Props) {
     const hr  = Math.floor(min / 60)
     
     if (diff < 60_000) return 'zdaj'
-    if (min  < 60)      return `pred ${min} min`
-    if (hr   < 24)      return `pred ${hr} h`
+    if (min  < 60)       return `pred ${min} min`
+    if (hr   < 24)       return `pred ${hr} h`
     
     return ''
   }, [news.publishedAt, now])
@@ -74,9 +74,8 @@ export default function ArticleCard({ news, priority = false }: Props) {
     return getSourceLogoPath(news.source)
   }, [news.source])
 
-  // Kategorija za prikaz na sliki (Popravljeno)
+  // Kategorija za prikaz na sliki
   const categoryDef = useMemo(() => {
-    // Če kategorija ni določena, jo poskusimo določiti
     const catId = news.category || determineCategory({ link: news.link, categories: [] })
     return CATEGORIES.find(c => c.id === catId)
   }, [news.category, news.link])
@@ -97,8 +96,8 @@ export default function ArticleCard({ news, priority = false }: Props) {
 
   const [useProxy, setUseProxy]         = useState<boolean>(proxyInitiallyOn)
   const [useFallback, setUseFallback] = useState<boolean>(!rawImg)
-  const [imgLoaded, setImgLoaded]      = useState<boolean>(false)
-  const [imgKey, setImgKey]            = useState<number>(0)
+  const [imgLoaded, setImgLoaded]       = useState<boolean>(false)
+  const [imgKey, setImgKey]             = useState<number>(0)
 
   const cardRef = useRef<HTMLAnchorElement>(null)
   const imgRef  = useRef<HTMLImageElement>(null)
@@ -143,7 +142,7 @@ export default function ArticleCard({ news, priority = false }: Props) {
   const [isPriority, setIsPriority] = useState<boolean>(priority)
   useEffect(() => { if (priority) setIsPriority(true) }, [priority])
 
-  // Preload (Ohranjeno)
+  // Preload
   useEffect(() => {
     if (!isPriority || !rawImg) return
     const rectW  = Math.max(1, Math.round(cardRef.current?.getBoundingClientRect().width || 480))
@@ -159,7 +158,7 @@ export default function ArticleCard({ news, priority = false }: Props) {
     return () => { document.head.removeChild(link) }
   }, [isPriority, rawImg])
 
-  // Analitika (Ohranjeno)
+  // Analitika
   const sendBeacon = (payload: any) => {
     try {
       const json = JSON.stringify(payload)
@@ -173,9 +172,6 @@ export default function ArticleCard({ news, priority = false }: Props) {
   const logClick = () => { sendBeacon({ source: news.source, url: news.link, action: 'open' }) }
   const handleClick = (e: MouseEvent<HTMLAnchorElement>) => {
     if (e.metaKey || e.ctrlKey || e.button === 1) return
-    // UMAMI bo tukaj avtomatsko ujel klik zaradi data atributov spodaj,
-    // ne rabiš posebnega JS klica, razen če želiš pošiljati custom evente ročno.
-    // Atributi so dovolj.
     e.preventDefault()
     window.open(news.link, '_blank', 'noopener')
     logClick()
@@ -247,11 +243,9 @@ export default function ArticleCard({ news, priority = false }: Props) {
         onBlur={() => { setEyeVisible(false); setEyeHover(false) }}
         onTouchStart={() => { triggerPrefetch() }}
         
-        // --- UMAMI ANALYTICS ---
         data-umami-event="Click News"
-        data-umami-event-source={news.source} // Npr. "24ur", "RTV SLO"
-        data-umami-event-type="feed"          // Tip: "feed" (navadna novica)
-        // -----------------------
+        data-umami-event-source={news.source} 
+        data-umami-event-type="feed"          
 
         className="cv-auto group flex flex-col h-full no-underline bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden transition-all duration-200 hover:scale-[1.02] hover:shadow-lg hover:bg-gray-100 dark:hover:bg-gray-700"
       >
@@ -278,28 +272,21 @@ export default function ArticleCard({ news, priority = false }: Props) {
                </span>
             </div>
           ) : (
-            <img
+            <Image
               key={imgKey}
-              ref={imgRef}
+              ref={imgRef as any}
               src={currentSrc as string}
-              srcSet={srcSet}
               alt={news.title}
-              className="absolute inset-0 h-full w-full object-cover transition-opacity duration-200 opacity-0 data-[ok=true]:opacity-100"
+              fill
+              className="object-cover transition-opacity duration-200 opacity-0 data-[ok=true]:opacity-100"
               sizes="(max-width: 640px) 100vw, (max-width: 1280px) 33vw, 20vw"
               onError={handleImgError}
-              onLoad={() => setImgLoaded(true)}
-              loading={isPriority ? 'eager' : 'lazy'}
-              fetchPriority={isPriority ? 'high' : 'auto'}
-              decoding="async"
-              width={640}
-              height={360}
-              referrerPolicy="strict-origin-when-cross-origin"
-              crossOrigin="anonymous"
+              onLoadingComplete={() => setImgLoaded(true)}
+              priority={isPriority} // <--- TUKAJ JE KLJUČ
               data-ok={imgLoaded}
             />
           )}
 
-          {/* KATEGORIJA: Popravljena logika za prikaz */}
           {categoryDef && categoryDef.id !== 'ostalo' && (
              <span className={`hidden sm:block absolute bottom-2 right-2 z-10 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-gray-900 dark:text-white bg-white/30 dark:bg-black/30 backdrop-blur-md rounded shadow-sm border border-white/20 dark:border-white/10 pointer-events-none`}>
                {categoryDef.label}
