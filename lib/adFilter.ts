@@ -1,37 +1,41 @@
 // lib/adFilter.ts
-// Lokalni filter za sponzorirano/PR/oglasno vsebino (v4.0 - SAFE & SMART MODE).
+// Lokalni filter za sponzorirano/PR/oglasno vsebino (v4.1 - ENHANCED SAFE MODE).
 
-export const AD_THRESHOLD = 3            // jasne oznake
-export const AGGRESSIVE_PR_THRESHOLD = 5 // Povečano, da smo manj strogi pri PR jeziku
+export const AD_THRESHOLD = 3            
+export const AGGRESSIVE_PR_THRESHOLD = 5 
 
 // --- 1. VARNE BESEDE (WHITELIST) ---
-// Če članek vsebuje katero od teh besed, ga NIKOLI ne blokiraj.
+// Če članek vsebuje katero od teh besed, je AVTOMATSKO NOVICA (score = 0).
 const SAFE_KEYWORDS = [
-  // Politika
+  // POLITIKA
   'vlada', 'minister', 'premier', 'golob', 'jansa', 'logar', 'pirc musar',
-  'poslanci', 'drzavni zbor', 'koalicija', 'opozicija', 'sindikat', 'stavka', 'stranka',
+  'poslanci', 'drzavni zbor', 'koalicija', 'opozicija', 'sindikat', 'stavka', 'stranka', 'referendum',
   
-  // Kronika & Incidenti
+  // KRONIKA, KRIMINAL & PREISKAVE (Ključno za SŽ primer!)
   'policija', 'policist', 'gasilci', 'resevalci', 'sodisce', 'tozilstvo', 'zapor', 'aretacija',
   'umor', 'smrt', 'nesreca', 'trcenje', 'potres', 'poplave', 'pozar', 'neurje',
   'nasilje', 'napad', 'rop', 'kriminal', 'streljanje', 'strel', 'krivda', 'obtozba',
-  'krical', 'incident', 'pretep', 'alkohol', 'voznja', 'kazen', 'globa',
+  'preiskav', 'hisna preiskava', 'hišna preiskava', 'kriminalist', 'korupci', 'fiktivn', 'goljufij', 
+  'sum ', 'sumi', 'nepravilnosti', 'zloraba', 'incident', 'inspektor',
   
-  // Smrt & Slovo (Zelo pomembno!)
-  'umrl', 'umrla', 'preminul', 'preminula', 'poslovil', 'slovo', 'osmrtnica', 'sestradan',
+  // MEDIJI & TV (Ključno za Planet TV primer!)
+  'televizij', 'oddaja', 'voditelj', 'resnicnostni sov', 'kmetija', 'film', 'serija',
+  'programski svet', 'rtv', 'pop tv', 'planet tv', 'gledalci', 'mediji',
   
-  // Svet & Konflikti
-  'vojna', 'ukrajina', 'rusija', 'gaza', 'izrael', 'nato', 'eu', 'zda', 'trump', 'biden',
+  // SMRT & SLOVO
+  'umrl', 'umrla', 'preminul', 'preminula', 'poslovil', 'slovo', 'osmrtnica', 'pokojni',
   
-  // Šport
+  // SVET & KONFLIKTI
+  'vojna', 'ukrajina', 'rusija', 'gaza', 'izrael', 'nato', 'eu', 'zda', 'trump', 'biden', 'putin',
+  
+  // ŠPORT
   'nogomet', 'kosarka', 'sport', 'tekma', 'olimpijske', 'liga', 'prvenstvo', 'pokal',
-  'zadetek', 'gol', 'rezultat', 'lestvica', 'trener', 'igralec',
+  'zadetek', 'gol', 'rezultat', 'lestvica', 'trener', 'igralec', 'reprezentanca',
   
-  // Znanost & Tech
-  'znanost', 'odkritje', 'vesolje', 'nasa', 'astronomija', 'umetna inteligenca', 'ai', 'chatgpt'
+  // ZNANOST
+  'znanost', 'odkritje', 'vesolje', 'nasa', 'astronomija', 'umetna inteligenca', 'ai'
 ]
 
-// --- Jasne oznake (Oglasi) ---
 const KEYWORDS = [
   'oglasno sporočilo','promocijsko sporočilo','plačana objava','sponzorirano',
   'oglasni prispevek','komercialno sporočilo','oglasna vsebina','v sodelovanju z',
@@ -39,13 +43,10 @@ const KEYWORDS = [
   'sponsored','sponsored content','advertorial','paid post','promotion','partner content'
 ]
 
-// Odstranjen samostojen 'oglas', ker je preveč nevaren
 const STRONG_TOKENS = ['promo','advertorial','[ad]','[pr]','sponzorirano'] 
 
-// Besede, ki so sumljive, a same po sebi niso dovolj za blokado
-const WEAK = ['akcija','popust','kupon','super cena','kupite','naročite','prihrani','ponudba','znižanje','razprodaja']
+const WEAK = ['akcija','popust','kupon','super cena','kupite','naročite','prihrani','ponudba','znižanje','razprodaja','prihranite']
 
-// PR jezik
 const PR_PHRASES = [
   'je predstavil novo','je lansiral','na trg prihaja','nova rešitev za',
   'vodilni ponudnik','vrhunska kakovost','za profesionalno rabo',
@@ -74,9 +75,9 @@ const UPPERCASE_SHOUT_RATIO = 0.6
 const SHORT_TITLE_MAX = 5
 
 const W = {
-  KEYWORD: 10, // Takojšnja blokada
+  KEYWORD: 10, 
   STRONG: 3, 
-  URL: 5, // URL je močan indikator
+  URL: 5, 
   URL_HINT: 1, 
   AUTHOR: 4,
   WEAK: 1, 
@@ -133,21 +134,20 @@ export function scoreAd(item: any) {
   const hay = `${title}\n${desc}\n${html}`
 
   // --- 0. VARNOSTNA ZAVORA (SAFEGUARD) ---
+  // To je najpomembnejši del. Če najde "preiskava" ali "televizija", takoj konča.
   for (const safe of SAFE_KEYWORDS) {
-      if (hay.includes(safe)) {
+      if (hay.includes(normalize(safe))) { // uporabi normalize za safe check
           return { score: 0, prScore: 0, matches: [`safe:${safe}`] }
       }
   }
   
-  // --- 1. PREVERJANJA ---
   for (const k of KEYWORDS) if (hay.includes(normalize(k))) { score += W.KEYWORD; matches.push(`kw:${k}`) }
   
-  // STRONG TOKENS (samo v naslovu ali URL-ju, v opisu je lahko nevarno)
   for (const t of STRONG_TOKENS) {
       if (title.includes(normalize(t))) { score += W.STRONG; matches.push(`strong_title:${t}`) }
   }
 
-  // WEAK TOKENS (Samo če ni športa!)
+  // Weak tokens check
   const isSport = hay.includes('tekma') || hay.includes('liga') || hay.includes('trener')
   if (!isSport) {
       for (const w of WEAK) if (hay.includes(normalize(w))) { score += W.WEAK; matches.push(`weak:${w}`) }
@@ -181,7 +181,6 @@ export function scoreAd(item: any) {
   const words = title.split(/\s+/).filter(Boolean)
   if (uppercaseRatio(titleRaw) > UPPERCASE_SHOUT_RATIO) { score += W.SHOUT; matches.push('shout:title_uppercase') }
   
-  // Short titles with strong tokens
   if (words.length <= SHORT_TITLE_MAX && STRONG_TOKENS.some(t => title.indexOf(normalize(t)) >= 0)) {
     score += W.SHORT; matches.push('short+strong')
   }
@@ -195,7 +194,6 @@ export function isLikelyAd(item: any, opts?: { threshold?: number, aggressive?: 
   
   const { score, prScore, matches } = scoreAd(item)
   
-  // Če je "safe", takoj vrni false
   if (matches.some(m => m.startsWith('safe:'))) {
       return { isAd: false, score: 0, matches, hard: false, pr: false }
   }
