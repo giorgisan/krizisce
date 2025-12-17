@@ -49,7 +49,7 @@ export const CATEGORIES: CategoryDef[] = [
         '/novice/svet/', 'zunanja-politika', 'eu', 'bliznji-vzhod', 'gaza', 'izrael',
         'evropska-unija', 'evropski-parlament', 'scholz', 'macron', 'biden', 'putin', 'zelenski', 'von der leyen',
         'kitajska', 'indija', 'iran', 'severna koreja', 'spopad', 'geopolitika',
-        'bela hisa', 'white house' // Dodano za politiko ZDA
+        'bela hisa', 'white house'
     ]
   },
   {
@@ -172,7 +172,7 @@ export const CATEGORIES: CategoryDef[] = [
         '/kultura/', '/kultur/', 'film', 'glasba', 'knjige', 'razstave', 'gledalisce', 
         'umetnost', 'festival', 'literatura', 'oder', 
         'pisatelj', 'pesnik', 'slikar', 'igralec', 'premiera', 'kino',
-        'bralne-urice', 'dokumentarni-film', 'reziser', // 'intervju' in 'portret' odstranjena
+        'bralne-urice', 'dokumentarni-film', 'reziser',
         'muzej', 'dediscina', 'zgodovina', 'orkester', 'koncert', 'opera', 'balet',
         'knjizni-sejem', 'liffe', 'animateka', 'oskarji', 'grammy', 'cankarjev dom',
         'zgodovinar', 'zgodovinarka'
@@ -180,10 +180,12 @@ export const CATEGORIES: CategoryDef[] = [
   }
 ]
 
+// --- POMEMBNO: VRSTNI RED PREVERJANJA URL-JEV ---
+// Šport je zdaj na PRVEM MESTU. Če URL vsebuje /sport/, bo 100% šport.
 const PRIORITY_CHECK_ORDER: CategoryId[] = [
-  'kronika',      // 1.
-  'moto',         // 2.
-  'sport',        // 3.
+  'sport',        // 1. ŠPORT (Pogačar ima prednost pred genetiko)
+  'kronika',      // 2.
+  'moto',         // 3.
   'kultura',      // 4.
   'magazin',      // 5.
   'tech',         // 6.
@@ -203,7 +205,8 @@ export function determineCategory(item: {
   
   const url = item.link.toLowerCase()
   
-  // 1. URL check
+  // 1. URL CHECK (ABSOLUTNA PRIORITETA)
+  // Gremo po vrsti po PRIORITETI. Prvi URL match zmaga.
   for (const id of PRIORITY_CHECK_ORDER) {
     const cat = CATEGORIES.find(c => c.id === id)
     if (cat && cat.keywords.some(k => k.startsWith('/') && url.includes(k))) {
