@@ -2,18 +2,16 @@
 const nextConfig = {
   reactStrictMode: true,
   images: {
-    // 1. OPTIMIZACIJA: Vklopimo AVIF (hitrejši od WebP)
-    formats: ['image/avif', 'image/webp'],
+    // --- GLAVNO STIKALO ZA IZKLOP VERCEL OPTIMIZACIJE ---
+    // S tem preprečimo, da Vercel procesira slike in ti nabija limite.
+    // Slike bo serviral direktno Weserv (proxy), kar je hitro in zastonj.
+    unoptimized: true, 
     
-    // 2. OPTIMIZACIJA: Cache za 1 leto (slike novic se ne spreminjajo)
-    minimumCacheTTL: 31536000, 
-
-    // Belt + suspenders pristop: dovolimo tako domains kot remotePatterns
+    // Ker smo izklopili optimizacijo, 'domains' in 'remotePatterns' 
+    // niso več strogo nujni, a jih pustimo, če bi kdaj preklopil nazaj.
     domains: ['images.weserv.nl'],  
     remotePatterns: [
-      // Proxy
       { protocol: 'https', hostname: 'images.weserv.nl' },
-      // Slovenski viri
       { protocol: 'https', hostname: '**.rtvslo.si' },
       { protocol: 'https', hostname: '**.rtvcdn.si' },
       { protocol: 'https', hostname: '**.24ur.com' },
@@ -25,6 +23,7 @@ const nextConfig = {
       { protocol: 'https', hostname: '**.svet24.si' },
     ],
   },
+  // Cache headerji za statične datoteke (ostanejo enako)
   async headers() {
     return [
       {
