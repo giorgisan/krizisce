@@ -48,7 +48,8 @@ export const CATEGORIES: CategoryDef[] = [
         '/svet/', '/tujina/', '/evropa/', '/zda/', 'ukrajina', 'rusija', 'vojna', 'nato', 'trump', 
         '/novice/svet/', 'zunanja-politika', 'eu', 'bliznji-vzhod', 'gaza', 'izrael',
         'evropska-unija', 'evropski-parlament', 'scholz', 'macron', 'biden', 'putin', 'zelenski', 'von der leyen',
-        'kitajska', 'indija', 'iran', 'severna koreja', 'spopad', 'geopolitika'
+        'kitajska', 'indija', 'iran', 'severna koreja', 'spopad', 'geopolitika',
+        'bela hisa', 'white house' // Dodano za politiko ZDA
     ]
   },
   {
@@ -114,7 +115,7 @@ export const CATEGORIES: CategoryDef[] = [
     label: 'Tehnologija',
     color: 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900/40 dark:text-cyan-300',
     keywords: [
-        '/znanoteh/', // Dodano za Delo
+        '/znanoteh/', 
         '/znanost/', '/tehnologija/', '/tech/', '/digisvet/', '/znanost-in-tehnologija/', '/digitalna-odpornost/',
         'vesolje', 'telefoni', 'racunalnistvo', 'pametni', 
         'umetna-inteligenca', 'ai', 'kriptovalute',
@@ -171,7 +172,7 @@ export const CATEGORIES: CategoryDef[] = [
         '/kultura/', '/kultur/', 'film', 'glasba', 'knjige', 'razstave', 'gledalisce', 
         'umetnost', 'festival', 'literatura', 'oder', 
         'pisatelj', 'pesnik', 'slikar', 'igralec', 'premiera', 'kino',
-        'bralne-urice', 'portret', 'intervju', 'dokumentarni-film', 'reziser',
+        'bralne-urice', 'dokumentarni-film', 'reziser', // 'intervju' in 'portret' odstranjena
         'muzej', 'dediscina', 'zgodovina', 'orkester', 'koncert', 'opera', 'balet',
         'knjizni-sejem', 'liffe', 'animateka', 'oskarji', 'grammy', 'cankarjev dom',
         'zgodovinar', 'zgodovinarka'
