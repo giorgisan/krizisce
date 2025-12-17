@@ -2,6 +2,12 @@
 const nextConfig = {
   reactStrictMode: true,
   images: {
+    // 1. OPTIMIZACIJA: Vklopimo AVIF (hitrejši od WebP)
+    formats: ['image/avif', 'image/webp'],
+    
+    // 2. OPTIMIZACIJA: Cache za 1 leto (slike novic se ne spreminjajo)
+    minimumCacheTTL: 31536000, 
+
     // Belt + suspenders pristop: dovolimo tako domains kot remotePatterns
     domains: ['images.weserv.nl'],  
     remotePatterns: [
