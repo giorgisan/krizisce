@@ -4,7 +4,7 @@ import React, {
   startTransition,
   useRef,
 } from 'react'
-import { GetServerSideProps } from 'next' // <--- NAZAJ NA SSR
+import { GetServerSideProps } from 'next' // <--- UPORABLJAMO SSR (Hitreje za slike)
 
 import { NewsItem } from '@/types'
 import Footer from '@/components/Footer'
@@ -403,7 +403,7 @@ export default function Home({ initialNews }: Props) {
                 ) : (
                   <ArticleCard 
                      news={article as any} 
-                     priority={i < 10} 
+                     priority={i < 6} // Ohranimo prioritetno nalaganje za prve slike
                   />
                 )}
               </div>
@@ -431,12 +431,12 @@ export default function Home({ initialNews }: Props) {
   )
 }
 
-/* ================= SSR (Server Side Rendering) ================= */
-// Uporabljamo SSR s cachingom, da zmanjšamo CPU obremenitev, a ohranimo hitrost prikaza.
+/* ================= SSR (Server Side Rendering) Z CACHINGOM ================= */
+// Uporabljamo getServerSideProps (SSR), ki je hitrejši za občutek uporabnika,
+// ampak dodamo Cache-Control, da Vercel ne računa CPU-ja za vsak obisk.
 export const getServerSideProps: GetServerSideProps = async ({ res }) => {
-  // CACHE: Stran je "sveža" 60s (s-maxage), nato se lahko servira "stara" verzija še 59s
-  // medtem ko se v ozadju generira nova (stale-while-revalidate).
-  // To prepreči, da bi VSAK obiskovalec sprožil rendering (ščiti CPU).
+  // --- TA VRSTICA REŠUJE "VERCEL LIMIT" PROBLEM ---
+  // Pomeni: "Ta rezultat je dober 60 sekund. V tem času ne kliči serverja ponovno."
   res.setHeader(
     'Cache-Control',
     'public, s-maxage=60, stale-while-revalidate=59'
