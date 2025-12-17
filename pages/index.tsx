@@ -4,7 +4,7 @@ import React, {
   startTransition,
   useRef,
 } from 'react'
-import { GetStaticProps } from 'next' // <--- POMEMBNO: Static props
+import { GetServerSideProps } from 'next' // <--- NAZAJ NA SSR
 
 import { NewsItem } from '@/types'
 import Footer from '@/components/Footer'
@@ -403,7 +403,7 @@ export default function Home({ initialNews }: Props) {
                 ) : (
                   <ArticleCard 
                      news={article as any} 
-                     priority={i < 6} // <--- KLJUČNO ZA HITRO NALAGANJE SLIK!
+                     priority={i < 10} 
                   />
                 )}
               </div>
@@ -431,12 +431,17 @@ export default function Home({ initialNews }: Props) {
   )
 }
 
-/* ================= ISR ================= */
-// Uporabimo getStaticProps namesto getServerSideProps.
-// To pomeni, da Vercel zgenerira HTML in ga servira vsem enakim,
-// osveži pa ga v ozadju vsakih 60 sekund. CPU bo hvaležen.
+/* ================= SSR (Server Side Rendering) ================= */
+// Uporabljamo SSR s cachingom, da zmanjšamo CPU obremenitev, a ohranimo hitrost prikaza.
+export const getServerSideProps: GetServerSideProps = async ({ res }) => {
+  // CACHE: Stran je "sveža" 60s (s-maxage), nato se lahko servira "stara" verzija še 59s
+  // medtem ko se v ozadju generira nova (stale-while-revalidate).
+  // To prepreči, da bi VSAK obiskovalec sprožil rendering (ščiti CPU).
+  res.setHeader(
+    'Cache-Control',
+    'public, s-maxage=60, stale-while-revalidate=59'
+  )
 
-export const getStaticProps: GetStaticProps = async () => {
   const { createClient } = await import('@supabase/supabase-js')
   const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL as string
   const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string
@@ -472,8 +477,5 @@ export const getStaticProps: GetStaticProps = async () => {
     }
   })
 
-  return { 
-    props: { initialNews },
-    revalidate: 60, // <--- KLJUČNO: Stran se na strežniku osveži največ enkrat na minuto!
-  }
+  return { props: { initialNews } }
 }
