@@ -2,14 +2,11 @@
 const nextConfig = {
   reactStrictMode: true,
   images: {
-    // --- GLAVNO STIKALO ZA IZKLOP VERCEL OPTIMIZACIJE ---
-    // S tem preprečimo, da Vercel procesira slike in ti nabija limite.
-    // Slike bo serviral direktno Weserv (proxy), kar je hitro in zastonj.
+    // --- GLAVNO STIKALO: IZKLOP VERCEL OPTIMIZACIJE ---
+    // Slike se ne bodo procesirale na Vercelu. Limitov ne boš več tikeal.
     unoptimized: true, 
     
-    // Ker smo izklopili optimizacijo, 'domains' in 'remotePatterns' 
-    // niso več strogo nujni, a jih pustimo, če bi kdaj preklopil nazaj.
-    domains: ['images.weserv.nl'],  
+    // Seznam domen (za varnost), čeprav pri unoptimized ni strogo nujen
     remotePatterns: [
       { protocol: 'https', hostname: 'images.weserv.nl' },
       { protocol: 'https', hostname: '**.rtvslo.si' },
@@ -23,7 +20,6 @@ const nextConfig = {
       { protocol: 'https', hostname: '**.svet24.si' },
     ],
   },
-  // Cache headerji za statične datoteke (ostanejo enako)
   async headers() {
     return [
       {
