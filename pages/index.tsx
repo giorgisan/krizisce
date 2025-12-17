@@ -4,7 +4,7 @@ import React, {
   startTransition,
   useRef,
 } from 'react'
-import { GetStaticProps } from 'next' // Changed from GetServerSideProps
+import { GetStaticProps } from 'next' // <--- POMEMBNO: Static props
 
 import { NewsItem } from '@/types'
 import Footer from '@/components/Footer'
@@ -401,7 +401,10 @@ export default function Home({ initialNews }: Props) {
                 {mode === 'trending' ? (
                   <div className="h-full"><TrendingCard news={article as any} /></div>
                 ) : (
-                  <ArticleCard news={article as any} priority={i === 0} />
+                  <ArticleCard 
+                     news={article as any} 
+                     priority={i < 6} // <--- KLJUČNO ZA HITRO NALAGANJE SLIK!
+                  />
                 )}
               </div>
             ))}
@@ -429,6 +432,10 @@ export default function Home({ initialNews }: Props) {
 }
 
 /* ================= ISR ================= */
+// Uporabimo getStaticProps namesto getServerSideProps.
+// To pomeni, da Vercel zgenerira HTML in ga servira vsem enakim,
+// osveži pa ga v ozadju vsakih 60 sekund. CPU bo hvaležen.
+
 export const getStaticProps: GetStaticProps = async () => {
   const { createClient } = await import('@supabase/supabase-js')
   const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL as string
@@ -442,7 +449,7 @@ export const getStaticProps: GetStaticProps = async () => {
     .select(
       'id, link, title, source, summary, contentsnippet, image, published_at, publishedat, category',
     )
-    .neq('category', 'oglas') // <--- FILTRIRAJ OGLASE NA SERVERJU
+    .neq('category', 'oglas') // Filter oglasov
     .order('publishedat', { ascending: false })
     .order('id', { ascending: false })
     .limit(25)
@@ -467,6 +474,6 @@ export const getStaticProps: GetStaticProps = async () => {
 
   return { 
     props: { initialNews },
-    revalidate: 60 // Refresh page every 60 seconds
+    revalidate: 60, // <--- KLJUČNO: Stran se na strežniku osveži največ enkrat na minuto!
   }
 }
