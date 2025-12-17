@@ -42,7 +42,7 @@ const HTML_MARKERS = [
   'promo delo'
 ]
 
-// --- Helperji za slike in datume (tvoji obstoječi) ---
+// --- Helperji za slike in datume ---
 function absolutize(src: string | undefined | null, baseHref: string): string | null {
   if (!src) return null
   try {
@@ -145,15 +145,11 @@ function toUnixMs(d?: string | null) {
 // Stari basic filter (obdržimo ga kot hitri "pre-filter" za BLOCK_URLS)
 function isBlockedBasic(i: NewsItem) {
   const url = i.link || ''
-  // const hay = `${i.title || ''}\n${i.contentSnippet || ''}`.toLowerCase()
-  
   if (BLOCK_URLS.some(rx => rx.test(url))) return true
-  // BLOCK_PATTERNS bomo uporabili znotraj adFilter, tukaj samo URL check
-  
   return false
 }
 
-// HTML check helperji (še vedno uporabni za dodatno preverjanje)
+// HTML check helperji 
 let htmlChecks = 0
 async function hasSponsorMarker(url: string): Promise<boolean> {
   if (!ENABLE_HTML_CHECK) return false
@@ -244,7 +240,7 @@ export default async function fetchRSSFeeds(opts: FetchOpts = {}): Promise<NewsI
           let categoryId: CategoryId = 'ostalo'
           
           if (isAd) {
-              categoryId = 'oglas' // <--- OZNAČIMO KOT OGLAS
+              categoryId = 'oglas' // <--- OZNAČIMO KOT OGLAS (Karantena)
               if (process.env.NODE_ENV !== 'production') {
                   console.log(`[AdFilter] Označeno kot oglas: ${item.title} [${adCheck.matches.join(', ')}]`)
               }
@@ -281,8 +277,7 @@ export default async function fetchRSSFeeds(opts: FetchOpts = {}): Promise<NewsI
 
   let flat: NewsItem[] = results.flat()
 
-  // HTML Checks izvajamo samo za tiste, ki še niso označeni kot oglas
-  // Če HTML check najde oglas, spremenimo kategorijo v 'oglas'
+  // HTML Checks (DODATNO PREVERJANJE)
   const finalItems: NewsItem[] = []
   
   // Sortiramo preden delamo HTML checke (da preverjamo najnovejše)
