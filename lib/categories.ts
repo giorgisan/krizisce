@@ -10,7 +10,7 @@ export type CategoryId =
   | 'tech'            
   | 'magazin'        
   | 'kultura'
-  | 'oglas'  // <--- DODANO
+  | 'oglas' 
   | 'ostalo'
 
 export type CategoryDef = {
@@ -20,7 +20,6 @@ export type CategoryDef = {
   keywords: string[] 
 }
 
-// 1. VRSTNI RED PRIKAZA NA STRANI (UI)
 export const CATEGORIES: CategoryDef[] = [
   {
     id: 'slovenija',
@@ -35,7 +34,7 @@ export const CATEGORIES: CategoryDef[] = [
         '/karikatura/', 
         'javna-uprava', 'drzavni-zbor', 'zupan', 'obcina', 'studentski-dom', 'fakultet',
         'prenova', 'gradnja', 'vodovod', 'vrtec', 'sola', 'cesta', 'zeleznica', 'drugi-tir', 'prometna-infrastruktura',
-        'humanitarn', 'nvo', 'protest', 'stavka', 'sindikat',
+        'humanitarn', 'nvo', 'protest', 'stavka', 'sindikat', 'rasizem', 'diskriminacija', 'hostel', 'turist',
         'vlak', 'potniki', 'zeleznis', 'tir', 'sz', 'zeleznice', 'avtobus', 'lpp',
         'vreme', 'arso', 'vremenska', 'sneg', 'dezevje', 'poplave', 'neurje', 'toča', 'ciklon', 'temperatura', 'prognostik'
     ]
@@ -61,7 +60,7 @@ export const CATEGORIES: CategoryDef[] = [
         'panika', 'pretep', 'droge', 'kokain', 'mamil', 'tihotap', 'aretacija', 'trcenje', 'smrt',
         'pu ljubljana', 'pu maribor', 'pu celje', 'pu kranj', 'pu koper', 'pu novo mesto',
         'gorska resevalna', 'resevalci', 'intervencija', 'pozar', 'utonil', 'truplo',
-        'pripor', 'privedli', 'zasegli', 'preiskava', 'osumljenci'
+        'pripor', 'privedli', 'zasegli', 'preiskava', 'osumljenci', 'krivda', 'obtozba'
     ]
   },
   {
@@ -74,7 +73,7 @@ export const CATEGORIES: CategoryDef[] = [
         'ekipa24', 'sport.n1info.si', 'odbojka', 'rokomet', 'nhl', 'nba', 'doncic', 'kopitar', 
         'pogacar', 'roglic', 'messi', 'olimpij', 'liga', 'prvenstvo', 'trener', 'reprezentanca', 'tekma',
         'bayern', 'munchen', 'real madrid', 'barcelona', 'juventus', 'planica', 'skoki', 'alpsko smucanje',
-        'smucanje', 'ilka stuhec', 'zlatko zahovic', 'kek', 'ceferin', 'uefa', 'fifa'
+        'smucanje', 'ilka stuhec', 'zlatko zahovic', 'kek', 'ceferin', 'uefa', 'fifa', 'streljal', 'zadetki'
     ]
   },
   {
@@ -171,22 +170,22 @@ export const CATEGORIES: CategoryDef[] = [
         'pisatelj', 'pesnik', 'slikar', 'igralec', 'premiera', 'kino',
         'bralne-urice', 'portret', 'intervju', 'dokumentarni-film', 'reziser',
         'muzej', 'dediscina', 'zgodovina', 'orkester', 'koncert', 'opera', 'balet',
-        'knjizni-sejem', 'liffe', 'animateka', 'oskarji', 'grammy', 'cankarjev dom'
+        'knjizni-sejem', 'liffe', 'animateka', 'oskarji', 'grammy', 'cankarjev dom',
+        'zgodovinar', 'zgodovinarka'
     ]
   }
 ]
 
-// 2. LOGIKA ZAZNAVANJA (Prioriteta)
 const PRIORITY_CHECK_ORDER: CategoryId[] = [
-  'kronika',      // 1. Zelo specifično
-  'moto',         // 2. Zelo specifično
-  'sport',        // 3. Zelo specifično
+  'kronika',      // 1.
+  'moto',         // 2.
+  'sport',        // 3.
   'kultura',      // 4.
-  'magazin',      // 5. Zajame lifestyle, zdravje, trace, horoskop
-  'tech',         // 6. Zajame kar ostane od "znanosti", telefonov itd.
+  'magazin',      // 5.
+  'tech',         // 6.
   'gospodarstvo', // 7.
   'svet',         // 8.
-  'slovenija'     // 9. Najbolj splošno (policijske karikature, vlaki ipd.)
+  'slovenija'     // 9.
 ]
 
 const unaccent = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
@@ -200,7 +199,7 @@ export function determineCategory(item: {
   
   const url = item.link.toLowerCase()
   
-  // 1. URL check (Najbolj zanesljivo)
+  // 1. URL check
   for (const id of PRIORITY_CHECK_ORDER) {
     const cat = CATEGORIES.find(c => c.id === id)
     if (cat && cat.keywords.some(k => k.startsWith('/') && url.includes(k))) {
@@ -214,7 +213,6 @@ export function determineCategory(item: {
     for (const id of PRIORITY_CHECK_ORDER) {
       const cat = CATEGORIES.find(c => c.id === id)
       if (cat && cat.keywords.some(k => {
-         // Odstranimo / za primerjavo z RSS tagi
          const cleanK = unaccent(k.replace(/\//g, '')) 
          return cleanK.length > 3 && rssCats.includes(cleanK) 
       })) {
@@ -227,7 +225,6 @@ export function determineCategory(item: {
   const combinedText = unaccent((item.title || '') + ' ' + (item.contentSnippet || ''))
   for (const id of PRIORITY_CHECK_ORDER) {
     const cat = CATEGORIES.find(c => c.id === id)
-    // Iščemo samo ključne besede, ki NISO url poti (nimajo /)
     if (cat && cat.keywords.some(k => !k.startsWith('/') && k.length > 3 && combinedText.includes(unaccent(k)))) {
       return cat.id
     }
