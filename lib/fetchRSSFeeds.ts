@@ -1,45 +1,33 @@
 import Parser from 'rss-parser'
 import type { NewsItem } from '../types'
 import { feeds } from './sources'
-// --- 1. UVOZIM isLikelyAd ---
 import { isLikelyAd } from './adFilter' 
 import { determineCategory, CategoryId } from './categories'
 
 type FetchOpts = { forceFresh?: boolean }
 
-// --- Blokirani URL vzorci (tiho blokiranje - to so res smeti, ki jih nočeš niti v bazi) ---
+// --- 1. TIHO BLOKIRANJE (Hard Block) ---
+// Tukaj pustimo SAMO tehnične smeti, ki niso članki.
+// VSE ostalo (promo, oglasi, trgovina) spustimo naprej, da jih adFilter označi kot 'oglas'.
 const BLOCK_URLS: RegExp[] = [
-  /\/promo\//i,       
-  /\/oglasi\//i,      
-  /\/advertorial\//i,
-  /\/sponzorirano\//i,
-  /\/oglas\//i,       // Dodan splošen oglas
-  /\/trgovina\//i,    // Dodano (za "nakupovalne" članke)
+  /\/wp-json\//i,      // API endpointi
+  /\/xmlrpc\//i,       // Tehnični endpointi
+  /\/komentarji\//i,   // Povezave direktno na komentarje (če ne želiš)
+  /#comment/i          // Sidra na komentarje
 ]
 
-const BLOCK_PATTERNS: string[] = [
-  'oglasno sporočilo','oglasno sporocilo',
-  'promocijsko sporočilo','promocijsko sporocilo',
-  'oglasni prispevek','komercialno sporočilo',
-  'sponzorirano','partner vsebina','branded content',
-  'vsebino omogoča','vsebino omogoca', 
-  'pr članek','pr clanek',
-  'advertorial',
-  'promo delo',        
-  'promo slovenske', 
-  'promo prispevek',
+// Ti vzorci se uporabljajo za HTML check (če omogočen)
+const HTML_MARKERS = [
+  'oglasno sporočilo','promocijsko sporočilo','plačana objava',
+  'sponzorirano','vsebino omogoča','partner vsebina','advertorial',
+  'sponsored content','article__pr_box','promo-box', 
+  'promo delo'
 ]
 
 const ENABLE_HTML_CHECK = true
 const MAX_HTML_CHECKS = 10 
 const HTML_CHECK_HOSTS = [
   'rtvslo.si','siol.net','delo.si','slovenskenovice.si','delo.si','24ur.com','zurnal24.si', 'n1info.si','dnevnik.si'
-]
-const HTML_MARKERS = [
-  'oglasno sporočilo','promocijsko sporočilo','plačana objava',
-  'sponzorirano','vsebino omogoča','partner vsebina','advertorial',
-  'sponsored content','article__pr_box','promo-box', 
-  'promo delo'
 ]
 
 // --- Helperji za slike in datume ---
@@ -142,13 +130,6 @@ function toUnixMs(d?: string | null) {
   }
 }
 
-// Stari basic filter (obdržimo ga kot hitri "pre-filter" za BLOCK_URLS)
-function isBlockedBasic(i: NewsItem) {
-  const url = i.link || ''
-  if (BLOCK_URLS.some(rx => rx.test(url))) return true
-  return false
-}
-
 // HTML check helperji 
 let htmlChecks = 0
 async function hasSponsorMarker(url: string): Promise<boolean> {
@@ -201,13 +182,13 @@ export default async function fetchRSSFeeds(opts: FetchOpts = {}): Promise<NewsI
           
           const link = item.link ?? ''
 
-          // 1. TIHO BLOKIRANJE (URL blacklista)
-          // Če je URL "umazan" (npr. /promo/), ga še vedno vrzi stran (null)
+          // 1. TIHO BLOKIRANJE (Samo tehnične smeti)
+          // Tu smo odstranili "trgovina", "oglas", "promo". To zdaj rešuje adFilter.
           if (BLOCK_URLS.some(rx => rx.test(link))) {
               return null
           }
           
-          // 2. PRIPRAVA PODATKOV ZA FILTER in KATEGORIJE
+          // 2. PRIPRAVA PODATKOV
           const tempCheckItem = {
              title: item.title,
              link: link,
@@ -216,7 +197,8 @@ export default async function fetchRSSFeeds(opts: FetchOpts = {}): Promise<NewsI
              categories: item.categories
           }
 
-          // 3. PREVERJANJE AD FILTER
+          // 3. AD FILTER (Glavni varnostnik)
+          // Ta funkcija bo preverila URL (npr. /delov-poslovni-center/) in vrnila isAd=true
           const adCheck = isLikelyAd(tempCheckItem)
           const isAd = adCheck.isAd
 
@@ -240,11 +222,12 @@ export default async function fetchRSSFeeds(opts: FetchOpts = {}): Promise<NewsI
           let categoryId: CategoryId = 'ostalo'
           
           if (isAd) {
-              categoryId = 'oglas' // <--- OZNAČIMO KOT OGLAS (Karantena)
+              categoryId = 'oglas' // Članek gre v bazo, a označen kot oglas
               if (process.env.NODE_ENV !== 'production') {
                   console.log(`[AdFilter] Označeno kot oglas: ${item.title} [${adCheck.matches.join(', ')}]`)
               }
           } else {
+              // Če ni oglas, določi pravo kategorijo (Šport, Tech, itd.)
               categoryId = determineCategory({ 
                 link, 
                 title: item.title, 
@@ -267,7 +250,7 @@ export default async function fetchRSSFeeds(opts: FetchOpts = {}): Promise<NewsI
           } as NewsItem
         })
 
-        const items = (await Promise.all(itemsPromise)).filter(Boolean) as NewsItem[] // Odfiltriramo null (URL block)
+        const items = (await Promise.all(itemsPromise)).filter(Boolean) as NewsItem[] 
         return items
       } catch {
         return []
@@ -277,10 +260,9 @@ export default async function fetchRSSFeeds(opts: FetchOpts = {}): Promise<NewsI
 
   let flat: NewsItem[] = results.flat()
 
-  // HTML Checks (DODATNO PREVERJANJE)
+  // HTML Checks (DODATNO PREVERJANJE za tiste, ki so ušli URL filtru)
   const finalItems: NewsItem[] = []
   
-  // Sortiramo preden delamo HTML checke (da preverjamo najnovejše)
   flat.sort((a, b) => (b.publishedAt || 0) - (a.publishedAt || 0))
 
   let usedHtmlChecks = 0
@@ -292,26 +274,25 @@ export default async function fetchRSSFeeds(opts: FetchOpts = {}): Promise<NewsI
   }
 
   for (const it of flat) {
-    // Če je že označen kot oglas, ga pustimo pri miru
+    // Če je že označen kot oglas (zaradi URL-ja), ga ne preverjamo več
     if (it.category === 'oglas') {
         finalItems.push(it)
         continue
     }
 
-    // Dodatno preverjanje s HTML requestom (samo za prvih N in če je host na seznamu)
+    // Dodatno preverjanje s HTML requestom (samo za prvih N sumljivih)
     if (usedHtmlChecks < MAX_HTML_CHECKS && hostAllowed(it.link)) {
       const isHtmlAd = await hasSponsorMarker(it.link)
       usedHtmlChecks++
       if (isHtmlAd) {
           if (process.env.NODE_ENV !== 'production') console.log(`[HTMLCheck] Označeno kot oglas: ${it.title}`)
-          // Namesto da ga vržemo ven, mu spremenimo kategorijo
           it.category = 'oglas'
       }
     }
     finalItems.push(it)
   }
 
-  // Ponovno sortiranje
+  // Končno sortiranje
   finalItems.sort((a, b) => (b.publishedAt || 0) - (a.publishedAt || 0))
   return finalItems
 }
