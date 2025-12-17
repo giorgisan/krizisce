@@ -403,7 +403,7 @@ export default function Home({ initialNews }: Props) {
                 ) : (
                   <ArticleCard 
                      news={article as any} 
-                     priority={i < 6} // Ohranimo prioritetno nalaganje za prve slike
+                     priority={i < 10} // Ohranimo prioritetno nalaganje za prve slike
                   />
                 )}
               </div>
