@@ -281,12 +281,16 @@ export default function ArticleCard({ news, priority = false }: Props) {
               alt={news.title}
               fill
               className="object-cover transition-opacity duration-200 opacity-0 data-[ok=true]:opacity-100"
-              sizes="(max-width: 640px) 100vw, (max-width: 1280px) 33vw, 20vw"
+              // --- OPTIMIZACIJA VELIKOSTI SLIK ---
+              // Mobile (2 stolpca): 50vw
+              // Tablet (3 stolpca): 33vw
+              // Desktop (4 stolpce): 25vw
+              // Big Screen (5 stolpcev): 20vw
+              sizes="(max-width: 768px) 50vw, (max-width: 1024px) 33vw, (max-width: 1280px) 25vw, 20vw"
+              // -----------------------------------
               onError={handleImgError}
               onLoadingComplete={() => setImgLoaded(true)}
-              // --- TOLE JE KLJUČNO ZA HITROST SLIK ---
               priority={isPriority} 
-              // ---------------------------------------
               data-ok={imgLoaded}
             />
           )}
