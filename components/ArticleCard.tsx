@@ -11,7 +11,7 @@ import {
 } from 'react'
 import dynamic from 'next/dynamic'
 import Image from 'next/image'
-import { proxiedImage } from '@/lib/img' // buildSrcSet ni več rabljen
+import { proxiedImage } from '@/lib/img' 
 import { preloadPreview, canPrefetch, warmImage } from '@/lib/previewPrefetch'
 import { sourceColors } from '@/lib/sources'
 import { getSourceLogoPath } from '@/lib/sourceMeta'
@@ -20,9 +20,10 @@ import { CATEGORIES, determineCategory } from '@/lib/categories'
 type PreviewProps = { url: string; onClose: () => void }
 const ArticlePreview = dynamic(() => import('./ArticlePreview'), { ssr: false }) as ComponentType<PreviewProps>
 
-const ASPECT = 16 / 9
+// Fiksna širina za Weserv proxy (dovolj za 2 stolpca na mobile in grid na desktop)
+const TARGET_WIDTH = 640 
+const TARGET_HEIGHT = 360
 
-// Tukaj definiramo, da komponenta sprejme 'priority'
 interface Props { news: NewsItem; priority?: boolean }
 
 export default function ArticleCard({ news, priority = false }: Props) {
@@ -31,7 +32,6 @@ export default function ArticleCard({ news, priority = false }: Props) {
 
   useEffect(() => {
     const timeToNextMinute = 60000 - (Date.now() % 60000)
-    
     const timeoutId = setTimeout(() => {
       setNow(Date.now())
       const intervalId = setInterval(() => {
@@ -39,7 +39,6 @@ export default function ArticleCard({ news, priority = false }: Props) {
       }, 60000)
       return () => clearInterval(intervalId)
     }, timeToNextMinute)
-
     return () => clearTimeout(timeoutId)
   }, [])
 
@@ -47,22 +46,17 @@ export default function ArticleCard({ news, priority = false }: Props) {
   const formattedDate = useMemo(() => {
     const ms = news.publishedAt || 0
     if (!ms) return ''
-    
     const diff = now - ms
     const oneDayMs = 24 * 60 * 60 * 1000
-
     if (diff > oneDayMs) {
        const d = new Date(ms)
        return new Intl.DateTimeFormat('sl-SI', { day: 'numeric', month: 'short' }).format(d)
     }
-
     const min = Math.floor(diff / 60_000)
     const hr  = Math.floor(min / 60)
-    
     if (diff < 60_000) return 'zdaj'
     if (min  < 60)       return `pred ${min} min`
     if (hr   < 24)       return `pred ${hr} h`
-    
     return ''
   }, [news.publishedAt, now])
 
@@ -74,7 +68,6 @@ export default function ArticleCard({ news, priority = false }: Props) {
     return getSourceLogoPath(news.source)
   }, [news.source])
 
-  // Kategorija za prikaz na sliki
   const categoryDef = useMemo(() => {
     const catId = news.category || determineCategory({ link: news.link, categories: [] })
     return CATEGORIES.find(c => c.id === catId)
@@ -97,65 +90,45 @@ export default function ArticleCard({ news, priority = false }: Props) {
   const [useProxy, setUseProxy]         = useState<boolean>(proxyInitiallyOn)
   const [useFallback, setUseFallback] = useState<boolean>(!rawImg)
   const [imgLoaded, setImgLoaded]       = useState<boolean>(false)
-  const [imgKey, setImgKey]             = useState<number>(0)
+  
+  // Opomba: imgKey smo odstranili, ker povzroča utripanje pri re-renderjih. 
+  // Next/Image obvlada zamenjavo src-a.
 
   const cardRef = useRef<HTMLAnchorElement>(null)
-  const imgRef  = useRef<HTMLImageElement>(null)
 
-  // Weserv že vrne optimizirano sliko širine 640px, kar je idealno za kartice
+  // Weserv URL generiramo takoj
   const currentSrc = useMemo(() => {
     if (!rawImg) return null
-    if (useProxy) return proxiedImage(rawImg, 640, 360, 1)
+    // Fiksna velikost 640x360 je optimalna za kartice. Weserv bo to zgeneriral in keširal.
+    if (useProxy) return proxiedImage(rawImg, TARGET_WIDTH, TARGET_HEIGHT, 1)
     return rawImg
   }, [rawImg, useProxy])
 
+  // Lqip (Low Quality Image Placeholder) za blur efekt
   const lqipSrc = useMemo(() => {
     if (!rawImg) return null
-    const w = 28, h = Math.max(1, Math.round(w / ASPECT))
-    return proxiedImage(rawImg, w, h, 1)
+    return proxiedImage(rawImg, 28, 16, 1)
   }, [rawImg])
 
   useEffect(() => {
     setUseProxy(!!rawImg)
     setUseFallback(!rawImg)
-    setImgLoaded(false)
-    setImgKey(k => k + 1)
+    // Ne resetiramo imgLoaded takoj, da ne utripne siva barva, če se slika samo zamenja v cache-u
   }, [news.link, rawImg])
 
   const handleImgError = () => {
     if (rawImg && useProxy) {
-      setUseProxy(false)
+      setUseProxy(false) // Poskusi original
       setImgLoaded(false)
-      setImgKey(k => k + 1)
       return
     }
     if (!useFallback) {
-      setUseFallback(true)
+      setUseFallback(true) // Prikaži placeholder
       setImgLoaded(false)
     }
   }
 
-  // Preverimo priority
-  const [isPriority, setIsPriority] = useState<boolean>(priority)
-  useEffect(() => { if (priority) setIsPriority(true) }, [priority])
-
-  // Preload logika (za hitrejši prikaz)
-  useEffect(() => {
-    if (!isPriority || !rawImg) return
-    const rectW  = Math.max(1, Math.round(cardRef.current?.getBoundingClientRect().width || 480))
-    const dpr    = (typeof window !== 'undefined' && window.devicePixelRatio) || 1
-    const targetW = Math.min(1280, Math.round(rectW * dpr))
-    const targetH = Math.round(targetW / ASPECT)
-    const link    = document.createElement('link')
-    link.rel      = 'preload'
-    link.as       = 'image'
-    link.href     = proxiedImage(rawImg, targetW, targetH, dpr)
-    link.crossOrigin = 'anonymous'
-    document.head.appendChild(link)
-    return () => { document.head.removeChild(link) }
-  }, [isPriority, rawImg])
-
-  // Analitika
+  // --- ANALITIKA ---
   const sendBeacon = (payload: any) => {
     try {
       const json = JSON.stringify(payload)
@@ -167,6 +140,7 @@ export default function ArticleCard({ news, priority = false }: Props) {
     } catch {}
   }
   const logClick = () => { sendBeacon({ source: news.source, url: news.link, action: 'open' }) }
+  
   const handleClick = (e: MouseEvent<HTMLAnchorElement>) => {
     if (e.metaKey || e.ctrlKey || e.button === 1) return
     e.preventDefault()
@@ -175,16 +149,13 @@ export default function ArticleCard({ news, priority = false }: Props) {
   }
   const handleAuxClick = (e: MouseEvent<HTMLAnchorElement>) => { if (e.button === 1) logClick() }
 
+  // --- PREVIEW LOGIKA ---
   const [showPreview, setShowPreview] = useState(false)
   const previewOpenedAtRef = useRef<number | null>(null)
   useEffect(() => {
     if (showPreview) {
       previewOpenedAtRef.current = Date.now()
-      sendBeacon({
-        source: news.source,
-        url:    news.link,
-        action: 'preview_open',
-      })
+      sendBeacon({ source: news.source, url: news.link, action: 'preview_open' })
     } else if (previewOpenedAtRef.current) {
       const duration = Date.now() - previewOpenedAtRef.current
       previewOpenedAtRef.current = null
@@ -192,30 +163,16 @@ export default function ArticleCard({ news, priority = false }: Props) {
     }
   }, [showPreview, news.source, news.link])
 
-  useEffect(() => {
-    const onUnload = () => {
-      if (previewOpenedAtRef.current) {
-        const duration = Date.now() - previewOpenedAtRef.current
-        sendBeacon({ source: news.source, url: news.link, action: 'preview_close', meta: { duration_ms: duration, closed_by: 'unload' } })
-        previewOpenedAtRef.current = null
-      }
-    }
-    window.addEventListener('beforeunload', onUnload)
-    return () => window.removeEventListener('beforeunload', onUnload)
-  }, [news.source, news.link])
-
+  // --- PREFETCH ON HOVER (Za preview modal) ---
   const preloadedRef = useRef(false)
   const triggerPrefetch = () => {
     if (!preloadedRef.current && canPrefetch()) {
       preloadedRef.current = true
       preloadPreview(news.link).catch(() => {})
-      if (rawImg && cardRef.current) {
-        const rectW = Math.max(1, Math.round(cardRef.current.getBoundingClientRect().width || 480))
-        const dpr   = (typeof window !== 'undefined' && window.devicePixelRatio) || 1
-        const targetW = Math.min(1280, Math.round(rectW * dpr))
-        const targetH = Math.round(targetW / ASPECT)
-        const url = proxiedImage(rawImg, targetW, targetH, dpr)
-        warmImage(url)
+      // Ogrejemo tudi sliko za preview (večjo)
+      if (rawImg) {
+         const largeUrl = proxiedImage(rawImg, 1280, 720, 1)
+         warmImage(largeUrl)
       }
     }
   }
@@ -254,6 +211,7 @@ export default function ArticleCard({ news, priority = false }: Props) {
               : undefined
           }
         >
+          {/* Skeleton loading (dokler se slika ne naloži) */}
           {!imgLoaded && !useFallback && !!currentSrc && (
             <div className="absolute inset-0 grid place-items-center pointer-events-none
                             bg-gradient-to-br from-gray-200 via-gray-300 to-gray-200
@@ -270,28 +228,33 @@ export default function ArticleCard({ news, priority = false }: Props) {
             </div>
           ) : (
             <Image
-              key={imgKey}
-              ref={imgRef as any}
               src={currentSrc as string}
               alt={news.title}
               fill
               className="object-cover transition-opacity duration-200 opacity-0 data-[ok=true]:opacity-100"
-              // Ko je unoptimized: true, 'sizes' ne vpliva na generiranje slik, 
-              // ampak služi le brskalniku kot informacija (če bi imeli srcset, ki ga zdaj nimamo).
-              // Lahko ga pustimo ali odstranimo.
+              // Ker imamo unoptimized: true, 'sizes' ne vpliva na generiranje, 
+              // ampak ga pustimo za vsak slučaj za brskalnik.
+              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
               onError={handleImgError}
               onLoadingComplete={() => setImgLoaded(true)}
-              priority={isPriority} 
+              // --- NAJHITREJŠI MOŽNI PRELOAD ---
+              // Next.js bo na strežniku vstavil <link rel="preload"> v <head>.
+              // Brskalnik bo sliko začel vleči takoj, ko dobi HTML.
+              priority={priority} 
+              // --------------------------------
               data-ok={imgLoaded}
+              unoptimized={true} // Eksplicitno povemo tudi tukaj (čeprav je v configu)
             />
           )}
 
+          {/* Kategorija Label */}
           {categoryDef && categoryDef.id !== 'ostalo' && (
              <span className={`hidden sm:block absolute bottom-2 right-2 z-10 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-gray-900 dark:text-white bg-white/30 dark:bg-black/30 backdrop-blur-md rounded shadow-sm border border-white/20 dark:border-white/10 pointer-events-none`}>
                {categoryDef.label}
              </span>
           )}
 
+          {/* Preview Gumb */}
           <button
             onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowPreview(true) }}
             onMouseEnter={() => setEyeHover(true)}
@@ -324,6 +287,7 @@ export default function ArticleCard({ news, priority = false }: Props) {
                     width={16} 
                     height={16}
                     className="object-cover h-full w-full"
+                    unoptimized={true} // Tudi logotipe ne rabimo optimizirati na Vercelu
                   />
                 </div>
               )}
