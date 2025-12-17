@@ -9,12 +9,13 @@ import { CATEGORIES, CategoryId } from '../lib/categories'
 import { motion, AnimatePresence } from 'framer-motion'
 
 // --- 1. UVOZ FONTOV ---
-import { Playfair_Display, Inter } from 'next/font/google'
+// Zamenjava Playfair_Display z Montserrat za bolj moderen videz
+import { Montserrat, Inter } from 'next/font/google'
 
 // --- 2. KONFIGURACIJA FONTOV ---
-const logoFont = Playfair_Display({ 
+const logoFont = Montserrat({ 
   subsets: ['latin'],
-  weight: ['700', '900'], 
+  weight: ['700', '900'], // Bold in Black za močan logotip
   display: 'swap',
 })
 
@@ -142,14 +143,15 @@ export default function Header({
                 <div className="relative w-8 h-8 md:w-9 md:h-9">
                   <Image src="/logo.png" alt="Logo" fill className="object-contain" />
                 </div>
+                
                 <div className="flex flex-col justify-center">
-                  {/* LOGO FONT - Playfair Display */}
-                  <span className={`text-2xl font-bold tracking-tight text-gray-900 dark:text-white leading-none ${logoFont.className}`}>
+                  {/* LOGO FONT - Montserrat (Black weight za močan vtis) */}
+                  <span className={`text-2xl md:text-3xl font-black tracking-tight text-gray-900 dark:text-white leading-none ${logoFont.className}`}>
                       Križišče
                   </span>
                   
-                  {/* PODNAPIS - ZDAJ VIDEN TUDI NA MOBILE (odstranjen 'hidden sm:block') */}
-                  <span className="text-xs font-medium tracking-wide text-gray-500 dark:text-gray-400 leading-none mt-1">
+                  {/* PODNAPIS */}
+                  <span className="text-[10px] md:text-xs font-medium tracking-wide text-gray-500 dark:text-gray-400 leading-none mt-1">
                       Zadnje novice slovenskih medijev
                   </span>
                 </div>
@@ -189,7 +191,7 @@ export default function Header({
           {/* DESNO: Search + Orodja */}
           <div className="flex items-center gap-2 md:gap-4 shrink-0 ml-auto">
             
-            {/* SEARCH (Desktop only, da ne zasede preveč prostora na mobile headerju) */}
+            {/* SEARCH (Desktop only) */}
             {isHome && (
               <div className="hidden md:block w-64 lg:w-80">
                 <form onSubmit={handleSubmit} className="relative group">
