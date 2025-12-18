@@ -7,34 +7,36 @@ import Script from 'next/script'
 import { Analytics } from '@vercel/analytics/next'
 import { SpeedInsights } from '@vercel/speed-insights/next'
 
-// 1. UVOZ FONTOV (Variabilni fonti - ne določamo 'weight')
+// 1. UVOZ FONTOV
+// Vračamo "statične" debeline, da bo pisava izgledala točno tako kot prej.
 import { Inter, Playfair_Display } from 'next/font/google'
 
-// 2. KONFIGURACIJA (Brez 'weight' polja -> uporabi variable font)
+// 2. KONFIGURACIJA FONTOV (Z DOLOČENIMI DEBELINAMI)
 const inter = Inter({
   subsets: ['latin'],
   variable: '--font-inter',
   display: 'swap',
+  // Tole je ključno za povrnitev starega videza:
+  weight: ['300', '400', '500', '600', '700', '800', '900'], 
 })
 
 const playfair = Playfair_Display({
   subsets: ['latin'],
   variable: '--font-playfair',
   display: 'swap',
+  weight: ['400', '500', '600', '700', '800', '900'],
 })
 
 function App({ Component, pageProps }: AppProps) {
   return (
     <>
-      {/* 3. GLOBALNI STILI ZA SPREMENLJIVKE
-        To zagotovi, da sta --font-inter in --font-playfair 
-        dostopna povsod v aplikaciji (tudi v Headerju).
-      */}
+      {/* 3. Globalna definicija spremenljivk */}
       <style jsx global>{`
         :root {
           --font-inter: ${inter.style.fontFamily};
           --font-playfair: ${playfair.style.fontFamily};
         }
+        /* Prisilimo uporabo Inter fonta na celem HTML */
         html {
           font-family: var(--font-inter);
         }
@@ -54,7 +56,9 @@ function App({ Component, pageProps }: AppProps) {
         storageKey="theme"
         disableTransitionOnChange
       >
-        {/* Glavni wrapper z razredi za fonte */}
+        {/* Dodamo razrede spremenljivk tudi sem za vsak slučaj 
+            in 'font-sans', da Tailwind ve, kaj je default.
+        */}
         <main className={`${inter.variable} ${playfair.variable} font-sans min-h-screen`}>
           <Component {...pageProps} />
         </main>
