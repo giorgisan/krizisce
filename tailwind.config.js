@@ -9,21 +9,22 @@ module.exports = {
   theme: {
     extend: {
       fontFamily: {
-        sans: ['var(--font-inter)', 'sans-serif'],
-        serif: ['var(--font-playfair)', 'serif'],
+        // Povezava na variabilni font
+        sans: ['var(--font-inter)', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+        serif: ['var(--font-playfair)', 'ui-serif', 'Georgia', 'serif'],
       },
-      // --- TUKAJ JE ČAROVNIJA ZA POVRNITEV STAREGA VIDEZA ---
-      // To preglasi privzete debeline. Ko v kodi uporabiš 'font-bold',
-      // bo zdaj uporabil debelino 600 (SemiBold) namesto 700.
+      // --- KLJUČEN POPRAVEK ZA VIDEZ ---
+      // To prepreči "predebele" naslove.
+      // Ko koda reče 'font-bold', bo brskalnik uporabil težo 600 namesto 700.
       fontWeight: {
         normal: '400',
         medium: '500',
         semibold: '600',
-        bold: '600', // <--- SPREMEMBA: font-bold zdaj uporablja 600 (tanjše)
-        extrabold: '700', // font-extrabold uporablja 700
+        bold: '600',      // <--- Trik: font-bold je zdaj tanjši (SemiBold)
+        extrabold: '700', // font-extrabold je zdaj Bold
         black: '800',
       },
-      // -----------------------------------------------------
+      // ---------------------------------
       colors: {
         brand: '#fc9c6c',
         'brand-hover': '#e57b53',
