@@ -8,15 +8,15 @@ import { Analytics } from '@vercel/analytics/next'
 import { SpeedInsights } from '@vercel/speed-insights/next'
 
 // 1. UVOZ FONTOV
-// Vračamo "statične" debeline, da bo pisava izgledala točno tako kot prej.
 import { Inter, Playfair_Display } from 'next/font/google'
 
-// 2. KONFIGURACIJA FONTOV (Z DOLOČENIMI DEBELINAMI)
+// 2. KONFIGURACIJA FONTOV (S FIKSNIMI DEBELINAMI)
+// To je ključno za povrnitev "starega" videza.
 const inter = Inter({
   subsets: ['latin'],
   variable: '--font-inter',
   display: 'swap',
-  // Tole je ključno za povrnitev starega videza:
+  // Določimo vse debeline, da so "hrustljave" in točne
   weight: ['300', '400', '500', '600', '700', '800', '900'], 
 })
 
