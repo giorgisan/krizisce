@@ -7,10 +7,10 @@ import Script from 'next/script'
 import { Analytics } from '@vercel/analytics/next'
 import { SpeedInsights } from '@vercel/speed-insights/next'
 
-// 1. UVOZ FONTOV
+// 1. UVOZ FONTOV (Variabilni fonti - ne določamo 'weight')
 import { Inter, Playfair_Display } from 'next/font/google'
 
-// 2. KONFIGURACIJA FONTOV
+// 2. KONFIGURACIJA (Brez 'weight' polja -> uporabi variable font)
 const inter = Inter({
   subsets: ['latin'],
   variable: '--font-inter',
@@ -26,14 +26,17 @@ const playfair = Playfair_Display({
 function App({ Component, pageProps }: AppProps) {
   return (
     <>
-      {/* 3. Globalna ovojnica s pisavami
-          To omogoči, da so spremenljivke (--font-inter) na voljo povsod.
-          Dodamo 'font-sans', da je Inter privzet font.
+      {/* 3. GLOBALNI STILI ZA SPREMENLJIVKE
+        To zagotovi, da sta --font-inter in --font-playfair 
+        dostopna povsod v aplikaciji (tudi v Headerju).
       */}
       <style jsx global>{`
         :root {
           --font-inter: ${inter.style.fontFamily};
           --font-playfair: ${playfair.style.fontFamily};
+        }
+        html {
+          font-family: var(--font-inter);
         }
       `}</style>
 
@@ -51,10 +54,8 @@ function App({ Component, pageProps }: AppProps) {
         storageKey="theme"
         disableTransitionOnChange
       >
-        {/* Dodamo razred za pisave na glavni wrapper, če je potrebno, 
-            ampak z zgornjim <style jsx global> smo že pokrili spremenljivke. 
-            Vseeno je dobro imeti glavni container. */}
-        <main className={`${inter.variable} ${playfair.variable} font-sans`}>
+        {/* Glavni wrapper z razredi za fonte */}
+        <main className={`${inter.variable} ${playfair.variable} font-sans min-h-screen`}>
           <Component {...pageProps} />
         </main>
       </ThemeProvider>
