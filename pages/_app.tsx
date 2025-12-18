@@ -7,23 +7,24 @@ import Script from 'next/script'
 import { Analytics } from '@vercel/analytics/next'
 import { SpeedInsights } from '@vercel/speed-insights/next'
 
-// 1. UVOZ FONTOV - FIKSNE DEBELINE
-// POMEMBNO: Dodan 'latin-ext' za pravilne šumnike in razmike!
+// 1. UVOZ FONTOV - STROGO STATIČNI
+// Uvažamo samo tiste teže, ki jih dejansko rabiš.
+// To prepreči, da bi brskalnik "ugibal" vmesne debeline.
 import { Inter, Playfair_Display } from 'next/font/google'
 
 const inter = Inter({
-  subsets: ['latin', 'latin-ext'], // <--- DODANO latin-ext
+  subsets: ['latin', 'latin-ext'],
   variable: '--font-inter',
   display: 'swap',
-  // Uporabimo točne teže, kot so bile v originalu
-  weight: ['300', '400', '500', '600', '700', '800', '900'], 
+  // Točno te debeline zagotavljajo ostrino
+  weight: ['400', '500', '600', '700', '900'], 
 })
 
 const playfair = Playfair_Display({
-  subsets: ['latin', 'latin-ext'], // <--- DODANO latin-ext
+  subsets: ['latin', 'latin-ext'],
   variable: '--font-playfair',
   display: 'swap',
-  weight: ['400', '500', '600', '700', '800', '900'],
+  weight: ['700', '900'],
 })
 
 function App({ Component, pageProps }: AppProps) {
@@ -53,7 +54,8 @@ function App({ Component, pageProps }: AppProps) {
         storageKey="theme"
         disableTransitionOnChange
       >
-        <main className={`${inter.variable} ${playfair.variable} font-sans min-h-screen`}>
+        {/* Odstranimo vse nepotrebne razrede, ker smo jih definirali v <style jsx global> */}
+        <main className="min-h-screen font-sans antialiased">
           <Component {...pageProps} />
         </main>
       </ThemeProvider>
