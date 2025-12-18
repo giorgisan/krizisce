@@ -9,13 +9,10 @@ module.exports = {
   theme: {
     extend: {
       fontFamily: {
-        // Preprosta povezava, brez odvečnih sistemskih fontov, da smo prepričani, da uporabi Inter
+        // Preprosta definicija, brez sistemskih fallbackov, ki bi delali zmedo
         sans: ['var(--font-inter)', 'sans-serif'],
         serif: ['var(--font-playfair)', 'serif'],
       },
-      // --- ODSTRANIL SEM FONTWEIGHT HACKE ---
-      // Pustimo Tailwindu, da uporabi standardne vrednosti (700 za bold, 600 za semibold).
-      // --------------------------------------
       colors: {
         brand: '#fc9c6c',
         'brand-hover': '#e57b53',
