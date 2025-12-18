@@ -72,7 +72,9 @@ body {
   background-color: var(--bg);
   color: var(--text);
   
-  /* POPRAVEK ZA PISAVE: Poenoti videz med brskalniki */
+  /* POPRAVEK ZA PISAVE: 
+     To prisili brskalnik, da uporabi tanjši in ostrejši način izrisovanja. 
+     Brez tega so pisave v Firefoxu pogosto videti debelejše. */
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
