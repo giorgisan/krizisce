@@ -24,6 +24,19 @@ const uiFont = Inter({
   display: 'swap',
 })
 
+// --- 3. HELPER ZA BARVE (Nova funkcija za pravilno barvanje podčrtajev) ---
+const getCategoryColor = (colorClass: string) => {
+  if (colorClass.includes('emerald')) return '#10b981' // Slovenija
+  if (colorClass.includes('blue')) return '#3b82f6'    // Svet
+  if (colorClass.includes('red')) return '#ef4444'     // Kronika
+  if (colorClass.includes('green')) return '#22c55e'   // Šport
+  if (colorClass.includes('slate')) return '#64748b'   // Posel & Tech
+  if (colorClass.includes('orange')) return '#f97316'  // Moto
+  if (colorClass.includes('purple')) return '#a855f7'  // Kultura
+  if (colorClass.includes('pink')) return '#ec4899'    // Magazin
+  return '#6366f1' // Default (ostalo)
+}
+
 type Props = {
   onOpenFilter?: () => void
   onSearch?: (query: string) => void
@@ -115,7 +128,7 @@ export default function Header({
     if (isHome) {
       e.preventDefault()
       setSearchVal('') 
-      onReset()        
+      onReset()       
       window.scrollTo({ top: 0, behavior: 'smooth' })
     }
   }
@@ -148,7 +161,7 @@ export default function Header({
                       Križišče
                   </span>
                   
-                  {/* PODNAPIS - ZDAJ VIDEN TUDI NA MOBILE (odstranjen 'hidden sm:block') */}
+                  {/* PODNAPIS */}
                   <span className="text-xs font-medium tracking-wide text-gray-500 dark:text-gray-400 leading-none mt-1">
                       Zadnje novice slovenskih medijev
                   </span>
@@ -189,7 +202,7 @@ export default function Header({
           {/* DESNO: Search + Orodja */}
           <div className="flex items-center gap-2 md:gap-4 shrink-0 ml-auto">
             
-            {/* SEARCH (Desktop only, da ne zasede preveč prostora na mobile headerju) */}
+            {/* SEARCH (Desktop only) */}
             {isHome && (
               <div className="hidden md:block w-64 lg:w-80">
                 <form onSubmit={handleSubmit} className="relative group">
@@ -227,7 +240,7 @@ export default function Header({
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
                 </svg>
                 {activeSource !== 'Vse' && (
-                    <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-brand rounded-full ring-2 ring-white dark:ring-gray-900" />
+                  <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-brand rounded-full ring-2 ring-white dark:ring-gray-900" />
                 )}
               </button>
             )}
@@ -318,7 +331,8 @@ export default function Header({
                     {isActive && (
                       <span 
                         className="absolute bottom-0 left-0 w-full h-0.5 rounded-t-md" 
-                        style={{ backgroundColor: activeSource !== 'Vse' ? undefined : (cat.color.includes('emerald') ? '#10b981' : cat.color.includes('blue') ? '#3b82f6' : cat.color.includes('red') ? '#ef4444' : '#6366f1') }} 
+                        // TUKAJ UPORABIMO NOVO FUNKCIJO getCategoryColor
+                        style={{ backgroundColor: activeSource !== 'Vse' ? undefined : getCategoryColor(cat.color) }} 
                       >
                           <span className={`absolute inset-0 ${isActive ? 'bg-brand' : ''}`} />
                       </span>
