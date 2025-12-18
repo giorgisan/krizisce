@@ -7,26 +7,28 @@ import Script from 'next/script'
 import { Analytics } from '@vercel/analytics/next'
 import { SpeedInsights } from '@vercel/speed-insights/next'
 
-// 1. UVOZ FONTOV (Brez 'weight' -> Variabilni font za lepši spacing)
+// 1. UVOZ FONTOV - FIKSNE DEBELINE
+// POMEMBNO: Dodan 'latin-ext' za pravilne šumnike in razmike!
 import { Inter, Playfair_Display } from 'next/font/google'
 
 const inter = Inter({
-  subsets: ['latin'],
+  subsets: ['latin', 'latin-ext'], // <--- DODANO latin-ext
   variable: '--font-inter',
   display: 'swap',
-  // BREZ 'weight' polja! To omogoči variable font funkcije.
+  // Uporabimo točne teže, kot so bile v originalu
+  weight: ['300', '400', '500', '600', '700', '800', '900'], 
 })
 
 const playfair = Playfair_Display({
-  subsets: ['latin'],
+  subsets: ['latin', 'latin-ext'], // <--- DODANO latin-ext
   variable: '--font-playfair',
   display: 'swap',
+  weight: ['400', '500', '600', '700', '800', '900'],
 })
 
 function App({ Component, pageProps }: AppProps) {
   return (
     <>
-      {/* 3. Globalna definicija spremenljivk */}
       <style jsx global>{`
         :root {
           --font-inter: ${inter.style.fontFamily};
