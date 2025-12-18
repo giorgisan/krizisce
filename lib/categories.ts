@@ -5,10 +5,9 @@ export type CategoryId =
   | 'svet' 
   | 'kronika' 
   | 'sport' 
-  | 'gospodarstvo' 
+  | 'magazin'       
+  | 'posel-tech'    // ZDRUŽENO: Gospodarstvo + Tech
   | 'moto'            
-  | 'tech'            
-  | 'magazin'        
   | 'kultura'
   | 'oglas' 
   | 'ostalo'
@@ -79,53 +78,6 @@ export const CATEGORIES: CategoryDef[] = [
     ]
   },
   {
-    id: 'gospodarstvo',
-    label: 'Gospodarstvo',
-    color: 'bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-300',
-    keywords: [
-        '/gospodarstvo/', '/posel/', '/finance/', '/borza/', 'kripto', 'delnice', 'podjetnistvo', 
-        '/posel-danes/',
-        'banke', 'druzbe', 'posel-danes', 'gospodarstvo', 'inflacija', 'bitcoin', 'evro', 
-        'zaposlitev', 'sluzba', 'odpustili', 'delavec', 'poklic', 'podjetje', 'direktor', 'stecaj',
-        'energetika', 'elektrika', 'podrazitev', 'mastercard', 'nlb', 'prihodki', 'dobicek', 'izguba',
-        'bdp', 'obrestne mere', 'ecb', 'lagarde', 'nafta', 'plin', 'nepremicnine', 'stanovanja',
-        'pokojnina', 'upokojenec', 'delovna doba', 'zpis', 'pravni nasvet', 'zavarovanje', 'prispevki',
-        'hse', 'elektrarn', 'termoelektrarn', 'premog', 'rudarjenje', 'letalsk', 'letalisce', 'brnik', 'adria', 'lufthansa', 'eurowings'
-    ]
-  },
-  {
-    id: 'moto',
-    label: 'Avtomobilnost', 
-    color: 'bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-300',
-    keywords: [
-        '/auto/', '/avto/', 
-        '/avtomobilnost/', '/avtomobilno/', '/avtomoto/', '/svet-vozil/',       
-        '/mobilnost/', '/motociklizem/', '/avtomotosport/', 
-        'vozila', 'promet', 'elektricna-vozila', 'testi', 
-        'avtomobilizem', 'volkswagen', 'bmw', 'audi', 'tesla', 'dizel', 'bencin', 'hibrid',
-        'suv', 'limuzina', 'karavan', 'renault', 'toyota', 'peugeot', 'skoda', 'mercedes', 'porsche', 'volvo', 'fiat',
-        'cupra', 'geely', 'byd', 'mazda', 'lexus', 'citroen', 'kia ', 'ford', 'opel',
-        'formula-1', 'f1', 'verstappen', 'hamilton', 'rally', 'moto-gp', 'dirka', 
-        'motorji', 'zgorevanjem', 'avtomobilska-industrija', 'vinjeta', 'dars', 'cestnina', 'predor',
-        'kazen', 'kazni', 'globa'
-    ]
-  },
-  {
-    id: 'tech',
-    label: 'Tehnologija',
-    color: 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900/40 dark:text-cyan-300',
-    keywords: [
-        '/znanoteh/', 
-        '/znanost/', '/tehnologija/', '/tech/', '/digisvet/', '/znanost-in-tehnologija/', '/digitalna-odpornost/',
-        'vesolje', 'telefoni', 'racunalnistvo', 'pametni', 
-        'umetna-inteligenca', 'ai', 'kriptovalute',
-        'apple', 'samsung', 'google', 'microsoft', 'nvidia', 'chatgpt', 'openai', 'xiaomi', 'huawei',
-        'inovacije', 'razvoj', 'digitalno', 'nasa', 'spacex', 'astronomija', 'mars', 'rover', 'komet',
-        'aplikacija', 'internet', 'kibernet', 'android', 'ios', 'windows', 'linux', 'robotika',
-        'dinozaver', 'pterozaver', 'fosil', 'odkritje', 'vrsta', 'znanoteh', 'dnk', 'genetika'
-    ]
-  },
-  {
     id: 'magazin',
     label: 'Magazin',
     color: 'bg-pink-100 text-pink-800 dark:bg-pink-900/40 dark:text-pink-300',
@@ -165,6 +117,49 @@ export const CATEGORIES: CategoryDef[] = [
     ]
   },
   {
+    id: 'posel-tech',
+    label: 'Posel & Tehnologija', // ZDRUŽENO
+    color: 'bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-300',
+    keywords: [
+        // GOSPODARSTVO KEYWORDS
+        '/gospodarstvo/', '/posel/', '/finance/', '/borza/', 'kripto', 'delnice', 'podjetnistvo', 
+        '/posel-danes/',
+        'banke', 'druzbe', 'posel-danes', 'gospodarstvo', 'inflacija', 'bitcoin', 'evro', 
+        'zaposlitev', 'sluzba', 'odpustili', 'delavec', 'poklic', 'podjetje', 'direktor', 'stecaj',
+        'energetika', 'elektrika', 'podrazitev', 'mastercard', 'nlb', 'prihodki', 'dobicek', 'izguba',
+        'bdp', 'obrestne mere', 'ecb', 'lagarde', 'nafta', 'plin', 'nepremicnine', 'stanovanja',
+        'pokojnina', 'upokojenec', 'delovna doba', 'zpis', 'pravni nasvet', 'zavarovanje', 'prispevki',
+        'hse', 'elektrarn', 'termoelektrarn', 'premog', 'rudarjenje', 'letalsk', 'letalisce', 'brnik', 'adria', 'lufthansa', 'eurowings',
+        
+        // TECH KEYWORDS (PRIKLJUČENO TUKAJ)
+        '/znanoteh/', 
+        '/znanost/', '/tehnologija/', '/tech/', '/digisvet/', '/znanost-in-tehnologija/', '/digitalna-odpornost/',
+        'vesolje', 'telefoni', 'racunalnistvo', 'pametni', 
+        'umetna-inteligenca', 'ai', 'kriptovalute',
+        'apple', 'samsung', 'google', 'microsoft', 'nvidia', 'chatgpt', 'openai', 'xiaomi', 'huawei',
+        'inovacije', 'razvoj', 'digitalno', 'nasa', 'spacex', 'astronomija', 'mars', 'rover', 'komet',
+        'aplikacija', 'internet', 'kibernet', 'android', 'ios', 'windows', 'linux', 'robotika',
+        'dinozaver', 'pterozaver', 'fosil', 'odkritje', 'vrsta', 'znanoteh', 'dnk', 'genetika'
+    ]
+  },
+  {
+    id: 'moto',
+    label: 'Mobilnost', // Malenkost preimenovano za jasnost
+    color: 'bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-300',
+    keywords: [
+        '/auto/', '/avto/', 
+        '/avtomobilnost/', '/avtomobilno/', '/avtomoto/', '/svet-vozil/',        
+        '/mobilnost/', '/motociklizem/', '/avtomotosport/', 
+        'vozila', 'promet', 'elektricna-vozila', 'testi', 
+        'avtomobilizem', 'volkswagen', 'bmw', 'audi', 'tesla', 'dizel', 'bencin', 'hibrid',
+        'suv', 'limuzina', 'karavan', 'renault', 'toyota', 'peugeot', 'skoda', 'mercedes', 'porsche', 'volvo', 'fiat',
+        'cupra', 'geely', 'byd', 'mazda', 'lexus', 'citroen', 'kia ', 'ford', 'opel',
+        'formula-1', 'f1', 'verstappen', 'hamilton', 'rally', 'moto-gp', 'dirka', 
+        'motorji', 'zgorevanjem', 'avtomobilska-industrija', 'vinjeta', 'dars', 'cestnina', 'predor',
+        'kazen', 'kazni', 'globa'
+    ]
+  },
+  {
     id: 'kultura',
     label: 'Kultura',
     color: 'bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300',
@@ -181,17 +176,17 @@ export const CATEGORIES: CategoryDef[] = [
 ]
 
 // --- POMEMBNO: VRSTNI RED PREVERJANJA URL-JEV ---
-// Šport je zdaj na PRVEM MESTU. Če URL vsebuje /sport/, bo 100% šport.
-const PRIORITY_CHECK_ORDER: CategoryId[] = [
-  'sport',        // 1. ŠPORT (Pogačar ima prednost pred genetiko)
-  'kronika',      // 2.
-  'moto',         // 3.
-  'kultura',      // 4.
-  'magazin',      // 5.
-  'tech',         // 6.
-  'gospodarstvo', // 7.
-  'svet',         // 8.
-  'slovenija'     // 9.
+// Tukaj določamo prioriteto.
+// "Posel & Tech" mora biti visoko, da ujame npr. "Tech" članke pred "Svet".
+export const PRIORITY_CHECK_ORDER: CategoryId[] = [
+  'sport',        // 1. ŠPORT (Pogačar ima prednost pred vsem)
+  'kronika',      // 2. KRONIKA (Jasna ključna beseda)
+  'moto',         // 3. AVTO-MOTO
+  'kultura',      // 4. KULTURA
+  'magazin',      // 5. MAGAZIN (Vsebuje horoskop, trače, zdravje)
+  'posel-tech',   // 6. POSEL & TECH (Vsebuje tudi znanost)
+  'svet',         // 7. SVET
+  'slovenija'     // 8. SLOVENIJA (Fallback za vse ostalo lokalno)
 ]
 
 const unaccent = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
@@ -206,7 +201,6 @@ export function determineCategory(item: {
   const url = item.link.toLowerCase()
   
   // 1. URL CHECK (ABSOLUTNA PRIORITETA)
-  // Gremo po vrsti po PRIORITETI. Prvi URL match zmaga.
   for (const id of PRIORITY_CHECK_ORDER) {
     const cat = CATEGORIES.find(c => c.id === id)
     if (cat && cat.keywords.some(k => k.startsWith('/') && url.includes(k))) {
@@ -220,6 +214,7 @@ export function determineCategory(item: {
     for (const id of PRIORITY_CHECK_ORDER) {
       const cat = CATEGORIES.find(c => c.id === id)
       if (cat && cat.keywords.some(k => {
+         // Očistimo keyword (odstranimo slashe za RSS check)
          const cleanK = unaccent(k.replace(/\//g, '')) 
          return cleanK.length > 3 && rssCats.includes(cleanK) 
       })) {
@@ -232,6 +227,7 @@ export function determineCategory(item: {
   const combinedText = unaccent((item.title || '') + ' ' + (item.contentSnippet || ''))
   for (const id of PRIORITY_CHECK_ORDER) {
     const cat = CATEGORIES.find(c => c.id === id)
+    // Pazimo, da ne matchamo kratkih besed ali slash keywordov v navadnem tekstu
     if (cat && cat.keywords.some(k => !k.startsWith('/') && k.length > 3 && combinedText.includes(unaccent(k)))) {
       return cat.id
     }
