@@ -24,17 +24,18 @@ const uiFont = Inter({
   display: 'swap',
 })
 
-// --- 3. HELPER ZA BARVE (Nova funkcija za pravilno barvanje podčrtajev) ---
+// --- 3. HELPER ZA BARVE ---
+// Ta funkcija določi hex barvo glede na Tailwind razred v categories.ts
 const getCategoryColor = (colorClass: string) => {
-  if (colorClass.includes('emerald')) return '#10b981' // Slovenija
-  if (colorClass.includes('blue')) return '#3b82f6'    // Svet
-  if (colorClass.includes('red')) return '#ef4444'     // Kronika
-  if (colorClass.includes('green')) return '#22c55e'   // Šport
-  if (colorClass.includes('slate')) return '#64748b'   // Posel & Tech
-  if (colorClass.includes('orange')) return '#f97316'  // Moto
-  if (colorClass.includes('purple')) return '#a855f7'  // Kultura
-  if (colorClass.includes('pink')) return '#ec4899'    // Magazin
-  return '#6366f1' // Default (ostalo)
+  if (colorClass.includes('emerald')) return '#10b981' // Slovenija (Zelena)
+  if (colorClass.includes('blue')) return '#3b82f6'    // Svet (Modra)
+  if (colorClass.includes('red')) return '#ef4444'     // Kronika (Rdeča)
+  if (colorClass.includes('green')) return '#22c55e'   // Šport (Travnato zelena)
+  if (colorClass.includes('slate')) return '#64748b'   // Posel & Tech (Siva/Modra)
+  if (colorClass.includes('orange')) return '#f97316'  // Moto (Oranžna)
+  if (colorClass.includes('purple')) return '#a855f7'  // Kultura (Vijolična)
+  if (colorClass.includes('pink')) return '#ec4899'    // Magazin (Roza)
+  return '#6366f1' // Default
 }
 
 type Props = {
@@ -330,12 +331,12 @@ export default function Header({
                     {cat.label}
                     {isActive && (
                       <span 
-                        className="absolute bottom-0 left-0 w-full h-0.5 rounded-t-md" 
-                        // TUKAJ UPORABIMO NOVO FUNKCIJO getCategoryColor
-                        style={{ backgroundColor: activeSource !== 'Vse' ? undefined : getCategoryColor(cat.color) }} 
-                      >
-                          <span className={`absolute inset-0 ${isActive ? 'bg-brand' : ''}`} />
-                      </span>
+                        // TUKAJ JE POPRAVEK: 
+                        // Če je vir "Vse", potem barvamo po kategorijah.
+                        // Če je vir izbran specifično, uporabimo 'bg-brand' (oranžno).
+                        className={`absolute bottom-0 left-0 w-full h-0.5 rounded-t-md ${activeSource !== 'Vse' ? 'bg-brand' : ''}`}
+                        style={{ backgroundColor: activeSource === 'Vse' ? getCategoryColor(cat.color) : undefined }} 
+                      />
                     )}
                   </button>
                 )
