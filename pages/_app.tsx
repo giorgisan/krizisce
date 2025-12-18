@@ -7,39 +7,24 @@ import Script from 'next/script'
 import { Analytics } from '@vercel/analytics/next'
 import { SpeedInsights } from '@vercel/speed-insights/next'
 
-// 1. UVOZ FONTOV - STROGO STATIČNI
-// Uvažamo samo tiste teže, ki jih dejansko rabiš.
-// To prepreči, da bi brskalnik "ugibal" vmesne debeline.
+// 1. UVOZ FONTOV
 import { Inter, Playfair_Display } from 'next/font/google'
 
+// 2. KONFIGURACIJA FONTOV
+// Uporabimo subsets: ['latin-ext'] za šumnike!
 const inter = Inter({
   subsets: ['latin', 'latin-ext'],
-  variable: '--font-inter',
-  display: 'swap',
-  // Točno te debeline zagotavljajo ostrino
-  weight: ['400', '500', '600', '700', '900'], 
+  // Brez variable: '...', ker bomo uporabili className direktno
 })
 
 const playfair = Playfair_Display({
   subsets: ['latin', 'latin-ext'],
-  variable: '--font-playfair',
-  display: 'swap',
-  weight: ['700', '900'],
+  weight: ['400', '700', '900'], // Samo teže, ki jih rabiš za naslove
 })
 
 function App({ Component, pageProps }: AppProps) {
   return (
     <>
-      <style jsx global>{`
-        :root {
-          --font-inter: ${inter.style.fontFamily};
-          --font-playfair: ${playfair.style.fontFamily};
-        }
-        html {
-          font-family: var(--font-inter);
-        }
-      `}</style>
-
       {/* UMAMI ANALYTICS */}
       <Script 
         src="https://cloud.umami.is/script.js" 
@@ -54,8 +39,24 @@ function App({ Component, pageProps }: AppProps) {
         storageKey="theme"
         disableTransitionOnChange
       >
-        {/* Odstranimo vse nepotrebne razrede, ker smo jih definirali v <style jsx global> */}
-        <main className="min-h-screen font-sans antialiased">
+        {/* TU JE SPREMEMBA: 
+           Uporabimo inter.className direktno. 
+           To zagotovi, da Next.js pravilno naloži in aplicira font.
+           Dodamo 'antialiased', da prisilimo ostrino.
+        */}
+        <main className={`${inter.className} antialiased min-h-screen bg-white dark:bg-gray-900 text-gray-900 dark:text-white`}>
+          {/* Playfair font injiciramo globalno preko stila, ker ga uporabljamo redkeje */}
+          <style jsx global>{`
+            :root {
+              --font-playfair: ${playfair.style.fontFamily};
+            }
+            /* Dodatna varovalka za Chrome na Windows */
+            body {
+              -webkit-font-smoothing: antialiased;
+              -moz-osx-font-smoothing: grayscale;
+            }
+          `}</style>
+          
           <Component {...pageProps} />
         </main>
       </ThemeProvider>
