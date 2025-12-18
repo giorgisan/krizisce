@@ -8,33 +8,16 @@ import { useRouter } from 'next/router'
 import { CATEGORIES, CategoryId } from '../lib/categories'
 import { motion, AnimatePresence } from 'framer-motion'
 
-// --- 1. UVOZ FONTOV ---
-import { Playfair_Display, Inter } from 'next/font/google'
-
-// --- 2. KONFIGURACIJA FONTOV ---
-const logoFont = Playfair_Display({ 
-  subsets: ['latin'],
-  weight: ['700', '900'], 
-  display: 'swap',
-})
-
-const uiFont = Inter({
-  subsets: ['latin'],
-  weight: ['400', '500', '600'], 
-  display: 'swap',
-})
-
-// --- 3. HELPER ZA BARVE ---
-// Ta funkcija določi hex barvo glede na Tailwind razred v categories.ts
+// --- HELPER ZA BARVE ---
 const getCategoryColor = (colorClass: string) => {
-  if (colorClass.includes('emerald')) return '#10b981' // Slovenija (Zelena)
-  if (colorClass.includes('blue')) return '#3b82f6'    // Svet (Modra)
-  if (colorClass.includes('red')) return '#ef4444'     // Kronika (Rdeča)
-  if (colorClass.includes('green')) return '#22c55e'   // Šport (Travnato zelena)
-  if (colorClass.includes('slate')) return '#64748b'   // Posel & Tech (Siva/Modra)
-  if (colorClass.includes('orange')) return '#f97316'  // Moto (Oranžna)
-  if (colorClass.includes('purple')) return '#a855f7'  // Kultura (Vijolična)
-  if (colorClass.includes('pink')) return '#ec4899'    // Magazin (Roza)
+  if (colorClass.includes('emerald')) return '#10b981' // Slovenija
+  if (colorClass.includes('blue')) return '#3b82f6'    // Svet
+  if (colorClass.includes('red')) return '#ef4444'     // Kronika
+  if (colorClass.includes('green')) return '#22c55e'   // Šport
+  if (colorClass.includes('slate')) return '#64748b'   // Posel & Tech
+  if (colorClass.includes('orange')) return '#f97316'  // Moto
+  if (colorClass.includes('purple')) return '#a855f7'  // Kultura
+  if (colorClass.includes('pink')) return '#ec4899'    // Magazin
   return '#6366f1' // Default
 }
 
@@ -144,7 +127,7 @@ export default function Header({
         ${scrolled 
             ? 'bg-white/80 dark:bg-gray-900/80 backdrop-blur-md shadow-sm' 
             : 'bg-white dark:bg-gray-900'}
-        ${uiFont.className}
+        font-sans
       `}
     >
       <div className="w-full border-b border-gray-100 dark:border-gray-800/60">
@@ -157,8 +140,8 @@ export default function Header({
                   <Image src="/logo.png" alt="Logo" fill className="object-contain" />
                 </div>
                 <div className="flex flex-col justify-center">
-                  {/* LOGO FONT - Playfair Display */}
-                  <span className={`text-2xl font-semibold tracking-tight text-gray-900 dark:text-white leading-none ${logoFont.className}`}>
+                  {/* LOGO FONT - Playfair Display (via global font-serif) */}
+                  <span className="text-2xl font-serif font-bold tracking-tight text-gray-900 dark:text-white leading-none">
                       Križišče
                   </span>
                   
@@ -331,9 +314,8 @@ export default function Header({
                     {cat.label}
                     {isActive && (
                       <span 
-                        // TUKAJ JE POPRAVEK: 
-                        // Če je vir "Vse", potem barvamo po kategorijah.
-                        // Če je vir izbran specifično, uporabimo 'bg-brand' (oranžno).
+                        // Če je vir "Vse" -> uporabi barvo kategorije (zelena, rdeča...)
+                        // Če je vir specifičen -> uporabi 'bg-brand' (oranžna)
                         className={`absolute bottom-0 left-0 w-full h-0.5 rounded-t-md ${activeSource !== 'Vse' ? 'bg-brand' : ''}`}
                         style={{ backgroundColor: activeSource === 'Vse' ? getCategoryColor(cat.color) : undefined }} 
                       />
