@@ -1,4 +1,6 @@
 /** @type {import('tailwindcss').Config} */
+const defaultTheme = require('tailwindcss/defaultTheme')
+
 module.exports = {
   darkMode: 'class',
   content: [
@@ -9,9 +11,11 @@ module.exports = {
   theme: {
     extend: {
       fontFamily: {
-        // Preprosta definicija, brez sistemskih fallbackov, ki bi delali zmedo
-        sans: ['var(--font-inter)', 'sans-serif'],
-        serif: ['var(--font-playfair)', 'serif'],
+        // Ker smo v _app.tsx dali inter.className na <main>, 
+        // bo 'sans' avtomatsko Inter, tudi če tu ne definiramo ničesar.
+        // Ampak za vsak slučaj:
+        sans: ['Inter', ...defaultTheme.fontFamily.sans],
+        serif: ['var(--font-playfair)', ...defaultTheme.fontFamily.serif],
       },
       colors: {
         brand: '#fc9c6c',
