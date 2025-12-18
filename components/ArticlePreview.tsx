@@ -20,7 +20,7 @@ type ApiPayload =
   | { error: string }
   | { title: string; site: string; image?: string | null; html: string; url: string }
 
-const TEXT_PERCENT = 0.80
+const TEXT_PERCENT = 0.60
 const VIA_TEXT = ' — via Križišče (krizisce.si)'
 const AUTO_CLOSE_ON_OPEN = true
 
