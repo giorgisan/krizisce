@@ -9,22 +9,13 @@ module.exports = {
   theme: {
     extend: {
       fontFamily: {
-        // Povezava na variabilni font
-        sans: ['var(--font-inter)', 'ui-sans-serif', 'system-ui', 'sans-serif'],
-        serif: ['var(--font-playfair)', 'ui-serif', 'Georgia', 'serif'],
+        // Preprosta povezava, brez odvečnih sistemskih fontov, da smo prepričani, da uporabi Inter
+        sans: ['var(--font-inter)', 'sans-serif'],
+        serif: ['var(--font-playfair)', 'serif'],
       },
-      // --- KLJUČEN POPRAVEK ZA VIDEZ ---
-      // To prepreči "predebele" naslove.
-      // Ko koda reče 'font-bold', bo brskalnik uporabil težo 600 namesto 700.
-      fontWeight: {
-        normal: '400',
-        medium: '500',
-        semibold: '600',
-        bold: '600',      // <--- Trik: font-bold je zdaj tanjši (SemiBold)
-        extrabold: '700', // font-extrabold je zdaj Bold
-        black: '800',
-      },
-      // ---------------------------------
+      // --- ODSTRANIL SEM FONTWEIGHT HACKE ---
+      // Pustimo Tailwindu, da uporabi standardne vrednosti (700 za bold, 600 za semibold).
+      // --------------------------------------
       colors: {
         brand: '#fc9c6c',
         'brand-hover': '#e57b53',
