@@ -1,6 +1,4 @@
 /** @type {import('tailwindcss').Config} */
-const defaultTheme = require('tailwindcss/defaultTheme')
-
 module.exports = {
   darkMode: 'class',
   content: [
@@ -11,16 +9,26 @@ module.exports = {
   theme: {
     extend: {
       fontFamily: {
-        // Ker smo v _app.tsx dali inter.className na <main>, 
-        // bo 'sans' avtomatsko Inter, tudi če tu ne definiramo ničesar.
-        // Ampak za vsak slučaj:
-        sans: ['Inter', ...defaultTheme.fontFamily.sans],
-        serif: ['var(--font-playfair)', ...defaultTheme.fontFamily.serif],
+        // Povezava na CSS spremenljivke
+        sans: ['var(--font-inter)', 'sans-serif'],
+        serif: ['var(--font-playfair)', 'serif'],
       },
+      // --- REŠITEV: PREMAPIRANJE DEBELINE ---
+      // To bo "shujšalo" vse naslove v ArticleCard, ne da bi spreminjal kodo komponent.
+      fontWeight: {
+        normal: '400',
+        medium: '500',
+        semibold: '600',
+        bold: '600',      // <--- TRIK: font-bold zdaj uporabi 600 (SemiBold) namesto 700!
+        extrabold: '700', // font-extrabold uporabi 700 (Bold)
+        black: '800',
+      },
+      // --------------------------------------
       colors: {
         brand: '#fc9c6c',
         'brand-hover': '#e57b53',
       },
+      // Tvoji obstoječi efekti
       keyframes: {
         'bounce-subtle': {
           '0%, 100%': { transform: 'scale(1)' },
