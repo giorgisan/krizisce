@@ -2,7 +2,7 @@ import type { NextApiRequest, NextApiResponse } from 'next'
 import { createClient } from '@supabase/supabase-js'
 import fetchRSSFeeds from '@/lib/fetchRSSFeeds'
 import type { NewsItem as FeedNewsItem } from '@/types'
-import { CategoryId } from '@/lib/categories'
+import { determineCategory, CategoryId } from '@/lib/categories'
 
 // --- KONFIGURACIJA ---
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL as string
@@ -11,12 +11,9 @@ const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY as strin
 const CRON_SECRET = process.env.CRON_SECRET as string | undefined
 
 // --- SUPABASE KLIENTI ---
-// Za branje uporabimo anonimni ključ (javni dostop)
 const supabaseRead = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: { persistSession: false },
 })
-
-// Za pisanje (ingest) potrebujemo service role (če obstaja)
 const supabaseWrite = SUPABASE_SERVICE_ROLE_KEY
   ? createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
       auth: { persistSession: false },
@@ -24,16 +21,186 @@ const supabaseWrite = SUPABASE_SERVICE_ROLE_KEY
   : null
 
 /* -------------------------------------------------------------------------- */
-/* HELPER FUNKCIJE                                                            */
+/* HELPER FUNKCIJE                              */
 /* -------------------------------------------------------------------------- */
 
-// Pretvorba DB vrstice v format za frontend
-function rowToItem(r: any): FeedNewsItem {
-  // Preferiramo 'publishedat' (number), fallback na 'published_at' (string), fallback na 'created_at'
-  const ms = (r.publishedat && Number(r.publishedat)) || 
-             (r.published_at ? Date.parse(r.published_at) : 0) || 
-             (r.created_at ? Date.parse(r.created_at) : Date.now())
-             
+// Čiščenje URL-jev (odstranjevanje UTM parametrov itd.)
+function cleanUrl(raw: string): URL | null {
+  try {
+    const u = new URL(raw.trim())
+    u.protocol = 'https:'
+    u.host = u.host.toLowerCase().replace(/^www\./, '')
+    const TRACK = [/^utm_/i, /^fbclid$/i, /^gclid$/i, /^ref$/i, /^src$/i, /^from$/i, /^si_src$/i, /^mc_cid$/i, /^mc_eid$/i]
+    for (const [k] of Array.from(u.searchParams.entries())) {
+      if (TRACK.some((rx) => rx.test(k))) u.searchParams.delete(k)
+    }
+    u.pathname = u.pathname.replace(/\/amp\/?$/i, '/')
+    if (u.pathname.length > 1) u.pathname = u.pathname.replace(/\/+$/, '')
+    u.hash = ''
+    if (u.host.endsWith('rtvslo.si')) u.host = 'rtvslo.si'
+    return u
+  } catch { return null }
+}
+
+// Formatiranje datuma za linkKey
+function yyyymmdd(iso?: string | null): string | null {
+  if (!iso) return null
+  const d = new Date(iso)
+  if (Number.isNaN(+d)) return null
+  const y = d.getUTCFullYear()
+  const m = String(d.getUTCMonth() + 1).padStart(2, '0')
+  const dd = String(d.getUTCDate()).padStart(2, '0')
+  return `${y}${m}${dd}`
+}
+
+// Generiranje unikatnega ključa za preprečevanje duplikatov
+function makeLinkKey(raw: string, iso?: string | null): string {
+  const u = cleanUrl(raw)
+  if (!u) return raw.trim()
+  const nums: string[] = []
+  const pathNums = u.pathname.match(/\d{6,}/g)
+  if (pathNums) nums.push(...pathNums)
+  for (const [, v] of Array.from(u.searchParams.entries())) {
+    if (/^\d{6,}$/.test(v)) nums.push(v)
+    const inner = v.match(/\d{6,}/g)
+    if (inner) nums.push(...inner)
+  }
+  const numericId = nums.sort((a, b) => b.length - a.length)[0]
+  if (numericId) return `https://${u.host}/a/${numericId}`
+  const parts = u.pathname.split('/').filter(Boolean)
+  let last = parts.length ? parts[parts.length - 1] : ''
+  last = last.replace(/\.[a-z0-9]+$/i, '')
+  const day = yyyymmdd(iso) ?? ''
+  if (last && day) return `https://${u.host}/a/${day}-${last.toLowerCase()}`
+  if (last) return `https://${u.host}/a/${last.toLowerCase()}`
+  return `https://${u.host}${u.pathname}`
+}
+
+// Odstranjevanje šumnikov
+const unaccent = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+const normTitle = (s: string) => unaccent(s).toLowerCase().replace(/\s+/g, ' ').trim()
+const tsSec = (ms?: number | null) => Math.max(0, Math.floor((typeof ms === 'number' ? ms : 0) / 1000))
+
+// "Soft" deduplikacija v spominu (če API vrne iste novice iz več virov)
+function softDedupe<T extends { source?: string; title?: string; publishedAt?: number }>(arr: T[]): T[] {
+  const byKey = new Map<string, T>()
+  for (const it of arr) {
+    const key = `${(it.source || '').trim()}|${normTitle(it.title || '')}|${tsSec(it.publishedAt || 0)}`
+    const prev = byKey.get(key)
+    if (!prev || (it.publishedAt || 0) > (prev.publishedAt || 0)) {
+      byKey.set(key, it)
+    }
+  }
+  return Array.from(byKey.values())
+}
+
+function normalizeSnippet(item: FeedNewsItem): string | null {
+  const snippet = (item.contentSnippet || '').trim()
+  if (snippet) return snippet
+  const fromContent = (item.content || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
+  return fromContent || null
+}
+
+function resolveTimestamps(item: FeedNewsItem) {
+  const parse = (value?: string | null) => {
+    if (!value) return null
+    const t = Date.parse(value)
+    if (Number.isNaN(t)) return null
+    return { raw: value, ms: t, iso: new Date(t).toISOString() }
+  }
+  const fromIso = parse(item.isoDate)
+  const fromPub = parse(item.pubDate)
+  const msFromNumber = typeof item.publishedAt === 'number' && Number.isFinite(item.publishedAt) && item.publishedAt > 0 ? item.publishedAt : null
+  const ms = fromIso?.ms ?? fromPub?.ms ?? msFromNumber ?? Date.now()
+  const iso = fromIso?.iso ?? fromPub?.iso ?? new Date(ms).toISOString()
+  return { ms: Math.round(ms), iso }
+}
+
+// Pretvorba RSS itema v format za DB
+function feedItemToDbRow(item: FeedNewsItem) {
+  const linkRaw = (item.link || '').trim()
+  const ts = resolveTimestamps(item)
+  const linkKey = makeLinkKey(linkRaw, ts.iso)
+  const title = (item.title || '').trim()
+  const source = (item.source || '').trim()
+  if (!linkKey || !title || !source) return null
+  const snippet = normalizeSnippet(item)
+  
+  // Kategorija je zdaj že določena v fetchRSSFeeds (lahko je 'oglas')
+  // Če bi bila null, jo ponovno izračunamo, sicer uporabimo obstoječo
+  const category = item.category || determineCategory({ 
+    link: linkRaw, 
+    title: title, 
+    contentSnippet: snippet || '', 
+    categories: [] 
+  })
+
+  return {
+    link: linkRaw,
+    link_key: linkKey,
+    title,
+    source,
+    image: item.image?.trim() || null,
+    contentsnippet: snippet,
+    summary: snippet,
+    published_at: ts.iso,
+    publishedat: ts.ms,
+    category: category, 
+  }
+}
+
+// Zapisovanje v Supabase (Ingest)
+async function syncToSupabase(items: FeedNewsItem[]) {
+  if (!supabaseWrite) return
+  
+  const shaped = items.map((i) => {
+    const t = resolveTimestamps(i)
+    return { ...i, title: i.title || '', source: i.source || '', publishedAt: t.ms }
+  })
+  
+  const dedupedIn = softDedupe(shaped)
+  const rows = dedupedIn.map(feedItemToDbRow).filter(Boolean) as any[]
+  
+  if (!rows.length) return
+
+  if (process.env.NODE_ENV !== 'production' || rows.length > 0) {
+      console.log(`[Sync] Pripravljenih ${rows.length} vrstic za vpis.`)
+  }
+
+  const { error } = await (supabaseWrite as any)
+    .from('news')
+    .upsert(rows, { onConflict: 'link_key' }) 
+  
+  if (error) {
+      console.error('[Sync] DB Error:', error)
+      throw error
+  }
+}
+
+// --- TIPI ZA BAZO ---
+type Row = {
+  id: number
+  link: string
+  link_key: string | null
+  title: string
+  source: string
+  image: string | null
+  contentsnippet: string | null
+  summary: string | null
+  published_at: string | null
+  publishedat: number | null
+  created_at: string | null
+  category: string | null
+}
+
+const toMs = (s?: string | null) => {
+  if (!s) return 0
+  const v = Date.parse(s)
+  return Number.isFinite(v) ? v : 0
+}
+
+function rowToItem(r: Row): FeedNewsItem {
+  const ms = (r.publishedat && Number(r.publishedat)) || toMs(r.published_at) || toMs(r.created_at) || Date.now()
   return {
     title: r.title,
     link: r.link || '',
@@ -41,45 +208,215 @@ function rowToItem(r: any): FeedNewsItem {
     image: r.image || null,
     contentSnippet: r.contentsnippet?.trim() || r.summary?.trim() || null,
     publishedAt: ms,
-    isoDate: r.published_at || new Date(ms).toISOString(),
+    isoDate: r.published_at || null,
     category: (r.category as CategoryId) || 'ostalo',
   }
 }
 
-// "Soft" deduplikacija v spominu (če API vrne iste novice)
-function softDedupe<T extends { link: string }>(arr: T[]): T[] {
-  const seen = new Set<string>()
-  const result: T[] = []
-  for (const item of arr) {
-    if (!seen.has(item.link)) {
-      seen.add(item.link)
-      result.push(item)
+/* -------------------------------------------------------------------------- */
+/* TRENDING LOGIKA (Vroče)                                  */
+/* -------------------------------------------------------------------------- */
+const TREND_WINDOW_HOURS = 6 
+const TREND_MIN_SOURCES = 2     
+const TREND_MIN_OVERLAP = 2
+const TREND_MAX_ITEMS = 5
+const TREND_HOT_CUTOFF_HOURS = 4
+
+type StoryArticle = {
+  source: string
+  link: string
+  title: string
+  summary: string | null
+  publishedAt: number
+}
+
+type RowMeta = {
+  row: Row
+  ms: number
+  keywords: string[]
+}
+
+type TrendGroup = {
+  rows: RowMeta[]
+  keywords: string[]
+}
+
+const STORY_STOPWORDS = new Set<string>([
+  'v', 'na', 'ob', 'po', 'pri', 'pod', 'nad', 'za', 'do', 'od', 'z', 's',
+  'in', 'ali', 'pa', 'kot', 'je', 'so', 'se', 'bo', 'bodo', 'bil', 'bila',
+  'bili', 'bilo', 'bi', 'ko', 'ker', 'da', 'ne', 'ni', 'sta', 'ste', 'smo',
+  'danes', 'vceraj', 'nocoj', 'noc', 'jutri', 'letos', 'lani', 'ze', 'se',
+  'slovenija', 'sloveniji', 'slovenije', 'slovenijo', 
+  'slovenski', 'slovenska', 'slovensko', 'slovenskih',
+  'ljubljana', 'ljubljani', 'maribor', 'celje', 'koper', 
+  'svet', 'svetu', 'evropa', 'eu', 'zda',
+  'video', 'foto', 'galerija', 'intervju', 'clanek', 'novice', 'kronika', 
+  'novo', 'ekskluzivno', 'v zivo', 'preberite', 'poglejte',
+  'iz', 'ter', 'kjer', 'kako', 'zakaj', 'kaj', 'kdo', 'kam', 'kadar',
+  'razlog', 'zaradi', 'glede', 'proti', 'brez', 'med', 'pred', 'cez',
+  'lahko', 'morajo', 'mora', 'imajo', 'ima', 'gre', 'pravi', 'pravijo',
+  'znano', 'znane', 'znani', 'podrobnosti', 'razkrivamo', 'vec', 'manj', 'veliko',
+  'prvi', 'prva', 'prvo', 'drugi', 'druga', 'tretji', 'novi', 'nova', 
+  'dober', 'dobra', 'slaba', 'velik', 'malo',
+  'let', 'leta', 'leto', 'letnik', 'letnika', 'letih', 'letni', 'letna',
+  'letošnji', 'letošnja', 'starost', 'star', 'stara',
+  'teden', 'tedna', 'mesec', 'meseca', 'dan', 'dni', 'ura', 'ure'
+])
+
+function stemToken(raw: string): string {
+  if (!raw) return raw
+  if (/^\d+$/.test(raw)) return raw
+  const w = raw
+  if (w.length <= 4) return w
+  if (w.length > 6) return w.substring(0, w.length - 2)
+  return w.substring(0, w.length - 1)
+}
+
+function extractKeywordsFromTitle(title: string): string[] {
+  const base = unaccent(title || '').toLowerCase()
+  if (!base) return []
+  const tokens = base.split(/[^a-z0-9]+/i).filter(Boolean)
+  const out: string[] = []
+  for (let i = 0; i < tokens.length; i++) {
+    let w = tokens[i]
+    if (!w) continue
+    if (STORY_STOPWORDS.has(w)) continue
+    const stem = stemToken(w)
+    if (STORY_STOPWORDS.has(stem)) continue
+    if (stem.length < 3) continue 
+    if (out.indexOf(stem) === -1) out.push(stem)
+  }
+  return out
+}
+
+async function fetchTrendingRows(): Promise<Row[]> {
+  const nowMs = Date.now()
+  const cutoffMs = nowMs - TREND_WINDOW_HOURS * 3_600_000
+  
+  const { data, error } = await supabaseRead
+    .from('news')
+    .select(
+      'id, link, link_key, title, source, image, contentsnippet, summary, published_at, publishedat, created_at, category',
+    )
+    .gt('publishedat', cutoffMs)
+    // --- 1. FILTRIRANJE OGLASOV IZ TRENDINGA ---
+    .neq('category', 'oglas') 
+    // ------------------------------------------
+    .order('publishedat', { ascending: false })
+    .limit(300)
+
+  if (error) throw new Error(`DB trending: ${error.message}`)
+  return (data || []) as Row[]
+}
+
+function computeTrendingFromRows(rows: Row[]): (FeedNewsItem & { storyArticles: StoryArticle[] })[] {
+  const metas: RowMeta[] = rows.map((row) => {
+      const ms = (row.publishedat && Number(row.publishedat)) || toMs(row.published_at) || toMs(row.created_at) || Date.now()
+      const keywords = extractKeywordsFromTitle(row.title || '')
+      return { row, ms, keywords }
+    }).filter((m) => m.keywords.length > 0)
+
+  if (!metas.length) return []
+  metas.sort((a, b) => b.ms - a.ms)
+
+  const groups: TrendGroup[] = []
+  for (let i = 0; i < metas.length; i++) {
+    const m = metas[i]
+    const mKW = m.keywords
+    let attachedIndex = -1
+    let bestOverlap = 0
+    for (let gi = 0; gi < groups.length; gi++) {
+      const g = groups[gi]
+      const gKW = g.keywords
+      let intersect = 0
+      const seen = new Set<string>()
+      for (let ki = 0; ki < mKW.length; ki++) {
+        const kw = mKW[ki]
+        const seenKW = seen.has(kw)
+        seen.add(kw)
+        if (seenKW) continue
+        if (gKW.indexOf(kw) !== -1) intersect++
+      }
+      if (intersect >= TREND_MIN_OVERLAP) {
+        if (intersect > bestOverlap) {
+          bestOverlap = intersect
+          attachedIndex = gi
+        }
+      }
     }
+    if (attachedIndex >= 0) {
+      const g = groups[attachedIndex]
+      g.rows.push(m)
+      for (let ki = 0; ki < mKW.length; ki++) {
+        const kw = mKW[ki]
+        const ifExists = g.keywords.indexOf(kw)
+        if (ifExists === -1) g.keywords.push(kw)
+      }
+    } else {
+      groups.push({ rows: [m], keywords: mKW.slice() })
+    }
+  }
+
+  const nowMs = Date.now()
+  type ScoredGroup = { group: TrendGroup; rep: RowMeta; sourceCount: number; articleCount: number; newestMs: number }
+  const scored: ScoredGroup[] = []
+
+  for (let gi = 0; gi < groups.length; gi++) {
+    const g = groups[gi]
+    if (!g.rows.length) continue
+    const srcs: string[] = []
+    for (let ri = 0; ri < g.rows.length; ri++) {
+      const s = (g.rows[ri].row.source || '').trim()
+      if (s && srcs.indexOf(s) === -1) srcs.push(s)
+    }
+    const sourceCount = srcs.length
+    if (sourceCount < TREND_MIN_SOURCES) continue
+    let rep = g.rows[0]
+    for (let ri = 1; ri < g.rows.length; ri++) {
+      if (g.rows[ri].ms > rep.ms) rep = g.rows[ri]
+    }
+    const articleCount = g.rows.length
+    let newestMs = g.rows[0].ms
+    for (let ri = 1; ri < g.rows.length; ri++) {
+      if (g.rows[ri].ms > newestMs) newestMs = g.rows[ri].ms
+    }
+    const ageHours = Math.max(0, (nowMs - newestMs) / 3_600_000)
+    if (ageHours > TREND_HOT_CUTOFF_HOURS) continue
+    scored.push({ group: g, rep, sourceCount, articleCount, newestMs })
+  }
+
+  scored.sort((a, b) => {
+    if (b.sourceCount !== a.sourceCount) return b.sourceCount - a.sourceCount
+    return b.newestMs - a.newestMs
+  })
+
+  const top = scored.slice(0, TREND_MAX_ITEMS)
+  const result: (FeedNewsItem & { storyArticles: StoryArticle[] })[] = []
+
+  for (let si = 0; si < top.length; si++) {
+    const sg = top[si]
+    const base = rowToItem(sg.rep.row)
+    const storyArticles: StoryArticle[] = []
+    const seenSrc: string[] = []
+    sg.group.rows.sort((a, b) => b.ms - a.ms)
+    for (let ri = 0; ri < sg.group.rows.length; ri++) {
+      const meta = sg.group.rows[ri]
+      const r = meta.row
+      const srcName = (r.source || '').trim()
+      const link = r.link || ''
+      if (!srcName || !link) continue
+      if (seenSrc.indexOf(srcName) !== -1) continue
+      seenSrc.push(srcName)
+      const summary = (r.summary && r.summary.trim()) || (r.contentsnippet && r.contentsnippet.trim()) || null
+      storyArticles.push({ source: srcName, link, title: r.title || '', summary, publishedAt: meta.ms })
+    }
+    result.push({ ...base, storyArticles })
   }
   return result
 }
 
 /* -------------------------------------------------------------------------- */
-/* TRENDING LOGIKA (Vroče novice)                                             */
-/* -------------------------------------------------------------------------- */
-// Poenostavljena logika za "Trending" - vzamemo zadnje, ki niso oglasi
-async function fetchTrendingRows(): Promise<any[]> {
-  const cutoffMs = Date.now() - 24 * 3600 * 1000 // Zadnjih 24 ur
-  
-  const { data, error } = await supabaseRead
-    .from('news')
-    .select('id, link, title, source, image, contentsnippet, summary, published_at, publishedat, category')
-    .gt('publishedat', cutoffMs)
-    .neq('category', 'oglas') 
-    .order('publishedat', { ascending: false })
-    .limit(50) // Vzamemo top 50 za analizo
-
-  if (error) throw new Error(`DB trending: ${error.message}`)
-  return data || []
-}
-
-/* -------------------------------------------------------------------------- */
-/* API HANDLER                                                                */
+/* API HANDLER                                  */
 /* -------------------------------------------------------------------------- */
 type PagedOk = { items: FeedNewsItem[]; nextCursor: number | null }
 type ListOk = FeedNewsItem[]
@@ -97,13 +434,11 @@ export default async function handler(
     const category = (req.query.category as string) || null
     const searchQuery = (req.query.q as string) || null 
 
-    // --- 1. TRENDING (Vroče) ---
+    // --- 1. TRENDING ---
     if (variant === 'trending') {
       try {
-        // Zaenkrat vrnemo samo najnovejše kot "trending", dokler nimaš kompleksne logike
-        // (Tvoja prejšnja logika je bila OK, lahko jo vrneš, če želiš grupiranje)
         const rows = await fetchTrendingRows()
-        const items = rows.map(rowToItem)
+        const items = computeTrendingFromRows(rows)
         res.setHeader('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=60') 
         return res.status(200).json(items as any)
       } catch (err: any) {
@@ -111,47 +446,25 @@ export default async function handler(
       }
     }
 
-    // --- 2. INGEST (Samo če je avtorizirano) ---
-    // To omogoča ročno osveževanje, če pokličeš z ?forceFresh=1 in pravim žetonom
+    // --- 2. INGEST LOGIKA (Cron) ---
     const headerSecret = (req.headers['x-cron-secret'] as string | undefined)?.trim()
     const isCronCaller = Boolean(CRON_SECRET && headerSecret && headerSecret === CRON_SECRET)
+    const isInternalIngest = req.headers['x-krizisce-ingest'] === '1'
     const isDev = process.env.NODE_ENV !== 'production'
-    
-    if (wantsFresh && (isCronCaller || isDev) && supabaseWrite) {
-      try {
-        console.log('[API] Zaganjam fetchRSSFeeds...')
-        // Tukaj dejansko pokličemo tvoj fetcher, ki uporablja adFilter in categories
-        const rss = await fetchRSSFeeds({ forceFresh: true })
-        
-        if (rss?.length) {
-           // Priprava za vpis v bazo (Upsert)
-           const rows = rss.map(item => ({
-              link: item.link,
-              // Generiramo link_key za unikatnost (lahko preprosto URL)
-              link_key: item.link, 
-              title: item.title,
-              source: item.source,
-              image: item.image,
-              contentsnippet: item.contentSnippet,
-              summary: item.contentSnippet,
-              published_at: item.isoDate,
-              publishedat: item.publishedAt,
-              category: item.category // To je že določeno v fetchRSSFeeds!
-           }))
+    const tokenOk = CRON_SECRET && req.query.token === CRON_SECRET
+    const allowPublic = process.env.ALLOW_PUBLIC_REFRESH === '1'
+    const canIngest = isCronCaller || isInternalIngest || isDev || tokenOk || allowPublic
 
-           const { error } = await supabaseWrite
-             .from('news')
-             .upsert(rows, { onConflict: 'link_key' })
-           
-           if (error) console.error('[API] DB Write Error:', error)
-           else console.log(`[API] Uspešno posodobil ${rows.length} novic.`)
+    if (!paged && wantsFresh && canIngest) {
+      try {
+        const rss = await fetchRSSFeeds({ forceFresh: true })
+        if (rss?.length) {
+            await syncToSupabase(rss.slice(0, 250))
         }
-      } catch (err) { 
-          console.error('❌ RSS sync error:', err) 
-      }
+      } catch (err) { console.error('❌ RSS sync error:', err) }
     }
 
-    // --- 3. BRANJE NOVIC (Glavni del) ---
+    // --- 3. PRIPRAVA POIZVEDBE (GET NEWS) ---
     const limitParam = parseInt(String(req.query.limit), 10)
     const defaultLimit = 25 
     const limit = Math.min(Math.max(limitParam || defaultLimit, 1), 100)
@@ -160,21 +473,26 @@ export default async function handler(
     // Glavni query
     let q = supabaseRead
       .from('news')
-      .select('id, link, title, source, image, contentsnippet, summary, published_at, publishedat, created_at, category')
+      .select('id, link, link_key, title, source, image, contentsnippet, summary, published_at, publishedat, created_at, category')
       .gt('publishedat', 0)
       
-      // FILTRIRANJE OGLASOV (Ključno!)
+      // --- 4. FILTRIRANJE OGLASOV ---
+      // Skrij oglase uporabnikom, razen če bi morda kdaj želel admin panel
       .neq('category', 'oglas') 
+      // -----------------------------
       
-    // SORTIRANJE
+    // SORTIRANJE:
+    // Glavni sort po času + SEKUNDARNI sort po ID (Tie-breaker), da preprečimo "skakanje"
     q = q
       .order('publishedat', { ascending: false })
-      .order('id', { ascending: false }) // Sekundarni sort za stabilnost
+      .order('id', { ascending: false })
 
-    // FILTRI
+    // Filtri
     if (sourceParam && sourceParam !== 'Vse') {
       const sources = sourceParam.split(',').map(s => s.trim()).filter(Boolean)
-      if (sources.length > 0) q = q.in('source', sources)
+      if (sources.length > 0) {
+        q = q.in('source', sources)
+      }
     }
     
     if (cursor && cursor > 0) q = q.lt('publishedat', cursor)
@@ -189,33 +507,28 @@ export default async function handler(
 
     if (searchQuery && searchQuery.trim().length > 0) {
         const term = searchQuery.trim()
-        // Iščemo po naslovu ali vsebini
         q = q.or(`title.ilike.%${term}%,contentsnippet.ilike.%${term}%,summary.ilike.%${term}%`)
     }
 
     q = q.limit(limit)
 
-    // IZVEDBA
+    // --- 5. IZVEDBA POIZVEDBE ---
     const { data, error } = await q
     if (error) return res.status(500).json({ error: `DB: ${error.message}` })
 
-    const rows = (data || []) as any[]
+    const rows = (data || []) as Row[]
     const rawItems = rows.map(rowToItem)
     
-    // Še enkrat sortiranje (za vsak slučaj) in deduplikacija
-    const items = softDedupe(rawItems).sort((a, b) => (b.publishedAt || 0) - (a.publishedAt || 0))
+    // Še enkrat soft-sort za vsak slučaj
+    const items = softDedupe(rawItems).sort((a, b) => b.publishedAt - a.publishedAt)
     
-    // Kursor za naslednjo stran
+    // Kursor za infinite scroll
     const nextCursor = rows.length === limit ? (rows[rows.length - 1].publishedat ? Number(rows[rows.length - 1].publishedat) : null) : null
 
-    // Cache control (hitro osveževanje za novice)
     res.setHeader('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=30') 
-    
     if (paged) return res.status(200).json({ items, nextCursor })
     return res.status(200).json(items)
-
   } catch (e: any) {
-    console.error('[API Error]', e)
     return res.status(500).json({ error: e?.message || 'Unexpected error' })
   }
 }
