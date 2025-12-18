@@ -14,13 +14,111 @@ const BLOCK_URLS: RegExp[] = [
   /#comment/i          
 ]
 
-// --- POPRAVEK: IZKLOPLJENO HTML PREVERJANJE ---
-// To je povzročalo, da so navadni članki postali oglasi zaradi besed v footerju strani.
-const ENABLE_HTML_CHECK = false  // <--- SPREMENJENO V FALSE
+// HTML Check je izklopljen, da preprečimo lažne oglase
+const ENABLE_HTML_CHECK = false 
 const MAX_HTML_CHECKS = 0 
-const HTML_CHECK_HOSTS: string[] = [] // Prazno
+const HTML_CHECK_HOSTS: string[] = [] 
 
-// ... (ostala koda ostane enaka, helperji za slike itd.) ...
+// --- 2. DEFINICIJA PARSERJA (To je manjkalo!) ---
+const parser: Parser = new Parser({
+  customFields: {
+    item: [
+      'isoDate',
+      'content:encoded',
+      'media:content',
+      'media:thumbnail',
+      ['media:group', 'mediaGroup'],
+      'enclosure',
+      'image',
+      'category', 
+    ],
+  },
+})
+
+// --- Helperji za slike in datume ---
+function absolutize(src: string | undefined | null, baseHref: string): string | null {
+  if (!src) return null
+  try {
+    if (src.startsWith('//')) return new URL(`https:${src}`).toString()
+    const url = new URL(src, baseHref)
+    return url.toString()
+  } catch {
+    return null
+  }
+}
+
+async function scrapeOgImage(url: string): Promise<string | null> {
+  try {
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 2000) 
+
+    const res = await fetch(url, { 
+      signal: controller.signal,
+      headers: { 'User-Agent': 'KrizisceBot/1.0 (+https://krizisce.si)' }
+    })
+    clearTimeout(timeout)
+
+    if (!res.ok) return null
+    const chunk = await res.text() 
+    const match = chunk.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i)
+    if (match && match[1]) return match[1].trim()
+    return null
+  } catch (e) {
+    return null
+  }
+}
+
+function extractImage(item: any, baseHref: string): string | null {
+  const mg = item.mediaGroup
+  if (mg) {
+    const arr = Array.isArray(mg['media:content']) ? mg['media:content'] : [mg['media:content']]
+    for (const c of arr.filter(Boolean)) {
+      const cand = c?.url ?? c?.$?.url
+      const abs = absolutize(cand, baseHref)
+      if (abs) return abs
+    }
+  }
+  if (item['media:content']) {
+    const mc = item['media:content']
+    const cand = mc?.url ?? mc?.$?.url
+    const abs = absolutize(cand, baseHref)
+    if (abs) return abs
+  }
+  if (item['media:thumbnail']) {
+    const mt = item['media:thumbnail']
+    const cand = mt?.url ?? mt?.$?.url
+    const abs = absolutize(cand, baseHref)
+    if (abs) return abs
+  }
+  if (item.enclosure?.url) {
+    const abs = absolutize(item.enclosure.url, baseHref)
+    if (abs) return abs
+  }
+  const html = (item['content:encoded'] ?? item.content ?? '') as string
+  const m = html.match(/<img[^>]+src=["']([^"']+)["']/i)
+  if (m?.[1]) {
+    const abs = absolutize(m[1], baseHref)
+    if (abs) return abs
+  }
+  if (item.image?.url) {
+    const abs = absolutize(item.image.url, baseHref)
+    if (abs) return abs
+  }
+  return null
+}
+
+function toUnixMs(d?: string | null) {
+  if (!d) return 0
+  const ms = Date.parse(d)
+  if (!Number.isNaN(ms)) return ms
+  try {
+    const cleaned = d.replace(/,\s*/, ', ').replace(/\s+GMT[+-]\d{4}/i, '')
+    const ms2 = Date.parse(cleaned)
+    return Number.isNaN(ms2) ? 0 : ms2
+  } catch {
+    return 0
+  }
+}
 
 // --- GLAVNA FUNKCIJA FETCH ---
 export default async function fetchRSSFeeds(opts: FetchOpts = {}): Promise<NewsItem[]> {
@@ -35,14 +133,14 @@ export default async function fetchRSSFeeds(opts: FetchOpts = {}): Promise<NewsI
         } as any)
 
         const xml = await res.text()
-        const feed = await parser.parseString(xml)
+        const feed = await parser.parseString(xml) // TUKAJ JE BILA NAPAKA (zdaj je parser definiran)
         if (!feed.items?.length) return []
 
         const itemsPromise = feed.items.slice(0, 25).map(async (item: any) => {
           
           const link = item.link ?? ''
 
-          // 1. TIHO BLOKIRANJE
+          // 1. TIHO BLOKIRANJE (Samo tehnične smeti)
           if (BLOCK_URLS.some(rx => rx.test(link))) {
               return null
           }
@@ -57,13 +155,13 @@ export default async function fetchRSSFeeds(opts: FetchOpts = {}): Promise<NewsI
           }
 
           // 3. AD FILTER (Samo URL + RSS kategorija)
-          // Ker smo izklopili HTML check zgoraj, bo to zdaj delovalo pravilno
           const adCheck = isLikelyAd(tempCheckItem)
           const isAd = adCheck.isAd
 
           const iso = (item.isoDate ?? item.pubDate ?? new Date().toISOString()) as string
           const publishedAt = toUnixMs(iso)
           
+          // Slike naložimo samo, če NI oglas
           let finalImage = null
           if (!isAd) {
              finalImage = extractImage(item, link)
@@ -117,10 +215,8 @@ export default async function fetchRSSFeeds(opts: FetchOpts = {}): Promise<NewsI
 
   let flat: NewsItem[] = results.flat()
   
-  // HTML Check zanka je odstranjena, samo sortiramo
+  // Sortiranje
   flat.sort((a, b) => (b.publishedAt || 0) - (a.publishedAt || 0))
   
   return flat
 }
-
-// ... (Helperji, ki so bili prej v datoteki, npr. extractImage, toUnixMs, scrapeOgImage morajo ostati) ...
