@@ -10,21 +10,29 @@ import { SpeedInsights } from '@vercel/speed-insights/next'
 // 1. UVOZ FONTOV
 import { Inter, Playfair_Display } from 'next/font/google'
 
-// 2. KONFIGURACIJA FONTOV
-// Uporabimo subsets: ['latin-ext'] za šumnike!
+// 2. KONFIGURACIJA
 const inter = Inter({
   subsets: ['latin', 'latin-ext'],
-  // Brez variable: '...', ker bomo uporabili className direktno
+  variable: '--font-inter',
+  display: 'swap',
 })
 
 const playfair = Playfair_Display({
   subsets: ['latin', 'latin-ext'],
-  weight: ['400', '700', '900'], // Samo teže, ki jih rabiš za naslove
+  variable: '--font-playfair',
+  display: 'swap',
 })
 
 function App({ Component, pageProps }: AppProps) {
   return (
     <>
+      <style jsx global>{`
+        :root {
+          --font-inter: ${inter.style.fontFamily};
+          --font-playfair: ${playfair.style.fontFamily};
+        }
+      `}</style>
+
       {/* UMAMI ANALYTICS */}
       <Script 
         src="https://cloud.umami.is/script.js" 
@@ -39,24 +47,9 @@ function App({ Component, pageProps }: AppProps) {
         storageKey="theme"
         disableTransitionOnChange
       >
-        {/* TU JE SPREMEMBA: 
-           Uporabimo inter.className direktno. 
-           To zagotovi, da Next.js pravilno naloži in aplicira font.
-           Dodamo 'antialiased', da prisilimo ostrino.
-        */}
-        <main className={`${inter.className} antialiased min-h-screen bg-white dark:bg-gray-900 text-gray-900 dark:text-white`}>
-          {/* Playfair font injiciramo globalno preko stila, ker ga uporabljamo redkeje */}
-          <style jsx global>{`
-            :root {
-              --font-playfair: ${playfair.style.fontFamily};
-            }
-            /* Dodatna varovalka za Chrome na Windows */
-            body {
-              -webkit-font-smoothing: antialiased;
-              -moz-osx-font-smoothing: grayscale;
-            }
-          `}</style>
-          
+        {/* 'font-sans' tukaj aktivira Inter preko tailwind.config.js */}
+        {/* 'antialiased' poskrbi za ostrino */}
+        <main className="font-sans antialiased min-h-screen bg-white dark:bg-gray-900 text-gray-900 dark:text-white">
           <Component {...pageProps} />
         </main>
       </ThemeProvider>
