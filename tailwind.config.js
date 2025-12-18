@@ -8,6 +8,12 @@ module.exports = {
   ],
   theme: {
     extend: {
+      // --- TUKAJ POVEŽEMO FONTE ---
+      fontFamily: {
+        sans: ['var(--font-inter)', 'sans-serif'],
+        serif: ['var(--font-playfair)', 'serif'],
+      },
+      // ----------------------------
       colors: {
         brand: '#fc9c6c',
         'brand-hover': '#e57b53',
@@ -25,8 +31,6 @@ module.exports = {
   },
   plugins: [
     require('@tailwindcss/line-clamp'),
-    // če boš želel, lahko kasneje dodaš še:
-    // require('@tailwindcss/typography'),
   ],
   safelist: [
     'group',
