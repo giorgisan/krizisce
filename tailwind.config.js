@@ -1,4 +1,6 @@
 /** @type {import('tailwindcss').Config} */
+const defaultTheme = require('tailwindcss/defaultTheme')
+
 module.exports = {
   darkMode: 'class',
   content: [
@@ -9,26 +11,25 @@ module.exports = {
   theme: {
     extend: {
       fontFamily: {
-        // Povezava na CSS spremenljivke
-        sans: ['var(--font-inter)', 'sans-serif'],
-        serif: ['var(--font-playfair)', 'serif'],
+        // Inter za UI, navigacijo in meta podatke
+        sans: ['var(--font-inter)', ...defaultTheme.fontFamily.sans],
+        // Playfair Display SAMO za naslove
+        serif: ['var(--font-playfair)', ...defaultTheme.fontFamily.serif],
       },
-      // --- REŠITEV: PREMAPIRANJE DEBELINE ---
-      // To bo "shujšalo" vse naslove v ArticleCard, ne da bi spreminjal kodo komponent.
+      // --- OPTIMIZACIJA DEBELINE (Weight Mapping) ---
+      // To prepreči, da bi naslovi izgledali preveč "okorno" v Firefoxu
       fontWeight: {
         normal: '400',
         medium: '500',
         semibold: '600',
-        bold: '600',      // <--- TRIK: font-bold zdaj uporabi 600 (SemiBold) namesto 700!
-        extrabold: '700', // font-extrabold uporabi 700 (Bold)
+        bold: '600',      // Trik: font-bold zdaj uporabi SemiBold (600)
+        extrabold: '700', // font-extrabold uporabi Bold (700)
         black: '800',
       },
-      // --------------------------------------
       colors: {
         brand: '#fc9c6c',
         'brand-hover': '#e57b53',
       },
-      // Tvoji obstoječi efekti
       keyframes: {
         'bounce-subtle': {
           '0%, 100%': { transform: 'scale(1)' },
@@ -42,6 +43,8 @@ module.exports = {
   },
   plugins: [
     require('@tailwindcss/line-clamp'),
+    // Dodaj tole, če želiš lepše scroolbary (kot sem videl v tvojem CSS)
+    require('tailwind-scrollbar-hide'), 
   ],
   safelist: [
     'group',
