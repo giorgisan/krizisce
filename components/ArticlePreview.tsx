@@ -11,7 +11,6 @@ import React, {
 } from 'react'
 import { createPortal } from 'react-dom'
 import DOMPurify from 'dompurify'
-// 1. POPRAVEK: Preimenujemo NextImage, da ne "povozi" funkcije new Image() za snapshot
 import NextImage from 'next/image' 
 import { preloadPreview, peekPreview } from '@/lib/previewPrefetch'
 import { toBlob } from 'html-to-image'
@@ -27,12 +26,10 @@ const TEXT_PERCENT = 0.60
 const VIA_TEXT = ' — via Križišče (krizisce.si)'
 const AUTO_CLOSE_ON_OPEN = true
 
-// 2. POPRAVEK: CSS - Odstranjen odvečen prostor na vrhu
 const PREVIEW_TYPO_CSS = `
   .preview-typo { font-size: 1rem; line-height: 1.7; color: inherit; }
   .preview-typo > *:first-child { margin-top: 0 !important; }
   .preview-typo p { margin: 0.75rem 0 1.25rem; }
-  /* Naslov ima minimalen margin zgoraj */
   .preview-typo h1 { margin: 0.25rem 0 1rem; line-height: 1.25; font-weight: 700; }
   .preview-typo h2, .preview-typo h3, .preview-typo h4 {
     margin: 1.5rem 0 0.5rem; line-height: 1.3; font-weight: 700;
@@ -482,7 +479,6 @@ export default function ArticlePreview({ url, onClose }: Props) {
     if (cover) {
       const imgWrap = document.createElement('div')
       imgWrap.style.cssText = 'width:100%;aspect-ratio:16/9;border-radius:12px;overflow:hidden;background:#f3f4f6;margin-bottom:12px;'
-      // POPRAVEK: Uporaba new Image() je zdaj varna, ker je NextImage uvožen z drugim imenom
       const img = new Image()
       img.decoding = 'sync'; img.loading = 'eager'; img.crossOrigin = 'anonymous'; img.referrerPolicy = 'no-referrer'
       img.src = cover
@@ -594,26 +590,22 @@ export default function ArticlePreview({ url, onClose }: Props) {
       >
         <div
           ref={modalRef}
-          // Rahla prosojnost ozadja (glass vibe)
           className="bg-white/95 dark:bg-gray-900/95 rounded-xl shadow-2xl w-full max-w-2xl mx-4 max-h-[80vh] overflow-y-auto border border-gray-200/10 transform transition-all duration-300 ease-out scale-95 opacity-0 animate-fadeInUp"
         >
           {/* Header */}
           <div className="sticky top-0 z-10 flex items-center justify-between gap-3 px-5 py-4 border-b border-gray-200/20 bg-white/90 dark:bg-gray-900/90 backdrop-blur-md rounded-t-xl">
-            
-            {/* 3. POPRAVEK: Glava po tvojih željah */}
             <div className="min-w-0 flex-1 flex flex-col gap-0.5">
-               {/* Zgornja vrstica: Križišče branding (večji logo in tekst) */}
+               {/* Križišče branding - HITRO NALAGANJE (BREZ WESERV) */}
                <div className="flex items-center gap-1.5 opacity-80">
-                  <NextImage src="/logo.png" width={18} height={18} alt="Križišče" className="object-contain" unoptimized />
+                  <NextImage src="/logo.png" width={16} height={16} alt="Križišče" className="object-contain" unoptimized />
                   <span className="text-[11px] font-bold uppercase tracking-wider text-brand">Križišče</span>
                </div>
                
-               {/* Spodnja vrstica: Vir branding (Weserv, zaokrožen) */}
+               {/* Vir branding - HITRO NALAGANJE (BREZ WESERV) */}
                <div className="flex items-center gap-2">
                   <div className="relative w-4 h-4 shrink-0 rounded-full overflow-hidden">
-                     {/* Uporabimo Weserv (proxiedImage) in unoptimized za hitrejše nalaganje */}
                      <NextImage 
-                       src={proxiedImage(`/logos/${site.replace('www.','').split('.')[0]}.png`, 32)}
+                       src={`/logos/${site.replace('www.','').split('.')[0]}.png`}
                        alt={site}
                        fill
                        className="object-cover"
@@ -626,7 +618,7 @@ export default function ArticlePreview({ url, onClose }: Props) {
             </div>
 
             <div className="flex items-center gap-2 shrink-0 relative">
-              {/* 4. POPRAVEK: Gumb "Odpri" (ikona + tekst) zraven X */}
+              {/* Gumb ODPRI s tekstom */}
               <a 
                  href={url} target="_blank" rel="noopener" onClick={openSourceAndTrack}
                  className="hidden sm:inline-flex items-center gap-1 px-3 h-8 rounded-lg bg-gray-100/70 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-brand text-xs font-medium anim-soft"
@@ -635,7 +627,6 @@ export default function ArticlePreview({ url, onClose }: Props) {
                  <span>Odpri</span>
                  <IconExternal />
                </a>
-               {/* Mobilna verzija gumba (samo ikona) */}
                <a 
                  href={url} target="_blank" rel="noopener" onClick={openSourceAndTrack}
                  className="sm:hidden inline-flex items-center justify-center rounded-lg h-8 w-8 text-sm bg-gray-100/70 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-brand anim-soft"
@@ -727,7 +718,6 @@ export default function ArticlePreview({ url, onClose }: Props) {
           </div>
 
           {/* Body */}
-          {/* 3. POPRAVEK: Zmanjšan padding zgoraj (pt-0) */}
           <div className="px-5 pt-0 pb-5">
             {loading && (
               <div className="flex items-center justify-center py-10">
@@ -749,7 +739,6 @@ export default function ArticlePreview({ url, onClose }: Props) {
                   <div className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-white dark:from-gray-900 to-transparent" />
                 </div>
 
-                {/* 3. POPRAVEK: Originalni footer (gumbi na dnu skrola) */}
                 <div className="mt-5 flex flex-col items-center gap-2">
                   <a
                     href={url}
