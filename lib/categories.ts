@@ -30,13 +30,13 @@ export const CATEGORIES: CategoryDef[] = [
         'ljubljana', 'maribor', 'celje', 'koper', 'kranj', 'novo-mesto', 'velenje', 'vrhnika', 'postojna', 'kocevje', 'ptuj',
         'regije', 'slovenij', '/lokalne-novice/', '/stajerska/', '/dolenjska/', '/primorska/', '/gorenjska/', '/prekmurje/', '/koroska/',
         '/mnenja/', '/pisma-bralcev/', '/sobotna-priloga/', '/kolumne/', '/bralci/',
-        '/karikatura/', 
+        '/karikatura/', '/stevilke/', // Dodano za RTVSLO Številke (če ni kultura)
         'javna-uprava', 'drzavni-zbor', 'zupan', 'obcina', 'studentski-dom', 'fakultet',
         'prenova', 'gradnja', 'vodovod', 'vrtec', 'sola', 'cesta', 'zeleznica', 'drugi-tir', 'prometna-infrastruktura',
         'humanitarn', 'nvo', 'protest', 'stavka', 'sindikat', 'rasizem', 'diskriminacija', 'hostel', 'turist',
         'vlak', 'potniki', 'zeleznis', 'tir', 'sz', 'zeleznice', 'avtobus', 'lpp',
         'vreme', 'arso', 'vremenska', 'sneg', 'dezevje', 'poplave', 'neurje', 'toča', 'ciklon', 'temperatura', 'prognostik',
-        'dobrodeln', 'zbiranje pomoci', 'pomoc'
+        'dobrodeln', 'zbiranje pomoci', 'pomoc', 'gasilska zveza'
     ]
   },
   {
@@ -61,7 +61,10 @@ export const CATEGORIES: CategoryDef[] = [
         'panika', 'pretep', 'droge', 'kokain', 'mamil', 'tihotap', 'aretacija', 'trcenje', 'smrt',
         'pu ljubljana', 'pu maribor', 'pu celje', 'pu kranj', 'pu koper', 'pu novo mesto',
         'gorska resevalna', 'resevalci', 'intervencija', 'pozar', 'utonil', 'truplo',
-        'pripor', 'privedli', 'zasegli', 'preiskava', 'osumljenci', 'krivda', 'obtozba'
+        'pripor', 'privedli', 'zasegli', 'preiskava', 'osumljenci', 'krivda', 'obtozba',
+        // DODANO NA PODLAGI TVOJEGA REPORTA:
+        'pijan', 'vinjen', 'alkoholiziran', 'nadlegoval', 'krsitev', 'javni red', 'mir', 
+        'nasilje', 'prekrsek', 'krical', 'razgrajal'
     ]
   },
   {
@@ -86,6 +89,12 @@ export const CATEGORIES: CategoryDef[] = [
         '/lifestyle/', '/kulinarika/', '/okusno/', '/astro/', 'suzy', 'lady', 'dom-in-vrt',
         '/nedeljski/', '/zdravje/', '/lepota/', '/odnosi/', '/bivanje/', '/zanimivosti/', '/duhovnost/',
         '/nedelo/', '/pop-30/',
+        // DODANO NA PODLAGI TVOJEGA REPORTA:
+        '/spotkast/', // Siolov podcast
+        '/traci/',    // Splošni trači (npr. zadovoljna.si)
+        'druzina', 'starsa', 'otroci', // Družinske teme
+        'okrevanje', 'kap ', 'mozganska', // Zdravje (Sharon Stone primer)
+        
         // ZDRAVJE in WELLNESS
         'zdravje', 'bolezen', 'ambulanta', 'zdravnik', 'medicina', 'bolniska', 'zdravstvo', 'srce', 'jetra', 'mineral', 'vitamin',
         'bakterij', 'prebav', 'kosti', 'zivilo', 'repa', 'superzelenjava', 'rak ', 'simptomi', 'bolecine', 'imunski sistem',
@@ -118,7 +127,7 @@ export const CATEGORIES: CategoryDef[] = [
   },
   {
     id: 'posel-tech',
-    label: 'Posel & Tehnologija', // ZDRUŽENO
+    label: 'Posel & Tehnologija',
     color: 'bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-300',
     keywords: [
         // GOSPODARSTVO KEYWORDS
@@ -131,7 +140,7 @@ export const CATEGORIES: CategoryDef[] = [
         'pokojnina', 'upokojenec', 'delovna doba', 'zpis', 'pravni nasvet', 'zavarovanje', 'prispevki',
         'hse', 'elektrarn', 'termoelektrarn', 'premog', 'rudarjenje', 'letalsk', 'letalisce', 'brnik', 'adria', 'lufthansa', 'eurowings',
         
-        // TECH KEYWORDS (PRIKLJUČENO TUKAJ)
+        // TECH KEYWORDS
         '/znanoteh/', 
         '/znanost/', '/tehnologija/', '/tech/', '/digisvet/', '/znanost-in-tehnologija/', '/digitalna-odpornost/',
         'vesolje', 'telefoni', 'racunalnistvo', 'pametni', 
@@ -144,7 +153,7 @@ export const CATEGORIES: CategoryDef[] = [
   },
   {
     id: 'moto',
-    label: 'Mobilnost', // Malenkost preimenovano za jasnost
+    label: 'Mobilnost', 
     color: 'bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-300',
     keywords: [
         '/auto/', '/avto/', 
@@ -170,21 +179,22 @@ export const CATEGORIES: CategoryDef[] = [
         'bralne-urice', 'dokumentarni-film', 'reziser',
         'muzej', 'dediscina', 'zgodovina', 'orkester', 'koncert', 'opera', 'balet',
         'knjizni-sejem', 'liffe', 'animateka', 'oskarji', 'grammy', 'cankarjev dom',
-        'zgodovinar', 'zgodovinarka'
+        'zgodovinar', 'zgodovinarka',
+        // DODANO:
+        'beseda leta', 'zrc sazu', 'jezik'
     ]
   }
 ]
 
 // --- POMEMBNO: VRSTNI RED PREVERJANJA URL-JEV ---
-// Tukaj določamo prioriteto.
-// "Posel & Tech" mora biti visoko, da ujame npr. "Tech" članke pred "Svet".
-export const PRIORITY_CHECK_ORDER: CategoryId[] = [
-  'sport',        // 1. ŠPORT (Pogačar ima prednost pred vsem)
-  'kronika',      // 2. KRONIKA (Jasna ključna beseda)
+// Šport je zdaj na PRVEM MESTU. Če URL vsebuje /sport/, bo 100% šport.
+const PRIORITY_CHECK_ORDER: CategoryId[] = [
+  'sport',        // 1. ŠPORT
+  'kronika',      // 2. KRONIKA (Mora biti pred slovenijo, da ujame pijančevanje v Novem mestu)
   'moto',         // 3. AVTO-MOTO
-  'kultura',      // 4. KULTURA
-  'magazin',      // 5. MAGAZIN (Vsebuje horoskop, trače, zdravje)
-  'posel-tech',   // 6. POSEL & TECH (Vsebuje tudi znanost)
+  'kultura',      // 4. KULTURA (Mora biti visoko za "beseda leta")
+  'magazin',      // 5. MAGAZIN
+  'posel-tech',   // 6. POSEL & TECH
   'svet',         // 7. SVET
   'slovenija'     // 8. SLOVENIJA (Fallback za vse ostalo lokalno)
 ]
@@ -214,7 +224,6 @@ export function determineCategory(item: {
     for (const id of PRIORITY_CHECK_ORDER) {
       const cat = CATEGORIES.find(c => c.id === id)
       if (cat && cat.keywords.some(k => {
-         // Očistimo keyword (odstranimo slashe za RSS check)
          const cleanK = unaccent(k.replace(/\//g, '')) 
          return cleanK.length > 3 && rssCats.includes(cleanK) 
       })) {
@@ -227,7 +236,6 @@ export function determineCategory(item: {
   const combinedText = unaccent((item.title || '') + ' ' + (item.contentSnippet || ''))
   for (const id of PRIORITY_CHECK_ORDER) {
     const cat = CATEGORIES.find(c => c.id === id)
-    // Pazimo, da ne matchamo kratkih besed ali slash keywordov v navadnem tekstu
     if (cat && cat.keywords.some(k => !k.startsWith('/') && k.length > 3 && combinedText.includes(unaccent(k)))) {
       return cat.id
     }
