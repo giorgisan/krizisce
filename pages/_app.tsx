@@ -3,7 +3,7 @@ import type { AppProps } from 'next/app'
 import { ThemeProvider } from 'next-themes'
 import Script from 'next/script'
 import { Analytics } from '@vercel/analytics/next'
-import Head from 'next/head' // Dodano za vsak slučaj
+import Head from 'next/head'
 
 // 1. UVOZ FONTOV
 import { Inter, Playfair_Display } from 'next/font/google'
@@ -27,27 +27,30 @@ function App({ Component, pageProps }: AppProps) {
         <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
       </Head>
 
-      {/* --- TUKAJ SO PRISILNI POPRAVKI ZA VIDEZ --- */}
       <style jsx global>{`
         :root {
           --font-inter: ${inter.style.fontFamily};
           --font-playfair: ${playfair.style.fontFamily};
         }
 
-        /* 1. FIX: Poenotenje debeline pisave (Firefox vs Chrome) */
+        /* POPRAVEK: Da ne bo pretenko na Firefoxu */
         html {
-          -webkit-font-smoothing: antialiased;
-          -moz-osx-font-smoothing: grayscale;
-          text-rendering: optimizeLegibility;
+          -webkit-font-smoothing: antialiased; /* Za Chrome */
+          -moz-osx-font-smoothing: auto;       /* Za Firefox - pusti naravno debelino */
+        }
+        
+        /* Za vsak slučaj še direktno na body */
+        body {
+           -moz-osx-font-smoothing: auto;
         }
 
-        /* 2. FIX: Skrivanje drsnikov (kjer je class 'scrollbar-hide') */
+        /* SCROLLBAR FIX */
         .scrollbar-hide::-webkit-scrollbar {
             display: none;
         }
         .scrollbar-hide {
-            -ms-overflow-style: none;  /* IE and Edge */
-            scrollbar-width: none;  /* Firefox */
+            -ms-overflow-style: none;
+            scrollbar-width: none;
         }
       `}</style>
 
@@ -65,7 +68,6 @@ function App({ Component, pageProps }: AppProps) {
         storageKey="theme"
         disableTransitionOnChange
       >
-        {/* Dodal sem spremenljivke fontov tudi sem, za varnost */}
         <main className={`${inter.variable} ${playfair.variable} font-sans antialiased min-h-screen bg-white dark:bg-gray-900 text-gray-900 dark:text-white`}>
           <Component {...pageProps} />
         </main>
