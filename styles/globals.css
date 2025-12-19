@@ -2,83 +2,55 @@
 @tailwind components;
 @tailwind utilities;
 
-/* --- BASE STYLES --- */
 @layer base {
   :root {
-    color-scheme: light;
-    --bg: #f9f9f9; /* Malo mehkejša bela */
+    color-scheme: dark light;
+    --bg: #f9f9f9;
     --text: #1a1a1a;
-    
     --brand: #fc9c6c;
-    --brand-hover: #e57b53;
-    --card-bg: #ffffff;
-    --card-hover: #fcfcfc;
-    --divider: #e5e7eb;
   }
 
   .dark {
     color-scheme: dark;
-    --bg: #0f0f0f; /* Temnejša črna za OLED vibe */
-    --text: #ededed; /* Ne čisto bela, ampak zelo svetlo siva */
-    
-    --card-bg: #18181b; /* Zinc-900 */
-    --card-hover: #202023;
-    --divider: #27272a;
+    --bg: #0f0f0f;
+    --text: #ededed; 
   }
 
+  /* ODSTRANIL SEM 'scroll-behavior: smooth', 
+     ker to v Firefoxu povzroča občutek, da je stran "težka" ali "plavajoča".
+  */
   html {
-    scroll-behavior: smooth;
-    -webkit-tap-highlight-color: transparent;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: auto; /* Pusti Firefoxu naravno debelino */
   }
 
   body {
     background-color: var(--bg);
     color: var(--text);
-    
-    /* --- KLJUČNO ZA POENOTENJE BRSKALNIKOV --- */
-    text-rendering: optimizeLegibility; 
-    -webkit-font-smoothing: antialiased; /* Chrome/Safari fix */
-    -moz-osx-font-smoothing: grayscale;  /* Firefox fix */
-    
-    transition: background-color 0.2s ease, color 0.2s ease;
-  }
-
-  /* Dodaten fix za Firefox v Dark Mode (če postane pretanek) */
-  .dark body {
-     -moz-osx-font-smoothing: auto;
-  }
-
-  /* Optimizacija za naslove */
-  h1, h2, h3, h4, h5, h6 {
-    text-wrap: balance; 
+    /* Odstrani optimizeLegibility, ker lahko včasih upočasni renderiranje */
+    text-rendering: auto; 
   }
 }
 
-/* --- COMPONENTS & UTILITIES --- */
+/* --- ROČNI FIX ZA SKRIVANJE SCROLLBARJA (Deluje 100%) --- */
 
-/* Linki */
+/* Za Chrome, Safari, Edge */
+.no-scrollbar::-webkit-scrollbar {
+    display: none;
+}
+
+/* Za Firefox (to je tisto, kar ti manjka za debel gumb) */
+.no-scrollbar {
+    -ms-overflow-style: none;  /* IE and Edge */
+    scrollbar-width: none;  /* Firefox */
+}
+
+/* --- OSTALO --- */
 a { text-decoration: none; }
-.prose a, .preview-typo a { text-decoration: underline; text-underline-offset: 3px; }
+.prose a { text-decoration: underline; text-underline-offset: 3px; }
 
-/* Accessibility */
-.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
-
-/* Focus states */
 :where(button, a, [tabindex]:not([tabindex="-1"])):focus-visible { outline: none; box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--brand); border-radius: 4px; }
-
-/* Button press effect */
 .btn-press:active { transform: translateY(1px) scale(0.98); }
 
-/* Animacije */
 @keyframes zenPulse { 0%, 100% { transform: scale(1); opacity: 0.7; } 50% { transform: scale(1.2); opacity: 1; } }
 .animate-zenPulse { animation: zenPulse 1.6s ease-in-out infinite; }
-
-@keyframes fadeInUp { from { opacity: 0; transform: translateY(15px); } to { opacity: 1; transform: translateY(0); } }
-.animate-fadeInUp { animation: fadeInUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
-
-/* Scrollbar hide (Fallback, če plugin ne prime) */
-.scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
-.scrollbar-hide::-webkit-scrollbar { display: none; }
-
-/* Content visibility */
-.cv-auto { content-visibility: auto; contain-intrinsic-size: 300px; }
