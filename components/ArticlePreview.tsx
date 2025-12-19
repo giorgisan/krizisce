@@ -13,7 +13,7 @@ import { createPortal } from 'react-dom'
 import DOMPurify from 'dompurify'
 import Image from 'next/image' // Za logo
 import { preloadPreview, peekPreview } from '@/lib/previewPrefetch'
-// POPRAVEK 1: Uvozimo funkcijo za zunanje procesiranje slik (Weserv)
+// Weserv proxy funkcija
 import { proxiedImage } from '@/lib/img'
 
 interface Props { url: string; onClose: () => void }
@@ -26,7 +26,6 @@ const TEXT_PERCENT = 0.60
 const VIA_TEXT = ' — via Križišče (krizisce.si)'
 const AUTO_CLOSE_ON_OPEN = true
 
-// Vrnjen originalni CSS, ki ti je bil všeč
 const PREVIEW_TYPO_CSS = `
   .preview-typo { font-size: 1rem; line-height: 1.7; color: inherit; }
   .preview-typo > *:first-child { margin-top: 0 !important; }
@@ -76,8 +75,7 @@ function trackClick(source: string, url: string) {
 }
 function absolutize(raw: string, baseUrl: string): string { try { return new URL(raw, baseUrl).toString() } catch { return raw } }
 
-// POPRAVEK 2: Uporabimo lib/img.ts (Weserv) namesto /api/img
-// To reši tvoj CPU problem, ne da bi pokvarilo deduplikacijo
+// Weserv proxy
 function proxyImageSrc(absUrl: string): string { 
   return proxiedImage(absUrl, 800)
 }
@@ -87,7 +85,7 @@ function withCacheBust(u: string, bust: string) {
   catch { const sep = u.includes('?') ? '&' : '?'; return `${u}${sep}cb=${encodeURIComponent(bust)}` }
 }
 
-/* text helpers - ORIGINALNA KODA */
+/* text helpers */
 function wordSpans(text: string){ const spans:Array<{start:number;end:number}>=[]; const re=/[A-Za-z0-9À-ÖØ-öø-ÿĀ-žČŠŽčšžĆćĐđ]+(?:['’-][A-Za-z0-9À-ÖØ-öø-ÿĀ-žČŠŽčšžĆćĐđ]+)*/g; let m:RegExpExecArray|null; while((m=re.exec(text))!==null) spans.push({start:m.index,end:m.index+m[0].length}); return spans }
 function countWords(text:string){ return wordSpans(text).length }
 function truncateHTMLByWordsPercent(html:string, percent=0.76){
@@ -110,9 +108,7 @@ function truncateHTMLByWordsPercent(html:string, percent=0.76){
   return out.innerHTML
 }
 
-/* POPRAVEK 3: ORIGINALNA LOGIKA ZA DEDUPLIKACIJO
-   To si imel prej in je delovalo. Vračam točno to kodo.
-*/
+/* IMAGE DEDUPE - ORIGINAL */
 function imageKeyFromSrc(src: string | null | undefined): string {
   if (!src) return ''
   let pathname = ''
@@ -122,13 +118,9 @@ function imageKeyFromSrc(src: string | null | undefined): string {
   } catch {
     pathname = (src.split('#')[0] || '').split('?')[0].toLowerCase()
   }
-
-  // odstrani tipične CDN/cache/resize segmente
   pathname = pathname
     .replace(/\/cache\/[^/]+\/+/g, '/')
     .replace(/\/(fit|fill|resize)\/\d+x\d+\/?/g, '/')
-
-  // odstrani suffixe dimenzij
   pathname = pathname.replace(/(-|_)?\d{2,4}x\d{2,4}(?=\.)/g, '')
   pathname = pathname.replace(/(-|_)?\d{2,4}x(?=\.)/g, '')
   pathname = pathname.replace(/-scaled(?=\.)/g, '')
@@ -156,7 +148,7 @@ function normalizeStemForDedupe(s: string): string {
     .slice(0, 20)                                      
 }
 
-/* wait images - ORIGINALNO */
+/* wait images */
 async function waitForImages(root: HTMLElement, timeoutMs = 6000) {
   const imgs = Array.from(root.querySelectorAll('img'))
   if (imgs.length === 0) return
@@ -173,7 +165,7 @@ async function waitForImages(root: HTMLElement, timeoutMs = 6000) {
   }))
 }
 
-/* clean, proxy, cache-bust, dedupe images - ORIGINALNO (S Popravljenim Proxy klicem) */
+/* clean & extract */
 function cleanAndExtract(html: string, baseUrl: string, knownTitle: string | undefined, bust: string) {
   const wrap = document.createElement('div')
   wrap.innerHTML = html
@@ -188,7 +180,6 @@ function cleanAndExtract(html: string, baseUrl: string, knownTitle: string | und
     }
   }
 
-  // Linki
   wrap.querySelectorAll('a').forEach((a) => {
     const href = a.getAttribute('href')
     if (href) a.setAttribute('href', absolutize(href, baseUrl))
@@ -211,13 +202,12 @@ function cleanAndExtract(html: string, baseUrl: string, knownTitle: string | und
     const firstRaw = first.getAttribute('src') || first.getAttribute('data-src') || ''
     const firstAbs = absolutize(firstRaw, baseUrl)
     
-    // Generiramo ključe za deduplikacijo PREDEN zamenjamo src
     firstKey  = imageKeyFromSrc(firstAbs || firstRaw)
     firstStem = basenameStem(firstKey)
     firstNormStem = normalizeStemForDedupe(firstStem)
 
     if (firstAbs) {
-      const prox = proxyImageSrc(firstAbs) // TUKAJ JE SPREMEMBA NA WESERV
+      const prox = proxyImageSrc(firstAbs)
       const pinned = withCacheBust(prox, bust)
       first.setAttribute('src', pinned)
       first.removeAttribute('data-src')
@@ -256,7 +246,6 @@ function cleanAndExtract(html: string, baseUrl: string, knownTitle: string | und
       if (duplicate) { (img.closest('figure, picture') || img).remove() }
       else { 
           seenKeys.add(key); if (nstem) seenNormStems.add(nstem) 
-          // Proxy tudi za ostale slike
           const prox = proxyImageSrc(abs)
           const pinned = withCacheBust(prox, bust)
           img.setAttribute('src', pinned)
@@ -465,7 +454,7 @@ export default function ArticlePreview({ url, onClose }: Props) {
         >
           {/* Header */}
           <div className="shrink-0 flex items-center justify-between gap-3 px-5 py-3 border-b border-gray-200/20 bg-white/90 dark:bg-gray-900/90 z-10">
-            {/* POPRAVEK UI: LOGO + VIR */}
+            {/* LOGO + VIR */}
             <div className="flex items-center gap-3 min-w-0">
                <div className="relative h-8 w-8 shrink-0">
                  <Image src="/logo.png" alt="Križišče" fill className="object-contain" unoptimized />
@@ -487,13 +476,6 @@ export default function ArticlePreview({ url, onClose }: Props) {
                </a>
 
               {/* Share */}
-              <button
-                ref={shareBtnRef}
-                type="button"
-                onClick={handleSnapshot} // Snapshot funkcija je odstranjena, gumb zdaj služi za Share ali pa ga odstraniš
-                className="hidden" // Skrijem snapshot gumb, ker si rekel, da ga ne rabiš
-              />
-
               <button
                 ref={shareBtnRef}
                 type="button"
@@ -593,7 +575,7 @@ export default function ArticlePreview({ url, onClose }: Props) {
                   {/* VSEBINA */}
                   <div dangerouslySetInnerHTML={{ __html: content }} />
                   
-                  {/* FADE OUT UČINEK NA DNU - Vrnjen */}
+                  {/* FADE OUT UČINEK NA DNU */}
                   <div className="absolute bottom-0 inset-x-0 h-40 bg-gradient-to-t from-white via-white/90 to-transparent dark:from-gray-900 dark:via-gray-900/90 pointer-events-none" />
               </div>
             )}
