@@ -22,7 +22,7 @@ module.exports = {
         normal: '400',
         medium: '500',
         semibold: '600',
-        bold: '600',      // Trik: font-bold zdaj uporabi SemiBold (600)
+        bold: '600',       // Trik: font-bold zdaj uporabi SemiBold (600)
         extrabold: '700', // font-extrabold uporabi Bold (700)
         black: '800',
       },
