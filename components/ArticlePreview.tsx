@@ -13,6 +13,8 @@ import { createPortal } from 'react-dom'
 import DOMPurify from 'dompurify'
 import { preloadPreview, peekPreview } from '@/lib/previewPrefetch'
 import { toBlob } from 'html-to-image'
+// 1. POPRAVEK: Uvozimo našo optimizirano funkcijo za slike
+import { proxiedImage } from '@/lib/img'
 
 interface Props { url: string; onClose: () => void }
 
@@ -24,26 +26,32 @@ const TEXT_PERCENT = 0.60
 const VIA_TEXT = ' — via Križišče (krizisce.si)'
 const AUTO_CLOSE_ON_OPEN = true
 
+// CSS za lepši izpis besedila v predogledu (Serif za naslove, Sans za tekst)
 const PREVIEW_TYPO_CSS = `
-  .preview-typo { font-size: 0.98rem; line-height: 1.68; }
+  .preview-typo { font-family: var(--font-inter), sans-serif; font-size: 1rem; line-height: 1.7; color: inherit; }
   .preview-typo > *:first-child { margin-top: 0 !important; }
-  .preview-typo p { margin: 0.55rem 0 0.9rem; }
+  .preview-typo p { margin: 0 0 1rem; }
   .preview-typo h1, .preview-typo h2, .preview-typo h3, .preview-typo h4 {
-    margin: 1.05rem 0 0.35rem; line-height: 1.25;
+    font-family: var(--font-playfair), serif; /* Uporabimo serif za podnaslove */
+    font-weight: 700;
+    margin: 1.5rem 0 0.5rem; 
+    line-height: 1.3;
   }
-  .preview-typo ul, .preview-typo ol { margin: 0.6rem 0 0.9rem; padding-left: 1.25rem; }
+  .preview-typo ul, .preview-typo ol { margin: 0.5rem 0 1rem; padding-left: 1.25rem; }
   .preview-typo li { margin: 0.25rem 0; }
-  .preview-typo img, .preview-typo figure, .preview-typo video {
-    display:block; max-width:100%; height:auto; border-radius:12px; margin:0.65rem 0 0.9rem;
+  .preview-typo img, .preview-typo figure {
+    display: block; max-width: 100%; height: auto; border-radius: 8px; margin: 1rem 0;
   }
-  .preview-typo figure > img { margin-bottom: 0.4rem; }
-  .preview-typo figcaption { font-size: 0.82rem; opacity: .75; margin-top: -0.2rem; }
   .preview-typo blockquote {
-    margin: 0.9rem 0; padding: 0.25rem 0 0.25rem 0.9rem;
-    border-left: 3px solid rgba(255,255,255,.15); opacity: .95;
+    margin: 1rem 0; padding: 0.5rem 0 0.5rem 1rem;
+    border-left: 4px solid var(--brand, #fc9c6c); 
+    font-style: italic; opacity: 0.9;
+    background: rgba(0,0,0,0.03);
   }
-  .preview-typo hr { margin: 1.1rem 0; opacity: .25; }
-  .preview-typo a { text-decoration: underline; text-underline-offset: 2px; }
+  .dark .preview-typo blockquote { background: rgba(255,255,255,0.03); }
+  .preview-typo hr { margin: 1.5rem 0; opacity: 0.2; border: 0; border-top: 1px solid currentColor; }
+  .preview-typo a { color: var(--brand, #fc9c6c); text-decoration: underline; text-underline-offset: 2px; }
+  .preview-typo a:hover { text-decoration: none; }
 `
 
 /* Icons */
@@ -70,13 +78,19 @@ function trackClick(source: string, url: string) {
   } catch {}
 }
 function absolutize(raw: string, baseUrl: string): string { try { return new URL(raw, baseUrl).toString() } catch { return raw } }
-function proxyImageSrc(absUrl: string): string { try { if (new URL(absUrl).pathname.startsWith('/api/img')) return absUrl } catch {} return `/api/img?u=${encodeURIComponent(absUrl)}` }
+
+// 2. POPRAVEK: Uporaba Weserv proxyja
+function proxyImageSrc(absUrl: string): string { 
+  // Uporabimo lib/img.ts za generiranje URL-ja. 800px je dovolj za preview.
+  return proxiedImage(absUrl, 800) 
+}
+
 function withCacheBust(u: string, bust: string) {
   try { const url = new URL(u, typeof location !== 'undefined' ? location.origin : 'http://localhost'); url.searchParams.set('cb', bust); return url.toString() }
   catch { const sep = u.includes('?') ? '&' : '?'; return `${u}${sep}cb=${encodeURIComponent(bust)}` }
 }
 
-/* text helpers */
+/* Text helpers */
 function wordSpans(text: string){ const spans:Array<{start:number;end:number}>=[]; const re=/[A-Za-z0-9À-ÖØ-öø-ÿĀ-žČŠŽčšžĆćĐđ]+(?:['’-][A-Za-z0-9À-ÖØ-öø-ÿĀ-žČŠŽčšžĆćĐđ]+)*/g; let m:RegExpExecArray|null; while((m=re.exec(text))!==null) spans.push({start:m.index,end:m.index+m[0].length}); return spans }
 function countWords(text:string){ return wordSpans(text).length }
 function truncateHTMLByWordsPercent(html:string, percent=0.76){
@@ -99,8 +113,7 @@ function truncateHTMLByWordsPercent(html:string, percent=0.76){
   return out.innerHTML
 }
 
-/* image dedupe helpers */
-// ── UPDATE #1: okrepljena normalizacija poti (CDN/cache segmenti)
+/* Image dedupe helpers */
 function imageKeyFromSrc(src: string | null | undefined): string {
   if (!src) return ''
   let pathname = ''
@@ -110,43 +123,20 @@ function imageKeyFromSrc(src: string | null | undefined): string {
   } catch {
     pathname = (src.split('#')[0] || '').split('?')[0].toLowerCase()
   }
-
-  // odstrani tipične CDN/cache/resize segmente (npr. dnevnik.si /cache/... ali /fit/1200x/)
-  pathname = pathname
-    .replace(/\/cache\/[^/]+\/+/g, '/')
-    .replace(/\/(fit|fill|resize)\/\d+x\d+\/?/g, '/')
-
-  // odstrani suffixe dimenzij in konsistentna končnica
-  pathname = pathname.replace(/(-|_)?\d{2,4}x\d{2,4}(?=\.)/g, '')
-  pathname = pathname.replace(/(-|_)?\d{2,4}x(?=\.)/g, '')
-  pathname = pathname.replace(/-scaled(?=\.)/g, '')
-  pathname = pathname.replace(/\.(webp|jpeg)$/g, '.jpg')
+  pathname = pathname.replace(/\/cache\/[^/]+\/+/g, '/').replace(/\/(fit|fill|resize)\/\d+x\d+\/?/g, '/')
+  pathname = pathname.replace(/(-|_)?\d{2,4}x\d{2,4}(?=\.)/g, '').replace(/(-|_)?\d{2,4}x(?=\.)/g, '')
+  pathname = pathname.replace(/-scaled(?=\.)/g, '').replace(/\.(webp|jpeg)$/g, '.jpg')
   return pathname
 }
 function basenameStem(pathname: string): string {
   const last = pathname.split('/').pop() || ''
-  return last
-    .replace(/\.[a-z0-9]+$/, '')
-    .replace(/(-|_)?\d{2,4}x\d{2,4}$/g, '')
-    .replace(/(-|_)?\d{2,4}x$/g, '')
-    .replace(/-scaled$/g, '')
+  return last.replace(/\.[a-z0-9]+$/, '').replace(/(-|_)?\d{2,4}x\d{2,4}$/g, '').replace(/(-|_)?\d{2,4}x$/g, '').replace(/-scaled$/g, '')
 }
-
-// ── UPDATE #2: “normaliziran stem” – zniža šum (številke, ločila, diakritika)
 function normalizeStemForDedupe(s: string): string {
-  return (s || '')
-    .toLowerCase()
-    .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // brez diakritike
-    .replace(/\.[a-z0-9]+$/, '')                      // brez končnice
-    .replace(/(-|_)?\d{2,4}x\d{2,4}$/g, '')
-    .replace(/(-|_)?\d{2,4}x$/g, '')
-    .replace(/-scaled$/g, '')
-    .replace(/\d+/g, '')                               // odstrani številke/hash
-    .replace(/[-_]+/g, '')                             // odstrani ločila
-    .slice(0, 20)                                      // stabilna dolžina
+  return (s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\.[a-z0-9]+$/, '').replace(/(-|_)?\d{2,4}x\d{2,4}$/g, '').replace(/(-|_)?\d{2,4}x$/g, '').replace(/-scaled$/g, '').replace(/\d+/g, '').replace(/[-_]+/g, '').slice(0, 20)
 }
 
-/* wait images */
+/* Wait images */
 async function waitForImages(root: HTMLElement, timeoutMs = 6000) {
   const imgs = Array.from(root.querySelectorAll('img'))
   if (imgs.length === 0) return
@@ -163,7 +153,7 @@ async function waitForImages(root: HTMLElement, timeoutMs = 6000) {
   }))
 }
 
-/* clean, proxy, cache-bust, dedupe images */
+/* Clean, proxy, cache-bust, dedupe images */
 function cleanAndExtract(html: string, baseUrl: string, knownTitle: string | undefined, bust: string) {
   const wrap = document.createElement('div')
   wrap.innerHTML = html
@@ -178,7 +168,6 @@ function cleanAndExtract(html: string, baseUrl: string, knownTitle: string | und
     }
   }
 
-  // 🔧 Linki v predogledu: odpri v novem tabu, pošlji referer (brez 'noreferrer')
   wrap.querySelectorAll('a').forEach((a) => {
     const href = a.getAttribute('href')
     if (href) a.setAttribute('href', absolutize(href, baseUrl))
@@ -201,7 +190,7 @@ function cleanAndExtract(html: string, baseUrl: string, knownTitle: string | und
     const firstRaw = first.getAttribute('src') || first.getAttribute('data-src') || ''
     const firstAbs = absolutize(firstRaw, baseUrl)
     if (firstAbs) {
-      const prox = proxyImageSrc(firstAbs)
+      const prox = proxyImageSrc(firstAbs) // TUKAJ SE ZDAJ KLIČE WESERV
       const pinned = withCacheBust(prox, bust)
       first.setAttribute('src', pinned)
       first.removeAttribute('data-src')
@@ -227,7 +216,7 @@ function cleanAndExtract(html: string, baseUrl: string, knownTitle: string | und
       if (!raw) { (img.closest('figure, picture') || img).remove(); return }
 
       const abs  = absolutize(raw, baseUrl)
-      const prox = proxyImageSrc(abs)
+      const prox = proxyImageSrc(abs) // TUKAJ SE ZDAJ KLIČE WESERV
       const pinned = withCacheBust(prox, bust)
       img.setAttribute('src', pinned)
       img.removeAttribute('data-src')
@@ -315,6 +304,7 @@ export default function ArticlePreview({ url, onClose }: Props) {
         const textOnly = DOMPurify.sanitize(cleaned.html)
         const truncated = truncateHTMLByWordsPercent(textOnly, TEXT_PERCENT)
 
+        // Če API vrne glavno sliko, jo uporabimo (proxied)
         const primary = data.image ? withCacheBust(proxyImageSrc(data.image), cacheBust) : null
         setCoverSnapSrc(primary || cleaned.firstImg || null)
 
@@ -459,22 +449,22 @@ export default function ArticlePreview({ url, onClose }: Props) {
     const root = document.createElement('div')
     root.style.cssText = `position:fixed;left:-10000px;top:0;width:${width}px;pointer-events:none;z-index:-1;`
     const card = document.createElement('div')
-    card.style.cssText = `background:${bg};color:${fg};padding:16px;border-radius:16px;border:1px solid ${shade};font:500 14px/1.55 system-ui,-apple-system,Segoe UI,Roboto;`
+    card.style.cssText = `background:${bg};color:${fg};padding:24px;border-radius:16px;border:1px solid ${shade};font-family:sans-serif;`
     root.appendChild(card)
 
     const siteText = site || (() => { try { return new URL(url).hostname } catch { return 'krizisce.si' } })()
     const titleEl = document.createElement('div')
     titleEl.textContent = title || 'Članek'
-    titleEl.style.cssText = 'font-weight:700;font-size:18px;line-height:1.3;margin:2px 0 6px;'
+    titleEl.style.cssText = 'font-weight:700;font-size:20px;line-height:1.3;margin-bottom:8px;font-family:serif;'
     const domainEl = document.createElement('div')
     domainEl.textContent = siteText
-    domainEl.style.cssText = `color:${sub};font-size:12px;margin-bottom:10px;`
+    domainEl.style.cssText = `color:${sub};font-size:12px;margin-bottom:16px;text-transform:uppercase;letter-spacing:0.5px;`
     card.appendChild(titleEl); card.appendChild(domainEl)
 
     const cover = coverSnapSrc ? withCacheBust(coverSnapSrc, `${Date.now().toString(36)}${Math.random().toString(36).slice(2,6)}`) : null
     if (cover) {
       const imgWrap = document.createElement('div')
-      imgWrap.style.cssText = 'width:100%;aspect-ratio:16/9;border-radius:12px;overflow:hidden;background:#f3f4f6;margin-bottom:12px;'
+      imgWrap.style.cssText = 'width:100%;aspect-ratio:16/9;border-radius:12px;overflow:hidden;background:#f3f4f6;margin-bottom:16px;'
       const img = new Image()
       img.decoding = 'sync'; img.loading = 'eager'; img.crossOrigin = 'anonymous'; img.referrerPolicy = 'no-referrer'
       img.src = cover
@@ -483,7 +473,7 @@ export default function ArticlePreview({ url, onClose }: Props) {
     }
 
     const rawText = (snapshotRef.current?.textContent || '').replace(/\s+/g, ' ').replace(/\u00A0/g, ' ').trim()
-    const MAX_WORDS = 140
+    const MAX_WORDS = 100
     const words = rawText.split(' ').filter(Boolean).slice(0, MAX_WORDS)
     const excerpt = words.join(' ') + (words.length >= MAX_WORDS ? '…' : '')
 
@@ -491,11 +481,16 @@ export default function ArticlePreview({ url, onClose }: Props) {
     textWrap.style.cssText = 'position:relative;border-radius:12px;overflow:hidden;'
     const bodyEl = document.createElement('div')
     bodyEl.textContent = excerpt
-    bodyEl.style.cssText = 'white-space:pre-wrap;font-size:14px;line-height:1.55;padding-bottom:72px;'
-    const fade = document.createElement('div')
-    fade.style.cssText = `pointer-events:none;position:absolute;left:0;right:0;bottom:0;height:72px;background:linear-gradient(to top, ${bg}, rgba(0,0,0,0));`
-    textWrap.appendChild(bodyEl); textWrap.appendChild(fade)
+    bodyEl.style.cssText = 'white-space:pre-wrap;font-size:15px;line-height:1.6;padding-bottom:20px;'
+    
+    // Dodamo watermark
+    const water = document.createElement('div')
+    water.textContent = 'Več na Križišče.si'
+    water.style.cssText = `margin-top:16px;font-size:11px;color:${sub};font-weight:600;text-align:right;border-top:1px solid ${shade};padding-top:8px;`
+    
+    textWrap.appendChild(bodyEl); 
     card.appendChild(textWrap)
+    card.appendChild(water)
 
     document.body.appendChild(root)
     await waitForImages(card)
@@ -579,33 +574,29 @@ export default function ArticlePreview({ url, onClose }: Props) {
       <style>{PREVIEW_TYPO_CSS}</style>
 
       <div
-        className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 transition-opacity duration-300"
+        className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 transition-opacity duration-300 backdrop-blur-sm"
         role="dialog"
         aria-modal="true"
         onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
       >
         <div
           ref={modalRef}
-          className="bg-white dark:bg-gray-900 rounded-xl shadow-2xl w-full max-w-2xl mx-4 max-h-[80vh] overflow-y-auto border border-gray-200/10 transform transition-all duration-300 ease-out scale-95 opacity-0 animate-fadeInUp"
+          className="bg-white dark:bg-gray-900 rounded-xl shadow-2xl w-full max-w-2xl mx-4 max-h-[85vh] overflow-hidden flex flex-col border border-gray-200/10 transform transition-all duration-300 ease-out scale-95 opacity-0 animate-fadeInUp"
         >
           {/* Header */}
-          <div className="sticky top-0 z-10 flex items-center justify-between gap-3 px-5 py-4 border-b border-gray-200/20 bg-white/80 dark:bg-gray-900/80 backdrop-blur rounded-t-xl">
+          <div className="shrink-0 flex items-center justify-between gap-3 px-5 py-3 border-b border-gray-200/20 bg-white/90 dark:bg-gray-900/90 z-10">
             <div className="min-w-0 flex-1">
-              <div className="text-xs text-gray-500 dark:text-gray-400 truncate">{site}</div>
-              <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">
-                {title || 'Predogled'}
-              </h3>
+              <div className="text-xs uppercase tracking-wider font-bold text-gray-500 dark:text-gray-400 truncate">{site}</div>
             </div>
 
-            <div className="flex items-center gap-2 shrink-0 relative">
+            <div className="flex items-center gap-2 shrink-0">
               {/* Snapshot */}
               <button
                 type="button"
                 onClick={handleSnapshot}
                 disabled={snapshotBusy}
-                aria-label="Snapshot predogleda (kopiraj sliko)"
-                title="Snapshot (klik = kopiraj; Alt+klik = prenos)"
-                className="inline-flex items-center justify-center rounded-lg h-8 w-8 text-sm bg-gray-100/70 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 anim-soft disabled:opacity-60"
+                aria-label="Snapshot predogleda"
+                className="inline-flex items-center justify-center rounded-lg h-8 w-8 text-sm bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300 transition-colors"
               >
                 <IconCamera />
               </button>
@@ -617,141 +608,106 @@ export default function ArticlePreview({ url, onClose }: Props) {
                 onClick={handleShareClick}
                 aria-haspopup="menu"
                 aria-expanded={shareOpen}
-                className="inline-flex items-center justify-center rounded-lg px-3 h-8 text-sm bg-gray-100/70 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 anim-soft"
+                className="inline-flex items-center justify-center rounded-lg h-8 w-8 text-sm bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300 transition-colors"
                 title="Deli"
               >
-                <IconShareIOS className="mr-1" />
-                <span className="hidden sm:inline">Deli</span>
+                <IconShareIOS />
               </button>
 
               {/* Share menu */}
               {shareOpen && (
                 useSheet ? (
                   /* Mobile sheet */
-                  <div ref={shareMenuRef} role="menu" aria-label="Deli" className="fixed inset-x-0 bottom-0 z-50">
-                    <div className="mx-auto w-full max-w-2xl rounded-t-2xl border border-gray-200/20 bg-white dark:bg-gray-900 shadow-2xl">
-                      <div className="flex justify-center py-2">
+                  <div ref={shareMenuRef} role="menu" className="fixed inset-x-0 bottom-0 z-[60]">
+                    <div className="mx-auto w-full max-w-2xl rounded-t-2xl border border-gray-200/20 bg-white dark:bg-gray-900 shadow-2xl pb-6">
+                      <div className="flex justify-center py-3">
                         <span className="h-1.5 w-12 rounded-full bg-gray-300 dark:bg-gray-700" />
                       </div>
-                      <div className="px-4 pb-5 space-y-3">
-                        {/* Primary */}
-                        <button
-                          onClick={async () => { await copyToClipboard(); setShareOpen(false) }}
-                          className="w-full inline-flex items-center justify-center gap-2 rounded-xl py-3 text-sm font-medium bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100 border border-gray-200/30 dark:border-white/10 hover:bg-gray-200 dark:hover:bg-gray-700 transition"
-                        >
-                          <IconLink /> {copied ? 'Kopirano!' : 'Kopiraj povezavo'}
+                      <div className="px-4 space-y-4">
+                        <button onClick={async () => { await copyToClipboard(); setShareOpen(false) }} className="w-full btn-press flex items-center justify-center gap-2 rounded-xl py-3.5 font-medium bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white">
+                          <IconLink /> Kopiraj povezavo
                         </button>
-
-                        {/* Icons centered */}
-                        <div className="flex items-center justify-center gap-3 pt-1">
-                          <button onClick={() => { openShareWindow(shareLinks.x); setShareOpen(false) }}
-                                  className="h-12 w-12 rounded-full bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 grid place-items-center transition" aria-label="X">
-                            <IconX />
-                          </button>
-                          <button onClick={() => { openShareWindow(shareLinks.fb); setShareOpen(false) }}
-                                  className="h-12 w-12 rounded-full bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 grid place-items-center transition" aria-label="Facebook">
-                            <IconFacebook />
-                          </button>
-                          <button onClick={() => { openShareWindow(shareLinks.li); setShareOpen(false) }}
-                                  className="h-12 w-12 rounded-full bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 grid place-items-center transition" aria-label="LinkedIn">
-                            <IconLinkedIn />
-                          </button>
-                          <button onClick={() => { openShareWindow(shareLinks.wa); setShareOpen(false) }}
-                                  className="h-12 w-12 rounded-full bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 grid place-items-center transition" aria-label="WhatsApp">
-                            <IconWhatsApp />
-                          </button>
-                          <button onClick={() => { openShareWindow(shareLinks.tg); setShareOpen(false) }}
-                                  className="h-12 w-12 rounded-full bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 grid place-items-center transition" aria-label="Telegram">
-                            <IconTelegram />
-                          </button>
+                        <div className="flex justify-center gap-4">
+                          {[
+                             { l: shareLinks.x, i: IconX }, { l: shareLinks.fb, i: IconFacebook },
+                             { l: shareLinks.li, i: IconLinkedIn }, { l: shareLinks.wa, i: IconWhatsApp }
+                          ].map((x, i) => (
+                             <button key={i} onClick={()=>{openShareWindow(x.l);setShareOpen(false)}} className="h-14 w-14 rounded-full bg-gray-100 dark:bg-gray-800 grid place-items-center text-xl text-gray-700 dark:text-gray-200"><x.i /></button>
+                          ))}
                         </div>
                       </div>
                     </div>
                   </div>
                 ) : (
                   /* Desktop popover */
-                  <div ref={shareMenuRef} role="menu" aria-label="Deli" className="absolute right-24 top-10 z-50">
-                    <div className="relative">
-                      <div className="absolute right-8 -top-2 h-4 w-4 rotate-45 rounded-sm bg-white dark:bg-gray-900 border-l border-t border-gray-200/20" />
-                      <div className="rounded-xl border border-gray-200/20 bg-white dark:bg-gray-900 shadow-2xl p-4 w-[360px] backdrop-blur space-y-3">
-                        <div className="text-sm font-semibold text-gray-900 dark:text-gray-100">Deli</div>
-
-                        <button
-                          onClick={async () => { await copyToClipboard(); setShareOpen(false) }}
-                          className="w-full inline-flex items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-medium bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100 border border-gray-200/30 dark:border-white/10 hover:bg-gray-200 dark:hover:bg-gray-700 transition"
-                        >
-                          <IconLink /> {copied ? 'Kopirano!' : 'Kopiraj povezavo'}
-                        </button>
-
-                        <div className="flex items-center justify-center gap-3">
-                          <button onClick={() => { openShareWindow(shareLinks.x); setShareOpen(false) }}
-                                  className="h-11 w-11 rounded-full bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 grid place-items-center transition" aria-label="X">
-                            <IconX />
-                          </button>
-                          <button onClick={() => { openShareWindow(shareLinks.fb); setShareOpen(false) }}
-                                  className="h-11 w-11 rounded-full bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 grid place-items-center transition" aria-label="Facebook">
-                            <IconFacebook />
-                          </button>
-                          <button onClick={() => { openShareWindow(shareLinks.li); setShareOpen(false) }}
-                                  className="h-11 w-11 rounded-full bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 grid place-items-center transition" aria-label="LinkedIn">
-                            <IconLinkedIn />
-                          </button>
-                          <button onClick={() => { openShareWindow(shareLinks.wa); setShareOpen(false) }}
-                                  className="h-11 w-11 rounded-full bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 grid place-items-center transition" aria-label="WhatsApp">
-                            <IconWhatsApp />
-                          </button>
-                          <button onClick={() => { openShareWindow(shareLinks.tg); setShareOpen(false) }}
-                                  className="h-11 w-11 rounded-full bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 grid place-items-center transition" aria-label="Telegram">
-                            <IconTelegram />
-                          </button>
-                        </div>
-                      </div>
-                    </div>
+                  <div ref={shareMenuRef} role="menu" className="absolute right-14 top-12 z-50 w-72 rounded-xl bg-white dark:bg-gray-900 shadow-xl border border-gray-200/20 p-2">
+                     <button onClick={async () => { await copyToClipboard(); setShareOpen(false) }} className="w-full flex items-center gap-3 rounded-lg px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-200">
+                        <IconLink /> Kopiraj povezavo
+                     </button>
+                     <div className="h-px bg-gray-200 dark:bg-gray-700 my-1" />
+                     <div className="grid grid-cols-5 gap-1 p-1">
+                        {[
+                             { l: shareLinks.x, i: IconX }, { l: shareLinks.fb, i: IconFacebook },
+                             { l: shareLinks.li, i: IconLinkedIn }, { l: shareLinks.wa, i: IconWhatsApp }, { l: shareLinks.tg, i: IconTelegram }
+                        ].map((x, i) => (
+                           <button key={i} onClick={()=>{openShareWindow(x.l);setShareOpen(false)}} className="h-10 w-10 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 grid place-items-center text-gray-600 dark:text-gray-300"><x.i /></button>
+                        ))}
+                     </div>
                   </div>
                 )
               )}
 
-              <a
-                href={url}
-                target="_blank"
-                rel="noopener"
-                referrerPolicy="strict-origin-when-cross-origin"
-                onClick={openSourceAndTrack}
-                onAuxClick={onAuxOpen}
-                className="no-underline inline-flex items-center justify-center rounded-lg px-3 py-1.5 text-sm bg-orange-300 text-white hover:bg-amber-600 anim-soft"
-              >
-                Odpri cel članek
-              </a>
-
               <button
                 ref={closeRef}
                 onClick={onClose}
-                aria-label="Zapri predogled"
-                className="inline-flex h-8 px-2 items-center justify-center rounded-lg text-sm bg-gray-100/70 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 anim-soft"
+                aria-label="Zapri"
+                className="ml-2 inline-flex h-8 w-8 items-center justify-center rounded-lg bg-gray-100 dark:bg-gray-800 hover:bg-red-100 dark:hover:bg-red-900/30 text-gray-500 hover:text-red-600 dark:text-gray-400 transition-colors"
               >
                 ✕
               </button>
             </div>
           </div>
 
-          {/* Body */}
-          <div className="px-5 py-5">
+          {/* Body (Scrollable) */}
+          <div className="overflow-y-auto px-5 py-6 sm:px-8">
             {loading && (
-              <div className="flex items-center justify-center py-10">
-                <div className="w-12 h-12 rounded-full bg-gray-300 dark:bg-gray-700 animate-zenPulse" />
+              <div className="flex flex-col items-center justify-center py-12 space-y-4">
+                <div className="w-12 h-12 rounded-full border-2 border-brand/30 border-t-brand animate-spin" />
+                <p className="text-sm text-gray-500 animate-pulse">Nalaganje predogleda ...</p>
               </div>
             )}
-            {error && <p className="text-sm text-red-500">{error}</p>}
+            {error && (
+              <div className="py-8 text-center">
+                 <p className="text-red-500 mb-4">{error}</p>
+                 <a href={url} target="_blank" rel="noopener" className="text-brand underline">Odpri originalni članek</a>
+              </div>
+            )}
 
             {!loading && !error && (
               <div className="preview-typo max-w-none text-gray-900 dark:text-gray-100">
-                {/* This area is captured for snapshot */}
-                <div key={url} ref={snapshotRef} className="relative">
+                {/* Za snapshot zajamemo celoten div */}
+                <div key={url} ref={snapshotRef}>
+                  {/* NASLOV */}
+                  <h1 className="text-2xl sm:text-3xl font-serif font-bold text-gray-900 dark:text-white leading-tight mb-4">
+                    {title}
+                  </h1>
+
+                  {/* GLAVNA SLIKA */}
+                  {coverSnapSrc && (
+                    <figure className="my-6">
+                       <img src={coverSnapSrc} alt={title} className="w-full h-auto rounded-lg shadow-sm" />
+                    </figure>
+                  )}
+
+                  {/* VSEBINA */}
                   <div dangerouslySetInnerHTML={{ __html: content }} />
-                  <div className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-white dark:from-gray-900 to-transparent" />
+                  
+                  {/* FADE OUT UČINEK NA DNU TEKSTA */}
+                  <div className="mt-2 h-24 bg-gradient-to-t from-white dark:from-gray-900 to-transparent pointer-events-none -mb-20" />
                 </div>
 
-                <div className="mt-5 flex flex-col items-center gap-2">
+                {/* GUMB ZA OGLED CELOTNEGA ČLANKA */}
+                <div className="mt-10 flex justify-center pb-8">
                   <a
                     href={url}
                     target="_blank"
@@ -759,26 +715,19 @@ export default function ArticlePreview({ url, onClose }: Props) {
                     referrerPolicy="strict-origin-when-cross-origin"
                     onClick={openSourceAndTrack}
                     onAuxClick={onAuxOpen}
-                    className="no-underline inline-flex justify-center rounded-md px-5 py-2 dark:bg-gray-700 text-white text-sm dark:hover:bg-gray-600 whitespace-nowrap anim-soft"
+                    className="group relative inline-flex items-center justify-center px-8 py-3 font-semibold text-white transition-all duration-200 bg-gray-900 font-sans rounded-full hover:bg-gray-700 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-900"
                   >
-                    Za ogled celotnega članka obiščite spletno stran
+                    Preberi celoten članek
+                    <svg className="w-4 h-4 ml-2 transition-transform group-hover:translate-x-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
                   </a>
-
-                  <button
-                    type="button"
-                    onClick={onClose}
-                    className="inline-flex justify-center rounded-md px-4 py-2 bg-gray-100/80 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 text-sm anim-soft"
-                  >
-                    Zapri predogled
-                  </button>
                 </div>
               </div>
             )}
           </div>
 
-          {/* Toast */}
+          {/* Toast Notification */}
           {snapMsg && (
-            <div className="pointer-events-none fixed left-4 bottom-4 z-[60] rounded-lg bg-black/80 text-white text-sm px-3 py-2 shadow-lg">
+            <div className="pointer-events-none fixed left-1/2 -translate-x-1/2 bottom-8 z-[70] rounded-full bg-black/90 text-white text-sm font-medium px-4 py-2 shadow-lg animate-fadeInUp">
               {snapMsg}
             </div>
           )}
