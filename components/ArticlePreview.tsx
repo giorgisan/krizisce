@@ -731,7 +731,7 @@ export default function ArticlePreview({ url, onClose }: Props) {
                 {/* This area is captured for snapshot */}
                 <div key={url} ref={snapshotRef} className="relative">
                   {/* Naslov na vrhu */}
-                  <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white leading-tight mb-4">
+                  <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white leading-tight mb-2">
                     {title}
                   </h1>
 
