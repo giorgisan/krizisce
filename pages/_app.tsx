@@ -5,12 +5,11 @@ import type { AppProps } from 'next/app'
 import { ThemeProvider } from 'next-themes'
 import Script from 'next/script'
 import { Analytics } from '@vercel/analytics/next'
-import { SpeedInsights } from '@vercel/speed-insights/next'
+// ODSTRANI TOLE: import { SpeedInsights } from '@vercel/speed-insights/next'
 
 // 1. UVOZ FONTOV
 import { Inter, Playfair_Display } from 'next/font/google'
 
-// 2. KONFIGURACIJA
 const inter = Inter({
   subsets: ['latin', 'latin-ext'],
   variable: '--font-inter',
@@ -47,15 +46,13 @@ function App({ Component, pageProps }: AppProps) {
         storageKey="theme"
         disableTransitionOnChange
       >
-        {/* 'font-sans' tukaj aktivira Inter preko tailwind.config.js */}
-        {/* 'antialiased' poskrbi za ostrino */}
         <main className="font-sans antialiased min-h-screen bg-white dark:bg-gray-900 text-gray-900 dark:text-white">
           <Component {...pageProps} />
         </main>
       </ThemeProvider>
 
       <Analytics />
-      <SpeedInsights />
+      {/* ODSTRANI TOLE: <SpeedInsights /> */}
     </>
   )
 }
