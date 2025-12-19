@@ -11,10 +11,9 @@ import React, {
 } from 'react'
 import { createPortal } from 'react-dom'
 import DOMPurify from 'dompurify'
-import Image from 'next/image' // Dodano za logotipe
+import Image from 'next/image' // Next.js Image komponenta
 import { preloadPreview, peekPreview } from '@/lib/previewPrefetch'
 import { toBlob } from 'html-to-image'
-// Dodano: Uvoz funkcije za zunanje procesiranje slik
 import { proxiedImage } from '@/lib/img'
 
 interface Props { url: string; onClose: () => void }
@@ -55,11 +54,12 @@ const PREVIEW_TYPO_CSS = `
 function IconShareIOS(p: React.SVGProps<SVGSVGElement>) { return (<svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" {...p}><path fill="currentColor" d="M12 3c.4 0 .8.16 1.06.44l3 3a1.5 1.5 0 1 1-2.12 2.12L13.5 7.12V14a1.5 1.5 0 1 1-3 0V7.12L9.06 8.56A1.5 1.5 0 0 1 6.94 6.44l3-3C10.2 3.16 10.6 3 11 3h1z"/><path fill="currentColor" d="M5 10.5A2.5 2.5 0 0 0 2.5 13v6A2.5 2.5 0 0 0 5 21.5h14A2.5 2.5 0 0 0 21.5 19v-6A2.5 2.5 0 0 0 19 10.5h-2a1.5 1.5 0 1 0 0 3h2V19H5v-5.5h2a1.5 1.5 0 1 0 0-3H5z"/></svg>) }
 function IconFacebook(p: React.SVGProps<SVGSVGElement>) { return (<svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" {...p}><path fill="currentColor" d="M13 21v-7h2.3l.4-3H13V9.3c0-.9.3-1.5 1.6-1.5H16V5.1C15.6 5 14.7 5 13.7 5 11.5 5 10 6.3 10 8.9V11H7.7v3H10v7h3z"/></svg>) }
 function IconLinkedIn(p: React.SVGProps<SVGSVGElement>) { return (<svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" {...p}><path fill="currentColor" d="M6.5 6.5A2.5 2.5 0 1 1 1.5 6.5a2.5 2.5 0 0 1 5 0zM2 8.8h4.9V22H2zM14.9 8.5c-2.7 0-4 1.5-4.6 2.5V8.8H5.4V22h4.9v-7c0-1.9 1-2.9 2.5-2.9 1.4 0 2.3 1 2.3 2.9V22H20v-7.7c0-3.3-1.8-5.8-5.1-5.8z"/></svg>) }
-function IconWhatsApp(p: React.SVGProps<SVGSVGElement>) { return (<svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" {...p}><path fill="currentColor" d="M12 2a10 10 0 0 0-8.7 15l-1.3 4.7 4.8-1.3A10 10 0 1 0 12 2zm5.6 14.6c-.2.6-1.2 1.1-1.7 1.2-.5.1-1 .2-1.7-.1-.4-.1-1-.3-1.8-.7-3.1-1.4-5.2-4.7-5.3-4.9-.2-.3-1.3-1.7-1.3-3.2 0-1.4.7-2.1 1-2.4.2-.2.6-.3 1-.3h.7c.2 0 .5 0 .7 .6.3.7 1 2.6 1 2.8.1.2.1.4 0 .6-.1.2-.2.4-.4.6-.2.2-.4.5-.2.9.2.4.9 1.5 2 2.4 1.4 1.2 2.6 1.6 3 .1.2-.4.5-.5.8-.4.3.1 1.8.8 2.1 1 .3.2.5.4.6.6.1.5.1 1-.1 1.2z"/></svg>) }
+function IconWhatsApp(p: React.SVGProps<SVGSVGElement>) { return (<svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" {...p}><path fill="currentColor" d="M12 2a10 10 0 0 0-8.7 15l-1.3 4.7 4.8-1.3A10 10 0 1 0 12 2zm5.6 14.6c-.2.6-1.2 1.1-1.7 1.2-.5.1-1 .2-1.7-.1-.4-.1-1-.3-1.8-.7-3.1-1.4-5.2-4.7-5.3-4.9-.2-.3-1.3-1.7-1.3-3.2 0-1.4.7-2.1 1-2.4.2-.2.6-.3 1-.3h.7c.2 0 .5 0 .7 .6.3.7 1 2.6 1 2.8.1.2.1.4 0 .6-.1.2-.2.4-.5.2.9.2.4.9 1.5 2 2.4 1.4 1.2 2.6 1.6 3 .1.2-.4.5-.5.8-.4.3.1 1.8.8 2.1 1 .3.2.5.4.6.6.1.5.1 1-.1 1.2z"/></svg>) }
 function IconTelegram(p: React.SVGProps<SVGSVGElement>) { return (<svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" {...p}><path fill="currentColor" d="M21.9 3.3c-.3-.2-.7-.2-1.1 0L2.8 10.6c-.7.3-.7 1.4.1 1.6l4.7 1.5 1.7 5.2c.2.7 1.1.9 1.6.3l2.6-2.8 4.3 3.1c.6.4 1.5.1 1.7-.6l3.1-14.4c.1-.5-.1-1-.6-1.2z"/></svg>) }
 function IconCamera(p: React.SVGProps<SVGSVGElement>) { return (<svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" {...p}><path fill="currentColor" d="M9 4a2 2 0 0 0-1.8 1.1L6.6 6H5a3 3 0 0 0-3 3v8a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3V9a3 3 0 0 0-3-3h-1.6l-.6-.9A2 2 0 0 0 15 4H9zm3 5a5 5 0 1 1 0 10 5 5 0 0 1 0-10zm0 2.5A2.5 2.5 0 1 0 14.5 14 2.5 2.5 0 0 0 12 11.5z"/></svg>) }
 function IconX(p: React.SVGProps<SVGSVGElement>){return(<svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" {...p}><path d="M3 3l18 18M21 3L3 21" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>)}
 function IconLink(p: React.SVGProps<SVGSVGElement>){return(<svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" {...p}><path fill="none" stroke="currentColor" strokeWidth="2" d="M10.5 13.5l3-3M8 14a4 4 0 010-8h3M16 18h-3a4 4 0 010-8"/></svg>)}
+function IconExternal(p: React.SVGProps<SVGSVGElement>){return(<svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" {...p}><path fill="none" stroke="currentColor" strokeWidth="2" d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9" fill="none" stroke="currentColor" strokeWidth="2"/><line x1="10" y1="14" x2="21" y2="3" stroke="currentColor" strokeWidth="2"/></svg>)}
 
 /* Utils */
 function trackClick(source: string, url: string) {
@@ -76,7 +76,7 @@ function trackClick(source: string, url: string) {
 }
 function absolutize(raw: string, baseUrl: string): string { try { return new URL(raw, baseUrl).toString() } catch { return raw } }
 
-// --- POPRAVEK: Uporaba Weserv proxyja (namesto /api/img) ---
+// Weserv proxy
 function proxyImageSrc(absUrl: string): string { 
   return proxiedImage(absUrl, 800)
 }
@@ -109,7 +109,7 @@ function truncateHTMLByWordsPercent(html:string, percent=0.76){
   return out.innerHTML
 }
 
-/* image dedupe helpers - OLD WORKING LOGIC */
+/* image dedupe helpers */
 function imageKeyFromSrc(src: string | null | undefined): string {
   if (!src) return ''
   let pathname = ''
@@ -119,13 +119,9 @@ function imageKeyFromSrc(src: string | null | undefined): string {
   } catch {
     pathname = (src.split('#')[0] || '').split('?')[0].toLowerCase()
   }
-
-  // odstrani tipične CDN/cache/resize segmente
   pathname = pathname
     .replace(/\/cache\/[^/]+\/+/g, '/')
     .replace(/\/(fit|fill|resize)\/\d+x\d+\/?/g, '/')
-
-  // odstrani suffixe dimenzij
   pathname = pathname.replace(/(-|_)?\d{2,4}x\d{2,4}(?=\.)/g, '')
   pathname = pathname.replace(/(-|_)?\d{2,4}x(?=\.)/g, '')
   pathname = pathname.replace(/-scaled(?=\.)/g, '')
@@ -170,7 +166,7 @@ async function waitForImages(root: HTMLElement, timeoutMs = 6000) {
   }))
 }
 
-/* clean, proxy, cache-bust, dedupe images */
+/* clean & extract */
 function cleanAndExtract(html: string, baseUrl: string, knownTitle: string | undefined, bust: string) {
   const wrap = document.createElement('div')
   wrap.innerHTML = html
@@ -207,7 +203,6 @@ function cleanAndExtract(html: string, baseUrl: string, knownTitle: string | und
     const firstRaw = first.getAttribute('src') || first.getAttribute('data-src') || ''
     const firstAbs = absolutize(firstRaw, baseUrl)
     
-    // Zberi ključe preden spremenimo src (za deduplikacijo)
     firstKey  = imageKeyFromSrc(firstAbs || firstRaw)
     firstStem = basenameStem(firstKey)
     firstNormStem = normalizeStemForDedupe(firstStem)
@@ -235,7 +230,6 @@ function cleanAndExtract(html: string, baseUrl: string, knownTitle: string | und
       if (!raw) { (img.closest('figure, picture') || img).remove(); return }
 
       const abs  = absolutize(raw, baseUrl)
-      
       const key  = imageKeyFromSrc(abs || raw)
       const stem = basenameStem(key)
       const nstem = normalizeStemForDedupe(stem)
@@ -250,16 +244,17 @@ function cleanAndExtract(html: string, baseUrl: string, knownTitle: string | und
           firstStem.startsWith(stem.slice(0,10))
         ))
 
-      if (duplicate) { 
-          (img.closest('figure, picture') || img).remove() 
-      } else { 
+      if (duplicate) { (img.closest('figure, picture') || img).remove() }
+      else { 
           seenKeys.add(key); if (nstem) seenNormStems.add(nstem) 
-          
-          // Tudi tukaj uporabimo proxy
           const prox = proxyImageSrc(abs)
           const pinned = withCacheBust(prox, bust)
           img.setAttribute('src', pinned)
           img.removeAttribute('data-src'); img.removeAttribute('srcset'); img.removeAttribute('sizes')
+          img.setAttribute('loading', 'lazy')
+          img.setAttribute('decoding', 'async')
+          img.setAttribute('referrerpolicy', 'no-referrer')
+          img.setAttribute('crossorigin', 'anonymous')
       }
     })
   }
@@ -483,7 +478,8 @@ export default function ArticlePreview({ url, onClose }: Props) {
     if (cover) {
       const imgWrap = document.createElement('div')
       imgWrap.style.cssText = 'width:100%;aspect-ratio:16/9;border-radius:12px;overflow:hidden;background:#f3f4f6;margin-bottom:12px;'
-      const img = new Image()
+      // POPRAVEK: Uporaba document.createElement namesto new Image() da se izognemo konfliktu z NextImage
+      const img = document.createElement('img')
       img.decoding = 'sync'; img.loading = 'eager'; img.crossOrigin = 'anonymous'; img.referrerPolicy = 'no-referrer'
       img.src = cover
       img.style.cssText = 'width:100%;height:100%;object-fit:cover;display:block;'
@@ -594,13 +590,13 @@ export default function ArticlePreview({ url, onClose }: Props) {
       >
         <div
           ref={modalRef}
-          // Dodan rahlo 'glass' efekt na ozadje modala (bg-white/95)
-          className="bg-white/95 dark:bg-gray-900/95 backdrop-blur-md rounded-xl shadow-2xl w-full max-w-2xl mx-4 max-h-[80vh] overflow-y-auto border border-gray-200/10 transform transition-all duration-300 ease-out scale-95 opacity-0 animate-fadeInUp"
+          // Rahla prosojnost ozadja (glass effect)
+          className="bg-white/95 dark:bg-gray-900/95 rounded-xl shadow-2xl w-full max-w-2xl mx-4 max-h-[80vh] overflow-y-auto border border-gray-200/10 transform transition-all duration-300 ease-out scale-95 opacity-0 animate-fadeInUp"
         >
           {/* Header */}
           <div className="sticky top-0 z-10 flex items-center justify-between gap-3 px-5 py-4 border-b border-gray-200/20 bg-white/80 dark:bg-gray-900/80 backdrop-blur rounded-t-xl">
             
-            {/* POPRAVLJENO: Logotipi in napisi v glavi */}
+            {/* NOVO: Header z Logom in naslovom Križišče + Vir */}
             <div className="min-w-0 flex-1 flex flex-col gap-0.5">
                {/* Zgornja vrstica: Križišče branding */}
                <div className="flex items-center gap-1.5 opacity-80">
@@ -763,7 +759,8 @@ export default function ArticlePreview({ url, onClose }: Props) {
               <div className="preview-typo max-w-none text-gray-900 dark:text-gray-100">
                 {/* This area is captured for snapshot */}
                 <div key={url} ref={snapshotRef} className="relative">
-                  {/* POPRAVLJENO: Naslov dodan na vrh vsebine */}
+                  
+                  {/* NOVO: Naslov članka na vrhu */}
                   <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white leading-tight mb-4">
                     {title}
                   </h1>
@@ -782,7 +779,7 @@ export default function ArticlePreview({ url, onClose }: Props) {
                     onAuxClick={onAuxOpen}
                     className="no-underline inline-flex justify-center rounded-md px-5 py-2 dark:bg-gray-700 text-white text-sm dark:hover:bg-gray-600 whitespace-nowrap anim-soft"
                   >
-                    Za ogled celotnega članka obiščite spletno stran
+                    Preberi celoten članek <IconExternal className="ml-2"/>
                   </a>
 
                   <button
