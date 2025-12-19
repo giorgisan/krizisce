@@ -11,9 +11,9 @@ import React, {
 } from 'react'
 import { createPortal } from 'react-dom'
 import DOMPurify from 'dompurify'
+import Image from 'next/image' // Next.js Image komponenta
 import { preloadPreview, peekPreview } from '@/lib/previewPrefetch'
 import { toBlob } from 'html-to-image'
-// Uvozimo Weserv funkcijo za slike
 import { proxiedImage } from '@/lib/img'
 
 interface Props { url: string; onClose: () => void }
@@ -76,7 +76,7 @@ function trackClick(source: string, url: string) {
 }
 function absolutize(raw: string, baseUrl: string): string { try { return new URL(raw, baseUrl).toString() } catch { return raw } }
 
-// --- WESERV ---
+// Weserv proxy
 function proxyImageSrc(absUrl: string): string { 
   return proxiedImage(absUrl, 800)
 }
@@ -166,7 +166,7 @@ async function waitForImages(root: HTMLElement, timeoutMs = 6000) {
   }))
 }
 
-/* clean, proxy, cache-bust, dedupe images */
+/* clean & extract */
 function cleanAndExtract(html: string, baseUrl: string, knownTitle: string | undefined, bust: string) {
   const wrap = document.createElement('div')
   wrap.innerHTML = html
@@ -244,9 +244,8 @@ function cleanAndExtract(html: string, baseUrl: string, knownTitle: string | und
           firstStem.startsWith(stem.slice(0,10))
         ))
 
-      if (duplicate) { 
-          (img.closest('figure, picture') || img).remove() 
-      } else { 
+      if (duplicate) { (img.closest('figure, picture') || img).remove() }
+      else { 
           seenKeys.add(key); if (nstem) seenNormStems.add(nstem) 
           const prox = proxyImageSrc(abs)
           const pinned = withCacheBust(prox, bust)
@@ -479,8 +478,8 @@ export default function ArticlePreview({ url, onClose }: Props) {
     if (cover) {
       const imgWrap = document.createElement('div')
       imgWrap.style.cssText = 'width:100%;aspect-ratio:16/9;border-radius:12px;overflow:hidden;background:#f3f4f6;margin-bottom:12px;'
-      // POPRAVEK: Uporabimo new Image(), ker smo odstranili konflikt
-      const img = new Image()
+      // POPRAVEK: Uporaba document.createElement namesto new Image() da se izognemo konfliktu z NextImage
+      const img = document.createElement('img')
       img.decoding = 'sync'; img.loading = 'eager'; img.crossOrigin = 'anonymous'; img.referrerPolicy = 'no-referrer'
       img.src = cover
       img.style.cssText = 'width:100%;height:100%;object-fit:cover;display:block;'
@@ -591,26 +590,30 @@ export default function ArticlePreview({ url, onClose }: Props) {
       >
         <div
           ref={modalRef}
-          className="bg-white/95 dark:bg-gray-900/95 rounded-xl shadow-2xl w-full max-w-2xl mx-4 max-h-[85vh] overflow-hidden flex flex-col border border-gray-200/10 transform transition-all duration-300 ease-out scale-95 opacity-0 animate-fadeInUp"
+          // Rahla prosojnost ozadja (glass effect)
+          className="bg-white/95 dark:bg-gray-900/95 rounded-xl shadow-2xl w-full max-w-2xl mx-4 max-h-[80vh] overflow-y-auto border border-gray-200/10 transform transition-all duration-300 ease-out scale-95 opacity-0 animate-fadeInUp"
         >
           {/* Header */}
-          <div className="shrink-0 flex items-center justify-between gap-3 px-5 py-3 border-b border-gray-200/20 bg-white/80 dark:bg-gray-900/80 backdrop-blur z-10">
-            {/* LOGO + VIR */}
+          <div className="sticky top-0 z-10 flex items-center justify-between gap-3 px-5 py-4 border-b border-gray-200/20 bg-white/80 dark:bg-gray-900/80 backdrop-blur rounded-t-xl">
+            
+            {/* NOVO: Header z Logom in naslovom Križišče + Vir */}
             <div className="min-w-0 flex-1 flex flex-col gap-0.5">
-               {/* Križišče branding */}
+               {/* Zgornja vrstica: Križišče branding */}
                <div className="flex items-center gap-1.5 opacity-80">
-                  <img src="/logo.png" width={14} height={14} alt="Križišče" className="object-contain" />
+                  <Image src="/logo.png" width={14} height={14} alt="Križišče" className="object-contain" unoptimized />
                   <span className="text-[10px] font-bold uppercase tracking-wider text-brand">Križišče</span>
                </div>
                
-               {/* Vir branding */}
+               {/* Spodnja vrstica: Vir branding */}
                <div className="flex items-center gap-2">
                   <div className="relative w-4 h-4 shrink-0">
-                     <img 
+                     <Image 
                        src={`/logos/${site.replace('www.','').split('.')[0]}.png`}
                        alt={site}
-                       className="object-contain w-full h-full"
-                       // Če logo ne obstaja, ga skrijemo
+                       fill
+                       className="object-contain"
+                       unoptimized
+                       // Če logo ne obstaja, se bo skril in ostal samo tekst
                        onError={(e) => { (e.target as HTMLImageElement).style.display='none' }}
                      />
                   </div>
@@ -618,14 +621,15 @@ export default function ArticlePreview({ url, onClose }: Props) {
                </div>
             </div>
 
-            <div className="flex items-center gap-2 shrink-0">
+            <div className="flex items-center gap-2 shrink-0 relative">
               {/* Snapshot */}
               <button
                 type="button"
                 onClick={handleSnapshot}
                 disabled={snapshotBusy}
-                aria-label="Snapshot"
-                className="inline-flex items-center justify-center rounded-lg h-9 w-9 text-sm bg-gray-100/70 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300 transition-colors"
+                aria-label="Snapshot predogleda (kopiraj sliko)"
+                title="Snapshot (klik = kopiraj; Alt+klik = prenos)"
+                className="inline-flex items-center justify-center rounded-lg h-8 w-8 text-sm bg-gray-100/70 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 anim-soft disabled:opacity-60"
               >
                 <IconCamera />
               </button>
@@ -637,51 +641,96 @@ export default function ArticlePreview({ url, onClose }: Props) {
                 onClick={handleShareClick}
                 aria-haspopup="menu"
                 aria-expanded={shareOpen}
-                className="inline-flex items-center justify-center rounded-lg h-9 w-9 text-sm bg-gray-100/70 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300 transition-colors"
+                className="inline-flex items-center justify-center rounded-lg px-3 h-8 text-sm bg-gray-100/70 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 anim-soft"
                 title="Deli"
               >
-                <IconShareIOS className="text-lg" />
+                <IconShareIOS className="mr-1" />
+                <span className="hidden sm:inline">Deli</span>
               </button>
 
               {/* Share menu */}
               {shareOpen && (
                 useSheet ? (
                   /* Mobile sheet */
-                  <div ref={shareMenuRef} role="menu" className="fixed inset-x-0 bottom-0 z-[60]">
-                    <div className="mx-auto w-full max-w-2xl rounded-t-2xl border border-gray-200/20 bg-white dark:bg-gray-900 shadow-2xl pb-6">
-                      <div className="flex justify-center py-3">
+                  <div ref={shareMenuRef} role="menu" aria-label="Deli" className="fixed inset-x-0 bottom-0 z-50">
+                    <div className="mx-auto w-full max-w-2xl rounded-t-2xl border border-gray-200/20 bg-white dark:bg-gray-900 shadow-2xl">
+                      <div className="flex justify-center py-2">
                         <span className="h-1.5 w-12 rounded-full bg-gray-300 dark:bg-gray-700" />
                       </div>
-                      <div className="px-4 space-y-4">
-                        <button onClick={async () => { await copyToClipboard(); setShareOpen(false) }} className="w-full btn-press flex items-center justify-center gap-2 rounded-xl py-3.5 font-medium bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white">
-                          <IconLink /> Kopiraj povezavo
+                      <div className="px-4 pb-5 space-y-3">
+                        {/* Primary */}
+                        <button
+                          onClick={async () => { await copyToClipboard(); setShareOpen(false) }}
+                          className="w-full inline-flex items-center justify-center gap-2 rounded-xl py-3 text-sm font-medium bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100 border border-gray-200/30 dark:border-white/10 hover:bg-gray-200 dark:hover:bg-gray-700 transition"
+                        >
+                          <IconLink /> {copied ? 'Kopirano!' : 'Kopiraj povezavo'}
                         </button>
-                        <div className="flex justify-center gap-4">
-                          {[
-                             { l: shareLinks.x, i: IconX }, { l: shareLinks.fb, i: IconFacebook },
-                             { l: shareLinks.li, i: IconLinkedIn }, { l: shareLinks.wa, i: IconWhatsApp }
-                          ].map((x, i) => (
-                             <button key={i} onClick={()=>{openShareWindow(x.l);setShareOpen(false)}} className="h-14 w-14 rounded-full bg-gray-100 dark:bg-gray-800 grid place-items-center text-xl text-gray-700 dark:text-gray-200"><x.i /></button>
-                          ))}
+
+                        {/* Icons centered */}
+                        <div className="flex items-center justify-center gap-3 pt-1">
+                          <button onClick={() => { openShareWindow(shareLinks.x); setShareOpen(false) }}
+                                  className="h-12 w-12 rounded-full bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 grid place-items-center transition" aria-label="X">
+                            <IconX />
+                          </button>
+                          <button onClick={() => { openShareWindow(shareLinks.fb); setShareOpen(false) }}
+                                  className="h-12 w-12 rounded-full bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 grid place-items-center transition" aria-label="Facebook">
+                            <IconFacebook />
+                          </button>
+                          <button onClick={() => { openShareWindow(shareLinks.li); setShareOpen(false) }}
+                                  className="h-12 w-12 rounded-full bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 grid place-items-center transition" aria-label="LinkedIn">
+                            <IconLinkedIn />
+                          </button>
+                          <button onClick={() => { openShareWindow(shareLinks.wa); setShareOpen(false) }}
+                                  className="h-12 w-12 rounded-full bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 grid place-items-center transition" aria-label="WhatsApp">
+                            <IconWhatsApp />
+                          </button>
+                          <button onClick={() => { openShareWindow(shareLinks.tg); setShareOpen(false) }}
+                                  className="h-12 w-12 rounded-full bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 grid place-items-center transition" aria-label="Telegram">
+                            <IconTelegram />
+                          </button>
                         </div>
                       </div>
                     </div>
                   </div>
                 ) : (
                   /* Desktop popover */
-                  <div ref={shareMenuRef} role="menu" className="absolute right-14 top-12 z-50 w-72 rounded-xl bg-white dark:bg-gray-900 shadow-xl border border-gray-200/20 p-2">
-                     <button onClick={async () => { await copyToClipboard(); setShareOpen(false) }} className="w-full flex items-center gap-3 rounded-lg px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-200">
-                        <IconLink /> Kopiraj povezavo
-                     </button>
-                     <div className="h-px bg-gray-200 dark:bg-gray-700 my-1" />
-                     <div className="grid grid-cols-5 gap-1 p-1">
-                        {[
-                             { l: shareLinks.x, i: IconX }, { l: shareLinks.fb, i: IconFacebook },
-                             { l: shareLinks.li, i: IconLinkedIn }, { l: shareLinks.wa, i: IconWhatsApp }, { l: shareLinks.tg, i: IconTelegram }
-                        ].map((x, i) => (
-                           <button key={i} onClick={()=>{openShareWindow(x.l);setShareOpen(false)}} className="h-10 w-10 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 grid place-items-center text-gray-600 dark:text-gray-300"><x.i /></button>
-                        ))}
-                     </div>
+                  <div ref={shareMenuRef} role="menu" aria-label="Deli" className="absolute right-24 top-10 z-50">
+                    <div className="relative">
+                      <div className="absolute right-8 -top-2 h-4 w-4 rotate-45 rounded-sm bg-white dark:bg-gray-900 border-l border-t border-gray-200/20" />
+                      <div className="rounded-xl border border-gray-200/20 bg-white dark:bg-gray-900 shadow-2xl p-4 w-[360px] backdrop-blur space-y-3">
+                        <div className="text-sm font-semibold text-gray-900 dark:text-gray-100">Deli</div>
+
+                        <button
+                          onClick={async () => { await copyToClipboard(); setShareOpen(false) }}
+                          className="w-full inline-flex items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-medium bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100 border border-gray-200/30 dark:border-white/10 hover:bg-gray-200 dark:hover:bg-gray-700 transition"
+                        >
+                          <IconLink /> {copied ? 'Kopirano!' : 'Kopiraj povezavo'}
+                        </button>
+
+                        <div className="flex items-center justify-center gap-3">
+                          <button onClick={() => { openShareWindow(shareLinks.x); setShareOpen(false) }}
+                                  className="h-11 w-11 rounded-full bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 grid place-items-center transition" aria-label="X">
+                            <IconX />
+                          </button>
+                          <button onClick={() => { openShareWindow(shareLinks.fb); setShareOpen(false) }}
+                                  className="h-11 w-11 rounded-full bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 grid place-items-center transition" aria-label="Facebook">
+                            <IconFacebook />
+                          </button>
+                          <button onClick={() => { openShareWindow(shareLinks.li); setShareOpen(false) }}
+                                  className="h-11 w-11 rounded-full bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 grid place-items-center transition" aria-label="LinkedIn">
+                            <IconLinkedIn />
+                          </button>
+                          <button onClick={() => { openShareWindow(shareLinks.wa); setShareOpen(false) }}
+                                  className="h-11 w-11 rounded-full bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 grid place-items-center transition" aria-label="WhatsApp">
+                            <IconWhatsApp />
+                          </button>
+                          <button onClick={() => { openShareWindow(shareLinks.tg); setShareOpen(false) }}
+                                  className="h-11 w-11 rounded-full bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 grid place-items-center transition" aria-label="Telegram">
+                            <IconTelegram />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 )
               )}
@@ -689,69 +738,67 @@ export default function ArticlePreview({ url, onClose }: Props) {
               <button
                 ref={closeRef}
                 onClick={onClose}
-                aria-label="Zapri"
-                className="ml-2 inline-flex h-9 w-9 items-center justify-center rounded-lg bg-gray-100/70 dark:bg-gray-800 hover:bg-red-100 dark:hover:bg-red-900/30 text-gray-500 hover:text-red-600 dark:text-gray-400 transition-colors"
+                aria-label="Zapri predogled"
+                className="inline-flex h-8 px-2 items-center justify-center rounded-lg text-sm bg-gray-100/70 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 anim-soft"
               >
                 ✕
               </button>
             </div>
           </div>
 
-          {/* Body (Scrollable) */}
-          <div className="flex-1 overflow-y-auto px-5 py-6 sm:px-8 relative scrollbar-hide">
+          {/* Body */}
+          <div className="px-5 py-5">
             {loading && (
-              <div className="flex flex-col items-center justify-center py-12 space-y-4 h-full">
-                <div className="w-12 h-12 rounded-full border-2 border-brand/30 border-t-brand animate-spin" />
-                <p className="text-sm text-gray-500 animate-pulse">Nalaganje predogleda ...</p>
+              <div className="flex items-center justify-center py-10">
+                <div className="w-12 h-12 rounded-full bg-gray-300 dark:bg-gray-700 animate-zenPulse" />
               </div>
             )}
-            {error && (
-              <div className="py-8 text-center h-full flex flex-col items-center justify-center">
-                 <p className="text-red-500 mb-4">{error}</p>
-                 <a href={url} target="_blank" rel="noopener" className="text-brand underline">Odpri originalni članek</a>
-              </div>
-            )}
+            {error && <p className="text-sm text-red-500">{error}</p>}
 
             {!loading && !error && (
-              <div className="preview-typo max-w-none text-gray-900 dark:text-gray-100 pb-24">
-                  {/* NASLOV */}
-                  <h1 className="text-2xl sm:text-3xl font-serif font-bold text-gray-900 dark:text-white leading-tight mb-4">
+              <div className="preview-typo max-w-none text-gray-900 dark:text-gray-100">
+                {/* This area is captured for snapshot */}
+                <div key={url} ref={snapshotRef} className="relative">
+                  
+                  {/* NOVO: Naslov članka na vrhu */}
+                  <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white leading-tight mb-4">
                     {title}
                   </h1>
 
-                  {/* GLAVNA SLIKA */}
-                  {coverSnapSrc && (
-                    <figure className="my-6 relative w-full aspect-video rounded-xl overflow-hidden shadow-sm bg-gray-100 dark:bg-gray-800">
-                       <img src={coverSnapSrc} alt={title} className="w-full h-full object-cover" />
-                    </figure>
-                  )}
-
-                  {/* VSEBINA */}
                   <div dangerouslySetInnerHTML={{ __html: content }} />
-                  
-                  {/* FADE OUT UČINEK NA DNU */}
-                  <div className="absolute bottom-0 inset-x-0 h-40 bg-gradient-to-t from-white via-white/90 to-transparent dark:from-gray-900 dark:via-gray-900/90 pointer-events-none" />
+                  <div className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-white dark:from-gray-900 to-transparent" />
+                </div>
+
+                <div className="mt-5 flex flex-col items-center gap-2">
+                  <a
+                    href={url}
+                    target="_blank"
+                    rel="noopener"
+                    referrerPolicy="strict-origin-when-cross-origin"
+                    onClick={openSourceAndTrack}
+                    onAuxClick={onAuxOpen}
+                    className="no-underline inline-flex justify-center rounded-md px-5 py-2 dark:bg-gray-700 text-white text-sm dark:hover:bg-gray-600 whitespace-nowrap anim-soft"
+                  >
+                    Preberi celoten članek <IconExternal className="ml-2"/>
+                  </a>
+
+                  <button
+                    type="button"
+                    onClick={onClose}
+                    className="inline-flex justify-center rounded-md px-4 py-2 bg-gray-100/80 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 text-sm anim-soft"
+                  >
+                    Zapri predogled
+                  </button>
+                </div>
               </div>
             )}
           </div>
 
-          {/* FOOTER (Actions) */}
-          {!loading && !error && (
-              <div className="shrink-0 p-6 bg-white/95 dark:bg-gray-900/95 backdrop-blur border-t border-gray-100 dark:border-gray-800 z-20 flex flex-col items-center gap-3 shadow-[0_-10px_40px_rgba(0,0,0,0.1)]">
-                  <a 
-                    href={url} target="_blank" rel="noopener" onClick={openSourceAndTrack}
-                    className="w-full max-w-sm flex items-center justify-center gap-2 py-3.5 rounded-xl bg-brand hover:bg-brand-hover text-white font-bold text-base shadow-lg shadow-brand/20 transition-all hover:scale-[1.02]"
-                  >
-                    Preberi celoten članek <IconExternal/>
-                  </a>
-                  
-                  <button 
-                    onClick={onClose}
-                    className="text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white py-2 px-4 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-                  >
-                    Zapri predogled
-                  </button>
-              </div>
+          {/* Toast */}
+          {snapMsg && (
+            <div className="pointer-events-none fixed left-4 bottom-4 z-[60] rounded-lg bg-black/80 text-white text-sm px-3 py-2 shadow-lg">
+              {snapMsg}
+            </div>
           )}
         </div>
       </div>
