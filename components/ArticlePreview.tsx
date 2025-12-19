@@ -11,11 +11,10 @@ import React, {
 } from 'react'
 import { createPortal } from 'react-dom'
 import DOMPurify from 'dompurify'
-// 1. POPRAVEK: Preimenujemo uvoz, da ne povozi "new Image()" v snapshotu
+// 1. POPRAVEK: Preimenujemo uvoz, da koda "new Image()" spodaj deluje
 import NextImage from 'next/image' 
 import { preloadPreview, peekPreview } from '@/lib/previewPrefetch'
 import { toBlob } from 'html-to-image'
-// 2. POPRAVEK: Uvoz Weserv funkcije
 import { proxiedImage } from '@/lib/img'
 
 interface Props { url: string; onClose: () => void }
@@ -28,26 +27,31 @@ const TEXT_PERCENT = 0.60
 const VIA_TEXT = ' — via Križišče (krizisce.si)'
 const AUTO_CLOSE_ON_OPEN = true
 
+// 2. POPRAVEK: CSS - Zmanjšan margin-top za h1, da odstranimo "rumeno luknjo"
 const PREVIEW_TYPO_CSS = `
-  .preview-typo { font-size: 0.98rem; line-height: 1.68; }
+  .preview-typo { font-size: 1rem; line-height: 1.7; color: inherit; }
   .preview-typo > *:first-child { margin-top: 0 !important; }
-  .preview-typo p { margin: 0.55rem 0 0.9rem; }
-  .preview-typo h1, .preview-typo h2, .preview-typo h3, .preview-typo h4 {
-    margin: 1.05rem 0 0.35rem; line-height: 1.25; font-weight: 700;
+  .preview-typo p { margin: 0.75rem 0 1.25rem; }
+  /* Zmanjšan margin zgoraj za naslov */
+  .preview-typo h1 { margin: 0.5rem 0 1rem; line-height: 1.25; font-weight: 700; }
+  .preview-typo h2, .preview-typo h3, .preview-typo h4 {
+    margin: 1.5rem 0 0.5rem; line-height: 1.3; font-weight: 700;
   }
   .preview-typo ul, .preview-typo ol { margin: 0.6rem 0 0.9rem; padding-left: 1.25rem; }
   .preview-typo li { margin: 0.25rem 0; }
   .preview-typo img, .preview-typo figure, .preview-typo video {
-    display:block; max-width:100%; height:auto; border-radius:12px; margin:0.65rem 0 0.9rem;
+    display:block; max-width:100%; height:auto; border-radius:12px; margin: 1.5rem 0;
   }
   .preview-typo figure > img { margin-bottom: 0.4rem; }
-  .preview-typo figcaption { font-size: 0.82rem; opacity: .75; margin-top: -0.2rem; }
+  .preview-typo figcaption { font-size: 0.85rem; opacity: .75; margin-top: -0.2rem; text-align: center; }
   .preview-typo blockquote {
-    margin: 0.9rem 0; padding: 0.25rem 0 0.25rem 0.9rem;
-    border-left: 3px solid rgba(255,255,255,.15); opacity: .95;
+    margin: 1.5rem 0; padding: 0.5rem 0 0.5rem 1.25rem;
+    border-left: 4px solid var(--brand, #fc9c6c); opacity: .95;
+    background: rgba(0,0,0,0.03); font-style: italic;
   }
-  .preview-typo hr { margin: 1.1rem 0; opacity: .25; }
-  .preview-typo a { text-decoration: underline; text-underline-offset: 2px; }
+  .dark .preview-typo blockquote { background: rgba(255,255,255,0.05); }
+  .preview-typo hr { margin: 1.5rem 0; opacity: .25; }
+  .preview-typo a { text-decoration: underline; text-underline-offset: 2px; color: var(--brand, #fc9c6c); }
 `
 
 /* Icons */
@@ -59,6 +63,7 @@ function IconTelegram(p: React.SVGProps<SVGSVGElement>) { return (<svg viewBox="
 function IconCamera(p: React.SVGProps<SVGSVGElement>) { return (<svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" {...p}><path fill="currentColor" d="M9 4a2 2 0 0 0-1.8 1.1L6.6 6H5a3 3 0 0 0-3 3v8a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3V9a3 3 0 0 0-3-3h-1.6l-.6-.9A2 2 0 0 0 15 4H9zm3 5a5 5 0 1 1 0 10 5 5 0 0 1 0-10zm0 2.5A2.5 2.5 0 1 0 14.5 14 2.5 2.5 0 0 0 12 11.5z"/></svg>) }
 function IconX(p: React.SVGProps<SVGSVGElement>){return(<svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" {...p}><path d="M3 3l18 18M21 3L3 21" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>)}
 function IconLink(p: React.SVGProps<SVGSVGElement>){return(<svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" {...p}><path fill="none" stroke="currentColor" strokeWidth="2" d="M10.5 13.5l3-3M8 14a4 4 0 010-8h3M16 18h-3a4 4 0 010-8"/></svg>)}
+function IconExternal(p: React.SVGProps<SVGSVGElement>){return(<svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" {...p}><path fill="none" stroke="currentColor" strokeWidth="2" d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9" fill="none" stroke="currentColor" strokeWidth="2"/><line x1="10" y1="14" x2="21" y2="3" stroke="currentColor" strokeWidth="2"/></svg>)}
 
 /* Utils */
 function trackClick(source: string, url: string) {
@@ -75,7 +80,7 @@ function trackClick(source: string, url: string) {
 }
 function absolutize(raw: string, baseUrl: string): string { try { return new URL(raw, baseUrl).toString() } catch { return raw } }
 
-// 3. POPRAVEK: Uporaba Weserv (tako za slike v članku, kot bova uporabila za logote)
+// Weserv proxy
 function proxyImageSrc(absUrl: string): string { 
   return proxiedImage(absUrl, 800)
 }
@@ -108,7 +113,7 @@ function truncateHTMLByWordsPercent(html:string, percent=0.76){
   return out.innerHTML
 }
 
-/* image dedupe helpers - ORIGINALNA KODA */
+/* image dedupe helpers */
 function imageKeyFromSrc(src: string | null | undefined): string {
   if (!src) return ''
   let pathname = ''
@@ -477,7 +482,6 @@ export default function ArticlePreview({ url, onClose }: Props) {
     if (cover) {
       const imgWrap = document.createElement('div')
       imgWrap.style.cssText = 'width:100%;aspect-ratio:16/9;border-radius:12px;overflow:hidden;background:#f3f4f6;margin-bottom:12px;'
-      // POPRAVEK: Tukaj še vedno potrebujemo "new Image()", in zdaj bo delal, ker je zgoraj uvožen kot "NextImage"
       const img = new Image()
       img.decoding = 'sync'; img.loading = 'eager'; img.crossOrigin = 'anonymous'; img.referrerPolicy = 'no-referrer'
       img.src = cover
@@ -589,27 +593,22 @@ export default function ArticlePreview({ url, onClose }: Props) {
       >
         <div
           ref={modalRef}
-          // Dodana rahla prosojnost (glass vibe)
           className="bg-white/95 dark:bg-gray-900/95 rounded-xl shadow-2xl w-full max-w-2xl mx-4 max-h-[80vh] overflow-y-auto border border-gray-200/10 transform transition-all duration-300 ease-out scale-95 opacity-0 animate-fadeInUp"
         >
           {/* Header */}
-          <div className="sticky top-0 z-10 flex items-center justify-between gap-3 px-4 py-3 border-b border-gray-200/20 bg-white/90 dark:bg-gray-900/90 backdrop-blur-md rounded-t-xl">
+          <div className="sticky top-0 z-10 flex items-center justify-between gap-3 px-5 py-4 border-b border-gray-200/20 bg-white/90 dark:bg-gray-900/90 backdrop-blur-md rounded-t-xl">
+            {/* Header Content */}
             <div className="min-w-0 flex-1 flex flex-col gap-0.5">
-               {/* 4. POPRAVEK: Header po tvojih željah (Križišče zgoraj, Vir spodaj, brez praznega prostora) */}
-               {/* Zgornja vrstica: Križišče branding */}
-               <div className="flex items-center gap-1.5 opacity-70">
-                  <NextImage src="/logo.png" width={12} height={12} alt="Križišče" className="object-contain" unoptimized />
-                  <span className="text-[9px] font-bold uppercase tracking-wider text-brand">Križišče</span>
+               {/* 3. POPRAVEK: Malo večji logotip in tekst Križišče */}
+               <div className="flex items-center gap-1.5 opacity-80">
+                  <NextImage src="/logo.png" width={16} height={16} alt="Križišče" className="object-contain" unoptimized />
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-brand">Križišče</span>
                </div>
                
-               {/* Spodnja vrstica: Vir branding (ZAOKROŽEN & WESERV) */}
-               <div className="flex items-center gap-1.5">
+               {/* 3. POPRAVEK: Logo vira preko Weserv & Zaokrožen */}
+               <div className="flex items-center gap-2">
                   <div className="relative w-4 h-4 shrink-0 rounded-full overflow-hidden">
-                     {/* Uporabimo NextImage, vendar src zavijemo v proxiedImage()
-                        ker si tako želel ("uporabljen tudi weserv").
-                        Lokalni fajli bodo šli skozi proxiedImage (ki jih vrne as-is),
-                        ampak koda je pripravljena.
-                     */}
+                     {/* Uporabimo Weserv (proxiedImage) za logo vira */}
                      <NextImage 
                        src={proxiedImage(`/logos/${site.replace('www.','').split('.')[0]}.png`, 32)}
                        alt={site}
@@ -619,19 +618,27 @@ export default function ArticlePreview({ url, onClose }: Props) {
                        onError={(e) => { (e.target as HTMLElement).style.display='none' }}
                      />
                   </div>
-                  <span className="text-xs font-bold text-gray-900 dark:text-gray-100 truncate">{site}</span>
+                  <span className="text-sm font-bold text-gray-900 dark:text-gray-100 truncate">{site}</span>
                </div>
             </div>
 
             <div className="flex items-center gap-2 shrink-0 relative">
+              {/* 4. POPRAVEK: Gumb "Preberi celoten članek" (ikona) v glavi */}
+              <a 
+                 href={url} target="_blank" rel="noopener" onClick={openSourceAndTrack}
+                 className="inline-flex items-center justify-center rounded-lg h-8 w-8 text-sm bg-gray-100/70 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-brand anim-soft"
+                 title="Odpri celoten članek"
+               >
+                 <IconExternal />
+               </a>
+
               {/* Snapshot */}
               <button
                 type="button"
                 onClick={handleSnapshot}
                 disabled={snapshotBusy}
-                aria-label="Snapshot predogleda (kopiraj sliko)"
-                title="Snapshot (klik = kopiraj; Alt+klik = prenos)"
-                className="inline-flex items-center justify-center rounded-lg h-8 w-8 text-sm bg-gray-100/70 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 anim-soft disabled:opacity-60"
+                aria-label="Snapshot"
+                className="inline-flex items-center justify-center rounded-lg h-8 w-8 text-sm bg-gray-100/70 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300 transition-colors"
               >
                 <IconCamera />
               </button>
@@ -660,36 +667,18 @@ export default function ArticlePreview({ url, onClose }: Props) {
                         <span className="h-1.5 w-12 rounded-full bg-gray-300 dark:bg-gray-700" />
                       </div>
                       <div className="px-4 pb-5 space-y-3">
-                        {/* Primary */}
                         <button
                           onClick={async () => { await copyToClipboard(); setShareOpen(false) }}
                           className="w-full inline-flex items-center justify-center gap-2 rounded-xl py-3 text-sm font-medium bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100 border border-gray-200/30 dark:border-white/10 hover:bg-gray-200 dark:hover:bg-gray-700 transition"
                         >
                           <IconLink /> {copied ? 'Kopirano!' : 'Kopiraj povezavo'}
                         </button>
-
-                        {/* Icons centered */}
                         <div className="flex items-center justify-center gap-3 pt-1">
-                          <button onClick={() => { openShareWindow(shareLinks.x); setShareOpen(false) }}
-                                  className="h-12 w-12 rounded-full bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 grid place-items-center transition" aria-label="X">
-                            <IconX />
-                          </button>
-                          <button onClick={() => { openShareWindow(shareLinks.fb); setShareOpen(false) }}
-                                  className="h-12 w-12 rounded-full bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 grid place-items-center transition" aria-label="Facebook">
-                            <IconFacebook />
-                          </button>
-                          <button onClick={() => { openShareWindow(shareLinks.li); setShareOpen(false) }}
-                                  className="h-12 w-12 rounded-full bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 grid place-items-center transition" aria-label="LinkedIn">
-                            <IconLinkedIn />
-                          </button>
-                          <button onClick={() => { openShareWindow(shareLinks.wa); setShareOpen(false) }}
-                                  className="h-12 w-12 rounded-full bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 grid place-items-center transition" aria-label="WhatsApp">
-                            <IconWhatsApp />
-                          </button>
-                          <button onClick={() => { openShareWindow(shareLinks.tg); setShareOpen(false) }}
-                                  className="h-12 w-12 rounded-full bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 grid place-items-center transition" aria-label="Telegram">
-                            <IconTelegram />
-                          </button>
+                          <button onClick={() => { openShareWindow(shareLinks.x); setShareOpen(false) }} className="h-12 w-12 rounded-full bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 grid place-items-center transition"><IconX /></button>
+                          <button onClick={() => { openShareWindow(shareLinks.fb); setShareOpen(false) }} className="h-12 w-12 rounded-full bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 grid place-items-center transition"><IconFacebook /></button>
+                          <button onClick={() => { openShareWindow(shareLinks.li); setShareOpen(false) }} className="h-12 w-12 rounded-full bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 grid place-items-center transition"><IconLinkedIn /></button>
+                          <button onClick={() => { openShareWindow(shareLinks.wa); setShareOpen(false) }} className="h-12 w-12 rounded-full bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 grid place-items-center transition"><IconWhatsApp /></button>
+                          <button onClick={() => { openShareWindow(shareLinks.tg); setShareOpen(false) }} className="h-12 w-12 rounded-full bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 grid place-items-center transition"><IconTelegram /></button>
                         </div>
                       </div>
                     </div>
@@ -701,35 +690,13 @@ export default function ArticlePreview({ url, onClose }: Props) {
                       <div className="absolute right-8 -top-2 h-4 w-4 rotate-45 rounded-sm bg-white dark:bg-gray-900 border-l border-t border-gray-200/20" />
                       <div className="rounded-xl border border-gray-200/20 bg-white dark:bg-gray-900 shadow-2xl p-4 w-[360px] backdrop-blur space-y-3">
                         <div className="text-sm font-semibold text-gray-900 dark:text-gray-100">Deli</div>
-
-                        <button
-                          onClick={async () => { await copyToClipboard(); setShareOpen(false) }}
-                          className="w-full inline-flex items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-medium bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100 border border-gray-200/30 dark:border-white/10 hover:bg-gray-200 dark:hover:bg-gray-700 transition"
-                        >
-                          <IconLink /> {copied ? 'Kopirano!' : 'Kopiraj povezavo'}
-                        </button>
-
+                        <button onClick={async () => { await copyToClipboard(); setShareOpen(false) }} className="w-full inline-flex items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-medium bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100 border border-gray-200/30 dark:border-white/10 hover:bg-gray-200 dark:hover:bg-gray-700 transition"><IconLink /> {copied ? 'Kopirano!' : 'Kopiraj povezavo'}</button>
                         <div className="flex items-center justify-center gap-3">
-                          <button onClick={() => { openShareWindow(shareLinks.x); setShareOpen(false) }}
-                                  className="h-11 w-11 rounded-full bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 grid place-items-center transition" aria-label="X">
-                            <IconX />
-                          </button>
-                          <button onClick={() => { openShareWindow(shareLinks.fb); setShareOpen(false) }}
-                                  className="h-11 w-11 rounded-full bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 grid place-items-center transition" aria-label="Facebook">
-                            <IconFacebook />
-                          </button>
-                          <button onClick={() => { openShareWindow(shareLinks.li); setShareOpen(false) }}
-                                  className="h-11 w-11 rounded-full bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 grid place-items-center transition" aria-label="LinkedIn">
-                            <IconLinkedIn />
-                          </button>
-                          <button onClick={() => { openShareWindow(shareLinks.wa); setShareOpen(false) }}
-                                  className="h-11 w-11 rounded-full bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 grid place-items-center transition" aria-label="WhatsApp">
-                            <IconWhatsApp />
-                          </button>
-                          <button onClick={() => { openShareWindow(shareLinks.tg); setShareOpen(false) }}
-                                  className="h-11 w-11 rounded-full bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 grid place-items-center transition" aria-label="Telegram">
-                            <IconTelegram />
-                          </button>
+                          <button onClick={() => { openShareWindow(shareLinks.x); setShareOpen(false) }} className="h-11 w-11 rounded-full bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 grid place-items-center transition"><IconX /></button>
+                          <button onClick={() => { openShareWindow(shareLinks.fb); setShareOpen(false) }} className="h-11 w-11 rounded-full bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 grid place-items-center transition"><IconFacebook /></button>
+                          <button onClick={() => { openShareWindow(shareLinks.li); setShareOpen(false) }} className="h-11 w-11 rounded-full bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 grid place-items-center transition"><IconLinkedIn /></button>
+                          <button onClick={() => { openShareWindow(shareLinks.wa); setShareOpen(false) }} className="h-11 w-11 rounded-full bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 grid place-items-center transition"><IconWhatsApp /></button>
+                          <button onClick={() => { openShareWindow(shareLinks.tg); setShareOpen(false) }} className="h-11 w-11 rounded-full bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 grid place-items-center transition"><IconTelegram /></button>
                         </div>
                       </div>
                     </div>
@@ -749,7 +716,8 @@ export default function ArticlePreview({ url, onClose }: Props) {
           </div>
 
           {/* Body */}
-          <div className="px-5 py-5">
+          {/* 3. POPRAVEK: Zmanjšan padding zgoraj (pt-0 namesto py-5) za odstranitev praznega prostora */}
+          <div className="px-5 pt-0 pb-5">
             {loading && (
               <div className="flex items-center justify-center py-10">
                 <div className="w-12 h-12 rounded-full bg-gray-300 dark:bg-gray-700 animate-zenPulse" />
