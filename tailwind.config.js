@@ -11,21 +11,10 @@ module.exports = {
   theme: {
     extend: {
       fontFamily: {
-        // Inter za UI, navigacijo in meta podatke
         sans: ['var(--font-inter)', ...defaultTheme.fontFamily.sans],
-        // Playfair Display SAMO za naslove
         serif: ['var(--font-playfair)', ...defaultTheme.fontFamily.serif],
       },
-      // --- OPTIMIZACIJA DEBELINE (Weight Mapping) ---
-      // To prepreči, da bi naslovi izgledali preveč "okorno" v Firefoxu
-      fontWeight: {
-        normal: '400',
-        medium: '500',
-        semibold: '600',
-        bold: '600',       // Trik: font-bold zdaj uporabi SemiBold (600)
-        extrabold: '700', // font-extrabold uporabi Bold (700)
-        black: '800',
-      },
+      // IZBRISAL SEM SEKCIJO fontWeight - pusti privzeto (700 za bold)!
       colors: {
         brand: '#fc9c6c',
         'brand-hover': '#e57b53',
@@ -42,8 +31,8 @@ module.exports = {
     },
   },
   plugins: [
+    // Preveri, če rabiš line-clamp (v novejšem Tailwindu je vgrajen, ampak pusti če dela)
     require('@tailwindcss/line-clamp'),
-    // Dodaj tole, če želiš lepše scroolbary (kot sem videl v tvojem CSS)
     require('tailwind-scrollbar-hide'), 
   ],
   safelist: [
