@@ -30,7 +30,7 @@ const PREVIEW_TYPO_CSS = `
   .preview-typo { font-size: 1rem; line-height: 1.7; color: inherit; }
   .preview-typo > *:first-child { margin-top: 0 !important; }
   .preview-typo p { margin: 0.75rem 0 1.25rem; }
-  .preview-typo h1 { margin: 1.00rem 0 0.75rem; line-height: 1.25; font-weight: 700; }
+  .preview-typo h1 { margin: 1.00rem 0 1rem; line-height: 1.25; font-weight: 700; }
   .preview-typo h2, .preview-typo h3, .preview-typo h4 {
     margin: 1.5rem 0 0.5rem; line-height: 1.3; font-weight: 700;
   }
