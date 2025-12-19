@@ -11,9 +11,10 @@ import React, {
 } from 'react'
 import { createPortal } from 'react-dom'
 import DOMPurify from 'dompurify'
-import Image from 'next/image' // Za logo
+import Image from 'next/image' // Dodano za logotipe
 import { preloadPreview, peekPreview } from '@/lib/previewPrefetch'
-// Weserv proxy funkcija
+import { toBlob } from 'html-to-image'
+// Dodano: Uvoz funkcije za zunanje procesiranje slik
 import { proxiedImage } from '@/lib/img'
 
 interface Props { url: string; onClose: () => void }
@@ -56,9 +57,9 @@ function IconFacebook(p: React.SVGProps<SVGSVGElement>) { return (<svg viewBox="
 function IconLinkedIn(p: React.SVGProps<SVGSVGElement>) { return (<svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" {...p}><path fill="currentColor" d="M6.5 6.5A2.5 2.5 0 1 1 1.5 6.5a2.5 2.5 0 0 1 5 0zM2 8.8h4.9V22H2zM14.9 8.5c-2.7 0-4 1.5-4.6 2.5V8.8H5.4V22h4.9v-7c0-1.9 1-2.9 2.5-2.9 1.4 0 2.3 1 2.3 2.9V22H20v-7.7c0-3.3-1.8-5.8-5.1-5.8z"/></svg>) }
 function IconWhatsApp(p: React.SVGProps<SVGSVGElement>) { return (<svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" {...p}><path fill="currentColor" d="M12 2a10 10 0 0 0-8.7 15l-1.3 4.7 4.8-1.3A10 10 0 1 0 12 2zm5.6 14.6c-.2.6-1.2 1.1-1.7 1.2-.5.1-1 .2-1.7-.1-.4-.1-1-.3-1.8-.7-3.1-1.4-5.2-4.7-5.3-4.9-.2-.3-1.3-1.7-1.3-3.2 0-1.4.7-2.1 1-2.4.2-.2.6-.3 1-.3h.7c.2 0 .5 0 .7 .6.3.7 1 2.6 1 2.8.1.2.1.4 0 .6-.1.2-.2.4-.4.6-.2.2-.4.5-.2.9.2.4.9 1.5 2 2.4 1.4 1.2 2.6 1.6 3 .1.2-.4.5-.5.8-.4.3.1 1.8.8 2.1 1 .3.2.5.4.6.6.1.5.1 1-.1 1.2z"/></svg>) }
 function IconTelegram(p: React.SVGProps<SVGSVGElement>) { return (<svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" {...p}><path fill="currentColor" d="M21.9 3.3c-.3-.2-.7-.2-1.1 0L2.8 10.6c-.7.3-.7 1.4.1 1.6l4.7 1.5 1.7 5.2c.2.7 1.1.9 1.6.3l2.6-2.8 4.3 3.1c.6.4 1.5.1 1.7-.6l3.1-14.4c.1-.5-.1-1-.6-1.2z"/></svg>) }
+function IconCamera(p: React.SVGProps<SVGSVGElement>) { return (<svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" {...p}><path fill="currentColor" d="M9 4a2 2 0 0 0-1.8 1.1L6.6 6H5a3 3 0 0 0-3 3v8a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3V9a3 3 0 0 0-3-3h-1.6l-.6-.9A2 2 0 0 0 15 4H9zm3 5a5 5 0 1 1 0 10 5 5 0 0 1 0-10zm0 2.5A2.5 2.5 0 1 0 14.5 14 2.5 2.5 0 0 0 12 11.5z"/></svg>) }
 function IconX(p: React.SVGProps<SVGSVGElement>){return(<svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" {...p}><path d="M3 3l18 18M21 3L3 21" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>)}
 function IconLink(p: React.SVGProps<SVGSVGElement>){return(<svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" {...p}><path fill="none" stroke="currentColor" strokeWidth="2" d="M10.5 13.5l3-3M8 14a4 4 0 010-8h3M16 18h-3a4 4 0 010-8"/></svg>)}
-function IconExternal(p: React.SVGProps<SVGSVGElement>){return(<svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" {...p}><path fill="none" stroke="currentColor" strokeWidth="2" d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9" fill="none" stroke="currentColor" strokeWidth="2"/><line x1="10" y1="14" x2="21" y2="3" stroke="currentColor" strokeWidth="2"/></svg>)}
 
 /* Utils */
 function trackClick(source: string, url: string) {
@@ -75,7 +76,7 @@ function trackClick(source: string, url: string) {
 }
 function absolutize(raw: string, baseUrl: string): string { try { return new URL(raw, baseUrl).toString() } catch { return raw } }
 
-// Weserv proxy
+// --- POPRAVEK: Uporaba Weserv proxyja (namesto /api/img) ---
 function proxyImageSrc(absUrl: string): string { 
   return proxiedImage(absUrl, 800)
 }
@@ -108,7 +109,7 @@ function truncateHTMLByWordsPercent(html:string, percent=0.76){
   return out.innerHTML
 }
 
-/* IMAGE DEDUPE - ORIGINAL */
+/* image dedupe helpers - OLD WORKING LOGIC */
 function imageKeyFromSrc(src: string | null | undefined): string {
   if (!src) return ''
   let pathname = ''
@@ -118,9 +119,13 @@ function imageKeyFromSrc(src: string | null | undefined): string {
   } catch {
     pathname = (src.split('#')[0] || '').split('?')[0].toLowerCase()
   }
+
+  // odstrani tipične CDN/cache/resize segmente
   pathname = pathname
     .replace(/\/cache\/[^/]+\/+/g, '/')
     .replace(/\/(fit|fill|resize)\/\d+x\d+\/?/g, '/')
+
+  // odstrani suffixe dimenzij
   pathname = pathname.replace(/(-|_)?\d{2,4}x\d{2,4}(?=\.)/g, '')
   pathname = pathname.replace(/(-|_)?\d{2,4}x(?=\.)/g, '')
   pathname = pathname.replace(/-scaled(?=\.)/g, '')
@@ -165,7 +170,7 @@ async function waitForImages(root: HTMLElement, timeoutMs = 6000) {
   }))
 }
 
-/* clean & extract */
+/* clean, proxy, cache-bust, dedupe images */
 function cleanAndExtract(html: string, baseUrl: string, knownTitle: string | undefined, bust: string) {
   const wrap = document.createElement('div')
   wrap.innerHTML = html
@@ -202,6 +207,7 @@ function cleanAndExtract(html: string, baseUrl: string, knownTitle: string | und
     const firstRaw = first.getAttribute('src') || first.getAttribute('data-src') || ''
     const firstAbs = absolutize(firstRaw, baseUrl)
     
+    // Zberi ključe preden spremenimo src (za deduplikacijo)
     firstKey  = imageKeyFromSrc(firstAbs || firstRaw)
     firstStem = basenameStem(firstKey)
     firstNormStem = normalizeStemForDedupe(firstStem)
@@ -229,6 +235,7 @@ function cleanAndExtract(html: string, baseUrl: string, knownTitle: string | und
       if (!raw) { (img.closest('figure, picture') || img).remove(); return }
 
       const abs  = absolutize(raw, baseUrl)
+      
       const key  = imageKeyFromSrc(abs || raw)
       const stem = basenameStem(key)
       const nstem = normalizeStemForDedupe(stem)
@@ -243,18 +250,16 @@ function cleanAndExtract(html: string, baseUrl: string, knownTitle: string | und
           firstStem.startsWith(stem.slice(0,10))
         ))
 
-      if (duplicate) { (img.closest('figure, picture') || img).remove() }
-      else { 
+      if (duplicate) { 
+          (img.closest('figure, picture') || img).remove() 
+      } else { 
           seenKeys.add(key); if (nstem) seenNormStems.add(nstem) 
+          
+          // Tudi tukaj uporabimo proxy
           const prox = proxyImageSrc(abs)
           const pinned = withCacheBust(prox, bust)
           img.setAttribute('src', pinned)
-          img.removeAttribute('data-src')
-          img.removeAttribute('srcset'); img.removeAttribute('sizes')
-          img.setAttribute('loading', 'lazy')
-          img.setAttribute('decoding', 'async')
-          img.setAttribute('referrerpolicy', 'no-referrer')
-          img.setAttribute('crossorigin', 'anonymous')
+          img.removeAttribute('data-src'); img.removeAttribute('srcset'); img.removeAttribute('sizes')
       }
     })
   }
@@ -278,6 +283,11 @@ export default function ArticlePreview({ url, onClose }: Props) {
 
   const modalRef = useRef<HTMLDivElement>(null)
   const closeRef = useRef<HTMLButtonElement>(null)
+
+  const [snapshotBusy, setSnapshotBusy] = useState(false)
+  const [snapMsg, setSnapMsg] = useState<string>('')
+  const snapMsgTimer = useRef<number | null>(null)
+  const snapshotRef = useRef<HTMLDivElement>(null)
 
   const cacheBust = useMemo(() => Math.random().toString(36).slice(2), [url])
 
@@ -370,6 +380,12 @@ export default function ArticlePreview({ url, onClose }: Props) {
     return () => document.removeEventListener('mousedown', onDocClick)
   }, [shareOpen])
 
+  const showSnapMsg = useCallback((msg: string) => {
+    setSnapMsg(msg)
+    if (snapMsgTimer.current) window.clearTimeout(snapMsgTimer.current)
+    snapMsgTimer.current = window.setTimeout(() => setSnapMsg(''), 2200)
+  }, [])
+
   const openSourceAndTrack = useCallback(() => {
     const source = site || (() => { try { return new URL(url).hostname } catch { return 'unknown' } })()
     trackClick(source, url)
@@ -428,6 +444,134 @@ export default function ArticlePreview({ url, onClose }: Props) {
     }
   }, [url])
 
+  const downloadBlob = useCallback((blob: Blob, filename = 'article-snapshot.png') => {
+    const link = document.createElement('a')
+    link.href = URL.createObjectURL(blob)
+    link.download = filename
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(link.href)
+  }, [])
+
+  const doSnapshot = useCallback(async (): Promise<Blob> => {
+    const isDark =
+      document.documentElement.classList.contains('dark') ||
+      window.matchMedia?.('(prefers-color-scheme: dark)').matches
+    const bg = isDark ? '#111827' : '#ffffff'
+    const fg = isDark ? '#e5e7eb' : '#111827'
+    const sub = isDark ? 'rgba(229,231,235,.6)' : 'rgba(17,24,39,.6)'
+    const shade = isDark ? 'rgba(255,255,255,.06)' : 'rgba(0,0,0,.06)'
+
+    const width = snapshotRef.current?.offsetWidth || 640
+    const root = document.createElement('div')
+    root.style.cssText = `position:fixed;left:-10000px;top:0;width:${width}px;pointer-events:none;z-index:-1;`
+    const card = document.createElement('div')
+    card.style.cssText = `background:${bg};color:${fg};padding:16px;border-radius:16px;border:1px solid ${shade};font:500 14px/1.55 system-ui,-apple-system,Segoe UI,Roboto;`
+    root.appendChild(card)
+
+    const siteText = site || (() => { try { return new URL(url).hostname } catch { return 'krizisce.si' } })()
+    const titleEl = document.createElement('div')
+    titleEl.textContent = title || 'Članek'
+    titleEl.style.cssText = 'font-weight:700;font-size:18px;line-height:1.3;margin:2px 0 6px;'
+    const domainEl = document.createElement('div')
+    domainEl.textContent = siteText
+    domainEl.style.cssText = `color:${sub};font-size:12px;margin-bottom:10px;`
+    card.appendChild(titleEl); card.appendChild(domainEl)
+
+    const cover = coverSnapSrc ? withCacheBust(coverSnapSrc, `${Date.now().toString(36)}${Math.random().toString(36).slice(2,6)}`) : null
+    if (cover) {
+      const imgWrap = document.createElement('div')
+      imgWrap.style.cssText = 'width:100%;aspect-ratio:16/9;border-radius:12px;overflow:hidden;background:#f3f4f6;margin-bottom:12px;'
+      const img = new Image()
+      img.decoding = 'sync'; img.loading = 'eager'; img.crossOrigin = 'anonymous'; img.referrerPolicy = 'no-referrer'
+      img.src = cover
+      img.style.cssText = 'width:100%;height:100%;object-fit:cover;display:block;'
+      imgWrap.appendChild(img); card.appendChild(imgWrap)
+    }
+
+    const rawText = (snapshotRef.current?.textContent || '').replace(/\s+/g, ' ').replace(/\u00A0/g, ' ').trim()
+    const MAX_WORDS = 140
+    const words = rawText.split(' ').filter(Boolean).slice(0, MAX_WORDS)
+    const excerpt = words.join(' ') + (words.length >= MAX_WORDS ? '…' : '')
+
+    const textWrap = document.createElement('div')
+    textWrap.style.cssText = 'position:relative;border-radius:12px;overflow:hidden;'
+    const bodyEl = document.createElement('div')
+    bodyEl.textContent = excerpt
+    bodyEl.style.cssText = 'white-space:pre-wrap;font-size:14px;line-height:1.55;padding-bottom:72px;'
+    const fade = document.createElement('div')
+    fade.style.cssText = `pointer-events:none;position:absolute;left:0;right:0;bottom:0;height:72px;background:linear-gradient(to top, ${bg}, rgba(0,0,0,0));`
+    textWrap.appendChild(bodyEl); textWrap.appendChild(fade)
+    card.appendChild(textWrap)
+
+    document.body.appendChild(root)
+    await waitForImages(card)
+
+    try {
+      const blob = await toBlob(card, {
+        cacheBust: true,
+        pixelRatio: Math.max(2, window.devicePixelRatio || 1),
+        backgroundColor: bg,
+      })
+      if (!blob) throw new Error('snapshot-render-failed')
+      return blob
+    } finally { root.remove() }
+  }, [title, site, url, coverSnapSrc])
+
+  const handleSnapshot = useCallback(async (e?: ReactMouseEvent<HTMLButtonElement>) => {
+    setSnapshotBusy(true)
+    try {
+      const forceDownload = !!e?.altKey
+      const blob = await doSnapshot()
+      const isMobileUI = window.matchMedia?.('(max-width: 640px)').matches
+
+      if (isMobileUI && !forceDownload && 'share' in navigator) {
+        const file = new File([blob], 'article-snapshot.png', { type: 'image/png' })
+        const canShareFiles = (navigator as any).canShare?.({ files: [file] }) ?? false
+        if (canShareFiles) {
+          await (navigator as any).share({
+            files: [file],
+            title: title || site || 'Snapshot',
+            text: (title ? `${title}${site ? ` – ${site}` : ''}` : (site || 'Članek')),
+          })
+          showSnapMsg('Deljeno prek sistema.')
+          setSnapshotBusy(false)
+          return
+        }
+      }
+
+      const canClipboard =
+        !forceDownload &&
+        'clipboard' in navigator &&
+        typeof (window as any).ClipboardItem !== 'undefined' &&
+        typeof navigator.clipboard?.write === 'function'
+
+      if (canClipboard) {
+        try {
+          const CI = (window as any).ClipboardItem as { new (items: Record<string, Blob>): ClipboardItem }
+          const item = new CI({
+            'image/png': blob,
+            'text/plain': new Blob([`Snapshot: ${title || site || ''}`], { type: 'text/plain' }),
+          })
+          await navigator.clipboard.write([item])
+          showSnapMsg('Kopirano (PNG). Alt+klik za prenos.')
+        } catch {
+          downloadBlob(blob)
+          showSnapMsg('PNG prenesen (clipboard ni podprt).')
+        }
+      } else {
+        downloadBlob(blob)
+        showSnapMsg('PNG prenesen.')
+      }
+    } catch (err) {
+      console.error('Snapshot failed:', err)
+      showSnapMsg('Napaka pri snapshotu.')
+    } finally {
+      setSnapshotBusy(false)
+    }
+  }, [doSnapshot, downloadBlob, title, site, showSnapMsg])
+
   if (typeof document === 'undefined') return null
 
   return createPortal(
@@ -443,37 +587,56 @@ export default function ArticlePreview({ url, onClose }: Props) {
       <style>{PREVIEW_TYPO_CSS}</style>
 
       <div
-        className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm transition-opacity duration-300"
+        className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 transition-opacity duration-300 backdrop-blur-sm"
         role="dialog"
         aria-modal="true"
         onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
       >
         <div
           ref={modalRef}
-          className="bg-white dark:bg-gray-900 rounded-xl shadow-2xl w-full max-w-2xl mx-4 max-h-[85vh] overflow-hidden flex flex-col border border-gray-200/10 transform transition-all duration-300 ease-out scale-95 opacity-0 animate-fadeInUp"
+          // Dodan rahlo 'glass' efekt na ozadje modala (bg-white/95)
+          className="bg-white/95 dark:bg-gray-900/95 backdrop-blur-md rounded-xl shadow-2xl w-full max-w-2xl mx-4 max-h-[80vh] overflow-y-auto border border-gray-200/10 transform transition-all duration-300 ease-out scale-95 opacity-0 animate-fadeInUp"
         >
           {/* Header */}
-          <div className="shrink-0 flex items-center justify-between gap-3 px-5 py-3 border-b border-gray-200/20 bg-white/90 dark:bg-gray-900/90 z-10">
-            {/* LOGO + VIR */}
-            <div className="flex items-center gap-3 min-w-0">
-               <div className="relative h-8 w-8 shrink-0">
-                 <Image src="/logo.png" alt="Križišče" fill className="object-contain" unoptimized />
+          <div className="sticky top-0 z-10 flex items-center justify-between gap-3 px-5 py-4 border-b border-gray-200/20 bg-white/80 dark:bg-gray-900/80 backdrop-blur rounded-t-xl">
+            
+            {/* POPRAVLJENO: Logotipi in napisi v glavi */}
+            <div className="min-w-0 flex-1 flex flex-col gap-0.5">
+               {/* Zgornja vrstica: Križišče branding */}
+               <div className="flex items-center gap-1.5 opacity-80">
+                  <Image src="/logo.png" width={14} height={14} alt="Križišče" className="object-contain" unoptimized />
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-brand">Križišče</span>
                </div>
-               <div className="flex flex-col min-w-0">
-                 <span className="text-[10px] uppercase font-bold text-gray-400 dark:text-gray-500 leading-tight">Vir</span>
-                 <span className="text-sm font-bold text-gray-900 dark:text-white truncate max-w-[150px]">{site}</span>
+               
+               {/* Spodnja vrstica: Vir branding */}
+               <div className="flex items-center gap-2">
+                  <div className="relative w-4 h-4 shrink-0">
+                     <Image 
+                       src={`/logos/${site.replace('www.','').split('.')[0]}.png`}
+                       alt={site}
+                       fill
+                       className="object-contain"
+                       unoptimized
+                       // Če logo ne obstaja, se bo skril in ostal samo tekst
+                       onError={(e) => { (e.target as HTMLImageElement).style.display='none' }}
+                     />
+                  </div>
+                  <span className="text-sm font-bold text-gray-900 dark:text-gray-100 truncate">{site}</span>
                </div>
             </div>
 
-            <div className="flex items-center gap-2 shrink-0">
-              {/* ODPRI ČLANEK (GUMB ZGORAJ) */}
-              <a 
-                 href={url} target="_blank" rel="noopener" onClick={openSourceAndTrack}
-                 className="hidden sm:inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-brand/10 hover:bg-brand/20 text-brand font-medium text-sm transition-colors"
-               >
-                 <span>Odpri članek</span>
-                 <IconExternal className="text-lg"/>
-               </a>
+            <div className="flex items-center gap-2 shrink-0 relative">
+              {/* Snapshot */}
+              <button
+                type="button"
+                onClick={handleSnapshot}
+                disabled={snapshotBusy}
+                aria-label="Snapshot predogleda (kopiraj sliko)"
+                title="Snapshot (klik = kopiraj; Alt+klik = prenos)"
+                className="inline-flex items-center justify-center rounded-lg h-8 w-8 text-sm bg-gray-100/70 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 anim-soft disabled:opacity-60"
+              >
+                <IconCamera />
+              </button>
 
               {/* Share */}
               <button
@@ -482,51 +645,96 @@ export default function ArticlePreview({ url, onClose }: Props) {
                 onClick={handleShareClick}
                 aria-haspopup="menu"
                 aria-expanded={shareOpen}
-                className="inline-flex items-center justify-center rounded-lg h-9 w-9 text-sm bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300 transition-colors"
+                className="inline-flex items-center justify-center rounded-lg px-3 h-8 text-sm bg-gray-100/70 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 anim-soft"
                 title="Deli"
               >
-                <IconShareIOS className="text-lg" />
+                <IconShareIOS className="mr-1" />
+                <span className="hidden sm:inline">Deli</span>
               </button>
 
               {/* Share menu */}
               {shareOpen && (
                 useSheet ? (
                   /* Mobile sheet */
-                  <div ref={shareMenuRef} role="menu" className="fixed inset-x-0 bottom-0 z-[60]">
-                    <div className="mx-auto w-full max-w-2xl rounded-t-2xl border border-gray-200/20 bg-white dark:bg-gray-900 shadow-2xl pb-6">
-                      <div className="flex justify-center py-3">
+                  <div ref={shareMenuRef} role="menu" aria-label="Deli" className="fixed inset-x-0 bottom-0 z-50">
+                    <div className="mx-auto w-full max-w-2xl rounded-t-2xl border border-gray-200/20 bg-white dark:bg-gray-900 shadow-2xl">
+                      <div className="flex justify-center py-2">
                         <span className="h-1.5 w-12 rounded-full bg-gray-300 dark:bg-gray-700" />
                       </div>
-                      <div className="px-4 space-y-4">
-                        <button onClick={async () => { await copyToClipboard(); setShareOpen(false) }} className="w-full btn-press flex items-center justify-center gap-2 rounded-xl py-3.5 font-medium bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white">
-                          <IconLink /> Kopiraj povezavo
+                      <div className="px-4 pb-5 space-y-3">
+                        {/* Primary */}
+                        <button
+                          onClick={async () => { await copyToClipboard(); setShareOpen(false) }}
+                          className="w-full inline-flex items-center justify-center gap-2 rounded-xl py-3 text-sm font-medium bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100 border border-gray-200/30 dark:border-white/10 hover:bg-gray-200 dark:hover:bg-gray-700 transition"
+                        >
+                          <IconLink /> {copied ? 'Kopirano!' : 'Kopiraj povezavo'}
                         </button>
-                        <div className="flex justify-center gap-4">
-                          {[
-                             { l: shareLinks.x, i: IconX }, { l: shareLinks.fb, i: IconFacebook },
-                             { l: shareLinks.li, i: IconLinkedIn }, { l: shareLinks.wa, i: IconWhatsApp }
-                          ].map((x, i) => (
-                             <button key={i} onClick={()=>{openShareWindow(x.l);setShareOpen(false)}} className="h-14 w-14 rounded-full bg-gray-100 dark:bg-gray-800 grid place-items-center text-xl text-gray-700 dark:text-gray-200"><x.i /></button>
-                          ))}
+
+                        {/* Icons centered */}
+                        <div className="flex items-center justify-center gap-3 pt-1">
+                          <button onClick={() => { openShareWindow(shareLinks.x); setShareOpen(false) }}
+                                  className="h-12 w-12 rounded-full bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 grid place-items-center transition" aria-label="X">
+                            <IconX />
+                          </button>
+                          <button onClick={() => { openShareWindow(shareLinks.fb); setShareOpen(false) }}
+                                  className="h-12 w-12 rounded-full bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 grid place-items-center transition" aria-label="Facebook">
+                            <IconFacebook />
+                          </button>
+                          <button onClick={() => { openShareWindow(shareLinks.li); setShareOpen(false) }}
+                                  className="h-12 w-12 rounded-full bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 grid place-items-center transition" aria-label="LinkedIn">
+                            <IconLinkedIn />
+                          </button>
+                          <button onClick={() => { openShareWindow(shareLinks.wa); setShareOpen(false) }}
+                                  className="h-12 w-12 rounded-full bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 grid place-items-center transition" aria-label="WhatsApp">
+                            <IconWhatsApp />
+                          </button>
+                          <button onClick={() => { openShareWindow(shareLinks.tg); setShareOpen(false) }}
+                                  className="h-12 w-12 rounded-full bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 grid place-items-center transition" aria-label="Telegram">
+                            <IconTelegram />
+                          </button>
                         </div>
                       </div>
                     </div>
                   </div>
                 ) : (
                   /* Desktop popover */
-                  <div ref={shareMenuRef} role="menu" className="absolute right-14 top-12 z-50 w-72 rounded-xl bg-white dark:bg-gray-900 shadow-xl border border-gray-200/20 p-2">
-                     <button onClick={async () => { await copyToClipboard(); setShareOpen(false) }} className="w-full flex items-center gap-3 rounded-lg px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-200">
-                        <IconLink /> Kopiraj povezavo
-                     </button>
-                     <div className="h-px bg-gray-200 dark:bg-gray-700 my-1" />
-                     <div className="grid grid-cols-5 gap-1 p-1">
-                        {[
-                             { l: shareLinks.x, i: IconX }, { l: shareLinks.fb, i: IconFacebook },
-                             { l: shareLinks.li, i: IconLinkedIn }, { l: shareLinks.wa, i: IconWhatsApp }, { l: shareLinks.tg, i: IconTelegram }
-                        ].map((x, i) => (
-                           <button key={i} onClick={()=>{openShareWindow(x.l);setShareOpen(false)}} className="h-10 w-10 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 grid place-items-center text-gray-600 dark:text-gray-300"><x.i /></button>
-                        ))}
-                     </div>
+                  <div ref={shareMenuRef} role="menu" aria-label="Deli" className="absolute right-24 top-10 z-50">
+                    <div className="relative">
+                      <div className="absolute right-8 -top-2 h-4 w-4 rotate-45 rounded-sm bg-white dark:bg-gray-900 border-l border-t border-gray-200/20" />
+                      <div className="rounded-xl border border-gray-200/20 bg-white dark:bg-gray-900 shadow-2xl p-4 w-[360px] backdrop-blur space-y-3">
+                        <div className="text-sm font-semibold text-gray-900 dark:text-gray-100">Deli</div>
+
+                        <button
+                          onClick={async () => { await copyToClipboard(); setShareOpen(false) }}
+                          className="w-full inline-flex items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-medium bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100 border border-gray-200/30 dark:border-white/10 hover:bg-gray-200 dark:hover:bg-gray-700 transition"
+                        >
+                          <IconLink /> {copied ? 'Kopirano!' : 'Kopiraj povezavo'}
+                        </button>
+
+                        <div className="flex items-center justify-center gap-3">
+                          <button onClick={() => { openShareWindow(shareLinks.x); setShareOpen(false) }}
+                                  className="h-11 w-11 rounded-full bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 grid place-items-center transition" aria-label="X">
+                            <IconX />
+                          </button>
+                          <button onClick={() => { openShareWindow(shareLinks.fb); setShareOpen(false) }}
+                                  className="h-11 w-11 rounded-full bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 grid place-items-center transition" aria-label="Facebook">
+                            <IconFacebook />
+                          </button>
+                          <button onClick={() => { openShareWindow(shareLinks.li); setShareOpen(false) }}
+                                  className="h-11 w-11 rounded-full bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 grid place-items-center transition" aria-label="LinkedIn">
+                            <IconLinkedIn />
+                          </button>
+                          <button onClick={() => { openShareWindow(shareLinks.wa); setShareOpen(false) }}
+                                  className="h-11 w-11 rounded-full bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 grid place-items-center transition" aria-label="WhatsApp">
+                            <IconWhatsApp />
+                          </button>
+                          <button onClick={() => { openShareWindow(shareLinks.tg); setShareOpen(false) }}
+                                  className="h-11 w-11 rounded-full bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 grid place-items-center transition" aria-label="Telegram">
+                            <IconTelegram />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 )
               )}
@@ -534,70 +742,66 @@ export default function ArticlePreview({ url, onClose }: Props) {
               <button
                 ref={closeRef}
                 onClick={onClose}
-                aria-label="Zapri"
-                className="ml-2 inline-flex h-9 w-9 items-center justify-center rounded-lg bg-gray-100 dark:bg-gray-800 hover:bg-red-100 dark:hover:bg-red-900/30 text-gray-500 hover:text-red-600 dark:text-gray-400 transition-colors"
+                aria-label="Zapri predogled"
+                className="inline-flex h-8 px-2 items-center justify-center rounded-lg text-sm bg-gray-100/70 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 anim-soft"
               >
                 ✕
               </button>
             </div>
           </div>
 
-          {/* Body (Scrollable) */}
-          <div className="flex-1 overflow-y-auto px-5 py-6 sm:px-8 relative scrollbar-hide">
+          {/* Body */}
+          <div className="px-5 py-5">
             {loading && (
-              <div className="flex flex-col items-center justify-center py-12 space-y-4 h-full">
-                <div className="w-12 h-12 rounded-full border-2 border-brand/30 border-t-brand animate-spin" />
-                <p className="text-sm text-gray-500 animate-pulse">Nalaganje predogleda ...</p>
+              <div className="flex items-center justify-center py-10">
+                <div className="w-12 h-12 rounded-full bg-gray-300 dark:bg-gray-700 animate-zenPulse" />
               </div>
             )}
-            {error && (
-              <div className="py-8 text-center h-full flex flex-col items-center justify-center">
-                 <p className="text-red-500 mb-4">{error}</p>
-                 <a href={url} target="_blank" rel="noopener" className="text-brand underline">Odpri originalni članek</a>
-              </div>
-            )}
+            {error && <p className="text-sm text-red-500">{error}</p>}
 
             {!loading && !error && (
-              <div className="preview-typo max-w-none text-gray-900 dark:text-gray-100 pb-24">
-                  {/* NASLOV */}
-                  <h1 className="text-2xl sm:text-3xl font-serif font-bold text-gray-900 dark:text-white leading-tight mb-4">
+              <div className="preview-typo max-w-none text-gray-900 dark:text-gray-100">
+                {/* This area is captured for snapshot */}
+                <div key={url} ref={snapshotRef} className="relative">
+                  {/* POPRAVLJENO: Naslov dodan na vrh vsebine */}
+                  <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white leading-tight mb-4">
                     {title}
                   </h1>
 
-                  {/* GLAVNA SLIKA */}
-                  {coverSnapSrc && (
-                    <figure className="my-6 relative w-full aspect-video rounded-xl overflow-hidden shadow-sm bg-gray-100 dark:bg-gray-800">
-                       {/* eslint-disable-next-line @next/next/no-img-element */}
-                       <img src={coverSnapSrc} alt={title} className="w-full h-full object-cover" />
-                    </figure>
-                  )}
-
-                  {/* VSEBINA */}
                   <div dangerouslySetInnerHTML={{ __html: content }} />
-                  
-                  {/* FADE OUT UČINEK NA DNU */}
-                  <div className="absolute bottom-0 inset-x-0 h-40 bg-gradient-to-t from-white via-white/90 to-transparent dark:from-gray-900 dark:via-gray-900/90 pointer-events-none" />
+                  <div className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-white dark:from-gray-900 to-transparent" />
+                </div>
+
+                <div className="mt-5 flex flex-col items-center gap-2">
+                  <a
+                    href={url}
+                    target="_blank"
+                    rel="noopener"
+                    referrerPolicy="strict-origin-when-cross-origin"
+                    onClick={openSourceAndTrack}
+                    onAuxClick={onAuxOpen}
+                    className="no-underline inline-flex justify-center rounded-md px-5 py-2 dark:bg-gray-700 text-white text-sm dark:hover:bg-gray-600 whitespace-nowrap anim-soft"
+                  >
+                    Za ogled celotnega članka obiščite spletno stran
+                  </a>
+
+                  <button
+                    type="button"
+                    onClick={onClose}
+                    className="inline-flex justify-center rounded-md px-4 py-2 bg-gray-100/80 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 text-sm anim-soft"
+                  >
+                    Zapri predogled
+                  </button>
+                </div>
               </div>
             )}
           </div>
 
-          {/* FOOTER (Actions) */}
-          {!loading && !error && (
-              <div className="shrink-0 p-6 bg-white dark:bg-gray-900 border-t border-gray-100 dark:border-gray-800 z-20 flex flex-col items-center gap-3 shadow-[0_-10px_40px_rgba(0,0,0,0.1)]">
-                  <a 
-                    href={url} target="_blank" rel="noopener" onClick={openSourceAndTrack}
-                    className="w-full max-w-sm flex items-center justify-center gap-2 py-3.5 rounded-xl bg-brand hover:bg-brand-hover text-white font-bold text-base shadow-lg shadow-brand/20 transition-all hover:scale-[1.02]"
-                  >
-                    Preberi celoten članek <IconExternal/>
-                  </a>
-                  
-                  <button 
-                    onClick={onClose}
-                    className="text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white py-2 px-4 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-                  >
-                    Zapri predogled
-                  </button>
-              </div>
+          {/* Toast */}
+          {snapMsg && (
+            <div className="pointer-events-none fixed left-4 bottom-4 z-[60] rounded-lg bg-black/80 text-white text-sm px-3 py-2 shadow-lg">
+              {snapMsg}
+            </div>
           )}
         </div>
       </div>
