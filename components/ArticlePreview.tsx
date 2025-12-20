@@ -30,7 +30,6 @@ const PREVIEW_TYPO_CSS = `
   .preview-typo { font-size: 1rem; line-height: 1.7; color: inherit; }
   .preview-typo > *:first-child { margin-top: 0 !important; }
   .preview-typo p { margin: 0.75rem 0 1.25rem; }
-  /* Tvoji želeni razmaki za naslov */
   .preview-typo h1 { margin: 1.00rem 0 1rem; line-height: 1.25; font-weight: 700; }
   .preview-typo h2, .preview-typo h3, .preview-typo h4 {
     margin: 1.5rem 0 0.5rem; line-height: 1.3; font-weight: 700;
@@ -146,9 +145,9 @@ function normalizeStemForDedupe(s: string): string {
     .replace(/(-|_)?\d{2,4}x\d{2,4}$/g, '')
     .replace(/(-|_)?\d{2,4}x$/g, '')
     .replace(/-scaled$/g, '')
-    .replace(/\d+/g, '')                              
-    .replace(/[-_]+/g, '')                            
-    .slice(0, 20)                                     
+    .replace(/\d+/g, '')                               
+    .replace(/[-_]+/g, '')                             
+    .slice(0, 20)                                      
 }
 
 /* wait images */
@@ -174,46 +173,6 @@ function cleanAndExtract(html: string, baseUrl: string, knownTitle: string | und
   wrap.innerHTML = html
 
   wrap.querySelectorAll('noscript,script,style,iframe,form').forEach((n) => n.remove())
-
-  // --- POPRAVEK: PAMETNO ČIŠČENJE SMETI ---
-  const junkRegex = /^(?:foto:|photo:|video:|avtor:|pripravil:|vir:|tekst:|delo\.si|24ur\.com|rtvslo\.si|zurnal24\.si|slovenskenovice\.si|n1info|mmc rtv slo|znani|svet|šport|kronika|magazin|vreme|posel|\d{1,2}\.\s+[a-zčšž]+\s+\d{4})/i
-  
-  let safety = 0
-  // Zanka, ki preverja prvih 10 elementov
-  while (wrap.firstChild && safety < 10) {
-    const node = wrap.firstChild
-    
-    // 1. KLJUČNI POPRAVEK: Če element vsebuje sliko, ga NE briši!
-    const hasImg = node.nodeName === 'IMG' || (node.nodeType === 1 && (node as Element).querySelector('img'))
-    if (hasImg) {
-        break; // Našli smo sliko, to je verjetno začetek vsebine -> ustavi brisanje
-    }
-
-    const text = (node.textContent || '').replace(/\u00A0/g, ' ').trim()
-    
-    // 2. Briši prazne elemente (samo če nimajo slike, kar smo preverili zgoraj)
-    if (!text) { 
-      node.remove()
-      continue 
-    }
-
-    // 3. Preveri, ali je tekst "smet"
-    const isJunk = 
-        junkRegex.test(text) || 
-        (text.length < 30 && !text.endsWith('.') && !text.endsWith('?')) || 
-        text.toLowerCase() === 'n1' ||
-        text.toLowerCase().includes('rtvslo.si')
-
-    if (isJunk) {
-      node.remove()
-      safety++
-      continue
-    }
-    
-    // Če element ni prazen, nima slike in ni smet -> ustavi brisanje
-    break
-  }
-  // --- KONEC POPRAVKA ---
 
   if (knownTitle) {
     const h = wrap.querySelector('h1, h2, h3')
@@ -645,14 +604,14 @@ export default function ArticlePreview({ url, onClose }: Props) {
                {/* Vir branding - HITRO NALAGANJE (BREZ WESERV) */}
                <div className="flex items-center gap-2">
                   <div className="relative w-4 h-4 shrink-0 rounded-full overflow-hidden">
-                      <NextImage 
-                        src={`/logos/${site.replace('www.','').split('.')[0]}.png`}
-                        alt={site}
-                        fill
-                        className="object-cover"
-                        unoptimized
-                        onError={(e) => { (e.target as HTMLElement).style.display='none' }}
-                      />
+                     <NextImage 
+                       src={`/logos/${site.replace('www.','').split('.')[0]}.png`}
+                       alt={site}
+                       fill
+                       className="object-cover"
+                       unoptimized
+                       onError={(e) => { (e.target as HTMLElement).style.display='none' }}
+                     />
                   </div>
                   <span className="text-sm font-bold text-gray-900 dark:text-gray-100 truncate">{site}</span>
                </div>
