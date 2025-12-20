@@ -36,7 +36,9 @@ export const CATEGORIES: CategoryDef[] = [
         'humanitarn', 'nvo', 'protest', 'stavka', 'sindikat', 'rasizem', 'diskriminacija', 'hostel', 'turist',
         'vlak', 'potniki', 'zeleznis', 'tir', 'sz', 'zeleznice', 'avtobus', 'lpp',
         'vreme', 'arso', 'vremenska', 'sneg', 'dezevje', 'poplave', 'neurje', 'toča', 'ciklon', 'temperatura', 'prognostik',
-        'dobrodeln', 'zbiranje pomoci', 'pomoc', 'gasilska zveza'
+        'dobrodeln', 'zbiranje pomoci', 'pomoc', 'gasilska zveza',
+        // DODANO (Politika & Družba):
+        'pirc musar', 'golob', 'narodna enotnost', 'osebnost leta', 'predsednica'
     ]
   },
   {
@@ -48,7 +50,9 @@ export const CATEGORIES: CategoryDef[] = [
         '/novice/svet/', 'zunanja-politika', 'eu', 'bliznji-vzhod', 'gaza', 'izrael',
         'evropska-unija', 'evropski-parlament', 'scholz', 'macron', 'biden', 'putin', 'zelenski', 'von der leyen',
         'kitajska', 'indija', 'iran', 'severna koreja', 'spopad', 'geopolitika',
-        'bela hisa', 'white house'
+        'bela hisa', 'white house',
+        // DODANO (Tujina & Škandali):
+        'epstein', 'albanij', 'nemcij', 'zavetisc' // Koreni besed za Albanija/Nemčija/Zavetišča
     ]
   },
   {
@@ -63,9 +67,7 @@ export const CATEGORIES: CategoryDef[] = [
         'gorska resevalna', 'resevalci', 'intervencija', 'pozar', 'utonil', 'truplo',
         'pripor', 'privedli', 'zasegli', 'preiskava', 'osumljenci', 'krivda', 'obtozba',
         'pijan', 'vinjen', 'alkoholiziran', 'nadlegoval', 'krsitev', 'javni red', 'mir', 
-        'nasilje', 'prekrsek', 'krical', 'razgrajal',
-        // Premaknjeno iz moto, ker spada sem:
-        'kazen', 'kazni', 'globa' 
+        'nasilje', 'prekrsek', 'krical', 'razgrajal'
     ]
   },
   {
@@ -90,13 +92,17 @@ export const CATEGORIES: CategoryDef[] = [
         '/lifestyle/', '/kulinarika/', '/okusno/', '/astro/', 'suzy', 'lady', 'dom-in-vrt',
         '/nedeljski/', '/zdravje/', '/lepota/', '/odnosi/', '/bivanje/', '/zanimivosti/', '/duhovnost/',
         '/nedelo/', '/pop-30/',
-        '/spotkast/', '/traci/', 
+        '/spotkast/', 
+        '/traci/', 
         'druzina', 'starsa', 'otroci',
         'okrevanje', 'kap ', 'mozganska',
+        
+        // ZDRAVJE in WELLNESS
         'zdravje', 'bolezen', 'ambulanta', 'zdravnik', 'medicina', 'bolniska', 'zdravstvo', 'srce', 'jetra', 'mineral', 'vitamin',
         'bakterij', 'prebav', 'kosti', 'zivilo', 'repa', 'superzelenjava', 'rak ', 'simptomi', 'bolecine', 'imunski sistem',
         'holesterol', 'krvni tlak', 'sladkorna', 'dieta', 'hujsanje', 'vadba', 'recept', 'kalorije',
         'savna', 'wellness', 'spa', 'masaza',
+        // LIFESTYLE
         'prosti-cas', 'nedeljski', 'izleti', 'dobro-pocutje', '/ture-avanture/',
         '/bulvar/', '/tuji-traci/', '/domaci-traci/', '/ljudje/', '/stil/', 
         '/zabava-in-slog/', 'svet-zavoda', 'na-lepse', 'vrt', 'recepti', 'horoskop', 
@@ -118,7 +124,9 @@ export const CATEGORIES: CategoryDef[] = [
         'coach', 'trener', 'cilj', 'motivacija', 'uspeh', 'karier',
         'navdih', 'zadovoljstvo', 'nasvet',
         'nakup', 'trgovin', 'obdarovanje', 'darilo', 'stres', 'praznicn',
-        'interier', 'arhitektura'
+        'interier', 'arhitektura',
+        // DODANO:
+        'jagger', 'jackson' // Glasbene ikone
     ]
   },
   {
@@ -126,6 +134,7 @@ export const CATEGORIES: CategoryDef[] = [
     label: 'Posel & Tehnologija',
     color: 'bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-300',
     keywords: [
+        // GOSPODARSTVO KEYWORDS
         '/gospodarstvo/', '/posel/', '/finance/', '/borza/', 'kripto', 'delnice', 'podjetnistvo', 
         '/posel-danes/',
         'banke', 'druzbe', 'posel-danes', 'gospodarstvo', 'inflacija', 'bitcoin', 'evro', 
@@ -135,6 +144,7 @@ export const CATEGORIES: CategoryDef[] = [
         'pokojnina', 'upokojenec', 'delovna doba', 'zpis', 'pravni nasvet', 'zavarovanje', 'prispevki',
         'hse', 'elektrarn', 'termoelektrarn', 'premog', 'rudarjenje', 'letalsk', 'letalisce', 'brnik', 'adria', 'lufthansa', 'eurowings',
         
+        // TECH KEYWORDS
         '/znanoteh/', 
         '/znanost/', '/tehnologija/', '/tech/', '/digisvet/', '/znanost-in-tehnologija/', '/digitalna-odpornost/',
         'vesolje', 'telefoni', 'racunalnistvo', 'pametni', 
@@ -151,15 +161,15 @@ export const CATEGORIES: CategoryDef[] = [
     color: 'bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-300',
     keywords: [
         '/auto/', '/avto/', 
-        '/avtomobilnost/', '/avtomobilno/', '/avtomoto/', '/svet-vozil/',         
+        '/avtomobilnost/', '/avtomobilno/', '/avtomoto/', '/svet-vozil/',        
         '/mobilnost/', '/motociklizem/', '/avtomotosport/', 
-        'vozila', 'elektricna-vozila', 
+        'vozila', 'promet', 'elektricna-vozila', 'testi', 
         'avtomobilizem', 'volkswagen', 'bmw', 'audi', 'tesla', 'dizel', 'bencin', 'hibrid',
         'suv', 'limuzina', 'karavan', 'renault', 'toyota', 'peugeot', 'skoda', 'mercedes', 'porsche', 'volvo', 'fiat',
         'cupra', 'geely', 'byd', 'mazda', 'lexus', 'citroen', 'kia ', 'ford', 'opel',
         'formula-1', 'f1', 'verstappen', 'hamilton', 'rally', 'moto-gp', 'dirka', 
-        'motorji', 'zgorevanjem', 'avtomobilska-industrija', 'vinjeta', 'dars', 'cestnina', 'predor'
-        // ODSTRANJENO: 'promet' (ujame zračni promet, promet z drogami), 'testi' (ujame protesti), 'kazen/kazni/globa' (ujame sodišča)
+        'motorji', 'zgorevanjem', 'avtomobilska-industrija', 'vinjeta', 'dars', 'cestnina', 'predor',
+        'kazen', 'kazni', 'globa'
     ]
   },
   {
@@ -179,23 +189,17 @@ export const CATEGORIES: CategoryDef[] = [
   }
 ]
 
-// --- POPRAVLJENO: NOVI VRSTNI RED PREVERJANJA ---
-// 1. Šport (vedno specifičen)
-// 2. Svet (Putin, vojna, Trump morajo imeti prednost pred "kaznimi" v motu)
-// 3. Slovenija (lokalna politika pred "prometom")
-// 4. Kronika (nesreče, kriminal)
-// ...
-// 8. Moto (če ni nič od zgornjega, šele takrat preveri, če je avto)
-
+// --- POMEMBNO: VRSTNI RED PREVERJANJA URL-JEV ---
+// Šport je zdaj na PRVEM MESTU. Če URL vsebuje /sport/, bo 100% šport.
 const PRIORITY_CHECK_ORDER: CategoryId[] = [
-  'sport',        // 1.
-  'svet',         // 2. (PREMAKNJENO GOR - ključno za Putina!)
-  'slovenija',    // 3. (PREMAKNJENO GOR)
-  'kronika',      // 4.
-  'posel-tech',   // 5.
-  'kultura',      // 6.
-  'magazin',      // 7.
-  'moto'          // 8. (PREMAKNJENO DOL - da ne "krade" novic drugim)
+  'sport',        // 1. ŠPORT
+  'kronika',      // 2. KRONIKA (Mora biti pred slovenijo)
+  'moto',         // 3. AVTO-MOTO
+  'kultura',      // 4. KULTURA
+  'magazin',      // 5. MAGAZIN
+  'posel-tech',   // 6. POSEL & TECH
+  'svet',         // 7. SVET
+  'slovenija'     // 8. SLOVENIJA (Fallback za vse ostalo lokalno)
 ]
 
 const unaccent = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
@@ -209,7 +213,7 @@ export function determineCategory(item: {
   
   const url = item.link.toLowerCase()
   
-  // 1. URL CHECK
+  // 1. URL CHECK (ABSOLUTNA PRIORITETA)
   for (const id of PRIORITY_CHECK_ORDER) {
     const cat = CATEGORIES.find(c => c.id === id)
     if (cat && cat.keywords.some(k => k.startsWith('/') && url.includes(k))) {
