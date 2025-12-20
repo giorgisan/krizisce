@@ -26,11 +26,15 @@ const TEXT_PERCENT = 0.60
 const VIA_TEXT = ' — via Križišče (krizisce.si)'
 const AUTO_CLOSE_ON_OPEN = true
 
+// --- TUKAJ SO POPRAVLJENI RAZMAKI (CSS) ---
 const PREVIEW_TYPO_CSS = `
   .preview-typo { font-size: 1rem; line-height: 1.7; color: inherit; }
   .preview-typo > *:first-child { margin-top: 0 !important; }
   .preview-typo p { margin: 0.75rem 0 1.25rem; }
-  .preview-typo h1 { margin: 1.00rem 0 1rem; line-height: 1.25; font-weight: 700; }
+  
+  /* POPRAVEK: Več prostora okoli naslova (H1) */
+  .preview-typo h1 { margin: 2rem 0 1.5rem; line-height: 1.25; font-weight: 700; }
+  
   .preview-typo h2, .preview-typo h3, .preview-typo h4 {
     margin: 1.5rem 0 0.5rem; line-height: 1.3; font-weight: 700;
   }
@@ -40,7 +44,10 @@ const PREVIEW_TYPO_CSS = `
     display:block; max-width:100%; height:auto; border-radius:12px; margin: 1.5rem 0;
   }
   .preview-typo figure > img { margin-bottom: 0.4rem; }
-  .preview-typo figcaption { font-size: 0.85rem; opacity: .75; margin-top: -0.2rem; text-align: center; }
+  
+  /* POPRAVEK: Več prostora pod napisi slik (figcaption), da se ne lepijo na tekst */
+  .preview-typo figcaption { font-size: 0.85rem; opacity: .75; margin-top: -0.2rem; margin-bottom: 1.5rem; text-align: center; }
+  
   .preview-typo blockquote {
     margin: 1.5rem 0; padding: 0.5rem 0 0.5rem 1.25rem;
     border-left: 4px solid var(--brand, #fc9c6c); opacity: .95;
@@ -145,9 +152,9 @@ function normalizeStemForDedupe(s: string): string {
     .replace(/(-|_)?\d{2,4}x\d{2,4}$/g, '')
     .replace(/(-|_)?\d{2,4}x$/g, '')
     .replace(/-scaled$/g, '')
-    .replace(/\d+/g, '')                               
-    .replace(/[-_]+/g, '')                             
-    .slice(0, 20)                                      
+    .replace(/\d+/g, '')                              
+    .replace(/[-_]+/g, '')                            
+    .slice(0, 20)                                     
 }
 
 /* wait images */
@@ -173,6 +180,26 @@ function cleanAndExtract(html: string, baseUrl: string, knownTitle: string | und
   wrap.innerHTML = html
 
   wrap.querySelectorAll('noscript,script,style,iframe,form').forEach((n) => n.remove())
+
+  // --- POPRAVEK: ČIŠČENJE SMETI (Datumi, Avtorji, Domene na začetku) ---
+  const junkRegex = /^(?:foto:|photo:|video:|avtor:|pripravil:|vir:|tekst:|delo\.si|24ur\.com|rtvslo\.si|zurnal24|slovenskenovice|n1info|mmc rtv slo|znani|svet|šport|kronika|magazin|vreme|\d{1,2}\.\s+[a-zčšž]+\s+\d{4})/i
+  
+  let safety = 0
+  while (wrap.firstChild && safety < 15) {
+    const node = wrap.firstChild
+    const text = (node.textContent || '').trim()
+    
+    if (!text) { node.remove(); continue }
+
+    // Briši če ustreza regexu ali je zelo kratek tekst (npr. "Znani")
+    if (junkRegex.test(text) || (text.length < 25 && !text.endsWith('.'))) {
+      node.remove()
+      safety++
+      continue
+    }
+    break
+  }
+  // --- KONEC POPRAVKA ---
 
   if (knownTitle) {
     const h = wrap.querySelector('h1, h2, h3')
@@ -604,14 +631,14 @@ export default function ArticlePreview({ url, onClose }: Props) {
                {/* Vir branding - HITRO NALAGANJE (BREZ WESERV) */}
                <div className="flex items-center gap-2">
                   <div className="relative w-4 h-4 shrink-0 rounded-full overflow-hidden">
-                     <NextImage 
-                       src={`/logos/${site.replace('www.','').split('.')[0]}.png`}
-                       alt={site}
-                       fill
-                       className="object-cover"
-                       unoptimized
-                       onError={(e) => { (e.target as HTMLElement).style.display='none' }}
-                     />
+                      <NextImage 
+                        src={`/logos/${site.replace('www.','').split('.')[0]}.png`}
+                        alt={site}
+                        fill
+                        className="object-cover"
+                        unoptimized
+                        onError={(e) => { (e.target as HTMLElement).style.display='none' }}
+                      />
                   </div>
                   <span className="text-sm font-bold text-gray-900 dark:text-gray-100 truncate">{site}</span>
                </div>
