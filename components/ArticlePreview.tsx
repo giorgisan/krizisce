@@ -26,15 +26,11 @@ const TEXT_PERCENT = 0.60
 const VIA_TEXT = ' — via Križišče (krizisce.si)'
 const AUTO_CLOSE_ON_OPEN = true
 
-// --- TUKAJ SO POPRAVLJENI RAZMAKI (CSS) ---
 const PREVIEW_TYPO_CSS = `
   .preview-typo { font-size: 1rem; line-height: 1.7; color: inherit; }
   .preview-typo > *:first-child { margin-top: 0 !important; }
   .preview-typo p { margin: 0.75rem 0 1.25rem; }
-  
-  /* POPRAVEK: Več prostora okoli naslova (H1) */
-  .preview-typo h1 { margin: 2rem 0 1.5rem; line-height: 1.25; font-weight: 700; }
-  
+  .preview-typo h1 { margin: 1.00rem 0 1rem; line-height: 1.25; font-weight: 700; }
   .preview-typo h2, .preview-typo h3, .preview-typo h4 {
     margin: 1.5rem 0 0.5rem; line-height: 1.3; font-weight: 700;
   }
@@ -44,10 +40,7 @@ const PREVIEW_TYPO_CSS = `
     display:block; max-width:100%; height:auto; border-radius:12px; margin: 1.5rem 0;
   }
   .preview-typo figure > img { margin-bottom: 0.4rem; }
-  
-  /* POPRAVEK: Več prostora pod napisi slik (figcaption), da se ne lepijo na tekst */
-  .preview-typo figcaption { font-size: 0.85rem; opacity: .75; margin-top: -0.2rem; margin-bottom: 1.5rem; text-align: center; }
-  
+  .preview-typo figcaption { font-size: 0.85rem; opacity: .75; margin-top: -0.2rem; text-align: center; }
   .preview-typo blockquote {
     margin: 1.5rem 0; padding: 0.5rem 0 0.5rem 1.25rem;
     border-left: 4px solid var(--brand, #fc9c6c); opacity: .95;
@@ -181,22 +174,36 @@ function cleanAndExtract(html: string, baseUrl: string, knownTitle: string | und
 
   wrap.querySelectorAll('noscript,script,style,iframe,form').forEach((n) => n.remove())
 
-  // --- POPRAVEK: ČIŠČENJE SMETI (Datumi, Avtorji, Domene na začetku) ---
-  const junkRegex = /^(?:foto:|photo:|video:|avtor:|pripravil:|vir:|tekst:|delo\.si|24ur\.com|rtvslo\.si|zurnal24|slovenskenovice|n1info|mmc rtv slo|znani|svet|šport|kronika|magazin|vreme|\d{1,2}\.\s+[a-zčšž]+\s+\d{4})/i
+  // --- POPRAVEK: ČISTILEC "SMETI" NA ZAČETKU ---
+  // Regex, ki išče domene, "Foto:", "Avtor:", kategorije in datume
+  const junkRegex = /^(?:foto:|photo:|video:|avtor:|pripravil:|vir:|tekst:|delo\.si|24ur\.com|rtvslo\.si|zurnal24\.si|slovenskenovice\.si|n1info|mmc rtv slo|znani|svet|šport|kronika|magazin|vreme|posel|\d{1,2}\.\s+[a-zčšž]+\s+\d{4})/i
   
   let safety = 0
+  // Zanka, ki preverja prvih 15 elementov
   while (wrap.firstChild && safety < 15) {
     const node = wrap.firstChild
-    const text = (node.textContent || '').trim()
+    const text = (node.textContent || '').replace(/\u00A0/g, ' ').trim()
     
-    if (!text) { node.remove(); continue }
+    // Če je element prazen, ga odstrani
+    if (!text) { 
+      node.remove()
+      continue 
+    }
 
-    // Briši če ustreza regexu ali je zelo kratek tekst (npr. "Znani")
-    if (junkRegex.test(text) || (text.length < 25 && !text.endsWith('.'))) {
+    // 1. Če ustreza Regexu (Foto, delo.si, datum...)
+    // 2. ALI če je tekst zelo kratek (kategorija) in ni stavek (nima pike na koncu)
+    // 3. ALI če je točno "N1" (specifičen primer)
+    if (
+        junkRegex.test(text) || 
+        (text.length < 40 && !text.endsWith('.') && !text.endsWith('?')) || 
+        text.toLowerCase() === 'n1'
+    ) {
       node.remove()
       safety++
       continue
     }
+    
+    // Če pridemo do sem, je verjetno prava vsebina
     break
   }
   // --- KONEC POPRAVKA ---
