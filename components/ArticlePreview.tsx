@@ -26,12 +26,10 @@ const TEXT_PERCENT = 0.60
 const VIA_TEXT = ' — via Križišče (krizisce.si)'
 const AUTO_CLOSE_ON_OPEN = true
 
-// --- CSS (Vrnjen na tvoje originalne nastavitve) ---
 const PREVIEW_TYPO_CSS = `
   .preview-typo { font-size: 1rem; line-height: 1.7; color: inherit; }
   .preview-typo > *:first-child { margin-top: 0 !important; }
   .preview-typo p { margin: 0.75rem 0 1.25rem; }
-  /* Tvoj originalni razmik za H1 */
   .preview-typo h1 { margin: 1.00rem 0 1rem; line-height: 1.25; font-weight: 700; }
   .preview-typo h2, .preview-typo h3, .preview-typo h4 {
     margin: 1.5rem 0 0.5rem; line-height: 1.3; font-weight: 700;
@@ -53,7 +51,7 @@ const PREVIEW_TYPO_CSS = `
   .preview-typo a { text-decoration: underline; text-underline-offset: 2px; color: var(--brand, #fc9c6c); }
 `
 
-/* Icons (nespremenjeno) */
+/* Icons */
 function IconShareIOS(p: React.SVGProps<SVGSVGElement>) { return (<svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" {...p}><path fill="currentColor" d="M12 3c.4 0 .8.16 1.06.44l3 3a1.5 1.5 0 1 1-2.12 2.12L13.5 7.12V14a1.5 1.5 0 1 1-3 0V7.12L9.06 8.56A1.5 1.5 0 0 1 6.94 6.44l3-3C10.2 3.16 10.6 3 11 3h1z"/><path fill="currentColor" d="M5 10.5A2.5 2.5 0 0 0 2.5 13v6A2.5 2.5 0 0 0 5 21.5h14A2.5 2.5 0 0 0 21.5 19v-6A2.5 2.5 0 0 0 19 10.5h-2a1.5 1.5 0 1 0 0 3h2V19H5v-5.5h2a1.5 1.5 0 1 0 0-3H5z"/></svg>) }
 function IconFacebook(p: React.SVGProps<SVGSVGElement>) { return (<svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" {...p}><path fill="currentColor" d="M13 21v-7h2.3l.4-3H13V9.3c0-.9.3-1.5 1.6-1.5H16V5.1C15.6 5 14.7 5 13.7 5 11.5 5 10 6.3 10 8.9V11H7.7v3H10v7h3z"/></svg>) }
 function IconLinkedIn(p: React.SVGProps<SVGSVGElement>) { return (<svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" {...p}><path fill="currentColor" d="M6.5 6.5A2.5 2.5 0 1 1 1.5 6.5a2.5 2.5 0 0 1 5 0zM2 8.8h4.9V22H2zM14.9 8.5c-2.7 0-4 1.5-4.6 2.5V8.8H5.4V22h4.9v-7c0-1.9 1-2.9 2.5-2.9 1.4 0 2.3 1 2.3 2.9V22H20v-7.7c0-3.3-1.8-5.8-5.1-5.8z"/></svg>) }
@@ -147,9 +145,9 @@ function normalizeStemForDedupe(s: string): string {
     .replace(/(-|_)?\d{2,4}x\d{2,4}$/g, '')
     .replace(/(-|_)?\d{2,4}x$/g, '')
     .replace(/-scaled$/g, '')
-    .replace(/\d+/g, '')                              
-    .replace(/[-_]+/g, '')                            
-    .slice(0, 20)                                     
+    .replace(/\d+/g, '')                               
+    .replace(/[-_]+/g, '')                             
+    .slice(0, 20)                                      
 }
 
 /* wait images */
@@ -175,58 +173,6 @@ function cleanAndExtract(html: string, baseUrl: string, knownTitle: string | und
   wrap.innerHTML = html
 
   wrap.querySelectorAll('noscript,script,style,iframe,form').forEach((n) => n.remove())
-
-  // --- POPRAVEK: AGRESIVNI ČISTILEC SMETI (N1, rtvslo.si, Foto:...) ---
-  // Seznam domen in ključnih besed za brisanje
-  const junkPatterns = [
-    /^(foto|photo|video|avtor|pripravil|vir|tekst):/i,
-    /^(delo\.si|24ur\.com|rtvslo\.si|zurnal24|slovenskenovice|n1info|mmc rtv slo|n1)/i,
-    /^\d{1,2}\.\s*[a-zčšž]+\s*\d{4}/i // Datumi
-  ];
-
-  // Agresivna zanka, ki preverja prvih 20 elementov
-  let node = wrap.firstChild;
-  let safety = 0;
-  while (node && safety < 20) {
-    const text = (node.textContent || '').trim();
-    let isJunk = false;
-
-    if (!text) {
-        // Prazne vrstice
-        isJunk = true;
-    } else if (text.length < 100) { 
-        // Če je tekst kratek (pod 100 znakov), preverimo ali je smet
-        
-        // 1. Ali vsebuje prepovedane vzorce (domene, foto, datume)?
-        if (junkPatterns.some(p => p.test(text))) {
-            isJunk = true;
-        } 
-        // 2. Ali je to kategorija (npr. "Znani", "Šport")?
-        else if (['znani', 'svet', 'šport', 'kronika', 'magazin', 'vreme', 'posel', 'slovenija'].includes(text.toLowerCase())) {
-            isJunk = true;
-        }
-        // 3. Ali je kratek stavek BREZ ločila na koncu? (npr. "Ljubljana", "rtvslo.si")
-        // Pravi stavki imajo ponavadi piko, vprašaj ali klicaj.
-        else if (!/[.!?]$/.test(text)) {
-             isJunk = true;
-        }
-    }
-    
-    // Specifični popravki za tvoje primere
-    if (text.toLowerCase() === 'n1') isJunk = true;
-    if (text.toLowerCase().includes('rtvslo.si')) isJunk = true;
-
-    if (isJunk) {
-        const next = node.nextSibling;
-        node.remove();
-        node = next || wrap.firstChild; // Pojdi na naslednjega
-        safety++;
-    } else {
-        // Če najdemo dolg tekst ali pravi stavek, nehaj brisati
-        break;
-    }
-  }
-  // --- KONEC POPRAVKA ---
 
   if (knownTitle) {
     const h = wrap.querySelector('h1, h2, h3')
@@ -658,14 +604,14 @@ export default function ArticlePreview({ url, onClose }: Props) {
                {/* Vir branding - HITRO NALAGANJE (BREZ WESERV) */}
                <div className="flex items-center gap-2">
                   <div className="relative w-4 h-4 shrink-0 rounded-full overflow-hidden">
-                      <NextImage 
-                        src={`/logos/${site.replace('www.','').split('.')[0]}.png`}
-                        alt={site}
-                        fill
-                        className="object-cover"
-                        unoptimized
-                        onError={(e) => { (e.target as HTMLElement).style.display='none' }}
-                      />
+                     <NextImage 
+                       src={`/logos/${site.replace('www.','').split('.')[0]}.png`}
+                       alt={site}
+                       fill
+                       className="object-cover"
+                       unoptimized
+                       onError={(e) => { (e.target as HTMLElement).style.display='none' }}
+                     />
                   </div>
                   <span className="text-sm font-bold text-gray-900 dark:text-gray-100 truncate">{site}</span>
                </div>
