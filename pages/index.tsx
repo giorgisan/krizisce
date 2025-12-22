@@ -11,7 +11,7 @@ import Footer from '@/components/Footer'
 import Header from '@/components/Header'
 import ArticleCard from '@/components/ArticleCard'
 import TrendingCard from '@/components/TrendingCard'
-import TrendingBar, { TrendingWord } from '@/components/TrendingBar' // Uvoz tipa
+import TrendingBar, { TrendingWord } from '@/components/TrendingBar' 
 import SeoHead from '@/components/SeoHead'
 import BackToTop from '@/components/BackToTop'
 import SourceFilter from '@/components/SourceFilter' 
@@ -153,7 +153,7 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
 
   }, [selectedSources, selectedCategory, searchQuery, mode, bootRefreshed])
 
-  // POLLING (Ostane enak)
+  // POLLING
   const missCountRef = useRef(0)
   const timerRef = useRef<number | null>(null)
 
@@ -198,7 +198,7 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
     }
   }, [itemsLatest, bootRefreshed, mode, selectedSources, selectedCategory, searchQuery])
 
-  // REFRESH HANDLER (Ostane enak)
+  // REFRESH HANDLER
   useEffect(() => {
     const onRefresh = () => {
       window.dispatchEvent(new CustomEvent('news-refreshing', { detail: true }))
@@ -227,7 +227,7 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
 
   const visibleNews = mode === 'trending' ? itemsTrending : itemsLatest
 
-  // CURSOR LOGIC (Ostane enak)
+  // CURSOR LOGIC
   useEffect(() => {
     if (mode === 'trending') return 
     if (!visibleNews.length) {
@@ -238,7 +238,7 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
     setCursor(minMs || null)
   }, [visibleNews, mode])
 
-  // PAGINACIJA FUNKCIJE (Ostanejo enake)
+  // PAGINACIJA
   async function fetchPage(cursorVal: number) {
     const qs = new URLSearchParams()
     qs.set('paged', '1')
@@ -336,132 +336,110 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
 
       <SeoHead title="Križišče" description="Agregator najnovejših novic." />
 
-      <main className="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white px-4 md:px-8 lg:px-16 pt-0 pb-8">
+      <main className="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white pb-8">
         
-        {/* --- SPREMENJENA ZGORNJA VRSTICA --- */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between py-4 min-h-[64px] gap-2">
+        {/* --- 1. ODSEK: TABS & KATEGORIJE --- */}
+        <div className="px-4 md:px-8 lg:px-16 pt-4 pb-2 flex flex-wrap items-center justify-between gap-4">
            {selectedCategory === 'vse' ? (
-             <div className="flex flex-wrap items-center gap-2">
-                {/* 1. TABS */}
-                <div className="scale-90 origin-left shrink-0">
-                   <NewsTabs active={mode} onChange={handleTabChange} />
-                </div>
-
-                {/* 2. TRENDING BESEDE (Samo na Desktopu/Tablici zraven tabov) */}
-                {mode === 'latest' && !searchQuery && (
-                  <div className="hidden sm:block overflow-hidden max-w-[50vw]">
-                     <TrendingBar 
-                        words={initialTrendingWords}
-                        selectedWord={searchQuery}
-                        onSelectWord={(word) => {
-                           window.scrollTo({ top: 0, behavior: 'smooth' })
-                           setSearchQuery(word)
-                        }}
-                     />
-                  </div>
-                )}
+             <div className="scale-90 origin-left">
+               <NewsTabs active={mode} onChange={handleTabChange} />
              </div>
            ) : (
-             <div className="flex items-center">
-                <span className="text-2xl font-bold tracking-tight text-gray-900 dark:text-white capitalize">
-                  {currentCategoryLabel}
-                </span>
-             </div>
+             <span className="text-2xl font-bold tracking-tight capitalize">
+               {currentCategoryLabel}
+             </span>
            )}
            
-           {/* --- FILTRI / TRENDING NA MOBILNI --- */}
-           <div className="flex items-center gap-2 justify-between w-full sm:w-auto">
-              
-              {/* Na mobilnih telefonih pokaži trende tukaj (spodaj) */}
-              {mode === 'latest' && selectedCategory === 'vse' && !searchQuery && (
-                 <div className="block sm:hidden flex-1 overflow-hidden">
-                    <TrendingBar 
-                       words={initialTrendingWords}
-                       selectedWord={searchQuery}
-                       onSelectWord={(word) => {
-                          window.scrollTo({ top: 0, behavior: 'smooth' })
-                          setSearchQuery(word)
-                       }}
-                    />
-                 </div>
-              )}
-
-              {selectedSources.length > 0 && (
-                <div className="flex items-center gap-2 ml-auto">
-                   <div className="text-xs text-brand font-medium border border-brand/20 bg-brand/5 px-2 py-1 rounded whitespace-nowrap">
-                     Filtri: {selectedSources.length}
-                   </div>
-                   <button 
-                     onClick={() => setSelectedSources([])} 
-                     className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md transition-colors" 
-                   >
-                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                   </button>
+           {selectedSources.length > 0 && (
+             <div className="flex items-center gap-2">
+                <div className="text-xs text-brand font-medium border border-brand/20 bg-brand/5 px-2 py-1 rounded">
+                  Filtri: {selectedSources.length}
                 </div>
-              )}
-           </div>
+                <button 
+                  onClick={() => setSelectedSources([])} 
+                  className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md" 
+                >
+                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                   </svg>
+                </button>
+             </div>
+           )}
         </div>
 
-        {/* --- PRIKAZ AKTIVNEGA ISKANJA --- */}
-        {searchQuery && (
-           <div className="mb-6 flex items-center gap-2">
-              <span className="text-sm text-gray-500">
-                Rezultati za: <span className="font-bold text-gray-900 dark:text-white">"{searchQuery}"</span>
-              </span>
-              <button 
-                onClick={() => setSearchQuery('')}
-                className="text-xs px-2 py-1 bg-gray-200 dark:bg-gray-800 rounded-md hover:bg-gray-300 dark:hover:bg-gray-700 transition-colors text-gray-700 dark:text-gray-300"
-              >
-                Počisti ✕
-              </button>
-           </div>
+        {/* --- 2. ODSEK: VROČE TEME (Cela širina, svoja vrstica) --- */}
+        {/* Pokažemo le na 'Najnovejše', če ne iščemo in če smo na 'Vse' */}
+        {mode === 'latest' && selectedCategory === 'vse' && !searchQuery && (
+            <TrendingBar 
+               words={initialTrendingWords}
+               selectedWord={searchQuery}
+               onSelectWord={(word) => {
+                  window.scrollTo({ top: 0, behavior: 'smooth' })
+                  setSearchQuery(word)
+               }}
+            />
         )}
 
-        {/* --- SEZNAM NOVIC (Enako kot prej) --- */}
-        {isRefreshing && visibleNews.length === 0 ? (
-           <div className="flex flex-col items-center justify-center pt-20 pb-20">
-             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand mb-4"></div>
-             <p className="opacity-60">Iščem novice ...</p>
-           </div>
-        ) : visibleNews.length === 0 ? (
-          <div className="flex flex-col items-center justify-center pt-20 pb-20 text-center">
-              {searchQuery ? (
-                 <p className="opacity-60">Ni rezultatov za iskanje &quot;{searchQuery}&quot;.</p>
-              ) : (
-                 <p className="opacity-60">Trenutno ni novic s temi filtri.</p>
-              )}
-          </div>
-        ) : (
-          <div className={gridClasses}>
-            {visibleNews.map((article, i) => (
-              <div key={article.link + '|' + i} className="col-span-1">
-                {mode === 'trending' ? (
-                  <div className="h-full"><TrendingCard news={article as any} /></div>
-                ) : (
-                  <ArticleCard 
-                     news={article as any} 
-                     priority={i < 10} 
-                  />
-                )}
-              </div>
-            ))}
-          </div>
-        )}
+        {/* --- 3. VSEBINA --- */}
+        <div className="px-4 md:px-8 lg:px-16">
+            
+            {/* PRIKAZ AKTIVNEGA ISKANJA */}
+            {searchQuery && (
+            <div className="mb-6 flex items-center gap-2">
+                <span className="text-sm text-gray-500">
+                    Rezultati za: <span className="font-bold text-gray-900 dark:text-white">"{searchQuery}"</span>
+                </span>
+                <button 
+                    onClick={() => setSearchQuery('')}
+                    className="text-xs px-2 py-1 bg-gray-200 dark:bg-gray-800 rounded-md hover:bg-gray-300 dark:hover:bg-gray-700 transition-colors"
+                >
+                    Počisti ✕
+                </button>
+            </div>
+            )}
 
-        {/* LOAD MORE BUTTON */}
-        {mode === 'latest' && hasMore && visibleNews.length > 0 && (
-          <div className="text-center mt-8 mb-4">
-            <button
-              onClick={handleLoadMore}
-              disabled={isLoadingMore}
-              className="px-6 py-2.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white rounded-full hover:bg-gray-50 dark:hover:bg-gray-700 transition-all shadow-sm font-medium disabled:opacity-50"
-            >
-              {isLoadingMore ? 'Nalagam...' : 'Naloži več novic'}
-            </button>
-          </div>
-        )}
+            {isRefreshing && visibleNews.length === 0 ? (
+                <div className="flex flex-col items-center justify-center pt-20 pb-20">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand mb-4"></div>
+                    <p className="opacity-60">Iščem novice ...</p>
+                </div>
+            ) : visibleNews.length === 0 ? (
+                <div className="flex flex-col items-center justify-center pt-20 pb-20 text-center">
+                    {searchQuery ? (
+                        <p className="opacity-60">Ni rezultatov za iskanje &quot;{searchQuery}&quot;.</p>
+                    ) : (
+                        <p className="opacity-60">Trenutno ni novic s temi filtri.</p>
+                    )}
+                </div>
+            ) : (
+                <div className={gridClasses}>
+                    {visibleNews.map((article, i) => (
+                    <div key={article.link + '|' + i} className="col-span-1">
+                        {mode === 'trending' ? (
+                        <div className="h-full"><TrendingCard news={article as any} /></div>
+                        ) : (
+                        <ArticleCard 
+                            news={article as any} 
+                            priority={i < 10} 
+                        />
+                        )}
+                    </div>
+                    ))}
+                </div>
+            )}
+
+            {mode === 'latest' && hasMore && visibleNews.length > 0 && (
+            <div className="text-center mt-8 mb-4">
+                <button
+                onClick={handleLoadMore}
+                disabled={isLoadingMore}
+                className="px-6 py-2.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white rounded-full hover:bg-gray-50 dark:hover:bg-gray-700 transition-all shadow-sm font-medium disabled:opacity-50"
+                >
+                {isLoadingMore ? 'Nalagam...' : 'Naloži več novic'}
+                </button>
+            </div>
+            )}
+        </div>
       </main>
 
       <BackToTop threshold={200} />
@@ -470,7 +448,7 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
   )
 }
 
-/* ================= SSR: Tukaj nalagamo novice IN trende ================= */
+/* ================= SSR ================= */
 export const getServerSideProps: GetServerSideProps = async ({ res }) => {
   res.setHeader(
     'Cache-Control',
@@ -493,26 +471,22 @@ export const getServerSideProps: GetServerSideProps = async ({ res }) => {
     .order('id', { ascending: false })
     .limit(25)
 
-  // 2. Fetch Trending Words (Server-side RPC klic)
-  // SPREMEMBA: Povečano na 48 ur in dodan varnostni log spodaj
+  // 2. Fetch Trending Words
   const trendsPromise = supabase.rpc('get_trending_words', {
-     hours_lookback: 48,
+     hours_lookback: 48, // 48 ur
      limit_count: 8
   })
 
-  // Počakamo na oboje hkrati
   const [newsRes, trendsRes] = await Promise.all([newsPromise, trendsPromise])
 
-  // --- DEBUGGING: Izpiše stanje v VS Code terminal ---
+  // DEBUG
   if (trendsRes.error) {
      console.error('❌ NAPAKA PRI TRENDIH:', trendsRes.error)
   } else {
      const count = Array.isArray(trendsRes.data) ? trendsRes.data.length : 0
      console.log(`✅ TRENDI USPEŠNI: Najdenih ${count} besed.`)
   }
-  // --------------------------------------------------
 
-  // Obdelava novic
   const rows = (newsRes.data ?? []) as any[]
   const initialNews: NewsItem[] = rows.map((r) => {
     const link = r.link || ''
@@ -528,7 +502,6 @@ export const getServerSideProps: GetServerSideProps = async ({ res }) => {
     }
   })
 
-  // Obdelava trendov
   const initialTrendingWords: TrendingWord[] = (trendsRes.data as TrendingWord[]) || []
 
   return { 
