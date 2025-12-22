@@ -26,29 +26,24 @@ export const CATEGORIES: CategoryDef[] = [
     label: 'Slovenija',
     color: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300',
     keywords: [
-        // LOKALNO & REGIJE
         '/slovenija/', '/lokalno/', '/obcine/', '/regije/', '/lokalne-novice/',
         'ljubljana', 'maribor', 'celje', 'koper', 'kranj', 'novo mesto', 'velenje', 'nova gorica', 'ptuj', 'murska sobota',
         '/stajerska/', '/dolenjska/', '/primorska/', '/gorenjska/', '/prekmurje/', '/koroska/', '/zasavje/', '/posavje/',
         'obcina', 'zupan', 'obcinski svet', 'komunala', 'vodovod', 'kanalizacija', 'ceste', 'prenova',
         
-        // POLITIKA & DRUŽBA
         '/volitve/', 'vlada', 'parlament', 'drzavni zbor', 'poslanci', 'ministrstvo', 'minister', 'premier',
         'pirc musar', 'golob', 'jansa', 'tonin', 'mesec', 'fajon', 'logar', 
         'gibanje svoboda', 'sds', 'nsi', 'levica', 'sd', 'resni.ca', 'pirati', 'vesna',
         'referendum', 'ustavno sodisce', 'zakon', 'novela', 'soocenje', 'anketa', 'javno mnenje',
         'upokojenc', 'pokojnin', 'zpis', 'socialni transferji', 'minimalna placa', 'sindikat', 'stavka', 'protest',
         
-        // JAVNI SEKTOR
         'zdravstvo', 'zdravstveni dom', 'ukc', 'sb ', 'fides', 'cakalne dobe', 'koncesij', 
         'solstvo', 'ucitelji', 'matura', 'vpis v sole', 'vrtec',
         
-        // RUBRIKE & PISMA
         '/mnenja/', '/kolumne/', '/pisma-bralcev/', '/sobotna-priloga/', '/preverjamo/', '/stevilke/',
         'vreme', 'arso', 'napoved', 'sneg', 'dez', 'neurje', 'toca',
         'dobrodeln', 'zbiranje pomoci', 'pomoc', 'gasilska zveza',
 
-        // PRAZNIKI (NOVO)
         'prazniki', 'dela prosti', 'koledar', 'novo leto', 'prvi maj', 'bozicnica', 'regres', 'izplen'
     ]
   },
@@ -58,15 +53,12 @@ export const CATEGORIES: CategoryDef[] = [
     color: 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300',
     keywords: [
         '/svet/', '/tujina/', '/evropa/', '/zda/', '/globalno/',
-        // KONFLIKTI
         'ukrajina', 'rusija', 'putin', 'zelenski', 'kijev', 'moskva',
         'gaza', 'izrael', 'palestina', 'hamas', 'netanjahu', 'bliznji vzhod', 'rdece morje', 'hutiji', 'jemen', 'libanon', 'hezbolah',
         'kitajska', 'tajvan', 'severna koreja', 'iran',
-        // POLITIKA ZDA & EU
         'bela hisa', 'trump', 'biden', 'kamala', 'republikanci', 'demokrati', 'kongres',
         'eu', 'evropska komisija', 'evropski parlament', 'von der leyen', 'nato', 'zman', 
         'scholz', 'macron', 'orban', 'vucic', 'plenkovic',
-        // DRUGO
         'potres', 'poplave v tujini', 'letalska nesreca', 'terorist', 'napad',
         'epstein', 'windsor', 'kralj', 'papez'
     ]
@@ -92,14 +84,10 @@ export const CATEGORIES: CategoryDef[] = [
     color: 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300',
     keywords: [
         '/sport/', '/sportal/', '/sport-', 
-        // NOGOMET
         'nogomet', 'prva liga', 'maribor', 'olimpija', 'mura', 'celje', 'reprezentanca', 'kek', 'oblack', 'sesko',
         'liga prvakov', 'uefa', 'fifa', 'real madrid', 'barcelona', 'manchester', 'liverpool',
-        // KOŠARKA
         'kosarka', 'nba', 'dallas', 'doncic', 'lukamagic', 'dragic', 'cedevita', 'olimpija', 'euroleague',
-        // ZIMSKI
         'smucanje', 'skoki', 'planica', 'kranjska gora', 'shiffrin', 'odermatt', 'lanisek', 'prevc', 'zajc', 'kriznar',
-        // OSTALO
         'kolesarstvo', 'pogacar', 'roglic', 'tour de france', 'giro', 'vuelta',
         'odbojka', 'rokomet', 'atletika', 'tenis', 'djokovic', 'nadal', 'alkaraz',
         'plezanje', 'garnbret', 'motogp', 'formula 1', 'verstappen', 'hamilton'
@@ -110,7 +98,6 @@ export const CATEGORIES: CategoryDef[] = [
     label: 'Posel & Tehnologija',
     color: 'bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-300',
     keywords: [
-        // POSEL & EKONOMIJA
         '/gospodarstvo/', '/posel/', '/finance/', '/borza/', '/podjetnistvo/',
         'delnice', 'kripto', 'bitcoin', 'ethereum', 'inflacija', 'obrestne mere', 'ecb', 'euribor',
         'banka', 'nlb', 'nkbm', 'poslovanje', 'dobicek', 'izguba', 'stecaj', 'prihodki',
@@ -118,8 +105,8 @@ export const CATEGORIES: CategoryDef[] = [
         'energetika', 'hse', 'gen-i', 'elektrika', 'plin', 'nafta', 'bencin', 'dizel', 'cene goriv',
         'nepremicnine', 'stanovanja', 'najemnine', 'gradbenistvo',
         'sindikat', 'zaposlitev', 'trg dela', 'brezposelnost',
+        'evrov', 'evra', 'cena', 'stroski', 'draginja',
         
-        // TECH
         '/znanost/', '/tehnologija/', '/tech/', '/it/', '/telekomunikacije/',
         'apple', 'iphone', 'samsung', 'galaxy', 'xiaomi', 'huawei', 'honor', 'sony',
         'google', 'microsoft', 'meta', 'facebook', 'instagram', 'tiktok', 'x', 'twitter',
@@ -144,31 +131,32 @@ export const CATEGORIES: CategoryDef[] = [
     label: 'Življenjski slog',
     color: 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900/40 dark:text-cyan-300',
     keywords: [
-        // ZDRAVJE & POČUTJE (Osebno)
-        '/zdravje/', '/dobro-pocutje/', '/duhovnost/', 
+        '/zdravje/', '/dobro-pocutje/', '/duhovnost/', '/stil/',
         'bolezen', 'simptomi', 'zdravnik', 'rak ', 'srce', 'diabetes', 'tlak', 'holesterol',
         'hujsanje', 'dieta', 'vadba', 'fitnes', 'joga', 'stres', 'izgorelost', 'spanje', 'nespecnost',
         'vitamin', 'mineral', 'prehransko dopolnilo', 'imunski sistem',
         'spanec', 'spanje', 'telesna aktivnost', 'studija',
 
-        // ODNOSI & PSIHOLOGIJA (NOVO)
-        'odnosi', 'partnerstvo', 'samski', 'zmenki', 'toksicn', 'custva', 'psihologija', 
+        // ODNOSI (Samsko življenje)
+        'odnosi', 'partnerstvo', 'samsk', 'zmenki', 'toksicn', 'custva', 'psihologija', 
         'locitev', 'razhod', 'sreca', 'zadovoljstvo', 'osamljenost',
         
-        // HRANA
         '/kulinarika/', '/okusno/', '/recepti/', 
         'recept', 'kosilo', 'vecerja', 'sladica', 'pecivo', 'torta', 'kuhanje', 'pecenje',
         'sestavine', 'jedi', 'gastronomija', 'michelin',
         
-        // DOM & VRT
+        // KOMERCIALNI LIFESTYLE (Reši "Božični dan po Deluxe okusu")
+        'lidl', 'hofer', 'spar', 'mercator', 'deluxe', 'gurman', 'akcija', 'ponudba',
+        
+        // DOM & VRT (Reši "Top 10 hiš")
         '/dom/', '/vrt/', '/bivanje/', 
         'hisa', 'stanovanje', 'interier', 'notranja oprema', 'prenova', 'dekoracija',
         'vrtnarjenje', 'rastline', 'cvetje', 'zelenjavni vrt', 'sadno drevje',
         'gradnja', 'montazna hisa', 'lumar', 'toplotna crpalka', 'ogrevanje', 'soncna elektrarna',
         'ciscenje', 'pospravljanje', 'nasveti', 'triki',
         'blagoslov', 'tradicij', 'navad', 'montazn', 'novogradnj', 'nepremicnin',
+        'his ', 'hisah', // Kratke besede (zdaj delujejo zaradi spremembe pogoja)
         
-        // POTOVANJA
         '/potovanja/', '/izleti/', '/turizem/', 
         'dopust', 'počitnice', 'morje', 'hribi', 'izlet', 'hotel', 'kampiranje'
     ]
@@ -191,19 +179,18 @@ export const CATEGORIES: CategoryDef[] = [
     label: 'Magazin',
     color: 'bg-pink-100 text-pink-800 dark:bg-pink-900/40 dark:text-pink-300',
     keywords: [
-        // TRAČI & ZNANI
         '/magazin/', '/scena/', '/zvezde/', '/zabava/', '/traci/', '/bulvar/',
         'kardashian', 'royal', 'kraljeva druzina', 'harry', 'meghan', 'william', 'kate',
         'jagger', 'madonna', 'shakira', 'taylor swift',
         'slovenski estradniki', 'znani slovenci', 'vplivnezi', 'influencer',
         'ločitev', 'poroka', 'nosečnost', 'afera', 'škandal',
         
-        // ZABAVNA TV & KVIZI (NOVO)
+        // ZABAVNA TV & SERIJE (Reši "To so serije")
         'kmetija', 'sanjski moski', 'poroka na prvi pogled', 'slovenija ima talent', 'zvezde plesejo', 'masterchef',
         'evrovizija', 'ema',
         'lovci', 'kviz', 'joker', 'milijonar', 'kolo srece', 'tv oddaja', 'televizij', 'voditelj', 'voditeljica',
+        'serija', 'serije', 'streaming', 'netflix', 'hbo', 'skyshowtime', 'voyo',
         
-        // RAZVEDRILO
         'horoskop', 'astro', 'zodiak', 'napoved za',
         'viralno', 'smesno', 'video', 'foto', 'sokantno', 'ganljivo',
         'kviz', 'uganka', 'zanimivosti'
@@ -212,17 +199,16 @@ export const CATEGORIES: CategoryDef[] = [
 ]
 
 // --- PRIORITETA PREVERJANJA ---
-// Vrstni red je ključen za pravilno razvrščanje
 const PRIORITY_CHECK_ORDER: CategoryId[] = [
-  'sport',        // 1. Zelo specifičen besednjak (imena klubov, športnikov)
-  'moto',         // 2. Specifično (modeli avtov)
-  'posel-tech',   // 3. Specifično (podjetja, tech pojmi)
-  'svet',         // 4. Geopolitika in tujina
-  'kronika',      // 5. Policija in nesreče (da ne gre v "Slovenija" ali "Magazin")
-  'kultura',      // 6. Umetnost
-  'slovenija',    // 7. Vse ostalo lokalno (občine, politika, šolstvo, zdravstvo-sistem)
-  'lifestyle',    // 8. Osebno zdravje, odnosi, dom (če ni padlo v Slovenijo/Zdravstvo)
-  'magazin'       // 9. Zadnje sito (trači, horoskop, viralno, kvizi)
+  'sport',        
+  'moto',         
+  'posel-tech',   
+  'svet',         
+  'kronika',      
+  'kultura',      
+  'slovenija',    
+  'lifestyle',    
+  'magazin'       
 ]
 
 const unaccent = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
@@ -236,8 +222,7 @@ export function determineCategory(item: {
   
   const url = item.link.toLowerCase()
   
-  // 1. PREVERJANJE URL-JA (Najmočnejši indikator)
-  // Če je v URL-ju "/sport/", je to skoraj zagotovo šport.
+  // 1. PREVERJANJE URL-JA
   for (const id of PRIORITY_CHECK_ORDER) {
     const cat = CATEGORIES.find(c => c.id === id)
     if (cat && cat.keywords.some(k => k.startsWith('/') && url.includes(k))) {
@@ -245,16 +230,16 @@ export function determineCategory(item: {
     }
   }
 
-  // 2. PREVERJANJE RSS KATEGORIJ (Če obstajajo)
+  // 2. PREVERJANJE RSS KATEGORIJ
   if (item.categories && item.categories.length > 0) {
     const rssCats = item.categories.map(c => unaccent(c)).join(' ')
     for (const id of PRIORITY_CHECK_ORDER) {
       const cat = CATEGORIES.find(c => c.id === id)
       if (cat && cat.keywords.some(k => {
-         // Odstranimo poševnice za primerjavo s čistim tekstom
          const cleanK = unaccent(k.replace(/\//g, '')) 
-         // Iščemo samo ključne besede daljše od 3 znakov, da se izognemo napakam
-         return cleanK.length > 3 && rssCats.includes(cleanK) 
+         // --- SPREMEMBA: DOLŽINA > 2 (prej > 3) ---
+         // To omogoča, da besede kot "his", "dom", "pot" primejo
+         return cleanK.length > 2 && rssCats.includes(cleanK) 
       })) {
         return cat.id
       }
@@ -265,7 +250,8 @@ export function determineCategory(item: {
   const combinedText = unaccent((item.title || '') + ' ' + (item.contentSnippet || ''))
   for (const id of PRIORITY_CHECK_ORDER) {
     const cat = CATEGORIES.find(c => c.id === id)
-    if (cat && cat.keywords.some(k => !k.startsWith('/') && k.length > 3 && combinedText.includes(unaccent(k)))) {
+    // --- SPREMEMBA: DOLŽINA > 2 (prej > 3) ---
+    if (cat && cat.keywords.some(k => !k.startsWith('/') && k.length > 2 && combinedText.includes(unaccent(k)))) {
       return cat.id
     }
   }
