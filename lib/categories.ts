@@ -6,7 +6,8 @@ export type CategoryId =
   | 'kronika' 
   | 'sport' 
   | 'magazin'       
-  | 'posel-tech'    // ZDRUŽENO: Gospodarstvo + Tech
+  | 'lifestyle'     // NOVO: Ločeno od Magazina (Zdravje, Dom, Recepti)
+  | 'posel-tech'    
   | 'moto'            
   | 'kultura'
   | 'oglas' 
@@ -37,8 +38,11 @@ export const CATEGORIES: CategoryDef[] = [
         'vlak', 'potniki', 'zeleznis', 'tir', 'sz', 'zeleznice', 'avtobus', 'lpp',
         'vreme', 'arso', 'vremenska', 'sneg', 'dezevje', 'poplave', 'neurje', 'toča', 'ciklon', 'temperatura', 'prognostik',
         'dobrodeln', 'zbiranje pomoci', 'pomoc', 'gasilska zveza',
-        // DODANO (Politika & Družba):
-        'pirc musar', 'golob', 'narodna enotnost', 'osebnost leta', 'predsednica'
+        
+        // POLITIKA (DODANO na podlagi tvojih primerov):
+        'pirc musar', 'golob', 'narodna enotnost', 'osebnost leta', 'predsednica',
+        'gibanje svoboda', 'sds', 'nsi', 'stranka', 'resni.ca', 'zoran stevanovic', 'levica', 'sd',
+        'anketa', 'javnomnenjsk', 'podpora vladi', 'upokojenc', 'pokojnin', 'zpis'
     ]
   },
   {
@@ -51,8 +55,8 @@ export const CATEGORIES: CategoryDef[] = [
         'evropska-unija', 'evropski-parlament', 'scholz', 'macron', 'biden', 'putin', 'zelenski', 'von der leyen',
         'kitajska', 'indija', 'iran', 'severna koreja', 'spopad', 'geopolitika',
         'bela hisa', 'white house',
-        // DODANO (Tujina & Škandali):
-        'epstein', 'albanij', 'nemcij', 'zavetisc' // Koreni besed za Albanija/Nemčija/Zavetišča
+        'melania', 'vance', 'kamala', 'republikan', 'demokrat',
+        'epstein', 'albanij', 'nemcij', 'zavetisc' 
     ]
   },
   {
@@ -67,7 +71,9 @@ export const CATEGORIES: CategoryDef[] = [
         'gorska resevalna', 'resevalci', 'intervencija', 'pozar', 'utonil', 'truplo',
         'pripor', 'privedli', 'zasegli', 'preiskava', 'osumljenci', 'krivda', 'obtozba',
         'pijan', 'vinjen', 'alkoholiziran', 'nadlegoval', 'krsitev', 'javni red', 'mir', 
-        'nasilje', 'prekrsek', 'krical', 'razgrajal'
+        'nasilje', 'prekrsek', 'krical', 'razgrajal',
+        // DODANO:
+        'petarda', 'pirotehnik', 'eksplozij', 'poskodba'
     ]
   },
   {
@@ -84,49 +90,31 @@ export const CATEGORIES: CategoryDef[] = [
     ]
   },
   {
-    id: 'magazin',
-    label: 'Magazin',
-    color: 'bg-pink-100 text-pink-800 dark:bg-pink-900/40 dark:text-pink-300',
+    id: 'lifestyle',
+    label: 'Življenjski slog',
+    color: 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900/40 dark:text-cyan-300',
     keywords: [
-        '/magazin/', '/popin/', '/trendi/', '/scena/', '/zvezde/', '/zabava/', 
-        '/lifestyle/', '/kulinarika/', '/okusno/', '/astro/', 'suzy', 'lady', 'dom-in-vrt',
-        '/nedeljski/', '/zdravje/', '/lepota/', '/odnosi/', '/bivanje/', '/zanimivosti/', '/duhovnost/',
-        '/nedelo/', '/pop-30/',
-        '/spotkast/', 
-        '/traci/', 
-        'druzina', 'starsa', 'otroci',
-        'okrevanje', 'kap ', 'mozganska',
+        // SPLOŠNO
+        '/lifestyle/', '/zdravje/', '/lepota/', '/odnosi/', '/bivanje/', '/kulinarika/', '/okusno/',
+        '/dom-in-vrt/', '/potovanja/', '/ture-avanture/', '/dobro-pocutje/', '/slog/',
         
-        // ZDRAVJE in WELLNESS
-        'zdravje', 'bolezen', 'ambulanta', 'zdravnik', 'medicina', 'bolniska', 'zdravstvo', 'srce', 'jetra', 'mineral', 'vitamin',
-        'bakterij', 'prebav', 'kosti', 'zivilo', 'repa', 'superzelenjava', 'rak ', 'simptomi', 'bolecine', 'imunski sistem',
-        'holesterol', 'krvni tlak', 'sladkorna', 'dieta', 'hujsanje', 'vadba', 'recept', 'kalorije',
-        'savna', 'wellness', 'spa', 'masaza',
-        // LIFESTYLE
-        'prosti-cas', 'nedeljski', 'izleti', 'dobro-pocutje', '/ture-avanture/',
-        '/bulvar/', '/tuji-traci/', '/domaci-traci/', '/ljudje/', '/stil/', 
-        '/zabava-in-slog/', 'svet-zavoda', 'na-lepse', 'vrt', 'recepti', 'horoskop', 
-        'zodiak', 'znamenje',
-        '/tv-oddaje/', 'resnicnostni-sov', 'kmetija', 'ljubezen-po-domace', 'sanjski-moski', 'poroka-na-prvi-pogled', 'slovenija-ima-talent',
-        '/znani/', '/osebna-rast/', '/nedeljske-novice/', '/lepota-bivanja/', '/napovedujemo/',
-        'senidah', 'koncert', 'stozice', 'evrovizij', 'ema',
-        'noseca', 'pricakuje-otroka', 'zvezdnik', 'partner', 'poroka', 'locitev',
-        'custva', 'psihologija', 'sreca', 'odnosi', 'seks', 'ljubezen',
-        'nostalgija', 'spomini', 'obletnica',
-        '/dom/', '/dekor/', '/gospodinjstvo/', '/gradnja-obnova/', '/pod-streho/',
-        'kosilo', 'sladica', 'kuhar', 'jedilnik', 'prehrana', 
-        'potovanje', 'izlet', 'popotnik', 'dozivetje', 'turist',
-        'gradnja', 'hisna', 'vrtnarjenje', 'ciscenje', 'madezi', 'triki',
-        'bozic', 'prazniki', 'darila', 'jelka', 'okraski', 'advent',
-        'vplivnez', 'moda', 'lepota', 'manekenka', 'kraljeva',
-        'viral', 'posnetek', 
-        'upokojen', 'senior', 'starost',
-        'coach', 'trener', 'cilj', 'motivacija', 'uspeh', 'karier',
-        'navdih', 'zadovoljstvo', 'nasvet',
-        'nakup', 'trgovin', 'obdarovanje', 'darilo', 'stres', 'praznicn',
-        'interier', 'arhitektura',
-        // DODANO:
-        'jagger', 'jackson' // Glasbene ikone
+        // HRANA & RECEPTI
+        'recept', 'kuhinja', 'kuhar', 'kosilo', 'sladica', 'pecivo', 'torta', 'potica', 'piškoti',
+        'jedilnik', 'prehrana', 'zivilo', 'sestavin', 'glavna jed', 'zajtrk', 'vecerja',
+        'kislo zelje', 'matevz', 'pečenka', 'grah', 'zelenjava', 'sadje', 'meso',
+        
+        // ZDRAVJE & WELLNESS (Pokrije tvoj primer s spancem)
+        'zdravnik', 'medicina', 'bolniska', 'srce', 'jetra', 'mineral', 'vitamin',
+        'bakterij', 'prebav', 'kosti', 'repa', 'rak ', 'simptomi', 'bolecine', 'imunski sistem',
+        'holesterol', 'krvni tlak', 'sladkorna', 'dieta', 'hujsanje', 'vadba', 'kalorije',
+        'savna', 'wellness', 'spa', 'masaza', 'okrevanje', 'kap ', 'mozganska',
+        'spanec', 'spanje', 'telesna aktivnost', 'studija',
+        
+        // DOM & VRT & OBIČAJI (Pokrije blagoslov doma)
+        '/dom/', '/dekor/', 'gospodinjstvo', 'gradnja-obnova', 'pod-streho',
+        'vrtnarjenje', 'ciscenje', 'madezi', 'triki', 'interier', 'arhitektura', 'prenova doma',
+        'bozic', 'prazniki', 'darila', 'jelka', 'okraski', 'advent', 'nakupovanje',
+        'blagoslov', 'tradicij', 'navad'
     ]
   },
   {
@@ -134,25 +122,21 @@ export const CATEGORIES: CategoryDef[] = [
     label: 'Posel & Tehnologija',
     color: 'bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-300',
     keywords: [
-        // GOSPODARSTVO KEYWORDS
+        // GOSPODARSTVO
         '/gospodarstvo/', '/posel/', '/finance/', '/borza/', 'kripto', 'delnice', 'podjetnistvo', 
-        '/posel-danes/',
-        'banke', 'druzbe', 'posel-danes', 'gospodarstvo', 'inflacija', 'bitcoin', 'evro', 
+        '/posel-danes/', 'banke', 'druzbe', 'gospodarstvo', 'inflacija', 'bitcoin', 'evro', 
         'zaposlitev', 'sluzba', 'odpustili', 'delavec', 'poklic', 'podjetje', 'direktor', 'stecaj',
         'energetika', 'elektrika', 'podrazitev', 'mastercard', 'nlb', 'prihodki', 'dobicek', 'izguba',
         'bdp', 'obrestne mere', 'ecb', 'lagarde', 'nafta', 'plin', 'nepremicnine', 'stanovanja',
-        'pokojnina', 'upokojenec', 'delovna doba', 'zpis', 'pravni nasvet', 'zavarovanje', 'prispevki',
-        'hse', 'elektrarn', 'termoelektrarn', 'premog', 'rudarjenje', 'letalsk', 'letalisce', 'brnik', 'adria', 'lufthansa', 'eurowings',
+        'zavarovanje', 'prispevki', 'davki', 'furs', 'evrov', 'evra', 'cena', 'stroski', 'draginja',
         
-        // TECH KEYWORDS
-        '/znanoteh/', 
-        '/znanost/', '/tehnologija/', '/tech/', '/digisvet/', '/znanost-in-tehnologija/', '/digitalna-odpornost/',
+        // TECH & TELEFONI (Pokrije tvoj Honor primer)
+        '/znanoteh/', '/znanost/', '/tehnologija/', '/tech/', '/digisvet/', 
         'vesolje', 'telefoni', 'racunalnistvo', 'pametni', 
-        'umetna-inteligenca', 'ai', 'kriptovalute',
-        'apple', 'samsung', 'google', 'microsoft', 'nvidia', 'chatgpt', 'openai', 'xiaomi', 'huawei',
-        'inovacije', 'razvoj', 'digitalno', 'nasa', 'spacex', 'astronomija', 'mars', 'rover', 'komet',
-        'aplikacija', 'internet', 'kibernet', 'android', 'ios', 'windows', 'linux', 'robotika',
-        'dinozaver', 'pterozaver', 'fosil', 'odkritje', 'vrsta', 'znanoteh', 'dnk', 'genetika'
+        'umetna-inteligenca', 'ai', 'kriptovalute', 'recenzija', 'test',
+        'apple', 'samsung', 'google', 'microsoft', 'nvidia', 'chatgpt', 'openai', 'xiaomi', 'huawei', 'honor',
+        'inovacije', 'razvoj', 'digitalno', 'nasa', 'spacex', 'astronomija', 'mars', 'rover', 'aplikacija', 
+        'internet', 'android', 'ios', 'windows', 'linux', 'robotika'
     ]
   },
   {
@@ -160,8 +144,7 @@ export const CATEGORIES: CategoryDef[] = [
     label: 'Mobilnost', 
     color: 'bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-300',
     keywords: [
-        '/auto/', '/avto/', 
-        '/avtomobilnost/', '/avtomobilno/', '/avtomoto/', '/svet-vozil/',        
+        '/auto/', '/avto/', '/avtomobilnost/', '/avtomobilno/', '/avtomoto/', '/svet-vozil/',        
         '/mobilnost/', '/motociklizem/', '/avtomotosport/', 
         'vozila', 'promet', 'elektricna-vozila', 'testi', 
         'avtomobilizem', 'volkswagen', 'bmw', 'audi', 'tesla', 'dizel', 'bencin', 'hibrid',
@@ -170,6 +153,23 @@ export const CATEGORIES: CategoryDef[] = [
         'formula-1', 'f1', 'verstappen', 'hamilton', 'rally', 'moto-gp', 'dirka', 
         'motorji', 'zgorevanjem', 'avtomobilska-industrija', 'vinjeta', 'dars', 'cestnina', 'predor',
         'kazen', 'kazni', 'globa'
+    ]
+  },
+  {
+    id: 'magazin',
+    label: 'Magazin',
+    color: 'bg-pink-100 text-pink-800 dark:bg-pink-900/40 dark:text-pink-300',
+    keywords: [
+        '/magazin/', '/popin/', '/trendi/', '/scena/', '/zvezde/', '/zabava/', '/traci/',
+        '/svet-znanih/', '/bulvar/', '/tuji-traci/', '/domaci-traci/', '/ljudje/',
+        '/spotkast/', 'suzy', 'lady', '/nedelo/', '/pop-30/',
+        'zvezdnik', 'vplivnez', 'znani', 'slavni', 'koncert', 'nastop', 'spektakel',
+        'senidah', 'joker out', 'evrovizij', 'ema', 'talent',
+        'jagger', 'jackson', 'kardashian', 'kraljeva', 'princ', 'harry', 'meghan',
+        'gaber', 'partner', 'ločitev', 'razhod', 'poroka', 'noseca', 'otrok',
+        'horoskop', 'znamenje', 'astro', 'zodiak',
+        'resnicnostni', 'kmetija', 'sanjski', 'ljubezen po domace', 'poroka na prvi',
+        'viral', 'video', 'foto', 'posnetek', 'sokantno', 'ganljivo', 'presenečenje'
     ]
   },
   {
@@ -189,17 +189,18 @@ export const CATEGORIES: CategoryDef[] = [
   }
 ]
 
-// --- POMEMBNO: VRSTNI RED PREVERJANJA URL-JEV ---
-// Šport je zdaj na PRVEM MESTU. Če URL vsebuje /sport/, bo 100% šport.
+// --- VRSTNI RED PREVERJANJA URL-JEV ---
+// Magazin in Lifestyle sta na koncu, da resne novice (Tech, Svet) ne "padejo" tja
 const PRIORITY_CHECK_ORDER: CategoryId[] = [
-  'sport',        // 1. ŠPORT
-  'kronika',      // 2. KRONIKA (Mora biti pred slovenijo)
-  'moto',         // 3. AVTO-MOTO
-  'kultura',      // 4. KULTURA
-  'magazin',      // 5. MAGAZIN
-  'posel-tech',   // 6. POSEL & TECH
-  'svet',         // 7. SVET
-  'slovenija'     // 8. SLOVENIJA (Fallback za vse ostalo lokalno)
+  'sport',        // 1.
+  'moto',         // 2.
+  'posel-tech',   // 3. (Telefoni, Cene)
+  'svet',         // 4.
+  'kronika',      // 5. (Petarde, nesreče)
+  'kultura',      // 6.
+  'slovenija',    // 7. (Politika, lokalno)
+  'lifestyle',    // 8. (Recepti, zdravje)
+  'magazin'       // 9. (Trači, horoskop)
 ]
 
 const unaccent = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
@@ -213,7 +214,7 @@ export function determineCategory(item: {
   
   const url = item.link.toLowerCase()
   
-  // 1. URL CHECK (ABSOLUTNA PRIORITETA)
+  // 1. URL CHECK
   for (const id of PRIORITY_CHECK_ORDER) {
     const cat = CATEGORIES.find(c => c.id === id)
     if (cat && cat.keywords.some(k => k.startsWith('/') && url.includes(k))) {
@@ -221,7 +222,7 @@ export function determineCategory(item: {
     }
   }
 
-  // 2. RSS tags check
+  // 2. RSS TAGS CHECK
   if (item.categories && item.categories.length > 0) {
     const rssCats = item.categories.map(c => unaccent(c)).join(' ')
     for (const id of PRIORITY_CHECK_ORDER) {
@@ -235,7 +236,7 @@ export function determineCategory(item: {
     }
   }
 
-  // 3. Title/Snippet check
+  // 3. TITLE/SNIPPET CHECK
   const combinedText = unaccent((item.title || '') + ' ' + (item.contentSnippet || ''))
   for (const id of PRIORITY_CHECK_ORDER) {
     const cat = CATEGORIES.find(c => c.id === id)
