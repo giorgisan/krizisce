@@ -11,7 +11,7 @@ import Footer from '@/components/Footer'
 import Header from '@/components/Header'
 import ArticleCard from '@/components/ArticleCard'
 import TrendingCard from '@/components/TrendingCard'
-import TrendingBar from '@/components/TrendingBar' // <--- NOVO: Uvoz komponente
+import TrendingBar, { TrendingWord } from '@/components/TrendingBar' // Uvoz tipa
 import SeoHead from '@/components/SeoHead'
 import BackToTop from '@/components/BackToTop'
 import SourceFilter from '@/components/SourceFilter' 
@@ -57,7 +57,6 @@ async function loadNews(
   if (category !== 'vse') qs.set('category', category)
   if (query) qs.set('q', query)
   
-  // Cache busting
   if (forceRefresh) qs.set('_t', Date.now().toString())
 
   try {
@@ -80,9 +79,13 @@ async function loadNews(
 
 /* ================= Page Component ================= */
 
-type Props = { initialNews: NewsItem[] }
+// Dodamo initialTrendingWords v Props
+type Props = { 
+  initialNews: NewsItem[]
+  initialTrendingWords: TrendingWord[] 
+}
 
-export default function Home({ initialNews }: Props) {
+export default function Home({ initialNews, initialTrendingWords }: Props) {
   const [itemsLatest, setItemsLatest] = useState<NewsItem[]>(initialNews)
   const [itemsTrending, setItemsTrending] = useState<NewsItem[]>([])
     
@@ -95,7 +98,6 @@ export default function Home({ initialNews }: Props) {
   const [selectedCategory, setSelectedCategory] = useState<CategoryId | 'vse'>('vse')
   const [searchQuery, setSearchQuery] = useState<string>('') 
 
-  // MODAL CONTROL
   const [filterModalOpen, setFilterModalOpen] = useState(false)
 
   // PAGINACIJA & STANJE
@@ -111,7 +113,6 @@ export default function Home({ initialNews }: Props) {
     setBootRefreshed(true)
   }, [])
 
-  // FUNKCIJA ZA RESET (Klik na logo)
   const resetAll = () => {
     startTransition(() => {
       setSelectedSources([])
@@ -125,7 +126,6 @@ export default function Home({ initialNews }: Props) {
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
-  // GLAVNI FETCH (Sproži se ob spremembi filtrov ali iskanja)
   useEffect(() => {
     if (!bootRefreshed) return
     if (mode === 'trending') return
@@ -154,20 +154,17 @@ export default function Home({ initialNews }: Props) {
 
   }, [selectedSources, selectedCategory, searchQuery, mode, bootRefreshed])
 
-  // POLLING
+  // POLLING (Ostane enak)
   const missCountRef = useRef(0)
   const timerRef = useRef<number | null>(null)
 
   useEffect(() => {
     if (!bootRefreshed) return
-
     const runCheckSimple = async () => {
       if (mode !== 'latest') return
       if (searchQuery) return 
-
       kickSyncIfStale(10 * 60_000)
       const fresh = await loadNews('latest', selectedSources, selectedCategory, null)
-      
       if (!fresh || fresh.length === 0) {
         window.dispatchEvent(new CustomEvent('news-has-new', { detail: false }))
         missCountRef.current = Math.min(POLL_MAX_BACKOFF, missCountRef.current + 1)
@@ -175,7 +172,6 @@ export default function Home({ initialNews }: Props) {
       }
       const curSet = new Set(itemsLatest.map((n) => n.link))
       const newLinksCount = fresh.filter((n) => !curSet.has(n.link)).length
-      
       if (newLinksCount > 0) {
         window.dispatchEvent(new CustomEvent('news-has-new', { detail: true }))
         missCountRef.current = 0
@@ -203,11 +199,10 @@ export default function Home({ initialNews }: Props) {
     }
   }, [itemsLatest, bootRefreshed, mode, selectedSources, selectedCategory, searchQuery])
 
-  // REFRESH HANDLER
+  // REFRESH HANDLER (Ostane enak)
   useEffect(() => {
     const onRefresh = () => {
       window.dispatchEvent(new CustomEvent('news-refreshing', { detail: true }))
-      
       startTransition(() => {
         loadNews(mode, selectedSources, selectedCategory, searchQuery, true).then((fresh) => {
           if (fresh) {
@@ -233,7 +228,7 @@ export default function Home({ initialNews }: Props) {
 
   const visibleNews = mode === 'trending' ? itemsTrending : itemsLatest
 
-  // CURSOR LOGIC
+  // CURSOR LOGIC (Ostane enak)
   useEffect(() => {
     if (mode === 'trending') return 
     if (!visibleNews.length) {
@@ -244,7 +239,7 @@ export default function Home({ initialNews }: Props) {
     setCursor(minMs || null)
   }, [visibleNews, mode])
 
-  // PAGINACIJA
+  // PAGINACIJA FUNKCIJE (Ostanejo enake)
   async function fetchPage(cursorVal: number) {
     const qs = new URLSearchParams()
     qs.set('paged', '1')
@@ -253,7 +248,6 @@ export default function Home({ initialNews }: Props) {
     if (selectedSources.length > 0) qs.set('source', selectedSources.join(','))
     if (selectedCategory !== 'vse') qs.set('category', selectedCategory)
     if (searchQuery) qs.set('q', searchQuery)
-      
     const res = await fetch(`/api/news?${qs.toString()}`, { cache: 'no-store' })
     if (!res.ok) return { items: [], nextCursor: null }
     return await res.json()
@@ -269,9 +263,7 @@ export default function Home({ initialNews }: Props) {
       const fresh = items
         .filter((i: any) => !seen.has(i.link))
         .map((i: any) => ({ ...i, category: i.category || determineCategory({ link: i.link, categories: [] }) }))
-
       if (fresh.length) setItemsLatest((prev) => [...prev, ...fresh])
-      
       if (!nextCursor || nextCursor === cursor || items.length === 0) {
         setHasMore(false); setCursor(null)
       } else {
@@ -282,9 +274,7 @@ export default function Home({ initialNews }: Props) {
 
   const handleTabChange = async (next: Mode) => {
     if (next === mode) return
-    
     window.scrollTo({ top: 0, behavior: 'smooth' })
-
     setMode(next)
     if (next === 'latest') {
       setHasMore(true); setCursor(null)
@@ -349,11 +339,28 @@ export default function Home({ initialNews }: Props) {
 
       <main className="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white px-4 md:px-8 lg:px-16 pt-0 pb-8">
         
-        {/* ZGORNJA VRSTICA: TABS ali NASLOV KATEGORIJE */}
-        <div className="flex items-center justify-between py-4 min-h-[64px]">
+        {/* --- SPREMENJENA ZGORNJA VRSTICA --- */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between py-4 min-h-[64px] gap-2">
            {selectedCategory === 'vse' ? (
-             <div className="scale-90 origin-left">
-               <NewsTabs active={mode} onChange={handleTabChange} />
+             <div className="flex flex-wrap items-center gap-2">
+                {/* 1. TABS */}
+                <div className="scale-90 origin-left shrink-0">
+                   <NewsTabs active={mode} onChange={handleTabChange} />
+                </div>
+
+                {/* 2. TRENDING BESEDE (Samo na Desktopu/Tablici zraven tabov) */}
+                {mode === 'latest' && !searchQuery && (
+                  <div className="hidden sm:block overflow-hidden max-w-[50vw]">
+                     <TrendingBar 
+                        words={initialTrendingWords}
+                        selectedWord={searchQuery}
+                        onSelectWord={(word) => {
+                           window.scrollTo({ top: 0, behavior: 'smooth' })
+                           setSearchQuery(word)
+                        }}
+                     />
+                  </div>
+                )}
              </div>
            ) : (
              <div className="flex items-center">
@@ -363,36 +370,42 @@ export default function Home({ initialNews }: Props) {
              </div>
            )}
            
-           {selectedSources.length > 0 && (
-             <div className="flex items-center gap-2">
-                <div className="text-xs text-brand font-medium border border-brand/20 bg-brand/5 px-2 py-1 rounded">
-                  Filtri: {selectedSources.join(', ')}
+           {/* --- FILTRI / TRENDING NA MOBILNI --- */}
+           <div className="flex items-center gap-2 justify-between w-full sm:w-auto">
+              
+              {/* Na mobilnih telefonih pokaži trende tukaj (spodaj) */}
+              {mode === 'latest' && selectedCategory === 'vse' && !searchQuery && (
+                 <div className="block sm:hidden flex-1 overflow-hidden">
+                    <TrendingBar 
+                       words={initialTrendingWords}
+                       selectedWord={searchQuery}
+                       onSelectWord={(word) => {
+                          window.scrollTo({ top: 0, behavior: 'smooth' })
+                          setSearchQuery(word)
+                       }}
+                    />
+                 </div>
+              )}
+
+              {selectedSources.length > 0 && (
+                <div className="flex items-center gap-2 ml-auto">
+                   <div className="text-xs text-brand font-medium border border-brand/20 bg-brand/5 px-2 py-1 rounded whitespace-nowrap">
+                     Filtri: {selectedSources.length}
+                   </div>
+                   <button 
+                     onClick={() => setSelectedSources([])} 
+                     className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md transition-colors" 
+                   >
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                   </button>
                 </div>
-                <button 
-                  onClick={() => setSelectedSources([])} 
-                  className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md transition-colors" 
-                  title="Počisti filtre"
-                >
-                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                   </svg>
-                </button>
-             </div>
-           )}
+              )}
+           </div>
         </div>
 
-        {/* --- NOVO: VROČE TEME (Prikaži samo na prvi strani in če ne iščemo) --- */}
-        {mode === 'latest' && selectedCategory === 'vse' && !searchQuery && (
-           <TrendingBar 
-             selectedWord={searchQuery}
-             onSelectWord={(word) => {
-               window.scrollTo({ top: 0, behavior: 'smooth' })
-               setSearchQuery(word)
-             }}
-           />
-        )}
-
-        {/* --- NOVO: PRIKAZ AKTIVNEGA ISKANJA (da lahko uporabnik zapre iskanje) --- */}
+        {/* --- PRIKAZ AKTIVNEGA ISKANJA --- */}
         {searchQuery && (
            <div className="mb-6 flex items-center gap-2">
               <span className="text-sm text-gray-500">
@@ -407,7 +420,7 @@ export default function Home({ initialNews }: Props) {
            </div>
         )}
 
-        {/* LOADING & EMPTY STATES */}
+        {/* --- SEZNAM NOVIC (Enako kot prej) --- */}
         {isRefreshing && visibleNews.length === 0 ? (
            <div className="flex flex-col items-center justify-center pt-20 pb-20">
              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand mb-4"></div>
@@ -430,7 +443,7 @@ export default function Home({ initialNews }: Props) {
                 ) : (
                   <ArticleCard 
                      news={article as any} 
-                     priority={i < 10} // Ohranimo prioritetno nalaganje za prve slike
+                     priority={i < 10} 
                   />
                 )}
               </div>
@@ -458,12 +471,8 @@ export default function Home({ initialNews }: Props) {
   )
 }
 
-/* ================= SSR (Server Side Rendering) Z CACHINGOM ================= */
-// Uporabljamo getServerSideProps (SSR), ki je hitrejši za občutek uporabnika,
-// ampak dodamo Cache-Control, da Vercel ne računa CPU-ja za vsak obisk.
+/* ================= SSR: Tukaj nalagamo novice IN trende ================= */
 export const getServerSideProps: GetServerSideProps = async ({ res }) => {
-  // --- TA VRSTICA REŠUJE "VERCEL LIMIT" PROBLEM ---
-  // Pomeni: "Ta rezultat je dober 60 sekund. V tem času ne kliči serverja ponovno."
   res.setHeader(
     'Cache-Control',
     'public, s-maxage=60, stale-while-revalidate=59'
@@ -476,18 +485,26 @@ export const getServerSideProps: GetServerSideProps = async ({ res }) => {
     auth: { persistSession: false },
   })
 
-  const { data } = await supabase
+  // 1. Fetch News
+  const newsPromise = supabase
     .from('news')
-    .select(
-      'id, link, title, source, summary, contentsnippet, image, published_at, publishedat, category',
-    )
-    .neq('category', 'oglas') // Filter oglasov
+    .select('id, link, title, source, summary, contentsnippet, image, published_at, publishedat, category')
+    .neq('category', 'oglas')
     .order('publishedat', { ascending: false })
     .order('id', { ascending: false })
     .limit(25)
 
-  const rows = (data ?? []) as any[]
+  // 2. Fetch Trending Words (Server-side RPC klic)
+  const trendsPromise = supabase.rpc('get_trending_words', {
+     hours_lookback: 24,
+     limit_count: 7 // Omejimo na 7 najbolj vročih
+  })
 
+  // Počakamo na oboje hkrati
+  const [newsRes, trendsRes] = await Promise.all([newsPromise, trendsPromise])
+
+  // Obdelava novic
+  const rows = (newsRes.data ?? []) as any[]
   const initialNews: NewsItem[] = rows.map((r) => {
     const link = r.link || ''
     return {
@@ -496,13 +513,19 @@ export const getServerSideProps: GetServerSideProps = async ({ res }) => {
       source: r.source,
       contentSnippet: r.contentsnippet ?? r.summary ?? '',
       image: r.image ?? null,
-      publishedAt:
-        (r.publishedat ??
-          (r.published_at ? Date.parse(r.published_at) : 0)) || 0,
+      publishedAt: (r.publishedat ?? (r.published_at ? Date.parse(r.published_at) : 0)) || 0,
       isoDate: r.published_at,
       category: (r.category as CategoryId) || determineCategory({ link, categories: [] }) 
     }
   })
 
-  return { props: { initialNews } }
+  // Obdelava trendov
+  const initialTrendingWords: TrendingWord[] = (trendsRes.data as TrendingWord[]) || []
+
+  return { 
+    props: { 
+      initialNews,
+      initialTrendingWords 
+    } 
+  }
 }
