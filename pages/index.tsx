@@ -4,13 +4,14 @@ import React, {
   startTransition,
   useRef,
 } from 'react'
-import { GetServerSideProps } from 'next' // <--- UPORABLJAMO SSR (Hitreje za slike)
+import { GetServerSideProps } from 'next'
 
 import { NewsItem } from '@/types'
 import Footer from '@/components/Footer'
 import Header from '@/components/Header'
 import ArticleCard from '@/components/ArticleCard'
 import TrendingCard from '@/components/TrendingCard'
+import TrendingBar from '@/components/TrendingBar' // <--- NOVO: Uvoz komponente
 import SeoHead from '@/components/SeoHead'
 import BackToTop from '@/components/BackToTop'
 import SourceFilter from '@/components/SourceFilter' 
@@ -379,6 +380,32 @@ export default function Home({ initialNews }: Props) {
              </div>
            )}
         </div>
+
+        {/* --- NOVO: VROČE TEME (Prikaži samo na prvi strani in če ne iščemo) --- */}
+        {mode === 'latest' && selectedCategory === 'vse' && !searchQuery && (
+           <TrendingBar 
+             selectedWord={searchQuery}
+             onSelectWord={(word) => {
+               window.scrollTo({ top: 0, behavior: 'smooth' })
+               setSearchQuery(word)
+             }}
+           />
+        )}
+
+        {/* --- NOVO: PRIKAZ AKTIVNEGA ISKANJA (da lahko uporabnik zapre iskanje) --- */}
+        {searchQuery && (
+           <div className="mb-6 flex items-center gap-2">
+              <span className="text-sm text-gray-500">
+                Rezultati za: <span className="font-bold text-gray-900 dark:text-white">"{searchQuery}"</span>
+              </span>
+              <button 
+                onClick={() => setSearchQuery('')}
+                className="text-xs px-2 py-1 bg-gray-200 dark:bg-gray-800 rounded-md hover:bg-gray-300 dark:hover:bg-gray-700 transition-colors text-gray-700 dark:text-gray-300"
+              >
+                Počisti ✕
+              </button>
+           </div>
+        )}
 
         {/* LOADING & EMPTY STATES */}
         {isRefreshing && visibleNews.length === 0 ? (
