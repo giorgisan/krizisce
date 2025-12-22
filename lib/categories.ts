@@ -179,11 +179,11 @@ export const CATEGORIES: CategoryDef[] = [
     label: 'Magazin',
     color: 'bg-pink-100 text-pink-800 dark:bg-pink-900/40 dark:text-pink-300',
     keywords: [
-        '/magazin/', '/scena/', '/zvezde/', '/zabava/', '/traci/', '/bulvar/',
+        '/magazin/', '/scena/', '/zvezde/', '/zabava/', '/traci/', '/bulvar/', '/zabava-in-slog/', '/znani/',
         'kardashian', 'royal', 'kraljeva druzina', 'harry', 'meghan', 'william', 'kate',
         'jagger', 'madonna', 'shakira', 'taylor swift',
         'slovenski estradniki', 'znani slovenci', 'vplivnezi', 'influencer',
-        'ločitev', 'poroka', 'nosečnost', 'afera', 'škandal',
+        'ločitev', 'poroka', 'nosečnost', 'afera', 'škandal', 'porocil', 'mladoporoc', 'zaroka', 'zaročil',
         
         // ZABAVNA TV & SERIJE (Reši "To so serije")
         'kmetija', 'sanjski moski', 'poroka na prvi pogled', 'slovenija ima talent', 'zvezde plesejo', 'masterchef',
