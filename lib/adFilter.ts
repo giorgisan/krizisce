@@ -34,10 +34,11 @@ const URL_BLOCK_PATTERNS = [
 
   // --- FINANCE.SI ---
   /\/promocijsko-sporocilo\//i,
-  
+   
   // --- ŽURNAL24 ---
   /\/magazin\/promo\//i,
-  
+  /\/uporabno\//i,       // <--- NOVO: Blokira celotno rubriko "Uporabno" (promo vsebine)
+   
   // --- 24UR (Redkejše, a za vsak slučaj) ---
   /\/sponzorirana-vsebina\//i
 ]
@@ -104,9 +105,9 @@ export function scoreAd(item: any) {
 export function isLikelyAd(item: any, opts?: { threshold?: number, aggressive?: boolean }) {
   // Ignoriramo threshold in aggressive nastavitve, ker je ta filter binaren (je ali ni).
   const { score, matches } = scoreAd(item)
-  
+   
   const isAd = score > 0
-  
+   
   return { 
       isAd, 
       score, 
