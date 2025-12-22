@@ -114,7 +114,7 @@ export const CATEGORIES: CategoryDef[] = [
         '/dom/', '/dekor/', 'gospodinjstvo', 'gradnja-obnova', 'pod-streho',
         'vrtnarjenje', 'ciscenje', 'madezi', 'triki', 'interier', 'arhitektura', 'prenova doma',
         'bozic', 'prazniki', 'darila', 'jelka', 'okraski', 'advent', 'nakupovanje',
-        'blagoslov', 'tradicij', 'navad'
+        'blagoslov', 'tradicij', 'navad', 'hisa', 'hise', 'hisah', 'montazn', 'lumar', 'novogradnj', 'nepremicnin'
     ]
   },
   {
