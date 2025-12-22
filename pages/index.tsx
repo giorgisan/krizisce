@@ -79,7 +79,6 @@ async function loadNews(
 
 /* ================= Page Component ================= */
 
-// Dodamo initialTrendingWords v Props
 type Props = { 
   initialNews: NewsItem[]
   initialTrendingWords: TrendingWord[] 
@@ -495,13 +494,23 @@ export const getServerSideProps: GetServerSideProps = async ({ res }) => {
     .limit(25)
 
   // 2. Fetch Trending Words (Server-side RPC klic)
+  // SPREMEMBA: Povečano na 48 ur in dodan varnostni log spodaj
   const trendsPromise = supabase.rpc('get_trending_words', {
-     hours_lookback: 24,
-     limit_count: 7 // Omejimo na 7 najbolj vročih
+     hours_lookback: 48,
+     limit_count: 8
   })
 
   // Počakamo na oboje hkrati
   const [newsRes, trendsRes] = await Promise.all([newsPromise, trendsPromise])
+
+  // --- DEBUGGING: Izpiše stanje v VS Code terminal ---
+  if (trendsRes.error) {
+     console.error('❌ NAPAKA PRI TRENDIH:', trendsRes.error)
+  } else {
+     const count = Array.isArray(trendsRes.data) ? trendsRes.data.length : 0
+     console.log(`✅ TRENDI USPEŠNI: Najdenih ${count} besed.`)
+  }
+  // --------------------------------------------------
 
   // Obdelava novic
   const rows = (newsRes.data ?? []) as any[]
