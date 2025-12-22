@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
 import supabase from '@/lib/supabase'
 
+// POPRAVEK TUKAJ: 'text' -> 'string'
 type TrendingWord = {
-  word: text
+  word: string
   count: number
 }
 
