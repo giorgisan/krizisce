@@ -6,7 +6,7 @@ export type CategoryId =
   | 'kronika' 
   | 'sport' 
   | 'magazin'       
-  | 'lifestyle'     // Zdravje, Dom, Kulinarika, Potovanja
+  | 'lifestyle'     // Zdravje, Dom, Kulinarika, Potovanja, Psihologija
   | 'posel-tech'    // Gospodarstvo + Tehnologija
   | 'moto'            
   | 'kultura'
@@ -39,13 +39,17 @@ export const CATEGORIES: CategoryDef[] = [
         'referendum', 'ustavno sodisce', 'zakon', 'novela', 'soocenje', 'anketa', 'javno mnenje',
         'upokojenc', 'pokojnin', 'zpis', 'socialni transferji', 'minimalna placa', 'sindikat', 'stavka', 'protest',
         
-        // JAVNI SEKTOR (Zdravstvo/Šolstvo kot sistem)
+        // JAVNI SEKTOR
         'zdravstvo', 'zdravstveni dom', 'ukc', 'sb ', 'fides', 'cakalne dobe', 'koncesij', 
         'solstvo', 'ucitelji', 'matura', 'vpis v sole', 'vrtec',
         
-        // RUBRIKE
+        // RUBRIKE & PISMA
         '/mnenja/', '/kolumne/', '/pisma-bralcev/', '/sobotna-priloga/', '/preverjamo/', '/stevilke/',
-        'vreme', 'arso', 'napoved', 'sneg', 'dez', 'neurje', 'toca'
+        'vreme', 'arso', 'napoved', 'sneg', 'dez', 'neurje', 'toca',
+        'dobrodeln', 'zbiranje pomoci', 'pomoc', 'gasilska zveza',
+
+        // PRAZNIKI (NOVO)
+        'prazniki', 'dela prosti', 'koledar', 'novo leto', 'prvi maj', 'bozicnica', 'regres', 'izplen'
     ]
   },
   {
@@ -145,6 +149,11 @@ export const CATEGORIES: CategoryDef[] = [
         'bolezen', 'simptomi', 'zdravnik', 'rak ', 'srce', 'diabetes', 'tlak', 'holesterol',
         'hujsanje', 'dieta', 'vadba', 'fitnes', 'joga', 'stres', 'izgorelost', 'spanje', 'nespecnost',
         'vitamin', 'mineral', 'prehransko dopolnilo', 'imunski sistem',
+        'spanec', 'spanje', 'telesna aktivnost', 'studija',
+
+        // ODNOSI & PSIHOLOGIJA (NOVO)
+        'odnosi', 'partnerstvo', 'samski', 'zmenki', 'toksicn', 'custva', 'psihologija', 
+        'locitev', 'razhod', 'sreca', 'zadovoljstvo', 'osamljenost',
         
         // HRANA
         '/kulinarika/', '/okusno/', '/recepti/', 
@@ -157,6 +166,7 @@ export const CATEGORIES: CategoryDef[] = [
         'vrtnarjenje', 'rastline', 'cvetje', 'zelenjavni vrt', 'sadno drevje',
         'gradnja', 'montazna hisa', 'lumar', 'toplotna crpalka', 'ogrevanje', 'soncna elektrarna',
         'ciscenje', 'pospravljanje', 'nasveti', 'triki',
+        'blagoslov', 'tradicij', 'navad', 'montazn', 'novogradnj', 'nepremicnin',
         
         // POTOVANJA
         '/potovanja/', '/izleti/', '/turizem/', 
@@ -188,9 +198,10 @@ export const CATEGORIES: CategoryDef[] = [
         'slovenski estradniki', 'znani slovenci', 'vplivnezi', 'influencer',
         'ločitev', 'poroka', 'nosečnost', 'afera', 'škandal',
         
-        // ZABAVNA TV
+        // ZABAVNA TV & KVIZI (NOVO)
         'kmetija', 'sanjski moski', 'poroka na prvi pogled', 'slovenija ima talent', 'zvezde plesejo', 'masterchef',
         'evrovizija', 'ema',
+        'lovci', 'kviz', 'joker', 'milijonar', 'kolo srece', 'tv oddaja', 'televizij', 'voditelj', 'voditeljica',
         
         // RAZVEDRILO
         'horoskop', 'astro', 'zodiak', 'napoved za',
@@ -210,8 +221,8 @@ const PRIORITY_CHECK_ORDER: CategoryId[] = [
   'kronika',      // 5. Policija in nesreče (da ne gre v "Slovenija" ali "Magazin")
   'kultura',      // 6. Umetnost
   'slovenija',    // 7. Vse ostalo lokalno (občine, politika, šolstvo, zdravstvo-sistem)
-  'lifestyle',    // 8. Osebno zdravje, recepti, dom (če ni padlo v Slovenijo/Zdravstvo)
-  'magazin'       // 9. Zadnje sito (trači, horoskop, viralno)
+  'lifestyle',    // 8. Osebno zdravje, odnosi, dom (če ni padlo v Slovenijo/Zdravstvo)
+  'magazin'       // 9. Zadnje sito (trači, horoskop, viralno, kvizi)
 ]
 
 const unaccent = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
