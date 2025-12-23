@@ -41,12 +41,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
               Naslovi:
               ${headlines}
 
-              NAVODILA:
+              NAVODILA (STROGO UPOŠTEVAJ):
               1. Vrni SAMO JSON array stringov.
-              2. Vsak element je hashtag (#).
+              2. Vsak element se začne z lojtro (#).
               3. NE ZDRUŽUJ BESED (CamelCase prepovedan). Uporabi presledke (#Luka Dončić).
-              4. POMEMBNO: Uporabi ključne besede (samostalnike), ki se DEJANSKO POJAVIJO v naslovih. Ne izmišljuj si novih povzetkov, če niso v tekstu.
-                 - Če piše "Zvonijo alarmi zaradi gripe", ne napiši "#Zdravstvena kriza", ampak "#Gripa" ali "#Alarm zaradi gripe".
+              4. IZJEMNO POMEMBNO: Teme morajo temeljiti IZKLJUČNO na zgornjih naslovih. 
+                 - Ne dodajaj splošnih zimskih tem (npr. "smučanje", "pelete"), če o njih ni konkretne novice v zgornjem seznamu.
+                 - Če ni dovolj vročih tem, raje vrni manj tagov (npr. samo 3), kot da si izmišljuješ.
               5. Max 3 besede na tag.
             `
             // -------------------------
