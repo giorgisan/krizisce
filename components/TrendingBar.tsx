@@ -23,9 +23,10 @@ export default function TrendingBar({ words, onSelectWord, selectedWord }: Trend
       <div className="flex items-center gap-4 overflow-x-auto no-scrollbar mask-gradient w-full py-1 pr-4">
         
         {/* --- LABELA Z HOVER TOOLTIPOM --- */}
-        <div className="group relative flex items-center gap-1.5 shrink-0 select-none cursor-help transition-opacity hover:opacity-80">
+        <div className="group relative flex items-center gap-1.5 shrink-0 select-none cursor-default transition-opacity hover:opacity-80">
           <span className="text-sm animate-pulse">🔥</span>
-          <span className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+          {/* Odstranjen uppercase in tracking-wide za bolj clean look */}
+          <span className="text-sm font-semibold text-gray-500 dark:text-gray-400">
             Žarišče:
           </span>
 
@@ -44,16 +45,13 @@ export default function TrendingBar({ words, onSelectWord, selectedWord }: Trend
            </span>
         ) : (
           words.map((item) => {
-            // Odstranimo lojtro za logiko (če je slučajno v bazi)
             const cleanWord = item.word.replace(/^#/, '');
-            
-            // Preverimo, če je izbrana (ignoriramo case in lojtre)
             const isSelected = selectedWord?.toLowerCase().replace(/^#/, '') === cleanWord.toLowerCase();
 
             return (
               <button
                 key={item.word}
-                onClick={() => onSelectWord(cleanWord)} // Pošljemo čisto besedo za iskanje
+                onClick={() => onSelectWord(cleanWord)}
                 className={`
                   whitespace-nowrap text-[13px] font-medium transition-all duration-200 group flex items-center rounded-md px-1.5 py-0.5
                   ${isSelected 
@@ -62,7 +60,6 @@ export default function TrendingBar({ words, onSelectWord, selectedWord }: Trend
                   }
                 `}
               >
-                {/* Lojtra: prosojna, ob hoverju postane vidna */}
                 <span className={`mr-0.5 text-xs transition-opacity ${isSelected ? 'opacity-60' : 'opacity-30 group-hover:opacity-100'}`}>
                   #
                 </span>
