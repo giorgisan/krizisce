@@ -1,50 +1,13 @@
 import { NextApiRequest, NextApiResponse } from 'next'
 import { createClient } from '@supabase/supabase-js'
-import { GoogleGenerativeAI } from '@google/generative-ai'
+import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } from '@google/generative-ai'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
-// UPORABI 1.5 FLASH (Visoki limiti, stabilen za text)
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_KEY || '')
-
-// --- VARNOSTNA FUNKCIJA: Če AI odpove, preštejemo besede sami ---
-function extractTrendsManually(titles: string[]): string[] {
-  const stopWords = new Set([
-    'in', 'ali', 'pa', 'ter', 'je', 'so', 'bo', 'bodo', 'se', 'bi', 'da', 'na', 'v', 'z', 's', 'k', 'h',
-    'o', 'za', 'pri', 'po', 'od', 'do', 'iz', 'čez', 'med', 'pod', 'nad', 'pred', 'glede', 'zaradi',
-    'novice', 'video', 'foto', 'dan', 'danes', 'včeraj', 'jutri', 'leto', 'leta', 'let', 'nova', 'novo',
-    'kako', 'zakaj', 'kdaj', 'kje', 'kdo', 'kaj', 'česa', 'čem', 'komu', 'koga', 'ne', 'ni', 'bilo',
-    'slovenija', 'slovenski', 'policija', 'policisti', 'letih', 'evrov', 'kmalu', 'spet', 'še', 'že',
-    'lahko', 'proti', 'brez', 'tudi', 'samo', 'dela', 'delo', 'ura', 'ure'
-  ]);
-
-  const wordCount: Record<string, number> = {};
-
-  titles.forEach(title => {
-    // Počistimo naslov in razbijemo na besede
-    const words = title.replace(/[^\w\sČčŠšŽžĐđĆć]/g, '').split(/\s+/);
-    
-    words.forEach(word => {
-      const cleanWord = word.trim();
-      if (cleanWord.length > 3 && !stopWords.has(cleanWord.toLowerCase())) {
-        // Damo prednost besedam z veliko začetnico (imena, kraji)
-        const isCapitalized = cleanWord[0] === cleanWord[0].toUpperCase();
-        const weight = isCapitalized ? 2 : 1;
-        const key = cleanWord.charAt(0).toUpperCase() + cleanWord.slice(1).toLowerCase();
-        wordCount[key] = (wordCount[key] || 0) + weight;
-      }
-    });
-  });
-
-  return Object.entries(wordCount)
-    .sort(([, a], [, b]) => b - a)
-    .slice(0, 6) // Vzamemo top 6
-    .map(([word]) => `#${word}`);
-}
-// -----------------------------------------------------------
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   // Preverjanje avtorizacije
@@ -53,8 +16,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   let trends: string[] = []
-  let source = 'AI'
-
+  
   try {
     // 1. KORAK: DOBI NOVICE
     const { data: allNews, error } = await supabase
@@ -87,27 +49,39 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const headlines = recentNews.map(n => `- ${n.title}`).join('\n')
 
     try {
-        // SPREMEMBA: Uporabljamo 1.5-flash
-        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" })
+        // Uporabljamo 1.5-flash z izklopljenimi varovali
+        // (Da ne blokira novic o nesrečah/kriminalu)
+        const model = genAI.getGenerativeModel({ 
+            model: "gemini-1.5-flash",
+            safetySettings: [
+                { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
+                { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE },
+                { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_NONE },
+                { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE },
+            ]
+        })
         
         const prompt = `
-          Analiziraj te naslove in izlušči 6 do 8 trenutno najbolj vročih tem.
-          Naslovi:
-          ${headlines}
+            Analiziraj te naslove in izlušči 4 do 6 trenutno najbolj vročih tem.
+            Naslovi:
+            ${headlines}
 
-          NAVODILA (STROGO UPOŠTEVAJ):
-          1. Vrni SAMO JSON array stringov.
-          2. Vsak element se začne z lojtro (#).
-          3. NE ZDRUŽUJ BESED (CamelCase prepovedan). Uporabi presledke (#Luka Dončić).
-          4. IZJEMNO POMEMBNO - DOBESEDNOST:
-              - Uporabljaj IZKLJUČNO besede, ki se pojavijo v naslovu. Ne išči sopomenk!
-              - Bodi kot papiga: kopiraj ključne samostalnike iz naslova.
-          5. PRIORITETA:
-              - Imena oseb.
-              - Kratice.
-              - Imena podjetij/produktov.
-          6. Max 3 besede na tag.
-          7. Ne vključuj besed, kot so "umrl", "letos", "nov", razen če so del imena.
+            NAVODILA (STROGO UPOŠTEVAJ):
+            1. Vrni SAMO JSON array stringov.
+            2. Vsak element se začne z lojtro (#).
+            3. NE ZDRUŽUJ BESED (CamelCase prepovedan). Uporabi presledke (#Luka Dončić).
+            4. IZJEMNO POMEMBNO - DOBESEDNOST:
+                - Uporabljaj IZKLJUČNO besede, ki se pojavijo v naslovu. Ne išči sopomenk!
+                - Če v naslovu piše "ustvarjalec", NE smeš napisati "razvijalec".
+                - Če v naslovu piše "gripe", NE smeš napisati "bolezni".
+                - Bodi kot papiga: kopiraj ključne samostalnike iz naslova.
+                - Če ni dovolj vročih tem, raje vrni manj tagov (npr. samo 3), kot da si izmišljuješ.
+            5. PRIORITETA:
+                - Imena oseb (Luka Dončić, Trump, Vince Zampella).
+                - Kratice (THC, ZDA, NPU).
+                - Imena podjetij/produktov (Call of Duty, Lekarna).
+            6. Ne dodajaj splošnih pridevnikov (npr. "prepovedana", "velika", "znana"), razen če so del lastnega imena.
+            7. Max 3 besede na tag.
         `
 
         const result = await model.generateContent(prompt)
@@ -123,14 +97,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         }
 
     } catch (aiError: any) {
-        console.error("⚠️ AI napaka (preklapljam na manual):", aiError.message)
-        // SPREMEMBA: Namesto da vrnemo napako, uporabimo varnostno funkcijo
-        source = 'MANUAL_FALLBACK'
-        const titles = recentNews.map(n => n.title);
-        trends = extractTrendsManually(titles);
+        console.error("⚠️ AI napaka:", aiError.message)
+        // Tukaj se ustavimo. Ni fallbacka.
+        return res.status(500).json({ 
+            success: false, 
+            error: 'AI generation failed', 
+            details: aiError.message 
+        })
     }
 
-    // 4. KORAK: SHRANJEVANJE
+    // 4. KORAK: SHRANJEVANJE (Samo če je AI uspel)
     if (trends.length > 0) {
         // Počistimo format
         trends = trends.map(t => t.startsWith('#') ? t : `#${t}`).filter(t => t.length > 2);
@@ -141,10 +117,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         
         if (error) throw error
         
-        return res.status(200).json({ success: true, source, count: trends.length, trends })
-    } else {
-        return res.status(200).json({ success: false, message: 'Ni bilo mogoče generirati trendov.' })
-    }
+        return res.status(200).json({ success: true, count: trends.length, trends })
+    } 
+
+    return res.status(200).json({ success: false, message: 'Neznana napaka (prazni trendi)' })
 
   } catch (error: any) {
     console.error('Critical Error:', error)
