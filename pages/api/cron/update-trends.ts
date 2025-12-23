@@ -10,7 +10,6 @@ const supabase = createClient(
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_KEY || '')
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  // Preverjanje varnosti (za cron)
   const authHeader = req.headers.authorization;
   if (
       req.query.key !== process.env.CRON_SECRET && 
@@ -23,7 +22,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   let source = 'AI'
 
   try {
-    // 1. DOBI NOVICE ZADNJIH 8 UR
     const { data: news } = await supabase
       .from('news')
       .select('title')
@@ -31,27 +29,27 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       .order('publishedat', { ascending: false })
       .limit(60)
 
-    // Če je premalo novic za AI, bomo uporabili SQL fallback spodaj
     if (news && news.length >= 5) {
         const headlines = news.map(n => `- ${n.title}`).join('\n')
 
-        // 2. POSKUSI Z AI (Uporabljamo stabilen alias)
         try {
-            // Uporabimo 'gemini-flash-latest', ki je bil na tvojem seznamu in je najbolj robusten
             const model = genAI.getGenerativeModel({ model: "gemini-flash-latest" })
             
+            // --- POPRAVLJEN PROMPT ---
             const prompt = `
               Analiziraj te naslove in izlušči 5 do 7 trenutno najbolj vročih tem.
               Naslovi:
               ${headlines}
 
-              Navodila:
-              1. Vrni SAMO JSON array stringov. Primer: ["#Volitve2025", "#Dončić", "#Požar"].
+              Navodila za izhod:
+              1. Vrni SAMO JSON array stringov. Primer: ["#Volitve 2025", "#Luka Dončić", "#Požar"].
               2. Uporabi slovenski jezik.
               3. Združi sorodne novice.
-              4. Bodi kratek (max 2 besedi).
-              5. STROGO PREPOVEDANO: Ne uporabljaj vejic ali pik znotraj hashtaga (npr. "#Kriminal, Droge" NI DOVOLJENO). Uporabi raje ločene tage ali pa samo glavno besedo.
+              4. NE ZDRUŽUJ BESED SKUPAJ (Prepovedano: #LukaDončić). Uporabi presledke med besedami (Dovoljeno: #Luka Dončić).
+              5. Naj bo vsak tag kratek (max 3 besede).
+              6. Ne uporabljaj vejic ali pik znotraj taga.
             `
+            // -------------------------
 
             const result = await model.generateContent(prompt)
             const responseText = result.response.text()
@@ -67,38 +65,28 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         } catch (aiError: any) {
             console.error("⚠️ AI napaka (uporabljam fallback):", aiError.message)
             source = 'SQL_FALLBACK'
-            // Če AI spodleti, pustimo 'trends' prazen, da se sproži SQL logika spodaj
         }
     }
 
-    // 3. SQL FALLBACK (Če AI ni delal ali je bilo premalo novic)
+    // SQL FALLBACK
     if (trends.length === 0) {
-        console.log("🔄 Izvajam SQL Fallback...")
         source = 'SQL_FALLBACK'
-        
-        // Pokličemo tvojo SQL funkcijo direktno
         const { data: sqlData } = await supabase.rpc('get_trending_words', {
-            hours_lookback: 24, // Malo širše okno za varnost
+            hours_lookback: 24,
             limit_count: 8
         })
-
         if (sqlData) {
-            // Pretvorimo SQL format {word: 'dončić', count: 5} v ["#Dončić"]
             trends = sqlData.map((item: any) => {
-                // Dodamo lojtro in naredimo prvo črko veliko (lepše izgleda)
                 const word = item.word.charAt(0).toUpperCase() + item.word.slice(1)
                 return `#${word}`
             })
         }
     }
 
-    // 4. SHRANI V BAZO (Ne glede na to, od kod so prišli podatki)
-    // Tako frontend vedno samo bere iz te tabele in je super hiter
     if (trends.length > 0) {
         const { error } = await supabase
           .from('trending_ai')
           .upsert({ id: 1, words: trends, updated_at: new Date().toISOString() })
-
         if (error) throw error
     }
 
