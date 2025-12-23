@@ -44,10 +44,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
               1. Vrni SAMO JSON array stringov.
               2. Vsak element se začne z lojtro (#).
               3. NE ZDRUŽUJ BESED (CamelCase prepovedan). Uporabi presledke (#Luka Dončić).
-              4. IZJEMNO POMEMBNO - FILTER VSEBINE:
-                 - Ignoriraj članke tipa "3 najboljši...", "Kaj kupiti", "Horoskop", "Recept dneva". To niso novice.
-                 - Teme morajo temeljiti na KONKRETNIH DOGODKIH v zgornjih naslovih.
-              5. Max 3 besede na tag.
+              4. IZJEMNO POMEMBNO - DOBESEDNOST:
+                 - Uporabljaj IZKLJUČNO besede, ki se pojavijo v naslovu. Ne išči sopomenk!
+                 - Če v naslovu piše "ustvarjalec", NE smeš napisati "razvijalec".
+                 - Če v naslovu piše "gripe", NE smeš napisati "bolezni".
+                 - Bodi kot papiga: kopiraj ključne samostalnike iz naslova.
+                 - Če ni dovolj vročih tem, raje vrni manj tagov (npr. samo 3), kot da si izmišljuješ.
+              5. PRIORITETA:
+                 - Imena oseb (Luka Dončić, Trump, Vince Zampella).
+                 - Kratice (THC, ZDA, NPU).
+                 - Imena podjetij/produktov (Call of Duty, Lekarna).
+              6. Ne dodajaj splošnih pridevnikov (npr. "prepovedana", "velika", "znana"), razen če so del lastnega imena.
+              7. Max 3 besede na tag.
             `
 
             const result = await model.generateContent(prompt)
