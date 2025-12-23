@@ -37,7 +37,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             
             // --- POPRAVLJEN PROMPT ---
             const prompt = `
-              Analiziraj te naslove in izlušči 5 do 7 trenutno najbolj vročih tem.
+              Analiziraj te naslove in izlušči 6 do 8 trenutno najbolj vročih tem.
               Naslovi:
               ${headlines}
 
