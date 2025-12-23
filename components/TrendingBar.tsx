@@ -23,7 +23,7 @@ export default function TrendingBar({ words, onSelectWord, selectedWord }: Trend
         
         {/* Ikonca + Tekst "Trendi" (opcijsko, lahko pustiš samo ikono) */}
         <div className="flex items-center gap-1 shrink-0 text-gray-400 dark:text-gray-500 select-none">
-           <span className="text-sm animate-pulse">🔥</span>
+           <span className="text-sm animate-pulse">🔥 Besede, ki žarijo:</span>
         </div>
 
         {!hasWords ? (
