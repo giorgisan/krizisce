@@ -306,16 +306,36 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
     ? '' 
     : CATEGORIES.find(c => c.id === selectedCategory)?.label || selectedCategory;
 
-  // --- POMOŽNA FUNKCIJA ZA ČIŠČENJE ISKANJA ---
+  // --- POSODOBITEV: PAMETNA FUNKCIJA ZA ČIŠČENJE ISKANJA ---
   const handleTrendingClick = (word: string) => {
-    // 1. Odstrani lojtro (#) na začetku
-    // 2. Zamenjaj vejice (,) in podčrtaje (_) s presledki
-    // Primer: "#Kriminal, Droge" -> "Kriminal Droge"
-    // To iskalnik veliko lažje najde!
-    const cleanQuery = word.replace(/^#/, '').replace(/[,_]/g, ' ').trim();
+    // 1. Odstrani lojtro
+    let clean = word.replace(/^#/, '');
+    
+    // 2. Odstrani ločila (pike, vejice, podčrtaje)
+    clean = clean.replace(/[.,_]/g, ' ').trim();
+
+    // 3. Razbijemo na besede
+    const parts = clean.split(/\s+/);
+
+    // 4. Seznam slovenskih "mašil" (stop words)
+    const stopWords = new Set(['in', 'ter', 'pa', 'se', 'je', 'da', 'so', 'z', 's', 'v', 'na', 'pri', 'za', 'po', 'do', 'iz', 'od', 'o', 'ali']);
+
+    // 5. Filtriramo besede:
+    // - Odstranimo mašila
+    // - Obdržimo samo besede dolge vsaj 3 črke
+    const keywords = parts.filter(p => p.length > 2 && !stopWords.has(p.toLowerCase()));
+
+    let finalQuery = clean;
+    
+    if (keywords.length > 0) {
+        // 6. Sortiramo po dolžini (najdaljša beseda je ponavadi bistvo, npr. "Dončić")
+        keywords.sort((a, b) => b.length - a.length);
+        // Vzamemo najdaljšo besedo za iskanje
+        finalQuery = keywords[0]; 
+    }
     
     window.scrollTo({ top: 0, behavior: 'smooth' })
-    setSearchQuery(cleanQuery)
+    setSearchQuery(finalQuery)
   }
 
   return (
@@ -381,7 +401,7 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
                  <TrendingBar 
                     words={initialTrendingWords}
                     selectedWord={searchQuery}
-                    // POPRAVEK: Uporabimo novo funkcijo za čiščenje
+                    // TUKAJ KLIČEMO NOVO FUNKCIJO
                     onSelectWord={handleTrendingClick} 
                  />
               </div>
