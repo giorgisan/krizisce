@@ -10,53 +10,70 @@ const supabase = createClient(
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_KEY || '')
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  // Preverjanje avtorizacije (odkomentiraj za produkcijo)
+  // Preverjanje avtorizacije
   if (req.query.key !== process.env.CRON_SECRET) {
       // return res.status(401).json({ error: 'Unauthorized' });
   }
 
   let trends: string[] = []
-  
-  // Pomožna funkcija za pridobivanje novic
-  const fetchNews = async (hours: number) => {
-    const timeLimit = new Date(Date.now() - hours * 60 * 60 * 1000).toISOString()
-    
-    const { data } = await supabase
+
+  try {
+    // 1. KORAK: DOBI ZADNJIH 60 NOVIC (NEGLEDE NA DATUM)
+    // Filtriranje datuma delamo v JS, ker je bolj zanesljivo kot SQL primerjave stringov
+    const { data: allNews, error } = await supabase
       .from('news')
-      .select('title')
-      .gt('publishedat', timeLimit) 
+      .select('title, publishedat, category') // Rabimo publishedat za preverjanje!
       .neq('category', 'oglas')
       .neq('category', 'promo')
       .order('publishedat', { ascending: false })
       .limit(60)
-      
-    return data || []
-  }
 
-  try {
-    // 1. POSKUS: Zadnjih 8 ur
-    let news = await fetchNews(8)
-    console.log(`Najdenih novic (8h): ${news.length}`)
-
-    // 2. POSKUS: Če je premalo novic, glej nazaj 24 ur (da AI dobi vsaj nekaj materiala)
-    if (news.length < 5) {
-        console.log("Premalo novic v 8h, širim na 24h...")
-        news = await fetchNews(24)
+    if (error) throw error
+    if (!allNews || allNews.length === 0) {
+        return res.status(200).json({ success: false, message: 'Baza je popolnoma prazna.' })
     }
 
-    // Če še vedno ni dovolj novic, odnehaj (brez bednega fallbacka)
-    if (!news || news.length < 3) {
-        return res.status(200).json({ success: false, message: 'Premalo novic za analizo', count: news.length })
+    // DEBUG: Poglejmo, kdaj je bila objavljena zadnja novica
+    const latestNewsDate = new Date(allNews[0].publishedat)
+    console.log(`Zadnja novica v bazi je iz: ${latestNewsDate.toLocaleString()}`)
+
+    // 2. KORAK: FILTRIRANJE V JAVASCRIPTU (24 ur)
+    // To je bolj varno pred časovnimi pasovi
+    const cutoffTime = new Date(Date.now() - 24 * 60 * 60 * 1000) // 24 ur nazaj
+    
+    let recentNews = allNews.filter(n => {
+        const newsDate = new Date(n.publishedat)
+        return newsDate > cutoffTime
+    })
+
+    console.log(`Število novic v zadnjih 24h: ${recentNews.length}`)
+
+    // Če je novic premalo (manj kot 5), poskusimo vzeti kar tistih 60, ki smo jih dobili,
+    // če niso starejše od 48 ur. Bolje nekaj kot nič.
+    if (recentNews.length < 5) {
+        const cutoff48 = new Date(Date.now() - 48 * 60 * 60 * 1000)
+        recentNews = allNews.filter(n => new Date(n.publishedat) > cutoff48)
+        console.log(`Širim na 48h, novo število: ${recentNews.length}`)
     }
 
-    // Priprava naslovov
-    const headlines = news.map(n => `- ${n.title}`).join('\n')
+    // Če še vedno ni nič, potem scraper verjetno ne dela
+    if (recentNews.length < 3) {
+        return res.status(200).json({ 
+            success: false, 
+            message: 'Premalo svežih novic. Preveri scraper.',
+            latest_news_date: latestNewsDate.toISOString(),
+            count_24h: recentNews.length
+        })
+    }
+
+    // 3. KORAK: PRIPRAVA ZA AI
+    const headlines = recentNews.map(n => `- ${n.title}`).join('\n')
 
     try {
         const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" })
         
         const prompt = `
-          Analiziraj te naslove in izlušči 6 do 8 trenutno najbolj vročih tem.
+          Analiziraj te naslove in izlušči 4 do 6 trenutno najbolj vročih tem.
           Naslovi:
           ${headlines}
 
@@ -89,13 +106,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     } catch (aiError: any) {
         console.error("⚠️ AI napaka:", aiError.message)
-        // Tukaj se ustavimo. Če AI ne dela, nočemo SQL fallbacka.
         return res.status(500).json({ error: 'AI generation failed', details: aiError.message })
     }
 
-    // SHRANI SAMO ČE IMAMO REZULTATE
+    // 4. KORAK: SHRANJEVANJE
     if (trends.length > 0) {
-        // Filtriraj morebitne čudne tage (npr. samo "#")
         trends = trends.filter(t => t.length > 2)
 
         const { error } = await supabase
@@ -104,9 +119,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         
         if (error) throw error
         
-        return res.status(200).json({ success: true, source: 'AI', count: trends.length, trends })
+        return res.status(200).json({ success: true, count: trends.length, trends })
     } else {
-        return res.status(200).json({ success: false, message: 'AI ni vrnil uporabnih trendov' })
+        return res.status(200).json({ success: false, message: 'AI ni vrnil trendov' })
     }
 
   } catch (error: any) {
