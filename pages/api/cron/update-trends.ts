@@ -12,19 +12,17 @@ const supabase = createClient(
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_KEY || '')
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  // Varnost: Preveri Vercel Cron Secret (da ne more vsak klicati tega URL-ja)
+  // Varnost: Preveri Vercel Cron Secret
   const authHeader = req.headers.authorization;
   if (
       req.query.key !== process.env.CRON_SECRET && 
       authHeader !== `Bearer ${process.env.CRON_SECRET}`
   ) {
-      // Opomba: Za ročno testiranje v brskalniku dodaj ?key=TVOJ_CRON_SECRET
       // return res.status(401).json({ error: 'Unauthorized' });
   }
 
   try {
     // 1. DOBI NOVICE ZADNJIH 8 UR
-    // Vzamemo samo naslove, ker je to dovolj za trende in špara tokene
     const { data: news } = await supabase
       .from('news')
       .select('title')
@@ -32,16 +30,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       .order('publishedat', { ascending: false })
       .limit(60)
 
-    // Če je novic premalo, ne mučimo AI-ja
     if (!news || news.length < 5) {
-      return res.status(200).json({ message: 'Skipping: Premalo novic za analizo (< 5).' })
+      return res.status(200).json({ message: 'Skipping: Premalo novic (< 5).' })
     }
 
     const headlines = news.map(n => `- ${n.title}`).join('\n')
 
-    // 2. VPRAŠAJ GEMINI (Uporabljamo FLASH verzijo)
-    // Uporabljamo 'gemini-1.5-flash-latest' da se izognemo 404 napakam
-    const model = genAI.getGenerativeModel({ model: "gemini-pro" })
+    // 2. VPRAŠAJ GEMINI
+    // POPRAVEK: Uporabljamo točno to ime. To je najbolj stabilno.
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" })
     
     const prompt = `
       Si urednik novičarskega portala. Analiziraj te naslove in izlušči 6 do 8 trenutno najbolj vročih tem.
@@ -61,15 +58,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const result = await model.generateContent(prompt)
     const responseText = result.response.text()
     
-    // Čiščenje odgovora (odstranimo morebitne markdown oznake)
+    // Čiščenje JSON-a
     const cleanJson = responseText.replace(/```json|```/g, '').trim()
     
     let trends = []
     try {
         trends = JSON.parse(cleanJson)
     } catch (e) {
-        console.error("Napaka pri parsjanju JSON-a iz AI:", cleanJson)
-        // Če AI "zamoči" format, vrnemo napako, da se job ponovi
+        console.error("JSON Parse Error:", cleanJson)
         throw new Error('AI odgovor ni validen JSON')
     }
 
@@ -78,7 +74,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     // 3. SHRANI V BAZO
-    // Zapišemo v ID=1. Tabela 'trending_ai' služi kot "cache".
     const { error } = await supabase
       .from('trending_ai')
       .upsert({ id: 1, words: trends, updated_at: new Date().toISOString() })
@@ -89,6 +84,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   } catch (error: any) {
     console.error('AI Error:', error)
-    return res.status(500).json({ error: error.message || 'Unknown error' })
+    // Izpišemo celotno napako, da lažje debugiramo
+    return res.status(500).json({ 
+        error: error.message || 'Unknown error',
+        details: error.toString() 
+    })
   }
 }
