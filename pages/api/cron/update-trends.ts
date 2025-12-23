@@ -61,12 +61,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                 - Kratice (THC, ZDA, NPU).
                 - Imena podjetij/produktov (Call of Duty, Lekarna).
             6. Ne dodajaj splošnih pridevnikov (npr. "prepovedana", "velika", "znana"), razen če so del lastnega imena.
-            7. Max 3 besede na tag.
+            7. Max 2 besedi na tag (IZJEMOMA 3, če gre za ime institucije).
             8. SKLANJATEV (ODLOČILNO):
                 - Vse besede pretvori v OSNOVNO OBLIKO (Imenovalnik ednine).
                 - Primer: Namesto "Beletrine" (rodilnik) vrni "#Beletrina".
                 - Primer: Namesto "Epsteinovi dosjeji" vrni "#Epstein" ali "#Epstein dosje".
                 - Primer: Namesto "Ljubljanski" vrni "#Ljubljana".
+            9. POENOSTAVITEV ZA ISKANJE:
+               - Tagi morajo biti dovolj splošni, da jih navaden iskalnik najde.
+               - Namesto "#avtobusna postaja tožba" vrni raje "#Avtobusna postaja".
+               - Namesto "#ruski napad na ukrajino" vrni "#Ukrajina" ali "#Rusija".
         `
 
     // Pomožna funkcija za klic modela
