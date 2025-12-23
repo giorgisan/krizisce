@@ -7,7 +7,44 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
+// UPORABI 1.5 FLASH (Visoki limiti, stabilen za text)
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_KEY || '')
+
+// --- VARNOSTNA FUNKCIJA: Če AI odpove, preštejemo besede sami ---
+function extractTrendsManually(titles: string[]): string[] {
+  const stopWords = new Set([
+    'in', 'ali', 'pa', 'ter', 'je', 'so', 'bo', 'bodo', 'se', 'bi', 'da', 'na', 'v', 'z', 's', 'k', 'h',
+    'o', 'za', 'pri', 'po', 'od', 'do', 'iz', 'čez', 'med', 'pod', 'nad', 'pred', 'glede', 'zaradi',
+    'novice', 'video', 'foto', 'dan', 'danes', 'včeraj', 'jutri', 'leto', 'leta', 'let', 'nova', 'novo',
+    'kako', 'zakaj', 'kdaj', 'kje', 'kdo', 'kaj', 'česa', 'čem', 'komu', 'koga', 'ne', 'ni', 'bilo',
+    'slovenija', 'slovenski', 'policija', 'policisti', 'letih', 'evrov', 'kmalu', 'spet', 'še', 'že',
+    'lahko', 'proti', 'brez', 'tudi', 'samo', 'dela', 'delo', 'ura', 'ure'
+  ]);
+
+  const wordCount: Record<string, number> = {};
+
+  titles.forEach(title => {
+    // Počistimo naslov in razbijemo na besede
+    const words = title.replace(/[^\w\sČčŠšŽžĐđĆć]/g, '').split(/\s+/);
+    
+    words.forEach(word => {
+      const cleanWord = word.trim();
+      if (cleanWord.length > 3 && !stopWords.has(cleanWord.toLowerCase())) {
+        // Damo prednost besedam z veliko začetnico (imena, kraji)
+        const isCapitalized = cleanWord[0] === cleanWord[0].toUpperCase();
+        const weight = isCapitalized ? 2 : 1;
+        const key = cleanWord.charAt(0).toUpperCase() + cleanWord.slice(1).toLowerCase();
+        wordCount[key] = (wordCount[key] || 0) + weight;
+      }
+    });
+  });
+
+  return Object.entries(wordCount)
+    .sort(([, a], [, b]) => b - a)
+    .slice(0, 6) // Vzamemo top 6
+    .map(([word]) => `#${word}`);
+}
+// -----------------------------------------------------------
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   // Preverjanje avtorizacije
@@ -16,13 +53,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   let trends: string[] = []
+  let source = 'AI'
 
   try {
-    // 1. KORAK: DOBI ZADNJIH 60 NOVIC (NEGLEDE NA DATUM)
-    // Filtriranje datuma delamo v JS, ker je bolj zanesljivo kot SQL primerjave stringov
+    // 1. KORAK: DOBI NOVICE
     const { data: allNews, error } = await supabase
       .from('news')
-      .select('title, publishedat, category') // Rabimo publishedat za preverjanje!
+      .select('title, publishedat, category')
       .neq('category', 'oglas')
       .neq('category', 'promo')
       .order('publishedat', { ascending: false })
@@ -30,50 +67,31 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     if (error) throw error
     if (!allNews || allNews.length === 0) {
-        return res.status(200).json({ success: false, message: 'Baza je popolnoma prazna.' })
+        return res.status(200).json({ success: false, message: 'Baza je prazna.' })
     }
 
-    // DEBUG: Poglejmo, kdaj je bila objavljena zadnja novica
-    const latestNewsDate = new Date(allNews[0].publishedat)
-    console.log(`Zadnja novica v bazi je iz: ${latestNewsDate.toLocaleString()}`)
-
-    // 2. KORAK: FILTRIRANJE V JAVASCRIPTU (24 ur)
-    // To je bolj varno pred časovnimi pasovi
-    const cutoffTime = new Date(Date.now() - 24 * 60 * 60 * 1000) // 24 ur nazaj
+    // 2. KORAK: FILTRIRANJE (24 ur)
+    const cutoffTime = new Date(Date.now() - 24 * 60 * 60 * 1000)
     
     let recentNews = allNews.filter(n => {
         const newsDate = new Date(n.publishedat)
         return newsDate > cutoffTime
     })
 
-    console.log(`Število novic v zadnjih 24h: ${recentNews.length}`)
-
-    // Če je novic premalo (manj kot 5), poskusimo vzeti kar tistih 60, ki smo jih dobili,
-    // če niso starejše od 48 ur. Bolje nekaj kot nič.
+    // Fallback: če je premalo novic, vzemi zadnjih 15 neglede na čas
     if (recentNews.length < 5) {
-        const cutoff48 = new Date(Date.now() - 48 * 60 * 60 * 1000)
-        recentNews = allNews.filter(n => new Date(n.publishedat) > cutoff48)
-        console.log(`Širim na 48h, novo število: ${recentNews.length}`)
+        recentNews = allNews.slice(0, 15);
     }
 
-    // Če še vedno ni nič, potem scraper verjetno ne dela
-    if (recentNews.length < 3) {
-        return res.status(200).json({ 
-            success: false, 
-            message: 'Premalo svežih novic. Preveri scraper.',
-            latest_news_date: latestNewsDate.toISOString(),
-            count_24h: recentNews.length
-        })
-    }
-
-    // 3. KORAK: PRIPRAVA ZA AI
+    // 3. KORAK: AI GENERIRANJE
     const headlines = recentNews.map(n => `- ${n.title}`).join('\n')
 
     try {
-        const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" })
+        // SPREMEMBA: Uporabljamo 1.5-flash
+        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" })
         
         const prompt = `
-          Analiziraj te naslove in izlušči 4 do 6 trenutno najbolj vročih tem.
+          Analiziraj te naslove in izlušči 6 do 8 trenutno najbolj vročih tem.
           Naslovi:
           ${headlines}
 
@@ -105,13 +123,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         }
 
     } catch (aiError: any) {
-        console.error("⚠️ AI napaka:", aiError.message)
-        return res.status(500).json({ error: 'AI generation failed', details: aiError.message })
+        console.error("⚠️ AI napaka (preklapljam na manual):", aiError.message)
+        // SPREMEMBA: Namesto da vrnemo napako, uporabimo varnostno funkcijo
+        source = 'MANUAL_FALLBACK'
+        const titles = recentNews.map(n => n.title);
+        trends = extractTrendsManually(titles);
     }
 
     // 4. KORAK: SHRANJEVANJE
     if (trends.length > 0) {
-        trends = trends.filter(t => t.length > 2)
+        // Počistimo format
+        trends = trends.map(t => t.startsWith('#') ? t : `#${t}`).filter(t => t.length > 2);
 
         const { error } = await supabase
           .from('trending_ai')
@@ -119,9 +141,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         
         if (error) throw error
         
-        return res.status(200).json({ success: true, count: trends.length, trends })
+        return res.status(200).json({ success: true, source, count: trends.length, trends })
     } else {
-        return res.status(200).json({ success: false, message: 'AI ni vrnil trendov' })
+        return res.status(200).json({ success: false, message: 'Ni bilo mogoče generirati trendov.' })
     }
 
   } catch (error: any) {
