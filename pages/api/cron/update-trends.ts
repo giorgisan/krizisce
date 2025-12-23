@@ -18,7 +18,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   let trends: string[] = []
   
   try {
-    // 1. KORAK: DOBI NOVICE
+    // 1. ZAJEM NOVIC
     const { data: allNews, error } = await supabase
       .from('news')
       .select('title, publishedat, category')
@@ -32,83 +32,77 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(200).json({ success: false, message: 'Baza je prazna.' })
     }
 
-    // 2. KORAK: FILTRIRANJE (24 ur)
+    // 2. FILTRIRANJE
     const cutoffTime = new Date(Date.now() - 24 * 60 * 60 * 1000)
-    
-    let recentNews = allNews.filter(n => {
-        const newsDate = new Date(n.publishedat)
-        return newsDate > cutoffTime
-    })
+    let recentNews = allNews.filter(n => new Date(n.publishedat) > cutoffTime)
 
-    // Fallback: če je premalo novic, vzemi zadnjih 15 neglede na čas
     if (recentNews.length < 5) {
         recentNews = allNews.slice(0, 15);
     }
 
-    // 3. KORAK: AI GENERIRANJE
+    // 3. PRIPRAVA VSEBINE
     const headlines = recentNews.map(n => `- ${n.title}`).join('\n')
 
-    try {
-        // Uporabljamo 1.5-flash z izklopljenimi varovali
-        // (Da ne blokira novic o nesrečah/kriminalu)
+    // TVOJ ORIGINALNI PROMPT
+    const prompt = `
+        Analiziraj te naslove in izlušči 4 do 6 trenutno najbolj vročih tem.
+        Naslovi:
+        ${headlines}
+
+        NAVODILA (STROGO UPOŠTEVAJ):
+        1. Vrni SAMO JSON array stringov.
+        2. Vsak element se začne z lojtro (#).
+        3. NE ZDRUŽUJ BESED (CamelCase prepovedan). Uporabi presledke (#Luka Dončić).
+        4. IZJEMNO POMEMBNO - DOBESEDNOST:
+            - Uporabljaj IZKLJUČNO besede, ki se pojavijo v naslovu. Ne išči sopomenk!
+            - Če v naslovu piše "ustvarjalec", NE smeš napisati "razvijalec".
+            - Če v naslovu piše "gripe", NE smeš napisati "bolezni".
+            - Bodi kot papiga: kopiraj ključne samostalnike iz naslova.
+            - Če ni dovolj vročih tem, raje vrni manj tagov (npr. samo 3), kot da si izmišljuješ.
+        5. PRIORITETA:
+            - Imena oseb (Luka Dončić, Trump, Vince Zampella).
+            - Kratice (THC, ZDA, NPU).
+            - Imena podjetij/produktov (Call of Duty, Lekarna).
+        6. Ne dodajaj splošnih pridevnikov (npr. "prepovedana", "velika", "znana"), razen če so del lastnega imena.
+        7. Max 3 besede na tag.
+    `
+
+    // Pomožna funkcija za klic modela
+    const tryGenerate = async (modelName: string) => {
+        console.log(`Poskušam z modelom: ${modelName}...`);
         const model = genAI.getGenerativeModel({ 
-            model: "gemini-1.5-flash",
-            safetySettings: [
+            model: modelName,
+            safetySettings: [ // Izklopimo varovala za novice črne kronike
                 { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
                 { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE },
                 { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_NONE },
                 { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE },
             ]
         })
-        
-        const prompt = `
-            Analiziraj te naslove in izlušči 4 do 6 trenutno najbolj vročih tem.
-            Naslovi:
-            ${headlines}
-
-            NAVODILA (STROGO UPOŠTEVAJ):
-            1. Vrni SAMO JSON array stringov.
-            2. Vsak element se začne z lojtro (#).
-            3. NE ZDRUŽUJ BESED (CamelCase prepovedan). Uporabi presledke (#Luka Dončić).
-            4. IZJEMNO POMEMBNO - DOBESEDNOST:
-                - Uporabljaj IZKLJUČNO besede, ki se pojavijo v naslovu. Ne išči sopomenk!
-                - Če v naslovu piše "ustvarjalec", NE smeš napisati "razvijalec".
-                - Če v naslovu piše "gripe", NE smeš napisati "bolezni".
-                - Bodi kot papiga: kopiraj ključne samostalnike iz naslova.
-                - Če ni dovolj vročih tem, raje vrni manj tagov (npr. samo 3), kot da si izmišljuješ.
-            5. PRIORITETA:
-                - Imena oseb (Luka Dončić, Trump, Vince Zampella).
-                - Kratice (THC, ZDA, NPU).
-                - Imena podjetij/produktov (Call of Duty, Lekarna).
-            6. Ne dodajaj splošnih pridevnikov (npr. "prepovedana", "velika", "znana"), razen če so del lastnega imena.
-            7. Max 3 besede na tag.
-        `
-
         const result = await model.generateContent(prompt)
         const responseText = result.response.text()
         const cleanJson = responseText.replace(/```json|```/g, '').trim()
-        
-        const parsed = JSON.parse(cleanJson)
-        
-        if (Array.isArray(parsed) && parsed.length > 0) {
-            trends = parsed
-        } else {
-            throw new Error('Prazen array iz AI')
-        }
-
-    } catch (aiError: any) {
-        console.error("⚠️ AI napaka:", aiError.message)
-        // Tukaj se ustavimo. Ni fallbacka.
-        return res.status(500).json({ 
-            success: false, 
-            error: 'AI generation failed', 
-            details: aiError.message 
-        })
+        return JSON.parse(cleanJson)
     }
 
-    // 4. KORAK: SHRANJEVANJE (Samo če je AI uspel)
-    if (trends.length > 0) {
-        // Počistimo format
+    // 4. GENERIRANJE (Z REZERVNIM PLANOM)
+    try {
+        // POSKUS 1: Tvoj primarni model iz seznama
+        trends = await tryGenerate("gemini-2.5-flash");
+    } catch (err1: any) {
+        console.warn(`⚠️ gemini-2.5-flash odpovedal (${err1.message}). Preklapljam na Lite...`);
+        try {
+            // POSKUS 2: Rezervni model iz tvojega seznama
+            trends = await tryGenerate("gemini-2.5-flash-lite");
+        } catch (err2: any) {
+            console.error("❌ Vsi modeli odpovedali. Ne posodabljam trendov.");
+            // Tukaj se ustavimo. Brez 'smeti' fallbacka.
+            return res.status(500).json({ error: 'AI generation failed', details: err2.message });
+        }
+    }
+
+    // 5. SHRANJEVANJE
+    if (Array.isArray(trends) && trends.length > 0) {
         trends = trends.map(t => t.startsWith('#') ? t : `#${t}`).filter(t => t.length > 2);
 
         const { error } = await supabase
@@ -120,7 +114,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(200).json({ success: true, count: trends.length, trends })
     } 
 
-    return res.status(200).json({ success: false, message: 'Neznana napaka (prazni trendi)' })
+    return res.status(200).json({ success: false, message: 'AI je vrnil prazen rezultat.' })
 
   } catch (error: any) {
     console.error('Critical Error:', error)
