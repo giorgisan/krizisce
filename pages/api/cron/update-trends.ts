@@ -41,7 +41,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             const model = genAI.getGenerativeModel({ model: "gemini-flash-latest" })
             
             const prompt = `
-              Analiziraj te naslove in izlušči 6 do 8 trenutno najbolj vročih tem.
+              Analiziraj te naslove in izlušči 5 do 7 trenutno najbolj vročih tem.
               Naslovi:
               ${headlines}
 
@@ -50,6 +50,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
               2. Uporabi slovenski jezik.
               3. Združi sorodne novice.
               4. Bodi kratek (max 2 besedi).
+              5. STROGO PREPOVEDANO: Ne uporabljaj vejic ali pik znotraj hashtaga (npr. "#Kriminal, Droge" NI DOVOLJENO). Uporabi raje ločene tage ali pa samo glavno besedo.
             `
 
             const result = await model.generateContent(prompt)
