@@ -306,6 +306,18 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
     ? '' 
     : CATEGORIES.find(c => c.id === selectedCategory)?.label || selectedCategory;
 
+  // --- POMOŽNA FUNKCIJA ZA ČIŠČENJE ISKANJA ---
+  const handleTrendingClick = (word: string) => {
+    // 1. Odstrani lojtro (#) na začetku
+    // 2. Zamenjaj vejice (,) in podčrtaje (_) s presledki
+    // Primer: "#Kriminal, Droge" -> "Kriminal Droge"
+    // To iskalnik veliko lažje najde!
+    const cleanQuery = word.replace(/^#/, '').replace(/[,_]/g, ' ').trim();
+    
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+    setSearchQuery(cleanQuery)
+  }
+
   return (
     <>
       <Header 
@@ -341,7 +353,7 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
         {/* --- KOMPAKTNA ZGORNJA VRSTICA --- */}
         <div className="px-4 md:px-8 lg:px-16 pt-4 pb-2 flex flex-col md:flex-row md:items-center gap-4 border-b border-transparent">
            
-           {/* LEVA STRAN: Tabs / Naslov kategorije */}
+           {/* LEVA STRAN */}
            <div className="flex items-center justify-between md:justify-start gap-4">
                {selectedCategory === 'vse' ? (
                  <div className="scale-90 origin-left shrink-0">
@@ -353,7 +365,6 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
                  </span>
                )}
 
-               {/* Filter gumb (če so filtri) na mobile */}
                {selectedSources.length > 0 && (
                  <div className="md:hidden flex items-center gap-2">
                     <div className="text-xs text-brand font-medium border border-brand/20 bg-brand/5 px-2 py-1 rounded">
@@ -364,21 +375,18 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
                )}
            </div>
 
-           {/* DESNA STRAN: Trending bar (v isti vrstici na desktop) */}
+           {/* DESNA STRAN: Trending bar */}
            {mode === 'latest' && selectedCategory === 'vse' && !searchQuery && (
               <div className="flex-1 min-w-0 overflow-hidden">
                  <TrendingBar 
                     words={initialTrendingWords}
                     selectedWord={searchQuery}
-                    onSelectWord={(word) => {
-                       window.scrollTo({ top: 0, behavior: 'smooth' })
-                       setSearchQuery(word)
-                    }}
+                    // POPRAVEK: Uporabimo novo funkcijo za čiščenje
+                    onSelectWord={handleTrendingClick} 
                  />
               </div>
            )}
            
-           {/* Filtri na desktopu (čisto desno) */}
            {selectedSources.length > 0 && (
              <div className="hidden md:flex items-center gap-2 ml-auto shrink-0">
                 <div className="text-xs text-brand font-medium border border-brand/20 bg-brand/5 px-2 py-1 rounded whitespace-nowrap">
@@ -463,7 +471,7 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
   )
 }
 
-/* ================= SSR: Pametno nalaganje (AI ali Fallback) ================= */
+/* ================= SSR ================= */
 export const getServerSideProps: GetServerSideProps = async ({ res }) => {
   res.setHeader(
     'Cache-Control',
@@ -486,27 +494,21 @@ export const getServerSideProps: GetServerSideProps = async ({ res }) => {
     .order('id', { ascending: false })
     .limit(25)
 
-  // 2. Fetch Trending Words (AI - Nivo 3)
+  // 2. Fetch Trending Words (AI)
   let trendsData: any[] = []
 
-  // Poskusi prebrati iz AI tabele
-  const { data: aiData, error: aiError } = await supabase
+  const { data: aiData } = await supabase
     .from('trending_ai')
     .select('words')
     .eq('id', 1)
     .single()
 
-  // Če imamo AI podatke in niso prazni
   if (aiData && aiData.words && Array.isArray(aiData.words) && aiData.words.length > 0) {
-     console.log('✅ Uporabljam AI trende')
-     // Pretvorimo stringe v objekte, ki jih rabi frontend: { word: "#Hashtag", count: 1 }
      trendsData = aiData.words.map((w: string) => ({ 
-       word: w, // <--- Pustimo točno tako, kot je AI napisal (#Beli božič)
-       count: 1 
-      }))
+        word: w, 
+        count: 1 
+     }))
   } else {
-     // FALLBACK: Če AI še ni tekel, uporabi stari SQL način
-     console.log('⚠️ AI tabela prazna, uporabljam SQL fallback')
      const sqlTrends = await supabase.rpc('get_trending_words', {
          hours_lookback: 48,
          limit_count: 8
