@@ -501,9 +501,9 @@ export const getServerSideProps: GetServerSideProps = async ({ res }) => {
      console.log('✅ Uporabljam AI trende')
      // Pretvorimo stringe v objekte, ki jih rabi frontend: { word: "#Hashtag", count: 1 }
      trendsData = aiData.words.map((w: string) => ({ 
-        word: w.replace(/^#/, ''), // Odstranimo lojtro, če je že v stringu, ker jo UI doda sam
-        count: 1 
-     }))
+       word: w, // <--- Pustimo točno tako, kot je AI napisal (#Beli božič)
+       count: 1 
+      }))
   } else {
      // FALLBACK: Če AI še ni tekel, uporabi stari SQL način
      console.log('⚠️ AI tabela prazna, uporabljam SQL fallback')
