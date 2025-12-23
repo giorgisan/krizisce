@@ -16,14 +16,13 @@ export default function TrendingBar({ words, onSelectWord, selectedWord }: Trend
 
   return (
     <div className="flex items-center h-full min-h-[40px] w-full">
-      {/* Ločilna črta - tanjša in bolj subtilna */}
+      {/* Ločilna črta */}
       <div className="h-4 w-px bg-gray-300 dark:bg-gray-700 mx-4 shrink-0 hidden md:block" />
 
       <div className="flex items-center gap-4 overflow-x-auto no-scrollbar mask-gradient w-full py-1">
         
-        {/* Ikonca + Tekst "Trendi" (opcijsko, lahko pustiš samo ikono) */}
         <div className="flex items-center gap-1 shrink-0 text-gray-400 dark:text-gray-500 select-none">
-           <span className="text-sm animate-pulse">🔥 Besede, ki žarijo:</span>
+           <span className="text-sm animate-pulse">🔥</span>
         </div>
 
         {!hasWords ? (
@@ -32,21 +31,27 @@ export default function TrendingBar({ words, onSelectWord, selectedWord }: Trend
            </span>
         ) : (
           words.map((item) => {
-            const isActive = selectedWord?.toLowerCase() === item.word
+            // Odstranimo lojtro, če je slučajno v bazi, da jo spodaj dodamo enkrat samkrat
+            const cleanWord = item.word.replace(/^#/, '');
+            
+            // Preverimo, če je izbrana (ignoriramo case in lojtre)
+            const isSelected = selectedWord?.toLowerCase().replace(/^#/, '') === cleanWord.toLowerCase();
+
             return (
               <button
                 key={item.word}
-                onClick={() => onSelectWord(isActive ? '' : item.word)}
+                onClick={() => onSelectWord(cleanWord)} // Pošljemo čisto besedo
                 className={`
-                  whitespace-nowrap text-[13px] font-medium transition-colors duration-200 group
-                  ${isActive 
-                    ? 'text-brand font-bold' // Aktivno stanje
-                    : 'text-gray-600 dark:text-gray-400 hover:text-brand dark:hover:text-brand' // Neaktivno
+                  whitespace-nowrap text-[13px] font-medium transition-colors duration-200 group flex items-center
+                  ${isSelected 
+                    ? 'text-brand font-bold' 
+                    : 'text-gray-600 dark:text-gray-400 hover:text-brand dark:hover:text-brand'
                   }
                 `}
               >
+                {/* Lojtra je zdaj tu fiksna in lepša (prosojna) */}
                 <span className="opacity-40 mr-0.5 group-hover:opacity-100 transition-opacity">#</span>
-                {item.word}
+                {cleanWord}
               </button>
             )
           })
