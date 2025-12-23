@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/update-trends",
+      "schedule": "0 * * * *"
+    }
+  ]
+}
