@@ -23,20 +23,15 @@ export default function TrendingBar({ words, onSelectWord, selectedWord }: Trend
       <div className="flex items-center gap-4 overflow-x-auto no-scrollbar mask-gradient w-full py-1 pr-4">
         
         {/* --- LABELA "ŽARIŠČE" --- */}
-        <div className="group relative flex items-center gap-1.5 shrink-0 select-none cursor-default">
+        {/* Uporabimo native 'title' atribut za tooltip, ki ga brskalnik prikaže vedno pravilno */}
+        <div 
+          className="group flex items-center gap-1.5 shrink-0 select-none cursor-default hover:opacity-80 transition-opacity"
+          title="O čem trenutno pišejo mediji" 
+        >
           <span className="text-sm animate-pulse">🔥</span>
           <span className="text-sm font-semibold text-gray-500 dark:text-gray-400">
             Žarišče:
           </span>
-
-          {/* PREPROST TOOLTIP (Brez puščic, samo oblaček) */}
-          <div className="
-            pointer-events-none absolute top-full left-0 mt-1 hidden w-max 
-            rounded bg-gray-900 text-white text-xs px-2 py-1 shadow-md z-50
-            opacity-0 group-hover:block group-hover:opacity-100 transition-opacity duration-200
-          ">
-            O čem trenutno pišejo vsi mediji
-          </div>
         </div>
 
         {/* --- SEZNAM TAGOV --- */}
