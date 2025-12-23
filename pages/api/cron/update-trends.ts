@@ -37,17 +37,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             
             // --- POPRAVLJEN PROMPT ---
             const prompt = `
-              Analiziraj te naslove in izlušči 6 do 8 trenutno najbolj vročih tem.
+              Analiziraj te naslove in izlušči 4 do 6 trenutno najbolj vročih tem.
               Naslovi:
               ${headlines}
 
-              Navodila za izhod:
-              1. Vrni SAMO JSON array stringov. Primer: ["#Volitve 2025", "#Luka Dončić", "#Požar"].
-              2. Uporabi slovenski jezik.
-              3. Združi sorodne novice.
-              4. NE ZDRUŽUJ BESED SKUPAJ (Prepovedano: #LukaDončić). Uporabi presledke med besedami (Dovoljeno: #Luka Dončić).
-              5. Naj bo vsak tag kratek (max 3 besede).
-              6. Ne uporabljaj vejic ali pik znotraj taga.
+              NAVODILA:
+              1. Vrni SAMO JSON array stringov.
+              2. Vsak element je hashtag (#).
+              3. NE ZDRUŽUJ BESED (CamelCase prepovedan). Uporabi presledke (#Luka Dončić).
+              4. POMEMBNO: Uporabi ključne besede (samostalnike), ki se DEJANSKO POJAVIJO v naslovih. Ne izmišljuj si novih povzetkov, če niso v tekstu.
+                 - Če piše "Zvonijo alarmi zaradi gripe", ne napiši "#Zdravstvena kriza", ampak "#Gripa" ali "#Alarm zaradi gripe".
+              5. Max 3 besede na tag.
             `
             // -------------------------
 
