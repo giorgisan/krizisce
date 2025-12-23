@@ -463,9 +463,8 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
   )
 }
 
-/* ================= SSR: Pametno nalaganje novic in trendov ================= */
+/* ================= SSR: Pametno nalaganje (AI ali Fallback) ================= */
 export const getServerSideProps: GetServerSideProps = async ({ res }) => {
-  // Cache za 60 sekund (da ne obremenjujemo baze preveč)
   res.setHeader(
     'Cache-Control',
     'public, s-maxage=60, stale-while-revalidate=59'
@@ -478,7 +477,7 @@ export const getServerSideProps: GetServerSideProps = async ({ res }) => {
     auth: { persistSession: false },
   })
 
-  // 1. Fetch News (Najnovejše novice)
+  // 1. Fetch News
   const newsPromise = supabase
     .from('news')
     .select('id, link, title, source, summary, contentsnippet, image, published_at, publishedat, category')
@@ -487,32 +486,36 @@ export const getServerSideProps: GetServerSideProps = async ({ res }) => {
     .order('id', { ascending: false })
     .limit(25)
 
-  // 2. Fetch Trending Words (PAMETNA LOGIKA)
-  // Najprej poskusimo ZELO SVEŽE (8 ur)
+  // 2. Fetch Trending Words (AI - Nivo 3)
   let trendsData: any[] = []
-  
-  const freshTrends = await supabase.rpc('get_trending_words', {
-     hours_lookback: 8, // <--- Tvoja želja: 8 ur
-     limit_count: 8
-  })
 
-  // Če je trendov malo (manj kot 4), pomeni, da je "suša" (npr. zjutraj).
-  // V tem primeru razširimo iskanje na 24 ur.
-  if (!freshTrends.data || freshTrends.data.length < 4) {
-      console.log('📉 Malo svežih trendov, preklapljam na 24h fallback ...')
-      const fallbackTrends = await supabase.rpc('get_trending_words', {
-         hours_lookback: 24, // <--- Rezerva
-         limit_count: 8
-      })
-      trendsData = fallbackTrends.data || []
+  // Poskusi prebrati iz AI tabele
+  const { data: aiData, error: aiError } = await supabase
+    .from('trending_ai')
+    .select('words')
+    .eq('id', 1)
+    .single()
+
+  // Če imamo AI podatke in niso prazni
+  if (aiData && aiData.words && Array.isArray(aiData.words) && aiData.words.length > 0) {
+     console.log('✅ Uporabljam AI trende')
+     // Pretvorimo stringe v objekte, ki jih rabi frontend: { word: "#Hashtag", count: 1 }
+     trendsData = aiData.words.map((w: string) => ({ 
+        word: w.replace(/^#/, ''), // Odstranimo lojtro, če je že v stringu, ker jo UI doda sam
+        count: 1 
+     }))
   } else {
-      trendsData = freshTrends.data
+     // FALLBACK: Če AI še ni tekel, uporabi stari SQL način
+     console.log('⚠️ AI tabela prazna, uporabljam SQL fallback')
+     const sqlTrends = await supabase.rpc('get_trending_words', {
+         hours_lookback: 48,
+         limit_count: 8
+     })
+     trendsData = sqlTrends.data || []
   }
 
-  // Počakamo še na novice
   const [newsRes] = await Promise.all([newsPromise])
 
-  // Obdelava novic
   const rows = (newsRes.data ?? []) as any[]
   const initialNews: NewsItem[] = rows.map((r) => {
     const link = r.link || ''
@@ -528,7 +531,6 @@ export const getServerSideProps: GetServerSideProps = async ({ res }) => {
     }
   })
 
-  // Priprava trendov za Frontend
   const initialTrendingWords: TrendingWord[] = trendsData as TrendingWord[]
 
   return { 
