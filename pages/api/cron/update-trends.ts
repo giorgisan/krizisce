@@ -10,11 +10,8 @@ const supabase = createClient(
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_KEY || '')
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  const authHeader = req.headers.authorization;
-  if (
-      req.query.key !== process.env.CRON_SECRET && 
-      authHeader !== `Bearer ${process.env.CRON_SECRET}`
-  ) {
+  // Preverjanje avtorizacije
+  if (req.query.key !== process.env.CRON_SECRET) {
       // return res.status(401).json({ error: 'Unauthorized' });
   }
 
@@ -22,10 +19,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   let source = 'AI'
 
   try {
+    // 1. DOBI NOVICE ZADNJIH 8 UR
     const { data: news } = await supabase
       .from('news')
       .select('title')
       .gt('publishedat', Date.now() - 8 * 60 * 60 * 1000) 
+      .neq('category', 'oglas') // <--- POPRAVEK: Izločimo oglase!
+      .neq('category', 'promo') // <--- POPRAVEK: Izločimo promo (če obstaja)
       .order('publishedat', { ascending: false })
       .limit(60)
 
@@ -33,11 +33,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         const headlines = news.map(n => `- ${n.title}`).join('\n')
 
         try {
-            const model = genAI.getGenerativeModel({ model: "gemini-flash-latest" })
+            const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" })
             
-            // --- POPRAVLJEN PROMPT ---
             const prompt = `
-              Analiziraj te naslove in izlušči 4 do 6 trenutno najbolj vročih tem.
+              Analiziraj te naslove in izlušči 6 do 8 trenutno najbolj vročih tem.
               Naslovi:
               ${headlines}
 
@@ -45,12 +44,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
               1. Vrni SAMO JSON array stringov.
               2. Vsak element se začne z lojtro (#).
               3. NE ZDRUŽUJ BESED (CamelCase prepovedan). Uporabi presledke (#Luka Dončić).
-              4. IZJEMNO POMEMBNO: Teme morajo temeljiti IZKLJUČNO na zgornjih naslovih. 
-                 - Ne dodajaj splošnih zimskih tem (npr. "smučanje", "pelete"), če o njih ni konkretne novice v zgornjem seznamu.
-                 - Če ni dovolj vročih tem, raje vrni manj tagov (npr. samo 3), kot da si izmišljuješ.
+              4. IZJEMNO POMEMBNO - FILTER VSEBINE:
+                 - Ignoriraj članke tipa "3 najboljši...", "Kaj kupiti", "Horoskop", "Recept dneva". To niso novice.
+                 - Teme morajo temeljiti na KONKRETNIH DOGODKIH v zgornjih naslovih.
               5. Max 3 besede na tag.
             `
-            // -------------------------
 
             const result = await model.generateContent(prompt)
             const responseText = result.response.text()
