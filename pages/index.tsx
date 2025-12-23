@@ -306,32 +306,49 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
     ? '' 
     : CATEGORIES.find(c => c.id === selectedCategory)?.label || selectedCategory;
 
-  // --- POSODOBITEV: PAMETNA FUNKCIJA ZA ČIŠČENJE ISKANJA ---
+  // --- NOVA FUNKCIJA ZA ČIŠČENJE ISKANJA (v2) ---
   const handleTrendingClick = (word: string) => {
-    // 1. Odstrani lojtro
-    let clean = word.replace(/^#/, '');
+    // 1. Očistimo lojtro in ločila
+    let clean = word.replace(/^#/, '').replace(/[.,:;?!_]/g, ' ').trim();
     
-    // 2. Odstrani ločila (pike, vejice, podčrtaje)
-    clean = clean.replace(/[.,_]/g, ' ').trim();
-
-    // 3. Razbijemo na besede
+    // 2. Razbijemo na besede
     const parts = clean.split(/\s+/);
+    
+    // 3. Stop words (mašila)
+    const stopWords = new Set(['in', 'ter', 'pa', 'se', 'je', 'da', 'so', 'z', 's', 'v', 'na', 'pri', 'za', 'po', 'do', 'iz', 'od', 'o', 'ali', 'kdo', 'kaj']);
 
-    // 4. Seznam slovenskih "mašil" (stop words)
-    const stopWords = new Set(['in', 'ter', 'pa', 'se', 'je', 'da', 'so', 'z', 's', 'v', 'na', 'pri', 'za', 'po', 'do', 'iz', 'od', 'o', 'ali']);
-
-    // 5. Filtriramo besede:
-    // - Odstranimo mašila
-    // - Obdržimo samo besede dolge vsaj 3 črke
-    const keywords = parts.filter(p => p.length > 2 && !stopWords.has(p.toLowerCase()));
+    // Filtriramo mašila in prekratke besede (razen če so z velikimi črkami, npr. F1)
+    let keywords = parts.filter(p => {
+       const isAcronym = p === p.toUpperCase() && p.length > 1; // Npr. THC, ZDA
+       return isAcronym || (p.length > 2 && !stopWords.has(p.toLowerCase()));
+    });
 
     let finalQuery = clean;
-    
+
     if (keywords.length > 0) {
-        // 6. Sortiramo po dolžini (najdaljša beseda je ponavadi bistvo, npr. "Dončić")
-        keywords.sort((a, b) => b.length - a.length);
-        // Vzamemo najdaljšo besedo za iskanje
-        finalQuery = keywords[0]; 
+        // --- NOVA STRATEGIJA IZBIRE ---
+        
+        // A: Iščemo besede, ki so CELOTNE VELIKE (Akronimi: THC, ZDA, NPU)
+        const acronym = keywords.find(k => k === k.toUpperCase() && /[A-Z]/.test(k));
+        
+        // B: Iščemo besede z Veliko Začetnico (Lastna imena: Dončić, Call, Duty)
+        const properNoun = keywords.find((k, index) => {
+             // Prva črka velika, ostale male
+             const isCapitalized = k[0] === k[0].toUpperCase() && k.slice(1) === k.slice(1).toLowerCase();
+             // Če je to prva beseda v tagu, ni nujno ime (slovnična velika začetnica). 
+             // Ampak če je edina, jo vzamemo.
+             return isCapitalized && (index > 0 || keywords.length === 1);
+        });
+
+        if (acronym) {
+            finalQuery = acronym; // ZMAGOVALEC: THC
+        } else if (properNoun) {
+            finalQuery = properNoun; // ZMAGOVALEC: Dončić, Call
+        } else {
+            // C: Če ni imen, vzemi najdaljšo besedo (Fallback: razvijalec)
+            keywords.sort((a, b) => b.length - a.length);
+            finalQuery = keywords[0];
+        }
     }
     
     window.scrollTo({ top: 0, behavior: 'smooth' })
