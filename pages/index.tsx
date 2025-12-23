@@ -463,8 +463,9 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
   )
 }
 
-/* ================= SSR ================= */
+/* ================= SSR: Pametno nalaganje novic in trendov ================= */
 export const getServerSideProps: GetServerSideProps = async ({ res }) => {
+  // Cache za 60 sekund (da ne obremenjujemo baze preveč)
   res.setHeader(
     'Cache-Control',
     'public, s-maxage=60, stale-while-revalidate=59'
@@ -477,7 +478,7 @@ export const getServerSideProps: GetServerSideProps = async ({ res }) => {
     auth: { persistSession: false },
   })
 
-  // 1. Fetch News
+  // 1. Fetch News (Najnovejše novice)
   const newsPromise = supabase
     .from('news')
     .select('id, link, title, source, summary, contentsnippet, image, published_at, publishedat, category')
@@ -486,14 +487,32 @@ export const getServerSideProps: GetServerSideProps = async ({ res }) => {
     .order('id', { ascending: false })
     .limit(25)
 
-  // 2. Fetch Trending Words
-  const trendsPromise = supabase.rpc('get_trending_words', {
-     hours_lookback: 48,
+  // 2. Fetch Trending Words (PAMETNA LOGIKA)
+  // Najprej poskusimo ZELO SVEŽE (8 ur)
+  let trendsData: any[] = []
+  
+  const freshTrends = await supabase.rpc('get_trending_words', {
+     hours_lookback: 8, // <--- Tvoja želja: 8 ur
      limit_count: 8
   })
 
-  const [newsRes, trendsRes] = await Promise.all([newsPromise, trendsPromise])
+  // Če je trendov malo (manj kot 4), pomeni, da je "suša" (npr. zjutraj).
+  // V tem primeru razširimo iskanje na 24 ur.
+  if (!freshTrends.data || freshTrends.data.length < 4) {
+      console.log('📉 Malo svežih trendov, preklapljam na 24h fallback ...')
+      const fallbackTrends = await supabase.rpc('get_trending_words', {
+         hours_lookback: 24, // <--- Rezerva
+         limit_count: 8
+      })
+      trendsData = fallbackTrends.data || []
+  } else {
+      trendsData = freshTrends.data
+  }
 
+  // Počakamo še na novice
+  const [newsRes] = await Promise.all([newsPromise])
+
+  // Obdelava novic
   const rows = (newsRes.data ?? []) as any[]
   const initialNews: NewsItem[] = rows.map((r) => {
     const link = r.link || ''
@@ -509,7 +528,8 @@ export const getServerSideProps: GetServerSideProps = async ({ res }) => {
     }
   })
 
-  const initialTrendingWords: TrendingWord[] = (trendsRes.data as TrendingWord[]) || []
+  // Priprava trendov za Frontend
+  const initialTrendingWords: TrendingWord[] = trendsData as TrendingWord[]
 
   return { 
     props: { 
