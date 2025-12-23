@@ -41,7 +41,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // 2. VPRAŠAJ GEMINI (Uporabljamo FLASH verzijo)
     // Uporabljamo 'gemini-1.5-flash-latest' da se izognemo 404 napakam
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" })
+    const model = genAI.getGenerativeModel({ model: "gemini-pro" })
     
     const prompt = `
       Si urednik novičarskega portala. Analiziraj te naslove in izlušči 6 do 8 trenutno najbolj vročih tem.
