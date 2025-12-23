@@ -12,38 +12,46 @@ interface TrendingBarProps {
 }
 
 export default function TrendingBar({ words, onSelectWord, selectedWord }: TrendingBarProps) {
-  // Če ni besed, ne prikažemo ničesar (da ne zasedamo prostora)
-  if (!words || words.length === 0) return null
+  // POPRAVEK: Ne vrnemo null, ampak pokažemo sporočilo, če ni besed.
+  const hasWords = words && words.length > 0;
 
   return (
-    <div className="flex items-center h-full">
-      {/* Ločilna črta, vidna le na večjih zaslonih, da loči od tabov */}
-      <div className="h-5 w-px bg-gray-300 dark:bg-gray-700 mx-3 shrink-0 hidden md:block" />
+    <div className="flex items-center h-full min-h-[40px] w-full">
+      {/* Ločilna črta (samo na desktopu) */}
+      <div className="h-6 w-px bg-gray-200 dark:bg-gray-700 mx-3 shrink-0 hidden md:block" />
 
-      <div className="flex items-center gap-2 overflow-x-auto no-scrollbar mask-gradient max-w-full">
-        {/* Ikonca namesto teksta, da prihranimo prostor */}
-        <span className="text-base shrink-0 animate-pulse cursor-default" title="V žarišču">
+      <div className="flex items-center gap-2 overflow-x-auto no-scrollbar mask-gradient w-full">
+        {/* Ikonca */}
+        <span className="text-lg shrink-0 animate-pulse cursor-default" title="V žarišču">
           🔥
         </span>
 
-        {words.map((item) => {
-          const isActive = selectedWord?.toLowerCase() === item.word
-          return (
-            <button
-              key={item.word}
-              onClick={() => onSelectWord(isActive ? '' : item.word)}
-              className={`
-                whitespace-nowrap px-2.5 py-0.5 rounded-full text-[11px] uppercase font-bold tracking-wide transition-all duration-200 border
-                ${isActive 
-                  ? 'bg-brand text-white border-brand shadow-sm' 
-                  : 'bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400 border-gray-200 dark:border-gray-700 hover:text-brand dark:hover:text-brand hover:border-brand/30'
-                }
-              `}
-            >
-              {item.word}
-            </button>
-          )
-        })}
+        {!hasWords ? (
+           // Če ni podatkov, izpiši tole (da vemo, da komponenta dela)
+           <span className="text-xs text-gray-400 italic whitespace-nowrap">
+             Trenutno ni vročih tem.
+           </span>
+        ) : (
+          // Če so podatki, izpiši gumbe
+          words.map((item) => {
+            const isActive = selectedWord?.toLowerCase() === item.word
+            return (
+              <button
+                key={item.word}
+                onClick={() => onSelectWord(isActive ? '' : item.word)}
+                className={`
+                  whitespace-nowrap px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide transition-all duration-200 border
+                  ${isActive 
+                    ? 'bg-brand text-white border-brand shadow-sm' 
+                    : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:text-brand dark:hover:text-brand hover:border-brand/30 hover:bg-gray-50 dark:hover:bg-gray-800'
+                  }
+                `}
+              >
+                {item.word}
+              </button>
+            )
+          })
+        )}
       </div>
     </div>
   )
