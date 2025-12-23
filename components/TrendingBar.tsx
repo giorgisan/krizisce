@@ -16,22 +16,35 @@ export default function TrendingBar({ words, onSelectWord, selectedWord }: Trend
 
   return (
     <div className="flex items-center h-full min-h-[40px] w-full">
-      {/* Ločilna črta */}
+      {/* Ločilna črta (samo na desktopu) */}
       <div className="h-4 w-px bg-gray-300 dark:bg-gray-700 mx-4 shrink-0 hidden md:block" />
 
-      <div className="flex items-center gap-4 overflow-x-auto no-scrollbar mask-gradient w-full py-1">
+      {/* Scrollable container */}
+      <div className="flex items-center gap-4 overflow-x-auto no-scrollbar mask-gradient w-full py-1 pr-4">
         
-        <div className="flex items-center gap-1 shrink-0 text-gray-400 dark:text-gray-500 select-none">
-           <span className="text-sm animate-pulse">🔥</span>
+        {/* --- LABELA Z HOVER TOOLTIPOM --- */}
+        <div className="group relative flex items-center gap-1.5 shrink-0 select-none cursor-help transition-opacity hover:opacity-80">
+          <span className="text-sm animate-pulse">🔥</span>
+          <span className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+            Žarišče:
+          </span>
+
+          {/* Tooltip (Prikaže se ob hoverju) */}
+          <div className="pointer-events-none absolute top-full left-0 mt-2 hidden w-max -translate-x-0 rounded bg-gray-800 px-3 py-1.5 text-xs text-white shadow-xl opacity-0 transition-opacity group-hover:block group-hover:opacity-100 z-50">
+            O čem trenutno pišejo vsi mediji
+            {/* Puščica navzgor */}
+            <div className="absolute left-6 -top-1 h-2 w-2 -translate-x-1/2 rotate-45 bg-gray-800"></div>
+          </div>
         </div>
 
+        {/* --- SEZNAM TAGOV --- */}
         {!hasWords ? (
            <span className="text-xs text-gray-400 italic whitespace-nowrap">
              Trenutno ni vročih tem.
            </span>
         ) : (
           words.map((item) => {
-            // Odstranimo lojtro, če je slučajno v bazi, da jo spodaj dodamo enkrat samkrat
+            // Odstranimo lojtro za logiko (če je slučajno v bazi)
             const cleanWord = item.word.replace(/^#/, '');
             
             // Preverimo, če je izbrana (ignoriramo case in lojtre)
@@ -40,17 +53,19 @@ export default function TrendingBar({ words, onSelectWord, selectedWord }: Trend
             return (
               <button
                 key={item.word}
-                onClick={() => onSelectWord(cleanWord)} // Pošljemo čisto besedo
+                onClick={() => onSelectWord(cleanWord)} // Pošljemo čisto besedo za iskanje
                 className={`
-                  whitespace-nowrap text-[13px] font-medium transition-colors duration-200 group flex items-center
+                  whitespace-nowrap text-[13px] font-medium transition-all duration-200 group flex items-center rounded-md px-1.5 py-0.5
                   ${isSelected 
-                    ? 'text-brand font-bold' 
-                    : 'text-gray-600 dark:text-gray-400 hover:text-brand dark:hover:text-brand'
+                    ? 'text-brand font-bold bg-brand/10' 
+                    : 'text-gray-600 dark:text-gray-400 hover:text-brand dark:hover:text-brand hover:bg-gray-100 dark:hover:bg-gray-800/50'
                   }
                 `}
               >
-                {/* Lojtra je zdaj tu fiksna in lepša (prosojna) */}
-                <span className="opacity-40 mr-0.5 group-hover:opacity-100 transition-opacity">#</span>
+                {/* Lojtra: prosojna, ob hoverju postane vidna */}
+                <span className={`mr-0.5 text-xs transition-opacity ${isSelected ? 'opacity-60' : 'opacity-30 group-hover:opacity-100'}`}>
+                  #
+                </span>
                 {cleanWord}
               </button>
             )
