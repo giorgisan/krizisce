@@ -44,28 +44,30 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const headlines = recentNews.map(n => `- ${n.title}`).join('\n')
 
     // TVOJ ORIGINALNI PROMPT
-    const prompt = `
-        Analiziraj te naslove in izlušči 4 do 6 trenutno najbolj vročih tem.
-        Naslovi:
-        ${headlines}
+        const prompt = `
+            Analiziraj te naslove in izlušči 3 do 6 trenutno najbolj vročih tem.
+            Naslovi:
+            ${headlines}
 
-        NAVODILA (STROGO UPOŠTEVAJ):
-        1. Vrni SAMO JSON array stringov.
-        2. Vsak element se začne z lojtro (#).
-        3. NE ZDRUŽUJ BESED (CamelCase prepovedan). Uporabi presledke (#Luka Dončić).
-        4. IZJEMNO POMEMBNO - DOBESEDNOST:
-            - Uporabljaj IZKLJUČNO besede, ki se pojavijo v naslovu. Ne išči sopomenk!
-            - Če v naslovu piše "ustvarjalec", NE smeš napisati "razvijalec".
-            - Če v naslovu piše "gripe", NE smeš napisati "bolezni".
-            - Bodi kot papiga: kopiraj ključne samostalnike iz naslova.
-            - Če ni dovolj vročih tem, raje vrni manj tagov (npr. samo 3), kot da si izmišljuješ.
-        5. PRIORITETA:
-            - Imena oseb (Luka Dončić, Trump, Vince Zampella).
-            - Kratice (THC, ZDA, NPU).
-            - Imena podjetij/produktov (Call of Duty, Lekarna).
-        6. Ne dodajaj splošnih pridevnikov (npr. "prepovedana", "velika", "znana"), razen če so del lastnega imena.
-        7. Max 3 besede na tag.
-    `
+            NAVODILA (STROGO UPOŠTEVAJ):
+            1. Vrni SAMO JSON array stringov.
+            2. Vsak element se začne z lojtro (#).
+            3. NE ZDRUŽUJ BESED (CamelCase prepovedan). Uporabi presledke (#Luka Dončić).
+            4. IZJEMNO POMEMBNO - DOBESEDNOST:
+                - Uporabljaj IZKLJUČNO besede, ki se pojavijo v naslovu.
+                - Če v naslovu piše "ustvarjalec", NE smeš napisati "razvijalec".
+            5. PRIORITETA:
+                - Imena oseb (Luka Dončić, Trump, Vince Zampella).
+                - Kratice (THC, ZDA, NPU).
+                - Imena podjetij/produktov (Call of Duty, Lekarna).
+            6. Ne dodajaj splošnih pridevnikov (npr. "prepovedana", "velika", "znana"), razen če so del lastnega imena.
+            7. Max 3 besede na tag.
+            8. SKLANJATEV (ODLOČILNO):
+                - Vse besede pretvori v OSNOVNO OBLIKO (Imenovalnik ednine).
+                - Primer: Namesto "Beletrine" (rodilnik) vrni "#Beletrina".
+                - Primer: Namesto "Epsteinovi dosjeji" vrni "#Epstein" ali "#Epstein dosje".
+                - Primer: Namesto "Ljubljanski" vrni "#Ljubljana".
+        `
 
     // Pomožna funkcija za klic modela
     const tryGenerate = async (modelName: string) => {
