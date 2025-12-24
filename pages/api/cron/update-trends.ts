@@ -10,7 +10,7 @@ const supabase = createClient(
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_KEY || '')
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  // Preverjanje avtorizacije (odkomentiraj v produkciji)
+  // Varnostno preverjanje
   if (req.query.key !== process.env.CRON_SECRET) {
       // return res.status(401).json({ error: 'Unauthorized' });
   }
@@ -19,10 +19,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   let usedModel = 'unknown'
   
   try {
-    // 1. ZAJEM NOVIC: Povečamo limit na 100, da lažje najdemo prekrivanja med mediji
+    // 1. ZAJEM NOVIC (100 zadnjih)
     const { data: allNews, error } = await supabase
       .from('news')
-      .select('title, publishedat, source') // Rabimo tudi 'source' za analizo!
+      .select('title, publishedat, source')
       .neq('category', 'oglas')
       .neq('category', 'promo')
       .order('publishedat', { ascending: false })
@@ -33,42 +33,44 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(200).json({ success: false, message: 'Baza je prazna.' })
     }
 
-    // 2. FILTRIRANJE (Zadnjih 24 ur)
+    // 2. FILTRIRANJE (24 ur)
     const cutoffTime = new Date(Date.now() - 24 * 60 * 60 * 1000)
     let recentNews = allNews.filter(n => new Date(n.publishedat) > cutoffTime)
 
-    // Fallback: če je premalo novic, vzemi zadnjih 20
+    // Fallback: če je premalo novic
     if (recentNews.length < 10) {
         recentNews = allNews.slice(0, 20);
     }
 
-    // 3. PRIPRAVA VSEBINE (Vključimo vir, da AI vidi, kdo poroča)
-    // Format: "N1: Naslov novice"
+    // 3. PRIPRAVA VSEBINE
     const headlines = recentNews.map(n => `- ${n.source}: ${n.title}`).join('\n')
 
-    // 4. PAMETNEJŠI PROMPT
+    // 4. PROMPT
     const prompt = `
-        Analiziraj seznam naslovov in izlušči 5 do 8 VROČIH TEM.
-        Seznam novic:
+        Analiziraj te naslove in izlušči 3 do 6 trenutno najbolj vročih tem.
+        Naslovi:
         ${headlines}
 
-        NAVODILA ZA IZBOR (KRITERIJI):
-        1. TEMA MORA BITI "VROČA": O njej morata poročati VSAJ 2 RAZLIČNA MEDIJA (viri).
-        2. OSREDOTOČI SE NA DOGODKE ZADNJIH UR.
-
-        NAVODILA ZA OBLIKOVANJE (STROGO):
+        KRITERIJI:
+        1. TEMA JE "VROČA", ČE O NJEJ PIŠETA VSAJ 2 RAZLIČNA MEDIJA.
+        2. FOKUS: Dogodki zadnjih ur.
+        
+        NAVODILA (STROGO UPOŠTEVAJ):
         1. Vrni SAMO JSON array stringov.
         2. Vsak element se začne z lojtro (#).
-        3. SKLANJATEV: Vse besede pretvori v OSNOVNO OBLIKO (Imenovalnik ednine).
-           - NE: #Beletrine, #Ljubljani
-           - DA: #Beletrina, #Ljubljana
-        4. OPTIMIZACIJA ZA ISKANJE (KLJUČNO):
-           - Tagi naj bodo KRATKI (max 2 besedi).
-           - Ne vključuj glagolov ("tožijo", "obsodili", "umrl").
-           - Uporabi samo ključni samostalnik, ki ga bodo ljudje iskali.
-           - Primer: Namesto "#Avtobusna postaja tožba" vrni raje samo "#Avtobusna postaja". 
-             (Ker iskalnik morda ne bo našel besede "tožba" v vseh naslovih).
-           - Primer: Namesto "#50 let zapora" vrni "#Umor v šoli" ali "#Sodba".
+        3. NE ZDRUŽUJ BESED (CamelCase prepovedan). Uporabi presledke (#Luka Dončić).
+        4. IZJEMNO POMEMBNO - DOBESEDNOST:
+            - Uporabljaj IZKLJUČNO besede, ki se pojavijo v naslovu.
+            - Bodi kot papiga.
+        5. PRIORITETA:
+            - Imena oseb, Kratice, Podjetja.
+        6. Ne dodajaj splošnih pridevnikov.
+        7. Tagi naj bodo KRATKI in SPLOŠNI (max 2 besedi).
+        8. Brez glagolov ("tožijo", "zmagal")
+        9. SKLANJATEV (ODLOČILNO):
+            - Vse besede pretvori v OSNOVNO OBLIKO (Imenovalnik ednine).
+            - Primer: Namesto "Beletrine" vrni "#Beletrina".
+            - Primer: #Ljubljana (ne #Ljubljani).
     `
 
     const tryGenerate = async (modelName: string) => {
@@ -87,7 +89,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return JSON.parse(cleanJson)
     }
 
-    // 5. GENERIRANJE
+    // 5. GENERIRANJE (Fallback logika)
     try {
         trends = await tryGenerate("gemini-2.5-flash");
         usedModel = "gemini-2.5-flash";
@@ -102,17 +104,20 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         }
     }
 
-    // 6. SHRANJEVANJE
+    // 6. SHRANJEVANJE (ZGODOVINA)
     if (Array.isArray(trends) && trends.length > 0) {
-        // Dodatno čiščenje v kodi
         trends = trends
             .map(t => t.startsWith('#') ? t : `#${t}`)
             .filter(t => t.length > 2)
-            .slice(0, 8); // Max 8 tagov
+            .slice(0, 8);
 
+        // SPREMEMBA: Uporabimo .insert() brez ID-ja -> baza ustvari novega
         const { error } = await supabase
           .from('trending_ai')
-          .upsert({ id: 1, words: trends, updated_at: new Date().toISOString() })
+          .insert({ 
+             words: trends, 
+             updated_at: new Date().toISOString() 
+          })
         
         if (error) throw error
         
