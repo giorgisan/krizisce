@@ -497,14 +497,13 @@ export default async function handler(
       }
     }
 
-    // --- 5. POPRAVLJENO ISKANJE (SEARCH) - CRASH FIX ---
+    // --- 5. PAMETNO ISKANJE (Naslov + Podnaslov) ---
     if (searchQuery && searchQuery.trim().length > 0) {
-        // A) Sanitacija: odstrani vejice, oklepaje, ki lomijo Supabase OR syntax
         const term = searchQuery.trim().replace(/[(),]/g, ' ')
         
-        // B) OPTIMIZACIJA: Iščemo SAMO po 'title' in 'summary'. 
-        // 'contentsnippet' je prevelik in povzroča Timeout (57014).
-        q = q.or(`title.ilike.%${term}%,summary.ilike.%${term}%`)
+        // Iščemo po naslovu IN contentsnippet (ker ima indeks).
+        // Summary izpustimo, ker je duplikat in nima indeksa (to je povzročalo timeout).
+        q = q.or(`title.ilike.%${term}%,contentsnippet.ilike.%${term}%`)
     }
 
     q = q.limit(limit)
