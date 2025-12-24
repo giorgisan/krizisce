@@ -20,9 +20,7 @@ const URL_BLOCK_PATTERNS = [
   /[?&]utm_source=advertorial/i,
 
   // --- DELO.SI ---
-  /\/delov-poslovni-center\//i,
-  /\/podjetniske-zvezde\//i,
-  /\/svet-kapitala\//i, // Pogosto vsebuje PR vsebine
+    /\/svet-kapitala\//i, // Pogosto vsebuje PR vsebine
   /\/dpc-/, // Delov Poslovni Center kratica v URL
 
   // --- SLOVENSKE NOVICE ---
