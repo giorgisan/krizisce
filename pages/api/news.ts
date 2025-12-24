@@ -497,11 +497,13 @@ export default async function handler(
       }
     }
 
-    // --- 5. POPRAVLJENO ISKANJE (SEARCH) ---
+    // --- 5. POPRAVLJENO ISKANJE (SEARCH) - CRASH FIX ---
     if (searchQuery && searchQuery.trim().length > 0) {
-        // Sanitacija: odstrani vejice in oklepaje, ki lomijo Supabase OR syntax
+        // A) Sanitacija: odstrani vejice, oklepaje, ki lomijo Supabase OR syntax
         const term = searchQuery.trim().replace(/[(),]/g, ' ')
-        // OPTIMIZACIJA: Iščemo samo po 'title' in 'summary', da preprečimo Timeout
+        
+        // B) OPTIMIZACIJA: Iščemo SAMO po 'title' in 'summary'. 
+        // 'contentsnippet' je prevelik in povzroča Timeout (57014).
         q = q.or(`title.ilike.%${term}%,summary.ilike.%${term}%`)
     }
 
