@@ -45,32 +45,33 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // 3. PRIPRAVA VSEBINE
     const headlines = recentNews.map(n => `- ${n.source}: ${n.title}`).join('\n')
 
-    // 4. OPTIMIZIRAN PROMPT
+    // 4. POPRAVLJEN PROMPT (Varen za iskanje)
     const prompt = `
-        Analiziraj spodnji seznam novic in izlušči seznam "Trending" tagov.
+        Analiziraj spodnji seznam naslovov in povzetkov ter izlušči seznam "Trending" tagov.
         
-        PODATKI (Format: "Vir: Naslov"):
+        PODATKI:
         ${headlines}
 
-        KRITERIJI ZA IZBOR (STROGI FILTER):
-        1. PREŠTEJ VIRE: Tema se kvalificira SAMO, če se pojavi pri VSAJ 2 RAZLIČNIH VIRIH (npr. Delo in 24ur).
-        2. ČE NI VSAJ 2 RAZLIČNIH VIROV, TEME NE IZPIŠI. Raje vrni manj tagov kot napačne.
-        3. FOKUS: Dogodki zadnjih ur.
+        KRITERIJI ZA IZBOR:
+        1. TEMA MORA BITI "VROČA": O njej morata pisati vsaj 2 RAZLIČNA vira.
+        2. ČE NI VSAJ 2 RAZLIČNIH VIROV, TE TEME NE IZPIŠI.
         
-        NAVODILA ZA OBLIKOVANJE TAGOV:
+        NAVODILA ZA OBLIKOVANJE (KRITIČNO ZA ISKALNIK):
         1. Vrni SAMO JSON array stringov.
         2. Vsak element se začne z lojtro (#).
-        3. OBLIKA: Imenovalnik ednine (Osnovna oblika). 
-           - NE: "#Končanje življenja" (to je glagolnik/fraza).
-           - DA: "#Eutanazija" ali "#Referendum".
-           - NE: "#V Cinkarni" -> DA: "#Cinkarna Celje".
-        4. DOLŽINA: Max 2 besedi. Če je oseba, uporabi Ime in Priimek.
+        3. IZVOR BESED: Tagi morajo vsebovati SAMO besede, ki so DEJANSKO NAPISANE v naslovu ali opisu.
+           - NE PREVAJAJ: Če piše "končanje življenja", NE piši "#Eutanazija" (ker iskalnik tega ne bo našel).
+           - NE POSPLOŠUJ: Če piše "Cinkarna", uporabi "#Cinkarna".
+        4. OBLIKA: 
+           - Ohrani besedno zvezo, če je smiselna (npr. "#Cinkarna Celje").
+           - Lahko spremeniš sklanjatev v osnovno obliko (npr. "Cinkarni" -> "Cinkarna"), ampak samo, če je koren besede enak.
         5. PREPOVEDANO:
            - Brez glagolov.
-           - Brez clickbait besed ("Šokantno", "Neverjetno").
+           - Brez pridevnikov ("huda", "velika"), razen če so del imena ("Velika planina").
         
-        CILJ: Vrni do 6 najbolj relevantnih tagov. Če ni dovolj ujemanj, vrni prazen array [].
+        CILJ: Vrni do 6 najbolj relevantnih tagov, ki bodo dali zadetke v iskalniku.
     `
+    
     const tryGenerate = async (modelName: string) => {
         const model = genAI.getGenerativeModel({ 
             model: modelName,
