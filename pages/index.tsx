@@ -103,6 +103,8 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
   const [hasMore, setHasMore] = useState(true)
   const [cursor, setCursor] = useState<number | null>(null)
   const [isLoadingMore, setIsLoadingMore] = useState(false)
+  
+  // Stanje osveževanja (spinner)
   const [isRefreshing, setIsRefreshing] = useState(false)
 
   const [bootRefreshed, setBootRefreshed] = useState(false)
@@ -146,6 +148,7 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
         setIsRefreshing(false)
     }
     
+    // Če je query, uporabimo debounce (zamik), sicer takoj
     if (searchQuery) {
         const timeoutId = setTimeout(fetchData, 500)
         return () => clearTimeout(timeoutId)
@@ -155,7 +158,7 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
 
   }, [selectedSources, selectedCategory, searchQuery, mode, bootRefreshed])
 
-  // POLLING
+  // POLLING (Preverjanje novih novic v ozadju)
   const missCountRef = useRef(0)
   const timerRef = useRef<number | null>(null)
 
@@ -200,7 +203,7 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
     }
   }, [itemsLatest, bootRefreshed, mode, selectedSources, selectedCategory, searchQuery])
 
-  // REFRESH HANDLER
+  // REFRESH HANDLER (Gumb "Nove novice")
   useEffect(() => {
     const onRefresh = () => {
       window.dispatchEvent(new CustomEvent('news-refreshing', { detail: true }))
@@ -229,7 +232,7 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
 
   const visibleNews = mode === 'trending' ? itemsTrending : itemsLatest
 
-  // CURSOR LOGIC
+  // CURSOR LOGIC (Paginacija)
   useEffect(() => {
     if (mode === 'trending') return 
     if (!visibleNews.length) {
@@ -240,7 +243,7 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
     setCursor(minMs || null)
   }, [visibleNews, mode])
 
-  // PAGINACIJA
+  // FETCH PAGE (Paginacija)
   async function fetchPage(cursorVal: number) {
     const qs = new URLSearchParams()
     qs.set('paged', '1')
@@ -308,7 +311,7 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
     ? '' 
     : CATEGORIES.find(c => c.id === selectedCategory)?.label || selectedCategory;
 
-  // --- NOVA FUNKCIJA ZA ČIŠČENJE ISKANJA + FIX ZA LAG ---
+  // --- NOVA FUNKCIJA ZA ČIŠČENJE ISKANJA + FIX ZA UX ---
   const handleTrendingClick = (word: string) => {
     // 1. Očistimo besedo
     let clean = word.replace(/^#/, '').replace(/[.,:;?!_]/g, ' ').trim();
@@ -339,15 +342,17 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
         }
     }
     
-    // 3. IZVEDBA ISKANJA
+    // 3. UX FIX: Takoj prižgemo loading stanje, da pokrijemo 500ms debounce luknjo
+    setIsRefreshing(true); 
+
+    // 4. IZVEDBA ISKANJA
     window.scrollTo({ top: 0, behavior: 'smooth' })
     setSearchQuery(finalQuery)
     
-    // KLJUČEN POPRAVEK: Če smo v 'trending' (Aktualno), moramo preklopiti na 'latest' (Najnovejše),
-    // sicer useEffect za iskanje ne bo izvedel fetcha!
+    // Če smo v 'trending' (Aktualno), preklopimo na 'latest' (Najnovejše)
     if (mode === 'trending') {
         setMode('latest');
-        setHasMore(true); // Resetiramo paginacijo za iskanje
+        setHasMore(true); 
         setCursor(null);
     }
   }
@@ -534,7 +539,7 @@ export const getServerSideProps: GetServerSideProps = async ({ res }) => {
   // 2. Fetch Trending Words (AI)
   let trendsData: any[] = []
 
-  // SPREMENJENO: Iskanje najnovejšega zapisa v zgodovini
+  // SPREMENJENO: Iskanje najnovejšega zapisa v zgodovini (order by updated_at)
   const { data: aiData } = await supabase
     .from('trending_ai')
     .select('words')
