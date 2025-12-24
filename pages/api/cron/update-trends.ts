@@ -45,36 +45,32 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // 3. PRIPRAVA VSEBINE
     const headlines = recentNews.map(n => `- ${n.source}: ${n.title}`).join('\n')
 
-    // 4. PROMPT
+    // 4. OPTIMIZIRAN PROMPT
     const prompt = `
-        Analiziraj te naslove in izlušči do 6 trenutno najbolj vročih tem.
-        Naslovi:
+        Analiziraj spodnji seznam novic in izlušči seznam "Trending" tagov.
+        
+        PODATKI (Format: "Vir: Naslov"):
         ${headlines}
 
-        KRITERIJI ZA IZBOR:
-        1. TEMA JE "VROČA", ČE O NJEJ PIŠETA VSAJ 2 RAZLIČNA MEDIJA (preveri vire).
-        2. FOKUS: Dogodki zadnjih ur.
+        KRITERIJI ZA IZBOR (STROGI FILTER):
+        1. PREŠTEJ VIRE: Tema se kvalificira SAMO, če se pojavi pri VSAJ 2 RAZLIČNIH VIRIH (npr. Delo in 24ur).
+        2. ČE NI VSAJ 2 RAZLIČNIH VIROV, TEME NE IZPIŠI. Raje vrni manj tagov kot napačne.
+        3. FOKUS: Dogodki zadnjih ur.
         
-        NAVODILA ZA OBLIKOVANJE (STROGO UPOŠTEVAJ):
+        NAVODILA ZA OBLIKOVANJE TAGOV:
         1. Vrni SAMO JSON array stringov.
         2. Vsak element se začne z lojtro (#).
-        3. NE ZDRUŽUJ BESED (CamelCase prepovedan). Uporabi presledke (#Luka Dončić).
-        4. IZVOR BESED (Bistveno):
-            - Teme črpaj IZKLJUČNO iz vsebine naslovov. Ne izmišljuj si tem.
-        5. OBLIKA in SKLANJATEV (Normalizacija):
-            - Vse besede OBVEZNO pretvori v OSNOVNO OBLIKO (Imenovalnik ednine).
-            - Primer: Če naslov pravi "Požar v Beletrini", mora biti tag "#Beletrina".
-            - Primer: "Sodba Janši" -> "#Janša" ali "#Sodba".
-        6. PRIORITETA:
-            - Imena oseb, Kratice, Podjetja, Kraji.
-        7. DOLŽINA:
-            - Tagi naj bodo KRATKI (max 2 besedi). To je ključno za iskanje.
-            - Namesto "#Ruski napad na Ukrajino" vrni "#Ukrajina".
-        8. PREPOVEDANO:
-            - Brez glagolov ("tožijo", "zmagal", "umrl").
-            - Brez splošnih pridevnikov ("velika", "znana"), razen če so del imena.
+        3. OBLIKA: Imenovalnik ednine (Osnovna oblika). 
+           - NE: "#Končanje življenja" (to je glagolnik/fraza).
+           - DA: "#Eutanazija" ali "#Referendum".
+           - NE: "#V Cinkarni" -> DA: "#Cinkarna Celje".
+        4. DOLŽINA: Max 2 besedi. Če je oseba, uporabi Ime in Priimek.
+        5. PREPOVEDANO:
+           - Brez glagolov.
+           - Brez clickbait besed ("Šokantno", "Neverjetno").
+        
+        CILJ: Vrni do 6 najbolj relevantnih tagov. Če ni dovolj ujemanj, vrni prazen array [].
     `
-
     const tryGenerate = async (modelName: string) => {
         const model = genAI.getGenerativeModel({ 
             model: modelName,
