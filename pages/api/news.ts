@@ -21,10 +21,10 @@ const supabaseWrite = SUPABASE_SERVICE_ROLE_KEY
   : null
 
 /* -------------------------------------------------------------------------- */
-/* HELPER FUNKCIJE                              */
+/* HELPER FUNKCIJE                                                            */
 /* -------------------------------------------------------------------------- */
 
-// Čiščenje URL-jev (odstranjevanje UTM parametrov itd.)
+// Čiščenje URL-jev
 function cleanUrl(raw: string): URL | null {
   try {
     const u = new URL(raw.trim())
@@ -53,7 +53,7 @@ function yyyymmdd(iso?: string | null): string | null {
   return `${y}${m}${dd}`
 }
 
-// Generiranje unikatnega ključa za preprečevanje duplikatov
+// Generiranje unikatnega ključa
 function makeLinkKey(raw: string, iso?: string | null): string {
   const u = cleanUrl(raw)
   if (!u) return raw.trim()
@@ -81,7 +81,7 @@ const unaccent = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '
 const normTitle = (s: string) => unaccent(s).toLowerCase().replace(/\s+/g, ' ').trim()
 const tsSec = (ms?: number | null) => Math.max(0, Math.floor((typeof ms === 'number' ? ms : 0) / 1000))
 
-// "Soft" deduplikacija v spominu (če API vrne iste novice iz več virov)
+// Soft deduplikacija
 function softDedupe<T extends { source?: string; title?: string; publishedAt?: number }>(arr: T[]): T[] {
   const byKey = new Map<string, T>()
   for (const it of arr) {
@@ -116,7 +116,6 @@ function resolveTimestamps(item: FeedNewsItem) {
   return { ms: Math.round(ms), iso }
 }
 
-// Pretvorba RSS itema v format za DB
 function feedItemToDbRow(item: FeedNewsItem) {
   const linkRaw = (item.link || '').trim()
   const ts = resolveTimestamps(item)
@@ -126,8 +125,6 @@ function feedItemToDbRow(item: FeedNewsItem) {
   if (!linkKey || !title || !source) return null
   const snippet = normalizeSnippet(item)
   
-  // Kategorija je zdaj že določena v fetchRSSFeeds (lahko je 'oglas')
-  // Če bi bila null, jo ponovno izračunamo, sicer uporabimo obstoječo
   const category = item.category || determineCategory({ 
     link: linkRaw, 
     title: title, 
@@ -149,7 +146,7 @@ function feedItemToDbRow(item: FeedNewsItem) {
   }
 }
 
-// Zapisovanje v Supabase (Ingest)
+// Zapisovanje v Supabase
 async function syncToSupabase(items: FeedNewsItem[]) {
   if (!supabaseWrite) return
   
@@ -177,7 +174,7 @@ async function syncToSupabase(items: FeedNewsItem[]) {
   }
 }
 
-// --- TIPI ZA BAZO ---
+// --- TIPI ---
 type Row = {
   id: number
   link: string
@@ -214,10 +211,10 @@ function rowToItem(r: Row): FeedNewsItem {
 }
 
 /* -------------------------------------------------------------------------- */
-/* TRENDING LOGIKA (Vroče)                                  */
+/* TRENDING LOGIKA                                                            */
 /* -------------------------------------------------------------------------- */
 const TREND_WINDOW_HOURS = 6 
-const TREND_MIN_SOURCES = 2     
+const TREND_MIN_SOURCES = 2      
 const TREND_MIN_OVERLAP = 2
 const TREND_MAX_ITEMS = 5
 const TREND_HOT_CUTOFF_HOURS = 4
@@ -299,9 +296,7 @@ async function fetchTrendingRows(): Promise<Row[]> {
       'id, link, link_key, title, source, image, contentsnippet, summary, published_at, publishedat, created_at, category',
     )
     .gt('publishedat', cutoffMs)
-    // --- 1. FILTRIRANJE OGLASOV IZ TRENDINGA ---
     .neq('category', 'oglas') 
-    // ------------------------------------------
     .order('publishedat', { ascending: false })
     .limit(300)
 
@@ -416,7 +411,7 @@ function computeTrendingFromRows(rows: Row[]): (FeedNewsItem & { storyArticles: 
 }
 
 /* -------------------------------------------------------------------------- */
-/* API HANDLER                                  */
+/* API HANDLER                                                                */
 /* -------------------------------------------------------------------------- */
 type PagedOk = { items: FeedNewsItem[]; nextCursor: number | null }
 type ListOk = FeedNewsItem[]
@@ -477,12 +472,9 @@ export default async function handler(
       .gt('publishedat', 0)
       
       // --- 4. FILTRIRANJE OGLASOV ---
-      // Skrij oglase uporabnikom, razen če bi morda kdaj želel admin panel
       .neq('category', 'oglas') 
-      // -----------------------------
       
     // SORTIRANJE:
-    // Glavni sort po času + SEKUNDARNI sort po ID (Tie-breaker), da preprečimo "skakanje"
     q = q
       .order('publishedat', { ascending: false })
       .order('id', { ascending: false })
@@ -505,30 +497,41 @@ export default async function handler(
       }
     }
 
+    // --- 5. POPRAVLJENO ISKANJE (SEARCH) - CRASH FIX ---
     if (searchQuery && searchQuery.trim().length > 0) {
-        const term = searchQuery.trim()
-        q = q.or(`title.ilike.%${term}%,contentsnippet.ilike.%${term}%,summary.ilike.%${term}%`)
+        // A) Sanitacija: odstrani vejice, oklepaje, ki lomijo Supabase OR syntax
+        const term = searchQuery.trim().replace(/[(),]/g, ' ')
+        
+        // B) OPTIMIZACIJA: Iščemo SAMO po 'title' in 'summary'. 
+        // 'contentsnippet' je prevelik in povzroča Timeout (57014).
+        q = q.or(`title.ilike.%${term}%,summary.ilike.%${term}%`)
     }
 
     q = q.limit(limit)
 
-    // --- 5. IZVEDBA POIZVEDBE ---
+    // --- 6. IZVEDBA POIZVEDBE ---
     const { data, error } = await q
-    if (error) return res.status(500).json({ error: `DB: ${error.message}` })
+    
+    if (error) {
+        // LOGIRAJ NAPAKO, DA JO VIDIŠ V VERCELU!
+        console.error("❌ DB ERROR during fetch:", error);
+        return res.status(500).json({ error: `DB: ${error.message}` })
+    }
 
     const rows = (data || []) as Row[]
     const rawItems = rows.map(rowToItem)
     
-    // Še enkrat soft-sort za vsak slučaj
     const items = softDedupe(rawItems).sort((a, b) => b.publishedAt - a.publishedAt)
     
-    // Kursor za infinite scroll
     const nextCursor = rows.length === limit ? (rows[rows.length - 1].publishedat ? Number(rows[rows.length - 1].publishedat) : null) : null
 
     res.setHeader('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=30') 
     if (paged) return res.status(200).json({ items, nextCursor })
     return res.status(200).json(items)
+
   } catch (e: any) {
+    // LOGIRAJ CRITICAL ERROR (npr. timeout, crash)
+    console.error("❌ API CRASH:", e);
     return res.status(500).json({ error: e?.message || 'Unexpected error' })
   }
 }

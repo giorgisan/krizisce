@@ -19,7 +19,7 @@ const ENABLE_HTML_CHECK = false
 const MAX_HTML_CHECKS = 0 
 const HTML_CHECK_HOSTS: string[] = [] 
 
-// --- 2. DEFINICIJA PARSERJA (To je manjkalo!) ---
+// --- 2. DEFINICIJA PARSERJA ---
 const parser: Parser = new Parser({
   customFields: {
     item: [
@@ -120,6 +120,18 @@ function toUnixMs(d?: string | null) {
   }
 }
 
+// --- NOV HELPER ZA OMEJEVANJE HITROSTI (BATCHING) ---
+async function processInBatches<T, R>(items: T[], batchSize: number, fn: (item: T) => Promise<R>): Promise<R[]> {
+    const results: R[] = [];
+    for (let i = 0; i < items.length; i += batchSize) {
+        const batch = items.slice(i, i + batchSize);
+        // Obdelaj samo to manjšo skupino hkrati
+        const batchResults = await Promise.all(batch.map(fn));
+        results.push(...batchResults);
+    }
+    return results;
+}
+
 // --- GLAVNA FUNKCIJA FETCH ---
 export default async function fetchRSSFeeds(opts: FetchOpts = {}): Promise<NewsItem[]> {
   const { forceFresh = false } = opts
@@ -133,10 +145,15 @@ export default async function fetchRSSFeeds(opts: FetchOpts = {}): Promise<NewsI
         } as any)
 
         const xml = await res.text()
-        const feed = await parser.parseString(xml) // TUKAJ JE BILA NAPAKA (zdaj je parser definiran)
+        const feed = await parser.parseString(xml)
         if (!feed.items?.length) return []
 
-        const itemsPromise = feed.items.slice(0, 25).map(async (item: any) => {
+        // Omejimo na prvih 25 novic
+        const itemsToProcess = feed.items.slice(0, 25);
+
+        // --- SPREMEMBA: Uporabimo batch procesiranje (max 5 hkrati) ---
+        // To prepreči, da bi 'bombardirali' zunanje strežnike z zahtevki za slike
+        const items = await processInBatches(itemsToProcess, 5, async (item: any) => {
           
           const link = item.link ?? ''
 
@@ -147,11 +164,11 @@ export default async function fetchRSSFeeds(opts: FetchOpts = {}): Promise<NewsI
           
           // 2. PRIPRAVA PODATKOV
           const tempCheckItem = {
-             title: item.title,
-             link: link,
-             contentSnippet: item.contentSnippet || item.content || '',
-             description: item.contentSnippet, 
-             categories: item.categories
+              title: item.title,
+              link: link,
+              contentSnippet: item.contentSnippet || item.content || '',
+              description: item.contentSnippet, 
+              categories: item.categories
           }
 
           // 3. AD FILTER (Samo URL + RSS kategorija)
@@ -165,8 +182,9 @@ export default async function fetchRSSFeeds(opts: FetchOpts = {}): Promise<NewsI
           let finalImage = null
           if (!isAd) {
              finalImage = extractImage(item, link)
+             // Tukaj se zgodi zunanji klic (scrape), ki ga zdaj omejujemo na 5 hkrati
              if (!finalImage && link) {
-                finalImage = await scrapeOgImage(link)
+                 finalImage = await scrapeOgImage(link)
              }
           }
 
@@ -205,8 +223,9 @@ export default async function fetchRSSFeeds(opts: FetchOpts = {}): Promise<NewsI
           } as NewsItem
         })
 
-        const items = (await Promise.all(itemsPromise)).filter(Boolean) as NewsItem[] 
-        return items
+        // Filtriramo prazne (null) rezultate
+        return items.filter(Boolean) as NewsItem[]
+        
       } catch {
         return []
       }

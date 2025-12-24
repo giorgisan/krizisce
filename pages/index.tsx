@@ -4,13 +4,14 @@ import React, {
   startTransition,
   useRef,
 } from 'react'
-import { GetServerSideProps } from 'next' // <--- UPORABLJAMO SSR (Hitreje za slike)
+import { GetServerSideProps } from 'next'
 
 import { NewsItem } from '@/types'
 import Footer from '@/components/Footer'
 import Header from '@/components/Header'
 import ArticleCard from '@/components/ArticleCard'
 import TrendingCard from '@/components/TrendingCard'
+import TrendingBar, { TrendingWord } from '@/components/TrendingBar' 
 import SeoHead from '@/components/SeoHead'
 import BackToTop from '@/components/BackToTop'
 import SourceFilter from '@/components/SourceFilter' 
@@ -56,7 +57,6 @@ async function loadNews(
   if (category !== 'vse') qs.set('category', category)
   if (query) qs.set('q', query)
   
-  // Cache busting
   if (forceRefresh) qs.set('_t', Date.now().toString())
 
   try {
@@ -79,9 +79,12 @@ async function loadNews(
 
 /* ================= Page Component ================= */
 
-type Props = { initialNews: NewsItem[] }
+type Props = { 
+  initialNews: NewsItem[]
+  initialTrendingWords: TrendingWord[] 
+}
 
-export default function Home({ initialNews }: Props) {
+export default function Home({ initialNews, initialTrendingWords }: Props) {
   const [itemsLatest, setItemsLatest] = useState<NewsItem[]>(initialNews)
   const [itemsTrending, setItemsTrending] = useState<NewsItem[]>([])
     
@@ -94,13 +97,14 @@ export default function Home({ initialNews }: Props) {
   const [selectedCategory, setSelectedCategory] = useState<CategoryId | 'vse'>('vse')
   const [searchQuery, setSearchQuery] = useState<string>('') 
 
-  // MODAL CONTROL
   const [filterModalOpen, setFilterModalOpen] = useState(false)
 
   // PAGINACIJA & STANJE
   const [hasMore, setHasMore] = useState(true)
   const [cursor, setCursor] = useState<number | null>(null)
   const [isLoadingMore, setIsLoadingMore] = useState(false)
+  
+  // Stanje osveževanja (spinner)
   const [isRefreshing, setIsRefreshing] = useState(false)
 
   const [bootRefreshed, setBootRefreshed] = useState(false)
@@ -110,7 +114,6 @@ export default function Home({ initialNews }: Props) {
     setBootRefreshed(true)
   }, [])
 
-  // FUNKCIJA ZA RESET (Klik na logo)
   const resetAll = () => {
     startTransition(() => {
       setSelectedSources([])
@@ -124,10 +127,11 @@ export default function Home({ initialNews }: Props) {
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
-  // GLAVNI FETCH (Sproži se ob spremembi filtrov ali iskanja)
+  // GLAVNI FETCH ZA LATEST / SEARCH
   useEffect(() => {
     if (!bootRefreshed) return
-    if (mode === 'trending') return
+    // Če smo v trending načinu IN ne iščemo, ne nalagamo latest novic v ozadju
+    if (mode === 'trending' && !searchQuery) return
 
     const fetchData = async () => {
         setIsRefreshing(true)
@@ -144,6 +148,7 @@ export default function Home({ initialNews }: Props) {
         setIsRefreshing(false)
     }
     
+    // Če je query, uporabimo debounce (zamik), sicer takoj
     if (searchQuery) {
         const timeoutId = setTimeout(fetchData, 500)
         return () => clearTimeout(timeoutId)
@@ -153,20 +158,17 @@ export default function Home({ initialNews }: Props) {
 
   }, [selectedSources, selectedCategory, searchQuery, mode, bootRefreshed])
 
-  // POLLING
+  // POLLING (Preverjanje novih novic v ozadju)
   const missCountRef = useRef(0)
   const timerRef = useRef<number | null>(null)
 
   useEffect(() => {
     if (!bootRefreshed) return
-
     const runCheckSimple = async () => {
       if (mode !== 'latest') return
       if (searchQuery) return 
-
       kickSyncIfStale(10 * 60_000)
       const fresh = await loadNews('latest', selectedSources, selectedCategory, null)
-      
       if (!fresh || fresh.length === 0) {
         window.dispatchEvent(new CustomEvent('news-has-new', { detail: false }))
         missCountRef.current = Math.min(POLL_MAX_BACKOFF, missCountRef.current + 1)
@@ -174,7 +176,6 @@ export default function Home({ initialNews }: Props) {
       }
       const curSet = new Set(itemsLatest.map((n) => n.link))
       const newLinksCount = fresh.filter((n) => !curSet.has(n.link)).length
-      
       if (newLinksCount > 0) {
         window.dispatchEvent(new CustomEvent('news-has-new', { detail: true }))
         missCountRef.current = 0
@@ -202,11 +203,10 @@ export default function Home({ initialNews }: Props) {
     }
   }, [itemsLatest, bootRefreshed, mode, selectedSources, selectedCategory, searchQuery])
 
-  // REFRESH HANDLER
+  // REFRESH HANDLER (Gumb "Nove novice")
   useEffect(() => {
     const onRefresh = () => {
       window.dispatchEvent(new CustomEvent('news-refreshing', { detail: true }))
-      
       startTransition(() => {
         loadNews(mode, selectedSources, selectedCategory, searchQuery, true).then((fresh) => {
           if (fresh) {
@@ -232,7 +232,7 @@ export default function Home({ initialNews }: Props) {
 
   const visibleNews = mode === 'trending' ? itemsTrending : itemsLatest
 
-  // CURSOR LOGIC
+  // CURSOR LOGIC (Paginacija)
   useEffect(() => {
     if (mode === 'trending') return 
     if (!visibleNews.length) {
@@ -243,7 +243,7 @@ export default function Home({ initialNews }: Props) {
     setCursor(minMs || null)
   }, [visibleNews, mode])
 
-  // PAGINACIJA
+  // FETCH PAGE (Paginacija)
   async function fetchPage(cursorVal: number) {
     const qs = new URLSearchParams()
     qs.set('paged', '1')
@@ -252,7 +252,6 @@ export default function Home({ initialNews }: Props) {
     if (selectedSources.length > 0) qs.set('source', selectedSources.join(','))
     if (selectedCategory !== 'vse') qs.set('category', selectedCategory)
     if (searchQuery) qs.set('q', searchQuery)
-      
     const res = await fetch(`/api/news?${qs.toString()}`, { cache: 'no-store' })
     if (!res.ok) return { items: [], nextCursor: null }
     return await res.json()
@@ -268,9 +267,7 @@ export default function Home({ initialNews }: Props) {
       const fresh = items
         .filter((i: any) => !seen.has(i.link))
         .map((i: any) => ({ ...i, category: i.category || determineCategory({ link: i.link, categories: [] }) }))
-
       if (fresh.length) setItemsLatest((prev) => [...prev, ...fresh])
-      
       if (!nextCursor || nextCursor === cursor || items.length === 0) {
         setHasMore(false); setCursor(null)
       } else {
@@ -281,9 +278,7 @@ export default function Home({ initialNews }: Props) {
 
   const handleTabChange = async (next: Mode) => {
     if (next === mode) return
-    
     window.scrollTo({ top: 0, behavior: 'smooth' })
-
     setMode(next)
     if (next === 'latest') {
       setHasMore(true); setCursor(null)
@@ -316,6 +311,53 @@ export default function Home({ initialNews }: Props) {
     ? '' 
     : CATEGORIES.find(c => c.id === selectedCategory)?.label || selectedCategory;
 
+  // --- NOVA FUNKCIJA ZA ČIŠČENJE ISKANJA + FIX ZA UX ---
+  const handleTrendingClick = (word: string) => {
+    // 1. Očistimo besedo
+    let clean = word.replace(/^#/, '').replace(/[.,:;?!_]/g, ' ').trim();
+    
+    // 2. Razbijemo
+    const parts = clean.split(/\s+/);
+    const stopWords = new Set(['in', 'ter', 'pa', 'se', 'je', 'da', 'so', 'z', 's', 'v', 'na', 'pri', 'za', 'po', 'do', 'iz', 'od', 'o', 'ali', 'kdo', 'kaj']);
+
+    let keywords = parts.filter(p => {
+       const isAcronym = p === p.toUpperCase() && p.length > 1; 
+       return isAcronym || (p.length > 2 && !stopWords.has(p.toLowerCase()));
+    });
+
+    let finalQuery = clean;
+
+    if (keywords.length > 0) {
+        const acronym = keywords.find(k => k === k.toUpperCase() && /[A-Z]/.test(k));
+        const properNoun = keywords.find((k, index) => {
+             const isCapitalized = k[0] === k[0].toUpperCase() && k.slice(1) === k.slice(1).toLowerCase();
+             return isCapitalized && (index > 0 || keywords.length === 1);
+        });
+
+        if (acronym) finalQuery = acronym;
+        else if (properNoun) finalQuery = properNoun;
+        else {
+            keywords.sort((a, b) => b.length - a.length);
+            finalQuery = keywords[0];
+        }
+    }
+    
+    // 3. UX FIX: Takoj počistimo stare novice in prižgemo spinner
+    setItemsLatest([]); // <--- TOLE JE BILO KLJUČNO!
+    setIsRefreshing(true); 
+
+    // 4. IZVEDBA ISKANJA
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+    setSearchQuery(finalQuery)
+    
+    // Če smo v 'trending' (Aktualno), preklopimo na 'latest' (Najnovejše)
+    if (mode === 'trending') {
+        setMode('latest');
+        setHasMore(true); 
+        setCursor(null);
+    }
+  }
+
   return (
     <>
       <Header 
@@ -346,31 +388,53 @@ export default function Home({ initialNews }: Props) {
 
       <SeoHead title="Križišče" description="Agregator najnovejših novic." />
 
-      <main className="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white px-4 md:px-8 lg:px-16 pt-0 pb-8">
+      <main className="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white pb-8">
         
-        {/* ZGORNJA VRSTICA: TABS ali NASLOV KATEGORIJE */}
-        <div className="flex items-center justify-between py-4 min-h-[64px]">
-           {selectedCategory === 'vse' ? (
-             <div className="scale-90 origin-left">
-               <NewsTabs active={mode} onChange={handleTabChange} />
-             </div>
-           ) : (
-             <div className="flex items-center">
-                <span className="text-2xl font-bold tracking-tight text-gray-900 dark:text-white capitalize">
-                  {currentCategoryLabel}
-                </span>
-             </div>
+        {/* --- KOMPAKTNA ZGORNJA VRSTICA --- */}
+        <div className="px-4 md:px-8 lg:px-16 pt-4 pb-2 flex flex-col md:flex-row md:items-center gap-4 border-b border-transparent">
+            
+           {/* LEVA STRAN */}
+           <div className="flex items-center justify-between md:justify-start gap-4">
+               {selectedCategory === 'vse' ? (
+                 <div className="scale-90 origin-left shrink-0">
+                   <NewsTabs active={mode} onChange={handleTabChange} />
+                 </div>
+               ) : (
+                 <span className="text-2xl font-bold tracking-tight capitalize">
+                   {currentCategoryLabel}
+                 </span>
+               )}
+
+               {selectedSources.length > 0 && (
+                 <div className="md:hidden flex items-center gap-2">
+                    <div className="text-xs text-brand font-medium border border-brand/20 bg-brand/5 px-2 py-1 rounded">
+                      {selectedSources.length}
+                    </div>
+                    <button onClick={() => setSelectedSources([])}>✕</button>
+                 </div>
+               )}
+           </div>
+
+           {/* DESNA STRAN: Trending bar */}
+           {/* Prikazujemo samo če smo na Home tabu in ni aktivnega iskanja */}
+           {mode === 'latest' && selectedCategory === 'vse' && !searchQuery && (
+              <div className="flex-1 min-w-0 overflow-hidden">
+                 <TrendingBar 
+                   words={initialTrendingWords}
+                   selectedWord={searchQuery}
+                   onSelectWord={handleTrendingClick} 
+                 />
+              </div>
            )}
            
            {selectedSources.length > 0 && (
-             <div className="flex items-center gap-2">
-                <div className="text-xs text-brand font-medium border border-brand/20 bg-brand/5 px-2 py-1 rounded">
-                  Filtri: {selectedSources.join(', ')}
+             <div className="hidden md:flex items-center gap-2 ml-auto shrink-0">
+                <div className="text-xs text-brand font-medium border border-brand/20 bg-brand/5 px-2 py-1 rounded whitespace-nowrap">
+                  Filtri: {selectedSources.length}
                 </div>
                 <button 
                   onClick={() => setSelectedSources([])} 
-                  className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md transition-colors" 
-                  title="Počisti filtre"
+                  className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md" 
                 >
                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -380,49 +444,68 @@ export default function Home({ initialNews }: Props) {
            )}
         </div>
 
-        {/* LOADING & EMPTY STATES */}
-        {isRefreshing && visibleNews.length === 0 ? (
-           <div className="flex flex-col items-center justify-center pt-20 pb-20">
-             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand mb-4"></div>
-             <p className="opacity-60">Iščem novice ...</p>
-           </div>
-        ) : visibleNews.length === 0 ? (
-          <div className="flex flex-col items-center justify-center pt-20 pb-20 text-center">
-              {searchQuery ? (
-                 <p className="opacity-60">Ni rezultatov za iskanje &quot;{searchQuery}&quot;.</p>
-              ) : (
-                 <p className="opacity-60">Trenutno ni novic s temi filtri.</p>
-              )}
-          </div>
-        ) : (
-          <div className={gridClasses}>
-            {visibleNews.map((article, i) => (
-              <div key={article.link + '|' + i} className="col-span-1">
-                {mode === 'trending' ? (
-                  <div className="h-full"><TrendingCard news={article as any} /></div>
-                ) : (
-                  <ArticleCard 
-                     news={article as any} 
-                     priority={i < 10} // Ohranimo prioritetno nalaganje za prve slike
-                  />
-                )}
-              </div>
-            ))}
-          </div>
-        )}
+        {/* --- VSEBINA --- */}
+        <div className="px-4 md:px-8 lg:px-16 mt-4">
+            
+            {searchQuery && (
+            <div className="mb-6 flex items-center gap-2">
+                <span className="text-sm text-gray-500">
+                    Rezultati za: <span className="font-bold text-gray-900 dark:text-white">"{searchQuery}"</span>
+                </span>
+                <button 
+                    onClick={() => {
+                        setSearchQuery('');
+                        // Če smo bili preklopljeni na latest zaradi iskanja, lahko ostanemo tam
+                    }}
+                    className="text-xs px-2 py-1 bg-gray-200 dark:bg-gray-800 rounded-md hover:bg-gray-300 dark:hover:bg-gray-700 transition-colors"
+                >
+                    Počisti ✕
+                </button>
+            </div>
+            )}
 
-        {/* LOAD MORE BUTTON */}
-        {mode === 'latest' && hasMore && visibleNews.length > 0 && (
-          <div className="text-center mt-8 mb-4">
-            <button
-              onClick={handleLoadMore}
-              disabled={isLoadingMore}
-              className="px-6 py-2.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white rounded-full hover:bg-gray-50 dark:hover:bg-gray-700 transition-all shadow-sm font-medium disabled:opacity-50"
-            >
-              {isLoadingMore ? 'Nalagam...' : 'Naloži več novic'}
-            </button>
-          </div>
-        )}
+            {isRefreshing && visibleNews.length === 0 ? (
+                <div className="flex flex-col items-center justify-center pt-20 pb-20">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand mb-4"></div>
+                    <p className="opacity-60">Iščem novice ...</p>
+                </div>
+            ) : visibleNews.length === 0 ? (
+                <div className="flex flex-col items-center justify-center pt-20 pb-20 text-center">
+                    {searchQuery ? (
+                        <p className="opacity-60">Ni rezultatov za iskanje &quot;{searchQuery}&quot;.</p>
+                    ) : (
+                        <p className="opacity-60">Trenutno ni novic s temi filtri.</p>
+                    )}
+                </div>
+            ) : (
+                <div className={gridClasses}>
+                    {visibleNews.map((article, i) => (
+                    <div key={article.link + '|' + i} className="col-span-1">
+                        {mode === 'trending' ? (
+                        <div className="h-full"><TrendingCard news={article as any} /></div>
+                        ) : (
+                        <ArticleCard 
+                            news={article as any} 
+                            priority={i < 10} 
+                        />
+                        )}
+                    </div>
+                    ))}
+                </div>
+            )}
+
+            {mode === 'latest' && hasMore && visibleNews.length > 0 && (
+            <div className="text-center mt-8 mb-4">
+                <button
+                onClick={handleLoadMore}
+                disabled={isLoadingMore}
+                className="px-6 py-2.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white rounded-full hover:bg-gray-50 dark:hover:bg-gray-700 transition-all shadow-sm font-medium disabled:opacity-50"
+                >
+                {isLoadingMore ? 'Nalagam...' : 'Naloži več novic'}
+                </button>
+            </div>
+            )}
+        </div>
       </main>
 
       <BackToTop threshold={200} />
@@ -431,12 +514,8 @@ export default function Home({ initialNews }: Props) {
   )
 }
 
-/* ================= SSR (Server Side Rendering) Z CACHINGOM ================= */
-// Uporabljamo getServerSideProps (SSR), ki je hitrejši za občutek uporabnika,
-// ampak dodamo Cache-Control, da Vercel ne računa CPU-ja za vsak obisk.
+/* ================= SSR ================= */
 export const getServerSideProps: GetServerSideProps = async ({ res }) => {
-  // --- TA VRSTICA REŠUJE "VERCEL LIMIT" PROBLEM ---
-  // Pomeni: "Ta rezultat je dober 60 sekund. V tem času ne kliči serverja ponovno."
   res.setHeader(
     'Cache-Control',
     'public, s-maxage=60, stale-while-revalidate=59'
@@ -449,18 +528,43 @@ export const getServerSideProps: GetServerSideProps = async ({ res }) => {
     auth: { persistSession: false },
   })
 
-  const { data } = await supabase
+  // 1. Fetch News
+  const newsPromise = supabase
     .from('news')
-    .select(
-      'id, link, title, source, summary, contentsnippet, image, published_at, publishedat, category',
-    )
-    .neq('category', 'oglas') // Filter oglasov
+    .select('id, link, title, source, summary, contentsnippet, image, published_at, publishedat, category')
+    .neq('category', 'oglas')
     .order('publishedat', { ascending: false })
     .order('id', { ascending: false })
     .limit(25)
 
-  const rows = (data ?? []) as any[]
+  // 2. Fetch Trending Words (AI)
+  let trendsData: any[] = []
 
+  // SPREMENJENO: Iskanje najnovejšega zapisa v zgodovini (order by updated_at)
+  const { data: aiData } = await supabase
+    .from('trending_ai')
+    .select('words')
+    .order('updated_at', { ascending: false }) // Razvrsti od najnovejšega
+    .limit(1) // Vzemi samo prvega
+    .single()
+
+  if (aiData && aiData.words && Array.isArray(aiData.words) && aiData.words.length > 0) {
+     trendsData = aiData.words.map((w: string) => ({ 
+        word: w, 
+        count: 1 
+     }))
+  } else {
+     // Fallback če tabela prazna
+     const sqlTrends = await supabase.rpc('get_trending_words', {
+         hours_lookback: 48,
+         limit_count: 8
+     })
+     trendsData = sqlTrends.data || []
+  }
+
+  const [newsRes] = await Promise.all([newsPromise])
+
+  const rows = (newsRes.data ?? []) as any[]
   const initialNews: NewsItem[] = rows.map((r) => {
     const link = r.link || ''
     return {
@@ -469,13 +573,18 @@ export const getServerSideProps: GetServerSideProps = async ({ res }) => {
       source: r.source,
       contentSnippet: r.contentsnippet ?? r.summary ?? '',
       image: r.image ?? null,
-      publishedAt:
-        (r.publishedat ??
-          (r.published_at ? Date.parse(r.published_at) : 0)) || 0,
+      publishedAt: (r.publishedat ?? (r.published_at ? Date.parse(r.published_at) : 0)) || 0,
       isoDate: r.published_at,
       category: (r.category as CategoryId) || determineCategory({ link, categories: [] }) 
     }
   })
 
-  return { props: { initialNews } }
+  const initialTrendingWords: TrendingWord[] = trendsData as TrendingWord[]
+
+  return { 
+    props: { 
+      initialNews, 
+      initialTrendingWords 
+    } 
+  }
 }
