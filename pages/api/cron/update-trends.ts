@@ -89,7 +89,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // 5. GENERIRANJE
     try {
-        trends = await tryGenerate("gemini-CRNI-TEST");
+        trends = await tryGenerate("gemini-2.5-flash");
         usedModel = "gemini-2.5-flash";
     } catch (err1: any) {
         console.warn(`⚠️ Flash odpovedal, preklapljam na Lite...`);
