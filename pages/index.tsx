@@ -342,7 +342,8 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
         }
     }
     
-    // 3. UX FIX: Takoj prižgemo loading stanje, da pokrijemo 500ms debounce luknjo
+    // 3. UX FIX: Takoj počistimo stare novice in prižgemo spinner
+    setItemsLatest([]); // <--- TOLE JE BILO KLJUČNO!
     setIsRefreshing(true); 
 
     // 4. IZVEDBA ISKANJA
