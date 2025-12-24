@@ -179,7 +179,7 @@ export default function ArticleCard({ news, priority = false }: Props) {
 
   const [eyeVisible, setEyeVisible] = useState(false)
   const [eyeHover,   setEyeHover]   = useState(false)
-  const showEye = isTouch ? false : eyeVisible
+  const showEye = isTouch ? true : eyeVisible
 
   return (
     <>
