@@ -51,26 +51,28 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         Naslovi:
         ${headlines}
 
-        KRITERIJI:
-        1. TEMA JE "VROČA", ČE O NJEJ PIŠETA VSAJ 2 RAZLIČNA MEDIJA.
+        KRITERIJI ZA IZBOR:
+        1. TEMA JE "VROČA", ČE O NJEJ PIŠETA VSAJ 2 RAZLIČNA MEDIJA (preveri vire).
         2. FOKUS: Dogodki zadnjih ur.
         
-        NAVODILA (STROGO UPOŠTEVAJ):
+        NAVODILA ZA OBLIKOVANJE (STROGO UPOŠTEVAJ):
         1. Vrni SAMO JSON array stringov.
         2. Vsak element se začne z lojtro (#).
         3. NE ZDRUŽUJ BESED (CamelCase prepovedan). Uporabi presledke (#Luka Dončić).
-        4. IZJEMNO POMEMBNO - DOBESEDNOST:
-            - Uporabljaj IZKLJUČNO besede, ki se pojavijo v naslovu.
-            - Bodi kot papiga.
-        5. PRIORITETA:
-            - Imena oseb, Kratice, Podjetja.
-        6. Ne dodajaj splošnih pridevnikov.
-        7. Tagi naj bodo KRATKI in SPLOŠNI (max 2 besedi).
-        8. Brez glagolov ("tožijo", "zmagal")
-        9. SKLANJATEV (ODLOČILNO):
-            - Vse besede pretvori v OSNOVNO OBLIKO (Imenovalnik ednine).
-            - Primer: Namesto "Beletrine" vrni "#Beletrina".
-            - Primer: #Ljubljana (ne #Ljubljani).
+        4. IZVOR BESED (Bistveno):
+            - Teme črpaj IZKLJUČNO iz vsebine naslovov. Ne izmišljuj si tem.
+        5. OBLIKA in SKLANJATEV (Normalizacija):
+            - Vse besede OBVEZNO pretvori v OSNOVNO OBLIKO (Imenovalnik ednine).
+            - Primer: Če naslov pravi "Požar v Beletrini", mora biti tag "#Beletrina".
+            - Primer: "Sodba Janši" -> "#Janša" ali "#Sodba".
+        6. PRIORITETA:
+            - Imena oseb, Kratice, Podjetja, Kraji.
+        7. DOLŽINA:
+            - Tagi naj bodo KRATKI (max 2 besedi). To je ključno za iskanje.
+            - Namesto "#Ruski napad na Ukrajino" vrni "#Ukrajina".
+        8. PREPOVEDANO:
+            - Brez glagolov ("tožijo", "zmagal", "umrl").
+            - Brez splošnih pridevnikov ("velika", "znana"), razen če so del imena.
     `
 
     const tryGenerate = async (modelName: string) => {
