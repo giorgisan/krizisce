@@ -125,9 +125,11 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
+  // GLAVNI FETCH ZA LATEST / SEARCH
   useEffect(() => {
     if (!bootRefreshed) return
-    if (mode === 'trending') return
+    // Če smo v trending načinu IN ne iščemo, ne nalagamo latest novic v ozadju
+    if (mode === 'trending' && !searchQuery) return
 
     const fetchData = async () => {
         setIsRefreshing(true)
@@ -306,53 +308,48 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
     ? '' 
     : CATEGORIES.find(c => c.id === selectedCategory)?.label || selectedCategory;
 
-  // --- NOVA FUNKCIJA ZA ČIŠČENJE ISKANJA (v2) ---
+  // --- NOVA FUNKCIJA ZA ČIŠČENJE ISKANJA + FIX ZA LAG ---
   const handleTrendingClick = (word: string) => {
-    // 1. Očistimo lojtro in ločila
+    // 1. Očistimo besedo
     let clean = word.replace(/^#/, '').replace(/[.,:;?!_]/g, ' ').trim();
     
-    // 2. Razbijemo na besede
+    // 2. Razbijemo
     const parts = clean.split(/\s+/);
-    
-    // 3. Stop words (mašila)
     const stopWords = new Set(['in', 'ter', 'pa', 'se', 'je', 'da', 'so', 'z', 's', 'v', 'na', 'pri', 'za', 'po', 'do', 'iz', 'od', 'o', 'ali', 'kdo', 'kaj']);
 
-    // Filtriramo mašila in prekratke besede (razen če so z velikimi črkami, npr. F1)
     let keywords = parts.filter(p => {
-       const isAcronym = p === p.toUpperCase() && p.length > 1; // Npr. THC, ZDA
+       const isAcronym = p === p.toUpperCase() && p.length > 1; 
        return isAcronym || (p.length > 2 && !stopWords.has(p.toLowerCase()));
     });
 
     let finalQuery = clean;
 
     if (keywords.length > 0) {
-        // --- NOVA STRATEGIJA IZBIRE ---
-        
-        // A: Iščemo besede, ki so CELOTNE VELIKE (Akronimi: THC, ZDA, NPU)
         const acronym = keywords.find(k => k === k.toUpperCase() && /[A-Z]/.test(k));
-        
-        // B: Iščemo besede z Veliko Začetnico (Lastna imena: Dončić, Call, Duty)
         const properNoun = keywords.find((k, index) => {
-             // Prva črka velika, ostale male
              const isCapitalized = k[0] === k[0].toUpperCase() && k.slice(1) === k.slice(1).toLowerCase();
-             // Če je to prva beseda v tagu, ni nujno ime (slovnična velika začetnica). 
-             // Ampak če je edina, jo vzamemo.
              return isCapitalized && (index > 0 || keywords.length === 1);
         });
 
-        if (acronym) {
-            finalQuery = acronym; // ZMAGOVALEC: THC
-        } else if (properNoun) {
-            finalQuery = properNoun; // ZMAGOVALEC: Dončić, Call
-        } else {
-            // C: Če ni imen, vzemi najdaljšo besedo (Fallback: razvijalec)
+        if (acronym) finalQuery = acronym;
+        else if (properNoun) finalQuery = properNoun;
+        else {
             keywords.sort((a, b) => b.length - a.length);
             finalQuery = keywords[0];
         }
     }
     
+    // 3. IZVEDBA ISKANJA
     window.scrollTo({ top: 0, behavior: 'smooth' })
     setSearchQuery(finalQuery)
+    
+    // KLJUČEN POPRAVEK: Če smo v 'trending' (Aktualno), moramo preklopiti na 'latest' (Najnovejše),
+    // sicer useEffect za iskanje ne bo izvedel fetcha!
+    if (mode === 'trending') {
+        setMode('latest');
+        setHasMore(true); // Resetiramo paginacijo za iskanje
+        setCursor(null);
+    }
   }
 
   return (
@@ -389,7 +386,7 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
         
         {/* --- KOMPAKTNA ZGORNJA VRSTICA --- */}
         <div className="px-4 md:px-8 lg:px-16 pt-4 pb-2 flex flex-col md:flex-row md:items-center gap-4 border-b border-transparent">
-           
+            
            {/* LEVA STRAN */}
            <div className="flex items-center justify-between md:justify-start gap-4">
                {selectedCategory === 'vse' ? (
@@ -413,13 +410,13 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
            </div>
 
            {/* DESNA STRAN: Trending bar */}
+           {/* Prikazujemo samo če smo na Home tabu in ni aktivnega iskanja */}
            {mode === 'latest' && selectedCategory === 'vse' && !searchQuery && (
               <div className="flex-1 min-w-0 overflow-hidden">
                  <TrendingBar 
-                    words={initialTrendingWords}
-                    selectedWord={searchQuery}
-                    // TUKAJ KLIČEMO NOVO FUNKCIJO
-                    onSelectWord={handleTrendingClick} 
+                   words={initialTrendingWords}
+                   selectedWord={searchQuery}
+                   onSelectWord={handleTrendingClick} 
                  />
               </div>
            )}
@@ -450,7 +447,10 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
                     Rezultati za: <span className="font-bold text-gray-900 dark:text-white">"{searchQuery}"</span>
                 </span>
                 <button 
-                    onClick={() => setSearchQuery('')}
+                    onClick={() => {
+                        setSearchQuery('');
+                        // Če smo bili preklopljeni na latest zaradi iskanja, lahko ostanemo tam
+                    }}
                     className="text-xs px-2 py-1 bg-gray-200 dark:bg-gray-800 rounded-md hover:bg-gray-300 dark:hover:bg-gray-700 transition-colors"
                 >
                     Počisti ✕
@@ -534,10 +534,12 @@ export const getServerSideProps: GetServerSideProps = async ({ res }) => {
   // 2. Fetch Trending Words (AI)
   let trendsData: any[] = []
 
+  // SPREMENJENO: Iskanje najnovejšega zapisa v zgodovini
   const { data: aiData } = await supabase
     .from('trending_ai')
     .select('words')
-    .eq('id', 1)
+    .order('updated_at', { ascending: false }) // Razvrsti od najnovejšega
+    .limit(1) // Vzemi samo prvega
     .single()
 
   if (aiData && aiData.words && Array.isArray(aiData.words) && aiData.words.length > 0) {
@@ -546,6 +548,7 @@ export const getServerSideProps: GetServerSideProps = async ({ res }) => {
         count: 1 
      }))
   } else {
+     // Fallback če tabela prazna
      const sqlTrends = await supabase.rpc('get_trending_words', {
          hours_lookback: 48,
          limit_count: 8
@@ -574,7 +577,7 @@ export const getServerSideProps: GetServerSideProps = async ({ res }) => {
 
   return { 
     props: { 
-      initialNews,
+      initialNews, 
       initialTrendingWords 
     } 
   }
