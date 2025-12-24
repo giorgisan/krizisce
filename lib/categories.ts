@@ -5,8 +5,8 @@ export type CategoryId =
   | 'svet' 
   | 'kronika' 
   | 'sport' 
-  | 'magazin'       
-  | 'lifestyle'     // Zdravje, Dom, Kulinarika, Potovanja, Psihologija
+  | 'magazin'        
+  | 'lifestyle'     // Zdravje, Dom, Kulinarika, Potovanja, Psihologija, Živali
   | 'posel-tech'    // Gospodarstvo + Tehnologija
   | 'moto'            
   | 'kultura'
@@ -87,7 +87,7 @@ export const CATEGORIES: CategoryDef[] = [
         'nogomet', 'prva liga', 'maribor', 'olimpija', 'mura', 'celje', 'reprezentanca', 'kek', 'oblack', 'sesko',
         'liga prvakov', 'uefa', 'fifa', 'real madrid', 'barcelona', 'manchester', 'liverpool',
         'kosarka', 'nba', 'dallas', 'doncic', 'lukamagic', 'dragic', 'cedevita', 'olimpija', 'euroleague',
-        'smucanje', 'skoki', 'planica', 'kranjska gora', 'shiffrin', 'odermatt', 'lanisek', 'prevc', 'zajc', 'kriznar',
+        'smucanje', 'skoki', 'planica', 'kranjska gora', 'shiffrin', 'odermatt', 'lanisek', 'prevc', 'zajc', 'kriznar', 'ljubno', 'skakalnic',
         'kolesarstvo', 'pogacar', 'roglic', 'tour de france', 'giro', 'vuelta',
         'odbojka', 'rokomet', 'atletika', 'tenis', 'djokovic', 'nadal', 'alkaraz',
         'plezanje', 'garnbret', 'motogp', 'formula 1', 'verstappen', 'hamilton'
@@ -104,7 +104,7 @@ export const CATEGORIES: CategoryDef[] = [
         'davki', 'furs', 'dohodnina', 'bilanca', 'subvencije', 'razpis',
         'energetika', 'hse', 'gen-i', 'elektrika', 'plin', 'nafta', 'bencin', 'dizel', 'cene goriv',
         'nepremicnine', 'stanovanja', 'najemnine', 'gradbenistvo',
-        'sindikat', 'zaposlitev', 'trg dela', 'brezposelnost',
+        'sindikat', 'zaposlitev', 'trg dela', 'brezposelnost', 'placa', 'zasluzek',
         'evrov', 'evra', 'cena', 'stroski', 'draginja',
         
         '/znanost/', '/tehnologija/', '/tech/', '/it/', '/telekomunikacije/',
@@ -135,7 +135,10 @@ export const CATEGORIES: CategoryDef[] = [
         'bolezen', 'simptomi', 'zdravnik', 'rak ', 'srce', 'diabetes', 'tlak', 'holesterol',
         'hujsanje', 'dieta', 'vadba', 'fitnes', 'joga', 'stres', 'izgorelost', 'spanje', 'nespecnost',
         'vitamin', 'mineral', 'prehransko dopolnilo', 'imunski sistem',
-        'spanec', 'spanje', 'telesna aktivnost', 'studija',
+        'spanec', 'spanje', 'telesna aktivnost', 'studija', 'hoja', 'trening', 'hidracij', 'voda', 'pijaca',
+
+        // ŽIVALI (Novo)
+        'zivali', 'ljubljenck', 'pes ', 'psi', 'macka', 'zavetisc', 'posvojit',
 
         // ODNOSI (Samsko življenje)
         'odnosi', 'partnerstvo', 'samsk', 'zmenki', 'toksicn', 'custva', 'psihologija', 
@@ -145,20 +148,21 @@ export const CATEGORIES: CategoryDef[] = [
         'recept', 'kosilo', 'vecerja', 'sladica', 'pecivo', 'torta', 'kuhanje', 'pecenje',
         'sestavine', 'jedi', 'gastronomija', 'michelin',
         
-        // KOMERCIALNI LIFESTYLE (Reši "Božični dan po Deluxe okusu")
+        // KOMERCIALNI LIFESTYLE
         'lidl', 'hofer', 'spar', 'mercator', 'deluxe', 'gurman', 'akcija', 'ponudba',
         
-        // DOM & VRT (Reši "Top 10 hiš")
+        // DOM & VRT
         '/dom/', '/vrt/', '/bivanje/', 
         'hisa', 'stanovanje', 'interier', 'notranja oprema', 'prenova', 'dekoracija',
         'vrtnarjenje', 'rastline', 'cvetje', 'zelenjavni vrt', 'sadno drevje',
         'gradnja', 'montazna hisa', 'lumar', 'toplotna crpalka', 'ogrevanje', 'soncna elektrarna',
         'ciscenje', 'pospravljanje', 'nasveti', 'triki',
         'blagoslov', 'tradicij', 'navad', 'montazn', 'novogradnj', 'nepremicnin',
-        'his ', 'hisah', // Kratke besede (zdaj delujejo zaradi spremembe pogoja)
+        'his ', 'hisah', 
+        'nakit', // Dodano
         
         '/potovanja/', '/izleti/', '/turizem/', 
-        'dopust', 'počitnice', 'morje', 'hribi', 'izlet', 'hotel', 'kampiranje'
+        'dopust', 'počitnice', 'morje', 'hribi', 'izlet', 'hotel', 'kampiranje', 'grad ', 'razgled', 'potep'
     ]
   },
   {
@@ -167,11 +171,12 @@ export const CATEGORIES: CategoryDef[] = [
     color: 'bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300',
     keywords: [
         '/kultura/', '/umetnost/', '/knjige/', '/film/', '/glasba/', '/gledalisce/',
-        'razstava', 'muzej', 'galerija', 'slikar', 'kip',
+        'razstava', 'muzej', 'galerija', 'slikar', 'kip', 'umetnik',
         'koncert', 'opera', 'balet', 'filharmonija',
         'kino', 'premiera', 'oskarji', 'cannes', 'liffe', 'sarajevo film festival',
         'knjizni sejem', 'pisatelj', 'pesnik', 'roman', 'zbirka',
-        'rtv', 'dokumentarec', 'oddaja'
+        'rtv', 'dokumentarec', 'oddaja', 'karikatura', 'strip',
+        'umrl' // Za umetnike/glasbenike
     ]
   },
   {
@@ -185,7 +190,7 @@ export const CATEGORIES: CategoryDef[] = [
         'slovenski estradniki', 'znani slovenci', 'vplivnezi', 'influencer',
         'ločitev', 'poroka', 'nosečnost', 'afera', 'škandal', 'porocil', 'mladoporoc', 'zaroka', 'zaročil',
         
-        // ZABAVNA TV & SERIJE (Reši "To so serije")
+        // ZABAVNA TV & SERIJE
         'kmetija', 'sanjski moski', 'poroka na prvi pogled', 'slovenija ima talent', 'zvezde plesejo', 'masterchef',
         'evrovizija', 'ema',
         'lovci', 'kviz', 'joker', 'milijonar', 'kolo srece', 'tv oddaja', 'televizij', 'voditelj', 'voditeljica',
@@ -193,7 +198,7 @@ export const CATEGORIES: CategoryDef[] = [
         
         'horoskop', 'astro', 'zodiak', 'napoved za',
         'viralno', 'smesno', 'video', 'foto', 'sokantno', 'ganljivo',
-        'kviz', 'uganka', 'zanimivosti'
+        'kviz', 'uganka', 'zanimivosti', 'krizanka', 'sudoku'
     ]
   }
 ]
