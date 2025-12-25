@@ -433,7 +433,7 @@ export default async function handler(
     const variant = (req.query.variant as string) || 'latest'
     const category = (req.query.category as string) || null
     const searchQuery = (req.query.q as string) || null 
-    const tagQuery = (req.query.tag as string) || null // <--- NOVO: Parameter za hitro iskanje tagov
+    const tagQuery = (req.query.tag as string) || null 
 
     // --- 1. TRENDING ---
     if (variant === 'trending') {
@@ -503,25 +503,38 @@ export default async function handler(
       }
     }
 
-    // --- 5. LOGIKA ISKANJA (Popravljena) ---
-    // A) ČE JE KLIK NA TAG (Ultra hitro iskanje samo po ključnih besedah)
+    // --- 5. LOGIKA ISKANJA (FINALNO POPRAVLJENO!) ---
+    // Problem je bil, da smo iskali npr. "Papež" (tag), v bazi pa je "papez" (normalized).
+    // Zato zdaj tag spustimo skozi ISTO funkcijo normalizacije.
+
+    // A) HITRO ISKANJE PO TAGU (Klik na trending tag)
     if (tagQuery && tagQuery.trim().length > 0) {
-        const cleanTag = tagQuery.trim();
-        q = q.contains('keywords', `{${cleanTag}}`);
-    } 
-    // B) ČE JE SPLOŠNO ISKANJE (Počasnejše, išče povsod)
-    else if (searchQuery && searchQuery.trim().length > 0) {
-        const rawTerm = searchQuery.trim();
+        const rawTag = tagQuery.trim();
+        // 1. Normaliziramo tag, da dobimo koren (npr. "Papež" -> "papez")
+        const stems = generateKeywords(rawTag);
         
-        // Pripravimo pogoje za Title in Summary (ILIKE je počasnejši, a nujen za iskanje teksta)
+        // 2. Če funkcija vrne koren, iščemo po korenu. Če ne (redko), po originalu.
+        const searchVal = stems.length > 0 ? stems[0] : rawTag;
+        
+        // 3. Iščemo v arrayu keywords
+        // Sintaksa: contains('column', ['value'])
+        q = q.contains('keywords', [searchVal]);
+    } 
+    
+    // B) SPLOŠNO ISKANJE (Vpis v search bar)
+    // Uporabljamo ločen IF, da se ne tepeta, če bi frontend poslal oba
+    if (searchQuery && searchQuery.trim().length > 0) {
+        const rawTerm = searchQuery.trim();
+        const searchTerms = generateKeywords(rawTerm);
+        
+        // Pripravimo pogoje za Title in Summary (nujno ILIKE za iskanje po tekstu)
         const orConditions = [
             `title.ilike.%${rawTerm}%`,
             `summary.ilike.%${rawTerm}%`,
             `contentsnippet.ilike.%${rawTerm}%`
         ];
 
-        // Dodatno: tudi tukaj pogledamo v keywords, če se slučajno ujema
-        const searchTerms = generateKeywords(rawTerm);
+        // Če imamo keywords, dodamo še iskanje po njih
         if (searchTerms.length > 0) {
             const pgArrayLiteral = `{${searchTerms.join(',')}}`;
             orConditions.push(`keywords.cs.${pgArrayLiteral}`);
