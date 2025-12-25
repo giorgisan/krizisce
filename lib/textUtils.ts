@@ -5,7 +5,7 @@ const STOP_WORDS = new Set([
   'in', 'ali', 'pa', 'da', 'se', 'je', 'bi', 'so', 'bo', 'za', 'na', 'v', 'pri', 'po', 'do', 
   'od', 'ob', 'z', 's', 'k', 'h', 'o', 'a', 'ampak', 'tudi', 'še', 'že', 'ker', 'kot', 'ki',
   'ko', 'ce', 'ne', 'ni', 'saj', 'te', 'ta', 'to', 'ti', 'tist', 'vse', 'vec', 'manj', 
-  'slovenija', 'leto', 'danes', 'video', 'foto' // Lahko dodaš še več splošnih
+  'slovenija', 'leto', 'danes', 'video', 'foto', 'clanek', 'novica', 'preberite'
 ]);
 
 // Funkcija za odstranjevanje šumnikov
@@ -35,10 +35,7 @@ export function generateKeywords(text: string): string[] {
     // Vrstni red je pomemben (daljše končnice najprej)!
     let stem = token;
     
-    // Zelo grobo pravilo: če se konča na samoglasnik ali pogoste končnice,reži.
-    // To ni jezikovno popolno, ampak za ISKANJE je odlično, ker naredi isto za poizvedbo in vnos.
-    
-    // Primer: Cinkarna -> Cinkarn, Cinkarni -> Cinkarn
+    // Zelo grobo pravilo: če se konča na samoglasnik ali pogoste končnice, reži.
     if (stem.endsWith('ega')) stem = stem.slice(0, -3);
     else if (stem.endsWith('ih')) stem = stem.slice(0, -2);
     else if (stem.endsWith('im')) stem = stem.slice(0, -2);
@@ -50,11 +47,12 @@ export function generateKeywords(text: string): string[] {
     else if (stem.endsWith('o')) stem = stem.slice(0, -1);
     else if (stem.endsWith('u')) stem = stem.slice(0, -1);
 
-    // Še enkrat preverimo dolžino po rezanju
+    // Še enkrat preverimo dolžino po rezanju (da nismo dobili npr. "t")
     if (stem.length >= 3) {
       keywords.add(stem);
     }
   }
 
+  // Vrnemo kot array
   return Array.from(keywords);
 }
