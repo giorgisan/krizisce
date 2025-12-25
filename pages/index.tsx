@@ -41,11 +41,13 @@ function timeout(ms: number) {
   return new Promise((_, rej) => setTimeout(() => rej(new Error('Request timeout')), ms))
 }
 
+// --- POPRAVLJENO: Dodan parameter 'tag' ---
 async function loadNews(
   mode: Mode, 
   source: string[], 
   category: CategoryId | 'vse', 
   query: string | null, 
+  tag: string | null, // <--- NOVO
   forceRefresh = false, 
   signal?: AbortSignal
 ): Promise<NewsItem[] | null> {
@@ -56,6 +58,7 @@ async function loadNews(
   if (source.length > 0) qs.set('source', source.join(','))
   if (category !== 'vse') qs.set('category', category)
   if (query) qs.set('q', query)
+  if (tag) qs.set('tag', tag) // <--- NOVO
   
   if (forceRefresh) qs.set('_t', Date.now().toString())
 
@@ -71,7 +74,7 @@ async function loadNews(
     }
   } catch {}
   
-  if (mode === 'latest' && source.length === 0 && category === 'vse' && !query && !forceRefresh) {
+  if (mode === 'latest' && source.length === 0 && category === 'vse' && !query && !tag && !forceRefresh) {
     return null 
   }
   return null
@@ -96,6 +99,7 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
   const [selectedSources, setSelectedSources] = useState<string[]>([]) 
   const [selectedCategory, setSelectedCategory] = useState<CategoryId | 'vse'>('vse')
   const [searchQuery, setSearchQuery] = useState<string>('') 
+  const [tagQuery, setTagQuery] = useState<string>('') // <--- NOVO: Stanje za tag
 
   const [filterModalOpen, setFilterModalOpen] = useState(false)
 
@@ -119,6 +123,7 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
       setSelectedSources([])
       setSelectedCategory('vse')
       setSearchQuery('')
+      setTagQuery('') // Reset tag
       setMode('latest')
       setCursor(null)
       setHasMore(true)
@@ -127,18 +132,19 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
-  // GLAVNI FETCH ZA LATEST / SEARCH
+  // GLAVNI FETCH ZA LATEST / SEARCH / TAG
   useEffect(() => {
     if (!bootRefreshed) return
     // Če smo v trending načinu IN ne iščemo, ne nalagamo latest novic v ozadju
-    if (mode === 'trending' && !searchQuery) return
+    if (mode === 'trending' && !searchQuery && !tagQuery) return
 
     const fetchData = async () => {
         setIsRefreshing(true)
         setCursor(null)
         setHasMore(true)
         
-        const fresh = await loadNews('latest', selectedSources, selectedCategory, searchQuery)
+        // Kličemo loadNews s tagQuery ali searchQuery
+        const fresh = await loadNews('latest', selectedSources, selectedCategory, searchQuery || null, tagQuery || null)
         
         if (fresh) {
             setItemsLatest(fresh)
@@ -156,7 +162,7 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
         fetchData()
     }
 
-  }, [selectedSources, selectedCategory, searchQuery, mode, bootRefreshed])
+  }, [selectedSources, selectedCategory, searchQuery, tagQuery, mode, bootRefreshed])
 
   // POLLING (Preverjanje novih novic v ozadju)
   const missCountRef = useRef(0)
@@ -166,9 +172,9 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
     if (!bootRefreshed) return
     const runCheckSimple = async () => {
       if (mode !== 'latest') return
-      if (searchQuery) return 
+      if (searchQuery || tagQuery) return // Ne pollaj, če uporabnik išče
       kickSyncIfStale(10 * 60_000)
-      const fresh = await loadNews('latest', selectedSources, selectedCategory, null)
+      const fresh = await loadNews('latest', selectedSources, selectedCategory, null, null)
       if (!fresh || fresh.length === 0) {
         window.dispatchEvent(new CustomEvent('news-has-new', { detail: false }))
         missCountRef.current = Math.min(POLL_MAX_BACKOFF, missCountRef.current + 1)
@@ -201,14 +207,14 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
       if (timerRef.current) window.clearInterval(timerRef.current)
       document.removeEventListener('visibilitychange', onVis)
     }
-  }, [itemsLatest, bootRefreshed, mode, selectedSources, selectedCategory, searchQuery])
+  }, [itemsLatest, bootRefreshed, mode, selectedSources, selectedCategory, searchQuery, tagQuery])
 
   // REFRESH HANDLER (Gumb "Nove novice")
   useEffect(() => {
     const onRefresh = () => {
       window.dispatchEvent(new CustomEvent('news-refreshing', { detail: true }))
       startTransition(() => {
-        loadNews(mode, selectedSources, selectedCategory, searchQuery, true).then((fresh) => {
+        loadNews(mode, selectedSources, selectedCategory, searchQuery || null, tagQuery || null, true).then((fresh) => {
           if (fresh) {
             if (mode === 'latest') {
               setItemsLatest(fresh)
@@ -228,7 +234,7 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
     }
     window.addEventListener('refresh-news', onRefresh as EventListener)
     return () => window.removeEventListener('refresh-news', onRefresh as EventListener)
-  }, [mode, selectedSources, selectedCategory, searchQuery])
+  }, [mode, selectedSources, selectedCategory, searchQuery, tagQuery])
 
   const visibleNews = mode === 'trending' ? itemsTrending : itemsLatest
 
@@ -252,6 +258,7 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
     if (selectedSources.length > 0) qs.set('source', selectedSources.join(','))
     if (selectedCategory !== 'vse') qs.set('category', selectedCategory)
     if (searchQuery) qs.set('q', searchQuery)
+    if (tagQuery) qs.set('tag', tagQuery) // <--- Dodan tag
     const res = await fetch(`/api/news?${qs.toString()}`, { cache: 'no-store' })
     if (!res.ok) return { items: [], nextCursor: null }
     return await res.json()
@@ -288,7 +295,8 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
       const isStale = (now - lastTrendingFetchRef.current) > 5 * 60_000
       if (!trendingLoaded || isStale) {
         try {
-          const fresh = await loadNews('trending', [], 'vse', null)
+          // Trending nima search parametrov
+          const fresh = await loadNews('trending', [], 'vse', null, null)
           if (fresh) {
             setItemsTrending(fresh); setTrendingLoaded(true); lastTrendingFetchRef.current = Date.now() 
           }
@@ -311,46 +319,21 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
     ? '' 
     : CATEGORIES.find(c => c.id === selectedCategory)?.label || selectedCategory;
 
-  // --- NOVA FUNKCIJA ZA ČIŠČENJE ISKANJA + FIX ZA UX ---
+  // --- NOVA FUNKCIJA ZA TRENDING KLIK ---
   const handleTrendingClick = (word: string) => {
-    // 1. Očistimo besedo
-    let clean = word.replace(/^#/, '').replace(/[.,:;?!_]/g, ' ').trim();
+    // 1. Očistimo besedo (odstranimo #)
+    let clean = word.replace(/^#/, '').trim();
     
-    // 2. Razbijemo
-    const parts = clean.split(/\s+/);
-    const stopWords = new Set(['in', 'ter', 'pa', 'se', 'je', 'da', 'so', 'z', 's', 'v', 'na', 'pri', 'za', 'po', 'do', 'iz', 'od', 'o', 'ali', 'kdo', 'kaj']);
-
-    let keywords = parts.filter(p => {
-       const isAcronym = p === p.toUpperCase() && p.length > 1; 
-       return isAcronym || (p.length > 2 && !stopWords.has(p.toLowerCase()));
-    });
-
-    let finalQuery = clean;
-
-    if (keywords.length > 0) {
-        const acronym = keywords.find(k => k === k.toUpperCase() && /[A-Z]/.test(k));
-        const properNoun = keywords.find((k, index) => {
-             const isCapitalized = k[0] === k[0].toUpperCase() && k.slice(1) === k.slice(1).toLowerCase();
-             return isCapitalized && (index > 0 || keywords.length === 1);
-        });
-
-        if (acronym) finalQuery = acronym;
-        else if (properNoun) finalQuery = properNoun;
-        else {
-            keywords.sort((a, b) => b.length - a.length);
-            finalQuery = keywords[0];
-        }
-    }
-    
-    // 3. UX FIX: Takoj počistimo stare novice in prižgemo spinner
-    setItemsLatest([]); // <--- TOLE JE BILO KLJUČNO!
+    // 2. UX FIX: Takoj počistimo stare novice in prižgemo spinner
+    setItemsLatest([]); 
     setIsRefreshing(true); 
 
-    // 4. IZVEDBA ISKANJA
+    // 3. IZVEDBA ISKANJA S TAGOM (Hitro!)
     window.scrollTo({ top: 0, behavior: 'smooth' })
-    setSearchQuery(finalQuery)
+    setSearchQuery('') // Pobrišemo tekstovni search
+    setTagQuery(clean) // Nastavimo TAG iskanje
     
-    // Če smo v 'trending' (Aktualno), preklopimo na 'latest' (Najnovejše)
+    // Če smo v 'trending', preklopimo na 'latest'
     if (mode === 'trending') {
         setMode('latest');
         setHasMore(true); 
@@ -362,7 +345,10 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
     <>
       <Header 
         onOpenFilter={() => setFilterModalOpen(true)}
-        onSearch={setSearchQuery} 
+        onSearch={(q) => { 
+            setSearchQuery(q); 
+            setTagQuery(''); // Če uporabnik vpiše tekst, pobrišemo tag
+        }} 
         activeSource={activeSourceLabel}
         activeCategory={selectedCategory}
         onSelectCategory={(cat) => {
@@ -417,11 +403,11 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
 
            {/* DESNA STRAN: Trending bar */}
            {/* Prikazujemo samo če smo na Home tabu in ni aktivnega iskanja */}
-           {mode === 'latest' && selectedCategory === 'vse' && !searchQuery && (
+           {mode === 'latest' && selectedCategory === 'vse' && !searchQuery && !tagQuery && (
               <div className="flex-1 min-w-0 overflow-hidden">
                  <TrendingBar 
                    words={initialTrendingWords}
-                   selectedWord={searchQuery}
+                   selectedWord={tagQuery || searchQuery} // Prikaže, če je kaj izbrano
                    onSelectWord={handleTrendingClick} 
                  />
               </div>
@@ -447,15 +433,15 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
         {/* --- VSEBINA --- */}
         <div className="px-4 md:px-8 lg:px-16 mt-4">
             
-            {searchQuery && (
+            {(searchQuery || tagQuery) && (
             <div className="mb-6 flex items-center gap-2">
                 <span className="text-sm text-gray-500">
-                    Rezultati za: <span className="font-bold text-gray-900 dark:text-white">"{searchQuery}"</span>
+                    Rezultati za: <span className="font-bold text-gray-900 dark:text-white">"{tagQuery || searchQuery}"</span>
                 </span>
                 <button 
                     onClick={() => {
                         setSearchQuery('');
-                        // Če smo bili preklopljeni na latest zaradi iskanja, lahko ostanemo tam
+                        setTagQuery('');
                     }}
                     className="text-xs px-2 py-1 bg-gray-200 dark:bg-gray-800 rounded-md hover:bg-gray-300 dark:hover:bg-gray-700 transition-colors"
                 >
@@ -471,8 +457,8 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
                 </div>
             ) : visibleNews.length === 0 ? (
                 <div className="flex flex-col items-center justify-center pt-20 pb-20 text-center">
-                    {searchQuery ? (
-                        <p className="opacity-60">Ni rezultatov za iskanje &quot;{searchQuery}&quot;.</p>
+                    {(searchQuery || tagQuery) ? (
+                        <p className="opacity-60">Ni rezultatov za iskanje &quot;{tagQuery || searchQuery}&quot;.</p>
                     ) : (
                         <p className="opacity-60">Trenutno ni novic s temi filtri.</p>
                     )}
@@ -540,12 +526,11 @@ export const getServerSideProps: GetServerSideProps = async ({ res }) => {
   // 2. Fetch Trending Words (AI)
   let trendsData: any[] = []
 
-  // SPREMENJENO: Iskanje najnovejšega zapisa v zgodovini (order by updated_at)
   const { data: aiData } = await supabase
     .from('trending_ai')
     .select('words')
-    .order('updated_at', { ascending: false }) // Razvrsti od najnovejšega
-    .limit(1) // Vzemi samo prvega
+    .order('updated_at', { ascending: false }) 
+    .limit(1) 
     .single()
 
   if (aiData && aiData.words && Array.isArray(aiData.words) && aiData.words.length > 0) {
