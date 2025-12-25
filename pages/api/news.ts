@@ -228,7 +228,7 @@ const TREND_HOT_CUTOFF_HOURS = 4
 // To prepreči, da bi se novice združile, če imajo le 2 skupni besedi, 
 // a so sicer popolnoma različne (npr. "Zelenski božični večer" vs "Maribor božični večer")
 // Formula: (Skupne besede) / (Vse unikatne besede obeh naslovov)
-const TREND_JACCARD_THRESHOLD = 0.25; 
+const TREND_JACCARD_THRESHOLD = 0.20; 
 
 type StoryArticle = {
   source: string
