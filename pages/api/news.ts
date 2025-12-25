@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js'
 import fetchRSSFeeds from '@/lib/fetchRSSFeeds'
 import type { NewsItem as FeedNewsItem } from '@/types'
 import { determineCategory, CategoryId } from '@/lib/categories'
+import { generateKeywords } from '@/lib/textUtils' // <--- UVOZ NOVEGA HELPERJA
 
 // --- KONFIGURACIJA ---
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL as string
@@ -24,7 +25,6 @@ const supabaseWrite = SUPABASE_SERVICE_ROLE_KEY
 /* HELPER FUNKCIJE                                                            */
 /* -------------------------------------------------------------------------- */
 
-// Čiščenje URL-jev
 function cleanUrl(raw: string): URL | null {
   try {
     const u = new URL(raw.trim())
@@ -42,7 +42,6 @@ function cleanUrl(raw: string): URL | null {
   } catch { return null }
 }
 
-// Formatiranje datuma za linkKey
 function yyyymmdd(iso?: string | null): string | null {
   if (!iso) return null
   const d = new Date(iso)
@@ -53,7 +52,6 @@ function yyyymmdd(iso?: string | null): string | null {
   return `${y}${m}${dd}`
 }
 
-// Generiranje unikatnega ključa
 function makeLinkKey(raw: string, iso?: string | null): string {
   const u = cleanUrl(raw)
   if (!u) return raw.trim()
@@ -76,12 +74,10 @@ function makeLinkKey(raw: string, iso?: string | null): string {
   return `https://${u.host}${u.pathname}`
 }
 
-// Odstranjevanje šumnikov
 const unaccent = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
 const normTitle = (s: string) => unaccent(s).toLowerCase().replace(/\s+/g, ' ').trim()
 const tsSec = (ms?: number | null) => Math.max(0, Math.floor((typeof ms === 'number' ? ms : 0) / 1000))
 
-// Soft deduplikacija
 function softDedupe<T extends { source?: string; title?: string; publishedAt?: number }>(arr: T[]): T[] {
   const byKey = new Map<string, T>()
   for (const it of arr) {
@@ -132,6 +128,14 @@ function feedItemToDbRow(item: FeedNewsItem) {
     categories: [] 
   })
 
+  // ZAGOTOVIMO KLJUČNE BESEDE
+  let kws = item.keywords;
+  if (!kws || kws.length === 0) {
+      // Fallback, če manjkajo
+      const text = title + ' ' + (snippet || '');
+      kws = generateKeywords(text);
+  }
+
   return {
     link: linkRaw,
     link_key: linkKey,
@@ -143,10 +147,10 @@ function feedItemToDbRow(item: FeedNewsItem) {
     published_at: ts.iso,
     publishedat: ts.ms,
     category: category, 
+    keywords: kws, // <--- SHRANIMO V BAZO
   }
 }
 
-// Zapisovanje v Supabase
 async function syncToSupabase(items: FeedNewsItem[]) {
   if (!supabaseWrite) return
   
@@ -188,6 +192,7 @@ type Row = {
   publishedat: number | null
   created_at: string | null
   category: string | null
+  keywords: string[] | null // <--- DODANO
 }
 
 const toMs = (s?: string | null) => {
@@ -207,6 +212,7 @@ function rowToItem(r: Row): FeedNewsItem {
     publishedAt: ms,
     isoDate: r.published_at || null,
     category: (r.category as CategoryId) || 'ostalo',
+    keywords: r.keywords || [] // <--- DODANO
   }
 }
 
@@ -293,7 +299,7 @@ async function fetchTrendingRows(): Promise<Row[]> {
   const { data, error } = await supabaseRead
     .from('news')
     .select(
-      'id, link, link_key, title, source, image, contentsnippet, summary, published_at, publishedat, created_at, category',
+      'id, link, link_key, title, source, image, contentsnippet, summary, published_at, publishedat, created_at, category, keywords',
     )
     .gt('publishedat', cutoffMs)
     .neq('category', 'oglas') 
@@ -468,7 +474,7 @@ export default async function handler(
     // Glavni query
     let q = supabaseRead
       .from('news')
-      .select('id, link, link_key, title, source, image, contentsnippet, summary, published_at, publishedat, created_at, category')
+      .select('id, link, link_key, title, source, image, contentsnippet, summary, published_at, publishedat, created_at, category, keywords')
       .gt('publishedat', 0)
       
       // --- 4. FILTRIRANJE OGLASOV ---
@@ -497,13 +503,25 @@ export default async function handler(
       }
     }
 
-    // --- 5. PAMETNO ISKANJE (Naslov + Podnaslov) ---
+    // --- 5. ULTRA PAMETNO ISKANJE (Stemming + Fallback) ---
     if (searchQuery && searchQuery.trim().length > 0) {
-        const term = searchQuery.trim().replace(/[(),]/g, ' ')
         
-        // Iščemo po naslovu IN contentsnippet (ker ima indeks).
-        // Summary izpustimo, ker je duplikat in nima indeksa (to je povzročalo timeout).
-        q = q.or(`title.ilike.%${term}%,contentsnippet.ilike.%${term}%`)
+        // A) Poskusimo generirati ključne besede iz iskalnega niza
+        const searchTerms = generateKeywords(searchQuery); 
+        
+        // B) Logika odločanja
+        if (searchTerms.length > 0) {
+            // Uporabimo Postgres "array contains" operator (@>)
+            // To pomeni: "Daj mi novice, ki v svojem seznamu keywords vsebujejo VSE te besede"
+            // To je ekstremno hitro in natančno ter reši sklanjanje.
+            const pgArrayLiteral = `{${searchTerms.join(',')}}`; 
+            q = q.contains('keywords', pgArrayLiteral);
+        } else {
+            // C) Fallback: Če generator vrne prazno (npr. same stop words), 
+            // uporabimo stari ILIKE na naslov
+            const term = searchQuery.trim().replace(/[(),]/g, ' ')
+            q = q.ilike('title', `%${term}%`)
+        }
     }
 
     q = q.limit(limit)
