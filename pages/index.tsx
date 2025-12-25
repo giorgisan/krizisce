@@ -99,7 +99,7 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
   const [selectedSources, setSelectedSources] = useState<string[]>([]) 
   const [selectedCategory, setSelectedCategory] = useState<CategoryId | 'vse'>('vse')
   const [searchQuery, setSearchQuery] = useState<string>('') 
-  const [tagQuery, setTagQuery] = useState<string>('') // <--- NOVO: Stanje za tag
+  const [tagQuery, setTagQuery] = useState<string>('') 
 
   const [filterModalOpen, setFilterModalOpen] = useState(false)
 
@@ -258,7 +258,7 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
     if (selectedSources.length > 0) qs.set('source', selectedSources.join(','))
     if (selectedCategory !== 'vse') qs.set('category', selectedCategory)
     if (searchQuery) qs.set('q', searchQuery)
-    if (tagQuery) qs.set('tag', tagQuery) // <--- Dodan tag
+    if (tagQuery) qs.set('tag', tagQuery) 
     const res = await fetch(`/api/news?${qs.toString()}`, { cache: 'no-store' })
     if (!res.ok) return { items: [], nextCursor: null }
     return await res.json()
@@ -283,24 +283,34 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
     } finally { setIsLoadingMore(false) }
   }
 
+  // --- POPRAVEK: Handle Tab Change z animacijo ---
   const handleTabChange = async (next: Mode) => {
     if (next === mode) return
     window.scrollTo({ top: 0, behavior: 'smooth' })
     setMode(next)
+
     if (next === 'latest') {
       setHasMore(true); setCursor(null)
     } else {
       setHasMore(false); setCursor(null)
       const now = Date.now()
       const isStale = (now - lastTrendingFetchRef.current) > 5 * 60_000
+      
       if (!trendingLoaded || isStale) {
+        setIsRefreshing(true) // <--- VKLOPIMO SPINNER
         try {
           // Trending nima search parametrov
           const fresh = await loadNews('trending', [], 'vse', null, null)
           if (fresh) {
-            setItemsTrending(fresh); setTrendingLoaded(true); lastTrendingFetchRef.current = Date.now() 
+            setItemsTrending(fresh); 
+            setTrendingLoaded(true); 
+            lastTrendingFetchRef.current = Date.now() 
           }
-        } catch (e) { console.error(e) }
+        } catch (e) { 
+            console.error(e) 
+        } finally {
+            setIsRefreshing(false) // <--- IZKLOPIMO SPINNER
+        }
       }
     }
   }
@@ -321,19 +331,15 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
 
   // --- NOVA FUNKCIJA ZA TRENDING KLIK ---
   const handleTrendingClick = (word: string) => {
-    // 1. Očistimo besedo (odstranimo #)
     let clean = word.replace(/^#/, '').trim();
     
-    // 2. UX FIX: Takoj počistimo stare novice in prižgemo spinner
     setItemsLatest([]); 
     setIsRefreshing(true); 
 
-    // 3. IZVEDBA ISKANJA S TAGOM (Hitro!)
     window.scrollTo({ top: 0, behavior: 'smooth' })
-    setSearchQuery('') // Pobrišemo tekstovni search
-    setTagQuery(clean) // Nastavimo TAG iskanje
+    setSearchQuery('') 
+    setTagQuery(clean) 
     
-    // Če smo v 'trending', preklopimo na 'latest'
     if (mode === 'trending') {
         setMode('latest');
         setHasMore(true); 
@@ -347,7 +353,7 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
         onOpenFilter={() => setFilterModalOpen(true)}
         onSearch={(q) => { 
             setSearchQuery(q); 
-            setTagQuery(''); // Če uporabnik vpiše tekst, pobrišemo tag
+            setTagQuery(''); 
         }} 
         activeSource={activeSourceLabel}
         activeCategory={selectedCategory}
@@ -402,12 +408,11 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
            </div>
 
            {/* DESNA STRAN: Trending bar */}
-           {/* Prikazujemo samo če smo na Home tabu in ni aktivnega iskanja */}
            {mode === 'latest' && selectedCategory === 'vse' && !searchQuery && !tagQuery && (
               <div className="flex-1 min-w-0 overflow-hidden">
                  <TrendingBar 
                    words={initialTrendingWords}
-                   selectedWord={tagQuery || searchQuery} // Prikaže, če je kaj izbrano
+                   selectedWord={tagQuery || searchQuery} 
                    onSelectWord={handleTrendingClick} 
                  />
               </div>
@@ -450,6 +455,7 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
             </div>
             )}
 
+            {/* SPINNER se prikaže, če osvežujemo in ni novic (še) */}
             {isRefreshing && visibleNews.length === 0 ? (
                 <div className="flex flex-col items-center justify-center pt-20 pb-20">
                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand mb-4"></div>
@@ -539,7 +545,6 @@ export const getServerSideProps: GetServerSideProps = async ({ res }) => {
         count: 1 
      }))
   } else {
-     // Fallback če tabela prazna
      const sqlTrends = await supabase.rpc('get_trending_words', {
          hours_lookback: 48,
          limit_count: 8
