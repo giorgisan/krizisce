@@ -1,9 +1,9 @@
 import type { NextApiRequest, NextApiResponse } from 'next'
 import { createClient } from '@supabase/supabase-js'
 import fetchRSSFeeds from '@/lib/fetchRSSFeeds'
-import type { NewsItem as FeedNewsItem } from '@/types' 
+import type { NewsItem as FeedNewsItem } from '@/types'
 import { determineCategory, CategoryId } from '@/lib/categories'
-import { generateKeywords } from '@/lib/textUtils' 
+import { generateKeywords } from '@/lib/textUtils'
 
 // --- KONFIGURACIJA ---
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL as string
@@ -224,6 +224,12 @@ const TREND_MIN_OVERLAP = 2
 const TREND_MAX_ITEMS = 5
 const TREND_HOT_CUTOFF_HOURS = 4
 
+// --- NOVO: JACCARD THRESHOLD ---
+// To prepreči, da bi se novice združile, če imajo le 2 skupni besedi, 
+// a so sicer popolnoma različne (npr. "Zelenski božični večer" vs "Maribor božični večer")
+// Formula: (Skupne besede) / (Vse unikatne besede obeh naslovov)
+const TREND_JACCARD_THRESHOLD = 0.25; 
+
 type StoryArticle = {
   source: string
   link: string
@@ -243,6 +249,7 @@ type TrendGroup = {
   keywords: string[]
 }
 
+// --- POSODOBIL SEM SEZNAM STOP WORDS (Da izločimo praznični šum) ---
 const STORY_STOPWORDS = new Set<string>([
   'v', 'na', 'ob', 'po', 'pri', 'pod', 'nad', 'za', 'do', 'od', 'z', 's',
   'in', 'ali', 'pa', 'kot', 'je', 'so', 'se', 'bo', 'bodo', 'bil', 'bila',
@@ -250,7 +257,7 @@ const STORY_STOPWORDS = new Set<string>([
   'danes', 'vceraj', 'nocoj', 'noc', 'jutri', 'letos', 'lani', 'ze', 'se',
   'slovenija', 'sloveniji', 'slovenije', 'slovenijo', 
   'slovenski', 'slovenska', 'slovensko', 'slovenskih',
-  'ljubljana', 'ljubljani', 'maribor', 'celje', 'koper', 
+  'ljubljana', 'ljubljani',
   'svet', 'svetu', 'evropa', 'eu', 'zda',
   'video', 'foto', 'galerija', 'intervju', 'clanek', 'novice', 'kronika', 
   'novo', 'ekskluzivno', 'v zivo', 'preberite', 'poglejte',
@@ -262,7 +269,10 @@ const STORY_STOPWORDS = new Set<string>([
   'dober', 'dobra', 'slaba', 'velik', 'malo',
   'let', 'leta', 'leto', 'letnik', 'letnika', 'letih', 'letni', 'letna',
   'letošnji', 'letošnja', 'starost', 'star', 'stara',
-  'teden', 'tedna', 'mesec', 'meseca', 'dan', 'dni', 'ura', 'ure'
+  'teden', 'tedna', 'mesec', 'meseca', 'dan', 'dni', 'ura', 'ure',
+  // --- PRAZNIČNI ŠUM (To je delalo težave!) ---
+  'bozic', 'bozicni', 'bozicna', 'bozicno', 'vecer', 'praznik', 'prazniki', 
+  'praznicni', 'jutro', 'dopoldne', 'popoldne', 'koncu', 'zacetku', 'sredini'
 ])
 
 function stemToken(raw: string): string {
@@ -320,30 +330,44 @@ function computeTrendingFromRows(rows: Row[]): (FeedNewsItem & { storyArticles: 
   metas.sort((a, b) => b.ms - a.ms)
 
   const groups: TrendGroup[] = []
+  
+  // LOGIKA GRUPIRANJA (Z Jaccard indeksom)
   for (let i = 0; i < metas.length; i++) {
     const m = metas[i]
     const mKW = m.keywords
     let attachedIndex = -1
-    let bestOverlap = 0
+    let bestScore = 0 // Score zdaj ni več samo število ujemanj
+    
     for (let gi = 0; gi < groups.length; gi++) {
       const g = groups[gi]
       const gKW = g.keywords
+      
       let intersect = 0
-      const seen = new Set<string>()
+      const unionSet = new Set<string>([...gKW]) // Začnemo z besedami v grupi
+      
       for (let ki = 0; ki < mKW.length; ki++) {
         const kw = mKW[ki]
-        const seenKW = seen.has(kw)
-        seen.add(kw)
-        if (seenKW) continue
+        unionSet.add(kw) // Dodamo v unijo
         if (gKW.indexOf(kw) !== -1) intersect++
       }
-      if (intersect >= TREND_MIN_OVERLAP) {
-        if (intersect > bestOverlap) {
-          bestOverlap = intersect
+
+      // Jaccard similarity = (Intersection) / (Union)
+      // To pove, kolikšen % besed je skupnih. 
+      // Če je naslov A: "Zelenski božični" in B: "Maribor božični", je intersect 1, union 3 -> 0.33
+      // Če pa imamo veliko stopwords ("bozicni" ignoriramo), bo intersect 0.
+      const jaccard = unionSet.size > 0 ? (intersect / unionSet.size) : 0;
+
+      // Kriterij: 
+      // 1. Vsaj TREND_MIN_OVERLAP skupnih besed (npr. 2)
+      // 2. IN Jaccard index dovolj visok (da nista naslova preveč različna)
+      if (intersect >= TREND_MIN_OVERLAP && jaccard >= TREND_JACCARD_THRESHOLD) {
+        if (jaccard > bestScore) {
+          bestScore = jaccard
           attachedIndex = gi
         }
       }
     }
+
     if (attachedIndex >= 0) {
       const g = groups[attachedIndex]
       g.rows.push(m)
@@ -504,37 +528,24 @@ export default async function handler(
     }
 
     // --- 5. LOGIKA ISKANJA (FINALNO POPRAVLJENO!) ---
-    // Problem je bil, da smo iskali npr. "Papež" (tag), v bazi pa je "papez" (normalized).
-    // Zato zdaj tag spustimo skozi ISTO funkcijo normalizacije.
-
     // A) HITRO ISKANJE PO TAGU (Klik na trending tag)
     if (tagQuery && tagQuery.trim().length > 0) {
         const rawTag = tagQuery.trim();
-        // 1. Normaliziramo tag, da dobimo koren (npr. "Papež" -> "papez")
         const stems = generateKeywords(rawTag);
-        
-        // 2. Če funkcija vrne koren, iščemo po korenu. Če ne (redko), po originalu.
         const searchVal = stems.length > 0 ? stems[0] : rawTag;
-        
-        // 3. Iščemo v arrayu keywords
-        // Sintaksa: contains('column', ['value'])
         q = q.contains('keywords', [searchVal]);
     } 
-    
     // B) SPLOŠNO ISKANJE (Vpis v search bar)
-    // Uporabljamo ločen IF, da se ne tepeta, če bi frontend poslal oba
     if (searchQuery && searchQuery.trim().length > 0) {
         const rawTerm = searchQuery.trim();
         const searchTerms = generateKeywords(rawTerm);
         
-        // Pripravimo pogoje za Title in Summary (nujno ILIKE za iskanje po tekstu)
         const orConditions = [
             `title.ilike.%${rawTerm}%`,
             `summary.ilike.%${rawTerm}%`,
             `contentsnippet.ilike.%${rawTerm}%`
         ];
 
-        // Če imamo keywords, dodamo še iskanje po njih
         if (searchTerms.length > 0) {
             const pgArrayLiteral = `{${searchTerms.join(',')}}`;
             orConditions.push(`keywords.cs.${pgArrayLiteral}`);
