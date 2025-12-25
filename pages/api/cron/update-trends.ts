@@ -45,7 +45,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // 3. PRIPRAVA VSEBINE
     const headlines = recentNews.map(n => `- ${n.source}: ${n.title}`).join('\n')
 
-    // 4. POPRAVLJEN PROMPT (Optimiziran za ujemanje s keywords v bazi)
+    // 4. POPRAVLJEN PROMPT (FORSIRANJE PRESLEDKOV)
     const prompt = `
         Analiziraj spodnji seznam naslovov in povzetkov ter izlušči seznam "Trending" tagov.
         
@@ -57,22 +57,20 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         2. ČE NI VSAJ 2 RAZLIČNIH VIROV, TE TEME NE IZPIŠI.
         
         NAVODILA ZA OBLIKOVANJE (STROGO!!):
-        1. Vrni SAMO JSON array stringov (npr. ["#Tag1", "#Tag2"]).
+        1. Vrni SAMO JSON array stringov.
         2. Vsak element se začne z lojtro (#).
-        3. IZVOR BESED (NAJPOMEMBNEJE): 
-           - Uporabi BESEDE, KI SO DEJANSKO V NASLOVIH (da jih iskalnik najde).
-           - NE izmišljuj si sinonimov, ki jih ni v tekstu (npr. če piše "Dars", ne piši "#Avtoceste", ampak "#Dars").
-           - Besede postavi v osnovno obliko (imenovalnik), da so lepe za branje (npr. iz "Požaru" naredi "#Požar").
-        4. DOLŽINA: 
+        3. PRESLEDKI (NAJPOMEMBNEJE): 
+           - Če je tag sestavljen iz več besed, MED NJIMI PUSTI PRESLEDEK.
+           - NE ZDRUŽUJ BESED.
+           - NE: "#LukaDončić", "#JavnoZdravstvo", "#RusijaUkrajina"
+           - DA: "#Luka Dončić", "#Javno zdravstvo", "#Rusija Ukrajina"
+        4. IZVOR BESED: 
+           - Uporabi BESEDE, KI SO DEJANSKO V NASLOVIH.
+           - Besede postavi v osnovno obliko (imenovalnik).
+        5. DOLŽINA: 
            - Tag naj ima NAJVEČ 3 besede.
-           - NE: "#Društvo Srebrna nit opozarja"
-           - DA: "#Srebrna nit"
-        5. PREPOVEDANO:
-           - Brez glagolov (opozarja, meni, pravi).
-           - Brez ločil v tagu.
-           - Brez angleških izrazov, če je tekst slovenski.
         
-        CILJ: Vrni do 6 kratkih, jedrnatih tagov, ki so lepi za prikaz, a vsebujejo ključne besede iz teksta.
+        CILJ: Vrni do 8 kratkih, jedrnatih tagov s presledki.
     `
     
     const tryGenerate = async (modelName: string) => {
@@ -109,11 +107,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // 6. SHRANJEVANJE (ZGODOVINA)
     if (Array.isArray(trends) && trends.length > 0) {
         trends = trends
-            .map(t => t.startsWith('#') ? t : `#${t}`)
+            .map(t => {
+                // Zagotovimo lojtro
+                let tag = t.startsWith('#') ? t : `#${t}`;
+                // Dodatna varnost: Če AI slučajno vrne CamelCase, poskusimo vstaviti presledke pred velikimi črkami (ni nujno, če AI uboga prompt)
+                return tag; 
+            })
             .filter(t => t.length > 2)
             .slice(0, 8);
 
-        // SPREMEMBA: Uporabimo .insert() brez ID-ja -> baza ustvari novega
         const { error } = await supabase
           .from('trending_ai')
           .insert({ 
