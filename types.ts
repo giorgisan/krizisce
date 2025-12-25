@@ -1,4 +1,4 @@
-import { CategoryId } from './lib/categories'
+import { CategoryId } from './lib/categories' // Preveri, če je pot pravilna glede na tvojo strukturo
 
 export type NewsItem = {
   title: string
@@ -19,4 +19,7 @@ export type NewsItem = {
   
   /** Kategorija novice (npr. 'sport', 'slovenija', ...) */
   category: CategoryId
+
+  /** Ključne besede za iskanje (generirane ali iz RSS) */
+  keywords?: string[] // <--- TO JE BILO NUJNO DODATI!
 }
