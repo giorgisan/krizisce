@@ -45,7 +45,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // 3. PRIPRAVA VSEBINE
     const headlines = recentNews.map(n => `- ${n.source}: ${n.title}`).join('\n')
 
-    // 4. POPRAVLJEN PROMPT (Varen za iskanje)
+    // 4. POPRAVLJEN PROMPT (Optimiziran za ujemanje s keywords v bazi)
     const prompt = `
         Analiziraj spodnji seznam naslovov in povzetkov ter izlušči seznam "Trending" tagov.
         
@@ -59,19 +59,20 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         NAVODILA ZA OBLIKOVANJE (STROGO!!):
         1. Vrni SAMO JSON array stringov (npr. ["#Tag1", "#Tag2"]).
         2. Vsak element se začne z lojtro (#).
-        3. DOLŽINA (NAJPOMEMBNEJE): 
-           - Tag sme imeti NAJVEČ 3 BESEDE.
-           - Če je fraza daljša, jo SKRAJŠAJ na bistvo ali pa je NE uporabi.
-           - NE: "#Društvo Srebrna nit opozarja" (predolgo!)
+        3. IZVOR BESED (NAJPOMEMBNEJE): 
+           - Uporabi BESEDE, KI SO DEJANSKO V NASLOVIH (da jih iskalnik najde).
+           - NE izmišljuj si sinonimov, ki jih ni v tekstu (npr. če piše "Dars", ne piši "#Avtoceste", ampak "#Dars").
+           - Besede postavi v osnovno obliko (imenovalnik), da so lepe za branje (npr. iz "Požaru" naredi "#Požar").
+        4. DOLŽINA: 
+           - Tag naj ima NAJVEČ 3 besede.
+           - NE: "#Društvo Srebrna nit opozarja"
            - DA: "#Srebrna nit"
-           - NE: "#Požar v hamburškem pristanišču"
-           - DA: "#Požar Hamburg"
-        4. IZVOR BESED: Uporabi besede, ki so v tekstu (zaradi iskanja), a jih skrajšaj na koren, če je treba.
         5. PREPOVEDANO:
            - Brez glagolov (opozarja, meni, pravi).
            - Brez ločil v tagu.
+           - Brez angleških izrazov, če je tekst slovenski.
         
-        CILJ: Vrni do 6 kratkih, jedrnatih tagov.
+        CILJ: Vrni do 6 kratkih, jedrnatih tagov, ki so lepi za prikaz, a vsebujejo ključne besede iz teksta.
     `
     
     const tryGenerate = async (modelName: string) => {
