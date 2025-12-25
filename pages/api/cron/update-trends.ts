@@ -56,20 +56,22 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         1. TEMA MORA BITI "VROČA": O njej morata pisati vsaj 2 RAZLIČNA vira.
         2. ČE NI VSAJ 2 RAZLIČNIH VIROV, TE TEME NE IZPIŠI.
         
-        NAVODILA ZA OBLIKOVANJE (KRITIČNO ZA ISKALNIK):
-        1. Vrni SAMO JSON array stringov.
+        NAVODILA ZA OBLIKOVANJE (STROGO!!):
+        1. Vrni SAMO JSON array stringov (npr. ["#Tag1", "#Tag2"]).
         2. Vsak element se začne z lojtro (#).
-        3. IZVOR BESED: Tagi morajo vsebovati SAMO besede, ki so DEJANSKO NAPISANE v naslovu ali opisu.
-           - NE PREVAJAJ: Če piše "končanje življenja", NE piši "#Eutanazija" (ker iskalnik tega ne bo našel).
-           - NE POSPLOŠUJ: Če piše "Cinkarna", uporabi "#Cinkarna".
-        4. OBLIKA: 
-           - Ohrani besedno zvezo, če je smiselna (npr. "#Cinkarna Celje").
-           - Lahko spremeniš sklanjatev v osnovno obliko (npr. "Cinkarni" -> "Cinkarna"), ampak samo, če je koren besede enak.
+        3. DOLŽINA (NAJPOMEMBNEJE): 
+           - Tag sme imeti NAJVEČ 3 BESEDE.
+           - Če je fraza daljša, jo SKRAJŠAJ na bistvo ali pa je NE uporabi.
+           - NE: "#Društvo Srebrna nit opozarja" (predolgo!)
+           - DA: "#Srebrna nit"
+           - NE: "#Požar v hamburškem pristanišču"
+           - DA: "#Požar Hamburg"
+        4. IZVOR BESED: Uporabi besede, ki so v tekstu (zaradi iskanja), a jih skrajšaj na koren, če je treba.
         5. PREPOVEDANO:
-           - Brez glagolov.
-           - Brez pridevnikov ("huda", "velika"), razen če so del imena ("Velika planina").
+           - Brez glagolov (opozarja, meni, pravi).
+           - Brez ločil v tagu.
         
-        CILJ: Vrni do 6 najbolj relevantnih tagov, ki bodo dali zadetke v iskalniku.
+        CILJ: Vrni do 6 kratkih, jedrnatih tagov.
     `
     
     const tryGenerate = async (modelName: string) => {
