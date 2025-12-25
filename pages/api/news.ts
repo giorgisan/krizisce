@@ -1,9 +1,9 @@
 import type { NextApiRequest, NextApiResponse } from 'next'
 import { createClient } from '@supabase/supabase-js'
 import fetchRSSFeeds from '@/lib/fetchRSSFeeds'
-import type { NewsItem as FeedNewsItem } from '@/types'
+import type { NewsItem as FeedNewsItem } from '@/types' // Prepričaj se, da si uredil types.ts!
 import { determineCategory, CategoryId } from '@/lib/categories'
-import { generateKeywords } from '@/lib/textUtils' // <--- UVOZ NOVEGA HELPERJA
+import { generateKeywords } from '@/lib/textUtils' 
 
 // --- KONFIGURACIJA ---
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL as string
@@ -93,7 +93,7 @@ function softDedupe<T extends { source?: string; title?: string; publishedAt?: n
 function normalizeSnippet(item: FeedNewsItem): string | null {
   const snippet = (item.contentSnippet || '').trim()
   if (snippet) return snippet
-  const fromContent = (item.content || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
+  const fromContent = ((item as any).content || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
   return fromContent || null
 }
 
@@ -105,7 +105,8 @@ function resolveTimestamps(item: FeedNewsItem) {
     return { raw: value, ms: t, iso: new Date(t).toISOString() }
   }
   const fromIso = parse(item.isoDate)
-  const fromPub = parse(item.pubDate)
+  // Casting item as any to access pubDate if it exists on the raw feed item but not on interface
+  const fromPub = parse((item as any).pubDate)
   const msFromNumber = typeof item.publishedAt === 'number' && Number.isFinite(item.publishedAt) && item.publishedAt > 0 ? item.publishedAt : null
   const ms = fromIso?.ms ?? fromPub?.ms ?? msFromNumber ?? Date.now()
   const iso = fromIso?.iso ?? fromPub?.iso ?? new Date(ms).toISOString()
@@ -129,9 +130,9 @@ function feedItemToDbRow(item: FeedNewsItem) {
   })
 
   // ZAGOTOVIMO KLJUČNE BESEDE
+  // Če keywords ne obstajajo na itemu, jih generiramo
   let kws = item.keywords;
   if (!kws || kws.length === 0) {
-      // Fallback, če manjkajo
       const text = title + ' ' + (snippet || '');
       kws = generateKeywords(text);
   }
@@ -178,7 +179,7 @@ async function syncToSupabase(items: FeedNewsItem[]) {
   }
 }
 
-// --- TIPI ---
+// --- TIPI (Lokalni za API, mapping iz DB) ---
 type Row = {
   id: number
   link: string
@@ -220,7 +221,7 @@ function rowToItem(r: Row): FeedNewsItem {
 /* TRENDING LOGIKA                                                            */
 /* -------------------------------------------------------------------------- */
 const TREND_WINDOW_HOURS = 6 
-const TREND_MIN_SOURCES = 2      
+const TREND_MIN_SOURCES = 2       
 const TREND_MIN_OVERLAP = 2
 const TREND_MAX_ITEMS = 5
 const TREND_HOT_CUTOFF_HOURS = 4
@@ -244,6 +245,7 @@ type TrendGroup = {
   keywords: string[]
 }
 
+// STORY STOPWORDS za grupiranje (Trending logika)
 const STORY_STOPWORDS = new Set<string>([
   'v', 'na', 'ob', 'po', 'pri', 'pod', 'nad', 'za', 'do', 'od', 'z', 's',
   'in', 'ali', 'pa', 'kot', 'je', 'so', 'se', 'bo', 'bodo', 'bil', 'bila',
@@ -512,13 +514,10 @@ export default async function handler(
         // B) Logika odločanja
         if (searchTerms.length > 0) {
             // Uporabimo Postgres "array contains" operator (@>)
-            // To pomeni: "Daj mi novice, ki v svojem seznamu keywords vsebujejo VSE te besede"
-            // To je ekstremno hitro in natančno ter reši sklanjanje.
             const pgArrayLiteral = `{${searchTerms.join(',')}}`; 
             q = q.contains('keywords', pgArrayLiteral);
         } else {
-            // C) Fallback: Če generator vrne prazno (npr. same stop words), 
-            // uporabimo stari ILIKE na naslov
+            // C) Fallback
             const term = searchQuery.trim().replace(/[(),]/g, ' ')
             q = q.ilike('title', `%${term}%`)
         }
@@ -530,7 +529,6 @@ export default async function handler(
     const { data, error } = await q
     
     if (error) {
-        // LOGIRAJ NAPAKO, DA JO VIDIŠ V VERCELU!
         console.error("❌ DB ERROR during fetch:", error);
         return res.status(500).json({ error: `DB: ${error.message}` })
     }
@@ -547,7 +545,6 @@ export default async function handler(
     return res.status(200).json(items)
 
   } catch (e: any) {
-    // LOGIRAJ CRITICAL ERROR (npr. timeout, crash)
     console.error("❌ API CRASH:", e);
     return res.status(500).json({ error: e?.message || 'Unexpected error' })
   }
