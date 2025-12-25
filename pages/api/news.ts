@@ -1,7 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next'
 import { createClient } from '@supabase/supabase-js'
 import fetchRSSFeeds from '@/lib/fetchRSSFeeds'
-import type { NewsItem as FeedNewsItem } from '@/types' // Prepričaj se, da si uredil types.ts!
+import type { NewsItem as FeedNewsItem } from '@/types' 
 import { determineCategory, CategoryId } from '@/lib/categories'
 import { generateKeywords } from '@/lib/textUtils' 
 
@@ -105,7 +105,6 @@ function resolveTimestamps(item: FeedNewsItem) {
     return { raw: value, ms: t, iso: new Date(t).toISOString() }
   }
   const fromIso = parse(item.isoDate)
-  // Casting item as any to access pubDate if it exists on the raw feed item but not on interface
   const fromPub = parse((item as any).pubDate)
   const msFromNumber = typeof item.publishedAt === 'number' && Number.isFinite(item.publishedAt) && item.publishedAt > 0 ? item.publishedAt : null
   const ms = fromIso?.ms ?? fromPub?.ms ?? msFromNumber ?? Date.now()
@@ -130,7 +129,6 @@ function feedItemToDbRow(item: FeedNewsItem) {
   })
 
   // ZAGOTOVIMO KLJUČNE BESEDE
-  // Če keywords ne obstajajo na itemu, jih generiramo
   let kws = item.keywords;
   if (!kws || kws.length === 0) {
       const text = title + ' ' + (snippet || '');
@@ -148,7 +146,7 @@ function feedItemToDbRow(item: FeedNewsItem) {
     published_at: ts.iso,
     publishedat: ts.ms,
     category: category, 
-    keywords: kws, // <--- SHRANIMO V BAZO
+    keywords: kws, 
   }
 }
 
@@ -179,7 +177,7 @@ async function syncToSupabase(items: FeedNewsItem[]) {
   }
 }
 
-// --- TIPI (Lokalni za API, mapping iz DB) ---
+// --- TIPI ---
 type Row = {
   id: number
   link: string
@@ -193,7 +191,7 @@ type Row = {
   publishedat: number | null
   created_at: string | null
   category: string | null
-  keywords: string[] | null // <--- DODANO
+  keywords: string[] | null 
 }
 
 const toMs = (s?: string | null) => {
@@ -213,7 +211,7 @@ function rowToItem(r: Row): FeedNewsItem {
     publishedAt: ms,
     isoDate: r.published_at || null,
     category: (r.category as CategoryId) || 'ostalo',
-    keywords: r.keywords || [] // <--- DODANO
+    keywords: r.keywords || [] 
   }
 }
 
@@ -245,7 +243,6 @@ type TrendGroup = {
   keywords: string[]
 }
 
-// STORY STOPWORDS za grupiranje (Trending logika)
 const STORY_STOPWORDS = new Set<string>([
   'v', 'na', 'ob', 'po', 'pri', 'pod', 'nad', 'za', 'do', 'od', 'z', 's',
   'in', 'ali', 'pa', 'kot', 'je', 'so', 'se', 'bo', 'bodo', 'bil', 'bila',
@@ -436,6 +433,7 @@ export default async function handler(
     const variant = (req.query.variant as string) || 'latest'
     const category = (req.query.category as string) || null
     const searchQuery = (req.query.q as string) || null 
+    const tagQuery = (req.query.tag as string) || null // <--- NOVO: Parameter za hitro iskanje tagov
 
     // --- 1. TRENDING ---
     if (variant === 'trending') {
@@ -505,28 +503,30 @@ export default async function handler(
       }
     }
 
-    // --- 5. POPRAVLJENO ISKANJE (Kombinacija: Keywords ALI Naslov ALI Povzetek) ---
-    if (searchQuery && searchQuery.trim().length > 0) {
+    // --- 5. LOGIKA ISKANJA (Popravljena) ---
+    // A) ČE JE KLIK NA TAG (Ultra hitro iskanje samo po ključnih besedah)
+    if (tagQuery && tagQuery.trim().length > 0) {
+        const cleanTag = tagQuery.trim();
+        q = q.contains('keywords', `{${cleanTag}}`);
+    } 
+    // B) ČE JE SPLOŠNO ISKANJE (Počasnejše, išče povsod)
+    else if (searchQuery && searchQuery.trim().length > 0) {
         const rawTerm = searchQuery.trim();
         
-        // Pripravimo seznam pogojev za OR (ali)
-        // Vedno iščemo po naslovu in povzetku
+        // Pripravimo pogoje za Title in Summary (ILIKE je počasnejši, a nujen za iskanje teksta)
         const orConditions = [
             `title.ilike.%${rawTerm}%`,
             `summary.ilike.%${rawTerm}%`,
             `contentsnippet.ilike.%${rawTerm}%`
         ];
 
-        // Dodatno: poskusimo generirati ključne besede
+        // Dodatno: tudi tukaj pogledamo v keywords, če se slučajno ujema
         const searchTerms = generateKeywords(rawTerm);
         if (searchTerms.length > 0) {
-            // Uporabimo operator 'cs' (contains set) za array
-            // Sintaksa: keywords.cs.{beseda1,beseda2}
             const pgArrayLiteral = `{${searchTerms.join(',')}}`;
             orConditions.push(`keywords.cs.${pgArrayLiteral}`);
         }
 
-        // Združimo vse pogoje z vejico, kar v Supabase pomeni OR
         q = q.or(orConditions.join(','));
     }
 
@@ -556,4 +556,3 @@ export default async function handler(
     return res.status(500).json({ error: e?.message || 'Unexpected error' })
   }
 }
-
