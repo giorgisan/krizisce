@@ -5,7 +5,7 @@ export type CategoryId =
   | 'svet' 
   | 'kronika' 
   | 'sport' 
-  | 'magazin'        
+  | 'magazin'       
   | 'lifestyle'     // Zdravje, Dom, Kulinarika, Potovanja, Psihologija, Živali
   | 'posel-tech'    // Gospodarstvo + Tehnologija
   | 'moto'            
@@ -105,6 +105,7 @@ export const CATEGORIES: CategoryDef[] = [
         'energetika', 'hse', 'gen-i', 'elektrika', 'plin', 'nafta', 'bencin', 'dizel', 'cene goriv',
         'nepremicnine', 'stanovanja', 'najemnine', 'gradbenistvo',
         'sindikat', 'zaposlitev', 'trg dela', 'brezposelnost', 'placa', 'zasluzek',
+        'poklic', 'delovno mesto', 'kariera', 'siht', // NOVO
         'evrov', 'evra', 'cena', 'stroski', 'draginja',
         
         '/znanost/', '/tehnologija/', '/tech/', '/it/', '/telekomunikacije/',
@@ -137,16 +138,18 @@ export const CATEGORIES: CategoryDef[] = [
         'vitamin', 'mineral', 'prehransko dopolnilo', 'imunski sistem',
         'spanec', 'spanje', 'telesna aktivnost', 'studija', 'hoja', 'trening', 'hidracij', 'voda', 'pijaca',
 
-        // ŽIVALI (Novo)
+        // ŽIVALI
         'zivali', 'ljubljenck', 'pes ', 'psi', 'macka', 'zavetisc', 'posvojit',
 
-        // ODNOSI (Samsko življenje)
+        // ODNOSI
         'odnosi', 'partnerstvo', 'samsk', 'zmenki', 'toksicn', 'custva', 'psihologija', 
         'locitev', 'razhod', 'sreca', 'zadovoljstvo', 'osamljenost',
+        'dušni', 'dusa', // NOVO (Ezoterika/Psihologija)
         
         '/kulinarika/', '/okusno/', '/recepti/', 
         'recept', 'kosilo', 'vecerja', 'sladica', 'pecivo', 'torta', 'kuhanje', 'pecenje',
         'sestavine', 'jedi', 'gastronomija', 'michelin',
+        'shranjevanj', 'svezin', 'zivil', // NOVO (Gospodinjstvo)
         
         // KOMERCIALNI LIFESTYLE
         'lidl', 'hofer', 'spar', 'mercator', 'deluxe', 'gurman', 'akcija', 'ponudba',
@@ -159,10 +162,11 @@ export const CATEGORIES: CategoryDef[] = [
         'ciscenje', 'pospravljanje', 'nasveti', 'triki',
         'blagoslov', 'tradicij', 'navad', 'montazn', 'novogradnj', 'nepremicnin',
         'his ', 'hisah', 
-        'nakit', // Dodano
+        'nakit',
         
         '/potovanja/', '/izleti/', '/turizem/', 
-        'dopust', 'počitnice', 'morje', 'hribi', 'izlet', 'hotel', 'kampiranje', 'grad ', 'razgled', 'potep'
+        'dopust', 'počitnice', 'morje', 'hribi', 'izlet', 'hotel', 'kampiranje', 'grad ', 'razgled', 'potep',
+        'jaslice' // NOVO (Izleti)
     ]
   },
   {
@@ -176,7 +180,7 @@ export const CATEGORIES: CategoryDef[] = [
         'kino', 'premiera', 'oskarji', 'cannes', 'liffe', 'sarajevo film festival',
         'knjizni sejem', 'pisatelj', 'pesnik', 'roman', 'zbirka',
         'rtv', 'dokumentarec', 'oddaja', 'karikatura', 'strip',
-        'umrl' // Za umetnike/glasbenike
+        'umrl' 
     ]
   },
   {
@@ -197,6 +201,8 @@ export const CATEGORIES: CategoryDef[] = [
         'serija', 'serije', 'streaming', 'netflix', 'hbo', 'skyshowtime', 'voyo',
         
         'horoskop', 'astro', 'zodiak', 'napoved za',
+        'retrogradn', 'merkur', 'venera', // NOVO (Astro)
+        
         'viralno', 'smesno', 'video', 'foto', 'sokantno', 'ganljivo',
         'kviz', 'uganka', 'zanimivosti', 'krizanka', 'sudoku'
     ]
@@ -242,8 +248,7 @@ export function determineCategory(item: {
       const cat = CATEGORIES.find(c => c.id === id)
       if (cat && cat.keywords.some(k => {
          const cleanK = unaccent(k.replace(/\//g, '')) 
-         // --- SPREMEMBA: DOLŽINA > 2 (prej > 3) ---
-         // To omogoča, da besede kot "his", "dom", "pot" primejo
+         // --- SPREMEMBA: DOLŽINA > 2 ---
          return cleanK.length > 2 && rssCats.includes(cleanK) 
       })) {
         return cat.id
@@ -255,7 +260,6 @@ export function determineCategory(item: {
   const combinedText = unaccent((item.title || '') + ' ' + (item.contentSnippet || ''))
   for (const id of PRIORITY_CHECK_ORDER) {
     const cat = CATEGORIES.find(c => c.id === id)
-    // --- SPREMEMBA: DOLŽINA > 2 (prej > 3) ---
     if (cat && cat.keywords.some(k => !k.startsWith('/') && k.length > 2 && combinedText.includes(unaccent(k)))) {
       return cat.id
     }
