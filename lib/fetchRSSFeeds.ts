@@ -3,6 +3,7 @@ import type { NewsItem } from '../types'
 import { feeds } from './sources'
 import { isLikelyAd } from './adFilter' 
 import { determineCategory, CategoryId } from './categories'
+import { generateKeywords } from './textUtils' // <--- UVOZ NOVEGA HELPERJA
 
 type FetchOpts = { forceFresh?: boolean }
 
@@ -152,7 +153,6 @@ export default async function fetchRSSFeeds(opts: FetchOpts = {}): Promise<NewsI
         const itemsToProcess = feed.items.slice(0, 25);
 
         // --- SPREMEMBA: Uporabimo batch procesiranje (max 5 hkrati) ---
-        // To prepreči, da bi 'bombardirali' zunanje strežnike z zahtevki za slike
         const items = await processInBatches(itemsToProcess, 5, async (item: any) => {
           
           const link = item.link ?? ''
@@ -182,7 +182,6 @@ export default async function fetchRSSFeeds(opts: FetchOpts = {}): Promise<NewsI
           let finalImage = null
           if (!isAd) {
              finalImage = extractImage(item, link)
-             // Tukaj se zgodi zunanji klic (scrape), ki ga zdaj omejujemo na 5 hkrati
              if (!finalImage && link) {
                  finalImage = await scrapeOgImage(link)
              }
@@ -209,6 +208,10 @@ export default async function fetchRSSFeeds(opts: FetchOpts = {}): Promise<NewsI
               })
           }
 
+          // --- 5. GENERIRANJE KLJUČNIH BESED ---
+          const textToAnalyze = (item.title || '') + ' ' + (item.contentSnippet || '');
+          const keywords = generateKeywords(textToAnalyze);
+
           return {
             title: item.title ?? '',
             link,
@@ -220,6 +223,7 @@ export default async function fetchRSSFeeds(opts: FetchOpts = {}): Promise<NewsI
             image: finalImage,
             publishedAt,
             category: categoryId,
+            keywords: keywords, // <--- NOVO POLJE
           } as NewsItem
         })
 
