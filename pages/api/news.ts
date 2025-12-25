@@ -505,22 +505,29 @@ export default async function handler(
       }
     }
 
-    // --- 5. ULTRA PAMETNO ISKANJE (Stemming + Fallback) ---
+    // --- 5. POPRAVLJENO ISKANJE (Kombinacija: Keywords ALI Naslov ALI Povzetek) ---
     if (searchQuery && searchQuery.trim().length > 0) {
+        const rawTerm = searchQuery.trim();
         
-        // A) Poskusimo generirati ključne besede iz iskalnega niza
-        const searchTerms = generateKeywords(searchQuery); 
-        
-        // B) Logika odločanja
+        // Pripravimo seznam pogojev za OR (ali)
+        // Vedno iščemo po naslovu in povzetku
+        const orConditions = [
+            `title.ilike.%${rawTerm}%`,
+            `summary.ilike.%${rawTerm}%`,
+            `contentsnippet.ilike.%${rawTerm}%`
+        ];
+
+        // Dodatno: poskusimo generirati ključne besede
+        const searchTerms = generateKeywords(rawTerm);
         if (searchTerms.length > 0) {
-            // Uporabimo Postgres "array contains" operator (@>)
-            const pgArrayLiteral = `{${searchTerms.join(',')}}`; 
-            q = q.contains('keywords', pgArrayLiteral);
-        } else {
-            // C) Fallback
-            const term = searchQuery.trim().replace(/[(),]/g, ' ')
-            q = q.ilike('title', `%${term}%`)
+            // Uporabimo operator 'cs' (contains set) za array
+            // Sintaksa: keywords.cs.{beseda1,beseda2}
+            const pgArrayLiteral = `{${searchTerms.join(',')}}`;
+            orConditions.push(`keywords.cs.${pgArrayLiteral}`);
         }
+
+        // Združimo vse pogoje z vejico, kar v Supabase pomeni OR
+        q = q.or(orConditions.join(','));
     }
 
     q = q.limit(limit)
