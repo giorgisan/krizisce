@@ -137,23 +137,21 @@ export const CATEGORIES: CategoryDef[] = [
     label: 'Posel & Tehnologija',
     color: 'bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-300',
     keywords: [
-        '/gospodarstvo/', '/posel/', '/finance/', '/borza/', '/podjetnistvo/',
-        'delnice', 'kripto', 'bitcoin', 'ethereum', 'inflacija', 'obrestne mere', 'ecb', 'euribor',
-        'banka', 'nlb', 'nkbm', 'poslovanje', 'dobicek', 'izguba', 'stecaj', 'prihodki',
-        'davki', 'furs', 'dohodnina', 'bilanca', 'subvencije', 'razpis',
-        'energetika', 'hse', 'gen-i', 'plin', 'nafta', 'bencin', 'dizel', 'cene goriv',
-        'sindikat', 'zaposlitev', 'trg dela', 'brezposelnost', 'placa', 'zasluzek',
-        'poklic', 'delovno mesto', 'kariera', 'siht', 'izvoz', 'panog',
-        // Odstranil sem 'elektrika' in 'stanovanja' kot samostojne, ker delajo zmedo.
-        // Namesto tega uporabljamo bolj specifične:
-        'elektricn energij', 'poraba elektrik', 'nov stanovanjsk', 'nepremicninsk',
-        
-        '/znanost/', '/tehnologija/', '/tech/', '/it/', '/telekomunikacije/',
-        'apple', 'iphone', 'samsung', 'galaxy', 'xiaomi', 'huawei', 'honor', 'sony',
-        'google', 'microsoft', 'meta', 'facebook', 'instagram', 'tiktok', 'x', 'twitter',
-        'umetna inteligenca', 'ai', 'chatgpt', 'openai', 'robotika', 'vesolje', 'nasa', 'spacex',
-        'aplikacija', 'programiranje', 'kibernetska varnost', 'hekerji', 'prevara'
-    ]
+    '/gospodarstvo/', '/posel/', '/finance/', '/borza/', '/podjetnistvo/',
+    'delnic', 'kripto', 'bitcoin', 'ethereum', 'inflacij', 'obrestn mer', 'ecb', 'euribor',
+    'banka', 'nlb', 'nkbm', 'poslovanj', 'dobicek', 'izgub', 'stecaj', 'prihodk',
+    'davk', 'furs', 'dohodnin', 'bilanc', 'subvencij', 'razpis',
+    'energetik', 'hse', 'gen-i', 'naft', 'bencin', 'dizel', // Plin in elektrika sta nevarna zaradi gospodinjstev
+    'sindikat', 'zaposlitev', 'trg del', 'brezposelnost', 'plac', 'zasluzek', // Placa je OK, ampak previdno
+    'poklic', 'delovn mest', 'karier', 'siht', 'izvoz', 'panog',
+    'nepremicninski trg', 'stanovanjsk sklad', 'gradbenistv', // Namesto "stanovanje"
+    'bdp', 'gospodarsk rasti', 'recesij', 'investicij', 'vlagatelj',
+    
+    '/znanost/', '/tehnologija/', '/tech/', '/it/', '/telekomunikacije/',
+    'apple', 'samsung', 'huawei', 'sony', 'microsoft', 'google', 'meta', 'twitter', 'tiktok',
+    'umetn inteligenc', 'chatgpt', 'openai', 'robotik', 'vesolj', 'nasa', 'spacex',
+    'aplikacij', 'programiranj', 'kibernetsk', 'heker', 'prevar'
+]
   },
   {
     id: 'kronika',
