@@ -1,54 +1,77 @@
 // lib/textUtils.ts
 
-// Besede, ki jih ignoriramo (šum)
+// 1. SEZNAM STOP BESED (Razširjen)
 const STOP_WORDS = new Set([
   'in', 'ali', 'pa', 'da', 'se', 'je', 'bi', 'so', 'bo', 'za', 'na', 'v', 'pri', 'po', 'do', 
   'od', 'ob', 'z', 's', 'k', 'h', 'o', 'a', 'ampak', 'tudi', 'še', 'že', 'ker', 'kot', 'ki',
   'ko', 'ce', 'ne', 'ni', 'saj', 'te', 'ta', 'to', 'ti', 'tist', 'vse', 'vec', 'manj', 
-  'slovenija', 'leto', 'danes', 'video', 'foto', 'clanek', 'novica', 'preberite'
+  'slovenija', 'sloveniji', 'slovenije', // Pogosto v naslovih, a ne nosi kategorije
+  'leto', 'leta', 'let', 'danes', 'vceraj', 'jutri',
+  'video', 'foto', 'clanek', 'novica', 'preberite', 'poglejte',
+  'zakaj', 'kako', 'kaj', 'kje', 'kdaj', 'kdo',
+  'zaradi', 'glede', 'proti', 'med', 'pred', 'cez', 'brez',
+  'lahko', 'mora', 'imajo', 'gre', 'pravi', 'znano', 'novo'
 ]);
 
-// Funkcija za odstranjevanje šumnikov
+// 2. HELPER ZA ODSTRANJEVANJE ŠUMNIKOV
 const unaccent = (str: string) => str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 
-// Glavna funkcija za generiranje ključnih besed
+// 3. NAPREDNEJŠI "STEMMER" ZA SLOVENŠČINO
+// Namen: Iz "stanovanje", "stanovanja" narediti "stan". Iz "lučke" narediti "luck".
+function stemWord(word: string): string {
+  // Če je beseda prekratka, je ne tikamo (npr. "sir", "pot")
+  if (word.length <= 3) return word; 
+
+  // Končnice morajo biti urejene od NAJDALJŠE do NAJKRAJŠE.
+  // Tako preprečimo, da bi pri "delovanje" odrezali samo "e", namesto "anje".
+  const suffixes = [
+    'ovanjem', 'ovanje', 'ovanju', 'ovanja', 'ovanih', // Glagolniki (potovanje)
+    'skega', 'skemu', 'skem', 'skih', 'skim', // Pridevniki (slovenska)
+    'ega', 'em', 'ih', 'im', 'om', 'mi', // Sklanjanje
+    'jem', 'ja', 'ju', 'je', 'ji', 'jo', // Sklanjanje
+    'a', 'e', 'i', 'o', 'u' // Osnovni samoglasniki
+  ];
+
+  for (const suffix of suffixes) {
+    if (word.endsWith(suffix)) {
+      // Odrežemo končnico
+      const potentialStem = word.slice(0, -suffix.length);
+      
+      // VAROVALKA: Koren mora ostati dolg vsaj 3 znake (razen če je original kratek)
+      // Primer: "voda" (-a) -> "vod" (OK). "jeza" (-a) -> "jez" (OK).
+      if (potentialStem.length >= 3) {
+        return potentialStem;
+      }
+    }
+  }
+  
+  return word;
+}
+
+// 4. GLAVNA FUNKCIJA
 export function generateKeywords(text: string): string[] {
   if (!text) return [];
 
-  // 1. Očistimo tekst (male črke, brez šumnikov, brez ločil)
+  // A) Očistimo tekst
   const cleanText = unaccent(text.toLowerCase())
-    .replace(/[^a-z0-9\s]/g, ' ') // Ohranimo samo črke in številke
+    .replace(/[^a-z0-9\s]/g, ' ') // Samo črke in številke
     .trim();
 
-  // 2. Razbijemo na besede
+  // B) Razbijemo na besede
   const tokens = cleanText.split(/\s+/);
   
   const keywords = new Set<string>();
 
   for (const token of tokens) {
-    // Filtriramo prekratke besede in stop words
-    if (token.length < 3) continue;
-    if (STOP_WORDS.has(token)) continue;
+    // C) Filtriramo smeti
+    if (token.length < 3) continue; // Prekratke besede
+    if (STOP_WORDS.has(token)) continue; // Stop besede
 
-    // 3. "POOR MAN'S STEMMER" za Slovenščino
-    // Odrežemo pogoste končnice, da dobimo koren.
-    // Vrstni red je pomemben (daljše končnice najprej)!
-    let stem = token;
-    
-    // Zelo grobo pravilo: če se konča na samoglasnik ali pogoste končnice, reži.
-    if (stem.endsWith('ega')) stem = stem.slice(0, -3);
-    else if (stem.endsWith('ih')) stem = stem.slice(0, -2);
-    else if (stem.endsWith('im')) stem = stem.slice(0, -2);
-    else if (stem.endsWith('om')) stem = stem.slice(0, -2);
-    else if (stem.endsWith('em')) stem = stem.slice(0, -2);
-    else if (stem.endsWith('a')) stem = stem.slice(0, -1);
-    else if (stem.endsWith('e')) stem = stem.slice(0, -1);
-    else if (stem.endsWith('i')) stem = stem.slice(0, -1);
-    else if (stem.endsWith('o')) stem = stem.slice(0, -1);
-    else if (stem.endsWith('u')) stem = stem.slice(0, -1);
+    // D) "Stemming" (Korenjenje)
+    const stem = stemWord(token);
 
-    // Še enkrat preverimo dolžino po rezanju (da nismo dobili npr. "t")
-    if (stem.length >= 3) {
+    // E) Še zadnji filter in dodajanje
+    if (stem.length >= 3 && !STOP_WORDS.has(stem)) {
       keywords.add(stem);
     }
   }
