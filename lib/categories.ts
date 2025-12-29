@@ -28,10 +28,10 @@ export const CATEGORIES: CategoryDef[] = [
     keywords: [
         '/magazin/', '/scena/', '/zvezde/', '/zabava/', '/traci/', '/bulvar/', '/zabava-in-slog/', '/znani/',
         'kardashian', 'royal', 'kraljeva druzina', 'harry', 'meghan', 'william', 'kate',
-        'jagger', 'madonna', 'shakira', 'taylor swift', 'beyonce', 'severin', 'prijovic', // Dodana Severina, Prijovic, Beyonce
+        'jagger', 'madonna', 'shakira', 'taylor swift', 'beyonce', 'severin', 'prijovic', 'lepa bren', 'ceca',
         'slovenski estradniki', 'znani slovenci', 'vplivnezi', 'influencer',
         'ločitev', 'poroka', 'nosečnost', 'afera', 'škandal', 'porocil', 'mladoporoc', 'zaroka', 'zaročil',
-        'otrok', 'noseca', 'zvezdnic', 'zvezdnik', 'ikon', 'bardot', // Dodana Bardot, ikona
+        'otrok', 'noseca', 'zvezdnic', 'zvezdnik', 'ikon', 'bardot', 'klum', 'jenner', // Dodana imena
         
         // ZABAVNA TV & SERIJE
         'kmetija', 'sanjski moski', 'poroka na prvi pogled', 'slovenija ima talent', 'zvezde plesejo', 'masterchef',
@@ -40,7 +40,7 @@ export const CATEGORIES: CategoryDef[] = [
         'serija', 'serije', 'streaming', 'netflix', 'hbo', 'skyshowtime', 'voyo',
         
         'horoskop', 'astro', 'zodiak', 'napoved za',
-        'retrogradn', 'merkur', 'venera', 'prerok', 'nostradamus', 'srhljiv', // Nostradamus
+        'retrogradn', 'merkur', 'venera', 'prerok', 'nostradamus', 'srhljiv', 'vanga', // Nostradamus in Vanga
         
         'viralno', 'smesno', 'video', 'foto', 'sokantno', 'ganljivo',
         'kviz', 'uganka', 'zanimivosti', 'krizanka', 'sudoku'
@@ -56,7 +56,7 @@ export const CATEGORIES: CategoryDef[] = [
         'hujsanje', 'dieta', 'vadba', 'fitnes', 'joga', 'stres', 'izgorelost', 'spanje', 'nespecnost',
         'vitamin', 'mineral', 'prehransko dopolnilo', 'imunski sistem',
         'spanec', 'spanje', 'telesna aktivnost', 'studija', 'hoja', 'trening', 'hidracij', 'voda', 'pijaca',
-        'utrujen', 'energij', 'pocutje', 'hiv', 'virus', 'okuzba', 'juh', 'prehlad', 'demenc', 'mozgan', // Dodana demenca
+        'utrujen', 'energij', 'pocutje', 'hiv', 'virus', 'okuzba', 'juh', 'prehlad', 'demenc', 'mozgan', 
 
         // ŽIVALI
         'zivali', 'ljubljenck', 'pes ', 'psi', 'macka', 'zavetisc', 'posvojit', 'cebela',
@@ -69,7 +69,7 @@ export const CATEGORIES: CategoryDef[] = [
         '/kulinarika/', '/okusno/', '/recepti/', 
         'recept', 'kosilo', 'vecerja', 'sladica', 'pecivo', 'torta', 'kuhanje', 'pecenje',
         'sestavine', 'jedi', 'gastronomija', 'michelin',
-        'shranjevanj', 'svezin', 'zivil', 'solata', 'vino', 'vinograd', 'trgatev', 'sampanjec', 'sir', 'smetan', // Sir, smetana
+        'shranjevanj', 'svezin', 'zivil', 'solata', 'vino', 'vinograd', 'trgatev', 'sampanjec', 'sir', 'smetan', 
         
         // KOMERCIALNI LIFESTYLE
         'lidl', 'hofer', 'spar', 'mercator', 'deluxe', 'gurman', 'akcija', 'ponudba',
@@ -82,25 +82,11 @@ export const CATEGORIES: CategoryDef[] = [
         'ciscenje', 'pospravljanje', 'nasveti', 'triki',
         'blagoslov', 'tradicij', 'navad', 'montazn', 'novogradnj', 'nepremicnin',
         'his ', 'hisah', 
-        'nakit', 'daril', 'obdarovan', 'lucke', 'okrasek', 'smrecic', 'jelk', 'praznicn', // Dodane lučke, darila
+        'nakit', 'daril', 'obdarovan', 'lucke', 'okrasek', 'smrecic', 'jelk', 'praznicn', 'bozic', // Dodane lučke, darila, božič
         
         '/potovanja/', '/izleti/', '/turizem/', 
         'dopust', 'počitnice', 'morje', 'hribi', 'izlet', 'hotel', 'kampiranje', 'grad ', 'razgled', 'potep',
         'jaslice'
-    ]
-  },
-  {
-    id: 'kultura',
-    label: 'Kultura',
-    color: 'bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300',
-    keywords: [
-        '/kultura/', '/umetnost/', '/knjige/', '/film/', '/glasba/', '/gledalisce/',
-        'razstava', 'muzej', 'galerija', 'slikar', 'kip', 'umetnik',
-        'koncert', 'opera', 'balet', 'filharmonija',
-        'kino', 'premiera', 'oskarji', 'cannes', 'liffe', 'sarajevo film festival',
-        'knjizni sejem', 'pisatelj', 'pesnik', 'roman', 'zbirka',
-        'rtv', 'dokumentarec', 'oddaja', 'karikatura', 'strip',
-        'umrl', 'pevec', 'skupina', 'bend', 'parni valjak', 'milijarderk' // Beyonce - milijarderka
     ]
   },
   {
@@ -133,25 +119,18 @@ export const CATEGORIES: CategoryDef[] = [
     ]
   },
   {
-    id: 'posel-tech',
-    label: 'Posel & Tehnologija',
-    color: 'bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-300',
+    id: 'kultura',
+    label: 'Kultura',
+    color: 'bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300',
     keywords: [
-    '/gospodarstvo/', '/posel/', '/finance/', '/borza/', '/podjetnistvo/',
-    'delnic', 'kripto', 'bitcoin', 'ethereum', 'inflacij', 'obrestn mer', 'ecb', 'euribor',
-    'banka', 'nlb', 'nkbm', 'poslovanj', 'dobicek', 'izgub', 'stecaj', 'prihodk',
-    'davk', 'furs', 'dohodnin', 'bilanc', 'subvencij', 'razpis',
-    'energetik', 'hse', 'gen-i', 'naft', 'bencin', 'dizel', // Plin in elektrika sta nevarna zaradi gospodinjstev
-    'sindikat', 'zaposlitev', 'trg del', 'brezposelnost', 'plac', 'zasluzek', // Placa je OK, ampak previdno
-    'poklic', 'delovn mest', 'karier', 'siht', 'izvoz', 'panog',
-    'nepremicninski trg', 'stanovanjsk sklad', 'gradbenistv', // Namesto "stanovanje"
-    'bdp', 'gospodarsk rasti', 'recesij', 'investicij', 'vlagatelj',
-    
-    '/znanost/', '/tehnologija/', '/tech/', '/it/', '/telekomunikacije/',
-    'apple', 'samsung', 'huawei', 'sony', 'microsoft', 'google', 'meta', 'twitter', 'tiktok',
-    'umetn inteligenc', 'chatgpt', 'openai', 'robotik', 'vesolj', 'nasa', 'spacex',
-    'aplikacij', 'programiranj', 'kibernetsk', 'heker', 'prevar'
-]
+        '/kultura/', '/umetnost/', '/knjige/', '/film/', '/glasba/', '/gledalisce/',
+        'razstava', 'muzej', 'galerija', 'slikar', 'kip', 'umetnik',
+        'koncert', 'opera', 'balet', 'filharmonija',
+        'kino', 'premiera', 'oskarji', 'cannes', 'liffe', 'sarajevo film festival',
+        'knjizni sejem', 'pisatelj', 'pesnik', 'roman', 'zbirka',
+        'rtv', 'dokumentarec', 'oddaja', 'karikatura', 'strip',
+        'umrl', 'pevec', 'skupina', 'bend', 'parni valjak', 'milijarderk' 
+    ]
   },
   {
     id: 'kronika',
@@ -166,6 +145,46 @@ export const CATEGORIES: CategoryDef[] = [
         'sodisce', 'sojenje', 'zapor', 'pripor', 'obtoznica', 'obsodba',
         'pogresana', 'iskalna akcija', 'gorska resevalna', 'grs', 'resevalci', 'helikopter',
         'petarda', 'pirotehnik', 'poskodba', 'alkohol', 'vinjen', 'vandal', 'oskrunjen', 'tragedij'
+    ]
+  },
+  {
+    id: 'posel-tech',
+    label: 'Posel & Tehnologija',
+    color: 'bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-300',
+    keywords: [
+        '/gospodarstvo/', '/posel/', '/finance/', '/borza/', '/podjetnistvo/',
+        'delnice', 'kripto', 'bitcoin', 'ethereum', 'inflacija', 'obrestne mere', 'ecb', 'euribor',
+        'banka', 'nlb', 'nkbm', 'poslovanje', 'dobicek', 'izguba', 'stecaj', 'prihodki',
+        'davki', 'furs', 'dohodnina', 'bilanca', 'subvencije', 'razpis',
+        'energetika', 'hse', 'gen-i', 'nafta', 'bencin', 'dizel', 'cene goriv',
+        'sindikat', 'zaposlitev', 'trg dela', 'brezposelnost', 'placa', 'zasluzek',
+        'poklic', 'delovno mesto', 'kariera', 'siht', 'izvoz', 'panog',
+        // Bolj specifični pojmi, da ne ujamemo vsakega "stanovanja" v magazin rubriki
+        'elektricn energij', 'poraba elektrik', 'nov stanovanjsk', 'nepremicninsk', 'investicij', 'vlagatelj',
+        'bdp', 'gospodarsk rasti', 'recesij', 
+        
+        '/znanost/', '/tehnologija/', '/tech/', '/it/', '/telekomunikacije/',
+        'apple', 'iphone', 'samsung', 'galaxy', 'xiaomi', 'huawei', 'honor', 'sony',
+        'google', 'microsoft', 'meta', 'facebook', 'instagram', 'tiktok', 'x', 'twitter',
+        'umetna inteligenca', 'ai', 'chatgpt', 'openai', 'robotika', 'vesolje', 'nasa', 'spacex',
+        'aplikacija', 'programiranje', 'kibernetska varnost', 'hekerji', 'prevara'
+    ]
+  },
+  {
+    id: 'svet',
+    label: 'Svet',
+    color: 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300',
+    keywords: [
+        '/svet/', '/tujina/', '/evropa/', '/zda/', '/globalno/',
+        'ukrajina', 'rusija', 'putin', 'zelenski', 'kijev', 'moskva',
+        'gaza', 'izrael', 'palestina', 'hamas', 'netanjahu', 'bliznji vzhod', 'rdece morje', 'hutiji', 'jemen', 'libanon', 'hezbolah',
+        'kitajska', 'tajvan', 'severna koreja', 'iran',
+        'bela hisa', 'trump', 'biden', 'kamala', 'republikanci', 'demokrati', 'kongres',
+        'eu', 'evropska komisija', 'evropski parlament', 'von der leyen', 'nato', 'zman', 
+        'scholz', 'macron', 'orban', 'vucic', 'plenkovic',
+        'potres', 'poplave v tujini', 'letalska nesreca', 'terorist', 'napad',
+        'epstein', 'windsor', 'kralj', 'papez',
+        'hrvaska', 'zagreb', 'beograd', 'balkan', 'kuna', 'valuta'
     ]
   },
   {
@@ -195,23 +214,6 @@ export const CATEGORIES: CategoryDef[] = [
         'okolje', 'odpadki', 'reciklaza', 'komunala', 
         'zeleznice', 'sz', 'potniski promet', 'vlak' 
     ]
-  },
-  {
-    id: 'svet',
-    label: 'Svet',
-    color: 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300',
-    keywords: [
-        '/svet/', '/tujina/', '/evropa/', '/zda/', '/globalno/',
-        'ukrajina', 'rusija', 'putin', 'zelenski', 'kijev', 'moskva',
-        'gaza', 'izrael', 'palestina', 'hamas', 'netanjahu', 'bliznji vzhod', 'rdece morje', 'hutiji', 'jemen', 'libanon', 'hezbolah',
-        'kitajska', 'tajvan', 'severna koreja', 'iran',
-        'bela hisa', 'trump', 'biden', 'kamala', 'republikanci', 'demokrati', 'kongres',
-        'eu', 'evropska komisija', 'evropski parlament', 'von der leyen', 'nato', 'zman', 
-        'scholz', 'macron', 'orban', 'vucic', 'plenkovic',
-        'potres', 'poplave v tujini', 'letalska nesreca', 'terorist', 'napad',
-        'epstein', 'windsor', 'kralj', 'papez',
-        'hrvaska', 'zagreb', 'beograd', 'balkan', 'kuna', 'valuta'
-    ]
   }
 ]
 
@@ -223,7 +225,7 @@ const PRIORITY_CHECK_ORDER: CategoryId[] = [
   'moto',         // 4. Moto
   'kronika',      // 5. Kronika
   'kultura',      // 6. Kultura
-  'posel-tech',   // 7. Posel (da ne "požre" splošnih besed kot so "stanovanje")
+  'posel-tech',   // 7. Posel je zdaj nižje in ima strožje pogoje
   'svet',         // 8. Svet
   'slovenija',    // 9. Slovenija
 ]
@@ -277,10 +279,11 @@ export function determineCategory(item: {
         return item.keywords!.some(dbTag => {
            const cleanDbTag = unaccent(dbTag);
            
-           // Strogo ujemanje
+           // 1. Točno ujemanje
            if (cleanDbTag === cleanConfigKw) return true;
+           // 2. Tag vsebuje keyword (npr. "nogometas" vsebuje "nogomet")
            if (cleanDbTag.includes(cleanConfigKw)) return true;
-           // Dovolimo obratno samo, če je tag dolg (preprečimo "nad" -> "napad")
+           // 3. Obratno dovolimo LE, če je tag dolg (da "nad" ne ujame "napada")
            if (cleanDbTag.length > 3 && cleanConfigKw.startsWith(cleanDbTag)) return true;
 
            return false;
