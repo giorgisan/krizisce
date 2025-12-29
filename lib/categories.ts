@@ -44,7 +44,9 @@ export const CATEGORIES: CategoryDef[] = [
         'vreme', 'arso', 'napoved', 'sneg', 'dez', 'neurje', 'toca',
         'dobrodeln', 'zbiranje pomoci', 'pomoc', 'gasilska zveza',
 
-        'prazniki', 'dela prosti', 'koledar', 'novo leto', 'prvi maj', 'bozicnica', 'regres', 'izplen'
+        'prazniki', 'dela prosti', 'koledar', 'novo leto', 'prvi maj', 'bozicnica', 'regres', 'izplen',
+        'okolje', 'odpadki', 'reciklaza', 'komunala', // NOVO: Ekologija
+        'zeleznice', 'sz', 'potniski promet', 'vlak' // NOVO: Promet
     ]
   },
   {
@@ -60,7 +62,8 @@ export const CATEGORIES: CategoryDef[] = [
         'eu', 'evropska komisija', 'evropski parlament', 'von der leyen', 'nato', 'zman', 
         'scholz', 'macron', 'orban', 'vucic', 'plenkovic',
         'potres', 'poplave v tujini', 'letalska nesreca', 'terorist', 'napad',
-        'epstein', 'windsor', 'kralj', 'papez'
+        'epstein', 'windsor', 'kralj', 'papez',
+        'hrvaska', 'zagreb', 'beograd', 'balkan', 'kuna', 'valuta' // NOVO: Hrvaška/Balkan
     ]
   },
   {
@@ -105,7 +108,7 @@ export const CATEGORIES: CategoryDef[] = [
         'energetika', 'hse', 'gen-i', 'elektrika', 'plin', 'nafta', 'bencin', 'dizel', 'cene goriv',
         'nepremicnine', 'stanovanja', 'najemnine', 'gradbenistvo',
         'sindikat', 'zaposlitev', 'trg dela', 'brezposelnost', 'placa', 'zasluzek',
-        'poklic', 'delovno mesto', 'kariera', 'siht', // NOVO
+        'poklic', 'delovno mesto', 'kariera', 'siht',
         'evrov', 'evra', 'cena', 'stroski', 'draginja',
         
         '/znanost/', '/tehnologija/', '/tech/', '/it/', '/telekomunikacije/',
@@ -124,7 +127,8 @@ export const CATEGORIES: CategoryDef[] = [
         'testi vozil', 'vozili smo', 'novi model', 'premiera',
         'elektricni avto', 'ev', 'tesla', 'byd', 'volkswagen', 'bmw', 'audi', 'mercedes', 'renault', 'toyota',
         'suv', 'limuzina', 'karavan', 'hibrid',
-        'promet', 'dars', 'vinjeta', 'predor', 'karavanke', 'zastoj', 'radar', 'kazen'
+        'promet', 'dars', 'vinjeta', 'predor', 'karavanke', 'zastoj', 'radar', 'kazen',
+        'voznja', 'voznik' // NOVO
     ]
   },
   {
@@ -132,24 +136,25 @@ export const CATEGORIES: CategoryDef[] = [
     label: 'Življenjski slog',
     color: 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900/40 dark:text-cyan-300',
     keywords: [
-        '/zdravje/', '/dobro-pocutje/', '/duhovnost/', '/stil/',
+        '/zdravje/', '/dobro-pocutje/', '/duhovnost/', '/stil/', '/osebna-rast/', // Dodano osebna-rast (Svet24)
         'bolezen', 'simptomi', 'zdravnik', 'rak ', 'srce', 'diabetes', 'tlak', 'holesterol',
         'hujsanje', 'dieta', 'vadba', 'fitnes', 'joga', 'stres', 'izgorelost', 'spanje', 'nespecnost',
         'vitamin', 'mineral', 'prehransko dopolnilo', 'imunski sistem',
         'spanec', 'spanje', 'telesna aktivnost', 'studija', 'hoja', 'trening', 'hidracij', 'voda', 'pijaca',
+        'utrujen', 'energij', 'pocutje', 'hiv', 'virus', 'okuzba', // NOVO (Zdravje)
 
         // ŽIVALI
-        'zivali', 'ljubljenck', 'pes ', 'psi', 'macka', 'zavetisc', 'posvojit',
+        'zivali', 'ljubljenck', 'pes ', 'psi', 'macka', 'zavetisc', 'posvojit', 'cebela', // Dodano cebela
 
         // ODNOSI
         'odnosi', 'partnerstvo', 'samsk', 'zmenki', 'toksicn', 'custva', 'psihologija', 
         'locitev', 'razhod', 'sreca', 'zadovoljstvo', 'osamljenost',
-        'dušni', 'dusa', // NOVO (Ezoterika/Psihologija)
+        'dušni', 'dusa', 'rast', 'motivacij', // NOVO (Osebna rast)
         
         '/kulinarika/', '/okusno/', '/recepti/', 
         'recept', 'kosilo', 'vecerja', 'sladica', 'pecivo', 'torta', 'kuhanje', 'pecenje',
         'sestavine', 'jedi', 'gastronomija', 'michelin',
-        'shranjevanj', 'svezin', 'zivil', // NOVO (Gospodinjstvo)
+        'shranjevanj', 'svezin', 'zivil', 'solata', 'vino', 'vinograd', 'trgatev', 'sampanjec', // NOVO (Hrana/Vino)
         
         // KOMERCIALNI LIFESTYLE
         'lidl', 'hofer', 'spar', 'mercator', 'deluxe', 'gurman', 'akcija', 'ponudba',
@@ -166,7 +171,7 @@ export const CATEGORIES: CategoryDef[] = [
         
         '/potovanja/', '/izleti/', '/turizem/', 
         'dopust', 'počitnice', 'morje', 'hribi', 'izlet', 'hotel', 'kampiranje', 'grad ', 'razgled', 'potep',
-        'jaslice' // NOVO (Izleti)
+        'jaslice'
     ]
   },
   {
@@ -180,7 +185,7 @@ export const CATEGORIES: CategoryDef[] = [
         'kino', 'premiera', 'oskarji', 'cannes', 'liffe', 'sarajevo film festival',
         'knjizni sejem', 'pisatelj', 'pesnik', 'roman', 'zbirka',
         'rtv', 'dokumentarec', 'oddaja', 'karikatura', 'strip',
-        'umrl' 
+        'umrl', 'pevec', 'skupina', 'bend', 'parni valjak' // NOVO (Glasba)
     ]
   },
   {
@@ -193,6 +198,7 @@ export const CATEGORIES: CategoryDef[] = [
         'jagger', 'madonna', 'shakira', 'taylor swift',
         'slovenski estradniki', 'znani slovenci', 'vplivnezi', 'influencer',
         'ločitev', 'poroka', 'nosečnost', 'afera', 'škandal', 'porocil', 'mladoporoc', 'zaroka', 'zaročil',
+        'otrok', 'noseca', // NOVO
         
         // ZABAVNA TV & SERIJE
         'kmetija', 'sanjski moski', 'poroka na prvi pogled', 'slovenija ima talent', 'zvezde plesejo', 'masterchef',
@@ -201,7 +207,7 @@ export const CATEGORIES: CategoryDef[] = [
         'serija', 'serije', 'streaming', 'netflix', 'hbo', 'skyshowtime', 'voyo',
         
         'horoskop', 'astro', 'zodiak', 'napoved za',
-        'retrogradn', 'merkur', 'venera', // NOVO (Astro)
+        'retrogradn', 'merkur', 'venera',
         
         'viralno', 'smesno', 'video', 'foto', 'sokantno', 'ganljivo',
         'kviz', 'uganka', 'zanimivosti', 'krizanka', 'sudoku'
@@ -248,7 +254,6 @@ export function determineCategory(item: {
       const cat = CATEGORIES.find(c => c.id === id)
       if (cat && cat.keywords.some(k => {
          const cleanK = unaccent(k.replace(/\//g, '')) 
-         // --- SPREMEMBA: DOLŽINA > 2 ---
          return cleanK.length > 2 && rssCats.includes(cleanK) 
       })) {
         return cat.id
