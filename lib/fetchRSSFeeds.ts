@@ -3,7 +3,7 @@ import type { NewsItem } from '../types'
 import { feeds } from './sources'
 import { isLikelyAd } from './adFilter' 
 import { determineCategory, CategoryId } from './categories'
-import { generateKeywords } from './textUtils' // <--- UVOZ NOVEGA HELPERJA
+import { generateKeywords } from './textUtils' // Helper za generiranje tagov
 
 type FetchOpts = { forceFresh?: boolean }
 
@@ -154,14 +154,14 @@ export default async function fetchRSSFeeds(opts: FetchOpts = {}): Promise<NewsI
 
         // --- SPREMEMBA: Uporabimo batch procesiranje (max 5 hkrati) ---
         const items = await processInBatches(itemsToProcess, 5, async (item: any) => {
-          
+           
           const link = item.link ?? ''
 
           // 1. TIHO BLOKIRANJE (Samo tehnične smeti)
           if (BLOCK_URLS.some(rx => rx.test(link))) {
               return null
           }
-          
+           
           // 2. PRIPRAVA PODATKOV
           const tempCheckItem = {
               title: item.title,
@@ -177,7 +177,7 @@ export default async function fetchRSSFeeds(opts: FetchOpts = {}): Promise<NewsI
 
           const iso = (item.isoDate ?? item.pubDate ?? new Date().toISOString()) as string
           const publishedAt = toUnixMs(iso)
-          
+           
           // Slike naložimo samo, če NI oglas
           let finalImage = null
           if (!isAd) {
@@ -191,9 +191,13 @@ export default async function fetchRSSFeeds(opts: FetchOpts = {}): Promise<NewsI
             ? (Array.isArray(item.categories) ? item.categories : [item.categories])
             : []
 
+          // --- KLJUČNA SPREMEMBA: GENERIRAMO KEYWORDE PRED KATEGORIZACIJO ---
+          const textToAnalyze = (item.title || '') + ' ' + (item.contentSnippet || '');
+          const keywords = generateKeywords(textToAnalyze);
+
           // 4. DOLOČANJE KATEGORIJE
           let categoryId: CategoryId = 'ostalo'
-          
+           
           if (isAd) {
               categoryId = 'oglas'
               if (process.env.NODE_ENV !== 'production') {
@@ -204,13 +208,10 @@ export default async function fetchRSSFeeds(opts: FetchOpts = {}): Promise<NewsI
                 link, 
                 title: item.title, 
                 contentSnippet: item.contentSnippet, 
-                categories: rawCats
+                categories: rawCats,
+                keywords: keywords // <--- POŠLJEMO GENERIRANE KEYWORDE
               })
           }
-
-          // --- 5. GENERIRANJE KLJUČNIH BESED ---
-          const textToAnalyze = (item.title || '') + ' ' + (item.contentSnippet || '');
-          const keywords = generateKeywords(textToAnalyze);
 
           return {
             title: item.title ?? '',
@@ -223,7 +224,7 @@ export default async function fetchRSSFeeds(opts: FetchOpts = {}): Promise<NewsI
             image: finalImage,
             publishedAt,
             category: categoryId,
-            keywords: keywords, // <--- NOVO POLJE
+            keywords: keywords, 
           } as NewsItem
         })
 
