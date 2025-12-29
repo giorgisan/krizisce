@@ -78,7 +78,7 @@ export const CATEGORIES: CategoryDef[] = [
         'kriminal', 'rop', 'vlom', 'drza', 'napad', 'pretep', 'umor', 'uboj', 'truplo', 'utonil',
         'sodisce', 'sojenje', 'zapor', 'pripor', 'obtoznica', 'obsodba',
         'pogresana', 'iskalna akcija', 'gorska resevalna', 'grs', 'resevalci', 'helikopter',
-        'petarda', 'pirotehnik', 'poskodba', 'alkohol', 'vinjen'
+        'petarda', 'pirotehnik', 'poskodba', 'alkohol', 'vinjen', 'vandal', 'oskrunjen'
     ]
   },
   {
@@ -108,7 +108,7 @@ export const CATEGORIES: CategoryDef[] = [
         'energetika', 'hse', 'gen-i', 'elektrika', 'plin', 'nafta', 'bencin', 'dizel', 'cene goriv',
         'nepremicnine', 'stanovanja', 'najemnine', 'gradbenistvo',
         'sindikat', 'zaposlitev', 'trg dela', 'brezposelnost', 'placa', 'zasluzek',
-        'poklic', 'delovno mesto', 'kariera', 'siht',
+        'poklic', 'delovno mesto', 'kariera', 'siht', 'izvoz', // Dodan izvoz
         'evrov', 'evra', 'cena', 'stroski', 'draginja',
         
         '/znanost/', '/tehnologija/', '/tech/', '/it/', '/telekomunikacije/',
@@ -141,15 +141,15 @@ export const CATEGORIES: CategoryDef[] = [
         'hujsanje', 'dieta', 'vadba', 'fitnes', 'joga', 'stres', 'izgorelost', 'spanje', 'nespecnost',
         'vitamin', 'mineral', 'prehransko dopolnilo', 'imunski sistem',
         'spanec', 'spanje', 'telesna aktivnost', 'studija', 'hoja', 'trening', 'hidracij', 'voda', 'pijaca',
-        'utrujen', 'energij', 'pocutje', 'hiv', 'virus', 'okuzba',
+        'utrujen', 'energij', 'pocutje', 'hiv', 'virus', 'okuzba', 'juh', 'prehlad', // Dodano: juh (juha), prehlad
 
         // ŽIVALI
         'zivali', 'ljubljenck', 'pes ', 'psi', 'macka', 'zavetisc', 'posvojit', 'cebela',
 
-        // ODNOSI
+        // ODNOSI & ASTRO (Nostradamus spada sem ali v magazin, ampak ker je prerokba...)
         'odnosi', 'partnerstvo', 'samsk', 'zmenki', 'toksicn', 'custva', 'psihologija', 
         'locitev', 'razhod', 'sreca', 'zadovoljstvo', 'osamljenost',
-        'dušni', 'dusa', 'rast', 'motivacij',
+        'dušni', 'dusa', 'rast', 'motivacij', 'carovni', 'magij', // Dodano: carovni (čarovniški)
         
         '/kulinarika/', '/okusno/', '/recepti/', 
         'recept', 'kosilo', 'vecerja', 'sladica', 'pecivo', 'torta', 'kuhanje', 'pecenje',
@@ -207,7 +207,7 @@ export const CATEGORIES: CategoryDef[] = [
         'serija', 'serije', 'streaming', 'netflix', 'hbo', 'skyshowtime', 'voyo',
         
         'horoskop', 'astro', 'zodiak', 'napoved za',
-        'retrogradn', 'merkur', 'venera',
+        'retrogradn', 'merkur', 'venera', 'prerok', 'nostradamus', // Dodano: prerok, nostradamus
         
         'viralno', 'smesno', 'video', 'foto', 'sokantno', 'ganljivo',
         'kviz', 'uganka', 'zanimivosti', 'krizanka', 'sudoku'
@@ -230,13 +230,12 @@ const PRIORITY_CHECK_ORDER: CategoryId[] = [
 
 const unaccent = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
 
-// --- POSODOBLJENA FUNKCIJA Z NOVO LOGIKO ---
 export function determineCategory(item: { 
   link: string; 
   title?: string; 
   contentSnippet?: string; 
   categories?: string[];
-  keywords?: string[]; // <--- NOVO: Polje generiranih tagov
+  keywords?: string[]; 
 }): CategoryId {
   
   const url = item.link.toLowerCase()
@@ -263,8 +262,10 @@ export function determineCategory(item: {
     }
   }
 
-  // 3. (NOVO) PREVERJANJE GENERIRANIH KLJUČNIH BESED (Tagov)
-  // To reši problem sklanjanja (npr. "dvojno" -> "dvojn", "zmago" -> "zmag")
+  // 3. (POPRAVLJENO) PREVERJANJE GENERIRANIH KEYWORDOV
+  // Tukaj je bila napaka! Zdaj preverjamo strogo:
+  // Ali TAG iz baze vsebuje besedo iz configa?
+  // Npr. Tag "nogometas" vsebuje config "nogomet".
   if (item.keywords && Array.isArray(item.keywords) && item.keywords.length > 0) {
     for (const id of PRIORITY_CHECK_ORDER) {
       const cat = CATEGORIES.find(c => c.id === id)
@@ -277,11 +278,23 @@ export function determineCategory(item: {
         const cleanConfigKw = unaccent(configKeyword);
         if (cleanConfigKw.length <= 2) return false;
 
-        // Preverimo ujemanje z BILO KATERIM tagom iz baze
-        // Uporabimo includes v obe smeri za max zajem
+        // POPRAVEK LOGIKE:
+        // Preverjamo samo: Ali TAG vsebuje CONFIG KEYWORD?
+        // NE dovolimo obratnega (da config "napad" vsebuje tag "nad").
         return item.keywords!.some(dbTag => {
            const cleanDbTag = unaccent(dbTag);
-           return cleanConfigKw.includes(cleanDbTag) || cleanDbTag.includes(cleanConfigKw);
+           
+           // 1. Popolno ujemanje (najbolj varno)
+           if (cleanDbTag === cleanConfigKw) return true;
+
+           // 2. Tag vsebuje keyword (npr. 'nogometas' vsebuje 'nogomet')
+           if (cleanDbTag.includes(cleanConfigKw)) return true;
+
+           // 3. OBRATNO: Samo če je tag dolg (da preprečimo 'nad' v 'napad')
+           // Dovolimo, da Config 'prazniki' ujame Tag 'praznik', če je tag dolg vsaj 4 znake.
+           if (cleanDbTag.length > 3 && cleanConfigKw.startsWith(cleanDbTag)) return true;
+
+           return false;
         });
       });
 
