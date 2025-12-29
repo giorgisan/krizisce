@@ -234,7 +234,8 @@ export function determineCategory(item: {
   link: string; 
   title?: string; 
   contentSnippet?: string; 
-  categories?: string[] 
+  categories?: string[];
+  keywords?: string[]; // <--- NOVO: Dodan parameter za keyworde
 }): CategoryId {
   
   const url = item.link.toLowerCase()
@@ -261,7 +262,34 @@ export function determineCategory(item: {
     }
   }
 
-  // 3. PREVERJANJE NASLOVA IN KRATKE VSEBINE
+  // 3. (NOVO) PREVERJANJE SUPABASE KEYWORDS (Tagov)
+  if (item.keywords && Array.isArray(item.keywords) && item.keywords.length > 0) {
+    for (const id of PRIORITY_CHECK_ORDER) {
+      const cat = CATEGORIES.find(c => c.id === id)
+      if (!cat) continue;
+
+      const hasMatch = cat.keywords.some(configKeyword => {
+        // Ignoriramo URL vzorce ('/sport/')
+        if (configKeyword.startsWith('/')) return false;
+        
+        const cleanConfigKw = unaccent(configKeyword);
+        if (cleanConfigKw.length <= 2) return false;
+
+        // Preverimo ujemanje z BILO KATERIM tagom iz baze
+        return item.keywords!.some(dbTag => {
+           const cleanDbTag = unaccent(dbTag);
+           // Dvosmerno preverjanje vsebovanosti
+           return cleanConfigKw.includes(cleanDbTag) || cleanDbTag.includes(cleanConfigKw);
+        });
+      });
+
+      if (hasMatch) {
+        return cat.id;
+      }
+    }
+  }
+
+  // 4. PREVERJANJE NASLOVA IN KRATKE VSEBINE
   const combinedText = unaccent((item.title || '') + ' ' + (item.contentSnippet || ''))
   for (const id of PRIORITY_CHECK_ORDER) {
     const cat = CATEGORIES.find(c => c.id === id)
