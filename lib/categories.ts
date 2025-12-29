@@ -45,8 +45,8 @@ export const CATEGORIES: CategoryDef[] = [
         'dobrodeln', 'zbiranje pomoci', 'pomoc', 'gasilska zveza',
 
         'prazniki', 'dela prosti', 'koledar', 'novo leto', 'prvi maj', 'bozicnica', 'regres', 'izplen',
-        'okolje', 'odpadki', 'reciklaza', 'komunala', // NOVO: Ekologija
-        'zeleznice', 'sz', 'potniski promet', 'vlak' // NOVO: Promet
+        'okolje', 'odpadki', 'reciklaza', 'komunala', 
+        'zeleznice', 'sz', 'potniski promet', 'vlak' 
     ]
   },
   {
@@ -63,7 +63,7 @@ export const CATEGORIES: CategoryDef[] = [
         'scholz', 'macron', 'orban', 'vucic', 'plenkovic',
         'potres', 'poplave v tujini', 'letalska nesreca', 'terorist', 'napad',
         'epstein', 'windsor', 'kralj', 'papez',
-        'hrvaska', 'zagreb', 'beograd', 'balkan', 'kuna', 'valuta' // NOVO: Hrvaška/Balkan
+        'hrvaska', 'zagreb', 'beograd', 'balkan', 'kuna', 'valuta'
     ]
   },
   {
@@ -128,7 +128,7 @@ export const CATEGORIES: CategoryDef[] = [
         'elektricni avto', 'ev', 'tesla', 'byd', 'volkswagen', 'bmw', 'audi', 'mercedes', 'renault', 'toyota',
         'suv', 'limuzina', 'karavan', 'hibrid',
         'promet', 'dars', 'vinjeta', 'predor', 'karavanke', 'zastoj', 'radar', 'kazen',
-        'voznja', 'voznik' // NOVO
+        'voznja', 'voznik' 
     ]
   },
   {
@@ -136,25 +136,25 @@ export const CATEGORIES: CategoryDef[] = [
     label: 'Življenjski slog',
     color: 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900/40 dark:text-cyan-300',
     keywords: [
-        '/zdravje/', '/dobro-pocutje/', '/duhovnost/', '/stil/', '/osebna-rast/', // Dodano osebna-rast (Svet24)
+        '/zdravje/', '/dobro-pocutje/', '/duhovnost/', '/stil/', '/osebna-rast/', 
         'bolezen', 'simptomi', 'zdravnik', 'rak ', 'srce', 'diabetes', 'tlak', 'holesterol',
         'hujsanje', 'dieta', 'vadba', 'fitnes', 'joga', 'stres', 'izgorelost', 'spanje', 'nespecnost',
         'vitamin', 'mineral', 'prehransko dopolnilo', 'imunski sistem',
         'spanec', 'spanje', 'telesna aktivnost', 'studija', 'hoja', 'trening', 'hidracij', 'voda', 'pijaca',
-        'utrujen', 'energij', 'pocutje', 'hiv', 'virus', 'okuzba', // NOVO (Zdravje)
+        'utrujen', 'energij', 'pocutje', 'hiv', 'virus', 'okuzba',
 
         // ŽIVALI
-        'zivali', 'ljubljenck', 'pes ', 'psi', 'macka', 'zavetisc', 'posvojit', 'cebela', // Dodano cebela
+        'zivali', 'ljubljenck', 'pes ', 'psi', 'macka', 'zavetisc', 'posvojit', 'cebela',
 
         // ODNOSI
         'odnosi', 'partnerstvo', 'samsk', 'zmenki', 'toksicn', 'custva', 'psihologija', 
         'locitev', 'razhod', 'sreca', 'zadovoljstvo', 'osamljenost',
-        'dušni', 'dusa', 'rast', 'motivacij', // NOVO (Osebna rast)
+        'dušni', 'dusa', 'rast', 'motivacij',
         
         '/kulinarika/', '/okusno/', '/recepti/', 
         'recept', 'kosilo', 'vecerja', 'sladica', 'pecivo', 'torta', 'kuhanje', 'pecenje',
         'sestavine', 'jedi', 'gastronomija', 'michelin',
-        'shranjevanj', 'svezin', 'zivil', 'solata', 'vino', 'vinograd', 'trgatev', 'sampanjec', // NOVO (Hrana/Vino)
+        'shranjevanj', 'svezin', 'zivil', 'solata', 'vino', 'vinograd', 'trgatev', 'sampanjec',
         
         // KOMERCIALNI LIFESTYLE
         'lidl', 'hofer', 'spar', 'mercator', 'deluxe', 'gurman', 'akcija', 'ponudba',
@@ -185,7 +185,7 @@ export const CATEGORIES: CategoryDef[] = [
         'kino', 'premiera', 'oskarji', 'cannes', 'liffe', 'sarajevo film festival',
         'knjizni sejem', 'pisatelj', 'pesnik', 'roman', 'zbirka',
         'rtv', 'dokumentarec', 'oddaja', 'karikatura', 'strip',
-        'umrl', 'pevec', 'skupina', 'bend', 'parni valjak' // NOVO (Glasba)
+        'umrl', 'pevec', 'skupina', 'bend', 'parni valjak'
     ]
   },
   {
@@ -198,7 +198,7 @@ export const CATEGORIES: CategoryDef[] = [
         'jagger', 'madonna', 'shakira', 'taylor swift',
         'slovenski estradniki', 'znani slovenci', 'vplivnezi', 'influencer',
         'ločitev', 'poroka', 'nosečnost', 'afera', 'škandal', 'porocil', 'mladoporoc', 'zaroka', 'zaročil',
-        'otrok', 'noseca', // NOVO
+        'otrok', 'noseca', 
         
         // ZABAVNA TV & SERIJE
         'kmetija', 'sanjski moski', 'poroka na prvi pogled', 'slovenija ima talent', 'zvezde plesejo', 'masterchef',
@@ -230,17 +230,18 @@ const PRIORITY_CHECK_ORDER: CategoryId[] = [
 
 const unaccent = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
 
+// --- POSODOBLJENA FUNKCIJA Z NOVO LOGIKO ---
 export function determineCategory(item: { 
   link: string; 
   title?: string; 
   contentSnippet?: string; 
   categories?: string[];
-  keywords?: string[]; // <--- NOVO: Dodan parameter za keyworde
+  keywords?: string[]; // <--- NOVO: Polje generiranih tagov
 }): CategoryId {
   
   const url = item.link.toLowerCase()
   
-  // 1. PREVERJANJE URL-JA
+  // 1. PREVERJANJE URL-JA (Najmočnejši indikator)
   for (const id of PRIORITY_CHECK_ORDER) {
     const cat = CATEGORIES.find(c => c.id === id)
     if (cat && cat.keywords.some(k => k.startsWith('/') && url.includes(k))) {
@@ -262,23 +263,24 @@ export function determineCategory(item: {
     }
   }
 
-  // 3. (NOVO) PREVERJANJE SUPABASE KEYWORDS (Tagov)
+  // 3. (NOVO) PREVERJANJE GENERIRANIH KLJUČNIH BESED (Tagov)
+  // To reši problem sklanjanja (npr. "dvojno" -> "dvojn", "zmago" -> "zmag")
   if (item.keywords && Array.isArray(item.keywords) && item.keywords.length > 0) {
     for (const id of PRIORITY_CHECK_ORDER) {
       const cat = CATEGORIES.find(c => c.id === id)
       if (!cat) continue;
 
       const hasMatch = cat.keywords.some(configKeyword => {
-        // Ignoriramo URL vzorce ('/sport/')
+        // Ignoriramo URL vzorce
         if (configKeyword.startsWith('/')) return false;
         
         const cleanConfigKw = unaccent(configKeyword);
         if (cleanConfigKw.length <= 2) return false;
 
         // Preverimo ujemanje z BILO KATERIM tagom iz baze
+        // Uporabimo includes v obe smeri za max zajem
         return item.keywords!.some(dbTag => {
            const cleanDbTag = unaccent(dbTag);
-           // Dvosmerno preverjanje vsebovanosti
            return cleanConfigKw.includes(cleanDbTag) || cleanDbTag.includes(cleanConfigKw);
         });
       });
@@ -289,7 +291,7 @@ export function determineCategory(item: {
     }
   }
 
-  // 4. PREVERJANJE NASLOVA IN KRATKE VSEBINE
+  // 4. PREVERJANJE NASLOVA IN KRATKE VSEBINE (Fallback)
   const combinedText = unaccent((item.title || '') + ' ' + (item.contentSnippet || ''))
   for (const id of PRIORITY_CHECK_ORDER) {
     const cat = CATEGORIES.find(c => c.id === id)
