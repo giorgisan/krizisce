@@ -20,7 +20,9 @@ export type CategoryDef = {
   keywords: string[] 
 }
 
-// 1. VRSTNI RED ZA PRIKAZ V MENIJU
+// ============================================================================
+// 1. DEFINICIJE KATEGORIJ IN KLJUČNIH BESED (OPTIMIZIRANO)
+// ============================================================================
 export const CATEGORIES: CategoryDef[] = [
   {
     id: 'slovenija',
@@ -203,7 +205,7 @@ const unaccent = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '
 // ============================================================================
 // 3. NAPREDNA LOGIKA ZA DOLOČANJE KATEGORIJE
 // ============================================================================
-// --- 3. HIBRIDNA LOGIKA (URL + VSEBINA ZA SPLOŠNE RUBRIKE) ---
+// --- HIBRIDNA LOGIKA (URL + VSEBINA ZA SPLOŠNE RUBRIKE) ---
 export function determineCategory(item: { 
   link: string; 
   title?: string; 
