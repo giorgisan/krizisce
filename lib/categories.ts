@@ -20,66 +20,63 @@ export type CategoryDef = {
   keywords: string[] 
 }
 
+// --- 1. VRSTNI RED ZA PRIKAZ (MENI) ---
+// To določa, kako so gumbi razvrščeni na spletni strani
 export const CATEGORIES: CategoryDef[] = [
   {
-    id: 'magazin', // NAJVIŠJA PRIORITETA: Da "Severina" ne gre v "Posel" zaradi "milijonov"
-    label: 'Magazin',
-    color: 'bg-pink-100 text-pink-800 dark:bg-pink-900/40 dark:text-pink-300',
+    id: 'slovenija',
+    label: 'Slovenija',
+    color: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300',
     keywords: [
-        '/magazin/', '/scena/', '/zvezde/', '/zabava/', '/traci/', '/bulvar/', '/ljudje/',
-        // ZVEZDNIKI (Dodajaj po potrebi, uporabi korene)
-        'kardashian', 'jenner', 'royal', 'kraljev', 'harry', 'meghan', 'william', 'kate',
-        'jagger', 'madonna', 'shakira', 'swift', 'beyonc', 'severin', 'prijovic', 'lepa bren', 'ceca',
-        'chal', 'sale', 'bas', // Challe Salle itd.
-        'znani', 'vplivnez', 'influencer', 'estradnik', 'zvezdnic', 'zvezdnik', 'ikon',
+        '/slovenija/', '/lokalno/', '/obcine/', '/regije/',
+        'ljubljan', 'maribor', 'celj', 'koper', 'kranj', 'nov mest', 'velenj', 'mursk sobot',
+        'obcin', 'zupan', 'svetnik', 'komunal', 'vodovod', 'kanalizacij', 'cest',
         
-        // DOGODKI
-        'locitev', 'poroka', 'nosecnost', 'afera', 'skandal', 'mladoporoc', 'zaroka', 'nosec', 'baby',
+        // POLITIKA
+        'vlada', 'parlament', 'drzavni zbor', 'poslanc', 'ministr', 'premier', 'predsednik',
+        'pirc musar', 'golob', 'jansa', 'tonin', 'mesec', 'fajon', 'logar', 
+        'svoboda', 'sds', 'nsi', 'levica', 'sd',
+        'referendum', 'ustavn sodisc', 'zakon', 'novel', 'soocenj', 'anket',
+        'upokojenc', 'pokojnin', 'zpis', 'socialn transfer', 'minimaln plac',
         
-        // TV & SHOWBIZ
-        'kmetija', 'sanjski', 'talent', 'zvezde plesejo', 'masterchef', 'evrovizij', 'ema',
-        'kviz', 'joker', 'milijonar', 'kolo srece', 'voditelj', 'resnicnostn', 'serij', 'film', 'netflix',
+        // DRUŽBA
+        'zdravstv', 'zdravstven dom', 'ukc', 'fides', 'cakaln dob', 'koncesij', 
+        'solstv', 'ucitelj', 'matur', 'vpis', 'vrtec',
         
-        // ASTRO & VIRALNO
-        'horoskop', 'astro', 'zodiak', 'retrogradn', 'merkur', 'luna', 'scip',
-        'prerok', 'nostradamus', 'vanga', 'napoved', 'srhljiv', 'katastrof', // Nostradamus
-        'viral', 'smesn', 'video', 'sokantn', 'ganljiv', 'tiktok'
+        // RAZNO
+        '/mnenja/', '/kolumne/', 'vreme', 'arso', 'napoved', 'sneg', 'dez', 'neurj', 'toc',
+        'dobrodeln', 'gasilsk zvez'
     ]
   },
   {
-    id: 'lifestyle', // VISOKA PRIORITETA: Da "Lučke" ne gredo v "Posel"
-    label: 'Življenjski slog',
-    color: 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900/40 dark:text-cyan-300',
+    id: 'svet',
+    label: 'Svet',
+    color: 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300',
     keywords: [
-        '/zdravje/', '/dobro-pocutje/', '/duhovnost/', '/stil/', '/osebna-rast/', '/bivanje/',
-        // ZDRAVJE
-        'bolezen', 'simptom', 'zdravnik', 'rak', 'srce', 'diabetes', 'tlak', 'holesterol',
-        'hujsanj', 'diet', 'vadba', 'fitnes', 'joga', 'stres', 'izgorel', 'spanj', 'nespecnost',
-        'vitamin', 'mineral', 'imunsk', 'prehlad', 'grip', 'covid', 'virus', 'okuzb', 'demenc', 'mozgan',
-        
-        // HRANA
-        '/kulinarika/', '/okusno/', '/recepti/', 
-        'recept', 'kosilo', 'vecerja', 'sladica', 'pecivo', 'tort', 'kuhanj', 'pecenj',
-        'sestavin', 'jed', 'gastronom', 'michelin', 'juh', 'solat', 'kis', 'zelj', 'sarm', 'potic',
-        
-        // DOM, VRT & PRAZNIKI
-        '/dom/', '/vrt/', 
-        'hisa', 'stanovan', 'interier', 'oprema', 'prenova', 'dekoracij',
-        'vrtnar', 'rastlin', 'cvet', 'zelenjav', 'sadn',
-        'ciscenj', 'pospravljanj', 'triki', 'nasvet',
-        'luck', 'okrask', 'smrecic', 'jelk', 'praznicn', 'bozic', 'daril', 'obdarovan', 'dedek mraz',
-        'poraba', 'varcevanj', // Varčevanje v gospodinjstvu
-        
-        // ODNOSI & PSIHOLOGIJA
-        'odnos', 'partner', 'samsk', 'zmenk', 'toksic', 'custv', 'psiholog', 
-        'locitev', 'razhod', 'sreca', 'zadovoljstv', 'osamljen', 'dusn', 'dusa', 'motivacij', 'intuicij',
-        
-        // ŽIVALI
-        'zival', 'ljubljenck', 'pes', 'psi', 'mack', 'zavetisc', 'posvojit', 'cebel', 'medved',
-        
-        // POTOVANJA
-        '/potovanja/', '/izleti/', '/turizem/', 
-        'dopust', 'pocitnic', 'morje', 'hrib', 'izlet', 'hotel', 'kamp', 'razgled', 'potep'
+        '/svet/', '/tujina/', '/evropa/', '/globalno/',
+        'ukrajin', 'rusij', 'putin', 'zelensk', 'kijev', 'moskv',
+        'gaza', 'izrael', 'palestin', 'hamas', 'netanjahu', 'bliznj vzhod', 'hutij', 'libanon', 'hezbolah',
+        'kitajsk', 'tajvan', 'korej', 'iran',
+        'zda', 'bela hisa', 'trump', 'biden', 'harris', 'republikanc', 'demokrat', 'kongres',
+        'eu', 'evropsk komisij', 'parlament', 'von der leyen', 'nato',
+        'scholz', 'macron', 'orban', 'vucic', 'plenkovic',
+        'potres', 'poplav', 'terorist', 'napad', 
+        'hrvask', 'zagreb', 'beograd', 'balkan', 'kun', 'valut'
+    ]
+  },
+  {
+    id: 'kronika',
+    label: 'Kronika',
+    color: 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300',
+    keywords: [
+        '/kronika/', '/crna-kronika/', 
+        'policij', 'policist', 'pu ', 'kriminal', 
+        'gasilc', 'pozar', 'intervencij', 'gorel', 'eksplozij',
+        'trcenj', 'prometn nesrec', 'povozil', 'prevrnil', 'cesta zaprta',
+        'rop', 'vlom', 'drza', 'pretep', 'umor', 'uboj', 'truplo', 'utonil', 'mrtv', 'smrt',
+        'sodisc', 'sojenj', 'zapor', 'pripor', 'obtoznic', 'obsodb',
+        'pogresan', 'iskaln', 'resevalc', 'helikopter',
+        'petard', 'pirotehnik', 'poskodb', 'alkohol', 'vinjen', 'vandal', 'oskrunjen', 'tragedij'
     ]
   },
   {
@@ -99,57 +96,15 @@ export const CATEGORIES: CategoryDef[] = [
         
         // OSTALO
         'kolesar', 'pogacar', 'roglic', 'tour', 'giro', 'vuelta',
-        'tenis', 'djokovic', 'nadal', 'alkaraz',
+        'tenis', 'djokovic', 'nadal', 'alkaraz', 'sabalenk', 'kyrgios',
         'plezanje', 'garnbret', 'motogp', 'formula 1', 'verstappen', 'hamilton',
         'boks', 'joshua', 'tyson', 'fury',
         'tekma', 'rezultat', 'lestvica', 'pokal', 'kolajn', 'medalj', 'olimpijsk'
     ]
   },
   {
-    id: 'moto',
-    label: 'Mobilnost', 
-    color: 'bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-300',
-    keywords: [
-        '/auto/', '/avto/', '/avtomobilizem/', '/mobilnost/', 
-        'test', 'vozil', 'model', 'premier',
-        'elektricn avto', 'tesla', 'byd', 'volkswagen', 'bmw', 'audi', 'mercedes', 'renault', 'toyota',
-        'suv', 'limuzin', 'karavan', 'hibrid',
-        'promet', 'dars', 'vinjet', 'predor', 'karavank', 'zastoj', 'radar', 'kazen',
-        'voznja', 'voznik', 'tovornjak', 'avtocest'
-    ]
-  },
-  {
-    id: 'kronika',
-    label: 'Kronika',
-    color: 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300',
-    keywords: [
-        '/kronika/', '/crna-kronika/', 
-        'policij', 'policist', 'pu ', 'kriminal', 
-        'gasilc', 'pozar', 'intervencij', 'gorel', 'eksplozij',
-        'nesrec', 'trcenj', 'prometn', 'povozil', 'prevrnil', 'cesta zaprta',
-        'rop', 'vlom', 'drza', 'napad', 'pretep', 'umor', 'uboj', 'truplo', 'utonil', 'mrtv', 'smrt',
-        'sodisc', 'sojenj', 'zapor', 'pripor', 'obtoznic', 'obsodb',
-        'pogresan', 'iskaln', 'resevalc', 'helikopter',
-        'petard', 'pirotehnik', 'poskodb', 'alkohol', 'vinjen', 'vandal', 'oskrunjen', 'tragedij'
-    ]
-  },
-  {
-    id: 'kultura',
-    label: 'Kultura',
-    color: 'bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300',
-    keywords: [
-        '/kultura/', '/umetnost/', '/knjige/', '/film/', '/glasba/', '/gledalisce/',
-        'razstav', 'muzej', 'galerij', 'slikar', 'kip', 'umetnik',
-        'koncert', 'opera', 'balet', 'filharmonij', 'zbor',
-        'kino', 'premier', 'oskar', 'cannes', 'liffe', 'sarajevo film',
-        'knjizn', 'pisatelj', 'pesnik', 'roman', 'zbirk',
-        'dokumentarec', 'karikatur', 'strip',
-        'umrl', 'pevec', 'skupin', 'bend', 'parni valjak', 'glasben' // "Umrl" je tu tvegan, a za umetnike ok
-    ]
-  },
-  {
-    id: 'posel-tech', // NIŽJA PRIORITETA: Da "ujame" samo tisto, kar ostali niso
-    label: 'Posel & Tehnologija',
+    id: 'posel-tech',
+    label: 'Posel & Tech',
     color: 'bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-300',
     keywords: [
         '/gospodarstvo/', '/posel/', '/finance/', '/borza/', '/podjetnistvo/', '/tech/', '/znanost/',
@@ -179,59 +134,108 @@ export const CATEGORIES: CategoryDef[] = [
     ]
   },
   {
-    id: 'svet',
-    label: 'Svet',
-    color: 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300',
+    id: 'moto',
+    label: 'Mobilnost', 
+    color: 'bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-300',
     keywords: [
-        '/svet/', '/tujina/', '/evropa/', '/globalno/',
-        'ukrajin', 'rusij', 'putin', 'zelensk', 'kijev', 'moskv',
-        'gaza', 'izrael', 'palestin', 'hamas', 'netanjahu', 'bliznj vzhod', 'hutij', 'libanon', 'hezbolah',
-        'kitajsk', 'tajvan', 'korej', 'iran',
-        'zda', 'bela hisa', 'trump', 'biden', 'harris', 'republikanc', 'demokrat', 'kongres',
-        'eu', 'evropsk komisij', 'parlament', 'von der leyen', 'nato',
-        'scholz', 'macron', 'orban', 'vucic', 'plenkovic',
-        'potres', 'poplav', 'terorist', 'napad', // Lahko se prekriva s kroniko, a če je tujina je Svet
-        'hrvask', 'zagreb', 'beograd', 'balkan', 'kun', 'valut'
+        '/auto/', '/avto/', '/avtomobilizem/', '/mobilnost/', 
+        'test', 'vozil', 'model', 'premier',
+        'elektricn avto', 'tesla', 'byd', 'volkswagen', 'bmw', 'audi', 'mercedes', 'renault', 'toyota', 'dacia',
+        'suv', 'limuzin', 'karavan', 'hibrid',
+        'promet', 'dars', 'vinjet', 'predor', 'karavank', 'zastoj', 'radar', 'kazen',
+        'voznja', 'voznik', 'tovornjak', 'avtocest'
     ]
   },
   {
-    id: 'slovenija',
-    label: 'Slovenija',
-    color: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300',
+    id: 'magazin',
+    label: 'Magazin',
+    color: 'bg-pink-100 text-pink-800 dark:bg-pink-900/40 dark:text-pink-300',
     keywords: [
-        '/slovenija/', '/lokalno/', '/obcine/', '/regije/',
-        'ljubljan', 'maribor', 'celj', 'koper', 'kranj', 'nov mest', 'velenj', 'mursk sobot',
-        'obcin', 'zupan', 'svetnik', 'komunal', 'vodovod', 'kanalizacij', 'cest',
+        '/magazin/', '/scena/', '/zvezde/', '/zabava/', '/traci/', '/bulvar/', '/ljudje/',
+        // ZVEZDNIKI (Dodajaj po potrebi, uporabi korene)
+        'kardashian', 'jenner', 'royal', 'kraljev', 'harry', 'meghan', 'william', 'kate',
+        'jagger', 'madonna', 'shakira', 'swift', 'beyonc', 'severin', 'prijovic', 'lepa bren', 'ceca',
+        'chal', 'sale', 'bas', // Challe Salle itd.
+        'znani', 'vplivnez', 'influencer', 'estradnik', 'zvezdnic', 'zvezdnik', 'ikon', 'bardot', 'klum',
         
-        // POLITIKA
-        'vlada', 'parlament', 'drzavni zbor', 'poslanc', 'ministr', 'premier', 'predsednik',
-        'pirc musar', 'golob', 'jansa', 'tonin', 'mesec', 'fajon', 'logar', 
-        'svoboda', 'sds', 'nsi', 'levica', 'sd',
-        'referendum', 'ustavn sodisc', 'zakon', 'novel', 'soocenj', 'anket',
-        'upokojenc', 'pokojnin', 'zpis', 'socialn transfer', 'minimaln plac',
+        // DOGODKI
+        'locitev', 'poroka', 'nosecnost', 'afera', 'skandal', 'mladoporoc', 'zaroka', 'nosec', 'baby',
         
-        // DRUŽBA
-        'zdravstv', 'zdravstven dom', 'ukc', 'fides', 'cakaln dob', 'koncesij', 
-        'solstv', 'ucitelj', 'matur', 'vpis', 'vrtec',
+        // TV & SHOWBIZ
+        'kmetija', 'sanjski', 'talent', 'zvezde plesejo', 'masterchef', 'evrovizij', 'ema',
+        'kviz', 'joker', 'milijonar', 'kolo srece', 'voditelj', 'resnicnostn', 'serij', 'film', 'netflix',
         
-        // RAZNO
-        '/mnenja/', '/kolumne/', 'vreme', 'arso', 'napoved', 'sneg', 'dez', 'neurj', 'toc',
-        'dobrodeln', 'gasilsk zvez'
+        // ASTRO & VIRALNO
+        'horoskop', 'astro', 'zodiak', 'retrogradn', 'merkur', 'luna', 'scip',
+        'prerok', 'nostradamus', 'vanga', 'napoved', 'srhljiv', 'katastrof', // Nostradamus
+        'viral', 'smesn', 'video', 'sokantn', 'ganljiv', 'tiktok'
+    ]
+  },
+  {
+    id: 'lifestyle',
+    label: 'Lifestyle',
+    color: 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900/40 dark:text-cyan-300',
+    keywords: [
+        '/zdravje/', '/dobro-pocutje/', '/duhovnost/', '/stil/', '/osebna-rast/', '/bivanje/',
+        // ZDRAVJE
+        'bolezen', 'simptom', 'zdravnik', 'rak', 'srce', 'diabetes', 'tlak', 'holesterol',
+        'hujsanj', 'diet', 'vadba', 'fitnes', 'joga', 'stres', 'izgorel', 'spanj', 'nespecnost',
+        'vitamin', 'mineral', 'imunsk', 'prehlad', 'grip', 'covid', 'virus', 'okuzb', 'demenc', 'mozgan', 'savn',
+        
+        // HRANA
+        '/kulinarika/', '/okusno/', '/recepti/', 
+        'recept', 'kosilo', 'vecerja', 'sladica', 'pecivo', 'tort', 'kuhanj', 'pecenj',
+        'sestavin', 'jed', 'gastronom', 'michelin', 'juh', 'solat', 'kis', 'zelj', 'sarm', 'potic',
+        
+        // DOM, VRT & PRAZNIKI
+        '/dom/', '/vrt/', 
+        'hisa', 'stanovan', 'interier', 'oprema', 'prenova', 'dekoracij',
+        'vrtnar', 'rastlin', 'cvet', 'zelenjav', 'sadn',
+        'ciscenj', 'pospravljanj', 'triki', 'nasvet',
+        'luck', 'okrask', 'smrecic', 'jelk', 'praznicn', 'bozic', 'daril', 'obdarovan', 'dedek mraz',
+        'poraba', 'varcevanj', // Varčevanje v gospodinjstvu
+        
+        // ODNOSI & PSIHOLOGIJA
+        'odnos', 'partner', 'samsk', 'zmenk', 'toksic', 'custv', 'psiholog', 
+        'locitev', 'razhod', 'sreca', 'zadovoljstv', 'osamljen', 'dusn', 'dusa', 'motivacij', 'intuicij',
+        
+        // ŽIVALI
+        'zival', 'ljubljenck', 'pes', 'psi', 'mack', 'zavetisc', 'posvojit', 'cebel', 'medved',
+        
+        // POTOVANJA
+        '/potovanja/', '/izleti/', '/turizem/', 
+        'dopust', 'pocitnic', 'morje', 'hrib', 'izlet', 'hotel', 'kamp', 'razgled', 'potep'
+    ]
+  },
+  {
+    id: 'kultura',
+    label: 'Kultura',
+    color: 'bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300',
+    keywords: [
+        '/kultura/', '/umetnost/', '/knjige/', '/film/', '/glasba/', '/gledalisce/',
+        'razstav', 'muzej', 'galerij', 'slikar', 'kip', 'umetnik',
+        'koncert', 'opera', 'balet', 'filharmonij', 'zbor',
+        'kino', 'premier', 'oskar', 'cannes', 'liffe', 'sarajevo film',
+        'knjizn', 'pisatelj', 'pesnik', 'roman', 'zbirk',
+        'dokumentarec', 'karikatur', 'strip',
+        'umrl', 'pevec', 'skupin', 'bend', 'parni valjak', 'glasben'
     ]
   }
 ]
 
-// --- POMEMBNO: VRSTNI RED PREVERJANJA ---
+// --- 2. VRSTNI RED ZA DETEKCIJO (LOGIKA) ---
+// Tu določimo, katera kategorija ima prednost pri prepoznavanju.
+// Specifične kategorije (Magazin, Šport, Moto) morajo biti PRED splošnimi (Slovenija, Svet).
 const PRIORITY_CHECK_ORDER: CategoryId[] = [
-  'magazin',      // 1. Specifične osebnosti in trači
-  'lifestyle',    // 2. Specifične teme (hrana, zdravje)
-  'sport',        // 3. Jasni športni pojmi
-  'moto',         // 4. Jasni avto pojmi
-  'kronika',      // 5. Jasni kriminal/nesreče
+  'magazin',      // 1. Zvezdniki in trači
+  'sport',        // 2. Šport (da 'Kranjska Gora' ne gre v Slovenijo, ampak Šport)
+  'moto',         // 3. Avtomobili (da 'Dacia' ne gre v Svet)
+  'lifestyle',    // 4. Zdravje, hrana, dom (da 'Lučke' ne gredo v Posel)
+  'kronika',      // 5. Nesreče in kriminal
   'kultura',      // 6. Kultura
-  'posel-tech',   // 7. Posel (pazi, da ne požre "cene" v trgovini)
+  'posel-tech',   // 7. Posel (šele po Lifestyle, da ne krade "stanovanj" in "cen")
   'svet',         // 8. Tujina
-  'slovenija',    // 9. Vse ostalo domače
+  'slovenija',    // 9. Vse ostalo lokalno
 ]
 
 const unaccent = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
@@ -283,14 +287,12 @@ export function determineCategory(item: {
         return item.keywords!.some(dbTag => {
            const cleanDbTag = unaccent(dbTag);
            
-           // Strogo ujemanje: Tag mora biti enak ali vsebovati keyword
-           // NE dovolimo, da kratek tag ("nad") ujame dolg keyword ("napad")
-           
+           // Strogo ujemanje
            if (cleanDbTag === cleanConfigKw) return true;
+           // Tag vsebuje keyword (npr. "nogometas" vsebuje "nogomet")
            if (cleanDbTag.includes(cleanConfigKw)) return true;
-           
-           // Izjema: Če je tag dolg (npr. "nogometas"), lahko ujame krajši keyword ("nogomet")
-           if (cleanDbTag.length > 3 && cleanDbTag.startsWith(cleanConfigKw)) return true;
+           // Obratno: dovolimo LE, če je tag dolg (da "nad" ne ujame "napada")
+           if (cleanDbTag.length > 3 && cleanConfigKw.startsWith(cleanDbTag)) return true;
 
            return false;
         });
