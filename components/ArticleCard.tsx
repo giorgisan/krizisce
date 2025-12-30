@@ -20,16 +20,14 @@ import { CATEGORIES, determineCategory } from '@/lib/categories'
 type PreviewProps = { url: string; onClose: () => void }
 const ArticlePreview = dynamic(() => import('./ArticlePreview'), { ssr: false }) as ComponentType<PreviewProps>
 
-// Desktop ostane 640x360 (16:9), Mobile pa manjši thumbnail
+// Dimenzije za cache
 const TARGET_WIDTH_DESKTOP = 640 
 const TARGET_HEIGHT_DESKTOP = 360
-const TARGET_WIDTH_MOBILE = 200
-const TARGET_HEIGHT_MOBILE = 150
 
 interface Props { news: NewsItem; priority?: boolean }
 
 export default function ArticleCard({ news, priority = false }: Props) {
-  // --- TIME LOGIC (Original code) ---
+  // --- TIME LOGIC ---
   const [now, setNow] = useState(Date.now())
 
   useEffect(() => {
@@ -56,7 +54,7 @@ export default function ArticleCard({ news, priority = false }: Props) {
     const min = Math.floor(diff / 60_000)
     const hr  = Math.floor(min / 60)
     if (diff < 60_000) return 'zdaj'
-    if (min  < 60)       return `${min} min` // Na desktopu je to ok, na mobile tudi
+    if (min  < 60)       return `${min} min`
     if (hr   < 24)       return `${hr} h`
     return ''
   }, [news.publishedAt, now])
@@ -171,7 +169,6 @@ export default function ArticleCard({ news, priority = false }: Props) {
 
   const [eyeVisible, setEyeVisible] = useState(false)
   const [eyeHover,   setEyeHover]   = useState(false)
-  // Eye visible logic: Touch always, Desktop on hover
   const showEye = isTouch ? true : eyeVisible
 
   return (
@@ -194,22 +191,20 @@ export default function ArticleCard({ news, priority = false }: Props) {
         data-umami-event-source={news.source} 
         data-umami-event-type="feed"          
 
-        // --- KLJUČEN POPRAVEK: STROGA LOČITEV ---
-        // Mobile (default): flex-row (slika levo, tekst desno)
-        // Desktop (md): flex-col (slika zgoraj, tekst spodaj - kot original)
-        // Original shadow-md je vrnjen za desktop.
+        // Glavni wrapper
+        // flex-row za mobile, flex-col za desktop
         className="cv-auto group flex flex-row md:flex-col h-auto md:h-full no-underline bg-white dark:bg-gray-800 rounded-lg shadow-sm md:shadow-md overflow-hidden transition-all duration-200 hover:scale-[1.01] md:hover:scale-[1.02] hover:shadow-lg hover:bg-gray-50 dark:hover:bg-gray-700"
       >
         {/* --- IMAGE CONTAINER --- */}
         <div
-          // Mobile: Fiksna širina 130px, višina avtomatska (aspect 4/3)
-          // Desktop: w-full (original), aspect 16/9 (original)
-          className="relative shrink-0 w-[130px] aspect-[4/3] md:w-full md:aspect-[16/9] overflow-hidden"
-          style={
-            !imgLoaded && lqipSrc
-              ? { backgroundImage: `url(${lqipSrc})`, backgroundSize: 'cover', backgroundPosition: 'center', filter: 'blur(12px)', transform: 'scale(1.05)' }
-              : undefined
-          }
+          // KLJUČNO: 'flex-none' prepreči raztegovanje.
+          // Uporabimo style={{ aspectRatio }} kot varovalko.
+          className="relative flex-none overflow-hidden
+                     w-[130px] md:w-full"
+          style={{ 
+             // Mobile: 4/3, Desktop: 16/9. To povozi kakršnokoli raztegovanje Grida.
+             aspectRatio: typeof window !== 'undefined' && window.innerWidth >= 768 ? '16/9' : '4/3' 
+          }}
         >
           {/* Skeleton */}
           {!imgLoaded && !useFallback && !!currentSrc && (
@@ -219,8 +214,18 @@ export default function ArticleCard({ news, priority = false }: Props) {
             </div>
           )}
 
+          {/* Lqip blur background if needed */}
+           <div 
+             className="absolute inset-0 z-0"
+             style={
+                !imgLoaded && lqipSrc
+                  ? { backgroundImage: `url(${lqipSrc})`, backgroundSize: 'cover', backgroundPosition: 'center', filter: 'blur(12px)', transform: 'scale(1.05)' }
+                  : undefined
+              }
+           />
+
           {useFallback || !currentSrc ? (
-            <div className="absolute inset-0 flex items-center justify-center bg-gray-100 dark:bg-gray-800">
+            <div className="absolute inset-0 flex items-center justify-center bg-gray-100 dark:bg-gray-800 z-10">
                <span className="text-[10px] font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider">
                  Križišče
                </span>
@@ -230,7 +235,7 @@ export default function ArticleCard({ news, priority = false }: Props) {
               src={currentSrc as string}
               alt={news.title}
               fill
-              className="object-cover transition-opacity duration-200 opacity-0 data-[ok=true]:opacity-100"
+              className="object-cover z-10 transition-opacity duration-200 opacity-0 data-[ok=true]:opacity-100"
               sizes="(max-width: 768px) 150px, (max-width: 1200px) 50vw, 33vw"
               onError={handleImgError}
               onLoadingComplete={() => setImgLoaded(true)}
@@ -240,14 +245,14 @@ export default function ArticleCard({ news, priority = false }: Props) {
             />
           )}
 
-          {/* Kategorija Label: Samo Desktop (Original) */}
+          {/* Kategorija Label: Samo Desktop */}
           {categoryDef && categoryDef.id !== 'ostalo' && (
-             <span className={`hidden md:block absolute bottom-2 right-2 z-10 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-gray-900 dark:text-white bg-white/30 dark:bg-black/30 backdrop-blur-md rounded shadow-sm border border-white/20 dark:border-white/10 pointer-events-none`}>
+             <span className={`hidden md:block absolute bottom-2 right-2 z-20 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-gray-900 dark:text-white bg-white/30 dark:bg-black/30 backdrop-blur-md rounded shadow-sm border border-white/20 dark:border-white/10 pointer-events-none`}>
                {categoryDef.label}
              </span>
           )}
 
-          {/* Preview Gumb (Oko): Na mobile desno spodaj, na desktop zgoraj desno (original) */}
+          {/* Preview Gumb */}
           <button
             onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowPreview(true) }}
             onMouseEnter={() => setEyeHover(true)}
@@ -255,13 +260,11 @@ export default function ArticleCard({ news, priority = false }: Props) {
             onFocus={() => setEyeHover(true)}
             onBlur={() => setEyeHover(false)}
             aria-label="Predogled"
-            className={`peer absolute h-8 w-8 grid place-items-center rounded-full
+            className={`peer absolute z-30 h-8 w-8 grid place-items-center rounded-full
                         shadow-sm ring-1 ring-black/5 dark:ring-white/10 text-gray-700 dark:text-gray-200
                         bg-white/90 dark:bg-gray-900/80 backdrop-blur transition-all duration-150 transform-gpu
                         
-                        /* Mobile pozicija: spodaj desno na sliki */
                         bottom-1 right-1 
-                        /* Desktop pozicija: zgoraj desno (kot prej) */
                         md:bottom-auto md:top-2 md:right-2
 
                         ${showEye ? 'opacity-100 scale-100' : 'opacity-0 scale-90'} 
@@ -276,8 +279,6 @@ export default function ArticleCard({ news, priority = false }: Props) {
         </div>
 
         {/* ========== BESEDILO ========== */}
-        {/* Mobile: justify-center (vertikalno centriranje ob sliki) */}
-        {/* Desktop: flex-col justify-start (original layout) */}
         <div className="p-3 flex flex-col flex-1 min-w-0 justify-center md:justify-start">
           
           <div className="mb-1.5 md:mb-2 flex items-center justify-between gap-2">
@@ -308,7 +309,6 @@ export default function ArticleCard({ news, priority = false }: Props) {
             {news.title}
           </h3>
           
-          {/* Snippet: Na mobile SKRIT (RTV stil - samo naslov). Na Desktop VIDEN (Original). */}
           <p className="hidden md:block mt-1 line-clamp-3 text-[13px] text-gray-600 dark:text-gray-400 flex-1">
             {news.contentSnippet}
           </p>
