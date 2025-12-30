@@ -21,6 +21,7 @@ export type CategoryDef = {
 }
 
 // 1. VRSTNI RED ZA PRIKAZ V MENIJU
+// To določa, kako so gumbi razvrščeni na spletni strani (Uporabniška izkušnja)
 export const CATEGORIES: CategoryDef[] = [
   {
     id: 'slovenija',
@@ -280,8 +281,6 @@ export function determineCategory(item: {
 
   // D) PRAG (THRESHOLD)
   // Če je maxScore 0 (nobena beseda se ne ujema), ostane 'ostalo'.
-  // Lahko bi rekli, da rabi vsaj 2 točki, a za kratke novice je 1 dovolj, 
-  // ker imamo prioriteto za razreševanje konfliktov.
   
   return bestCategory;
 }
