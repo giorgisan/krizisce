@@ -20,9 +20,7 @@ export type CategoryDef = {
   keywords: string[] 
 }
 
-// ============================================================================
-// 1. DEFINICIJE KATEGORIJ IN KLJUČNIH BESED (OBOGATENO Z SQL ANALIZO)
-// ============================================================================
+// 1. VRSTNI RED ZA PRIKAZ V MENIJU
 export const CATEGORIES: CategoryDef[] = [
   {
     id: 'slovenija',
@@ -122,7 +120,8 @@ export const CATEGORIES: CategoryDef[] = [
         'elektricn avto', 'tesla', 'byd', 'volkswagen', 'bmw', 'audi', 'mercedes', 'renault', 'toyota', 'dacia',
         'suv', 'limuzin', 'karavan', 'hibrid',
         'promet', 'dars', 'vinjet', 'predor', 'karavank', 'zastoj', 'radar', 'kazen',
-        'voznja', 'voznik', 'tovornjak', 'avtocest', 'hrosc'
+        'voznja', 'voznik', 'tovornjak', 'avtocest', 'hrosc',
+        'elektricn'
     ]
   },
   {
@@ -140,7 +139,8 @@ export const CATEGORIES: CategoryDef[] = [
         'kviz', 'joker', 'milijonar', 'kolo srece', 'voditelj', 'resnicnostn', 'serij', 'film', 'netflix', 'suzy',
         'horoskop', 'astro', 'zodiak', 'retrogradn', 'merkur', 'luna', 'scip', 'znamenj',
         'prerok', 'nostradamus', 'vanga', 'napoved', 'srhljiv', 'katastrof', 
-        'viral', 'smesn', 'video', 'sokantn', 'ganljiv', 'tiktok', 'par', 'razhod'
+        'viral', 'smesn', 'video', 'sokantn', 'ganljiv', 'tiktok', 'par', 'razhod',
+        'pev', 'igral', 'resnicnost'
     ]
   },
   {
@@ -163,7 +163,8 @@ export const CATEGORIES: CategoryDef[] = [
         'locitev', 'razhod', 'sreca', 'zadovoljstv', 'osamljen', 'dusn', 'dusa', 'motivacij', 'intuicij',
         'zival', 'ljubljenck', 'pes', 'psi', 'mack', 'zavetisc', 'posvojit', 'cebel', 'medved',
         '/potovanja/', '/izleti/', '/turizem/', 
-        'dopust', 'pocitnic', 'morje', 'hrib', 'izlet', 'hotel', 'kamp', 'razgled', 'potep'
+        'dopust', 'pocitnic', 'morje', 'hrib', 'izlet', 'hotel', 'kamp', 'razgled', 'potep',
+        'huj'
     ]
   },
   {
@@ -256,13 +257,13 @@ export function determineCategory(item: {
               if (token === cleanConfig) return true;
 
               // 2. Delno ujemanje (SAMO če je KLJUČNA BESEDA KRATKA)
-              // Primer: config 'smuc' ujame token 'smucar' -> OK
-              // Primer: config 'medved' ujame token 'dve' -> NI OK! (To je bil bug)
-              
               if (token.includes(cleanConfig)) {
-                  // Varovalka: Config mora biti dolg vsaj 3 znake, 
-                  // in token ne sme biti drastično krajši od configa (nemogoče, ker includes),
-                  // ampak pazi na obratno logiko.
+                  // Varovalka: Config mora biti dolg vsaj 3 znake.
+                  // Preprečimo, da bi dolg config (npr. 'medved') pojedel kratek token (npr. 'dve').
+                  // Logika includes deluje tako: 'medved'.includes('dve') je false, ampak 'dve'.includes('medved') je tudi false.
+                  
+                  // Torej, če je token daljši od configa in ga vsebuje: OK.
+                  // (npr. token='nogometas', config='nogomet' -> OK)
                   return true; 
               }
               
@@ -296,4 +297,9 @@ export function determineCategory(item: {
   }
 
   return bestCategory;
+}
+
+export function getKeywordsForCategory(catId: string): string[] {
+  const cat = CATEGORIES.find(c => c.id === catId)
+  return cat ? cat.keywords : []
 }
