@@ -20,14 +20,13 @@ import { CATEGORIES, determineCategory } from '@/lib/categories'
 type PreviewProps = { url: string; onClose: () => void }
 const ArticlePreview = dynamic(() => import('./ArticlePreview'), { ssr: false }) as ComponentType<PreviewProps>
 
-// Fiksna širina za Weserv proxy (Desktop = 640x360 kot prej)
 const TARGET_WIDTH = 640 
 const TARGET_HEIGHT = 360
 
 interface Props { news: NewsItem; priority?: boolean }
 
 export default function ArticleCard({ news, priority = false }: Props) {
-  // --- ZAGOTOVLJENO OSVEŽEVANJE ČASA (Tvoja originalna koda) ---
+  // --- TIME LOGIC ---
   const [now, setNow] = useState(Date.now())
 
   useEffect(() => {
@@ -42,7 +41,6 @@ export default function ArticleCard({ news, priority = false }: Props) {
     return () => clearTimeout(timeoutId)
   }, [])
 
-  // --- LOGIKA ZA DATUM (Tvoja originalna koda) ---
   const formattedDate = useMemo(() => {
     const ms = news.publishedAt || 0
     if (!ms) return ''
@@ -93,7 +91,6 @@ export default function ArticleCard({ news, priority = false }: Props) {
    
   const cardRef = useRef<HTMLAnchorElement>(null)
 
-  // Weserv URL generiramo takoj
   const currentSrc = useMemo(() => {
     if (!rawImg) return null
     if (useProxy) return proxiedImage(rawImg, TARGET_WIDTH, TARGET_HEIGHT, 1)
@@ -122,7 +119,7 @@ export default function ArticleCard({ news, priority = false }: Props) {
     }
   }
 
-  // --- ANALITIKA ---
+  // --- ANALYTICS ---
   const sendBeacon = (payload: any) => {
     try {
       const json = JSON.stringify(payload)
@@ -143,7 +140,7 @@ export default function ArticleCard({ news, priority = false }: Props) {
   }
   const handleAuxClick = (e: MouseEvent<HTMLAnchorElement>) => { if (e.button === 1) logClick() }
 
-  // --- PREVIEW LOGIKA ---
+  // --- PREVIEW ---
   const [showPreview, setShowPreview] = useState(false)
   const previewOpenedAtRef = useRef<number | null>(null)
   useEffect(() => {
@@ -193,124 +190,139 @@ export default function ArticleCard({ news, priority = false }: Props) {
         data-umami-event-source={news.source} 
         data-umami-event-type="feed"          
 
-        // SPREMEMBA: Na mobile flex-row (vodoravno), na md (desktop) flex-col (navpično - kot prej)
-        className="cv-auto group flex flex-row md:flex-col h-auto md:h-full no-underline bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden transition-all duration-200 hover:scale-[1.01] md:hover:scale-[1.02] hover:shadow-lg hover:bg-gray-100 dark:hover:bg-gray-700"
+        // GLAVNI OKVIR:
+        // Vedno 'flex-col'. Na desktopu je to naravno (slika nad tekstom).
+        // Na mobile pa bomo znotraj tega naredili delitev na zgornji del (row) in spodnji del (podnaslov).
+        className="cv-auto group flex flex-col h-auto md:h-full no-underline bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden transition-all duration-200 hover:scale-[1.01] md:hover:scale-[1.02] hover:shadow-lg hover:bg-gray-100 dark:hover:bg-gray-700"
       >
-        <div
-          // SPREMEMBA:
-          // Mobile: w-[130px] aspect-[4/3] (RTV stil)
-          // Desktop (md): w-full aspect-[16/9] (Tvoj original)
-          className="relative shrink-0 overflow-hidden 
-                     w-[130px] aspect-[4/3] 
-                     md:w-full md:aspect-[16/9]"
-          style={
-            !imgLoaded && lqipSrc
-              ? { backgroundImage: `url(${lqipSrc})`, backgroundSize: 'cover', backgroundPosition: 'center', filter: 'blur(12px)', transform: 'scale(1.05)' }
-              : undefined
-          }
-        >
-          {/* Skeleton loading */}
-          {!imgLoaded && !useFallback && !!currentSrc && (
-            <div className="absolute inset-0 grid place-items-center pointer-events-none
-                            bg-gradient-to-br from-gray-200 via-gray-300 to-gray-200
-                            dark:from-gray-700 dark:via-gray-800 dark:to-gray-700 animate-pulse">
-            </div>
-          )}
-
-          {useFallback || !currentSrc ? (
-            <div className="absolute inset-0 flex items-center justify-center">
-               <div className="absolute inset-0 bg-gradient-to-br from-gray-200 via-gray-300 to-gray-200 dark:from-gray-700 dark:via-gray-800 dark:to-gray-700" />
-               <span className="relative z-10 text-sm font-medium text-gray-700 dark:text-gray-300">
-                 Križišče
-               </span>
-            </div>
-          ) : (
-            <Image
-              src={currentSrc as string}
-              alt={news.title}
-              fill
-              className="object-cover transition-opacity duration-200 opacity-0 data-[ok=true]:opacity-100"
-              sizes="(max-width: 768px) 150px, (max-width: 1200px) 50vw, 33vw"
-              onError={handleImgError}
-              onLoadingComplete={() => setImgLoaded(true)}
-              priority={priority} 
-              data-ok={imgLoaded}
-              unoptimized={true} 
-            />
-          )}
-
-          {/* Kategorija Label: SKRITA na mobile, VIDNA na desktop (kot prej) */}
-          {categoryDef && categoryDef.id !== 'ostalo' && (
-             <span className={`hidden md:block absolute bottom-2 right-2 z-10 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-gray-900 dark:text-white bg-white/30 dark:bg-black/30 backdrop-blur-md rounded shadow-sm border border-white/20 dark:border-white/10 pointer-events-none`}>
-               {categoryDef.label}
-             </span>
-          )}
-
-          {/* Preview Gumb */}
-          <button
-            onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowPreview(true) }}
-            onMouseEnter={() => setEyeHover(true)}
-            onMouseLeave={() => setEyeHover(false)}
-            onFocus={() => setEyeHover(true)}
-            onBlur={() => setEyeHover(false)}
-            aria-label="Predogled"
-            className={`peer absolute h-8 w-8 grid place-items-center rounded-full
-                        ring-1 ring-black/10 dark:ring-white/10 text-gray-700 dark:text-gray-200
-                        bg-white/80 dark:bg-gray-900/80 backdrop-blur transition-opacity duration-150 transform-gpu
-                        
-                        /* SPREMEMBA POZICIJE OKA */
-                        /* Mobile: Spodaj desno (bolje za list view) */
-                        bottom-1 right-1
-                        /* Desktop: Zgoraj desno (kot je bilo prej) */
-                        md:bottom-auto md:top-2 md:right-2
-
-                        ${showEye ? 'opacity-100' : 'opacity-0'} ${isTouch ? '' : 'md:opacity-0 md:group-hover:opacity-100'}`}
-            style={{ transform: eyeHover ? 'scale(1.30)' : 'scale(1)' }}
+        {/* --- ZGORNJI DEL KARTICE (WRAPPER) --- */}
+        {/* Mobile: flex-row (slika levo, naslov desno) */}
+        {/* Desktop: flex-col (slika zgoraj, naslov spodaj) */}
+        <div className="flex flex-row md:flex-col shrink-0">
+          
+          {/* --- SLIKA --- */}
+          <div
+            // Mobile: 130px, aspect 4/3
+            // Desktop: w-full, aspect 16/9
+            className="relative shrink-0 overflow-hidden 
+                       w-[130px] aspect-[4/3] 
+                       md:w-full md:aspect-[16/9]"
+            style={
+              !imgLoaded && lqipSrc
+                ? { backgroundImage: `url(${lqipSrc})`, backgroundSize: 'cover', backgroundPosition: 'center', filter: 'blur(12px)', transform: 'scale(1.05)' }
+                : undefined
+            }
           >
-            <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
-              <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12Z" stroke="currentColor" strokeWidth="2" fill="none" />
-              <circle cx="12" cy="12" r="3.5" stroke="currentColor" strokeWidth="2" fill="none" />
-            </svg>
-          </button>
-        </div>
+            {!imgLoaded && !useFallback && !!currentSrc && (
+              <div className="absolute inset-0 grid place-items-center pointer-events-none
+                              bg-gradient-to-br from-gray-200 via-gray-300 to-gray-200
+                              dark:from-gray-700 dark:via-gray-800 dark:to-gray-700 animate-pulse">
+              </div>
+            )}
 
-        {/* ========== BESEDILO ========== */}
-        {/* Mobile: poravnano na sredino višine slike (justify-center) */}
-        {/* Desktop: kot prej (flex-col flex-1) */}
-        <div className="p-3 flex flex-col flex-1 min-w-0 justify-center md:justify-start">
-          <div className="mb-2 flex items-center justify-between flex-wrap gap-y-1">
-            <div className="flex items-center gap-2 min-w-0">
-              {logoPath && (
-                <div className="relative h-4 w-4 shrink-0 rounded-full overflow-hidden bg-gray-100 dark:bg-gray-700">
-                  <Image 
-                    src={logoPath} 
-                    alt={news.source} 
-                    width={16} 
-                    height={16}
-                    className="object-cover h-full w-full"
-                    unoptimized={true}
-                  />
-                </div>
-              )}
-              <span className="truncate text-[12px] font-medium tracking-[0.01em]" style={{ color: sourceColor }}>
-                {news.source}
+            {useFallback || !currentSrc ? (
+              <div className="absolute inset-0 flex items-center justify-center">
+                 <div className="absolute inset-0 bg-gradient-to-br from-gray-200 via-gray-300 to-gray-200 dark:from-gray-700 dark:via-gray-800 dark:to-gray-700" />
+                 <span className="relative z-10 text-sm font-medium text-gray-700 dark:text-gray-300">
+                   Križišče
+                 </span>
+              </div>
+            ) : (
+              <Image
+                src={currentSrc as string}
+                alt={news.title}
+                fill
+                className="object-cover transition-opacity duration-200 opacity-0 data-[ok=true]:opacity-100"
+                sizes="(max-width: 768px) 150px, (max-width: 1200px) 50vw, 33vw"
+                onError={handleImgError}
+                onLoadingComplete={() => setImgLoaded(true)}
+                priority={priority} 
+                data-ok={imgLoaded}
+                unoptimized={true} 
+              />
+            )}
+
+            {/* Label: Samo Desktop */}
+            {categoryDef && categoryDef.id !== 'ostalo' && (
+               <span className={`hidden md:block absolute bottom-2 right-2 z-10 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-gray-900 dark:text-white bg-white/30 dark:bg-black/30 backdrop-blur-md rounded shadow-sm border border-white/20 dark:border-white/10 pointer-events-none`}>
+                 {categoryDef.label}
+               </span>
+            )}
+
+            {/* Preview Gumb */}
+            <button
+              onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowPreview(true) }}
+              onMouseEnter={() => setEyeHover(true)}
+              onMouseLeave={() => setEyeHover(false)}
+              onFocus={() => setEyeHover(true)}
+              onBlur={() => setEyeHover(false)}
+              aria-label="Predogled"
+              className={`peer absolute h-8 w-8 grid place-items-center rounded-full
+                          ring-1 ring-black/10 dark:ring-white/10 text-gray-700 dark:text-gray-200
+                          bg-white/80 dark:bg-gray-900/80 backdrop-blur transition-opacity duration-150 transform-gpu
+                          
+                          /* Mobile: desno spodaj */
+                          bottom-1 right-1
+                          /* Desktop: desno zgoraj */
+                          md:bottom-auto md:top-2 md:right-2
+
+                          ${showEye ? 'opacity-100' : 'opacity-0'} ${isTouch ? '' : 'md:opacity-0 md:group-hover:opacity-100'}`}
+              style={{ transform: eyeHover ? 'scale(1.30)' : 'scale(1)' }}
+            >
+              <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+                <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12Z" stroke="currentColor" strokeWidth="2" fill="none" />
+                <circle cx="12" cy="12" r="3.5" stroke="currentColor" strokeWidth="2" fill="none" />
+              </svg>
+            </button>
+          </div>
+
+          {/* --- HEADER INFO (Meta + Naslov) --- */}
+          <div className="p-3 md:p-3 flex flex-col flex-1 min-w-0 justify-start">
+            
+            <div className="mb-1 md:mb-2 flex items-center justify-between flex-wrap gap-y-1">
+              <div className="flex items-center gap-2 min-w-0">
+                {logoPath && (
+                  <div className="relative h-4 w-4 shrink-0 rounded-full overflow-hidden bg-gray-100 dark:bg-gray-700">
+                    <Image 
+                      src={logoPath} 
+                      alt={news.source} 
+                      width={16} 
+                      height={16}
+                      className="object-cover h-full w-full"
+                      unoptimized={true}
+                    />
+                  </div>
+                )}
+                <span className="truncate text-[12px] font-medium tracking-[0.01em]" style={{ color: sourceColor }}>
+                  {news.source}
+                </span>
+              </div>
+              
+              <span className="text-[11px] text-gray-500 dark:text-gray-400 shrink-0 tabular-nums">
+                 {formattedDate}
               </span>
             </div>
             
-            <span className="text-[11px] text-gray-500 dark:text-gray-400 shrink-0 tabular-nums">
-               {formattedDate}
-            </span>
+            <h3 className="line-clamp-3 md:line-clamp-3 text-[14px] md:text-[15px] font-semibold leading-tight text-gray-900 dark:text-gray-100 mb-0 md:mb-1">
+              {news.title}
+            </h3>
+
+            {/* DESKTOP SNIPPET: Vključen tukaj, ker na desktopu teče takoj pod naslovom. */}
+            <p className="hidden md:block mt-1 md:line-clamp-3 text-[13px] text-gray-600 dark:text-gray-400 flex-1">
+               {news.contentSnippet}
+            </p>
           </div>
-          
-          <h3 className="line-clamp-3 text-[15px] font-semibold leading-tight text-gray-900 dark:text-gray-100 mb-1">
-            {news.title}
-          </h3>
-          
-          {/* SNIPPET: SKRIT na mobile, VIDEN na desktopu (md:block) */}
-          <p className="hidden md:block md:line-clamp-3 text-[13px] text-gray-600 dark:text-gray-400 flex-1">
-            {news.contentSnippet}
-          </p>
         </div>
+
+        {/* --- MOBILE SNIPPET (PODNASLOV) --- */}
+        {/* Ta div je zunaj zgornjega flex-row wrapperja, zato bo na mobile padel SPODAJ čez celo širino. */}
+        {/* Na desktopu ga skrijemo (md:hidden), ker je prikazan zgoraj. */}
+        <div className="px-3 pb-3 md:hidden">
+            <p className="line-clamp-2 text-[13px] text-gray-600 dark:text-gray-400">
+               {news.contentSnippet}
+            </p>
+        </div>
+
       </a>
 
       {showPreview && <ArticlePreview url={news.link} onClose={() => setShowPreview(false)} />}
