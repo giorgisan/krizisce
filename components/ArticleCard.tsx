@@ -280,9 +280,14 @@ export default function ArticleCard({ news, priority = false }: Props) {
         </div>
 
         {/* ========== BESEDILO ========== */}
-        <div className="p-3 flex flex-col flex-1 min-w-0 justify-center md:justify-start">
+        {/* SPREMEMBE ZA KOMPAKTNOST:
+            1. p-3 -> p-2.5 (manjši rob)
+            2. line-clamp-3 -> line-clamp-2 (samo 2 vrstici opisa)
+            3. mt-1 -> mt-0.5 (manjši razmik med naslovom in opisom)
+        */}
+        <div className="p-3 md:p-2.5 flex flex-col flex-1 min-w-0 justify-center md:justify-start">
           
-          <div className="mb-1.5 md:mb-2 flex items-center justify-between gap-2">
+          <div className="mb-1.5 flex items-center justify-between gap-2">
             <div className="flex items-center gap-2 min-w-0">
               {logoPath && (
                 <div className="relative h-4 w-4 shrink-0 rounded-full overflow-hidden bg-gray-100 dark:bg-gray-700">
@@ -306,12 +311,12 @@ export default function ArticleCard({ news, priority = false }: Props) {
             </span>
           </div>
           
-          <h3 className="line-clamp-3 text-[14px] leading-snug md:text-[15px] md:leading-tight font-semibold text-gray-900 dark:text-gray-100 mb-0 md:mb-1">
+          <h3 className="line-clamp-3 text-[14px] leading-snug md:text-[15px] md:leading-snug font-semibold text-gray-900 dark:text-gray-100 mb-0 md:mb-1">
             {news.title}
           </h3>
           
-          {/* Snippet: Na mobile skrit, na desktop viden (kot prej) */}
-          <p className="hidden md:block mt-1 line-clamp-3 text-[13px] text-gray-600 dark:text-gray-400 flex-1">
+          {/* TUKAJ SEM ZMANJŠAL VISINO: line-clamp-2 namesto 3 */}
+          <p className="hidden md:block mt-0.5 line-clamp-2 text-[12px] md:text-[13px] leading-relaxed text-gray-600 dark:text-gray-400 flex-1">
             {news.contentSnippet}
           </p>
         </div>
