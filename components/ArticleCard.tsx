@@ -20,7 +20,8 @@ import { CATEGORIES, determineCategory } from '@/lib/categories'
 type PreviewProps = { url: string; onClose: () => void }
 const ArticlePreview = dynamic(() => import('./ArticlePreview'), { ssr: false }) as ComponentType<PreviewProps>
 
-// Dimenzije za cache
+// Desktop: 16:9 (640x360)
+// Mobile: 4:3 (manjša slika)
 const TARGET_WIDTH_DESKTOP = 640 
 const TARGET_HEIGHT_DESKTOP = 360
 
@@ -54,8 +55,8 @@ export default function ArticleCard({ news, priority = false }: Props) {
     const min = Math.floor(diff / 60_000)
     const hr  = Math.floor(min / 60)
     if (diff < 60_000) return 'zdaj'
-    if (min  < 60)       return `${min} min`
-    if (hr   < 24)       return `${hr} h`
+    if (min  < 60)       return `pred ${min} min`
+    if (hr   < 24)       return `pred ${hr} h`
     return ''
   }, [news.publishedAt, now])
 
@@ -120,7 +121,7 @@ export default function ArticleCard({ news, priority = false }: Props) {
     }
   }
 
-  // --- ANALYTICS ---
+  // --- ANALYTICS & CLICK ---
   const sendBeacon = (payload: any) => {
     try {
       const json = JSON.stringify(payload)
@@ -191,20 +192,19 @@ export default function ArticleCard({ news, priority = false }: Props) {
         data-umami-event-source={news.source} 
         data-umami-event-type="feed"          
 
-        // Glavni wrapper
-        // flex-row za mobile, flex-col za desktop
+        // --- GLAVNI CONTAINER ---
+        // Mobile: flex-row (vodoravno)
+        // Desktop (md): flex-col (navpično) - to povrne stari izgled
         className="cv-auto group flex flex-row md:flex-col h-auto md:h-full no-underline bg-white dark:bg-gray-800 rounded-lg shadow-sm md:shadow-md overflow-hidden transition-all duration-200 hover:scale-[1.01] md:hover:scale-[1.02] hover:shadow-lg hover:bg-gray-50 dark:hover:bg-gray-700"
       >
         {/* --- IMAGE CONTAINER --- */}
         <div
-          // KLJUČNO: 'flex-none' prepreči raztegovanje.
-          // Uporabimo style={{ aspectRatio }} kot varovalko.
-          className="relative flex-none overflow-hidden
-                     w-[130px] md:w-full"
-          style={{ 
-             // Mobile: 4/3, Desktop: 16/9. To povozi kakršnokoli raztegovanje Grida.
-             aspectRatio: typeof window !== 'undefined' && window.innerWidth >= 768 ? '16/9' : '4/3' 
-          }}
+          // Mobile: Fiksna širina 130px, aspect 4/3
+          // Desktop: w-full (cez celo), aspect 16/9 (kot prej!)
+          // 'shrink-0' je nujen, da tekst ne stisne slike
+          className="relative shrink-0 overflow-hidden
+                     w-[130px] aspect-[4/3] 
+                     md:w-full md:aspect-[16/9]"
         >
           {/* Skeleton */}
           {!imgLoaded && !useFallback && !!currentSrc && (
@@ -214,7 +214,6 @@ export default function ArticleCard({ news, priority = false }: Props) {
             </div>
           )}
 
-          {/* Lqip blur background if needed */}
            <div 
              className="absolute inset-0 z-0"
              style={
@@ -252,7 +251,7 @@ export default function ArticleCard({ news, priority = false }: Props) {
              </span>
           )}
 
-          {/* Preview Gumb */}
+          {/* Preview Gumb (Oko) */}
           <button
             onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowPreview(true) }}
             onMouseEnter={() => setEyeHover(true)}
@@ -264,7 +263,9 @@ export default function ArticleCard({ news, priority = false }: Props) {
                         shadow-sm ring-1 ring-black/5 dark:ring-white/10 text-gray-700 dark:text-gray-200
                         bg-white/90 dark:bg-gray-900/80 backdrop-blur transition-all duration-150 transform-gpu
                         
+                        /* Mobile: desno spodaj */
                         bottom-1 right-1 
+                        /* Desktop: desno zgoraj (kot prej) */
                         md:bottom-auto md:top-2 md:right-2
 
                         ${showEye ? 'opacity-100 scale-100' : 'opacity-0 scale-90'} 
@@ -309,6 +310,7 @@ export default function ArticleCard({ news, priority = false }: Props) {
             {news.title}
           </h3>
           
+          {/* Snippet: Na mobile skrit, na desktop viden (kot prej) */}
           <p className="hidden md:block mt-1 line-clamp-3 text-[13px] text-gray-600 dark:text-gray-400 flex-1">
             {news.contentSnippet}
           </p>
