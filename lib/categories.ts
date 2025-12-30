@@ -20,9 +20,7 @@ export type CategoryDef = {
   keywords: string[] 
 }
 
-// ============================================================================
-// 1. DEFINICIJE KATEGORIJ IN KLJUČNIH BESED (OPTIMIZIRANO)
-// ============================================================================
+// 1. DEFINICIJE KATEGORIJ
 export const CATEGORIES: CategoryDef[] = [
   {
     id: 'slovenija',
@@ -51,12 +49,12 @@ export const CATEGORIES: CategoryDef[] = [
         '/svet/', '/tujina/', '/evropa/', '/globalno/',
         'ukrajin', 'rusij', 'putin', 'zelensk', 'kijev', 'moskv', 'vojn', 'obroz',
         'gaza', 'izrael', 'palestin', 'hamas', 'netanjahu', 'bliznj vzhod', 'hutij', 'libanon', 'hezbolah',
-        'kitajsk', 'tajvan', 'korej', 'iran',
+        'kitajsk', 'tajvan', 'korej', 'iran', 'teheran',
         'zda', 'bela hisa', 'trump', 'biden', 'harris', 'republikanc', 'demokrat', 'kongres',
         'eu', 'evropsk komisij', 'parlament', 'von der leyen', 'nato',
         'scholz', 'macron', 'orban', 'vucic', 'plenkovic',
-        'potres', 'poplav', 'terorist', 'napad', 'protest',
-        'hrvask', 'zagreb', 'beograd', 'balkan', 'kun', 'valut'
+        'potres', 'poplav', 'terorist', 'napad', 'protest', 'valut',
+        'hrvask', 'zagreb', 'beograd', 'balkan', 'papez', 'vatikan'
     ]
   },
   {
@@ -68,7 +66,7 @@ export const CATEGORIES: CategoryDef[] = [
         'policij', 'policist', 'pu ', 'kriminal', 'gasil', 'reseval',
         'pozar', 'intervencij', 'gorel', 'eksplozij',
         'trcenj', 'prometn', 'nesrec', 'povozil', 'prevrnil', 'cesta zaprta',
-        'rop', 'vlom', 'drza', 'pretep', 'umor', 'uboj', 'truplo', 'utonil', 'mrtv', 'smrt',
+        'rop', 'vlom', 'drzn', 'pretep', 'umor', 'uboj', 'truplo', 'utonil', 'mrtv', 'smrt',
         'sodisc', 'sojenj', 'zapor', 'pripor', 'obtoznic', 'obsodb',
         'pogresan', 'iskaln', 'helikopter', 'obmocj', 'voznik', 'alkohol',
         'petard', 'pirotehnik', 'poskodb', 'vinjen', 'vandal', 'oskrunjen', 'tragedij', 'groz'
@@ -118,7 +116,7 @@ export const CATEGORIES: CategoryDef[] = [
     color: 'bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-300',
     keywords: [
         '/auto/', '/avto/', '/avtomobilizem/', '/mobilnost/', 
-        'test', 'vozil', 'model', 'premier',
+        'vozil', 'model', 'premier', // 'test' odstranjen ker ujame 'protest'
         'elektricn avto', 'tesla', 'byd', 'volkswagen', 'bmw', 'audi', 'mercedes', 'renault', 'toyota', 'dacia',
         'suv', 'limuzin', 'karavan', 'hibrid',
         'promet', 'dars', 'vinjet', 'predor', 'karavank', 'zastoj', 'radar', 'kazen',
@@ -134,14 +132,14 @@ export const CATEGORIES: CategoryDef[] = [
         '/magazin/', '/scena/', '/zvezde/', '/zabava/', '/traci/', '/bulvar/', '/ljudje/',
         'kardashian', 'jenner', 'royal', 'kraljev', 'harry', 'meghan', 'william', 'kate',
         'jagger', 'madonna', 'shakira', 'swift', 'beyonc', 'severin', 'prijovic', 'lepa bren', 'ceca',
-        'chal', 'sale', 'bas', 
+        'chal', 'bas', // 'sale' odstranjen
         'znani', 'vplivnez', 'influencer', 'estradnik', 'zvezdnic', 'zvezdnik', 'ikon', 'bardot', 'klum',
         'locitev', 'poroka', 'nosecnost', 'afera', 'skandal', 'mladoporoc', 'zaroka', 'nosec', 'baby',
         'kmetija', 'sanjski', 'talent', 'zvezde plesejo', 'masterchef', 'evrovizij', 'ema',
         'kviz', 'joker', 'milijonar', 'kolo srece', 'voditelj', 'resnicnostn', 'serij', 'film', 'netflix', 'suzy',
         'horoskop', 'astro', 'zodiak', 'retrogradn', 'merkur', 'luna', 'scip', 'znamenj',
         'prerok', 'nostradamus', 'vanga', 'napoved', 'srhljiv', 'katastrof', 
-        'viral', 'smesn', 'video', 'sokantn', 'ganljiv', 'tiktok', 'par', 'razhod',
+        'viral', 'smesn', 'video', 'sokantn', 'ganljiv', 'tiktok', 'razhod', // 'par' odstranjen
         'pev', 'igral', 'resnicnost'
     ]
   },
@@ -185,9 +183,7 @@ export const CATEGORIES: CategoryDef[] = [
   }
 ]
 
-// ============================================================================
-// 2. VRSTNI RED ZA TIE-BREAKER (PRI IZENAČENIH TOČKAH)
-// ============================================================================
+// 2. VRSTNI RED ZA TIE-BREAKER
 const PRIORITY_CHECK_ORDER: CategoryId[] = [
   'magazin',
   'sport',
@@ -202,10 +198,7 @@ const PRIORITY_CHECK_ORDER: CategoryId[] = [
 
 const unaccent = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
 
-// ============================================================================
-// 3. NAPREDNA LOGIKA ZA DOLOČANJE KATEGORIJE
-// ============================================================================
-// --- HIBRIDNA LOGIKA (URL + VSEBINA ZA SPLOŠNE RUBRIKE) ---
+// 3. HIBRIDNA LOGIKA
 export function determineCategory(item: { 
   link: string; 
   title?: string; 
@@ -216,7 +209,7 @@ export function determineCategory(item: {
   
   const url = item.link.toLowerCase();
   
-  // A1) MOČNI URL SIGNALI (Ti so specifični in skoraj vedno točni)
+  // A1) MOČNI URL SIGNALI
   if (url.includes('/kronika/') || url.includes('/crna-kronika/') || url.includes('/crna/')) return 'kronika';
   if (url.includes('/sport/') || url.includes('/sportal/') || url.includes('/nogomet/') || url.includes('/kosarka/') || url.includes('/zimski-sporti/')) return 'sport';
   if (url.includes('/avto/') || url.includes('/avtomoto/') || url.includes('/mobilnost/')) return 'moto';
@@ -225,14 +218,12 @@ export function determineCategory(item: {
   if (url.includes('/gospodarstvo/') || url.includes('/posel/') || url.includes('/finance/') || url.includes('/digisvet/') || url.includes('/tech/')) return 'posel-tech';
   if (url.includes('/kultura/')) return 'kultura';
 
-  // A2) ŠIBKI URL SIGNALI (Slovenija in Svet sta preveč splošna)
-  // Če URL pravi "Slovenija", je to lahko politika, lahko pa skrita kronika (kot 24ur primer).
-  // Zato si to zapomnimo kot "začasno izbiro", a vseeno preverimo vsebino.
+  // A2) ŠIBKI URL SIGNALI
   let urlHint: CategoryId | null = null;
   if (url.includes('/svet/') || url.includes('/tujina/')) urlHint = 'svet';
   if (url.includes('/slovenija/') || url.includes('/lokalno/')) urlHint = 'slovenija';
 
-  // B) TOČKOVANJE VSEBINE (Scoring)
+  // B) TOČKOVANJE VSEBINE
   const scores: Record<CategoryId, number> = {
     slovenija: 0, svet: 0, kronika: 0, sport: 0, magazin: 0,
     lifestyle: 0, 'posel-tech': 0, moto: 0, kultura: 0, oglas: 0, ostalo: 0
@@ -245,7 +236,6 @@ export function determineCategory(item: {
   if (item.categories && Array.isArray(item.categories)) {
      tokensToAnalyze.push(...item.categories.map(c => unaccent(c)));
   }
-  // Vedno dodamo naslov za analizo, ker je tam največ informacij
   const combined = unaccent((item.title || '') + ' ' + (item.contentSnippet || ''));
   tokensToAnalyze.push(...combined.split(/\s+/).filter(w => w.length > 3));
 
@@ -256,11 +246,18 @@ export function determineCategory(item: {
               const cleanConfig = unaccent(configKw);
               
               if (token === cleanConfig) return true;
+              
+              // STROŽJE UJEMANJE ZA KRATKE BESEDE
               if (token.includes(cleanConfig)) {
-                  // Varovalka za kratke besede
-                   if (cleanConfig.length < 4) return false;
+                  // Če je ključna beseda krajša od 5 znakov, 
+                  // jo mora token vsebovati na začetku (koren) ali pa mora biti match
+                  // popoln. Prepovedujemo ujemanje v sredini za kratke besede.
+                  if (cleanConfig.length < 5) {
+                      return token === cleanConfig || token.startsWith(cleanConfig);
+                  }
                   return true; 
               }
+              
               if (cleanConfig.includes(token) && token.length > 3) {
                   return true;
               }
@@ -274,7 +271,6 @@ export function determineCategory(item: {
   let maxScore = 0;
   let bestCategory: CategoryId = 'ostalo';
 
-  // Najprej preverimo, katera kategorija zmaga po točkah
   for (const id of PRIORITY_CHECK_ORDER) {
       if (scores[id] > maxScore) {
           maxScore = scores[id];
@@ -282,19 +278,14 @@ export function determineCategory(item: {
       }
   }
 
-  // D) FINALNA ODLOČITEV (Kombinacija URL + Vsebina)
-  
-  // 1. Če imamo URL namig (Slovenija/Svet) ...
+  // D) FINALNA ODLOČITEV
   if (urlHint) {
-      // ... in je vsebina našla nekaj močnega (Kronika, Šport, Magazin) z vsaj 1 točko ...
       if (['kronika', 'sport', 'magazin', 'moto'].includes(bestCategory) && maxScore > 0) {
-          return bestCategory; // ... potem VSEBINA povozi URL (tvoj primer: "umrl" -> Kronika)
+          return bestCategory; 
       }
-      // ... sicer obdržimo URL kategorijo (navadna politična novica)
       return urlHint;
   }
 
-  // 2. Če URL ni dal ničesar, vrnemo zmagovalca po točkah
   if (maxScore > 0) {
       return bestCategory;
   }
