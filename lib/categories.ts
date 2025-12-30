@@ -203,7 +203,7 @@ const unaccent = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '
 // ============================================================================
 // 3. NAPREDNA LOGIKA ZA DOLOČANJE KATEGORIJE
 // ============================================================================
-// --- 3. POPRAVLJENA LOGIKA (S STROŽJIM UJEMANJEM) ---
+// --- 3. HIBRIDNA LOGIKA (URL + VSEBINA ZA SPLOŠNE RUBRIKE) ---
 export function determineCategory(item: { 
   link: string; 
   title?: string; 
@@ -212,23 +212,25 @@ export function determineCategory(item: {
   keywords?: string[]; 
 }): CategoryId {
   
-  const url = item.link.toLowerCase()
+  const url = item.link.toLowerCase();
   
-  // --------------------------------------------------------------------------
-  // KORAK A: ABSOLUTNA PRIORITETA URL-JA (Hardcoded Rules)
-  // --------------------------------------------------------------------------
+  // A1) MOČNI URL SIGNALI (Ti so specifični in skoraj vedno točni)
   if (url.includes('/kronika/') || url.includes('/crna-kronika/') || url.includes('/crna/')) return 'kronika';
   if (url.includes('/sport/') || url.includes('/sportal/') || url.includes('/nogomet/') || url.includes('/kosarka/') || url.includes('/zimski-sporti/')) return 'sport';
   if (url.includes('/avto/') || url.includes('/avtomoto/') || url.includes('/mobilnost/')) return 'moto';
   if (url.includes('/magazin/') || url.includes('/bulvar/') || url.includes('/scena/') || url.includes('/zvezde/') || url.includes('/popin/')) return 'magazin';
   if (url.includes('/lifestyle/') || url.includes('/zdravje/') || url.includes('/okusno/') || url.includes('/kulinarika/') || url.includes('/dom/')) return 'lifestyle';
   if (url.includes('/gospodarstvo/') || url.includes('/posel/') || url.includes('/finance/') || url.includes('/digisvet/') || url.includes('/tech/')) return 'posel-tech';
-  if (url.includes('/svet/') || url.includes('/tujina/')) return 'svet';
-  if (url.includes('/slovenija/') || url.includes('/lokalno/')) return 'slovenija';
+  if (url.includes('/kultura/')) return 'kultura';
 
-  // --------------------------------------------------------------------------
-  // KORAK B: TOČKOVANJE (SCORING)
-  // --------------------------------------------------------------------------
+  // A2) ŠIBKI URL SIGNALI (Slovenija in Svet sta preveč splošna)
+  // Če URL pravi "Slovenija", je to lahko politika, lahko pa skrita kronika (kot 24ur primer).
+  // Zato si to zapomnimo kot "začasno izbiro", a vseeno preverimo vsebino.
+  let urlHint: CategoryId | null = null;
+  if (url.includes('/svet/') || url.includes('/tujina/')) urlHint = 'svet';
+  if (url.includes('/slovenija/') || url.includes('/lokalno/')) urlHint = 'slovenija';
+
+  // B) TOČKOVANJE VSEBINE (Scoring)
   const scores: Record<CategoryId, number> = {
     slovenija: 0, svet: 0, kronika: 0, sport: 0, magazin: 0,
     lifestyle: 0, 'posel-tech': 0, moto: 0, kultura: 0, oglas: 0, ostalo: 0
@@ -241,54 +243,36 @@ export function determineCategory(item: {
   if (item.categories && Array.isArray(item.categories)) {
      tokensToAnalyze.push(...item.categories.map(c => unaccent(c)));
   }
-  if (tokensToAnalyze.length === 0) {
-      const combined = unaccent((item.title || '') + ' ' + (item.contentSnippet || ''));
-      tokensToAnalyze.push(...combined.split(/\s+/).filter(w => w.length > 3));
-  }
+  // Vedno dodamo naslov za analizo, ker je tam največ informacij
+  const combined = unaccent((item.title || '') + ' ' + (item.contentSnippet || ''));
+  tokensToAnalyze.push(...combined.split(/\s+/).filter(w => w.length > 3));
 
-  // Glavna zanka točkovanja
   for (const token of tokensToAnalyze) {
       for (const cat of CATEGORIES) {
           const match = cat.keywords.some(configKw => {
               if (configKw.startsWith('/')) return false; 
               const cleanConfig = unaccent(configKw);
               
-              // 1. Točno ujemanje (Vedno velja)
               if (token === cleanConfig) return true;
-
-              // 2. Delno ujemanje (SAMO če je KLJUČNA BESEDA KRATKA)
               if (token.includes(cleanConfig)) {
-                  // Varovalka: Config mora biti dolg vsaj 3 znake.
-                  // Preprečimo, da bi dolg config (npr. 'medved') pojedel kratek token (npr. 'dve').
-                  // Logika includes deluje tako: 'medved'.includes('dve') je false, ampak 'dve'.includes('medved') je tudi false.
-                  
-                  // Torej, če je token daljši od configa in ga vsebuje: OK.
-                  // (npr. token='nogometas', config='nogomet' -> OK)
+                  // Varovalka za kratke besede
+                   if (cleanConfig.length < 4) return false;
                   return true; 
               }
-              
-              // 3. Obratno ujemanje (Token je kratek, config je dolg)
-              // Primer: token 'koros' (iz Koroška) ujame config 'koroska'
-              // To dovolimo LE, če je token dolg vsaj 4 znake.
               if (cleanConfig.includes(token) && token.length > 3) {
                   return true;
               }
-
               return false;
           });
-
-          if (match) {
-              scores[cat.id]++;
-          }
+          if (match) scores[cat.id]++;
       }
   }
 
-  // --------------------------------------------------------------------------
-  // KORAK C: IZBIRA ZMAGOVALCA
-  // --------------------------------------------------------------------------
+  // C) IZBIRA ZMAGOVALCA
   let maxScore = 0;
   let bestCategory: CategoryId = 'ostalo';
 
+  // Najprej preverimo, katera kategorija zmaga po točkah
   for (const id of PRIORITY_CHECK_ORDER) {
       if (scores[id] > maxScore) {
           maxScore = scores[id];
@@ -296,10 +280,22 @@ export function determineCategory(item: {
       }
   }
 
-  return bestCategory;
-}
+  // D) FINALNA ODLOČITEV (Kombinacija URL + Vsebina)
+  
+  // 1. Če imamo URL namig (Slovenija/Svet) ...
+  if (urlHint) {
+      // ... in je vsebina našla nekaj močnega (Kronika, Šport, Magazin) z vsaj 1 točko ...
+      if (['kronika', 'sport', 'magazin', 'moto'].includes(bestCategory) && maxScore > 0) {
+          return bestCategory; // ... potem VSEBINA povozi URL (tvoj primer: "umrl" -> Kronika)
+      }
+      // ... sicer obdržimo URL kategorijo (navadna politična novica)
+      return urlHint;
+  }
 
-export function getKeywordsForCategory(catId: string): string[] {
-  const cat = CATEGORIES.find(c => c.id === catId)
-  return cat ? cat.keywords : []
+  // 2. Če URL ni dal ničesar, vrnemo zmagovalca po točkah
+  if (maxScore > 0) {
+      return bestCategory;
+  }
+
+  return 'ostalo';
 }
