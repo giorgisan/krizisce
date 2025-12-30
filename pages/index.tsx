@@ -41,13 +41,12 @@ function timeout(ms: number) {
   return new Promise((_, rej) => setTimeout(() => rej(new Error('Request timeout')), ms))
 }
 
-// --- POPRAVLJENO: Dodan parameter 'tag' ---
 async function loadNews(
   mode: Mode, 
   source: string[], 
   category: CategoryId | 'vse', 
   query: string | null, 
-  tag: string | null, // <--- NOVO
+  tag: string | null,
   forceRefresh = false, 
   signal?: AbortSignal
 ): Promise<NewsItem[] | null> {
@@ -58,7 +57,7 @@ async function loadNews(
   if (source.length > 0) qs.set('source', source.join(','))
   if (category !== 'vse') qs.set('category', category)
   if (query) qs.set('q', query)
-  if (tag) qs.set('tag', tag) // <--- NOVO
+  if (tag) qs.set('tag', tag)
   
   if (forceRefresh) qs.set('_t', Date.now().toString())
 
@@ -123,7 +122,7 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
       setSelectedSources([])
       setSelectedCategory('vse')
       setSearchQuery('')
-      setTagQuery('') // Reset tag
+      setTagQuery('')
       setMode('latest')
       setCursor(null)
       setHasMore(true)
@@ -143,7 +142,6 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
         setCursor(null)
         setHasMore(true)
         
-        // Kličemo loadNews s tagQuery ali searchQuery
         const fresh = await loadNews('latest', selectedSources, selectedCategory, searchQuery || null, tagQuery || null)
         
         if (fresh) {
@@ -154,7 +152,6 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
         setIsRefreshing(false)
     }
     
-    // Če je query, uporabimo debounce (zamik), sicer takoj
     if (searchQuery) {
         const timeoutId = setTimeout(fetchData, 500)
         return () => clearTimeout(timeoutId)
@@ -164,7 +161,7 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
 
   }, [selectedSources, selectedCategory, searchQuery, tagQuery, mode, bootRefreshed])
 
-  // POLLING (Preverjanje novih novic v ozadju)
+  // POLLING
   const missCountRef = useRef(0)
   const timerRef = useRef<number | null>(null)
 
@@ -172,7 +169,7 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
     if (!bootRefreshed) return
     const runCheckSimple = async () => {
       if (mode !== 'latest') return
-      if (searchQuery || tagQuery) return // Ne pollaj, če uporabnik išče
+      if (searchQuery || tagQuery) return 
       kickSyncIfStale(10 * 60_000)
       const fresh = await loadNews('latest', selectedSources, selectedCategory, null, null)
       if (!fresh || fresh.length === 0) {
@@ -209,7 +206,7 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
     }
   }, [itemsLatest, bootRefreshed, mode, selectedSources, selectedCategory, searchQuery, tagQuery])
 
-  // REFRESH HANDLER (Gumb "Nove novice")
+  // REFRESH HANDLER
   useEffect(() => {
     const onRefresh = () => {
       window.dispatchEvent(new CustomEvent('news-refreshing', { detail: true }))
@@ -238,7 +235,7 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
 
   const visibleNews = mode === 'trending' ? itemsTrending : itemsLatest
 
-  // CURSOR LOGIC (Paginacija)
+  // CURSOR LOGIC
   useEffect(() => {
     if (mode === 'trending') return 
     if (!visibleNews.length) {
@@ -249,7 +246,7 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
     setCursor(minMs || null)
   }, [visibleNews, mode])
 
-  // FETCH PAGE (Paginacija)
+  // FETCH PAGE
   async function fetchPage(cursorVal: number) {
     const qs = new URLSearchParams()
     qs.set('paged', '1')
@@ -283,7 +280,6 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
     } finally { setIsLoadingMore(false) }
   }
 
-  // --- POPRAVEK: Handle Tab Change z animacijo ---
   const handleTabChange = async (next: Mode) => {
     if (next === mode) return
     window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -297,9 +293,8 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
       const isStale = (now - lastTrendingFetchRef.current) > 5 * 60_000
       
       if (!trendingLoaded || isStale) {
-        setIsRefreshing(true) // <--- VKLOPIMO SPINNER
+        setIsRefreshing(true)
         try {
-          // Trending nima search parametrov
           const fresh = await loadNews('trending', [], 'vse', null, null)
           if (fresh) {
             setItemsTrending(fresh); 
@@ -309,15 +304,19 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
         } catch (e) { 
             console.error(e) 
         } finally {
-            setIsRefreshing(false) // <--- IZKLOPIMO SPINNER
+            setIsRefreshing(false)
         }
       }
     }
   }
 
+  // --- POSODOBITEV UX ---
+  // Uporabljamo gap-3 na mobile za boljši list-view občutek (tight list),
+  // in gap-6 na desktopu za grid view.
   const gridClasses = mode === 'trending'
       ? 'grid gap-4 md:gap-6 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5'
-      : 'grid gap-4 md:gap-6 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5'
+      // Tu je sprememba: gap-3 za mobile latest view
+      : 'grid gap-3 md:gap-6 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5'
 
   const activeSourceLabel = selectedSources.length === 0 
     ? 'Vse' 
@@ -329,7 +328,6 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
     ? '' 
     : CATEGORIES.find(c => c.id === selectedCategory)?.label || selectedCategory;
 
-  // --- NOVA FUNKCIJA ZA TRENDING KLIK ---
   const handleTrendingClick = (word: string) => {
     let clean = word.replace(/^#/, '').trim();
     
