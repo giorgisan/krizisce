@@ -190,10 +190,9 @@ export default function ArticleCard({ news, priority = false }: Props) {
         data-umami-event-source={news.source} 
         data-umami-event-type="feed"          
 
-        // GLAVNI OKVIR
         className="cv-auto group flex flex-col h-auto md:h-full no-underline bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden transition-all duration-200 hover:scale-[1.01] md:hover:scale-[1.02] hover:shadow-lg hover:bg-gray-100 dark:hover:bg-gray-700"
       >
-        {/* --- ZGORNJI DEL KARTICE (Slika + Naslov) --- */}
+        {/* --- ZGORNJI DEL (Slika + Naslov) --- */}
         <div className="flex flex-row md:flex-col shrink-0">
           
           {/* --- SLIKA --- */}
@@ -236,7 +235,7 @@ export default function ArticleCard({ news, priority = false }: Props) {
               />
             )}
 
-            {/* Label: Samo Desktop */}
+            {/* Label: Desktop only */}
             {categoryDef && categoryDef.id !== 'ostalo' && (
                <span className={`hidden md:block absolute bottom-2 right-2 z-10 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-gray-900 dark:text-white bg-white/30 dark:bg-black/30 backdrop-blur-md rounded shadow-sm border border-white/20 dark:border-white/10 pointer-events-none`}>
                  {categoryDef.label}
@@ -255,7 +254,9 @@ export default function ArticleCard({ news, priority = false }: Props) {
                           ring-1 ring-black/10 dark:ring-white/10 text-gray-700 dark:text-gray-200
                           bg-white/80 dark:bg-gray-900/80 backdrop-blur transition-opacity duration-150 transform-gpu
                           
+                          /* Mobile: desno spodaj */
                           bottom-1 right-1
+                          /* Desktop: desno zgoraj */
                           md:bottom-auto md:top-2 md:right-2
 
                           ${showEye ? 'opacity-100' : 'opacity-0'} ${isTouch ? '' : 'md:opacity-0 md:group-hover:opacity-100'}`}
@@ -268,7 +269,7 @@ export default function ArticleCard({ news, priority = false }: Props) {
             </button>
           </div>
 
-          {/* --- HEADER INFO (Meta + Naslov) --- */}
+          {/* --- HEADER INFO --- */}
           <div className="p-3 md:p-3 flex flex-col flex-1 min-w-0 justify-start">
             
             <div className="mb-1 md:mb-2 flex items-center justify-between flex-wrap gap-y-1">
@@ -299,7 +300,7 @@ export default function ArticleCard({ news, priority = false }: Props) {
               {news.title}
             </h3>
 
-            {/* Desktop Snippet (viden samo na md+) */}
+            {/* Desktop Snippet */}
             <p className="hidden md:block mt-1 md:line-clamp-3 text-[13px] text-gray-600 dark:text-gray-400 flex-1">
                {news.contentSnippet}
             </p>
@@ -307,16 +308,9 @@ export default function ArticleCard({ news, priority = false }: Props) {
         </div>
 
         {/* --- MOBILE SNIPPET (PODNASLOV) --- */}
-        {/*
-            SPREMEMBE ZA ESTETIKO:
-            1. px-3: Odmik od robov levo/desno
-            2. pb-4: (Prej 3) Več prostora spodaj, da ne izgleda "odrezano"
-            3. pt-2: (Prej 0) Malo prostora zgoraj, da se loči od naslova/slike
-            4. leading-relaxed: Večji razmik med vrsticami, da tekst diha
-            5. text-gray-500: Rahlo svetlejši tekst za hierarhijo
-        */}
+        {/* TUKAJ JE SPREMEMBA: line-clamp-3 (3 vrstice) */}
         <div className="px-3 pb-4 pt-2 md:hidden">
-            <p className="line-clamp-2 text-[13px] leading-relaxed text-gray-500 dark:text-gray-400">
+            <p className="line-clamp-3 text-[13px] leading-relaxed text-gray-500 dark:text-gray-400">
                {news.contentSnippet}
             </p>
         </div>
