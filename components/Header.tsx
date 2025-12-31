@@ -10,15 +10,15 @@ import { motion, AnimatePresence } from 'framer-motion'
 
 // --- HELPER ZA BARVE ---
 const getCategoryColor = (colorClass: string) => {
-  if (colorClass.includes('emerald')) return '#10b981' // Slovenija
-  if (colorClass.includes('blue')) return '#3b82f6'    // Svet
-  if (colorClass.includes('red')) return '#ef4444'     // Kronika
-  if (colorClass.includes('green')) return '#22c55e'   // Šport
-  if (colorClass.includes('slate')) return '#64748b'   // Posel & Tech
-  if (colorClass.includes('orange')) return '#f97316'  // Moto
-  if (colorClass.includes('purple')) return '#a855f7'  // Kultura
-  if (colorClass.includes('pink')) return '#ec4899'    // Magazin
-  return '#6366f1' // Default
+  if (colorClass.includes('emerald')) return '#10b981'
+  if (colorClass.includes('blue')) return '#3b82f6'
+  if (colorClass.includes('red')) return '#ef4444'
+  if (colorClass.includes('green')) return '#22c55e'
+  if (colorClass.includes('slate')) return '#64748b'
+  if (colorClass.includes('orange')) return '#f97316'
+  if (colorClass.includes('purple')) return '#a855f7'
+  if (colorClass.includes('pink')) return '#ec4899'
+  return '#6366f1'
 }
 
 type Props = {
@@ -140,19 +140,33 @@ export default function Header({
                   <Image src="/logo.png" alt="Logo" fill className="object-contain" />
                 </div>
                 <div className="flex flex-col justify-center">
-                  {/* LOGO FONT - Playfair Display (via global font-serif) */}
                   <span className="text-2xl font-serif font-bold tracking-tight text-gray-900 dark:text-white leading-none">
                       Križišče
                   </span>
                   
-                  {/* PODNAPIS */}
                   <span className="text-xs font-medium tracking-wide text-gray-500 dark:text-gray-400 leading-none mt-1">
                       Zadnje novice slovenskih medijev
                   </span>
                 </div>
             </Link>
 
-            {/* --- FRESH NEWS PILL --- */}
+            {/* ----------------------------------------------------------------------- */}
+            {/* --- NOVOLETNI NAPIS (ZAČETEK) - POBRIŠI PO PRAZNIKIH ------------------ */}
+            {/* ----------------------------------------------------------------------- */}
+            <div className="hidden md:flex items-center ml-2 pl-4 border-l border-gray-200 dark:border-gray-700 h-8">
+               <span className="
+                  text-sm font-serif italic font-medium tracking-wide
+                  bg-gradient-to-r from-yellow-500 to-amber-600 dark:from-yellow-400 dark:to-amber-500
+                  bg-clip-text text-transparent
+                  animate-pulse cursor-default select-none
+               ">
+                  Srečno 2026! ✨
+               </span>
+            </div>
+            {/* ----------------------------------------------------------------------- */}
+            {/* --- NOVOLETNI NAPIS (KONEC) ------------------------------------------- */}
+            {/* ----------------------------------------------------------------------- */}
+
             <AnimatePresence initial={false}>
                 {hasNew && !refreshing && isHome && (
                 <motion.button
@@ -186,7 +200,6 @@ export default function Header({
           {/* DESNO: Search + Orodja */}
           <div className="flex items-center gap-2 md:gap-4 shrink-0 ml-auto">
             
-            {/* SEARCH (Desktop only) */}
             {isHome && (
               <div className="hidden md:block w-64 lg:w-80">
                 <form onSubmit={handleSubmit} className="relative group">
