@@ -306,12 +306,8 @@ export default function ArticleCard({ news, priority = false }: Props) {
         </div>
 
         {/* --- MOBILE SNIPPET (PODNASLOV) --- */}
-        {/* IZBOLJŠAVE:
-            1. px-3 pb-3 pt-1: Uravnotežen padding. Spodaj in ob straneh enak, zgoraj manjši (da se drži naslova).
-            2. hyphens-auto: Dovolimo deljenje besed z vezajem (nujno za ozke stolpce).
-            3. text-pretty: Optimizira prelom vrstic za lepši izgled.
-        */}
-        <div className="px-3 pb-3 pt-1 md:hidden">
+        {/* SPREMEMBA: px-3 py-3 (enakomeren odmik zgoraj in spodaj) */}
+        <div className="px-3 py-3 md:hidden">
             <p className="line-clamp-3 text-[13px] leading-snug text-gray-500 dark:text-gray-400 hyphens-auto text-pretty">
                {news.contentSnippet}
             </p>
