@@ -254,9 +254,7 @@ export default function ArticleCard({ news, priority = false }: Props) {
                           ring-1 ring-black/10 dark:ring-white/10 text-gray-700 dark:text-gray-200
                           bg-white/80 dark:bg-gray-900/80 backdrop-blur transition-opacity duration-150 transform-gpu
                           
-                          /* Mobile: desno spodaj */
                           bottom-1 right-1
-                          /* Desktop: desno zgoraj */
                           md:bottom-auto md:top-2 md:right-2
 
                           ${showEye ? 'opacity-100' : 'opacity-0'} ${isTouch ? '' : 'md:opacity-0 md:group-hover:opacity-100'}`}
@@ -308,9 +306,13 @@ export default function ArticleCard({ news, priority = false }: Props) {
         </div>
 
         {/* --- MOBILE SNIPPET (PODNASLOV) --- */}
-        {/* TUKAJ JE SPREMEMBA: line-clamp-3 (3 vrstice) */}
-        <div className="px-3 pb-4 pt-2 md:hidden">
-            <p className="line-clamp-3 text-[13px] leading-relaxed text-gray-500 dark:text-gray-400">
+        {/* IZBOLJŠAVE:
+            1. px-3 pb-3 pt-1: Uravnotežen padding. Spodaj in ob straneh enak, zgoraj manjši (da se drži naslova).
+            2. hyphens-auto: Dovolimo deljenje besed z vezajem (nujno za ozke stolpce).
+            3. text-pretty: Optimizira prelom vrstic za lepši izgled.
+        */}
+        <div className="px-3 pb-3 pt-1 md:hidden">
+            <p className="line-clamp-3 text-[13px] leading-snug text-gray-500 dark:text-gray-400 hyphens-auto text-pretty">
                {news.contentSnippet}
             </p>
         </div>
