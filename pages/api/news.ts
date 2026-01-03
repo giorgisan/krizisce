@@ -128,7 +128,6 @@ function feedItemToDbRow(item: FeedNewsItem) {
     categories: [] 
   })
 
-  // ZAGOTOVIMO KLJUČNE BESEDE
   let kws = item.keywords;
   if (!kws || kws.length === 0) {
       const text = title + ' ' + (snippet || '');
@@ -177,7 +176,6 @@ async function syncToSupabase(items: FeedNewsItem[]) {
   }
 }
 
-// --- TIPI ---
 type Row = {
   id: number
   link: string
@@ -223,7 +221,6 @@ const TREND_MIN_SOURCES = 2
 const TREND_MIN_OVERLAP = 2
 const TREND_MAX_ITEMS = 5
 const TREND_HOT_CUTOFF_HOURS = 4
-
 const TREND_JACCARD_THRESHOLD = 0.20; 
 
 type StoryArticle = {
@@ -478,7 +475,8 @@ export default async function handler(
     // --- 3. PRIPRAVA POIZVEDBE (GET NEWS) ---
     const limitParam = parseInt(String(req.query.limit), 10)
     const defaultLimit = 25 
-    const limit = Math.min(Math.max(limitParam || defaultLimit, 1), 100)
+    // POVEČAN MAX LIMIT NA 300 (Za potrebe arhiva)
+    const limit = Math.min(Math.max(limitParam || defaultLimit, 1), 300)
     const cursor = req.query.cursor ? Number(req.query.cursor) : null
 
     // Glavni query
@@ -502,8 +500,18 @@ export default async function handler(
         q = q.in('source', sources)
       }
     }
-    
-    if (cursor && cursor > 0) q = q.lt('publishedat', cursor)
+
+    // --- SPREMEMBA: Datumsko filtriranje ---
+    const dateFrom = req.query.from ? Number(req.query.from) : null
+    const dateTo = req.query.to ? Number(req.query.to) : null
+
+    if (dateFrom && dateTo) {
+        // Če imamo točen razpon, filtriramo po njem
+        q = q.gte('publishedat', dateFrom).lt('publishedat', dateTo)
+    } else if (cursor && cursor > 0) {
+        // Cursor uporabimo samo, če NI datumskega filtra (oziroma za "Load more")
+        q = q.lt('publishedat', cursor)
+    }
 
     if (category && category !== 'vse') {
       if (category === 'ostalo') {
@@ -520,19 +528,12 @@ export default async function handler(
         const stems = generateKeywords(rawTag);
         
         if (stems.length > 0) {
-            // SPREMEMBA: Uporabimo .overlaps() namesto .contains()
-            // To pomeni: Daj mi novice, ki imajo VSAJ ENO od teh ključnih besed.
-            // Primer: Tag "Hiša luksuzno" -> stems ["his", "luksuzn"]
-            // Članek ima "hiška" (stem "hisk") in "luksuzno" (stem "luksuzn").
-            // .contains bi iskal ["his" IN "luksuzn"] -> 0 rezultatov (ker "his" manjka)
-            // .overlaps išče ["his" ALI "luksuzn"] -> Najde članek (ker ima "luksuzn")
+            // Uporabimo .overlaps() za "ALI" logiko (bolj varno)
             q = q.overlaps('keywords', stems);
         } else {
-             // Fallback, če stemmer ne vrne ničesar
              q = q.ilike('title', `%${rawTag}%`);
         }
-    }
-    
+    } 
     // B) SPLOŠNO ISKANJE (Vpis v search bar)
     if (searchQuery && searchQuery.trim().length > 0) {
         const rawTerm = searchQuery.trim();
@@ -565,6 +566,7 @@ export default async function handler(
     const rows = (data || []) as Row[]
     const rawItems = rows.map(rowToItem)
     
+    // Uporabimo softDedupe, ki poskrbi za čistejši seznam
     const items = softDedupe(rawItems).sort((a, b) => b.publishedAt - a.publishedAt)
     
     const nextCursor = rows.length === limit ? (rows[rows.length - 1].publishedat ? Number(rows[rows.length - 1].publishedat) : null) : null
