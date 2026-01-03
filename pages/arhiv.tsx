@@ -15,28 +15,9 @@ import Header from '@/components/Header'
 import Footer from '@/components/Footer'
 import SeoHead from '@/components/SeoHead'
 import { sourceColors } from '@/lib/sources'
+import { NewsItem } from '@/types' // Uporabimo skupni tip
 
-type ApiItem = {
-  id: string
-  link: string
-  title: string
-  source: string
-  published_at?: string | null
-  publishedat?: number | null
-  summary?: string | null
-  contentsnippet?: string | null
-  description?: string | null
-  content?: string | null
-}
-type ApiOk = {
-  items: ApiItem[]
-  counts: Record<string, number>
-  total: number
-  nextCursor: string | null
-  fallbackLive?: boolean
-}
-type ApiPayload = ApiOk | { error: string }
-
+// Helperji za datum
 const yyyymmdd = (d: Date) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 
@@ -60,6 +41,7 @@ const norm = (s: string) => {
   }
 }
 
+// Highlight iskanega niza
 const highlight = (txt: string, q: string) => {
   if (!q) return txt
   const t = txt ?? ''
@@ -109,35 +91,12 @@ const highlight = (txt: string, q: string) => {
   return <>{out}</>
 }
 
-const tsOf = (a: ApiItem) => {
-  const t1 = a.published_at ? Date.parse(a.published_at) : NaN
-  if (Number.isFinite(t1)) return t1
-  const t2 = a.publishedat != null ? Number(a.publishedat) : NaN
-  return Number.isFinite(t2) ? t2 : 0
-}
-
-// globalni comparator, da ga ne delamo na novo na vsak render
-const sortDesc = (a: ApiItem, b: ApiItem) => tsOf(b) - tsOf(a) || Number(a.id) - Number(b.id)
-
 // ---- TIME HELPERS (DST-safe lokalni dan) ----
 const dayBoundsLocal = (iso: string) => {
   const [y, m, d] = iso.split('-').map(Number)
   const start = new Date(y, (m ?? 1) - 1, d ?? 1, 0, 0, 0, 0).getTime()
   const end = new Date(y, (m ?? 1) - 1, (d ?? 1) + 1, 0, 0, 0, 0).getTime()
   return { start, end }
-}
-
-/** Normalizira epoch – če bi kdaj dobil sekunde, pretvori v ms. */
-const epochMsOf = (x: number) => (x < 1e11 ? x * 1000 : x)
-
-/** Trdo filtriranje elementov na lokalni dan [start, end). */
-const filterToLocalDay = (items: ApiItem[], iso: string) => {
-  const { start, end } = dayBoundsLocal(iso)
-  return items.filter((it) => {
-    const t = tsOf(it)
-    const ms = epochMsOf(t)
-    return ms >= start && ms < end
-  })
 }
 
 const relativeTime = (ms: number) => {
@@ -159,43 +118,6 @@ const fmtClock = (ms: number) => {
   } catch {
     return ''
   }
-}
-
-/* ---------- Fallback: Supabase ---------- */
-
-async function supabaseFetchDay(iso: string, limit = 250, cursor?: number | null) {
-  const { createClient } = await import('@supabase/supabase-js')
-  const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL as string
-  const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string
-  const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-    auth: { persistSession: false },
-  })
-
-  const { start, end } = dayBoundsLocal(iso)
-
-  let q = supabase
-    .from('news')
-    .select(
-      'id, link, title, source, published_at, publishedat, summary, contentsnippet, description, content',
-    )
-    .gte('publishedat', start)
-    .lt('publishedat', end)
-    .order('publishedat', { ascending: false })
-    .order('id', { ascending: false })
-    .limit(limit)
-
-  if (cursor && Number.isFinite(cursor)) q = q.lt('publishedat', cursor)
-
-  const { data, error } = await q
-  if (error) throw error
-
-  const items = (data ?? []) as ApiItem[]
-  const nextCursor =
-    items.length === limit
-      ? Number(items[items.length - 1]?.publishedat) || null
-      : null
-
-  return { items, nextCursor }
 }
 
 /* ======================== Calendar popover (nespremenjeno) ======================== */
@@ -254,7 +176,7 @@ function CalendarPopover({
     setPos({ top: r.bottom + 6 + window.scrollY, left: r.left + window.scrollX })
   }, [open, anchorRef])
 
-  const todayISO2 = todayISO // samo, da lint ne teži
+  const todayISO2 = todayISO 
 
   if (!open || !pos) return null
   return (
@@ -366,7 +288,7 @@ function CalendarPopover({
 
 export default function ArchivePage() {
   const [date, setDate] = useState(() => yyyymmdd(new Date()))
-  const [items, setItems] = useState<ApiItem[]>([])
+  const [items, setItems] = useState<NewsItem[]>([])
   const [counts, setCounts] = useState<Record<string, number>>({})
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
@@ -376,9 +298,9 @@ export default function ArchivePage() {
   const [isDateOpen, setIsDateOpen] = useState(false)
   const dateWrapRef = useRef<HTMLDivElement | null>(null)
 
-  // full-day fetch with cursor paging (API -> fallback Supabase)
   const abortRef = useRef<AbortController | null>(null)
 
+  // GLAVNA FUNKCIJA ZA PRENOS (Posodobljeno na api/news)
   async function fetchAll(d: string) {
     if (abortRef.current) abortRef.current.abort()
     const ctrl = new AbortController()
@@ -386,97 +308,64 @@ export default function ArchivePage() {
     setLoading(true)
     setErrorMsg(null)
 
-    const LIMIT = 250
-
-    // 1) API (Vercel)
     try {
-      let cursor: string | null = null
-      let acc: ApiItem[] = []
-      const seen = new Set<string>()
+      // 1. Izračunamo časovni okvir
+      const { start, end } = dayBoundsLocal(d)
 
-      while (true) {
-        const qs = new URLSearchParams({ date: d, limit: String(LIMIT) })
-        if (cursor) qs.set('cursor', cursor)
-        qs.set('_t', String(Date.now()))
-        const res = await fetch(`/api/archive?${qs.toString()}`, {
-          cache: 'no-store',
-          signal: ctrl.signal,
+      // 2. Fetch statistike (ločen API)
+      fetch(`/api/archive?date=${d}`, { signal: ctrl.signal })
+        .then(res => res.json())
+        .then(data => {
+             if (data.counts) setCounts(data.counts)
         })
-        const data: ApiPayload = await res
-          .json()
-          .catch(() => ({ error: 'Neveljaven odgovor' }))
+        .catch(() => {}) // Ignoriramo napake statistike
 
-        if (!res.ok || 'error' in data)
-          throw new Error('Napaka pri nalaganju arhiva')
-
-        for (const it of data.items) {
-          if (!seen.has(it.link)) {
-            seen.add(it.link)
-            acc.push(it)
-          }
-        }
-
-        if (!data.nextCursor) break
-        cursor = data.nextCursor
-        // pusti event loopu malo zraka
-        await new Promise((r) => setTimeout(r, 0))
-      }
-
-      // enkrat na koncu: filtriraj na dan, sortiraj, izračunaj counts
-      const clamped = filterToLocalDay(acc, d).sort(sortDesc)
-
-      const c: Record<string, number> = {}
-      for (const it of clamped) {
-        c[it.source] = (c[it.source] || 0) + 1
-      }
-
-      setItems(clamped)
-      setCounts(c)
-      setLoading(false)
-      return
-    } catch {
-      // nadaljuj na Supabase fallback
-    }
-
-    // 2) Fallback: Supabase (anon)
-    try {
+      // 3. Fetch novic (api/news) - z paginacijo če je potrebno
+      const LIMIT = 300 // Povečan limit na backendu
+      let allNews: NewsItem[] = []
       let cursor: number | null = null
-      let acc: ApiItem[] = []
-      const seen = new Set<string>()
-
+      
       while (true) {
-        const { items: pageItems, nextCursor } = await supabaseFetchDay(
-          d,
-          LIMIT,
-          cursor,
-        )
+          const qs = new URLSearchParams({
+              from: String(start),
+              to: String(end),
+              limit: String(LIMIT),
+              paged: '1',
+              _t: String(Date.now()) // cache bust
+          })
+          if (cursor) qs.set('cursor', String(cursor))
 
-        for (const it of pageItems) {
-          if (!seen.has(it.link)) {
-            seen.add(it.link)
-            acc.push(it)
+          const res = await fetch(`/api/news?${qs.toString()}`, { signal: ctrl.signal })
+          if (!res.ok) throw new Error('Napaka pri prenosu novic')
+          
+          const data = await res.json()
+          const pageItems = data.items || []
+          
+          // Ker API že dela deduplikacijo (softDedupe), lahko samo dodajamo,
+          // ampak za vsak slučaj preverimo podvojene povezave
+          const existingLinks = new Set(allNews.map(n => n.link))
+          for (const item of pageItems) {
+              if (!existingLinks.has(item.link)) {
+                  allNews.push(item)
+                  existingLinks.add(item.link)
+              }
           }
-        }
 
-        if (!nextCursor) break
-        cursor = nextCursor
-        await new Promise((r) => setTimeout(r, 0))
+          if (!data.nextCursor) break
+          cursor = data.nextCursor
       }
 
-      const clamped = filterToLocalDay(acc, d).sort(sortDesc)
-
-      const c: Record<string, number> = {}
-      for (const it of clamped) {
-        c[it.source] = (c[it.source] || 0) + 1
-      }
-
-      setItems(clamped)
-      setCounts(c)
-    } catch (e) {
-      if (!abortRef.current?.signal.aborted)
+      setItems(allNews)
+      
+    } catch (e: any) {
+      if (e.name !== 'AbortError') {
         setErrorMsg('Arhiva trenutno ni mogoče naložiti.')
+        console.error(e)
+      }
     } finally {
-      setLoading(false)
+      if (!ctrl.signal.aborted) {
+          setLoading(false)
+      }
     }
   }
 
@@ -484,29 +373,6 @@ export default function ArchivePage() {
     fetchAll(date)
     return () => abortRef.current?.abort()
   }, [date])
-
-  // auto-refresh for today
-  const todayStr = useMemo(() => yyyymmdd(new Date()), [])
-  const latestTsRef = useRef<number>(0)
-  useEffect(() => {
-    latestTsRef.current = items.length ? tsOf(items[0]) : 0
-  }, [items])
-  useEffect(() => {
-    if (date !== todayStr) return
-    const t = setInterval(async () => {
-      if (document.hidden || !latestTsRef.current) return
-      try {
-        const res = await fetch(
-          `/api/archive?date=${encodeURIComponent(date)}&limit=1&_t=${Date.now()}`,
-          { cache: 'no-store' },
-        )
-        const data: any = await res.json()
-        const newest = (data?.items?.length ? tsOf(data.items[0]) : 0) || 0
-        if (newest > latestTsRef.current) await fetchAll(date)
-      } catch {}
-    }, 60_000)
-    return () => clearInterval(t)
-  }, [date, todayStr])
 
   const deferredSearch = useDeferredValue(search)
 
@@ -517,14 +383,9 @@ export default function ArchivePage() {
       .filter((it) => {
         if (!q) return true
         const summary =
-          (it.summary ??
-            it.contentsnippet ??
-            it.description ??
-            it.content ??
-            '') || ''
+          (it.contentSnippet ?? '') || ''
         return norm(`${it.title} ${summary} ${it.source}`).includes(q)
       })
-    // brez .sort — items so že sortirani v fetchAll
   }, [items, deferredSearch, sourceFilter])
 
   const displayCounts = useMemo(
@@ -552,7 +413,7 @@ export default function ArchivePage() {
     })
   }
 
-  const isSelectedToday = date === todayStr
+  const isSelectedToday = date === yyyymmdd(new Date())
   const timeForRow = (ms: number) => {
     if (!isSelectedToday) return fmtClock(ms)
     const rowDay = yyyymmdd(new Date(ms))
@@ -560,16 +421,14 @@ export default function ArchivePage() {
   }
 
   // Handlers za –1 / +1 dan
+  const todayStr = yyyymmdd(new Date())
   const goPrevDay = () => onPickDate(isoPlusDays(date, -1))
   const goNextDay = () => {
     const next = isoPlusDays(date, +1)
     if (next > todayStr) return
     onPickDate(next)
   }
-  const nextDisabled = useMemo(
-    () => isoPlusDays(date, +1) > todayStr,
-    [date, todayStr],
-  )
+  const nextDisabled = isoPlusDays(date, +1) > todayStr
 
   return (
     <>
@@ -885,15 +744,8 @@ export default function ArchivePage() {
                       const link = it.link
                       const src = it.source
                       const hex = sourceColors[src] || '#7c7c7c'
-                      const ts = tsOf(it)
-                      const summary =
-                        (
-                          it.summary ??
-                          it.contentsnippet ??
-                          it.description ??
-                          it.content ??
-                          ''
-                        ).trim()
+                      const ts = it.publishedAt
+                      const summary = (it.contentSnippet ?? '').trim()
 
                       return (
                         <li key={`${link}-${i}`} className="px-2 sm:px-3 py-1">
