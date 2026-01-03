@@ -21,7 +21,7 @@ export type CategoryDef = {
 }
 
 // ============================================================================
-// 1. DEFINICIJE KATEGORIJ IN KLJUČNIH BESED
+// 1. DEFINICIJE KATEGORIJ IN KLJUČNIH BESED (OPTIMIZIRANO)
 // ============================================================================
 export const CATEGORIES: CategoryDef[] = [
   {
@@ -131,7 +131,7 @@ export const CATEGORIES: CategoryDef[] = [
     label: 'Magazin',
     color: 'bg-pink-100 text-pink-800 dark:bg-pink-900/40 dark:text-pink-300',
     keywords: [
-        '/magazin/', '/scena/', '/zvezde/', '/zabava/', '/traci/', '/bulvar/', '/ljudje/',
+        '/magazin/', '/scena/', '/zvezde/', '/zabava/', '/zabava-in-slog/', '/znani/', '/traci/', '/bulvar/', '/ljudje/',
         'kardashian', 'jenner', 'royal', 'kraljev', 'harry', 'meghan', 'william', 'kate',
         'jagger', 'madonna', 'shakira', 'swift', 'beyonc', 'severin', 'prijovic', 'lepa bren', 'ceca',
         'chal', 'bas', // 'sale' odstranjen
@@ -216,8 +216,8 @@ export function determineCategory(item: {
   if (url.includes('/kronika/') || url.includes('/crna-kronika/') || url.includes('/crna/')) return 'kronika';
   if (url.includes('/sport/') || url.includes('/sportal/') || url.includes('/nogomet/') || url.includes('/kosarka/') || url.includes('/zimski-sporti/')) return 'sport';
   if (url.includes('/avto/') || url.includes('/avtomoto/') || url.includes('/mobilnost/')) return 'moto';
-  // Dodana /karikatura/ in /zabava/
-  if (url.includes('/magazin/') || url.includes('/bulvar/') || url.includes('/scena/') || url.includes('/zvezde/') || url.includes('/popin/') || url.includes('/karikatura/')) return 'magazin';
+  // Dodana /karikatura/ in /zabava/ ter /znani/ in /zabava-in-slog/
+  if (url.includes('/magazin/') || url.includes('/bulvar/') || url.includes('/scena/') || url.includes('/zvezde/') || url.includes('/popin/') || url.includes('/karikatura/') || url.includes('/zabava/') || url.includes('/zabava-in-slog/') || url.includes('/znani/')) return 'magazin';
   // Dodana /osebna-rast/ in vizita
   if (url.includes('/lifestyle/') || url.includes('/zdravje/') || url.includes('/okusno/') || url.includes('/kulinarika/') || url.includes('/dom/') || url.includes('/osebna-rast/') || url.includes('vizita')) return 'lifestyle';
   if (url.includes('/gospodarstvo/') || url.includes('/posel/') || url.includes('/finance/') || url.includes('/digisvet/') || url.includes('/tech/')) return 'posel-tech';
