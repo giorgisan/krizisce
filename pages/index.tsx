@@ -382,122 +382,128 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
 
       <main className="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white pb-8">
         
-        {/* --- KOMPAKTNA ZGORNJA VRSTICA --- */}
-        <div className="px-4 md:px-8 lg:px-16 pt-4 pb-2 flex flex-col md:flex-row md:items-center gap-4 border-b border-transparent">
-            
-           {/* LEVA STRAN */}
-           <div className="flex items-center justify-between md:justify-start gap-4">
-               {selectedCategory === 'vse' ? (
-                 <div className="scale-90 origin-left shrink-0">
-                   <NewsTabs active={mode} onChange={handleTabChange} />
-                 </div>
-               ) : (
-                 <span className="text-2xl font-bold tracking-tight capitalize">
-                   {currentCategoryLabel}
-                 </span>
-               )}
+        {/* --- POPRAVEK: DODAN WRAPPER ZA CENTRIRANJE --- */}
+        <div className="max-w-[1800px] mx-auto w-full">
 
-               {selectedSources.length > 0 && (
-                 <div className="md:hidden flex items-center gap-2">
-                    <div className="text-xs text-brand font-medium border border-brand/20 bg-brand/5 px-2 py-1 rounded">
-                      {selectedSources.length}
-                    </div>
-                    <button onClick={() => setSelectedSources([])}>✕</button>
-                 </div>
-               )}
-           </div>
-
-           {/* DESNA STRAN: Trending bar */}
-           {mode === 'latest' && selectedCategory === 'vse' && !searchQuery && !tagQuery && (
-              <div className="flex-1 min-w-0 overflow-hidden">
-                 <TrendingBar 
-                   words={initialTrendingWords}
-                   selectedWord={tagQuery || searchQuery} 
-                   onSelectWord={handleTrendingClick} 
-                 />
-              </div>
-           )}
-           
-           {selectedSources.length > 0 && (
-             <div className="hidden md:flex items-center gap-2 ml-auto shrink-0">
-                <div className="text-xs text-brand font-medium border border-brand/20 bg-brand/5 px-2 py-1 rounded whitespace-nowrap">
-                  Filtri: {selectedSources.length}
-                </div>
-                <button 
-                  onClick={() => setSelectedSources([])} 
-                  className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md" 
-                >
-                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                   </svg>
-                </button>
-             </div>
-           )}
-        </div>
-
-        {/* --- VSEBINA --- */}
-        <div className="px-4 md:px-8 lg:px-16 mt-4">
-            
-            {(searchQuery || tagQuery) && (
-            <div className="mb-6 flex items-center gap-2">
-                <span className="text-sm text-gray-500">
-                    Rezultati za: <span className="font-bold text-gray-900 dark:text-white">"{tagQuery || searchQuery}"</span>
-                </span>
-                <button 
-                    onClick={() => {
-                        setSearchQuery('');
-                        setTagQuery('');
-                    }}
-                    className="text-xs px-2 py-1 bg-gray-200 dark:bg-gray-800 rounded-md hover:bg-gray-300 dark:hover:bg-gray-700 transition-colors"
-                >
-                    Počisti ✕
-                </button>
-            </div>
-            )}
-
-            {/* SPINNER se prikaže, če osvežujemo in ni novic (še) */}
-            {isRefreshing && visibleNews.length === 0 ? (
-                <div className="flex flex-col items-center justify-center pt-20 pb-20">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand mb-4"></div>
-                    <p className="opacity-60">Iščem novice ...</p>
-                </div>
-            ) : visibleNews.length === 0 ? (
-                <div className="flex flex-col items-center justify-center pt-20 pb-20 text-center">
-                    {(searchQuery || tagQuery) ? (
-                        <p className="opacity-60">Ni rezultatov za iskanje &quot;{tagQuery || searchQuery}&quot;.</p>
+            {/* --- KOMPAKTNA ZGORNJA VRSTICA --- */}
+            <div className="px-4 md:px-8 lg:px-16 pt-4 pb-2 flex flex-col md:flex-row md:items-center gap-4 border-b border-transparent">
+                
+                {/* LEVA STRAN */}
+                <div className="flex items-center justify-between md:justify-start gap-4">
+                    {selectedCategory === 'vse' ? (
+                      <div className="scale-90 origin-left shrink-0">
+                        <NewsTabs active={mode} onChange={handleTabChange} />
+                      </div>
                     ) : (
-                        <p className="opacity-60">Trenutno ni novic s temi filtri.</p>
+                      <span className="text-2xl font-bold tracking-tight capitalize">
+                        {currentCategoryLabel}
+                      </span>
+                    )}
+
+                    {selectedSources.length > 0 && (
+                      <div className="md:hidden flex items-center gap-2">
+                        <div className="text-xs text-brand font-medium border border-brand/20 bg-brand/5 px-2 py-1 rounded">
+                          {selectedSources.length}
+                        </div>
+                        <button onClick={() => setSelectedSources([])}>✕</button>
+                      </div>
                     )}
                 </div>
-            ) : (
-                <div className={gridClasses}>
-                    {visibleNews.map((article, i) => (
-                    <div key={article.link + '|' + i} className="col-span-1">
-                        {mode === 'trending' ? (
-                        <div className="h-full"><TrendingCard news={article as any} /></div>
+
+                {/* DESNA STRAN: Trending bar */}
+                {mode === 'latest' && selectedCategory === 'vse' && !searchQuery && !tagQuery && (
+                  <div className="flex-1 min-w-0 overflow-hidden">
+                      <TrendingBar 
+                        words={initialTrendingWords}
+                        selectedWord={tagQuery || searchQuery} 
+                        onSelectWord={handleTrendingClick} 
+                      />
+                  </div>
+                )}
+                
+                {selectedSources.length > 0 && (
+                  <div className="hidden md:flex items-center gap-2 ml-auto shrink-0">
+                    <div className="text-xs text-brand font-medium border border-brand/20 bg-brand/5 px-2 py-1 rounded whitespace-nowrap">
+                      Filtri: {selectedSources.length}
+                    </div>
+                    <button 
+                      onClick={() => setSelectedSources([])} 
+                      className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md" 
+                    >
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                  </div>
+                )}
+            </div>
+
+            {/* --- VSEBINA --- */}
+            <div className="px-4 md:px-8 lg:px-16 mt-4">
+                
+                {(searchQuery || tagQuery) && (
+                <div className="mb-6 flex items-center gap-2">
+                    <span className="text-sm text-gray-500">
+                        Rezultati za: <span className="font-bold text-gray-900 dark:text-white">"{tagQuery || searchQuery}"</span>
+                    </span>
+                    <button 
+                        onClick={() => {
+                            setSearchQuery('');
+                            setTagQuery('');
+                        }}
+                        className="text-xs px-2 py-1 bg-gray-200 dark:bg-gray-800 rounded-md hover:bg-gray-300 dark:hover:bg-gray-700 transition-colors"
+                    >
+                        Počisti ✕
+                    </button>
+                </div>
+                )}
+
+                {/* SPINNER */}
+                {isRefreshing && visibleNews.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center pt-20 pb-20">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand mb-4"></div>
+                        <p className="opacity-60">Iščem novice ...</p>
+                    </div>
+                ) : visibleNews.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center pt-20 pb-20 text-center">
+                        {(searchQuery || tagQuery) ? (
+                            <p className="opacity-60">Ni rezultatov za iskanje &quot;{tagQuery || searchQuery}&quot;.</p>
                         ) : (
-                        <ArticleCard 
-                            news={article as any} 
-                            priority={i < 10} 
-                        />
+                            <p className="opacity-60">Trenutno ni novic s temi filtri.</p>
                         )}
                     </div>
-                    ))}
-                </div>
-            )}
+                ) : (
+                    <div className={gridClasses}>
+                        {visibleNews.map((article, i) => (
+                        <div key={article.link + '|' + i} className="col-span-1">
+                            {mode === 'trending' ? (
+                            <div className="h-full"><TrendingCard news={article as any} /></div>
+                            ) : (
+                            <ArticleCard 
+                                news={article as any} 
+                                priority={i < 10} 
+                            />
+                            )}
+                        </div>
+                        ))}
+                    </div>
+                )}
 
-            {mode === 'latest' && hasMore && visibleNews.length > 0 && (
-            <div className="text-center mt-8 mb-4">
-                <button
-                onClick={handleLoadMore}
-                disabled={isLoadingMore}
-                className="px-6 py-2.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white rounded-full hover:bg-gray-50 dark:hover:bg-gray-700 transition-all shadow-sm font-medium disabled:opacity-50"
-                >
-                {isLoadingMore ? 'Nalagam...' : 'Naloži več novic'}
-                </button>
+                {mode === 'latest' && hasMore && visibleNews.length > 0 && (
+                <div className="text-center mt-8 mb-4">
+                    <button
+                    onClick={handleLoadMore}
+                    disabled={isLoadingMore}
+                    className="px-6 py-2.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white rounded-full hover:bg-gray-50 dark:hover:bg-gray-700 transition-all shadow-sm font-medium disabled:opacity-50"
+                    >
+                    {isLoadingMore ? 'Nalagam...' : 'Naloži več novic'}
+                    </button>
+                </div>
+                )}
             </div>
-            )}
-        </div>
+            
+        </div> {/* KONEC WRAPPERJA */}
+
       </main>
 
       <BackToTop threshold={200} />
@@ -541,13 +547,13 @@ export const getServerSideProps: GetServerSideProps = async ({ res }) => {
 
   if (aiData && aiData.words && Array.isArray(aiData.words) && aiData.words.length > 0) {
      trendsData = aiData.words.map((w: string) => ({ 
-        word: w, 
-        count: 1 
+       word: w, 
+       count: 1 
      }))
   } else {
      const sqlTrends = await supabase.rpc('get_trending_words', {
-         hours_lookback: 48,
-         limit_count: 8
+       hours_lookback: 48,
+       limit_count: 8
      })
      trendsData = sqlTrends.data || []
   }
