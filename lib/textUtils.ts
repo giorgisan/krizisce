@@ -10,7 +10,10 @@ const STOP_WORDS = new Set([
   'video', 'foto', 'clanek', 'novica', 'preberite', 'poglejte',
   'zakaj', 'kako', 'kaj', 'kje', 'kdaj', 'kdo',
   'zaradi', 'glede', 'proti', 'med', 'pred', 'cez', 'brez',
-  'lahko', 'mora', 'imajo', 'gre', 'pravi', 'znano', 'novo'
+  'lahko', 'mora', 'imajo', 'gre', 'pravi', 'znano', 'novo',
+  // --- NOVE STOP BESEDE (za boljše ujemanje tagov) ---
+  'dnevni', 'dnevn', 'tedenski', 'tedensk', 'mesecni', 'mesecn', 
+  'velik', 'veliki', 'mali', 'dobra', 'slaba', 'prvi', 'drugi', 'tretji'
 ]);
 
 // 2. HELPER ZA ODSTRANJEVANJE ŠUMNIKOV
