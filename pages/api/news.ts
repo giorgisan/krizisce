@@ -513,21 +513,26 @@ export default async function handler(
       }
     }
 
-    // --- 5. LOGIKA ISKANJA (POPRAVLJENO: Uporaba vseh korenov) ---
+    // --- 5. LOGIKA ISKANJA ---
     // A) HITRO ISKANJE PO TAGU (Klik na trending tag)
     if (tagQuery && tagQuery.trim().length > 0) {
         const rawTag = tagQuery.trim();
         const stems = generateKeywords(rawTag);
         
         if (stems.length > 0) {
-            // SPREMEMBA: .contains na array stolpcu (keywords) v Postgresu pomeni, 
-            // da mora vrstica vsebovati VSE elemente iz podanega arraya.
-            // To je točno to, kar želimo: "Luka Dončić" -> ["luk", "doncic"] -> mora imeti oba.
-            q = q.contains('keywords', stems);
+            // SPREMEMBA: Uporabimo .overlaps() namesto .contains()
+            // To pomeni: Daj mi novice, ki imajo VSAJ ENO od teh ključnih besed.
+            // Primer: Tag "Hiša luksuzno" -> stems ["his", "luksuzn"]
+            // Članek ima "hiška" (stem "hisk") in "luksuzno" (stem "luksuzn").
+            // .contains bi iskal ["his" IN "luksuzn"] -> 0 rezultatov (ker "his" manjka)
+            // .overlaps išče ["his" ALI "luksuzn"] -> Najde članek (ker ima "luksuzn")
+            q = q.overlaps('keywords', stems);
         } else {
-             q = q.contains('keywords', [rawTag]);
+             // Fallback, če stemmer ne vrne ničesar
+             q = q.ilike('title', `%${rawTag}%`);
         }
-    } 
+    }
+    
     // B) SPLOŠNO ISKANJE (Vpis v search bar)
     if (searchQuery && searchQuery.trim().length > 0) {
         const rawTerm = searchQuery.trim();
