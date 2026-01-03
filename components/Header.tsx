@@ -150,30 +150,6 @@ export default function Header({
                 </div>
             </Link>
 
-            {/* ----------------------------------------------------------------------- */}
-            {/* --- NOVOLETNI NAPIS (ZAČETEK) ----------------------------------------- */}
-            {/* ----------------------------------------------------------------------- */}
-            <div className="hidden md:flex items-center ml-4 pl-4 border-l border-gray-200 dark:border-gray-700 h-10 relative group overflow-visible">
-               
-               {/* Snežinke (animacija) */}
-               <div className="absolute inset-0 pointer-events-none opacity-50">
-                  <span className="absolute top-0 left-1/4 animate-[bounce_3s_infinite] text-xs">❄️</span>
-                  <span className="absolute -top-2 left-3/4 animate-[bounce_4s_infinite] text-[10px] delay-700">❄️</span>
-                  <span className="absolute top-1 right-0 animate-[bounce_5s_infinite] text-[8px] delay-300">❄️</span>
-               </div>
-
-               <span className="
-                  text-xl font-serif italic font-bold tracking-wide
-                  text-yellow-600 dark:text-yellow-400
-                  drop-shadow-sm cursor-default select-none
-                  relative z-10
-               ">
-                  Srečno 2026! ✨
-               </span>
-            </div>
-            {/* ----------------------------------------------------------------------- */}
-            {/* --- NOVOLETNI NAPIS (KONEC) ------------------------------------------- */}
-            {/* ----------------------------------------------------------------------- */}
 
             <AnimatePresence initial={false}>
                 {hasNew && !refreshing && isHome && (
