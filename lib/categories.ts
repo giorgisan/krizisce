@@ -20,7 +20,9 @@ export type CategoryDef = {
   keywords: string[] 
 }
 
-// 1. DEFINICIJE KATEGORIJ
+// ============================================================================
+// 1. DEFINICIJE KATEGORIJ IN KLJUČNIH BESED
+// ============================================================================
 export const CATEGORIES: CategoryDef[] = [
   {
     id: 'slovenija',
@@ -37,8 +39,8 @@ export const CATEGORIES: CategoryDef[] = [
         'upokojenc', 'pokojnin', 'zpis', 'socialn transfer', 'minimaln plac',
         'zdravstv', 'zdravstven dom', 'ukc', 'fides', 'cakaln dob', 'koncesij', 
         'solstv', 'ucitelj', 'matur', 'vpis', 'vrtec',
-        '/mnenja/', '/kolumne/', 'vreme', 'arso', 'napoved', 'sneg', 'dez', 'neurj', 'toc',
-        'dobrodeln', 'gasilsk zvez'
+        '/mnenja/', '/kolumne/', '/pisma/', 'vreme', 'arso', 'napoved', 'sneg', 'dez', 'neurj', 'toc',
+        'dobrodeln', 'gasilsk zvez', 'sodnik', 'diskriminaci', 'rasizem', 'vrednot'
     ]
   },
   {
@@ -134,13 +136,14 @@ export const CATEGORIES: CategoryDef[] = [
         'jagger', 'madonna', 'shakira', 'swift', 'beyonc', 'severin', 'prijovic', 'lepa bren', 'ceca',
         'chal', 'bas', // 'sale' odstranjen
         'znani', 'vplivnez', 'influencer', 'estradnik', 'zvezdnic', 'zvezdnik', 'ikon', 'bardot', 'klum',
+        'clooney', 'dick', 'dyke', // Dodana imena
         'locitev', 'poroka', 'nosecnost', 'afera', 'skandal', 'mladoporoc', 'zaroka', 'nosec', 'baby',
         'kmetija', 'sanjski', 'talent', 'zvezde plesejo', 'masterchef', 'evrovizij', 'ema',
         'kviz', 'joker', 'milijonar', 'kolo srece', 'voditelj', 'resnicnostn', 'serij', 'film', 'netflix', 'suzy',
         'horoskop', 'astro', 'zodiak', 'retrogradn', 'merkur', 'luna', 'scip', 'znamenj',
         'prerok', 'nostradamus', 'vanga', 'napoved', 'srhljiv', 'katastrof', 
         'viral', 'smesn', 'video', 'sokantn', 'ganljiv', 'tiktok', 'razhod', // 'par' odstranjen
-        'pev', 'igral', 'resnicnost'
+        'pev', 'igral', 'resnicnost', 'karikatur'
     ]
   },
   {
@@ -164,7 +167,7 @@ export const CATEGORIES: CategoryDef[] = [
         'zival', 'ljubljenck', 'pes', 'psi', 'mack', 'zavetisc', 'posvojit', 'cebel', 'medved',
         '/potovanja/', '/izleti/', '/turizem/', 
         'dopust', 'pocitnic', 'morje', 'hrib', 'izlet', 'hotel', 'kamp', 'razgled', 'potep',
-        'huj'
+        'huj', 'navad', 'vitaln'
     ]
   },
   {
@@ -177,7 +180,7 @@ export const CATEGORIES: CategoryDef[] = [
         'koncert', 'opera', 'balet', 'filharmonij', 'zbor',
         'kino', 'premier', 'oskar', 'cannes', 'liffe', 'sarajevo film',
         'knjizn', 'pisatelj', 'pesnik', 'roman', 'zbirk',
-        'dokumentarec', 'karikatur', 'strip',
+        'dokumentarec', 'karikatur', 'strip', 'reziser', 'umetnin', 'mojstrov',
         'umrl', 'pevec', 'skupin', 'bend', 'parni valjak', 'glasben'
     ]
   }
@@ -213,15 +216,18 @@ export function determineCategory(item: {
   if (url.includes('/kronika/') || url.includes('/crna-kronika/') || url.includes('/crna/')) return 'kronika';
   if (url.includes('/sport/') || url.includes('/sportal/') || url.includes('/nogomet/') || url.includes('/kosarka/') || url.includes('/zimski-sporti/')) return 'sport';
   if (url.includes('/avto/') || url.includes('/avtomoto/') || url.includes('/mobilnost/')) return 'moto';
-  if (url.includes('/magazin/') || url.includes('/bulvar/') || url.includes('/scena/') || url.includes('/zvezde/') || url.includes('/popin/')) return 'magazin';
-  if (url.includes('/lifestyle/') || url.includes('/zdravje/') || url.includes('/okusno/') || url.includes('/kulinarika/') || url.includes('/dom/')) return 'lifestyle';
+  // Dodana /karikatura/ in /zabava/
+  if (url.includes('/magazin/') || url.includes('/bulvar/') || url.includes('/scena/') || url.includes('/zvezde/') || url.includes('/popin/') || url.includes('/karikatura/')) return 'magazin';
+  // Dodana /osebna-rast/ in vizita
+  if (url.includes('/lifestyle/') || url.includes('/zdravje/') || url.includes('/okusno/') || url.includes('/kulinarika/') || url.includes('/dom/') || url.includes('/osebna-rast/') || url.includes('vizita')) return 'lifestyle';
   if (url.includes('/gospodarstvo/') || url.includes('/posel/') || url.includes('/finance/') || url.includes('/digisvet/') || url.includes('/tech/')) return 'posel-tech';
-  if (url.includes('/kultura/')) return 'kultura';
+  if (url.includes('/kultura/') || url.includes('/glasba/')) return 'kultura';
 
   // A2) ŠIBKI URL SIGNALI
+  // Dodana /mnenja/, /kolumne/, /pisma/ v Slovenija
   let urlHint: CategoryId | null = null;
   if (url.includes('/svet/') || url.includes('/tujina/')) urlHint = 'svet';
-  if (url.includes('/slovenija/') || url.includes('/lokalno/')) urlHint = 'slovenija';
+  if (url.includes('/slovenija/') || url.includes('/lokalno/') || url.includes('/mnenja/') || url.includes('/kolumne/') || url.includes('/pisma/')) urlHint = 'slovenija';
 
   // B) TOČKOVANJE VSEBINE
   const scores: Record<CategoryId, number> = {
@@ -249,9 +255,6 @@ export function determineCategory(item: {
               
               // STROŽJE UJEMANJE ZA KRATKE BESEDE
               if (token.includes(cleanConfig)) {
-                  // Če je ključna beseda krajša od 5 znakov, 
-                  // jo mora token vsebovati na začetku (koren) ali pa mora biti match
-                  // popoln. Prepovedujemo ujemanje v sredini za kratke besede.
                   if (cleanConfig.length < 5) {
                       return token === cleanConfig || token.startsWith(cleanConfig);
                   }
