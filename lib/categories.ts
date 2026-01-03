@@ -21,7 +21,7 @@ export type CategoryDef = {
 }
 
 // ============================================================================
-// 1. DEFINICIJE KATEGORIJ IN KLJUČNIH BESED (OPTIMIZIRANO)
+// 1. DEFINICIJE KATEGORIJ IN KLJUČNIH BESED (FINALNA VERZIJA)
 // ============================================================================
 export const CATEGORIES: CategoryDef[] = [
   {
@@ -71,7 +71,8 @@ export const CATEGORIES: CategoryDef[] = [
         'rop', 'vlom', 'drzn', 'pretep', 'umor', 'uboj', 'truplo', 'utonil', 'mrtv', 'smrt',
         'sodisc', 'sojenj', 'zapor', 'pripor', 'obtoznic', 'obsodb',
         'pogresan', 'iskaln', 'helikopter', 'obmocj', 'voznik', 'alkohol',
-        'petard', 'pirotehnik', 'poskodb', 'vinjen', 'vandal', 'oskrunjen', 'tragedij', 'groz'
+        'petard', 'pirotehnik', 'poskodb', 'vinjen', 'vandal', 'oskrunjen', 'tragedij', 'groz',
+        'nasil', 'tihotap', 'ponared' // DODANO: nasilje, tihotapljenje, ponarejanje
     ]
   },
   {
@@ -89,7 +90,7 @@ export const CATEGORIES: CategoryDef[] = [
         'kolesar', 'pogacar', 'roglic', 'tour', 'giro', 'vuelta',
         'tenis', 'djokovic', 'nadal', 'alkaraz', 'sabalenk', 'kyrgios',
         'plezanje', 'garnbret', 'motogp', 'formula 1', 'verstappen', 'hamilton',
-        'boks', 'joshua', 'tyson', 'fury', 'olimpijsk'
+        'boks', 'joshua', 'tyson', 'fury', 'olimpijsk', 'kolajn' // DODANO: kolajna
     ]
   },
   {
@@ -105,11 +106,11 @@ export const CATEGORIES: CategoryDef[] = [
         'energetik', 'hse', 'gen-i', 'lek', 'krka', 'petrol', 'mercator',
         'sindikat', 'zaposlitev', 'trg del', 'brezposelnost', 'plac', 'zasluzek', 'stavk',
         'poklic', 'karier', 'siht', 'izvoz', 'panog',
-        'nepremicninski trg', 'stanovanjsk sklad', 'gradbenistv', 'novogradnj',
+        'nepremicninski trg', 'stanovanjsk sklad', 'gradbenistv', 'novogradnj', 'nepremicnin', // DODANO: nepremicnin
         'naft', 'bencin', 'dizel', 'cen goriv', 'elektricn energij',
         'apple', 'iphone', 'samsung', 'xiaomi', 'huawei', 'sony', 'microsoft', 'google', 'meta', 'twitter',
         'umetn inteligenc', 'chatgpt', 'openai', 'robotik', 'vesolj', 'nasa', 'spacex',
-        'aplikacij', 'programiranj', 'kibernetsk', 'heker', 'prevar', 'znanstven', 'splet'
+        'aplikacij', 'programiranj', 'kibernetsk', 'heker', 'prevar', 'znanstven', 'splet', 'telef', 'mobiln' // DODANO: telefon, mobilnik
     ]
   },
   {
@@ -118,7 +119,7 @@ export const CATEGORIES: CategoryDef[] = [
     color: 'bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-300',
     keywords: [
         '/auto/', '/avto/', '/avtomobilizem/', '/mobilnost/', 
-        'vozil', 'model', 'premier', // 'test' odstranjen ker ujame 'protest'
+        'vozil', 'model', 'premier',
         'elektricn avto', 'tesla', 'byd', 'volkswagen', 'bmw', 'audi', 'mercedes', 'renault', 'toyota', 'dacia',
         'suv', 'limuzin', 'karavan', 'hibrid',
         'promet', 'dars', 'vinjet', 'predor', 'karavank', 'zastoj', 'radar', 'kazen',
@@ -134,15 +135,15 @@ export const CATEGORIES: CategoryDef[] = [
         '/magazin/', '/scena/', '/zvezde/', '/zabava/', '/zabava-in-slog/', '/znani/', '/traci/', '/bulvar/', '/ljudje/',
         'kardashian', 'jenner', 'royal', 'kraljev', 'harry', 'meghan', 'william', 'kate',
         'jagger', 'madonna', 'shakira', 'swift', 'beyonc', 'severin', 'prijovic', 'lepa bren', 'ceca',
-        'chal', 'bas', // 'sale' odstranjen
+        'chal', 'bas', 
         'znani', 'vplivnez', 'influencer', 'estradnik', 'zvezdnic', 'zvezdnik', 'ikon', 'bardot', 'klum',
-        'clooney', 'dick', 'dyke', // Dodana imena
+        'clooney', 'dick', 'dyke', 
         'locitev', 'poroka', 'nosecnost', 'afera', 'skandal', 'mladoporoc', 'zaroka', 'nosec', 'baby',
         'kmetija', 'sanjski', 'talent', 'zvezde plesejo', 'masterchef', 'evrovizij', 'ema',
         'kviz', 'joker', 'milijonar', 'kolo srece', 'voditelj', 'resnicnostn', 'serij', 'film', 'netflix', 'suzy',
         'horoskop', 'astro', 'zodiak', 'retrogradn', 'merkur', 'luna', 'scip', 'znamenj',
         'prerok', 'nostradamus', 'vanga', 'napoved', 'srhljiv', 'katastrof', 
-        'viral', 'smesn', 'video', 'sokantn', 'ganljiv', 'tiktok', 'razhod', // 'par' odstranjen
+        'viral', 'smesn', 'video', 'sokantn', 'ganljiv', 'tiktok', 'razhod', 
         'pev', 'igral', 'resnicnost', 'karikatur'
     ]
   },
@@ -162,7 +163,7 @@ export const CATEGORIES: CategoryDef[] = [
         'ciscenj', 'pospravljanj', 'triki', 'nasvet',
         'luck', 'okrask', 'smrecic', 'jelk', 'praznicn', 'bozic', 'daril', 'obdarovan', 'dedek mraz', 'prazni',
         'poraba', 'varcevanj',
-        'odnos', 'partner', 'samsk', 'zmenk', 'toksic', 'custv', 'psiholog', 
+        'odnos', 'partner', 'samsk', 'zmenk', 'toksic', 'custv', 'psiholog', 'razmerj', 'vzgoj', // DODANO: razmerja, vzgoja
         'locitev', 'razhod', 'sreca', 'zadovoljstv', 'osamljen', 'dusn', 'dusa', 'motivacij', 'intuicij',
         'zival', 'ljubljenck', 'pes', 'psi', 'mack', 'zavetisc', 'posvojit', 'cebel', 'medved',
         '/potovanja/', '/izleti/', '/turizem/', 
