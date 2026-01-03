@@ -224,10 +224,6 @@ const TREND_MIN_OVERLAP = 2
 const TREND_MAX_ITEMS = 5
 const TREND_HOT_CUTOFF_HOURS = 4
 
-// --- NOVO: JACCARD THRESHOLD ---
-// To prepreči, da bi se novice združile, če imajo le 2 skupni besedi, 
-// a so sicer popolnoma različne (npr. "Zelenski božični večer" vs "Maribor božični večer")
-// Formula: (Skupne besede) / (Vse unikatne besede obeh naslovov)
 const TREND_JACCARD_THRESHOLD = 0.20; 
 
 type StoryArticle = {
@@ -249,7 +245,6 @@ type TrendGroup = {
   keywords: string[]
 }
 
-// --- POSODOBIL SEM SEZNAM STOP WORDS (Da izločimo praznični šum) ---
 const STORY_STOPWORDS = new Set<string>([
   'v', 'na', 'ob', 'po', 'pri', 'pod', 'nad', 'za', 'do', 'od', 'z', 's',
   'in', 'ali', 'pa', 'kot', 'je', 'so', 'se', 'bo', 'bodo', 'bil', 'bila',
@@ -270,7 +265,6 @@ const STORY_STOPWORDS = new Set<string>([
   'let', 'leta', 'leto', 'letnik', 'letnika', 'letih', 'letni', 'letna',
   'letošnji', 'letošnja', 'starost', 'star', 'stara',
   'teden', 'tedna', 'mesec', 'meseca', 'dan', 'dni', 'ura', 'ure',
-  // --- PRAZNIČNI ŠUM (To je delalo težave!) ---
   'bozic', 'bozicni', 'bozicna', 'bozicno', 'vecer', 'praznik', 'prazniki', 
   'praznicni', 'jutro', 'dopoldne', 'popoldne', 'koncu', 'zacetku', 'sredini'
 ])
@@ -331,35 +325,27 @@ function computeTrendingFromRows(rows: Row[]): (FeedNewsItem & { storyArticles: 
 
   const groups: TrendGroup[] = []
   
-  // LOGIKA GRUPIRANJA (Z Jaccard indeksom)
   for (let i = 0; i < metas.length; i++) {
     const m = metas[i]
     const mKW = m.keywords
     let attachedIndex = -1
-    let bestScore = 0 // Score zdaj ni več samo število ujemanj
+    let bestScore = 0 
     
     for (let gi = 0; gi < groups.length; gi++) {
       const g = groups[gi]
       const gKW = g.keywords
       
       let intersect = 0
-      const unionSet = new Set<string>([...gKW]) // Začnemo z besedami v grupi
+      const unionSet = new Set<string>([...gKW]) 
       
       for (let ki = 0; ki < mKW.length; ki++) {
         const kw = mKW[ki]
-        unionSet.add(kw) // Dodamo v unijo
+        unionSet.add(kw) 
         if (gKW.indexOf(kw) !== -1) intersect++
       }
 
-      // Jaccard similarity = (Intersection) / (Union)
-      // To pove, kolikšen % besed je skupnih. 
-      // Če je naslov A: "Zelenski božični" in B: "Maribor božični", je intersect 1, union 3 -> 0.33
-      // Če pa imamo veliko stopwords ("bozicni" ignoriramo), bo intersect 0.
       const jaccard = unionSet.size > 0 ? (intersect / unionSet.size) : 0;
 
-      // Kriterij: 
-      // 1. Vsaj TREND_MIN_OVERLAP skupnih besed (npr. 2)
-      // 2. IN Jaccard index dovolj visok (da nista naslova preveč različna)
       if (intersect >= TREND_MIN_OVERLAP && jaccard >= TREND_JACCARD_THRESHOLD) {
         if (jaccard > bestScore) {
           bestScore = jaccard
@@ -527,13 +513,20 @@ export default async function handler(
       }
     }
 
-    // --- 5. LOGIKA ISKANJA (FINALNO POPRAVLJENO!) ---
+    // --- 5. LOGIKA ISKANJA (POPRAVLJENO: Uporaba vseh korenov) ---
     // A) HITRO ISKANJE PO TAGU (Klik na trending tag)
     if (tagQuery && tagQuery.trim().length > 0) {
         const rawTag = tagQuery.trim();
         const stems = generateKeywords(rawTag);
-        const searchVal = stems.length > 0 ? stems[0] : rawTag;
-        q = q.contains('keywords', [searchVal]);
+        
+        if (stems.length > 0) {
+            // SPREMEMBA: .contains na array stolpcu (keywords) v Postgresu pomeni, 
+            // da mora vrstica vsebovati VSE elemente iz podanega arraya.
+            // To je točno to, kar želimo: "Luka Dončić" -> ["luk", "doncic"] -> mora imeti oba.
+            q = q.contains('keywords', stems);
+        } else {
+             q = q.contains('keywords', [rawTag]);
+        }
     } 
     // B) SPLOŠNO ISKANJE (Vpis v search bar)
     if (searchQuery && searchQuery.trim().length > 0) {
