@@ -51,15 +51,15 @@ async function loadNews(
   forceRefresh = false, 
   signal?: AbortSignal
 ): Promise<NewsItem[] | null> {
-  
+   
   const qs = new URLSearchParams()
-  
+   
   if (mode === 'trending') qs.set('variant', 'trending')
   if (source.length > 0) qs.set('source', source.join(','))
   if (category !== 'vse') qs.set('category', category)
   if (query) qs.set('q', query)
   if (tag) qs.set('tag', tag) // <--- NOVO
-  
+   
   if (forceRefresh) qs.set('_t', Date.now().toString())
 
   try {
@@ -73,7 +73,7 @@ async function loadNews(
       if (Array.isArray(data)) return data
     }
   } catch {}
-  
+   
   if (mode === 'latest' && source.length === 0 && category === 'vse' && !query && !tag && !forceRefresh) {
     return null 
   }
@@ -107,7 +107,7 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
   const [hasMore, setHasMore] = useState(true)
   const [cursor, setCursor] = useState<number | null>(null)
   const [isLoadingMore, setIsLoadingMore] = useState(false)
-  
+   
   // Stanje osveževanja (spinner)
   const [isRefreshing, setIsRefreshing] = useState(false)
 
@@ -295,7 +295,7 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
       setHasMore(false); setCursor(null)
       const now = Date.now()
       const isStale = (now - lastTrendingFetchRef.current) > 5 * 60_000
-      
+       
       if (!trendingLoaded || isStale) {
         setIsRefreshing(true) // <--- VKLOPIMO SPINNER
         try {
@@ -514,9 +514,11 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
 
 /* ================= SSR ================= */
 export const getServerSideProps: GetServerSideProps = async ({ res }) => {
+  // SPREMEMBA: Povečan čas stale-while-revalidate iz 59 na 300 (5 minut)
+  // To bo močno zmanjšalo obremenitev med "spiki"
   res.setHeader(
     'Cache-Control',
-    'public, s-maxage=60, stale-while-revalidate=59'
+    'public, s-maxage=60, stale-while-revalidate=300'
   )
 
   const { createClient } = await import('@supabase/supabase-js')
