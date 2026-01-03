@@ -475,7 +475,6 @@ export default async function handler(
     // --- 3. PRIPRAVA POIZVEDBE (GET NEWS) ---
     const limitParam = parseInt(String(req.query.limit), 10)
     const defaultLimit = 25 
-    // POVEČAN MAX LIMIT NA 300 (Za potrebe arhiva)
     const limit = Math.min(Math.max(limitParam || defaultLimit, 1), 300)
     const cursor = req.query.cursor ? Number(req.query.cursor) : null
 
@@ -501,15 +500,17 @@ export default async function handler(
       }
     }
 
-    // --- SPREMEMBA: Datumsko filtriranje ---
+    // --- SPREMEMBA: Datumsko filtriranje + cursor ---
     const dateFrom = req.query.from ? Number(req.query.from) : null
     const dateTo = req.query.to ? Number(req.query.to) : null
 
     if (dateFrom && dateTo) {
         // Če imamo točen razpon, filtriramo po njem
         q = q.gte('publishedat', dateFrom).lt('publishedat', dateTo)
-    } else if (cursor && cursor > 0) {
-        // Cursor uporabimo samo, če NI datumskega filtra (oziroma za "Load more")
+    } 
+    
+    // Kursor (Paginacija) - DELUJE TUDI V KOMBINACIJI Z DATUMOM
+    if (cursor && cursor > 0) {
         q = q.lt('publishedat', cursor)
     }
 
