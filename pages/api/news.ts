@@ -500,16 +500,15 @@ export default async function handler(
       }
     }
 
-    // --- SPREMEMBA: Datumsko filtriranje + cursor ---
+    // Datumsko filtriranje
     const dateFrom = req.query.from ? Number(req.query.from) : null
     const dateTo = req.query.to ? Number(req.query.to) : null
 
     if (dateFrom && dateTo) {
-        // Če imamo točen razpon, filtriramo po njem
         q = q.gte('publishedat', dateFrom).lt('publishedat', dateTo)
     } 
     
-    // Kursor (Paginacija) - DELUJE TUDI V KOMBINACIJI Z DATUMOM
+    // Kursor (Paginacija)
     if (cursor && cursor > 0) {
         q = q.lt('publishedat', cursor)
     }
@@ -554,7 +553,13 @@ export default async function handler(
         q = q.or(orConditions.join(','));
     }
 
-    q = q.limit(limit)
+    // -----------------------------------------------------------------------
+    // OPTIMIZACIJA: "Over-fetching"
+    // Zahtevamo več novic (limit + 20), da lahko potem dedupliciramo in še vedno 
+    // vrnemo polno število (limit).
+    // -----------------------------------------------------------------------
+    const bufferSize = 20;
+    q = q.limit(limit + bufferSize)
 
     // --- 6. IZVEDBA POIZVEDBE ---
     const { data, error } = await q
@@ -568,9 +573,14 @@ export default async function handler(
     const rawItems = rows.map(rowToItem)
     
     // Uporabimo softDedupe, ki poskrbi za čistejši seznam
-    const items = softDedupe(rawItems).sort((a, b) => b.publishedAt - a.publishedAt)
+    const dedupedItems = softDedupe(rawItems).sort((a, b) => b.publishedAt - a.publishedAt)
     
-    const nextCursor = rows.length === limit ? (rows[rows.length - 1].publishedat ? Number(rows[rows.length - 1].publishedat) : null) : null
+    // --- FINALNO REZANJE ---
+    // Odrežemo točno toliko, kot je bilo zahtevano, da ne vračamo bufferja
+    const items = dedupedItems.slice(0, limit);
+
+    // Izračunamo kursor za naslednjo stran na podlagi ZADNJEGA vrnjenega elementa
+    const nextCursor = items.length === limit ? items[items.length - 1].publishedAt : null
 
     res.setHeader('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=30') 
     if (paged) return res.status(200).json({ items, nextCursor })
