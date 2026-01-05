@@ -70,7 +70,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         5. DOLŽINA: 
            - Tag naj ima NAJVEČ 3 besede.
         
-        CILJ: Vrni do 8 kratkih, jedrnatih tagov s presledki.
+        CILJ: Vrni do 6 kratkih, jedrnatih tagov s presledki.
     `
     
     const tryGenerate = async (modelName: string) => {
