@@ -110,7 +110,8 @@ export const CATEGORIES: CategoryDef[] = [
         'naft', 'bencin', 'dizel', 'cen goriv', 'elektricn energij',
         'apple', 'iphone', 'samsung', 'xiaomi', 'huawei', 'sony', 'microsoft', 'google', 'meta', 'twitter',
         'umetn inteligenc', 'chatgpt', 'openai', 'robotik', 'vesolj', 'nasa', 'spacex',
-        'aplikacij', 'programiranj', 'kibernetsk', 'heker', 'prevar', 'znanstven', 'splet', 'telef', 'mobiln'
+        'aplikacij', 'programiranj', 'kibernetsk', 'heker', 'prevar', 'znanstven', 'splet', 'telef', 'mobiln',
+        'milijard', 'milijonar', 'bogatas', 'bogastv', 'premozenj', 'uspeh', 'karier'
     ]
   },
   {
@@ -179,6 +180,7 @@ export const CATEGORIES: CategoryDef[] = [
     keywords: [
         '/kultura/', '/umetnost/', '/knjige/', '/film/', '/glasba/', '/gledalisce/',
         'razstav', 'muzej', 'galerij', 'slikar', 'kip', 'umetnik',
+        'fotograf', 'objektiv', 'posnetek', 'kadr', // <--- DODANO NOVO!
         'koncert', 'opera', 'balet', 'filharmonij', 'zbor',
         'kino', 'premier', 'oskar', 'cannes', 'liffe', 'sarajevo film',
         'knjizn', 'pisatelj', 'pesnik', 'roman', 'zbirk',
