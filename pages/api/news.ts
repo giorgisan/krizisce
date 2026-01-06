@@ -522,14 +522,16 @@ export default async function handler(
     }
 
     // --- 5. LOGIKA ISKANJA ---
-    
+    // Iskanje v teku? (za cache control)
+    const isSearching = (tagQuery && tagQuery.trim().length > 0) || (searchQuery && searchQuery.trim().length > 0);
+
     // A) HITRO ISKANJE PO TAGU (Klik na trending tag)
     if (tagQuery && tagQuery.trim().length > 0) {
         const rawTag = tagQuery.trim();
         const stems = generateKeywords(rawTag);
         
         if (stems.length > 0) {
-            // Uporabimo .contains() za AND logiko (bolj varno)
+            // Uporabimo .contains() za AND logiko
             q = q.contains('keywords', stems);
         } else {
              q = q.ilike('title', `%${rawTag}%`);
@@ -541,24 +543,20 @@ export default async function handler(
     // -------------------------------------------------------------------------------------
     if (searchQuery && searchQuery.trim().length > 0) {
         // 1. Razbijemo iskanje na posamezne besede
-        // Primer: "Tašner Vatovec" -> ["Tašner", "Vatovec"]
         const terms = searchQuery.trim().split(/\s+/).filter(t => t.length > 1);
 
         if (terms.length > 0) {
             // 2. Za VSAKO vpisano besedo dodamo pogoj (AND logika)
             terms.forEach(term => {
-                // Beseda se mora nahajati v enem od teh treh polj:
+                // Beseda se mora nahajati v enem od teh treh polj (brez keywords):
                 const orConditions = [
                     `title.ilike.%${term}%`,
                     `summary.ilike.%${term}%`,
                     `contentsnippet.ilike.%${term}%`
                 ];
-                
-                // Iščemo samo po vidnem tekstu (brez keywords).
                 q = q.or(orConditions.join(','));
             });
         } else {
-             // Fallback varnostna mreža
              q = q.ilike('title', `%${searchQuery.trim()}%`);
         }
     }
@@ -592,13 +590,11 @@ export default async function handler(
     // Izračunamo kursor za naslednjo stran na podlagi ZADNJEGA vrnjenega elementa
     const nextCursor = items.length === limit ? items[items.length - 1].publishedAt : null
 
-    // --- POPRAVEK CACHINGA: ---
+    // --- 7. CACHE CONTROL (FIX ZA LAGGING ISKANJE) ---
     // Če iščemo, NE smemo predpomniti (no-store), da dobimo vedno sveže rezultate.
-    // Če samo listamo (latest/trending), uporabimo cache.
-    const isSearching = (tagQuery && tagQuery.trim().length > 0) || (searchQuery && searchQuery.trim().length > 0);
-
+    // Če samo listamo, uporabimo cache.
     if (isSearching) {
-        res.setHeader('Cache-Control', 'no-store, max-age=0'); // <--- TU JE FIX
+        res.setHeader('Cache-Control', 'no-store, max-age=0');
     } else {
         res.setHeader('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=30');
     }
