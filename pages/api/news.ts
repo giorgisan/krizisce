@@ -534,15 +534,16 @@ export default async function handler(
              q = q.ilike('title', `%${rawTag}%`);
         }
     } 
-    // B) SPLOŠNO ISKANJE (Vpis v search bar)
+    
+    // -------------------------------------------------------------
+    // B) SPLOŠNO ISKANJE (Vpis v search bar) - POPRAVLJENO & VARNO
+    // -------------------------------------------------------------
     if (searchQuery && searchQuery.trim().length > 0) {
         const rawTerm = searchQuery.trim();
         
-        // --- POPRAVEK: POENOSTAVLJENO ISKANJE ZA STABILNOST ---
-        // Namesto kompliciranja s ključnimi besedami (ki rušijo bazo z vejicami),
-        // iščemo preprosto ali se niz pojavi v naslovu, povzetku ali vsebini.
-        // To je najbolj robusten način in bo našel "Tina Gaber".
-        
+        // POENOSTAVLJENO: Iščemo samo po naslovu, povzetku in snippetu.
+        // Odstranil sem iskanje po keywords (keywords.cs.), ki je povzročalo napako pri "Tina Gaber".
+        // To je najbolj robustna rešitev.
         const orConditions = [
             `title.ilike.%${rawTerm}%`,
             `summary.ilike.%${rawTerm}%`,
