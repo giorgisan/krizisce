@@ -528,8 +528,8 @@ export default async function handler(
         const stems = generateKeywords(rawTag);
         
         if (stems.length > 0) {
-            // SPREMEMBA: Uporabimo .contains() namesto .overlaps() za AND logiko.
-            // S tem "Prometne nesreče Ljubljana" najde samo članke, ki imajo VSE tri besede.
+            // POPRAVEK: Uporabimo .contains() za AND logiko (vse besede morajo biti prisotne)
+            // To reši problem "Prometne nesreče Ljubljana", da ne kaže futsala
             q = q.contains('keywords', stems);
         } else {
              q = q.ilike('title', `%${rawTag}%`);
@@ -537,36 +537,27 @@ export default async function handler(
     } 
     
     // -------------------------------------------------------------------------------------
-    // B) SPLOŠNO ISKANJE (Vpis v search bar) - GOOGLE STYLE
+    // B) SPLOŠNO ISKANJE (Vpis v search bar)
     // -------------------------------------------------------------------------------------
     if (searchQuery && searchQuery.trim().length > 0) {
-        // 1. Razbijemo iskanje na posamezne besede (npr. "prometne nesreče" -> ["prometne", "nesreče"])
-        const terms = searchQuery.trim().split(/\s+/).filter(t => t.length > 1); // Ignoriramo 1-črkovne smeti
+        // 1. Razbijemo iskanje na posamezne besede
+        const terms = searchQuery.trim().split(/\s+/).filter(t => t.length > 1);
 
         if (terms.length > 0) {
             // 2. Za VSAKO besedo dodamo filter (AND logika med besedami)
-            // To pomeni: Članek mora vsebovati PRVO besedo ... IN DRUGO besedo ...
             terms.forEach(term => {
-                const stems = generateKeywords(term);
-                
-                // Za posamezno besedo pa dovolimo, da je v naslovu ALI povzetku ALI tagih
+                // Iščemo SAMO po tekstu (naslov, povzetek, snippet), BREZ keywords.
+                // To je najbolj robustna rešitev, ki preprečuje napake.
                 const conditions = [
                     `title.ilike.%${term}%`,
                     `summary.ilike.%${term}%`,
                     `contentsnippet.ilike.%${term}%`
                 ];
-
-                // Če imamo koren besede, iščemo tudi po keywords
-                if (stems.length > 0) {
-                    // Supabase 'cs' pomeni contains. Ker iščemo eno besedo, je varno.
-                    conditions.push(`keywords.cs.{${stems[0]}}`);
-                }
-
+                
                 // Dodamo pogoje za to besedo v query
                 q = q.or(conditions.join(','));
             });
         } else {
-             // Fallback, če ni validnih besed
              q = q.ilike('title', `%${searchQuery.trim()}%`);
         }
     }
