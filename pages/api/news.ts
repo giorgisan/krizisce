@@ -528,15 +528,16 @@ export default async function handler(
         const stems = generateKeywords(rawTag);
         
         if (stems.length > 0) {
-            // Uporabimo .overlaps() za "ALI" logiko (bolj varno)
-            q = q.overlaps('keywords', stems);
+            // SPREMEMBA: Uporabimo .contains() namesto .overlaps() za AND logiko.
+            // S tem "Prometne nesreče Ljubljana" najde samo članke, ki imajo VSE tri besede.
+            q = q.contains('keywords', stems);
         } else {
              q = q.ilike('title', `%${rawTag}%`);
         }
     } 
     
     // -------------------------------------------------------------------------------------
-    // B) SPLOŠNO ISKANJE (Vpis v search bar) - POPRAVLJENO IN NADGRAJENO
+    // B) SPLOŠNO ISKANJE (Vpis v search bar) - GOOGLE STYLE
     // -------------------------------------------------------------------------------------
     if (searchQuery && searchQuery.trim().length > 0) {
         // 1. Razbijemo iskanje na posamezne besede (npr. "prometne nesreče" -> ["prometne", "nesreče"])
