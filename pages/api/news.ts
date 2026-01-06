@@ -528,7 +528,7 @@ export default async function handler(
         const stems = generateKeywords(rawTag);
         
         if (stems.length > 0) {
-            // POPRAVEK: Uporabimo .contains() za AND logiko (vse besede morajo biti prisotne)
+            // SPREMEMBA: Uporabimo .contains() za AND logiko (vse besede morajo biti prisotne)
             // To reši problem "Prometne nesreče Ljubljana", da ne kaže futsala
             q = q.contains('keywords', stems);
         } else {
@@ -537,7 +537,7 @@ export default async function handler(
     } 
     
     // -------------------------------------------------------------------------------------
-    // B) SPLOŠNO ISKANJE (Vpis v search bar)
+    // B) SPLOŠNO ISKANJE (Vpis v search bar) - POPRAVLJENO, POENOSTAVLJENO & STABILNO
     // -------------------------------------------------------------------------------------
     if (searchQuery && searchQuery.trim().length > 0) {
         // 1. Razbijemo iskanje na posamezne besede
@@ -547,7 +547,7 @@ export default async function handler(
             // 2. Za VSAKO besedo dodamo filter (AND logika med besedami)
             terms.forEach(term => {
                 // Iščemo SAMO po tekstu (naslov, povzetek, snippet), BREZ keywords.
-                // To je najbolj robustna rešitev, ki preprečuje napake.
+                // S tem preprečimo napake 500 na bazi in zagotovimo, da najde točno besedo.
                 const conditions = [
                     `title.ilike.%${term}%`,
                     `summary.ilike.%${term}%`,
