@@ -537,18 +537,17 @@ export default async function handler(
     // B) SPLOŠNO ISKANJE (Vpis v search bar)
     if (searchQuery && searchQuery.trim().length > 0) {
         const rawTerm = searchQuery.trim();
-        const searchTerms = generateKeywords(rawTerm);
+        
+        // --- POPRAVEK: POENOSTAVLJENO ISKANJE ZA STABILNOST ---
+        // Namesto kompliciranja s ključnimi besedami (ki rušijo bazo z vejicami),
+        // iščemo preprosto ali se niz pojavi v naslovu, povzetku ali vsebini.
+        // To je najbolj robusten način in bo našel "Tina Gaber".
         
         const orConditions = [
             `title.ilike.%${rawTerm}%`,
             `summary.ilike.%${rawTerm}%`,
             `contentsnippet.ilike.%${rawTerm}%`
         ];
-
-        if (searchTerms.length > 0) {
-            const pgArrayLiteral = `{${searchTerms.join(',')}}`;
-            orConditions.push(`keywords.cs.${pgArrayLiteral}`);
-        }
 
         q = q.or(orConditions.join(','));
     }
