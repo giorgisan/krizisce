@@ -528,8 +528,7 @@ export default async function handler(
         const stems = generateKeywords(rawTag);
         
         if (stems.length > 0) {
-            // SPREMEMBA: Uporabimo .contains() za AND logiko (vse besede morajo biti prisotne)
-            // To reši problem "Prometne nesreče Ljubljana", da ne kaže futsala
+            // Uporabimo .contains() za AND logiko (bolj varno za več besed)
             q = q.contains('keywords', stems);
         } else {
              q = q.ilike('title', `%${rawTag}%`);
@@ -537,27 +536,30 @@ export default async function handler(
     } 
     
     // -------------------------------------------------------------------------------------
-    // B) SPLOŠNO ISKANJE (Vpis v search bar) - POPRAVLJENO, POENOSTAVLJENO & STABILNO
+    // B) SPLOŠNO ISKANJE (Vpis v search bar) - STRICT TEXT ONLY
     // -------------------------------------------------------------------------------------
     if (searchQuery && searchQuery.trim().length > 0) {
         // 1. Razbijemo iskanje na posamezne besede
+        // Primer: "Tašner Vatovec" -> ["Tašner", "Vatovec"]
         const terms = searchQuery.trim().split(/\s+/).filter(t => t.length > 1);
 
         if (terms.length > 0) {
-            // 2. Za VSAKO besedo dodamo filter (AND logika med besedami)
+            // 2. Za VSAKO vpisano besedo dodamo pogoj (AND logika)
             terms.forEach(term => {
-                // Iščemo SAMO po tekstu (naslov, povzetek, snippet), BREZ keywords.
-                // S tem preprečimo napake 500 na bazi in zagotovimo, da najde točno besedo.
-                const conditions = [
+                // Beseda se mora nahajati v enem od teh treh polj:
+                const orConditions = [
                     `title.ilike.%${term}%`,
                     `summary.ilike.%${term}%`,
                     `contentsnippet.ilike.%${term}%`
                 ];
                 
-                // Dodamo pogoje za to besedo v query
-                q = q.or(conditions.join(','));
+                // Opomba: Tukaj smo IZBRISALI iskanje po 'keywords'.
+                // Zdaj išče samo po vidnem tekstu.
+                
+                q = q.or(orConditions.join(','));
             });
         } else {
+             // Fallback varnostna mreža
              q = q.ilike('title', `%${searchQuery.trim()}%`);
         }
     }
