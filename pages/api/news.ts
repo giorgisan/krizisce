@@ -522,13 +522,14 @@ export default async function handler(
     }
 
     // --- 5. LOGIKA ISKANJA ---
+    
     // A) HITRO ISKANJE PO TAGU (Klik na trending tag)
     if (tagQuery && tagQuery.trim().length > 0) {
         const rawTag = tagQuery.trim();
         const stems = generateKeywords(rawTag);
         
         if (stems.length > 0) {
-            // Uporabimo .contains() za AND logiko (bolj varno za več besed)
+            // Uporabimo .contains() za AND logiko (bolj varno)
             q = q.contains('keywords', stems);
         } else {
              q = q.ilike('title', `%${rawTag}%`);
@@ -553,9 +554,7 @@ export default async function handler(
                     `contentsnippet.ilike.%${term}%`
                 ];
                 
-                // Opomba: Tukaj smo IZBRISALI iskanje po 'keywords'.
-                // Zdaj išče samo po vidnem tekstu.
-                
+                // Iščemo samo po vidnem tekstu (brez keywords).
                 q = q.or(orConditions.join(','));
             });
         } else {
@@ -593,7 +592,17 @@ export default async function handler(
     // Izračunamo kursor za naslednjo stran na podlagi ZADNJEGA vrnjenega elementa
     const nextCursor = items.length === limit ? items[items.length - 1].publishedAt : null
 
-    res.setHeader('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=30') 
+    // --- POPRAVEK CACHINGA: ---
+    // Če iščemo, NE smemo predpomniti (no-store), da dobimo vedno sveže rezultate.
+    // Če samo listamo (latest/trending), uporabimo cache.
+    const isSearching = (tagQuery && tagQuery.trim().length > 0) || (searchQuery && searchQuery.trim().length > 0);
+
+    if (isSearching) {
+        res.setHeader('Cache-Control', 'no-store, max-age=0'); // <--- TU JE FIX
+    } else {
+        res.setHeader('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=30');
+    }
+
     if (paged) return res.status(200).json({ items, nextCursor })
     return res.status(200).json(items)
 
