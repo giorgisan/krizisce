@@ -535,22 +535,39 @@ export default async function handler(
         }
     } 
     
-    // -------------------------------------------------------------
-    // B) SPLOŠNO ISKANJE (Vpis v search bar) - POPRAVLJENO & VARNO
-    // -------------------------------------------------------------
+    // -------------------------------------------------------------------------------------
+    // B) SPLOŠNO ISKANJE (Vpis v search bar) - POPRAVLJENO IN NADGRAJENO
+    // -------------------------------------------------------------------------------------
     if (searchQuery && searchQuery.trim().length > 0) {
-        const rawTerm = searchQuery.trim();
-        
-        // POENOSTAVLJENO: Iščemo samo po naslovu, povzetku in snippetu.
-        // Odstranil sem iskanje po keywords (keywords.cs.), ki je povzročalo napako pri "Tina Gaber".
-        // To je najbolj robustna rešitev.
-        const orConditions = [
-            `title.ilike.%${rawTerm}%`,
-            `summary.ilike.%${rawTerm}%`,
-            `contentsnippet.ilike.%${rawTerm}%`
-        ];
+        // 1. Razbijemo iskanje na posamezne besede (npr. "prometne nesreče" -> ["prometne", "nesreče"])
+        const terms = searchQuery.trim().split(/\s+/).filter(t => t.length > 1); // Ignoriramo 1-črkovne smeti
 
-        q = q.or(orConditions.join(','));
+        if (terms.length > 0) {
+            // 2. Za VSAKO besedo dodamo filter (AND logika med besedami)
+            // To pomeni: Članek mora vsebovati PRVO besedo ... IN DRUGO besedo ...
+            terms.forEach(term => {
+                const stems = generateKeywords(term);
+                
+                // Za posamezno besedo pa dovolimo, da je v naslovu ALI povzetku ALI tagih
+                const conditions = [
+                    `title.ilike.%${term}%`,
+                    `summary.ilike.%${term}%`,
+                    `contentsnippet.ilike.%${term}%`
+                ];
+
+                // Če imamo koren besede, iščemo tudi po keywords
+                if (stems.length > 0) {
+                    // Supabase 'cs' pomeni contains. Ker iščemo eno besedo, je varno.
+                    conditions.push(`keywords.cs.{${stems[0]}}`);
+                }
+
+                // Dodamo pogoje za to besedo v query
+                q = q.or(conditions.join(','));
+            });
+        } else {
+             // Fallback, če ni validnih besed
+             q = q.ilike('title', `%${searchQuery.trim()}%`);
+        }
     }
 
     // -----------------------------------------------------------------------
