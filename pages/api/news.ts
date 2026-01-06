@@ -522,7 +522,8 @@ export default async function handler(
     }
 
     // --- 5. LOGIKA ISKANJA ---
-    // Iskanje v teku? (za cache control)
+    
+    // Spremenljivka, ki pove, ali se izvaja iskanje (za cache)
     const isSearching = (tagQuery && tagQuery.trim().length > 0) || (searchQuery && searchQuery.trim().length > 0);
 
     // A) HITRO ISKANJE PO TAGU (Klik na trending tag)
@@ -531,7 +532,7 @@ export default async function handler(
         const stems = generateKeywords(rawTag);
         
         if (stems.length > 0) {
-            // Uporabimo .contains() za AND logiko
+            // Uporabimo .contains() za AND logiko (bolj varno)
             q = q.contains('keywords', stems);
         } else {
              q = q.ilike('title', `%${rawTag}%`);
@@ -543,12 +544,14 @@ export default async function handler(
     // -------------------------------------------------------------------------------------
     if (searchQuery && searchQuery.trim().length > 0) {
         // 1. Razbijemo iskanje na posamezne besede
+        // Primer: "Tašner Vatovec" -> ["Tašner", "Vatovec"]
         const terms = searchQuery.trim().split(/\s+/).filter(t => t.length > 1);
 
         if (terms.length > 0) {
             // 2. Za VSAKO vpisano besedo dodamo pogoj (AND logika)
             terms.forEach(term => {
-                // Beseda se mora nahajati v enem od teh treh polj (brez keywords):
+                // Beseda se mora nahajati v enem od teh treh polj:
+                // TUKAJ JE FIX: Odstranjen keywords.cs, samo tekstovno iskanje.
                 const orConditions = [
                     `title.ilike.%${term}%`,
                     `summary.ilike.%${term}%`,
@@ -557,6 +560,7 @@ export default async function handler(
                 q = q.or(orConditions.join(','));
             });
         } else {
+             // Fallback varnostna mreža
              q = q.ilike('title', `%${searchQuery.trim()}%`);
         }
     }
