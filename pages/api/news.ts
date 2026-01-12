@@ -540,23 +540,23 @@ export default async function handler(
     } 
     
     // -------------------------------------------------------------------------------------
-    // B) SPLOŠNO ISKANJE (Vpis v search bar) - STRICT TEXT ONLY
+    // B) SPLOŠNO ISKANJE (Vpis v search bar) - STRICT TEXT ONLY & OPTIMIZED
     // -------------------------------------------------------------------------------------
     if (searchQuery && searchQuery.trim().length > 0) {
         // 1. Razbijemo iskanje na posamezne besede
-        // Primer: "Tašner Vatovec" -> ["Tašner", "Vatovec"]
         const terms = searchQuery.trim().split(/\s+/).filter(t => t.length > 1);
 
         if (terms.length > 0) {
             // 2. Za VSAKO vpisano besedo dodamo pogoj (AND logika)
             terms.forEach(term => {
-                // Beseda se mora nahajati v enem od teh treh polj:
-                // TUKAJ JE FIX: Odstranjen keywords.cs, samo tekstovno iskanje.
+                // SPREMEMBA: Odstranili smo 'summary.ilike...', ker nima indeksa in povzroča timeout!
+                // Iščemo samo po 'title' in 'contentsnippet', ki sta hitra.
                 const orConditions = [
                     `title.ilike.%${term}%`,
-                    `summary.ilike.%${term}%`,
                     `contentsnippet.ilike.%${term}%`
                 ];
+                
+                // Iščemo samo po vidnem tekstu (brez keywords).
                 q = q.or(orConditions.join(','));
             });
         } else {
