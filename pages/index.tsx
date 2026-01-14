@@ -331,6 +331,11 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
     }
   }
 
+  // --- HANDLE SEARCH CHANGE (Za novi input) ---
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchQuery(e.target.value)
+  }
+
   return (
     <>
       <Header 
@@ -368,24 +373,38 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
         
         <div className="max-w-[1800px] mx-auto w-full">
 
-            {/* --- ZGORNJA VRSTICA: ZMANJŠANI ODMIKI (za mobile) --- */}
-            <div className="px-4 md:px-8 lg:px-16 pt-2 pb-1 flex flex-col md:flex-row md:items-center gap-1 border-b border-transparent">
+            {/* --- ZGORNJA VRSTICA: Prenovljena za mobile --- */}
+            {/* Uporabimo gap-3 za konsistentne razmake */}
+            <div className="px-4 md:px-8 lg:px-16 pt-3 pb-1 flex flex-col md:flex-row md:items-center gap-3 border-b border-transparent">
                 
-                {/* LEVA STRAN: Gumbi */}
-                <div className="flex items-center justify-between md:justify-start gap-4">
+                {/* 1. VRSTICA (Na mobilcu): Gumbi + Iskalnik */}
+                <div className="flex items-center justify-between gap-3 w-full md:w-auto">
+                    
+                    {/* LEVO: Gumbi Najnovejše/Aktualno */}
                     {selectedCategory === 'vse' ? (
-                      // POPRAVEK: scale-90 + negativni margini za mobile, da gumbi zavzamejo manj prostora
-                      <div className="scale-90 origin-left shrink-0 -mr-3 -ml-2">
+                      <div className="scale-90 origin-left shrink-0 -ml-2 -mr-3">
                         <NewsTabs active={mode} onChange={handleTabChange} />
                       </div>
                     ) : (
-                      <span className="text-xl md:text-2xl font-bold tracking-tight capitalize">
+                      <span className="text-xl md:text-2xl font-bold tracking-tight capitalize shrink-0">
                         {currentCategoryLabel}
                       </span>
                     )}
 
+                    {/* DESNO: Mobile Iskalnik (vidno le na mobile, levo od filtrov) */}
+                    <div className="md:hidden flex-1 min-w-0">
+                        <input
+                          type="search"
+                          placeholder="Išči ..."
+                          className="w-full h-9 px-4 bg-gray-100 dark:bg-gray-800 border-none rounded-full text-sm placeholder-gray-500 text-gray-900 dark:text-white focus:ring-1 focus:ring-brand/50"
+                          value={searchQuery}
+                          onChange={handleSearchChange}
+                        />
+                    </div>
+
+                    {/* Filtri Labela (če so izbrani viri) */}
                     {selectedSources.length > 0 && (
-                      <div className="md:hidden flex items-center gap-2">
+                      <div className="md:hidden flex items-center gap-2 shrink-0">
                         <div className="text-xs text-brand font-medium border border-brand/20 bg-brand/5 px-2 py-1 rounded">
                           {selectedSources.length}
                         </div>
@@ -394,10 +413,10 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
                     )}
                 </div>
 
-                {/* DESNA STRAN: Trending bar */}
+                {/* 2. VRSTICA: Trending bar (Žarišče) */}
+                {/* Na desktopu gre desno, na mobilcu v novo vrstico */}
                 {mode === 'latest' && selectedCategory === 'vse' && !searchQuery && !tagQuery && (
-                  // POPRAVEK: mt-1 na mobile, da se lepo stisne pod gumbe
-                  <div className="min-w-0 overflow-hidden mt-1 md:mt-0">
+                  <div className="min-w-0 overflow-hidden w-full md:w-auto md:ml-2">
                       <TrendingBar 
                         words={initialTrendingWords}
                         selectedWord={tagQuery || searchQuery} 
@@ -406,6 +425,7 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
                   </div>
                 )}
                 
+                {/* Desktop Filter gumb */}
                 {selectedSources.length > 0 && (
                   <div className="hidden md:flex items-center gap-2 ml-auto shrink-0">
                     <div className="text-xs text-brand font-medium border border-brand/20 bg-brand/5 px-2 py-1 rounded whitespace-nowrap">
