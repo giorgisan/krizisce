@@ -338,7 +338,7 @@ export default function Header({
                   <button
                     onClick={() => onSelectCategory('vse')}
                     className={`
-                      relative py-3 text-sm uppercase tracking-wide whitespace-nowrap transition-colors font-semibold 
+                      relative py-3 text-sm uppercase tracking-wide whitespace-nowrap transition-colors font-bold 
                       ${activeCategory === 'vse' 
                         ? 'text-brand' 
                         : 'text-gray-900 dark:text-white hover:text-brand'}
@@ -363,7 +363,7 @@ export default function Header({
                     onClick={() => onSelectCategory(cat.id)}
                     className={`
                       relative py-3 text-sm uppercase tracking-wide whitespace-nowrap transition-colors
-                      font-semibold shrink-0
+                      font-bold shrink-0
                       ${isActive 
                         ? 'text-gray-900 dark:text-white' 
                         : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'}
