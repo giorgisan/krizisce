@@ -720,11 +720,24 @@ export default function ArticlePreview({ url, onClose }: Props) {
           {/* Body */}
           <div className="px-5 pt-0 pb-5">
             {loading && (
-              <div className="flex items-center justify-center py-10">
-                <div className="w-12 h-12 rounded-full bg-gray-300 dark:bg-gray-700 animate-zenPulse" />
+              <div className="flex flex-col items-center justify-center py-20 space-y-4">
+                {/* Pulsating Circle */}
+                <div className="relative flex items-center justify-center">
+                   <div className="absolute w-12 h-12 rounded-full bg-brand/20 animate-ping" />
+                   <div className="w-8 h-8 rounded-full bg-brand/80 animate-pulse" />
+                </div>
+                
+                {/* Text Animation */}
+                <div className="text-center space-y-1">
+                   <p className="text-base font-medium text-gray-900 dark:text-white animate-pulse">
+                     Nalagam predogled...
+                   </p>
+                   <p className="text-xs text-gray-500 dark:text-gray-400">
+                     Pripravljam čisto vsebino
+                   </p>
+                </div>
               </div>
             )}
-            {error && <p className="text-sm text-red-500">{error}</p>}
 
             {!loading && !error && (
               <div className="preview-typo max-w-none text-gray-900 dark:text-gray-100">
