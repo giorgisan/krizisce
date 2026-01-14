@@ -6,10 +6,10 @@ import Link from 'next/link'
 // --- KOMPONENTA ZA PRIKAZ PODATKOV ---
 function VisitorData() {
   const [info, setInfo] = useState({
-    browser: 'Nalagam...',
-    os: 'Nalagam...',
+    browser: '...',
+    os: '...',
     screen: '...',
-    location: 'Iščem...',
+    location: '...',
     ip: '...'
   })
 
@@ -46,35 +46,64 @@ function VisitorData() {
         }))
       })
       .catch(() => {
-        setInfo(prev => ({ ...prev, location: 'Blokirano (AdBlock?)', ip: 'Skrito' }))
+        setInfo(prev => ({ ...prev, location: 'Neznano (Blokirano?)', ip: '-' }))
       })
   }, [])
 
   return (
-    <div className="my-8 overflow-hidden rounded-xl border border-brand/20 bg-brand/5 dark:bg-brand/10">
-      <div className="bg-brand/10 px-4 py-2 border-b border-brand/20 flex justify-between items-center">
-        <span className="text-xs font-bold uppercase tracking-wider text-brand-dark dark:text-brand">Vaš digitalni odtis</span>
-        <span className="text-[10px] uppercase opacity-60">Prikaz v živo</span>
+    <div className="my-8 overflow-hidden rounded-xl border border-brand/20 bg-brand/5 dark:bg-brand/10 shadow-sm">
+      {/* HEADER KARTICE */}
+      <div className="bg-brand/10 px-4 py-3 border-b border-brand/20 flex justify-between items-center">
+        <span className="text-xs font-bold uppercase tracking-wider text-brand-dark dark:text-brand flex items-center gap-2">
+           {/* Ikona prstnega odtisa */}
+           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 11c0 3.517-1.009 6.799-2.753 9.571m-3.44-2.04l.054-.09A13.916 13.916 0 008 11a4 4 0 118 0c0 1.017-.07 2.019-.203 3m-2.118 6.844A21.88 21.88 0 0015.171 17m3.839 1.132c.645-2.266.99-4.659.99-7.132A8 8 0 008 4.07M3 15.364c.64-1.319 1-2.8 1-4.364 0-1.457.39-2.823 1.07-4" />
+           </svg>
+           Vaš digitalni odtis
+        </span>
+        
+        {/* Oznaka "Prikaz v živo" z utripajočo piko */}
+        <div className="flex items-center gap-1.5 px-2 py-0.5 bg-white/50 dark:bg-black/20 rounded-full border border-brand/10">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+            </span>
+            <span className="text-[10px] font-bold uppercase text-brand-dark/70 dark:text-brand/80 tracking-wide">
+              Prikaz v živo
+            </span>
+        </div>
       </div>
-      <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+
+      {/* VSEBINA */}
+      <div className="p-5 grid grid-cols-1 sm:grid-cols-2 gap-6 text-sm">
         <div>
-          <div className="text-xs opacity-50 mb-0.5">Vaša lokacija (IP)</div>
-          <div className="font-mono font-medium text-gray-900 dark:text-white">{info.location}</div>
+          <div className="text-xs text-gray-500 dark:text-gray-400 mb-1 uppercase tracking-wide font-semibold">Vaša lokacija (IP)</div>
+          <div className="font-mono font-medium text-lg text-gray-900 dark:text-white truncate" title={info.location}>
+             {info.location}
+          </div>
         </div>
         <div>
-          <div className="text-xs opacity-50 mb-0.5">Vaša naprava</div>
-          <div className="font-mono font-medium text-gray-900 dark:text-white">{info.os}</div>
+          <div className="text-xs text-gray-500 dark:text-gray-400 mb-1 uppercase tracking-wide font-semibold">Vaša naprava</div>
+          <div className="font-mono font-medium text-lg text-gray-900 dark:text-white truncate">
+             {info.os}
+          </div>
         </div>
         <div>
-          <div className="text-xs opacity-50 mb-0.5">Vaš brskalnik</div>
-          <div className="font-mono font-medium text-gray-900 dark:text-white">{info.browser}</div>
+          <div className="text-xs text-gray-500 dark:text-gray-400 mb-1 uppercase tracking-wide font-semibold">Brskalnik</div>
+          <div className="font-mono font-medium text-lg text-gray-900 dark:text-white truncate">
+             {info.browser}
+          </div>
         </div>
         <div>
-          <div className="text-xs opacity-50 mb-0.5">Velikost zaslona</div>
-          <div className="font-mono font-medium text-gray-900 dark:text-white">{info.screen}</div>
+          <div className="text-xs text-gray-500 dark:text-gray-400 mb-1 uppercase tracking-wide font-semibold">Zaslon</div>
+          <div className="font-mono font-medium text-lg text-gray-900 dark:text-white truncate">
+             {info.screen}
+          </div>
         </div>
       </div>
-      <div className="px-4 py-2 bg-white/50 dark:bg-black/20 text-xs text-center opacity-70 italic">
+
+      {/* FOOTER KARTICE */}
+      <div className="px-4 py-3 bg-white/60 dark:bg-black/20 text-xs text-center text-gray-600 dark:text-gray-400 italic border-t border-brand/10">
         Teh podatkov <strong>ne shranjujemo</strong>. Prikazujemo jih le zato, da vidite, kaj vaš brskalnik samodejno sporoča spletnim stranem.
       </div>
     </div>
