@@ -21,7 +21,7 @@ const getCategoryColor = (colorClass: string) => {
   return '#6366f1'
 }
 
-// --- HELPER ZA VREME (Open-Meteo WMO codes) ---
+// --- HELPER ZA VREME ---
 const getWeatherIcon = (code: number, isDay: number) => {
   if (code === 0) return isDay ? '☀️' : '🌙'
   if (code >= 1 && code <= 3) return isDay ? '⛅' : '☁️'
@@ -63,7 +63,7 @@ export default function Header({
   const [hasNew, setHasNew] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
   
-  const [weather, setWeather] = useState<WeatherData>(null) // State za vreme
+  const [weather, setWeather] = useState<WeatherData>(null)
 
   const { theme, setTheme, resolvedTheme } = useTheme()
   const router = useRouter()
@@ -76,20 +76,18 @@ export default function Header({
     setMounted(true)
   }, [])
 
-  // --- LOGIKA ZA VREME S CACHINGOM ---
+  // --- LOGIKA ZA VREME S CACHINGOM (15 min) ---
   useEffect(() => {
     const CACHE_KEY = 'krizisce-weather-v1'
-    const CACHE_DURATION = 1000 * 60 * 15 // 15 min (v milisekundah)
+    const CACHE_DURATION = 1000 * 60 * 15 // 15 minut
 
     const fetchWeather = async () => {
       try {
-        // 1. Dobi lokacijo (IP)
         const ipRes = await fetch('https://ipapi.co/json/')
         if (!ipRes.ok) return
         const ipData = await ipRes.json()
         const { latitude, longitude, city } = ipData
 
-        // 2. Dobi vreme (Open-Meteo)
         const weatherRes = await fetch(
           `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current_weather=true`
         )
@@ -103,7 +101,6 @@ export default function Header({
           icon: getWeatherIcon(current.weathercode, current.is_day)
         }
 
-        // 3. Shrani v State in LocalStorage
         setWeather(newWeather)
         localStorage.setItem(CACHE_KEY, JSON.stringify({
           data: newWeather,
@@ -115,12 +112,10 @@ export default function Header({
       }
     }
 
-    // A. Preveri Cache
     const cachedRaw = localStorage.getItem(CACHE_KEY)
     if (cachedRaw) {
       try {
         const { data, timestamp } = JSON.parse(cachedRaw)
-        // Če je podatek mlajši od 1 ure, ga uporabi takoj in NE kliči API-ja
         if (Date.now() - timestamp < CACHE_DURATION) {
           setWeather(data)
           return 
@@ -128,12 +123,8 @@ export default function Header({
       } catch {}
     }
 
-    // B. Če ni cache-a ali je potekel, pokliči API
-    // Počakamo sekundo, da ne blokiramo prvega renderja, če ni nujno
     setTimeout(fetchWeather, 500)
-
   }, [])
-
 
   // Logika za "Nove novice"
   useEffect(() => {
@@ -153,7 +144,6 @@ export default function Header({
     window.dispatchEvent(new CustomEvent('refresh-news'))
   }
 
-  // Scroll senca
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 10)
     window.addEventListener('scroll', onScroll)
@@ -198,7 +188,6 @@ export default function Header({
       <div className="w-full border-b border-gray-100 dark:border-gray-800/60">
         <div className="max-w-[1800px] mx-auto px-4 md:px-8 lg:px-16 h-16 flex items-center justify-between gap-4">
           
-          {/* LEVO: Logo & Slogan & Gumb */}
           <div className="flex items-center gap-4 shrink-0 mr-auto">
             <Link href="/" onClick={handleLogoClick} className="flex items-center gap-3 group">
                 <div className="relative w-8 h-8 md:w-9 md:h-9">
@@ -208,13 +197,11 @@ export default function Header({
                   <span className="text-2xl font-serif font-bold tracking-tight text-gray-900 dark:text-white leading-none">
                       Križišče
                   </span>
-                  
                   <span className="text-xs font-medium tracking-wide text-gray-500 dark:text-gray-400 leading-none mt-1">
                       Zadnje novice slovenskih medijev
                   </span>
                 </div>
             </Link>
-
 
             <AnimatePresence initial={false}>
                 {hasNew && !refreshing && isHome && (
@@ -236,7 +223,6 @@ export default function Header({
                       <span className="absolute inline-flex h-full w-full rounded-full bg-[#10b981] opacity-75 animate-[ping_3s_cubic-bezier(0,0,0.2,1)_infinite]"></span>
                       <span className="relative inline-flex rounded-full h-2 w-2 bg-[#10b981]"></span>
                     </span>
-                    
                     <span className="flex items-center leading-none">
                         <span className="font-bold">Na voljo so sveže novice</span>
                         <span className="ml-1 opacity-80">— kliknite za osvežitev</span>
@@ -246,9 +232,7 @@ export default function Header({
             </AnimatePresence>
           </div>
 
-          {/* DESNO: Search + Orodja */}
           <div className="flex items-center gap-2 md:gap-4 shrink-0 ml-auto">
-            
             {isHome && (
               <div className="hidden md:block w-64 lg:w-80">
                 <form onSubmit={handleSubmit} className="relative group">
@@ -272,7 +256,7 @@ export default function Header({
 
             <div className="h-6 w-px bg-gray-200 dark:bg-gray-700 hidden md:block"></div>
             
-            {/* --- VREME (BREZ URE) --- */}
+            {/* VREME */}
             {weather && (
               <div className="hidden lg:flex items-center text-xs font-semibold text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-800/50 px-2.5 py-1 rounded-full border border-gray-200/50 dark:border-gray-700/50" title={`${weather.city}: ${weather.temp}°C`}>
                   <span className="mr-1.5">{weather.city}</span>
@@ -313,7 +297,6 @@ export default function Header({
             {mounted && (
               <button
                 onClick={() => setTheme(isDark ? 'light' : 'dark')}
-                title={isDark ? 'Preklopi na svetlo temo' : 'Preklopi na temno temo'}
                 className="p-2 rounded-md text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800 transition-colors"
               >
                 {isDark ? (
@@ -331,14 +314,13 @@ export default function Header({
         </div>
       </div>
 
-      {/* --- SPODNJA VRSTICA (Navigacija) --- */}
+      {/* --- NAVIGACIJA S STICKY "VSE NOVICE" --- */}
       {showCategories && (
         <div className="w-full bg-transparent">
-          <div className="max-w-[1800px] mx-auto px-4 md:px-8 lg:px-16">
-            <nav className="flex items-center gap-6 overflow-x-auto no-scrollbar">
-              
-              {/* SEARCH ZA MOBILE */}
-              <div className="md:hidden py-2 min-w-[140px]">
+          <div className="max-w-[1800px] mx-auto px-4 md:px-8 lg:px-16 flex items-center">
+            
+            {/* SEARCH ZA MOBILE */}
+            <div className="md:hidden py-2 min-w-[140px] mr-4">
                 <input
                   type="search"
                   placeholder="Išči..."
@@ -346,23 +328,32 @@ export default function Header({
                   value={searchVal}
                   onChange={handleSearchChange}
                 />
-              </div>
+            </div>
 
-              <button
-                onClick={() => onSelectCategory('vse')}
-                className={`
-                  relative py-3 text-sm uppercase tracking-wide whitespace-nowrap transition-colors
-                  font-semibold 
-                  ${activeCategory === 'vse' 
-                    ? 'text-brand' 
-                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'}
-                `}
-              >
-                Vse novice
-                {activeCategory === 'vse' && (
-                  <span className="absolute bottom-0 left-0 w-full h-0.5 bg-brand rounded-t-md" />
-                )}
-              </button>
+            {/* NAV BAR */}
+            <nav className="flex items-center gap-6 overflow-x-auto no-scrollbar flex-1 relative">
+              
+              {/* STICKY "VSE NOVICE" GUMB */}
+              <div className="sticky left-0 z-10 flex items-center pr-4 bg-white dark:bg-gray-900 transition-colors">
+                  <button
+                    onClick={() => onSelectCategory('vse')}
+                    className={`
+                      relative py-3 text-sm uppercase tracking-wide whitespace-nowrap transition-colors font-semibold 
+                      ${activeCategory === 'vse' 
+                        ? 'text-brand' 
+                        : 'text-gray-900 dark:text-white hover:text-brand'}
+                    `}
+                  >
+                    {/* Če smo v kategoriji, pokaži puščico */}
+                    {activeCategory !== 'vse' && <span className="mr-1">←</span>}
+                    Vse novice
+                    {activeCategory === 'vse' && (
+                      <span className="absolute bottom-0 left-0 w-full h-0.5 bg-brand rounded-t-md" />
+                    )}
+                  </button>
+                  {/* Senca da se vidi ločnica pri scrollanju */}
+                  <div className="absolute right-0 top-1/2 -translate-y-1/2 h-4 w-px bg-gray-200 dark:bg-gray-700"></div>
+              </div>
 
               {CATEGORIES.map((cat) => {
                 const isActive = activeCategory === cat.id
@@ -372,7 +363,7 @@ export default function Header({
                     onClick={() => onSelectCategory(cat.id)}
                     className={`
                       relative py-3 text-sm uppercase tracking-wide whitespace-nowrap transition-colors
-                      font-semibold
+                      font-semibold shrink-0
                       ${isActive 
                         ? 'text-gray-900 dark:text-white' 
                         : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'}
@@ -381,8 +372,6 @@ export default function Header({
                     {cat.label}
                     {isActive && (
                       <span 
-                        // Če je vir "Vse" -> uporabi barvo kategorije (zelena, rdeča...)
-                        // Če je vir specifičen -> uporabi 'bg-brand' (oranžna)
                         className={`absolute bottom-0 left-0 w-full h-0.5 rounded-t-md ${activeSource !== 'Vse' ? 'bg-brand' : ''}`}
                         style={{ backgroundColor: activeSource === 'Vse' ? getCategoryColor(cat.color) : undefined }} 
                       />
