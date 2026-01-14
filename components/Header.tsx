@@ -233,6 +233,7 @@ export default function Header({
           </div>
 
           <div className="flex items-center gap-2 md:gap-4 shrink-0 ml-auto">
+            {/* SEARCH SAMO ZA DESKTOP - na mobilu naj bo raje ikona če jo rabiš, ali pa jo daj v overlay */}
             {isHome && (
               <div className="hidden md:block w-64 lg:w-80">
                 <form onSubmit={handleSubmit} className="relative group">
@@ -314,45 +315,36 @@ export default function Header({
         </div>
       </div>
 
-      {/* --- NAVIGACIJA S STICKY "VSE NOVICE" --- */}
+      {/* --- NAVIGACIJA --- */}
       {showCategories && (
         <div className="w-full bg-transparent">
           <div className="max-w-[1800px] mx-auto px-4 md:px-8 lg:px-16 flex items-center">
             
-            {/* SEARCH ZA MOBILE */}
-            <div className="md:hidden py-2 min-w-[140px] mr-4">
-                <input
-                  type="search"
-                  placeholder="Išči..."
-                  className="w-full px-3 py-1 bg-gray-100 dark:bg-gray-800 border-none rounded-md text-xs"
-                  value={searchVal}
-                  onChange={handleSearchChange}
-                />
-            </div>
-
+            {/* ODSTRANJEN: Mobile Search Input (vzel preveč prostora) */}
+            
             {/* NAV BAR */}
             <nav className="flex items-center gap-6 overflow-x-auto no-scrollbar flex-1 relative">
               
-              {/* STICKY "VSE NOVICE" GUMB */}
-              <div className="sticky left-0 z-10 flex items-center pr-4 bg-white dark:bg-gray-900 transition-colors">
+              {/* STICKY "VSE NOVICE" GUMB - POPRAVEK: Sticky samo na md: (desktop) */}
+              <div className="md:sticky md:left-0 z-10 flex items-center md:pr-4 bg-white dark:bg-gray-900 transition-colors">
                   <button
                     onClick={() => onSelectCategory('vse')}
+                    style={{ fontFamily: 'var(--font-inter)' }}
                     className={`
-                      relative py-3 text-sm uppercase tracking-wide whitespace-nowrap transition-colors font-semibold 
+                      relative py-3 text-sm uppercase tracking-wide whitespace-nowrap transition-colors font-bold 
                       ${activeCategory === 'vse' 
                         ? 'text-brand' 
                         : 'text-gray-900 dark:text-white hover:text-brand'}
                     `}
                   >
-                    {/* Če smo v kategoriji, pokaži puščico */}
                     {activeCategory !== 'vse' && <span className="mr-1 text-brand">←</span>}
                     Vse novice
                     {activeCategory === 'vse' && (
                       <span className="absolute bottom-0 left-0 w-full h-0.5 bg-brand rounded-t-md" />
                     )}
                   </button>
-                  {/* Senca da se vidi ločnica pri scrollanju */}
-                  <div className="absolute right-0 top-1/2 -translate-y-1/2 h-4 w-px bg-gray-200 dark:bg-gray-700"></div>
+                  {/* Senca ločnice - samo na desktopu */}
+                  <div className="hidden md:block absolute right-0 top-1/2 -translate-y-1/2 h-4 w-px bg-gray-200 dark:bg-gray-700"></div>
               </div>
 
               {CATEGORIES.map((cat) => {
@@ -361,9 +353,10 @@ export default function Header({
                   <button
                     key={cat.id}
                     onClick={() => onSelectCategory(cat.id)}
+                    style={{ fontFamily: 'var(--font-inter)' }}
                     className={`
                       relative py-3 text-sm uppercase tracking-wide whitespace-nowrap transition-colors
-                      font-semibold shrink-0
+                      font-bold shrink-0
                       ${isActive 
                         ? 'text-gray-900 dark:text-white' 
                         : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'}
