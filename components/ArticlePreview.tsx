@@ -734,7 +734,7 @@ export default function ArticlePreview({ url, onClose }: Props) {
                 {/* Text Animation */}
                 <div className="text-center space-y-2">
                    <p className="text-base font-medium text-gray-900 dark:text-white animate-pulse">
-                     Nalagam predogled...
+                     Nalagam predogled ...
                    </p>
                    <p className="text-xs text-gray-500 dark:text-gray-400">
                      Pripravljam čisto vsebino
