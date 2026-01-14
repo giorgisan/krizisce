@@ -12,7 +12,6 @@ import {
 import dynamic from 'next/dynamic'
 import Image from 'next/image'
 import { proxiedImage } from '@/lib/img' 
-import { preloadPreview, canPrefetch, warmImage } from '@/lib/previewPrefetch'
 import { sourceColors } from '@/lib/sources'
 import { getSourceLogoPath } from '@/lib/sourceMeta'
 import { CATEGORIES, determineCategory } from '@/lib/categories'
@@ -20,7 +19,7 @@ import { CATEGORIES, determineCategory } from '@/lib/categories'
 type PreviewProps = { url: string; onClose: () => void }
 const ArticlePreview = dynamic(() => import('./ArticlePreview'), { ssr: false }) as ComponentType<PreviewProps>
 
-// Fiksna širina za Weserv proxy (dovolj za 2 stolpca na mobile in grid na desktop)
+// Fiksna širina za Weserv proxy
 const TARGET_WIDTH = 640 
 const TARGET_HEIGHT = 360
 
@@ -91,20 +90,16 @@ export default function ArticleCard({ news, priority = false }: Props) {
   const [useFallback, setUseFallback] = useState<boolean>(!rawImg)
   const [imgLoaded, setImgLoaded]       = useState<boolean>(false)
   
-  // Opomba: imgKey smo odstranili, ker povzroča utripanje pri re-renderjih. 
-  // Next/Image obvlada zamenjavo src-a.
-
   const cardRef = useRef<HTMLAnchorElement>(null)
 
   // Weserv URL generiramo takoj
   const currentSrc = useMemo(() => {
     if (!rawImg) return null
-    // Fiksna velikost 640x360 je optimalna za kartice. Weserv bo to zgeneriral in keširal.
     if (useProxy) return proxiedImage(rawImg, TARGET_WIDTH, TARGET_HEIGHT, 1)
     return rawImg
   }, [rawImg, useProxy])
 
-  // Lqip (Low Quality Image Placeholder) za blur efekt
+  // Lqip
   const lqipSrc = useMemo(() => {
     if (!rawImg) return null
     return proxiedImage(rawImg, 28, 16, 1)
@@ -113,7 +108,6 @@ export default function ArticleCard({ news, priority = false }: Props) {
   useEffect(() => {
     setUseProxy(!!rawImg)
     setUseFallback(!rawImg)
-    // Ne resetiramo imgLoaded takoj, da ne utripne siva barva, če se slika samo zamenja v cache-u
   }, [news.link, rawImg])
 
   const handleImgError = () => {
@@ -152,6 +146,7 @@ export default function ArticleCard({ news, priority = false }: Props) {
   // --- PREVIEW LOGIKA ---
   const [showPreview, setShowPreview] = useState(false)
   const previewOpenedAtRef = useRef<number | null>(null)
+  
   useEffect(() => {
     if (showPreview) {
       previewOpenedAtRef.current = Date.now()
@@ -163,19 +158,10 @@ export default function ArticleCard({ news, priority = false }: Props) {
     }
   }, [showPreview, news.source, news.link])
 
-  // --- PREFETCH ON HOVER (Za preview modal) ---
-  const preloadedRef = useRef(false)
-  const triggerPrefetch = () => {
-    if (!preloadedRef.current && canPrefetch()) {
-      preloadedRef.current = true
-      preloadPreview(news.link).catch(() => {})
-      // Ogrejemo tudi sliko za preview (večjo)
-      if (rawImg) {
-         const largeUrl = proxiedImage(rawImg, 1280, 720, 1)
-         warmImage(largeUrl)
-      }
-    }
-  }
+  // --- OPTIMIZACIJA: Odstranjen onHover prefetch ---
+  // Odstranili smo triggerPrefetch na onMouseEnter, ker je povzročal
+  // preveč klicev na težak 'api/preview' endpoint in nabijal CPU.
+  // Zdaj se preview naloži šele ob kliku (kar je OK, saj uporabnik pričakuje loading).
 
   const [eyeVisible, setEyeVisible] = useState(false)
   const [eyeHover,   setEyeHover]   = useState(false)
@@ -191,11 +177,10 @@ export default function ArticleCard({ news, priority = false }: Props) {
         referrerPolicy="strict-origin-when-cross-origin"
         onClick={handleClick}
         onAuxClick={handleAuxClick}
-        onMouseEnter={() => { setEyeVisible(true); triggerPrefetch() }}
+        onMouseEnter={() => { setEyeVisible(true); /* triggerPrefetch() - ODSTRANJENO */ }}
         onMouseLeave={() => { setEyeVisible(false); setEyeHover(false) }}
-        onFocus={() => { setEyeVisible(true); triggerPrefetch() }}
+        onFocus={() => { setEyeVisible(true); }}
         onBlur={() => { setEyeVisible(false); setEyeHover(false) }}
-        onTouchStart={() => { triggerPrefetch() }}
         
         data-umami-event="Click News"
         data-umami-event-source={news.source} 
@@ -211,7 +196,7 @@ export default function ArticleCard({ news, priority = false }: Props) {
               : undefined
           }
         >
-          {/* Skeleton loading (dokler se slika ne naloži) */}
+          {/* Skeleton loading */}
           {!imgLoaded && !useFallback && !!currentSrc && (
             <div className="absolute inset-0 grid place-items-center pointer-events-none
                             bg-gradient-to-br from-gray-200 via-gray-300 to-gray-200
@@ -232,18 +217,12 @@ export default function ArticleCard({ news, priority = false }: Props) {
               alt={news.title}
               fill
               className="object-cover transition-opacity duration-200 opacity-0 data-[ok=true]:opacity-100"
-              // Ker imamo unoptimized: true, 'sizes' ne vpliva na generiranje, 
-              // ampak ga pustimo za vsak slučaj za brskalnik.
               sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
               onError={handleImgError}
               onLoadingComplete={() => setImgLoaded(true)}
-              // --- NAJHITREJŠI MOŽNI PRELOAD ---
-              // Next.js bo na strežniku vstavil <link rel="preload"> v <head>.
-              // Brskalnik bo sliko začel vleči takoj, ko dobi HTML.
               priority={priority} 
-              // --------------------------------
               data-ok={imgLoaded}
-              unoptimized={true} // Eksplicitno povemo tudi tukaj (čeprav je v configu)
+              unoptimized={true} 
             />
           )}
 
@@ -287,7 +266,7 @@ export default function ArticleCard({ news, priority = false }: Props) {
                     width={16} 
                     height={16}
                     className="object-cover h-full w-full"
-                    unoptimized={true} // Tudi logotipe ne rabimo optimizirati na Vercelu
+                    unoptimized={true} 
                   />
                 </div>
               )}
