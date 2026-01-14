@@ -23,19 +23,12 @@ const getCategoryColor = (colorClass: string) => {
 
 // --- HELPER ZA VREME (Open-Meteo WMO codes) ---
 const getWeatherIcon = (code: number, isDay: number) => {
-  // 0: Jasno
   if (code === 0) return isDay ? '☀️' : '🌙'
-  // 1-3: Delno oblačno
   if (code >= 1 && code <= 3) return isDay ? '⛅' : '☁️'
-  // 45, 48: Megla
   if (code === 45 || code === 48) return '🌫️'
-  // 51-67: Dež (drizzle/rain)
   if (code >= 51 && code <= 67) return '🌧️'
-  // 71-77: Sneg
   if (code >= 71 && code <= 77) return '❄️'
-  // 80-82: Plohe
   if (code >= 80 && code <= 82) return '🌦️'
-  // 95-99: Nevihta
   if (code >= 95 && code <= 99) return '⛈️'
   return '🌡️'
 }
@@ -70,7 +63,6 @@ export default function Header({
   const [hasNew, setHasNew] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
   
-  const [nowMs, setNowMs] = useState<number>(0)
   const [weather, setWeather] = useState<WeatherData>(null) // State za vreme
 
   const { theme, setTheme, resolvedTheme } = useTheme()
@@ -79,27 +71,16 @@ export default function Header({
   const isHome = router.pathname === '/'
   const showCategories = isHome 
 
-  // Ura
+  // Mount check
   useEffect(() => {
     setMounted(true)
-    setNowMs(Date.now())
-    const tick = () => setNowMs(Date.now())
-    const toNext = 60_000 - (Date.now() % 60_000)
-    const timeoutId = window.setTimeout(() => {
-      tick()
-      const intervalId = window.setInterval(tick, 60_000)
-      return () => clearInterval(intervalId)
-    }, toNext)
-    return () => clearTimeout(timeoutId)
   }, [])
 
-  const time = mounted 
-    ? new Intl.DateTimeFormat('sl-SI', { hour: '2-digit', minute: '2-digit' }).format(new Date(nowMs))
-    : '--:--'
-
-  // --- LOGIKA ZA VREME ---
+  // --- LOGIKA ZA VREME S CACHINGOM ---
   useEffect(() => {
-    // Naloži vreme samo enkrat ob zagonu (da ne kurimo API-jev)
+    const CACHE_KEY = 'krizisce-weather-v1'
+    const CACHE_DURATION = 1000 * 60 * 15 // 15 min (v milisekundah)
+
     const fetchWeather = async () => {
       try {
         // 1. Dobi lokacijo (IP)
@@ -116,21 +97,41 @@ export default function Header({
         const weatherData = await weatherRes.json()
         const current = weatherData.current_weather
 
-        setWeather({
+        const newWeather = {
           temp: Math.round(current.temperature),
-          city: city, // ali ipData.city
+          city: city, 
           icon: getWeatherIcon(current.weathercode, current.is_day)
-        })
+        }
+
+        // 3. Shrani v State in LocalStorage
+        setWeather(newWeather)
+        localStorage.setItem(CACHE_KEY, JSON.stringify({
+          data: newWeather,
+          timestamp: Date.now()
+        }))
+
       } catch (err) {
-        // Če ne uspe (npr. adblocker), pač ne prikažemo vremena. Brez panike.
         console.log('Weather fetch skipped.')
       }
     }
 
-    if (typeof window !== 'undefined') {
-        // Počakaj malo, da se stran naloži, potem pa kličemo API
-        setTimeout(fetchWeather, 1000)
+    // A. Preveri Cache
+    const cachedRaw = localStorage.getItem(CACHE_KEY)
+    if (cachedRaw) {
+      try {
+        const { data, timestamp } = JSON.parse(cachedRaw)
+        // Če je podatek mlajši od 1 ure, ga uporabi takoj in NE kliči API-ja
+        if (Date.now() - timestamp < CACHE_DURATION) {
+          setWeather(data)
+          return 
+        }
+      } catch {}
     }
+
+    // B. Če ni cache-a ali je potekel, pokliči API
+    // Počakamo sekundo, da ne blokiramo prvega renderja, če ni nujno
+    setTimeout(fetchWeather, 500)
+
   }, [])
 
 
@@ -271,20 +272,14 @@ export default function Header({
 
             <div className="h-6 w-px bg-gray-200 dark:bg-gray-700 hidden md:block"></div>
             
-            {/* --- VREME & URA (Desktop Only) --- */}
-            <div className="hidden lg:flex flex-col items-end leading-tight text-xs text-gray-500 dark:text-gray-400 font-medium">
-                {/* Vreme */}
-                {weather ? (
-                    <span className="flex items-center gap-1.5" title={`${weather.city}: ${weather.temp}°C`}>
-                        <span>{weather.city}, {weather.temp}°C</span>
-                        <span className="text-sm">{weather.icon}</span>
-                    </span>
-                ) : (
-                    <span>...</span>
-                )}
-                {/* Ura */}
-                <span className="font-mono opacity-80">{time}</span>
-            </div>
+            {/* --- VREME (BREZ URE) --- */}
+            {weather && (
+              <div className="hidden lg:flex items-center text-xs font-semibold text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-800/50 px-2.5 py-1 rounded-full border border-gray-200/50 dark:border-gray-700/50" title={`${weather.city}: ${weather.temp}°C`}>
+                  <span className="mr-1.5">{weather.city}</span>
+                  <span className="text-gray-900 dark:text-white mr-1">{weather.temp}°C</span>
+                  <span className="text-sm leading-none">{weather.icon}</span>
+              </div>
+            )}
 
             {isHome && (
               <button 
