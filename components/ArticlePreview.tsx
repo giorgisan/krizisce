@@ -414,13 +414,16 @@ export default function ArticlePreview({ url, onClose }: Props) {
   }, [])
 
   const shareLinks = useMemo(() => {
-    const encodedUrl   = encodeURIComponent(url)
-    const encodedTitle = encodeURIComponent(title || site || '')
+    const encodedUrl    = encodeURIComponent(url)
+    // TUKAJ SVA DODALA VIA_TEXT, da se prilepi zraven naslova
+    const rawTitle      = (title || site || '') + VIA_TEXT 
+    const encodedTitle  = encodeURIComponent(rawTitle)
+    
     return {
       x:  `https://twitter.com/intent/tweet?url=${encodedUrl}&text=${encodedTitle}`,
-      fb: `https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}`,
+      fb: `https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}`, // Facebook ignorira text parameter (uporablja OG tage), to je normalno
       li: `https://www.linkedin.com/shareArticle?url=${encodedUrl}&title=${encodedTitle}`,
-      wa: `https://api.whatsapp.com/send?text=${encodedTitle}%20${encodedUrl}`,
+      wa: `https://api.whatsapp.com/send?text=${encodedTitle}%20${encodedUrl}`, // WhatsApp bo zdaj vseboval "Naslov — via Križišče URL"
       tg: `https://t.me/share/url?url=${encodedUrl}&text=${encodedTitle}`,
     }
   }, [url, title, site])
