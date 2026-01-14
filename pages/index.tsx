@@ -368,18 +368,18 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
         
         <div className="max-w-[1800px] mx-auto w-full">
 
-            {/* --- ZGORNJA VRSTICA: POPRAVEK RAZMIKA --- */}
-            <div className="px-4 md:px-8 lg:px-16 pt-4 pb-2 flex flex-col md:flex-row md:items-center gap-1 border-b border-transparent">
+            {/* --- ZGORNJA VRSTICA: ZMANJŠANI ODMIKI (za mobile) --- */}
+            <div className="px-4 md:px-8 lg:px-16 pt-2 pb-1 flex flex-col md:flex-row md:items-center gap-1 border-b border-transparent">
                 
                 {/* LEVA STRAN: Gumbi */}
                 <div className="flex items-center justify-between md:justify-start gap-4">
                     {selectedCategory === 'vse' ? (
-                      // POPRAVEK: -mr-3 kompenzira scale-90 ghost space
-                      <div className="scale-90 origin-left shrink-0 -mr-3">
+                      // POPRAVEK: scale-90 + negativni margini za mobile, da gumbi zavzamejo manj prostora
+                      <div className="scale-90 origin-left shrink-0 -mr-3 -ml-2">
                         <NewsTabs active={mode} onChange={handleTabChange} />
                       </div>
                     ) : (
-                      <span className="text-2xl font-bold tracking-tight capitalize">
+                      <span className="text-xl md:text-2xl font-bold tracking-tight capitalize">
                         {currentCategoryLabel}
                       </span>
                     )}
@@ -395,9 +395,9 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
                 </div>
 
                 {/* DESNA STRAN: Trending bar */}
-                {/* POPRAVEK: Odstranjen flex-1, odstranjen velik margin */}
                 {mode === 'latest' && selectedCategory === 'vse' && !searchQuery && !tagQuery && (
-                  <div className="min-w-0 overflow-hidden">
+                  // POPRAVEK: mt-1 na mobile, da se lepo stisne pod gumbe
+                  <div className="min-w-0 overflow-hidden mt-1 md:mt-0">
                       <TrendingBar 
                         words={initialTrendingWords}
                         selectedWord={tagQuery || searchQuery} 
@@ -423,7 +423,7 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
                 )}
             </div>
 
-            <div className="px-4 md:px-8 lg:px-16 mt-4">
+            <div className="px-4 md:px-8 lg:px-16 mt-2 md:mt-4">
                 
                 {(searchQuery || tagQuery) && (
                 <div className="mb-6 flex items-center gap-2">
@@ -464,7 +464,7 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
                             ) : (
                             <ArticleCard 
                                 news={article as any} 
-                                priority={i < 10} // <-- Tole sedaj deluje zaradi popravka v ArticleCard
+                                priority={i < 10} 
                             />
                             )}
                         </div>
