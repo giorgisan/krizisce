@@ -345,7 +345,7 @@ export default function Header({
                     `}
                   >
                     {/* Če smo v kategoriji, pokaži puščico */}
-                    {activeCategory !== 'vse' && <span className="mr-1">←</span>}
+                    {activeCategory !== 'vse' && <span className="mr-1 text-brand">←</span>}
                     Vse novice
                     {activeCategory === 'vse' && (
                       <span className="absolute bottom-0 left-0 w-full h-0.5 bg-brand rounded-t-md" />
