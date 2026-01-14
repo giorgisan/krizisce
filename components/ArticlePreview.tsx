@@ -720,7 +720,7 @@ export default function ArticlePreview({ url, onClose }: Props) {
           {/* Body */}
           <div className="px-5 pt-0 pb-5">
             {loading && (
-              <div className="flex flex-col items-center justify-center py-20 space-y-4">
+              <div className="flex flex-col items-center justify-center py-20 space-y-8">
                 {/* Pulsating Circle */}
                 <div className="relative flex items-center justify-center">
                    <div className="absolute w-12 h-12 rounded-full bg-brand/20 animate-ping" />
@@ -730,7 +730,7 @@ export default function ArticlePreview({ url, onClose }: Props) {
                 {/* Text Animation */}
                 <div className="text-center space-y-1">
                    <p className="text-base font-medium text-gray-900 dark:text-white animate-pulse">
-                     Nalagam predogled...
+                     Nalagam predogled ...
                    </p>
                    <p className="text-xs text-gray-500 dark:text-gray-400">
                      Pripravljam čisto vsebino
