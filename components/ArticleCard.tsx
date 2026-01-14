@@ -86,7 +86,7 @@ export default function ArticleCard({ news, priority = false }: Props) {
   const rawImg = news.image ?? null
   const proxyInitiallyOn = !!rawImg 
 
-  const [useProxy, setUseProxy]         = useState<boolean>(proxyInitiallyOn)
+  const [useProxy, setUseProxy]          = useState<boolean>(proxyInitiallyOn)
   const [useFallback, setUseFallback] = useState<boolean>(!rawImg)
   const [imgLoaded, setImgLoaded]       = useState<boolean>(false)
   
@@ -158,11 +158,6 @@ export default function ArticleCard({ news, priority = false }: Props) {
     }
   }, [showPreview, news.source, news.link])
 
-  // --- OPTIMIZACIJA: Odstranjen onHover prefetch ---
-  // Odstranili smo triggerPrefetch na onMouseEnter, ker je povzročal
-  // preveč klicev na težak 'api/preview' endpoint in nabijal CPU.
-  // Zdaj se preview naloži šele ob kliku (kar je OK, saj uporabnik pričakuje loading).
-
   const [eyeVisible, setEyeVisible] = useState(false)
   const [eyeHover,   setEyeHover]   = useState(false)
   const showEye = isTouch ? true : eyeVisible
@@ -177,7 +172,7 @@ export default function ArticleCard({ news, priority = false }: Props) {
         referrerPolicy="strict-origin-when-cross-origin"
         onClick={handleClick}
         onAuxClick={handleAuxClick}
-        onMouseEnter={() => { setEyeVisible(true); /* triggerPrefetch() - ODSTRANJENO */ }}
+        onMouseEnter={() => { setEyeVisible(true); }}
         onMouseLeave={() => { setEyeVisible(false); setEyeHover(false) }}
         onFocus={() => { setEyeVisible(true); }}
         onBlur={() => { setEyeVisible(false); setEyeHover(false) }}
@@ -216,7 +211,10 @@ export default function ArticleCard({ news, priority = false }: Props) {
               src={currentSrc as string}
               alt={news.title}
               fill
-              className="object-cover transition-opacity duration-200 opacity-0 data-[ok=true]:opacity-100"
+              // POPRAVEK: Če je priority, slika nima fade-in efekta (je takoj vidna)
+              className={`object-cover transition-opacity duration-200 ${
+                priority ? 'opacity-100' : 'opacity-0 data-[ok=true]:opacity-100'
+              }`}
               sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
               onError={handleImgError}
               onLoadingComplete={() => setImgLoaded(true)}
