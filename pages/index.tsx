@@ -331,7 +331,6 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
     }
   }
 
-  // --- HANDLE SEARCH CHANGE (Za novi input) ---
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchQuery(e.target.value)
   }
@@ -373,12 +372,11 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
         
         <div className="max-w-[1800px] mx-auto w-full">
 
-            {/* --- ZGORNJA VRSTICA: Prenovljena za mobile --- */}
-            {/* Uporabimo gap-3 za konsistentne razmake */}
-            <div className="px-4 md:px-8 lg:px-16 pt-3 pb-1 flex flex-col md:flex-row md:items-center gap-3 border-b border-transparent">
+            {/* --- ZGORNJA VRSTICA: OPTIMIZIRANI RAZMAKI --- */}
+            <div className="px-4 md:px-8 lg:px-16 pt-2 pb-1 flex flex-col md:flex-row md:items-center gap-y-1 md:gap-2 border-b border-transparent">
                 
-                {/* 1. VRSTICA (Na mobilcu): Gumbi + Iskalnik */}
-                <div className="flex items-center justify-between gap-3 w-full md:w-auto">
+                {/* 1. SKLOP: Gumbi + Iskalnik (Mobile) */}
+                <div className="flex items-center justify-between gap-2 w-full md:w-auto">
                     
                     {/* LEVO: Gumbi Najnovejše/Aktualno */}
                     {selectedCategory === 'vse' ? (
@@ -391,8 +389,8 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
                       </span>
                     )}
 
-                    {/* DESNO: Mobile Iskalnik (vidno le na mobile, levo od filtrov) */}
-                    <div className="md:hidden flex-1 min-w-0">
+                    {/* DESNO: Mobile Iskalnik (skrit na desktopu) */}
+                    <div className="md:hidden flex-1 min-w-0 ml-1">
                         <input
                           type="search"
                           placeholder="Išči ..."
@@ -402,7 +400,7 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
                         />
                     </div>
 
-                    {/* Filtri Labela (če so izbrani viri) */}
+                    {/* Filtri Labela (mobile) */}
                     {selectedSources.length > 0 && (
                       <div className="md:hidden flex items-center gap-2 shrink-0">
                         <div className="text-xs text-brand font-medium border border-brand/20 bg-brand/5 px-2 py-1 rounded">
@@ -413,10 +411,10 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
                     )}
                 </div>
 
-                {/* 2. VRSTICA: Trending bar (Žarišče) */}
-                {/* Na desktopu gre desno, na mobilcu v novo vrstico */}
+                {/* 2. SKLOP: Trending bar (Žarišče) */}
+                {/* Mobile: Nova vrstica, stisnjena k zgornji. Desktop: Desno od gumbov, minimalen razmak. */}
                 {mode === 'latest' && selectedCategory === 'vse' && !searchQuery && !tagQuery && (
-                  <div className="min-w-0 overflow-hidden w-full md:w-auto md:ml-2">
+                  <div className="min-w-0 overflow-hidden w-full md:w-auto md:flex-1 mt-0.5 md:mt-0">
                       <TrendingBar 
                         words={initialTrendingWords}
                         selectedWord={tagQuery || searchQuery} 
@@ -425,7 +423,7 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
                   </div>
                 )}
                 
-                {/* Desktop Filter gumb */}
+                {/* Desktop Filter gumb (skrajno desno) */}
                 {selectedSources.length > 0 && (
                   <div className="hidden md:flex items-center gap-2 ml-auto shrink-0">
                     <div className="text-xs text-brand font-medium border border-brand/20 bg-brand/5 px-2 py-1 rounded whitespace-nowrap">
