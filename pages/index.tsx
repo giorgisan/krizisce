@@ -51,15 +51,15 @@ async function loadNews(
   forceRefresh = false, 
   signal?: AbortSignal
 ): Promise<NewsItem[] | null> {
-   
+    
   const qs = new URLSearchParams()
-   
+    
   if (mode === 'trending') qs.set('variant', 'trending')
   if (source.length > 0) qs.set('source', source.join(','))
   if (category !== 'vse') qs.set('category', category)
   if (query) qs.set('q', query)
   if (tag) qs.set('tag', tag) // <--- NOVO
-   
+    
   if (forceRefresh) qs.set('_t', Date.now().toString())
 
   try {
@@ -67,13 +67,13 @@ async function loadNews(
       fetch(`/api/news?${qs.toString()}`, { cache: 'no-store', signal }),
       timeout(12_000),
     ])) as Response
-    
+     
     if (res.ok) {
       const data: NewsItem[] = await res.json()
       if (Array.isArray(data)) return data
     }
   } catch {}
-   
+    
   if (mode === 'latest' && source.length === 0 && category === 'vse' && !query && !tag && !forceRefresh) {
     return null 
   }
@@ -90,7 +90,7 @@ type Props = {
 export default function Home({ initialNews, initialTrendingWords }: Props) {
   const [itemsLatest, setItemsLatest] = useState<NewsItem[]>(initialNews)
   const [itemsTrending, setItemsTrending] = useState<NewsItem[]>([])
-    
+     
   const [mode, setMode] = useState<Mode>('latest')
   const [trendingLoaded, setTrendingLoaded] = useState(false)
   const lastTrendingFetchRef = useRef<number>(0)
@@ -107,12 +107,12 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
   const [hasMore, setHasMore] = useState(true)
   const [cursor, setCursor] = useState<number | null>(null)
   const [isLoadingMore, setIsLoadingMore] = useState(false)
-   
+    
   // Stanje osveževanja (spinner)
   const [isRefreshing, setIsRefreshing] = useState(false)
 
   const [bootRefreshed, setBootRefreshed] = useState(false)
-    
+     
   useEffect(() => {
     kickSyncIfStale(5 * 60_000)
     setBootRefreshed(true)
@@ -295,7 +295,7 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
       setHasMore(false); setCursor(null)
       const now = Date.now()
       const isStale = (now - lastTrendingFetchRef.current) > 5 * 60_000
-       
+        
       if (!trendingLoaded || isStale) {
         setIsRefreshing(true) // <--- VKLOPIMO SPINNER
         try {
@@ -332,14 +332,14 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
   // --- NOVA FUNKCIJA ZA TRENDING KLIK ---
   const handleTrendingClick = (word: string) => {
     let clean = word.replace(/^#/, '').trim();
-    
+     
     setItemsLatest([]); 
     setIsRefreshing(true); 
 
     window.scrollTo({ top: 0, behavior: 'smooth' })
     setSearchQuery('') 
     setTagQuery(clean) 
-    
+     
     if (mode === 'trending') {
         setMode('latest');
         setHasMore(true); 
@@ -410,9 +410,9 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
                     )}
                 </div>
 
-                {/* DESNA STRAN: Trending bar */}
+                {/* DESNA STRAN: Trending bar - POPRAVEK TUKAJ (odstranjen flex-1) */}
                 {mode === 'latest' && selectedCategory === 'vse' && !searchQuery && !tagQuery && (
-                  <div className="flex-1 min-w-0 overflow-hidden">
+                  <div className="min-w-0 overflow-hidden md:ml-4">
                       <TrendingBar 
                         words={initialTrendingWords}
                         selectedWord={tagQuery || searchQuery} 
