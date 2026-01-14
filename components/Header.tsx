@@ -260,7 +260,7 @@ export default function Header({
             {weather && (
               <div className="hidden lg:flex items-center text-xs font-semibold text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-800/50 px-2.5 py-1 rounded-full border border-gray-200/50 dark:border-gray-700/50" title={`${weather.city}: ${weather.temp}°C`}>
                   <span className="mr-1.5">{weather.city}</span>
-                  <span className="text-gray-900 dark:text-white mr-1">{weather.temp}°C</span>
+                  <span className="text-gray-900 dark:text-white mr-1">{weather.temp} °C</span>
                   <span className="text-sm leading-none">{weather.icon}</span>
               </div>
             )}
