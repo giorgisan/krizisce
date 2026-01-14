@@ -331,6 +331,7 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
     }
   }
 
+  // --- HANDLE SEARCH CHANGE (Za novi input) ---
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchQuery(e.target.value)
   }
@@ -390,11 +391,18 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
                     )}
 
                     {/* DESNO: Mobile Iskalnik (skrit na desktopu) */}
-                    <div className="md:hidden flex-1 min-w-0 ml-1">
+                    <div className="md:hidden flex-1 min-w-0 ml-1 relative">
+                        {/* IKONA LUPE */}
+                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                          <svg className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                          </svg>
+                        </div>
+                        {/* INPUT */}
                         <input
                           type="search"
                           placeholder="Išči ..."
-                          className="w-full h-9 px-4 bg-gray-100 dark:bg-gray-800 border-none rounded-full text-sm placeholder-gray-500 text-gray-900 dark:text-white focus:ring-1 focus:ring-brand/50"
+                          className="w-full h-9 pl-9 pr-4 bg-gray-100 dark:bg-gray-800 border-none rounded-full text-sm placeholder-gray-500 text-gray-900 dark:text-white focus:ring-1 focus:ring-brand/50"
                           value={searchQuery}
                           onChange={handleSearchChange}
                         />
