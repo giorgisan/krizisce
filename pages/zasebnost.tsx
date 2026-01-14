@@ -54,7 +54,7 @@ function VisitorData() {
     <div className="my-8 overflow-hidden rounded-xl border border-brand/20 bg-brand/5 dark:bg-brand/10">
       <div className="bg-brand/10 px-4 py-2 border-b border-brand/20 flex justify-between items-center">
         <span className="text-xs font-bold uppercase tracking-wider text-brand-dark dark:text-brand">Vaš digitalni odtis</span>
-        <span className="text-[10px] uppercase opacity-60">Live Demo</span>
+        <span className="text-[10px] uppercase opacity-60">Prikaz v živo</span>
       </div>
       <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
         <div>
