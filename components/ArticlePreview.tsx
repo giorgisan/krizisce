@@ -145,9 +145,9 @@ function normalizeStemForDedupe(s: string): string {
     .replace(/(-|_)?\d{2,4}x\d{2,4}$/g, '')
     .replace(/(-|_)?\d{2,4}x$/g, '')
     .replace(/-scaled$/g, '')
-    .replace(/\d+/g, '')                               
-    .replace(/[-_]+/g, '')                             
-    .slice(0, 20)                                      
+    .replace(/\d+/g, '')                                
+    .replace(/[-_]+/g, '')                              
+    .slice(0, 20)                                       
 }
 
 /* wait images */
@@ -720,7 +720,7 @@ export default function ArticlePreview({ url, onClose }: Props) {
           {/* Body */}
           <div className="px-5 pt-0 pb-5">
             {loading && (
-              <div className="flex flex-col items-center justify-center py-20 space-y-8">
+              <div className="flex flex-col items-center justify-center py-20 space-y-8 relative">
                 {/* Pulsating Circle */}
                 <div className="relative flex items-center justify-center">
                    <div className="absolute w-12 h-12 rounded-full bg-brand/20 animate-ping" />
@@ -728,38 +728,37 @@ export default function ArticlePreview({ url, onClose }: Props) {
                 </div>
                 
                 {/* Text Animation */}
-                <div className="text-center space-y-1">
+                <div className="text-center space-y-2">
                    <p className="text-base font-medium text-gray-900 dark:text-white animate-pulse">
-                     Nalagam predogled ...
+                     Nalagam predogled...
                    </p>
                    <p className="text-xs text-gray-500 dark:text-gray-400">
                      Pripravljam čisto vsebino
                    </p>
                 </div>
-              </div>
-            {/* --- GUMB ZA ZAPIRANJE (Floating X) --- */}
-                  <button
-                    onClick={onClose}
-                    className="mt-8 flex items-center justify-center w-10 h-10 rounded-full bg-gray-200/50 dark:bg-gray-800/50 hover:bg-gray-300 dark:hover:bg-gray-700 backdrop-blur-sm transition-colors"
-                    aria-label="Prekliči in zapri"
+
+                {/* --- GUMB ZA ZAPIRANJE (Floating X) --- */}
+                <button
+                  onClick={onClose}
+                  className="mt-8 flex items-center justify-center w-10 h-10 rounded-full bg-gray-200/50 dark:bg-gray-800/50 hover:bg-gray-300 dark:hover:bg-gray-700 backdrop-blur-sm transition-colors"
+                  aria-label="Prekliči in zapri"
+                >
+                  <svg 
+                    viewBox="0 0 24 24" 
+                    width="20" 
+                    height="20" 
+                    stroke="currentColor" 
+                    strokeWidth="2" 
+                    fill="none" 
+                    strokeLinecap="round" 
+                    strokeLinejoin="round"
+                    className="text-gray-600 dark:text-gray-300"
                   >
-                    <svg 
-                      viewBox="0 0 24 24" 
-                      width="20" 
-                      height="20" 
-                      stroke="currentColor" 
-                      strokeWidth="2" 
-                      fill="none" 
-                      strokeLinecap="round" 
-                      strokeLinejoin="round"
-                      className="text-gray-600 dark:text-gray-300"
-                    >
-                      <line x1="18" y1="6" x2="6" y2="18"></line>
-                      <line x1="6" y1="6" x2="18" y2="18"></line>
-                    </svg>
-                  </button>
-                </div>
-        
+                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                  </svg>
+                </button>
+              </div>
             )}
 
             {!loading && !error && (
