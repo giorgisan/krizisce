@@ -6,26 +6,25 @@ import { Analytics } from '@vercel/analytics/next'
 import Head from 'next/head'
 import { useEffect } from 'react'
 
-// 1. UVOZ FONTOV
+// 1. UVOZ FONTOV iz next/font (lokalno, brez Googla)
 import { Inter, Playfair_Display } from 'next/font/google'
 
 // Konfiguracija za Inter (glavni tekst)
 const inter = Inter({
-  subsets: ['latin', 'latin-ext'], // KLJUČNO: 'latin-ext' popravi Š, Č, Ž
-  variable: '--font-inter',
+  subsets: ['latin', 'latin-ext'], // Nujno za Š, Č, Ž
   display: 'swap',
+  // Ne uporabimo 'variable' tukaj, ampak spodaj ročno, da prime tudi v Portalu/Preview
 })
 
-// Konfiguracija za Playfair (naslovi/logo)
+// Konfiguracija za Playfair (naslovi)
 const playfair = Playfair_Display({
   subsets: ['latin', 'latin-ext'],
-  variable: '--font-playfair',
   display: 'swap',
 })
 
 function App({ Component, pageProps }: AppProps) {
   
-  // POPRAVEK: Prepreči utripanje scroll pozicije pri navigaciji
+  // Prepreči skakanje strani pri navigaciji
   useEffect(() => {
     if ('scrollRestoration' in history) {
       history.scrollRestoration = 'manual'
@@ -38,13 +37,21 @@ function App({ Component, pageProps }: AppProps) {
         <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
       </Head>
 
-      {/* Globalni stili za glajenje pisave in scrollbar */}
+      {/* GLOBALNA DEFINICIJA FONTOV 
+         To zagotovi, da pisava deluje povsod, tudi v ArticlePreview (ki je izven glavnega <main>) 
+      */}
       <style jsx global>{`
+        :root {
+          --font-inter: ${inter.style.fontFamily};
+          --font-playfair: ${playfair.style.fontFamily};
+        }
+
         html {
+          font-family: var(--font-inter), system-ui, sans-serif;
           -webkit-font-smoothing: antialiased;
           -moz-osx-font-smoothing: auto;
         }
-        
+
         /* SCROLLBAR FIX */
         .scrollbar-hide::-webkit-scrollbar {
             display: none;
@@ -69,8 +76,8 @@ function App({ Component, pageProps }: AppProps) {
         storageKey="theme"
         disableTransitionOnChange
       >
-        {/* TUKAJ se injicirajo font spremenljivke v celotno aplikacijo */}
-        <main className={`${inter.variable} ${playfair.variable} font-sans antialiased min-h-screen bg-white dark:bg-gray-900 text-gray-900 dark:text-white transition-colors duration-300`}>
+        {/* font-sans razred tukaj uporabi zgoraj definirano --font-inter */}
+        <main className="font-sans antialiased min-h-screen bg-white dark:bg-gray-900 text-gray-900 dark:text-white transition-colors duration-300">
           <Component {...pageProps} />
         </main>
       </ThemeProvider>
