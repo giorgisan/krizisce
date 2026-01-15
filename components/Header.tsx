@@ -51,9 +51,9 @@ type Props = {
 export default function Header({ 
   onOpenFilter = () => {}, 
   onSearch = () => {}, 
-  activeSource = 'Vse',
-  activeCategory = 'vse',
-  onSelectCategory = () => {},
+  activeSource = 'Vse', 
+  activeCategory = 'vse', 
+  onSelectCategory = () => {}, 
   onReset = () => {} 
 }: Props) {
   const [scrolled, setScrolled] = useState(false)
@@ -71,15 +71,14 @@ export default function Header({
   const isHome = router.pathname === '/'
   const showCategories = isHome 
 
-  // Mount check
   useEffect(() => {
     setMounted(true)
   }, [])
 
-  // --- LOGIKA ZA VREME S CACHINGOM (15 min) ---
+  // --- VREME ---
   useEffect(() => {
     const CACHE_KEY = 'krizisce-weather-v1'
-    const CACHE_DURATION = 1000 * 60 * 15 // 15 minut
+    const CACHE_DURATION = 1000 * 60 * 15 
 
     const fetchWeather = async () => {
       try {
@@ -126,7 +125,7 @@ export default function Header({
     setTimeout(fetchWeather, 500)
   }, [])
 
-  // Logika za "Nove novice"
+  // --- NOVE NOVICE ---
   useEffect(() => {
     const onHasNew = (e: Event) => setHasNew(Boolean((e as CustomEvent).detail))
     const onRefreshing = (e: Event) => setRefreshing(Boolean((e as CustomEvent).detail))
@@ -144,6 +143,7 @@ export default function Header({
     window.dispatchEvent(new CustomEvent('refresh-news'))
   }
 
+  // --- SCROLL ---
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 10)
     window.addEventListener('scroll', onScroll)
@@ -324,11 +324,19 @@ export default function Header({
             <nav className="flex items-center gap-6 overflow-x-auto no-scrollbar flex-1 relative">
               
               {/* STICKY "VSE NOVICE" GUMB */}
-              <div className="md:sticky md:left-0 z-10 flex items-center md:pr-4 bg-white dark:bg-gray-900 transition-colors">
+              {/* POPRAVEK OZADJA: 
+                  - Na mobilu (default): ni bg (prozorno)
+                  - Na desktopu (md:): bg se ujema z glavo (z blur efektom, če je scrollan)
+              */}
+              <div className={`
+                md:sticky md:left-0 z-10 flex items-center md:pr-4 transition-colors
+                ${scrolled 
+                    ? 'md:bg-white/80 md:dark:bg-gray-900/80 md:backdrop-blur-md' 
+                    : 'md:bg-white md:dark:bg-gray-900'}
+              `}>
                   <button
                     onClick={() => onSelectCategory('vse')}
                     style={{ fontFamily: 'var(--font-inter)' }}
-                    // --- POPRAVEK TUKAJ: ---
                     className={`
                       relative py-3 text-sm uppercase tracking-wide whitespace-nowrap transition-colors font-bold 
                       ${activeCategory === 'vse' 
@@ -342,6 +350,7 @@ export default function Header({
                       <span className="absolute bottom-0 left-0 w-full h-0.5 bg-brand rounded-t-md" />
                     )}
                   </button>
+                  {/* Senca ločnice - samo na desktopu */}
                   <div className="hidden md:block absolute right-0 top-1/2 -translate-y-1/2 h-4 w-px bg-gray-200 dark:bg-gray-700"></div>
               </div>
 
