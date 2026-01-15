@@ -334,7 +334,7 @@ export default function Header({
                       relative py-3 text-sm uppercase tracking-wide whitespace-nowrap transition-colors font-bold 
                       ${activeCategory === 'vse' 
                         ? 'text-brand' 
-                        : 'text-gray-900 dark:text-white hover:text-brand'}
+                        : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'}
                     `}
                   >
                     {activeCategory !== 'vse' && <span className="mr-1 text-brand">←</span>}
