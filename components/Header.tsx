@@ -233,7 +233,7 @@ export default function Header({
           </div>
 
           <div className="flex items-center gap-2 md:gap-4 shrink-0 ml-auto">
-            {/* SEARCH SAMO ZA DESKTOP - na mobilu naj bo raje ikona če jo rabiš, ali pa jo daj v overlay */}
+            {/* SEARCH SAMO ZA DESKTOP */}
             {isHome && (
               <div className="hidden md:block w-64 lg:w-80">
                 <form onSubmit={handleSubmit} className="relative group">
@@ -320,16 +320,15 @@ export default function Header({
         <div className="w-full bg-transparent">
           <div className="max-w-[1800px] mx-auto px-4 md:px-8 lg:px-16 flex items-center">
             
-            {/* ODSTRANJEN: Mobile Search Input (vzel preveč prostora) */}
-            
             {/* NAV BAR */}
             <nav className="flex items-center gap-6 overflow-x-auto no-scrollbar flex-1 relative">
               
-              {/* STICKY "VSE NOVICE" GUMB - POPRAVEK: Sticky samo na md: (desktop) */}
+              {/* STICKY "VSE NOVICE" GUMB */}
               <div className="md:sticky md:left-0 z-10 flex items-center md:pr-4 bg-white dark:bg-gray-900 transition-colors">
                   <button
                     onClick={() => onSelectCategory('vse')}
                     style={{ fontFamily: 'var(--font-inter)' }}
+                    // --- POPRAVEK TUKAJ: ---
                     className={`
                       relative py-3 text-sm uppercase tracking-wide whitespace-nowrap transition-colors font-bold 
                       ${activeCategory === 'vse' 
@@ -343,7 +342,6 @@ export default function Header({
                       <span className="absolute bottom-0 left-0 w-full h-0.5 bg-brand rounded-t-md" />
                     )}
                   </button>
-                  {/* Senca ločnice - samo na desktopu */}
                   <div className="hidden md:block absolute right-0 top-1/2 -translate-y-1/2 h-4 w-px bg-gray-200 dark:bg-gray-700"></div>
               </div>
 
