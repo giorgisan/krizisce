@@ -270,6 +270,7 @@ export default function ArticlePreview({ url, onClose }: Props) {
   const [site, setSite] = useState<string>('')
   const [coverSnapSrc, setCoverSnapSrc] = useState<string | null>(null)
   const [loading, setLoading] = useState<boolean>(true)
+  const [progress, setProgress] = useState<number>(0) // DODANO: Progress state
   const [error, setError] = useState<string | null>(null)
 
   const [shareOpen, setShareOpen] = useState(false)
@@ -300,6 +301,24 @@ export default function ArticlePreview({ url, onClose }: Props) {
     mq.addEventListener?.('change', set)
     return () => mq.removeEventListener?.('change', set)
   }, [])
+
+  // Simulacija progressa
+  useEffect(() => {
+    if (!loading) {
+      setProgress(100)
+      return
+    }
+    setProgress(0)
+    // Hitro do 30%, potem počasneje do 90%
+    const interval = setInterval(() => {
+      setProgress(old => {
+        if (old >= 90) return 90 // Ustavi se na 90% in čaka pravi load
+        const diff = Math.random() * 10
+        return Math.min(old + diff, 90)
+      })
+    }, 200)
+    return () => clearInterval(interval)
+  }, [loading])
 
   useEffect(() => {
     let alive = true
@@ -415,15 +434,14 @@ export default function ArticlePreview({ url, onClose }: Props) {
 
   const shareLinks = useMemo(() => {
     const encodedUrl    = encodeURIComponent(url)
-    // TUKAJ SVA DODALA VIA_TEXT, da se prilepi zraven naslova
     const rawTitle      = (title || site || '') + VIA_TEXT 
     const encodedTitle  = encodeURIComponent(rawTitle)
     
     return {
       x:  `https://twitter.com/intent/tweet?url=${encodedUrl}&text=${encodedTitle}`,
-      fb: `https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}`, // Facebook ignorira text parameter (uporablja OG tage), to je normalno
+      fb: `https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}`,
       li: `https://www.linkedin.com/shareArticle?url=${encodedUrl}&title=${encodedTitle}`,
-      wa: `https://api.whatsapp.com/send?text=${encodedTitle}%20${encodedUrl}`, // WhatsApp bo zdaj vseboval "Naslov — via Križišče URL"
+      wa: `https://api.whatsapp.com/send?text=${encodedTitle}%20${encodedUrl}`,
       tg: `https://t.me/share/url?url=${encodedUrl}&text=${encodedTitle}`,
     }
   }, [url, title, site])
@@ -731,13 +749,13 @@ export default function ArticlePreview({ url, onClose }: Props) {
                    <div className="w-8 h-8 rounded-full bg-brand/80 animate-pulse" />
                 </div>
                 
-                {/* Text Animation */}
+                {/* Text Animation z odštevanjem */}
                 <div className="text-center space-y-2">
                    <p className="text-base font-medium text-gray-900 dark:text-white animate-pulse">
-                     Nalagam predogled ...
+                     Pripravljam vsebino: {Math.floor(progress)} %
                    </p>
                    <p className="text-xs text-gray-500 dark:text-gray-400">
-                     Pripravljam čisto vsebino
+                     Samo še trenutek ...
                    </p>
                 </div>
               </div>
