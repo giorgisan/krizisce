@@ -321,7 +321,7 @@ export default function ArticlePreview({ url, onClose }: Props) {
     return () => clearInterval(interval)
   }, [loading])
 
-  // POPRAVEK: Nalaganje s finish efektom
+  // POPRAVEK: Nalaganje s hitrejšim finish efektom (150ms)
   useEffect(() => {
     let alive = true
     setContent(''); setCoverSnapSrc(null)
@@ -347,12 +347,12 @@ export default function ArticlePreview({ url, onClose }: Props) {
 
         setContent(truncated)
         
-        // --- KLJUČNO: Ročno nastavimo 100% in počakamo ---
+        // --- ZMANJŠAN ZAMIK NA 150ms ---
         setProgress(100)
         setTimeout(() => {
             if (alive) setLoading(false)
-        }, 500)
-        // ------------------------------------------------
+        }, 150)
+        // ------------------------------
 
       } catch {
         if (!alive) return
