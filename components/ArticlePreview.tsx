@@ -304,19 +304,27 @@ export default function ArticlePreview({ url, onClose }: Props) {
 
   // Simulacija progressa
   useEffect(() => {
+    // Če ne nalagamo, resetiramo na 0 (ali pustimo, odvisno od želje)
     if (!loading) {
-      setProgress(100)
       return
     }
+    
     setProgress(0)
-    // Hitro do 30%, potem počasneje do 90%
+
     const interval = setInterval(() => {
       setProgress(old => {
-        if (old >= 90) return 90 // Ustavi se na 90% in čaka pravi load
-        const diff = Math.random() * 10
+        // Če smo ročno nastavili na 100 (v fetch funkciji), ohranimo 100
+        if (old >= 100) return 100
+        
+        // Ustavi se na 90% in čaka pravi load
+        if (old >= 90) return 90 
+        
+        // Logaritemsko približevanje (hitreje na začetku)
+        const diff = Math.random() * 15 
         return Math.min(old + diff, 90)
       })
     }, 200)
+    
     return () => clearInterval(interval)
   }, [loading])
 
