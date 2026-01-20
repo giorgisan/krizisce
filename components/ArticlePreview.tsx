@@ -270,7 +270,7 @@ export default function ArticlePreview({ url, onClose }: Props) {
   const [site, setSite] = useState<string>('')
   const [coverSnapSrc, setCoverSnapSrc] = useState<string | null>(null)
   const [loading, setLoading] = useState<boolean>(true)
-  const [progress, setProgress] = useState<number>(0) // DODANO: Progress state
+  const [progress, setProgress] = useState<number>(0)
   const [error, setError] = useState<string | null>(null)
 
   const [shareOpen, setShareOpen] = useState(false)
@@ -302,25 +302,18 @@ export default function ArticlePreview({ url, onClose }: Props) {
     return () => mq.removeEventListener?.('change', set)
   }, [])
 
-  // Simulacija progressa
+  // POPRAVEK: Simulacija progressa (ki ne povozi 100%)
   useEffect(() => {
-    // Če ne nalagamo, resetiramo na 0 (ali pustimo, odvisno od želje)
     if (!loading) {
       return
     }
-    
     setProgress(0)
 
     const interval = setInterval(() => {
       setProgress(old => {
-        // Če smo ročno nastavili na 100 (v fetch funkciji), ohranimo 100
-        if (old >= 100) return 100
-        
-        // Ustavi se na 90% in čaka pravi load
-        if (old >= 90) return 90 
-        
-        // Logaritemsko približevanje (hitreje na začetku)
-        const diff = Math.random() * 15 
+        if (old >= 100) return 100 // Če smo ročno nastavili 100, ostani tam
+        if (old >= 90) return 90   // Ustavi se na 90%
+        const diff = Math.random() * 15
         return Math.min(old + diff, 90)
       })
     }, 200)
@@ -328,10 +321,13 @@ export default function ArticlePreview({ url, onClose }: Props) {
     return () => clearInterval(interval)
   }, [loading])
 
+  // POPRAVEK: Nalaganje s finish efektom
   useEffect(() => {
     let alive = true
     setContent(''); setCoverSnapSrc(null)
     setLoading(true); setError(null)
+    // Resetiramo progress ob novem URL-ju
+    setProgress(0)
 
     const run = async () => {
       try {
@@ -350,10 +346,18 @@ export default function ArticlePreview({ url, onClose }: Props) {
         setCoverSnapSrc(primary || cleaned.firstImg || null)
 
         setContent(truncated)
-        setLoading(false)
+        
+        // --- KLJUČNO: Ročno nastavimo 100% in počakamo ---
+        setProgress(100)
+        setTimeout(() => {
+            if (alive) setLoading(false)
+        }, 500)
+        // ------------------------------------------------
+
       } catch {
         if (!alive) return
-        setError('Napaka pri nalaganju predogleda. Zaprite in poskusite ponovno.'); setLoading(false)
+        setError('Napaka pri nalaganju predogleda. Zaprite in poskusite ponovno.'); 
+        setLoading(false)
       }
     }
     run()
