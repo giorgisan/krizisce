@@ -91,7 +91,7 @@ export default function Footer() {
       </div>
 
       {/* --- GLAVNI DEL FOOTERJA --- */}
-      {/* POPRAVEK: Malo manjši padding (pt-8 namesto pt-12) za kompaktnost */}
+      {/* Manjši padding (pt-10) za kompaktnost */}
       <div className="bg-gray-50 dark:bg-[#0b101b] pt-10 pb-8 transition-colors">
         <div className="mx-auto max-w-6xl px-4 md:px-8 lg:px-16">
           
@@ -100,10 +100,10 @@ export default function Footer() {
             {/* Levi stolpec: Info */}
             <div>
               <div className="flex items-center mb-3">
-                {/* POPRAVEK: text-gray-700 in font-semibold za mehkejši naslov */}
+                {/* Mehkejši naslov */}
                 <h4 className="text-base font-semibold text-gray-700 dark:text-gray-300 tracking-tight">Križišče</h4>
               </div>
-              {/* POPRAVEK: text-gray-500 za bolj blago besedilo */}
+              {/* Mehkejše besedilo */}
               <p className="text-xs sm:text-sm leading-relaxed text-gray-500 dark:text-gray-400">
                 Agregator najnovejših novic slovenskih medijev. <br />
                 Vse novice so last izvornih portalov.
@@ -112,26 +112,27 @@ export default function Footer() {
             
             {/* Srednji stolpec: Povezave */}
             <div>
-              {/* POPRAVEK: font-medium in text-gray-500 za naslov */}
+              {/* Naslov: Manjši, uppercase, mehka barva */}
               <h4 className="text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-3">Povezave</h4>
-              {/* POPRAVEK: space-y-1 za bolj kompakten seznam */}
+              {/* Kompaktnejši seznam (space-y-1) */}
               <ul className="space-y-1 text-sm text-gray-500 dark:text-gray-400">
-                <li><Link href="/arhiv" className="hover:text-gray-900 dark:hover:text-gray-200 transition-colors">Arhiv novic</Link></li>
-                <li><Link href="/projekt" className="hover:text-gray-900 dark:hover:text-gray-200 transition-colors">O projektu</Link></li>
-                <li><Link href="/pogoji" className="hover:text-gray-900 dark:hover:text-gray-200 transition-colors">Pogoji uporabe</Link></li>
-                <li><Link href="/zasebnost" className="hover:text-gray-900 dark:hover:text-gray-200 transition-colors">Politika zasebnosti</Link></li>
+                {/* POPRAVEK: Vrnjen hover:text-brand */}
+                <li><Link href="/arhiv" className="hover:text-brand dark:hover:text-brand transition-colors">Arhiv novic</Link></li>
+                <li><Link href="/projekt" className="hover:text-brand dark:hover:text-brand transition-colors">O projektu</Link></li>
+                <li><Link href="/pogoji" className="hover:text-brand dark:hover:text-brand transition-colors">Pogoji uporabe</Link></li>
+                <li><Link href="/zasebnost" className="hover:text-brand dark:hover:text-brand transition-colors">Politika zasebnosti</Link></li>
               </ul>
             </div>
             
             {/* Desni stolpec: Kontakt & Viri */}
             <div>
               <h4 className="text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-3">Kontakt</h4>
-              {/* POPRAVEK: Mehkejša barva in hover efekt na črno/belo */}
-              <a href="mailto:gjkcme@gmail.com" className="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 transition-colors block mb-5">
+              {/* POPRAVEK: Vrnjen generičen tekst in hover:text-brand */}
+              <a href="mailto:gjkcme@gmail.com" className="text-sm text-gray-500 dark:text-gray-400 hover:text-brand dark:hover:text-brand transition-colors block mb-5">
                 Pošljite nam sporočilo
               </a>
               
-              {/* Gumb za Vire - rahlo zmanjšan padding in mehkejši robovi */}
+              {/* Gumb za Vire - rahlo zmanjšan in mehkejši */}
               <div className="relative inline-block">
                 <button
                   ref={btnRef}
@@ -177,7 +178,7 @@ export default function Footer() {
 
           {/* Copyright vrstica */}
           <div className="border-t border-gray-200/60 dark:border-white/5 mt-10 pt-6 text-center">
-            <p className="text-sm text-gray-400 dark:text-gray-500 italic mb-2 font-sans">
+            <p className="text-sm text-gray-400 dark:text-gray-500 italic mb-2 font-sans opacity-90">
               “Informacija ni znanje. Edino razumevanje šteje.” — Albert Einstein
             </p>
             <p className="text-[11px] text-gray-400 dark:text-gray-600 uppercase tracking-wider opacity-60">
