@@ -82,7 +82,7 @@ export default function Footer() {
       {/* --- SPREMEMBA: Dodan logo ornament na sredino črte --- */}
       <div className="absolute top-0 left-0 w-full -translate-y-1/2 flex items-center justify-center pointer-events-none z-10">
          <div className="bg-white dark:bg-[#0b101b] p-3 rounded-full border border-gray-100 dark:border-white/5 transition-colors">
-            <Image src="/logo.png" alt="Križišče" width={40} height={40} className="w-8 h-8 object-contain opacity-80" />
+            <Image src="/logo.png" alt="Križišče" width={40} height={40} className="w-8 h-8 object-contain opacity-50" />
          </div>
       </div>
       {/* ----------------------------------------------------- */}
