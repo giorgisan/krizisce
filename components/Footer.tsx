@@ -77,101 +77,98 @@ export default function Footer() {
   }, [open])
 
   return (
-    <footer className="mt-8 w-full relative">
-      <div className="w-full h-px bg-gradient-to-r from-transparent via-brand/30 dark:via-brand/30 to-transparent opacity-80"></div>
-
-      <div className="bg-gray-50/80 dark:bg-[#0b101b] pt-8 pb-8 transition-colors">
+    // SPREMEMBA: Odstranjen 'relative', barva ozadja poenostavljena
+    <footer className="mt-12 w-full border-t border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 transition-colors">
+      
+      <div className="pt-10 pb-8">
         <div className="mx-auto max-w-6xl px-4 md:px-8 lg:px-16 text-gray-800 dark:text-gray-400">
-          <div className="grid gap-6 sm:grid-cols-3 items-start">
+          <div className="grid gap-8 sm:grid-cols-3 items-start">
             
             {/* Levi stolpec: Info */}
             <div>
-              <div className="flex items-center mb-2">
+              <div className="flex items-center mb-3">
                 <Image src="/logo.png" alt="Križišče" width={32} height={32} className="w-6 h-6 rounded-md mr-2" />
-                <h4 className="text-base font-semibold text-gray-900 dark:text-gray-200">Križišče</h4>
+                <h4 className="text-base font-bold text-gray-900 dark:text-white">Križišče</h4>
               </div>
-              <p className="text-xs sm:text-sm leading-relaxed text-gray-600 dark:text-gray-500">
+              <p className="text-xs sm:text-sm leading-relaxed text-gray-500 dark:text-gray-400">
                 Agregator najnovejših novic slovenskih medijev. <br />
-                Članki so last izvornih portalov.
+                Vse novice so last izvornih portalov.
               </p>
             </div>
             
             {/* Srednji stolpec: Povezave */}
             <div>
-              <h4 className="text-sm font-semibold text-gray-900 dark:text-gray-200 mb-2">Povezave</h4>
-              <ul className="space-y-1 text-xs sm:text-sm text-gray-600 dark:text-gray-500">
-                <li><Link href="/arhiv" className="hover:text-brand dark:hover:text-brand transition">Arhiv</Link></li>
+              <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">Povezave</h4>
+              <ul className="space-y-2 text-xs sm:text-sm text-gray-600 dark:text-gray-400">
+                <li><Link href="/arhiv" className="hover:text-brand dark:hover:text-brand transition">Arhiv novic</Link></li>
                 <li><Link href="/projekt" className="hover:text-brand dark:hover:text-brand transition">O projektu</Link></li>
                 <li><Link href="/pogoji" className="hover:text-brand dark:hover:text-brand transition">Pogoji uporabe</Link></li>
-                {/* DODANO: Povezava na zasebnost */}
                 <li><Link href="/zasebnost" className="hover:text-brand dark:hover:text-brand transition">Politika zasebnosti</Link></li>
               </ul>
             </div>
             
             {/* Desni stolpec: Kontakt */}
             <div>
-              <h4 className="text-sm font-semibold text-gray-900 dark:text-gray-200 mb-2">Kontakt</h4>
-              <a href="mailto:gjkcme@gmail.com" className="text-xs sm:text-sm text-gray-600 dark:text-gray-500 hover:text-brand dark:hover:text-brand transition">
-                Pošljite nam sporočilo
+              <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">Kontakt</h4>
+              <a href="mailto:gjkcme@gmail.com" className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 hover:text-brand dark:hover:text-brand transition block mb-4">
+                gjkcme@gmail.com
               </a>
-            </div>
-          </div>
-
-          {/* Gumb za Vire */}
-          <div className="mt-6 flex justify-center">
-            <div className="relative">
-              <button
-                ref={btnRef}
-                type="button"
-                onClick={() => setOpen(v => !v)}
-                className="inline-flex items-center gap-2 rounded-full px-4 py-1.5 ring-1 ring-black/5 dark:ring-white/5
-                           text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-200
-                           bg-white hover:bg-gray-50 dark:bg-[#151a25] dark:hover:bg-[#1c2230]
-                           transition shadow-sm"
-                aria-haspopup="dialog"
-                aria-expanded={open}
-              >
-                <IconSignpost className="h-3.5 w-3.5 opacity-70" />
-                <span className="text-xs sm:text-sm font-medium">Viri</span>
-              </button>
-              {open && (
-                <div
-                  ref={popRef}
-                  className="absolute left-1/2 -translate-x-1/2 bottom-full mb-3
-                             w-[min(92vw,64rem)] rounded-2xl
-                             bg-white/95 dark:bg-[#0b101b]/95 backdrop-blur-xl
-                             ring-1 ring-black/10 dark:ring-white/10 shadow-2xl p-4 sm:p-6 animate-popoverFade z-50"
-                  role="dialog"
-                  aria-label="Viri novic"
+              
+              {/* Gumb za Vire prestavljen sem za lepšo strukturo */}
+              <div className="relative inline-block">
+                <button
+                  ref={btnRef}
+                  type="button"
+                  onClick={() => setOpen(v => !v)}
+                  className="inline-flex items-center gap-2 rounded-full px-4 py-1.5 ring-1 ring-gray-200 dark:ring-gray-700
+                             text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white
+                             bg-gray-50 hover:bg-white dark:bg-gray-800 dark:hover:bg-gray-700
+                             transition text-xs font-medium"
+                  aria-haspopup="dialog"
+                  aria-expanded={open}
                 >
-                  <p className="px-1 pb-3 text-[11px] uppercase tracking-wide text-gray-500 text-center">Viri novic</p>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
-                    {SOURCES.map((it) => {
-                      const origin = new URL(it.url).origin
-                      return (
-                        <a key={it.name} href={it.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 px-2 py-2 rounded-lg text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800/50 transition">
-                          <LogoImg slug={it.slug} origin={origin} label={it.name} />
-                          <span className="text-sm">{it.name}</span>
-                          <span className="ml-auto text-xs text-gray-500">↗</span>
-                        </a>
-                      )
-                    })}
+                  <IconSignpost className="h-3.5 w-3.5 opacity-70" />
+                  <span>Viri novic</span>
+                </button>
+                {open && (
+                  <div
+                    ref={popRef}
+                    className="absolute left-0 bottom-full mb-2
+                               w-72 sm:w-80 rounded-xl
+                               bg-white dark:bg-gray-900
+                               ring-1 ring-black/5 dark:ring-white/10 shadow-xl p-4 animate-popoverFade z-50"
+                    role="dialog"
+                    aria-label="Viri novic"
+                  >
+                    <p className="px-1 pb-3 text-[10px] uppercase tracking-wide text-gray-400 font-bold">Vključeni viri</p>
+                    <div className="grid grid-cols-2 gap-2">
+                      {SOURCES.map((it) => {
+                        const origin = new URL(it.url).origin
+                        return (
+                          <a key={it.name} href={it.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 px-2 py-1.5 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition">
+                            <LogoImg slug={it.slug} origin={origin} label={it.name} />
+                            <span className="text-xs font-medium">{it.name}</span>
+                          </a>
+                        )
+                      })}
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
+              </div>
             </div>
           </div>
 
           {/* Copyright vrstica */}
-          <div className="border-t border-gray-200 dark:border-white/5 mt-6 pt-4 text-center text-xs text-gray-500 dark:text-gray-600 pb-[calc(env(safe-area-inset-bottom,0px))]">
-            <p className="italic mb-1 opacity-80 font-serif">“Informacija ni znanje. Edino razumevanje šteje.” — Albert Einstein</p>
-            <p className="opacity-80">© {year} Križišče – Vse pravice pridržane.</p>
+          <div className="border-t border-gray-100 dark:border-gray-800 mt-10 pt-6 text-center text-xs text-gray-400 dark:text-gray-500 pb-[calc(env(safe-area-inset-bottom,0px)+1rem)]">
+            {/* SPREMEMBA: Odstranjen font-serif, ohranjen italic */}
+            <p className="italic mb-2 opacity-90">“Informacija ni znanje. Edino razumevanje šteje.” — Albert Einstein</p>
+            <p>© {year} Križišče. Vse pravice pridržane.</p>
           </div>
         </div>
       </div>
       <style jsx>{`
-        @keyframes popoverFade { 0% { opacity: 0; transform: translate(-50%, 8px) scale(0.985); } 100% { opacity: 1; transform: translate(-50%, 0) scale(1); } }
-        .animate-popoverFade { animation: popoverFade .18s ease-out both; }
+        @keyframes popoverFade { 0% { opacity: 0; transform: translateY(8px) scale(0.98); } 100% { opacity: 1; transform: translateY(0) scale(1); } }
+        .animate-popoverFade { animation: popoverFade .15s ease-out both; }
       `}</style>
     </footer>
   )
