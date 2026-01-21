@@ -81,7 +81,7 @@ export default function Footer() {
       
       {/* --- LOČILNA ČRTA Z ORNAMENTOM --- */}
       <div className="absolute top-0 left-0 w-full -translate-y-1/2 flex items-center justify-center overflow-visible z-10">
-         {/* Gradient črta - "Fade proti sredini" efekt */}
+         {/* Gradient črta */}
          <div className="absolute w-full max-w-6xl h-px bg-gradient-to-r from-transparent via-gray-300 dark:via-gray-700/80 to-transparent opacity-80"></div>
          
          {/* Ornament (Logotip) na sredini */}
@@ -91,17 +91,18 @@ export default function Footer() {
       </div>
 
       {/* --- GLAVNI DEL FOOTERJA --- */}
-      {/* POPRAVEK: Uporabljena tvoja originalna barva #0b101b namesto črne */}
       <div className="bg-gray-50 dark:bg-[#0b101b] pt-12 pb-8 transition-colors">
         <div className="mx-auto max-w-6xl px-4 md:px-8 lg:px-16 text-gray-800 dark:text-gray-400">
-          <div className="grid gap-10 sm:grid-cols-3 items-start">
+          
+          {/* POPRAVEK: gap-6 namesto gap-10 za bolj kompakten videz */}
+          <div className="grid gap-6 sm:grid-cols-3 items-start">
             
             {/* Levi stolpec: Info */}
             <div>
-              <div className="flex items-center mb-4">
-                <h4 className="text-lg font-bold text-gray-900 dark:text-gray-100 tracking-tight">Križišče</h4>
+              <div className="flex items-center mb-3">
+                <h4 className="text-base font-bold text-gray-900 dark:text-white">Križišče</h4>
               </div>
-              <p className="text-sm leading-relaxed text-gray-500 dark:text-gray-400">
+              <p className="text-xs sm:text-sm leading-relaxed text-gray-500 dark:text-gray-400">
                 Agregator najnovejših novic slovenskih medijev. <br />
                 Vse novice so last izvornih portalov.
               </p>
@@ -109,45 +110,48 @@ export default function Footer() {
             
             {/* Srednji stolpec: Povezave */}
             <div>
-              <h4 className="text-sm font-bold uppercase tracking-wider text-gray-900 dark:text-gray-200 mb-4 opacity-90">Povezave</h4>
-              <ul className="space-y-2.5 text-sm text-gray-600 dark:text-gray-400">
-                <li><Link href="/arhiv" className="hover:text-brand dark:hover:text-brand transition duration-200">Arhiv novic</Link></li>
-                <li><Link href="/projekt" className="hover:text-brand dark:hover:text-brand transition duration-200">O projektu</Link></li>
-                <li><Link href="/pogoji" className="hover:text-brand dark:hover:text-brand transition duration-200">Pogoji uporabe</Link></li>
-                <li><Link href="/zasebnost" className="hover:text-brand dark:hover:text-brand transition duration-200">Politika zasebnosti</Link></li>
+              {/* POPRAVEK: Nič več uppercase, samo font-semibold */}
+              <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">Povezave</h4>
+              <ul className="space-y-2 text-xs sm:text-sm text-gray-600 dark:text-gray-400">
+                <li><Link href="/arhiv" className="hover:text-brand dark:hover:text-brand transition">Arhiv novic</Link></li>
+                <li><Link href="/projekt" className="hover:text-brand dark:hover:text-brand transition">O projektu</Link></li>
+                <li><Link href="/pogoji" className="hover:text-brand dark:hover:text-brand transition">Pogoji uporabe</Link></li>
+                <li><Link href="/zasebnost" className="hover:text-brand dark:hover:text-brand transition">Politika zasebnosti</Link></li>
               </ul>
             </div>
             
             {/* Desni stolpec: Kontakt & Viri */}
-            <div className="flex flex-col items-start">
-              <h4 className="text-sm font-bold uppercase tracking-wider text-gray-900 dark:text-gray-200 mb-4 opacity-90">Kontakt</h4>
-              <a href="mailto:gjkcme@gmail.com" className="text-sm text-gray-600 dark:text-gray-400 hover:text-brand dark:hover:text-brand transition duration-200 mb-6">
-                gjkcme@gmail.com
+            <div>
+              <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">Kontakt</h4>
+              
+              {/* POPRAVEK: Skrit email, prikazan tekst "Pošljite nam sporočilo" */}
+              <a href="mailto:gjkcme@gmail.com" className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 hover:text-brand dark:hover:text-brand transition block mb-4">
+                Pošljite nam sporočilo
               </a>
               
               {/* Gumb za Vire */}
-              <div className="relative">
+              <div className="relative inline-block">
                 <button
                   ref={btnRef}
                   type="button"
                   onClick={() => setOpen(v => !v)}
-                  className="inline-flex items-center gap-2 rounded-full px-5 py-2 ring-1 ring-gray-200 dark:ring-gray-700/50
+                  className="inline-flex items-center gap-2 rounded-full px-4 py-1.5 ring-1 ring-gray-200 dark:ring-gray-800
                              text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white
                              bg-white dark:bg-[#151a25] shadow-sm hover:shadow-md
-                             transition-all text-xs font-semibold uppercase tracking-wide"
+                             transition text-xs font-medium"
                   aria-haspopup="dialog"
                   aria-expanded={open}
                 >
-                  <IconSignpost className="h-4 w-4 opacity-70" />
+                  <IconSignpost className="h-3.5 w-3.5 opacity-70" />
                   <span>Viri novic</span>
                 </button>
                 {open && (
                   <div
                     ref={popRef}
-                    className="absolute right-0 bottom-full mb-3
+                    className="absolute left-0 bottom-full mb-2
                                w-72 sm:w-80 rounded-xl
                                bg-white dark:bg-[#0b101b]
-                               ring-1 ring-black/5 dark:ring-white/10 shadow-2xl p-4 animate-popoverFade z-50 origin-bottom-right"
+                               ring-1 ring-black/5 dark:ring-white/10 shadow-2xl p-4 animate-popoverFade z-50"
                     role="dialog"
                     aria-label="Viri novic"
                   >
@@ -170,9 +174,9 @@ export default function Footer() {
           </div>
 
           {/* Copyright vrstica */}
-          <div className="border-t border-gray-200/50 dark:border-white/5 mt-12 pt-8 text-center">
-            {/* Citat: Italic, ampak brez serif fonta */}
-            <p className="text-sm text-gray-500 dark:text-gray-500 italic mb-2">
+          <div className="border-t border-gray-200/50 dark:border-white/5 mt-10 pt-6 text-center">
+            {/* Citat: Italic, normal font */}
+            <p className="text-sm text-gray-500 dark:text-gray-500 italic mb-2 font-sans opacity-90">
               “Informacija ni znanje. Edino razumevanje šteje.” — Albert Einstein
             </p>
             <p className="text-xs text-gray-400 dark:text-gray-600 uppercase tracking-wider opacity-70">
