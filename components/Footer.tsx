@@ -81,17 +81,13 @@ export default function Footer() {
       
       {/* --- LOČILNA ČRTA Z ORNAMENTOM --- */}
       <div className="absolute top-0 left-0 w-full -translate-y-1/2 flex items-center justify-center overflow-visible z-10">
-         {/* Gradient črta */}
          <div className="absolute w-full max-w-6xl h-px bg-gradient-to-r from-transparent via-gray-300 dark:via-gray-700/80 to-transparent opacity-80"></div>
-         
-         {/* Ornament (Logotip) na sredini */}
          <div className="relative z-10 bg-gray-50 dark:bg-[#0b101b] p-2 rounded-full border border-gray-200/50 dark:border-gray-800 shadow-sm transition-colors">
             <Image src="/logo.png" alt="Križišče" width={24} height={24} className="w-6 h-6 object-contain opacity-90" />
          </div>
       </div>
 
       {/* --- GLAVNI DEL FOOTERJA --- */}
-      {/* Manjši padding (pt-10) za kompaktnost */}
       <div className="bg-gray-50 dark:bg-[#0b101b] pt-10 pb-8 transition-colors">
         <div className="mx-auto max-w-6xl px-4 md:px-8 lg:px-16">
           
@@ -100,10 +96,10 @@ export default function Footer() {
             {/* Levi stolpec: Info */}
             <div>
               <div className="flex items-center mb-3">
-                {/* Mehkejši naslov */}
-                <h4 className="text-base font-semibold text-gray-700 dark:text-gray-300 tracking-tight">Križišče</h4>
+                {/* POPRAVEK: 'font-medium' namesto 'bold', barva bolj siva */}
+                <h4 className="text-base font-medium text-gray-800 dark:text-gray-200 tracking-tight">Križišče</h4>
               </div>
-              {/* Mehkejše besedilo */}
+              {/* POPRAVEK: text-gray-500 za mehkobo */}
               <p className="text-xs sm:text-sm leading-relaxed text-gray-500 dark:text-gray-400">
                 Agregator najnovejših novic slovenskih medijev. <br />
                 Vse novice so last izvornih portalov.
@@ -112,11 +108,10 @@ export default function Footer() {
             
             {/* Srednji stolpec: Povezave */}
             <div>
-              {/* Naslov: Manjši, uppercase, mehka barva */}
-              <h4 className="text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-3">Povezave</h4>
-              {/* Kompaktnejši seznam (space-y-1) */}
+              {/* POPRAVEK: Navadna velikost (ne uppercase), font-medium */}
+              <h4 className="text-sm font-medium text-gray-800 dark:text-gray-200 mb-2">Povezave</h4>
               <ul className="space-y-1 text-sm text-gray-500 dark:text-gray-400">
-                {/* POPRAVEK: Vrnjen hover:text-brand */}
+                {/* POPRAVEK: Hover je ZDAJ oranžen (brand) */}
                 <li><Link href="/arhiv" className="hover:text-brand dark:hover:text-brand transition-colors">Arhiv novic</Link></li>
                 <li><Link href="/projekt" className="hover:text-brand dark:hover:text-brand transition-colors">O projektu</Link></li>
                 <li><Link href="/pogoji" className="hover:text-brand dark:hover:text-brand transition-colors">Pogoji uporabe</Link></li>
@@ -126,20 +121,20 @@ export default function Footer() {
             
             {/* Desni stolpec: Kontakt & Viri */}
             <div>
-              <h4 className="text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-3">Kontakt</h4>
-              {/* POPRAVEK: Vrnjen generičen tekst in hover:text-brand */}
+              <h4 className="text-sm font-medium text-gray-800 dark:text-gray-200 mb-2">Kontakt</h4>
+              {/* POPRAVEK: Hover oranžen */}
               <a href="mailto:gjkcme@gmail.com" className="text-sm text-gray-500 dark:text-gray-400 hover:text-brand dark:hover:text-brand transition-colors block mb-5">
                 Pošljite nam sporočilo
               </a>
               
-              {/* Gumb za Vire - rahlo zmanjšan in mehkejši */}
+              {/* Gumb za Vire */}
               <div className="relative inline-block">
                 <button
                   ref={btnRef}
                   type="button"
                   onClick={() => setOpen(v => !v)}
                   className="inline-flex items-center gap-2 rounded-full px-4 py-1.5 ring-1 ring-gray-200 dark:ring-gray-800
-                             text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-200
+                             text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200
                              bg-white dark:bg-[#151a25] shadow-sm hover:shadow
                              transition-all text-xs font-medium"
                   aria-haspopup="dialog"
