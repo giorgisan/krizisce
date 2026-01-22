@@ -47,7 +47,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // 4. POPRAVLJEN PROMPT (FORSIRANJE PRESLEDKOV)
     const prompt = `
-        Analiziraj spodnji seznam naslovov in povzetkov ter izlušči seznam "Trending" tagov.
+        Analiziraj spodnji seznam naslovov in povzetkov ter izlušči seznam "#Trending" tagov.
         
         PODATKI:
         ${headlines}
@@ -68,7 +68,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
            - Uporabi BESEDE, KI SO DEJANSKO V NASLOVIH.
            - Besede postavi v osnovno obliko (imenovalnik).
         5. DOLŽINA: 
-           - Tag naj ima NAJVEČ 3 besede.
+           - Tag naj ima NAJVEČ 2 besedi, lahko ima 3, če je res pomembno za kontekst.
         
         CILJ: Vrni do 7 kratkih, jedrnatih tagov s presledki.
     `
