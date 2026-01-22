@@ -45,32 +45,34 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // 3. PRIPRAVA VSEBINE
     const headlines = recentNews.map(n => `- ${n.source}: ${n.title}`).join('\n')
 
-    // 4. POPRAVLJEN PROMPT (FORSIRANJE PRESLEDKOV)
+    // 4. OPTIMIZIRAN PROMPT
     const prompt = `
-        Analiziraj spodnji seznam naslovov in povzetkov ter izlušči seznam "#Trending" tagov.
+        Kot urednik novičarskega portala analiziraj spodnji seznam naslovov in izlušči seznam trenutno najbolj vročih tem (#Trending).
         
-        PODATKI:
+        VHODNI PODATKI (Naslovi zadnjih 24h):
         ${headlines}
 
-        KRITERIJI ZA IZBOR:
-        1. TEMA MORA BITI "VROČA": O njej morata pisati vsaj 2 RAZLIČNA vira.
-        2. ČE NI VSAJ 2 RAZLIČNIH VIROV, TE TEME NE IZPIŠI.
+        PRAVILA ZA IZBOR (KRITERIJI):
+        1. RELEVANTNOST: Tema mora biti omenjena v vsaj 2 RAZLIČNIH virih (npr. Delo in 24ur pišeta o isti stvari).
+        2. UNIKATNOST: Ne podvajaj tem (npr. ne izpiši hkrati "#Volitve" in "#Rezultati volitev").
+        3. ČE NI VSAJ 2 VIROV, TEME NE IZPIŠI.
+
+        PRAVILA ZA OBLIKOVANJE (STROGO!!):
+        1. IZHOD: Vrni SAMO čisti JSON array stringov. Brez markdowna, brez "json" oznak.
+        2. FORMAT: Vsak tag se začne z lojtro (#).
+        3. PRESLEDKI SO OBVEZNI:
+           - PREPOVEDANO: Združevanje besed (CamelCase).
+           - PREPOVEDANO: "#LukaDončić", "#VladaRS", "#VojnaVUkrajini"
+           - PRAVILNO: "#Luka Dončić", "#Vlada RS", "#Vojna v Ukrajini"
+        4. JEZIK IN OBLIKA:
+           - Uporabi slovenski jezik.
+           - Besede naj bodo v osnovni obliki (imenovalnik), razen če kontekst zahteva drugače.
+           - Ne uporabljaj narekovajev znotraj taga.
+        5. DOLŽINA:
+           - Idealno: 2 besedi na tag.
+           - Največ: 4 besede (samo za zelo specifične dogodke).
         
-        NAVODILA ZA OBLIKOVANJE (STROGO!!):
-        1. Vrni SAMO JSON array stringov.
-        2. Vsak element se začne z lojtro (#).
-        3. PRESLEDKI (NAJPOMEMBNEJE): 
-           - Če je tag sestavljen iz več besed, MED NJIMI PUSTI PRESLEDEK.
-           - NE ZDRUŽUJ BESED.
-           - NE: "#LukaDončić", "#JavnoZdravstvo", "#RusijaUkrajina"
-           - DA: "#Luka Dončić", "#Javno zdravstvo", "#Rusija Ukrajina"
-        4. IZVOR BESED: 
-           - Uporabi BESEDE, KI SO DEJANSKO V NASLOVIH.
-           - Besede postavi v osnovno obliko (imenovalnik).
-        5. DOLŽINA: 
-           - Tag naj ima NAJVEČ 2 besedi, lahko ima 3, če je res pomembno za kontekst.
-        
-        CILJ: Vrni do 7 kratkih, jedrnatih tagov s presledki.
+        CILJ: Vrni točno 6 do 8 najbolj relevantnih tagov.
     `
     
     const tryGenerate = async (modelName: string) => {
@@ -89,15 +91,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return JSON.parse(cleanJson)
     }
 
-    // 5. GENERIRANJE (Fallback logika)
+    // 5. GENERIRANJE (Spremenjen vrstni red: Lite -> Flash)
     try {
-        trends = await tryGenerate("gemini-2.5-flash");
-        usedModel = "gemini-2.5-flash";
+        // PRVI POSKUS: Lite (varčnejši z kvoto)
+        console.log("Poskušam gemini-2.5-flash-lite...");
+        trends = await tryGenerate("gemini-2.5-flash-lite");
+        usedModel = "gemini-2.5-flash-lite";
     } catch (err1: any) {
-        console.warn(`⚠️ Flash odpovedal, preklapljam na Lite...`);
+        console.warn(`⚠️ Lite verzija ni uspela, preklapljam na navaden Flash...`, err1.message);
         try {
-            trends = await tryGenerate("gemini-2.5-flash-lite");
-            usedModel = "gemini-2.5-flash-lite";
+            // DRUGI POSKUS: Flash (močnejši, a bolj omejen)
+            trends = await tryGenerate("gemini-2.5-flash");
+            usedModel = "gemini-2.5-flash";
         } catch (err2: any) {
             console.error("❌ Vsi modeli odpovedali.");
             return res.status(500).json({ error: 'AI generation failed', details: err2.message });
@@ -108,12 +113,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (Array.isArray(trends) && trends.length > 0) {
         trends = trends
             .map(t => {
-                // Zagotovimo lojtro
-                let tag = t.startsWith('#') ? t : `#${t}`;
-                // Dodatna varnost: Če AI slučajno vrne CamelCase, poskusimo vstaviti presledke pred velikimi črkami (ni nujno, če AI uboga prompt)
+                // Zagotovimo lojtro in odstranimo morebitne odvečne presledke
+                let tag = t.trim();
+                if (!tag.startsWith('#')) tag = `#${tag}`;
                 return tag; 
             })
-            .filter(t => t.length > 2)
+            .filter(t => t.length > 3) // Malo strožji filter za smeti
             .slice(0, 8);
 
         const { error } = await supabase
@@ -127,7 +132,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         
         return res.status(200).json({ 
             success: true, 
-            used_model: usedModel,
+            used_model: usedModel, 
             count: trends.length, 
             trends 
         })
