@@ -19,7 +19,7 @@ export type CategoryDef = {
 }
 
 // ============================================================================
-// 1. DEFINICIJE KATEGORIJ IN KLJUČNIH BESED (FINALNA VERZIJA)
+// 1. DEFINICIJE KATEGORIJ IN KLJUČNIH BESED (FINALNA "DEEP DIVE" VERZIJA)
 // ============================================================================
 export const CATEGORIES: CategoryDef[] = [
   {
@@ -36,7 +36,7 @@ export const CATEGORIES: CategoryDef[] = [
         'referendum', 'ustavn sodisc', 'zakon', 'novel', 'soocenj', 'anket',
         'upokojenc', 'pokojnin', 'zpis', 'socialn transfer', 'minimaln plac', 'stavk', 'sindikat',
         'zdravstv', 'zdravstven dom', 'ukc', 'fides', 'cakaln dob', 'koncesij', 
-        'solstv', 'ucitelj', 'matur', 'vpis', 'vrtec',
+        'solstv', 'ucitelj', 'matur', 'vpis', 'vrtec', 'solsk', 'ucenc', 'dijak', 'sol', // Šolstvo
         'kmet', 'kmetij', 'gozdar', 'kgzs', 'zadrug', 'pridelek', 'trgatev', // Kmetijstvo
         '/mnenja/', '/kolumne/', '/pisma/', '/bralci/',
         'vreme', 'arso', 'napoved', 'sneg', 'dez', 'neurj', 'toc', 'poplav', 'prah', 'onesnazen', 'zrak', // Vreme/Okolje
@@ -73,7 +73,7 @@ export const CATEGORIES: CategoryDef[] = [
         'sodisc', 'sojenj', 'zapor', 'pripor', 'obtoznic', 'obsodb',
         'pogresan', 'iskaln', 'helikopter', 'obmocj', 'voznik', 'alkohol',
         'petard', 'pirotehnik', 'poskodb', 'vinjen', 'vandal', 'oskrunjen', 'tragedij', 'groz',
-        'nasil', 'tihotap', 'ponared', 'oskodoval', 'goljuf', 'begosunec', 'tiralic' // Gospodarski kriminal
+        'nasil', 'tihotap', 'ponared', 'oskodoval', 'goljuf', 'begosunec', 'tiralic', 'poneverb'
     ]
   },
   {
@@ -142,7 +142,7 @@ export const CATEGORIES: CategoryDef[] = [
         'znani', 'vplivnez', 'influencer', 'estradnik', 'zvezdnic', 'zvezdnik', 'ikon', 'bardot', 'klum',
         'clooney', 'dick', 'dyke', 
         'locitev', 'poroka', 'nosecnost', 'afera', 'skandal', 'mladoporoc', 'zaroka', 'nosec', 'baby',
-        'kmetija', 'sanjski', 'talent', 'zvezde plesejo', 'masterchef', 'evrovizij', 'ema',
+        'kmetija', 'sanjski', 'talent', 'zvezde plesejo', 'masterchef', 'evrovizij', 'ema', 'sov', 'resnicnostn',
         'kviz', 'joker', 'milijonar', 'kolo srece', 'voditelj', 'resnicnostn', 'serij', 'film', 'netflix', 'suzy',
         'horoskop', 'astro', 'zodiak', 'retrogradn', 'merkur', 'luna', 'scip', 'znamenj',
         'prerok', 'nostradamus', 'vanga', 'napoved', 'srhljiv', 'katastrof', 
@@ -172,7 +172,7 @@ export const CATEGORIES: CategoryDef[] = [
         'locitev', 'razhod', 'sreca', 'zadovoljstv', 'osamljen', 'dusn', 'dusa', 'motivacij', 'intuicij',
         'zival', 'ljubljenck', 'pes', 'psi', 'mack', 'zavetisc', 'posvojit', 'cebel', 'medved',
         '/potovanja/', '/izleti/', '/turizem/', 
-        'dopust', 'pocitnic', 'morje', 'hrib', 'izlet', 'hotel', 'kamp', 'razgled', 'potep',
+        'dopust', 'pocitnic', 'morje', 'hrib', 'izlet', 'hotel', 'kamp', 'razgled', 'potep', 'turizem', 'turist', 'destinacij', 'wellness', 'razvajanj', 'term',
         'huj', 'navad', 'vitaln',
         'trebuh', 'mascob', 'misic', 'telovad', 'staran', 'utrujenost', 'teles',
         'imen', 'stars', 'otrok'
