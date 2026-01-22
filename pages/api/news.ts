@@ -76,12 +76,16 @@ function makeLinkKey(raw: string, iso?: string | null): string {
 
 const unaccent = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
 const normTitle = (s: string) => unaccent(s).toLowerCase().replace(/\s+/g, ' ').trim()
-const tsSec = (ms?: number | null) => Math.max(0, Math.floor((typeof ms === 'number' ? ms : 0) / 1000))
 
+// OPTIMIZACIJA 1: Izboljšan softDedupe (ne gledamo več sekund)
 function softDedupe<T extends { source?: string; title?: string; publishedAt?: number }>(arr: T[]): T[] {
   const byKey = new Map<string, T>()
   for (const it of arr) {
-    const key = `${(it.source || '').trim()}|${normTitle(it.title || '')}|${tsSec(it.publishedAt || 0)}`
+    // KLJUČNA SPREMEMBA: Odstranili smo čas iz ključa.
+    // Če vir "Delo" objavi "Novica X" ob 10:00 in popravljeno ob 10:05, je to ista novica.
+    const key = `${(it.source || '').trim()}|${normTitle(it.title || '')}`
+    
+    // Vedno obdržimo tisto verzijo, ki je novejša
     const prev = byKey.get(key)
     if (!prev || (it.publishedAt || 0) > (prev.publishedAt || 0)) {
       byKey.set(key, it)
@@ -217,7 +221,7 @@ function rowToItem(r: Row): FeedNewsItem {
 /* TRENDING LOGIKA                                                            */
 /* -------------------------------------------------------------------------- */
 const TREND_WINDOW_HOURS = 6 
-const TREND_MIN_SOURCES = 2       
+const TREND_MIN_SOURCES = 2        
 const TREND_MIN_OVERLAP = 2
 const TREND_MAX_ITEMS = 5
 const TREND_HOT_CUTOFF_HOURS = 4
@@ -242,6 +246,7 @@ type TrendGroup = {
   keywords: string[]
 }
 
+// OPTIMIZACIJA 2: Razširjen seznam stop besed
 const STORY_STOPWORDS = new Set<string>([
   'v', 'na', 'ob', 'po', 'pri', 'pod', 'nad', 'za', 'do', 'od', 'z', 's',
   'in', 'ali', 'pa', 'kot', 'je', 'so', 'se', 'bo', 'bodo', 'bil', 'bila',
@@ -251,19 +256,20 @@ const STORY_STOPWORDS = new Set<string>([
   'slovenski', 'slovenska', 'slovensko', 'slovenskih',
   'ljubljana', 'ljubljani',
   'svet', 'svetu', 'evropa', 'eu', 'zda',
-  'video', 'foto', 'galerija', 'intervju', 'clanek', 'novice', 'kronika', 
-  'novo', 'ekskluzivno', 'v zivo', 'preberite', 'poglejte',
+  'foto', 'video', 'galerija', 'intervju', 'clanek', 'novice', 'kronika', 'avdio',
+  'novo', 'ekskluzivno', 'v zivo', 'preberite', 'poglejte', 'podrobnosti',
   'iz', 'ter', 'kjer', 'kako', 'zakaj', 'kaj', 'kdo', 'kam', 'kadar',
   'razlog', 'zaradi', 'glede', 'proti', 'brez', 'med', 'pred', 'cez',
   'lahko', 'morajo', 'mora', 'imajo', 'ima', 'gre', 'pravi', 'pravijo',
-  'znano', 'znane', 'znani', 'podrobnosti', 'razkrivamo', 'vec', 'manj', 'veliko',
+  'znano', 'znane', 'znani', 'razkrivamo', 'vec', 'manj', 'veliko',
   'prvi', 'prva', 'prvo', 'drugi', 'druga', 'tretji', 'novi', 'nova', 
   'dober', 'dobra', 'slaba', 'velik', 'malo',
   'let', 'leta', 'leto', 'letnik', 'letnika', 'letih', 'letni', 'letna',
   'letošnji', 'letošnja', 'starost', 'star', 'stara',
-  'teden', 'tedna', 'mesec', 'meseca', 'dan', 'dni', 'ura', 'ure',
+  'teden', 'tedna', 'mesec', 'meseca', 'dan', 'dni', 'ura', 'ure', 'minuti', 'uri',
   'bozic', 'bozicni', 'bozicna', 'bozicno', 'vecer', 'praznik', 'prazniki', 
-  'praznicni', 'jutro', 'dopoldne', 'popoldne', 'koncu', 'zacetku', 'sredini'
+  'praznicni', 'jutro', 'dopoldne', 'popoldne', 'koncu', 'zacetku', 'sredini',
+  'objavljeno', 'posodobljeno', 'redakcija', 'urednistvo', 'splet', 'vir'
 ])
 
 function stemToken(raw: string): string {
@@ -275,18 +281,25 @@ function stemToken(raw: string): string {
   return w.substring(0, w.length - 1)
 }
 
-function extractKeywordsFromTitle(title: string): string[] {
-  const base = unaccent(title || '').toLowerCase()
+// OPTIMIZACIJA 3: Univerzalna funkcija za tekst (namesto samo za title)
+function extractKeywordsFromText(text: string): string[] {
+  const base = unaccent(text || '').toLowerCase()
   if (!base) return []
-  const tokens = base.split(/[^a-z0-9]+/i).filter(Boolean)
+  
+  // Bolj agresivno čiščenje (samo črke in presledki)
+  const clean = base.replace(/[^a-z0-9\s]/g, ' ') 
+  const tokens = clean.split(/\s+/).filter(Boolean)
+  
   const out: string[] = []
   for (let i = 0; i < tokens.length; i++) {
     let w = tokens[i]
-    if (!w) continue
+    if (!w || w.length < 3) continue // Ignoriraj prekratke
     if (STORY_STOPWORDS.has(w)) continue
+    
     const stem = stemToken(w)
     if (STORY_STOPWORDS.has(stem)) continue
     if (stem.length < 3) continue 
+    
     if (out.indexOf(stem) === -1) out.push(stem)
   }
   return out
@@ -313,7 +326,12 @@ async function fetchTrendingRows(): Promise<Row[]> {
 function computeTrendingFromRows(rows: Row[]): (FeedNewsItem & { storyArticles: StoryArticle[] })[] {
   const metas: RowMeta[] = rows.map((row) => {
       const ms = (row.publishedat && Number(row.publishedat)) || toMs(row.published_at) || toMs(row.created_at) || Date.now()
-      const keywords = extractKeywordsFromTitle(row.title || '')
+      
+      // OPTIMIZACIJA 3 (nadaljevanje): Združimo naslov IN povzetek za večjo natančnost
+      // Naslovu damo večjo težo tako, da ga ponovimo 2x
+      const textToAnalyze = `${row.title} ${row.title} ${row.summary || row.contentsnippet || ''}`;
+      const keywords = extractKeywordsFromText(textToAnalyze)
+      
       return { row, ms, keywords }
     }).filter((m) => m.keywords.length > 0)
 
