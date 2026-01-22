@@ -45,7 +45,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // 3. PRIPRAVA VSEBINE
     const headlines = recentNews.map(n => `- ${n.source}: ${n.title}`).join('\n')
 
-    // 4. POPRAVLJEN PROMPT (FORSIRANJE PRESLEDKOV)
+    // 4. PROMPT
     const prompt = `
         Analiziraj spodnji seznam naslovov in povzetkov ter izlušči seznam "Trending" tagov.
         
@@ -60,19 +60,20 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         1. Vrni SAMO JSON array stringov.
         2. Vsak element se začne z lojtro (#).
         3. PRESLEDKI (NAJPOMEMBNEJE): 
-           - Če je tag sestavljen iz več besed, MED NJIMI PUSTI PRESLEDEK.
-           - NE ZDRUŽUJ BESED.
-           - NE: "#LukaDončić", "#JavnoZdravstvo", "#RusijaUkrajina"
-           - DA: "#Luka Dončić", "#Javno zdravstvo", "#Rusija Ukrajina"
+            - Če je tag sestavljen iz več besed, MED NJIMI PUSTI PRESLEDEK.
+            - NE ZDRUŽUJ BESED.
+            - NE: "#LukaDončić", "#JavnoZdravstvo", "#RusijaUkrajina"
+            - DA: "#Luka Dončić", "#Javno zdravstvo", "#Rusija Ukrajina"
         4. IZVOR BESED: 
-           - Uporabi BESEDE, KI SO DEJANSKO V NASLOVIH.
-           - Besede postavi v osnovno obliko (imenovalnik).
+            - Uporabi BESEDE, KI SO DEJANSKO V NASLOVIH.
+            - Besede postavi v osnovno obliko (imenovalnik).
         5. DOLŽINA: 
-           - Tag naj ima NAJVEČ 3 besede.
+            - Tag naj ima NAJVEČ 3 besede.
         
         CILJ: Vrni do 7 kratkih, jedrnatih tagov s presledki.
     `
     
+    // Funkcija za klic AI modela
     const tryGenerate = async (modelName: string) => {
         const model = genAI.getGenerativeModel({ 
             model: modelName,
@@ -89,19 +90,22 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return JSON.parse(cleanJson)
     }
 
-    // 5. GENERIRANJE (Fallback logika)
+    // 5. GENERIRANJE (Optimizirano za kvote)
     try {
-        // PRVA IZBIRA: Stabilen, hiter in poceni model (priporočeno)
-        trends = await tryGenerate("gemini-1.5-flash"); 
-        usedModel = "gemini-1.5-flash";
+        // PRVA IZBIRA: gemini-2.5-flash-lite
+        // Zakaj? Ker imaš pri tem modelu še prosto kvoto, medtem ko je navaden flash poln.
+        console.log("Poskušam gemini-2.5-flash-lite...");
+        trends = await tryGenerate("gemini-2.5-flash-lite");
+        usedModel = "gemini-2.5-flash-lite";
     } catch (err1: any) {
-        console.warn(`⚠️ Flash 1.5 odpovedal, preklapljam na Pro...`);
+        console.warn(`⚠️ Lite verzija ni uspela, preklapljam na navaden Flash...`, err1.message);
         try {
-            // FALLBACK: Če flash odpove, poskusimo z močnejšim (a dražjim)
-            trends = await tryGenerate("gemini-1.5-pro");
-            usedModel = "gemini-1.5-pro";
+            // FALLBACK: gemini-2.5-flash
+            // Uporabimo samo, če Lite ne dela, saj je ta kvota verjetno polna.
+            trends = await tryGenerate("gemini-2.5-flash");
+            usedModel = "gemini-2.5-flash";
         } catch (err2: any) {
-            console.error("❌ Vsi modeli odpovedali.");
+            console.error("❌ Vsi modeli odpovedali. Preveri Google Cloud Quotas.");
             return res.status(500).json({ error: 'AI generation failed', details: err2.message });
         }
     }
@@ -110,9 +114,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (Array.isArray(trends) && trends.length > 0) {
         trends = trends
             .map(t => {
-                // Zagotovimo lojtro
+                // Zagotovimo lojtro in format
                 let tag = t.startsWith('#') ? t : `#${t}`;
-                // Dodatna varnost: Če AI slučajno vrne CamelCase, poskusimo vstaviti presledke pred velikimi črkami (ni nujno, če AI uboga prompt)
                 return tag; 
             })
             .filter(t => t.length > 2)
@@ -129,7 +132,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         
         return res.status(200).json({ 
             success: true, 
-            used_model: usedModel,
+            used_model: usedModel, 
             count: trends.length, 
             trends 
         })
