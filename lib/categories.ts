@@ -19,7 +19,7 @@ export type CategoryDef = {
 }
 
 // ============================================================================
-// 1. DEFINICIJE KATEGORIJ IN KLJUČNIH BESED (POSODOBLJENA VERZIJA)
+// 1. DEFINICIJE KATEGORIJ IN KLJUČNIH BESED (OPTIMIZIRANA VERZIJA)
 // ============================================================================
 export const CATEGORIES: CategoryDef[] = [
   {
@@ -34,9 +34,10 @@ export const CATEGORIES: CategoryDef[] = [
         'pirc musar', 'golob', 'jansa', 'tonin', 'mesec', 'fajon', 'logar', 
         'svoboda', 'sds', 'nsi', 'levica', 'sd',
         'referendum', 'ustavn sodisc', 'zakon', 'novel', 'soocenj', 'anket',
-        'upokojenc', 'pokojnin', 'zpis', 'socialn transfer', 'minimaln plac',
+        'upokojenc', 'pokojnin', 'zpis', 'socialn transfer', 'minimaln plac', 'stavk',
         'zdravstv', 'zdravstven dom', 'ukc', 'fides', 'cakaln dob', 'koncesij', 
         'solstv', 'ucitelj', 'matur', 'vpis', 'vrtec',
+        'kmet', 'kmetij', 'gozdar', 'kgzs', 'zadrug', // Dodano za kmetijstvo
         '/mnenja/', '/kolumne/', '/pisma/', '/bralci/',
         'vreme', 'arso', 'napoved', 'sneg', 'dez', 'neurj', 'toc', 'poplav',
         'stopinj', 'celzi', 'najtoplejs', 'mraz', 'vroc', 'rekord',
@@ -104,7 +105,7 @@ export const CATEGORIES: CategoryDef[] = [
         'davk', 'furs', 'dohodnin', 'bilanc', 'subvencij', 'razpis', 'proracun',
         'bdp', 'recesij', 'investicij', 'vlagatelj', 'podjet', 'trg', 'nalozb',
         'energetik', 'hse', 'gen-i', 'lek', 'krka', 'petrol', 'mercator',
-        'sindikat', 'zaposlitev', 'trg del', 'brezposelnost', 'plac', 'zasluzek', 'stavk',
+        'sindikat', 'zaposlitev', 'trg del', 'brezposelnost', 'plac', 'zasluzek', 'stavk', 'mercosur', 'sporazum', 'carin',
         'poklic', 'karier', 'siht', 'izvoz', 'panog',
         'nepremicninski trg', 'stanovanjsk sklad', 'gradbenistv', 'novogradnj', 'nepremicnin',
         'naft', 'bencin', 'dizel', 'cen goriv', 'elektricn energij',
@@ -224,7 +225,6 @@ export function determineCategory(item: {
   if (url.includes('/kronika/') || url.includes('/crna-kronika/') || url.includes('/crna/')) return 'kronika';
   if (url.includes('/sport/') || url.includes('/sportal/') || url.includes('/nogomet/') || url.includes('/kosarka/') || url.includes('/zimski-sporti/')) return 'sport';
   
-  // POPRAVEK: Dodan /svet-vozil/ za Dnevnik
   if (url.includes('/avto/') || url.includes('/avtomoto/') || url.includes('/mobilnost/') || url.includes('/svet-vozil/')) return 'moto';
   
   if (url.includes('/magazin/') || url.includes('/bulvar/') || url.includes('/scena/') || url.includes('/zvezde/') || url.includes('/popin/') || url.includes('/karikatura/') || url.includes('/zabava/') || url.includes('/zabava-in-slog/') || url.includes('/znani/')) return 'magazin';
@@ -233,7 +233,6 @@ export function determineCategory(item: {
   
   if (url.includes('/kultura/') || url.includes('/glasba/') || url.includes('/mlado-pero/')) return 'kultura';
 
-  // POPRAVEK: Dodan /znanoteh/ za Delo
   if (url.includes('/gospodarstvo/') || url.includes('/posel/') || url.includes('/finance/') || url.includes('/digisvet/') || url.includes('/tech/') || url.includes('/znanoteh/')) return 'posel-tech';
 
   // A2) ŠIBKI URL SIGNALI
@@ -263,16 +262,16 @@ export function determineCategory(item: {
               if (configKw.startsWith('/')) return false; 
               const cleanConfig = unaccent(configKw);
               
-              // Popolno ujemanje
-              if (token === cleanConfig) return true;
-              
-              // Delno ujemanje (pomembno za tvoje "porezane" keywords iz baze)
+              // POPRAVEK LOGIKE:
+              // Če token vsebuje keyword (npr. 'sporazum' vsebuje 'poraz')
               if (token.includes(cleanConfig)) {
-                  // Če je ključna beseda kratka (npr. 'avto'), mora biti ujemanj bolj strogo (začetek besede)
+                  // Če je keyword kratek (< 5), zahtevamo popolno ujemanje ali začetek besede
                   if (cleanConfig.length < 5) {
                       return token === cleanConfig || token.startsWith(cleanConfig);
                   }
-                  return true; 
+                  // Če je keyword daljši (>= 5), zahtevamo začetek ALI konec besede.
+                  // To prepreči "s-poraz-um" ujemanje, a dovoli "super-pokal" ali "poraz-enec".
+                  return token.startsWith(cleanConfig) || token.endsWith(cleanConfig);
               }
               
               // Obratno: če je token iz baze kratek (npr. 'televizi'), konfiguracija pa dolga ('televizija')
