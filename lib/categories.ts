@@ -19,7 +19,7 @@ export type CategoryDef = {
 }
 
 // ============================================================================
-// 1. DEFINICIJE KATEGORIJ IN KLJUČNIH BESED (OPTIMIZIRANA VERZIJA)
+// 1. DEFINICIJE KATEGORIJ IN KLJUČNIH BESED (FINALNA VERZIJA)
 // ============================================================================
 export const CATEGORIES: CategoryDef[] = [
   {
@@ -34,12 +34,12 @@ export const CATEGORIES: CategoryDef[] = [
         'pirc musar', 'golob', 'jansa', 'tonin', 'mesec', 'fajon', 'logar', 
         'svoboda', 'sds', 'nsi', 'levica', 'sd',
         'referendum', 'ustavn sodisc', 'zakon', 'novel', 'soocenj', 'anket',
-        'upokojenc', 'pokojnin', 'zpis', 'socialn transfer', 'minimaln plac', 'stavk',
+        'upokojenc', 'pokojnin', 'zpis', 'socialn transfer', 'minimaln plac', 'stavk', 'sindikat',
         'zdravstv', 'zdravstven dom', 'ukc', 'fides', 'cakaln dob', 'koncesij', 
         'solstv', 'ucitelj', 'matur', 'vpis', 'vrtec',
-        'kmet', 'kmetij', 'gozdar', 'kgzs', 'zadrug', // Dodano za kmetijstvo
+        'kmet', 'kmetij', 'gozdar', 'kgzs', 'zadrug', 'pridelek', 'trgatev', // Kmetijstvo
         '/mnenja/', '/kolumne/', '/pisma/', '/bralci/',
-        'vreme', 'arso', 'napoved', 'sneg', 'dez', 'neurj', 'toc', 'poplav',
+        'vreme', 'arso', 'napoved', 'sneg', 'dez', 'neurj', 'toc', 'poplav', 'prah', 'onesnazen', 'zrak', // Vreme/Okolje
         'stopinj', 'celzi', 'najtoplejs', 'mraz', 'vroc', 'rekord',
         'dobrodeln', 'gasilsk zvez', 'sodnik', 'diskriminaci', 'rasizem', 'vrednot'
     ]
@@ -57,7 +57,7 @@ export const CATEGORIES: CategoryDef[] = [
         'eu', 'evropsk komisij', 'parlament', 'von der leyen', 'nato',
         'scholz', 'macron', 'orban', 'vucic', 'plenkovic',
         'potres', 'terorist', 'napad', 'protest', 'valut',
-        'hrvask', 'zagreb', 'beograd', 'balkan', 'papez', 'vatikan'
+        'hrvask', 'zagreb', 'beograd', 'balkan', 'papez', 'vatikan', 'kralj'
     ]
   },
   {
@@ -73,7 +73,7 @@ export const CATEGORIES: CategoryDef[] = [
         'sodisc', 'sojenj', 'zapor', 'pripor', 'obtoznic', 'obsodb',
         'pogresan', 'iskaln', 'helikopter', 'obmocj', 'voznik', 'alkohol',
         'petard', 'pirotehnik', 'poskodb', 'vinjen', 'vandal', 'oskrunjen', 'tragedij', 'groz',
-        'nasil', 'tihotap', 'ponared'
+        'nasil', 'tihotap', 'ponared', 'oskodoval', 'goljuf', 'begosunec', 'tiralic' // Gospodarski kriminal
     ]
   },
   {
@@ -106,12 +106,12 @@ export const CATEGORIES: CategoryDef[] = [
         'bdp', 'recesij', 'investicij', 'vlagatelj', 'podjet', 'trg', 'nalozb',
         'energetik', 'hse', 'gen-i', 'lek', 'krka', 'petrol', 'mercator',
         'sindikat', 'zaposlitev', 'trg del', 'brezposelnost', 'plac', 'zasluzek', 'stavk', 'mercosur', 'sporazum', 'carin',
-        'poklic', 'karier', 'siht', 'izvoz', 'panog',
+        'poklic', 'karier', 'siht', 'izvoz', 'panog', 'zbornic',
         'nepremicninski trg', 'stanovanjsk sklad', 'gradbenistv', 'novogradnj', 'nepremicnin',
         'naft', 'bencin', 'dizel', 'cen goriv', 'elektricn energij',
         'apple', 'iphone', 'samsung', 'xiaomi', 'huawei', 'sony', 'microsoft', 'google', 'meta', 'twitter',
         'umetn inteligenc', 'chatgpt', 'openai', 'robotik', 'vesolj', 'nasa', 'spacex', 'luna', 'mars', 'astronavt', 'misija',
-        'aplikacij', 'programiranj', 'kibernetsk', 'heker', 'prevar', 'znanstven', 'splet', 'telef', 'mobiln',
+        'aplikacij', 'programiranj', 'kibernetsk', 'heker', 'prevar', 'znanstven', 'splet', 'telef', 'mobiln', 'regulativ', 'direktiv', 'zasebnost', 'podatk',
         'milijard', 'milijonar', 'bogatas', 'bogastv', 'premozenj', 'uspeh',
         'gamers', 'igric', 'konzola', 'xbox', 'playstation', 'asus', 'racunalnik',
         'algorit', 'omrez'
@@ -157,10 +157,10 @@ export const CATEGORIES: CategoryDef[] = [
     color: 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900/40 dark:text-cyan-300',
     keywords: [
         '/zdravje/', '/dobro-pocutje/', '/duhovnost/', '/stil/', '/osebna-rast/', '/bivanje/', '/trajnostno/', 
-        'bolezen', 'simptom', 'zdravnik', 'rak', 'srce', 'diabetes', 'tlak', 'holesterol',
+        'bolezen', 'simptom', 'zdravnik', 'rak', 'srce', 'diabetes', 'tlak', 'holesterol', 'ledvic', 'jetra', 'prebav',
         'hujsanj', 'diet', 'vadba', 'fitnes', 'joga', 'stres', 'izgorel', 'spanj', 'nespecnost',
         'vitamin', 'mineral', 'imunsk', 'prehlad', 'grip', 'covid', 'virus', 'okuzb', 'demenc', 'mozgan', 'savn',
-        'recept', 'kosilo', 'vecerja', 'sladica', 'pecivo', 'tort', 'kuhanj', 'pecenj', 'hran', 'okus',
+        'recept', 'kosilo', 'vecerja', 'sladica', 'pecivo', 'tort', 'kuhanj', 'pecenj', 'hran', 'okus', 'caj', 'kava', 'napitek',
         'sestavin', 'jed', 'gastronom', 'michelin', 'juh', 'solat', 'kis', 'zelj', 'sarm', 'potic',
         'hisa', 'stanovan', 'interier', 'oprema', 'prenova', 'dekoracij', 'dom', 'vrt',
         'vrtnar', 'rastlin', 'cvet', 'zelenjav', 'sadn',
@@ -210,7 +210,7 @@ const PRIORITY_CHECK_ORDER: CategoryId[] = [
 
 const unaccent = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
 
-// 3. HIBRIDNA LOGIKA
+// 3. HIBRIDNA LOGIKA (BULLETPROOF)
 export function determineCategory(item: { 
   link: string; 
   title?: string; 
@@ -262,7 +262,7 @@ export function determineCategory(item: {
               if (configKw.startsWith('/')) return false; 
               const cleanConfig = unaccent(configKw);
               
-              // POPRAVEK LOGIKE:
+              // BULLETPROOF LOGIKA:
               // Če token vsebuje keyword (npr. 'sporazum' vsebuje 'poraz')
               if (token.includes(cleanConfig)) {
                   // Če je keyword kratek (< 5), zahtevamo popolno ujemanje ali začetek besede
