@@ -1,5 +1,3 @@
-// lib/categories.ts
-
 export type CategoryId = 
   | 'slovenija' 
   | 'svet' 
@@ -21,7 +19,7 @@ export type CategoryDef = {
 }
 
 // ============================================================================
-// 1. DEFINICIJE KATEGORIJ IN KLJUČNIH BESED (FINALNA RAZŠIRJENA VERZIJA)
+// 1. DEFINICIJE KATEGORIJ IN KLJUČNIH BESED (POSODOBLJENA VERZIJA)
 // ============================================================================
 export const CATEGORIES: CategoryDef[] = [
   {
@@ -29,7 +27,7 @@ export const CATEGORIES: CategoryDef[] = [
     label: 'Slovenija',
     color: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300',
     keywords: [
-        '/slovenija/', '/lokalno/', '/obcine/', '/regije/', '/okolje/', // Dodano /okolje/
+        '/slovenija/', '/lokalno/', '/obcine/', '/regije/', '/okolje/',
         'ljubljan', 'maribor', 'celj', 'koper', 'kranj', 'nov mest', 'velenj', 'mursk sobot',
         'obcin', 'zupan', 'svetnik', 'komunal', 'vodovod', 'kanalizacij', 'cest',
         'vlada', 'parlament', 'drzavni zbor', 'poslanc', 'ministr', 'premier', 'predsednik',
@@ -39,9 +37,9 @@ export const CATEGORIES: CategoryDef[] = [
         'upokojenc', 'pokojnin', 'zpis', 'socialn transfer', 'minimaln plac',
         'zdravstv', 'zdravstven dom', 'ukc', 'fides', 'cakaln dob', 'koncesij', 
         'solstv', 'ucitelj', 'matur', 'vpis', 'vrtec',
-        '/mnenja/', '/kolumne/', '/pisma/', '/bralci/', // Dodano /bralci/
+        '/mnenja/', '/kolumne/', '/pisma/', '/bralci/',
         'vreme', 'arso', 'napoved', 'sneg', 'dez', 'neurj', 'toc', 'poplav',
-        'stopinj', 'celzi', 'najtoplejs', 'mraz', 'vroc', 'rekord', // Dodano za vremenske rekorde
+        'stopinj', 'celzi', 'najtoplejs', 'mraz', 'vroc', 'rekord',
         'dobrodeln', 'gasilsk zvez', 'sodnik', 'diskriminaci', 'rasizem', 'vrednot'
     ]
   },
@@ -100,7 +98,7 @@ export const CATEGORIES: CategoryDef[] = [
     label: 'Posel & Tech',
     color: 'bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-300',
     keywords: [
-        '/gospodarstvo/', '/posel/', '/finance/', '/borza/', '/podjetnistvo/', '/tech/', '/znanost/',
+        '/gospodarstvo/', '/posel/', '/finance/', '/borza/', '/podjetnistvo/', '/tech/', '/znanost/', '/znanoteh/',
         'delnic', 'kripto', 'bitcoin', 'ethereum', 'inflacij', 'obrest', 'ecb', 'euribor',
         'banka', 'nlb', 'nkbm', 'poslovanj', 'dobicek', 'izgub', 'stecaj', 'prihodk',
         'davk', 'furs', 'dohodnin', 'bilanc', 'subvencij', 'razpis', 'proracun',
@@ -111,11 +109,11 @@ export const CATEGORIES: CategoryDef[] = [
         'nepremicninski trg', 'stanovanjsk sklad', 'gradbenistv', 'novogradnj', 'nepremicnin',
         'naft', 'bencin', 'dizel', 'cen goriv', 'elektricn energij',
         'apple', 'iphone', 'samsung', 'xiaomi', 'huawei', 'sony', 'microsoft', 'google', 'meta', 'twitter',
-        'umetn inteligenc', 'chatgpt', 'openai', 'robotik', 'vesolj', 'nasa', 'spacex',
+        'umetn inteligenc', 'chatgpt', 'openai', 'robotik', 'vesolj', 'nasa', 'spacex', 'luna', 'mars', 'astronavt', 'misija',
         'aplikacij', 'programiranj', 'kibernetsk', 'heker', 'prevar', 'znanstven', 'splet', 'telef', 'mobiln',
         'milijard', 'milijonar', 'bogatas', 'bogastv', 'premozenj', 'uspeh',
-        'gamers', 'igric', 'konzola', 'xbox', 'playstation', 'asus', 'racunalnik', // Dodano za gaming
-        'algorit', 'omrez' // Dodano za tech novice (algoritmi, omrežja)
+        'gamers', 'igric', 'konzola', 'xbox', 'playstation', 'asus', 'racunalnik',
+        'algorit', 'omrez'
     ]
   },
   {
@@ -123,10 +121,10 @@ export const CATEGORIES: CategoryDef[] = [
     label: 'Mobilnost', 
     color: 'bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-300',
     keywords: [
-        '/auto/', '/avto/', '/avtomobilizem/', '/mobilnost/', 
-        'vozil', 'model', 'premier',
-        'elektricn avto', 'tesla', 'byd', 'volkswagen', 'bmw', 'audi', 'mercedes', 'renault', 'toyota', 'dacia',
-        'suv', 'limuzin', 'karavan', 'hibrid',
+        '/auto/', '/avto/', '/avtomobilizem/', '/mobilnost/', '/svet-vozil/',
+        'vozil', 'model', 'premier', 'test',
+        'elektricn avto', 'tesla', 'byd', 'volkswagen', 'bmw', 'audi', 'mercedes', 'renault', 'toyota', 'dacia', 'volvo',
+        'suv', 'terenec', 'limuzin', 'karavan', 'hibrid',
         'promet', 'dars', 'vinjet', 'predor', 'karavank', 'zastoj', 'radar', 'kazen',
         'voznja', 'voznik', 'tovornjak', 'avtocest', 'hrosc'
     ]
@@ -149,7 +147,7 @@ export const CATEGORIES: CategoryDef[] = [
         'prerok', 'nostradamus', 'vanga', 'napoved', 'srhljiv', 'katastrof', 
         'viral', 'smesn', 'video', 'sokantn', 'ganljiv', 'tiktok', 'razhod', 
         'pev', 'igral', 'resnicnost', 'karikatur',
-        'televizi', 'oddaj', 'spored', 'planet tv', 'pop tv', 'rtv' // Dodano za TV vsebine
+        'televizi', 'oddaj', 'spored', 'planet tv', 'pop tv', 'rtv'
     ]
   },
   {
@@ -166,7 +164,7 @@ export const CATEGORIES: CategoryDef[] = [
         'hisa', 'stanovan', 'interier', 'oprema', 'prenova', 'dekoracij', 'dom', 'vrt',
         'vrtnar', 'rastlin', 'cvet', 'zelenjav', 'sadn',
         'soncn elektrarn', 'toplotn', 'energetsk ucinkovit', 'ekolog', 'trajnost',
-        'ciscenj', 'pospravljanj', 'triki', 'nasvet', 'plastik', 'posod', // Dodano
+        'ciscenj', 'pospravljanj', 'triki', 'nasvet', 'plastik', 'posod',
         'luck', 'okrask', 'smrecic', 'jelk', 'praznicn', 'bozic', 'daril', 'obdarovan', 'dedek mraz', 'prazni',
         'poraba', 'varcevanj',
         'odnos', 'partner', 'samsk', 'zmenk', 'toksic', 'custv', 'psiholog', 'razmerj', 'vzgoj',
@@ -175,8 +173,8 @@ export const CATEGORIES: CategoryDef[] = [
         '/potovanja/', '/izleti/', '/turizem/', 
         'dopust', 'pocitnic', 'morje', 'hrib', 'izlet', 'hotel', 'kamp', 'razgled', 'potep',
         'huj', 'navad', 'vitaln',
-        'trebuh', 'mascob', 'misic', 'telovad', 'staran', 'utrujenost', 'teles', // Dodano za telo
-        'imen', 'stars', 'otrok' // Dodano za druzino
+        'trebuh', 'mascob', 'misic', 'telovad', 'staran', 'utrujenost', 'teles',
+        'imen', 'stars', 'otrok'
     ]
   },
   {
@@ -184,12 +182,12 @@ export const CATEGORIES: CategoryDef[] = [
     label: 'Kultura',
     color: 'bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300',
     keywords: [
-        '/kultura/', '/umetnost/', '/knjige/', '/film/', '/glasba/', '/gledalisce/', '/mlado-pero/', // Dodano mlado-pero
+        '/kultura/', '/umetnost/', '/knjige/', '/film/', '/glasba/', '/gledalisce/', '/mlado-pero/',
         'razstav', 'muzej', 'galerij', 'slikar', 'kip', 'umetnik',
         'fotograf', 'objektiv', 'posnetek', 'kadr', 
         'koncert', 'opera', 'balet', 'filharmonij', 'zbor',
         'kino', 'premier', 'oskar', 'cannes', 'liffe', 'sarajevo film',
-        'knjizn', 'pisatelj', 'pesnik', 'roman', 'zbirk', 'proz', 'literarn', 'recenzi', // Dodano
+        'knjizn', 'pisatelj', 'pesnik', 'roman', 'zbirk', 'proz', 'literarn', 'recenzi',
         'dokumentarec', 'karikatur', 'strip', 'reziser', 'umetnin', 'mojstrov',
         'umrl', 'pevec', 'skupin', 'bend', 'parni valjak', 'glasben'
     ]
@@ -225,17 +223,18 @@ export function determineCategory(item: {
   // A1) MOČNI URL SIGNALI
   if (url.includes('/kronika/') || url.includes('/crna-kronika/') || url.includes('/crna/')) return 'kronika';
   if (url.includes('/sport/') || url.includes('/sportal/') || url.includes('/nogomet/') || url.includes('/kosarka/') || url.includes('/zimski-sporti/')) return 'sport';
-  if (url.includes('/avto/') || url.includes('/avtomoto/') || url.includes('/mobilnost/')) return 'moto';
+  
+  // POPRAVEK: Dodan /svet-vozil/ za Dnevnik
+  if (url.includes('/avto/') || url.includes('/avtomoto/') || url.includes('/mobilnost/') || url.includes('/svet-vozil/')) return 'moto';
   
   if (url.includes('/magazin/') || url.includes('/bulvar/') || url.includes('/scena/') || url.includes('/zvezde/') || url.includes('/popin/') || url.includes('/karikatura/') || url.includes('/zabava/') || url.includes('/zabava-in-slog/') || url.includes('/znani/')) return 'magazin';
   
-  // Lifestyle URL signali
   if (url.includes('/lifestyle/') || url.includes('/zdravje/') || url.includes('/okusno/') || url.includes('/kulinarika/') || url.includes('/dom/') || url.includes('/osebna-rast/') || url.includes('vizita') || url.includes('/trajnostno/') || url.includes('/bivanje/')) return 'lifestyle';
   
-  // Kultura URL signali
   if (url.includes('/kultura/') || url.includes('/glasba/') || url.includes('/mlado-pero/')) return 'kultura';
 
-  if (url.includes('/gospodarstvo/') || url.includes('/posel/') || url.includes('/finance/') || url.includes('/digisvet/') || url.includes('/tech/')) return 'posel-tech';
+  // POPRAVEK: Dodan /znanoteh/ za Delo
+  if (url.includes('/gospodarstvo/') || url.includes('/posel/') || url.includes('/finance/') || url.includes('/digisvet/') || url.includes('/tech/') || url.includes('/znanoteh/')) return 'posel-tech';
 
   // A2) ŠIBKI URL SIGNALI
   let urlHint: CategoryId | null = null;
