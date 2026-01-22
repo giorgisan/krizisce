@@ -49,13 +49,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const prompt = `
         Kot urednik novičarskega portala analiziraj spodnji seznam naslovov in izlušči seznam trenutno najbolj vročih tem (#Trending).
         
-        VHODNI PODATKI (Naslovi zadnjih 24h):
+        VHODNI PODATKI (Naslovi zadnjih 100 novic):
         ${headlines}
 
         PRAVILA ZA IZBOR (KRITERIJI):
-        1. RELEVANTNOST: Tema mora biti omenjena v vsaj 2 RAZLIČNIH virih (npr. Delo in 24ur pišeta o isti stvari).
+        1. RELEVANTNOST: Tema mora biti omenjena v vsaj 3 RAZLIČNIH virih (npr. Delo, RTV in 24ur pišeta o isti stvari).
         2. UNIKATNOST: Ne podvajaj tem (npr. ne izpiši hkrati "#Volitve" in "#Rezultati volitev").
-        3. ČE NI VSAJ 2 VIROV, TEME NE IZPIŠI.
+        3. ČE NI VSAJ 3 VIROV, TEME NE IZPIŠI.
 
         PRAVILA ZA OBLIKOVANJE (STROGO!!):
         1. IZHOD: Vrni SAMO čisti JSON array stringov. Brez markdowna, brez "json" oznak.
@@ -72,7 +72,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
            - Idealno: 2 besedi na tag.
            - Največ: 3 besede (samo za zelo specifične dogodke).
         
-        CILJ: Vrni točno 6 do 8 najbolj relevantnih tagov.
+        CILJ: Vrni točno 5 do 7 najbolj relevantnih tagov.
     `
     
     const tryGenerate = async (modelName: string) => {
