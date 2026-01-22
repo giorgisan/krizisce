@@ -70,7 +70,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
            - Ne uporabljaj narekovajev znotraj taga.
         5. DOLŽINA:
            - Idealno: 2 besedi na tag.
-           - Največ: 4 besede (samo za zelo specifične dogodke).
+           - Največ: 3 besede (samo za zelo specifične dogodke).
         
         CILJ: Vrni točno 6 do 8 najbolj relevantnih tagov.
     `
