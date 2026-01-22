@@ -91,13 +91,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // 5. GENERIRANJE (Fallback logika)
     try {
-        trends = await tryGenerate("gemini-2.5-flash");
-        usedModel = "gemini-2.5-flash";
+        // PRVA IZBIRA: Stabilen, hiter in poceni model (priporočeno)
+        trends = await tryGenerate("gemini-1.5-flash"); 
+        usedModel = "gemini-1.5-flash";
     } catch (err1: any) {
-        console.warn(`⚠️ Flash odpovedal, preklapljam na Lite...`);
+        console.warn(`⚠️ Flash 1.5 odpovedal, preklapljam na Pro...`);
         try {
-            trends = await tryGenerate("gemini-2.5-flash-lite");
-            usedModel = "gemini-2.5-flash-lite";
+            // FALLBACK: Če flash odpove, poskusimo z močnejšim (a dražjim)
+            trends = await tryGenerate("gemini-1.5-pro");
+            usedModel = "gemini-1.5-pro";
         } catch (err2: any) {
             console.error("❌ Vsi modeli odpovedali.");
             return res.status(500).json({ error: 'AI generation failed', details: err2.message });
