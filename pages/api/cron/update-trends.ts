@@ -12,7 +12,6 @@ const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_KEY || '')
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   // Varnostno preverjanje
   if (req.query.key !== process.env.CRON_SECRET) {
-      // return res.status(401).json({ error: 'Unauthorized' });
   }
 
   let trends: string[] = []
