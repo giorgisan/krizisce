@@ -68,6 +68,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
            - Uporabi slovenski jezik.
            - Besede naj bodo v osnovni obliki (imenovalnik), razen če kontekst zahteva drugače.
            - Ne uporabljaj narekovajev znotraj taga.
+           - Uporabljal le izraze, ki se pojavijo v novici (naslov, opis)
         5. DOLŽINA:
            - Idealno: 2 besedi na tag.
            - Največ: 3 besede (samo za zelo specifične dogodke).
