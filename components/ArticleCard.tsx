@@ -4,17 +4,14 @@ import { NewsItem } from '@/types'
 import {
   MouseEvent,
   useMemo,
-  useRef,
   useState,
   useEffect,
   ComponentType,
 } from 'react'
 import dynamic from 'next/dynamic'
-import Image from 'next/image' 
 import { proxiedImage, buildSrcSet } from '@/lib/img'
 import { preloadPreview, canPrefetch, warmImage } from '@/lib/previewPrefetch'
 import { sourceColors } from '@/lib/sources'
-import { getSourceLogoPath } from '@/lib/sourceMeta'
 
 type PreviewProps = { url: string; onClose: () => void }
 const ArticlePreview = dynamic(() => import('./ArticlePreview'), { ssr: false }) as ComponentType<PreviewProps>
@@ -53,11 +50,14 @@ export default function ArticleCard({ news, priority = false }: Props) {
   const rawImg = news.image ?? null
   const [useProxy, setUseProxy] = useState(!!rawImg)
   const [useFallback, setUseFallback] = useState(!rawImg)
-  const [imgLoaded, setImgLoaded] = useState(false)
+  
+  // POPRAVEK: Odstranjeno ročno upravljanje 'imgLoaded' za prikaz, ker povzroča težave.
+  // Brskalnik bo sam poskrbel za prikaz.
 
   const currentSrc = useMemo(() => {
     if (!rawImg) return null
-    return proxiedImage(rawImg, 640, 360, 1)
+    if (useProxy) return proxiedImage(rawImg, 640, 360, 1)
+    return rawImg
   }, [rawImg, useProxy])
 
   const srcSet = useMemo(() => {
@@ -65,14 +65,11 @@ export default function ArticleCard({ news, priority = false }: Props) {
     return buildSrcSet(rawImg, IMAGE_WIDTHS, ASPECT)
   }, [rawImg, useProxy])
 
-  const lqipSrc = useMemo(() => proxiedImage(rawImg, 28, 16, 1), [rawImg])
-
   const handleImgError = () => {
     if (useProxy) setUseProxy(false)
     else setUseFallback(true)
   }
 
-  // Click handler (lahko dodaš sendBeacon tukaj če rabiš)
   const handleClick = (e: MouseEvent) => {
     if (e.ctrlKey || e.metaKey || e.button === 1) return
   }
@@ -101,22 +98,18 @@ export default function ArticleCard({ news, priority = false }: Props) {
     >
       {/* SLIKA */}
       <div className="relative w-full aspect-[16/9] overflow-hidden bg-gray-200 dark:bg-gray-700 shrink-0">
-         {!imgLoaded && lqipSrc && !useFallback && (
-             <div className="absolute inset-0 bg-cover bg-center blur-lg opacity-50 scale-110" style={{ backgroundImage: `url(${lqipSrc})` }} />
-         )}
-
+         
          {currentSrc && !useFallback ? (
             <img
                 src={currentSrc as string}
                 srcSet={srcSet}
                 alt={news.title}
-                className={`absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105 ${imgLoaded ? 'opacity-100' : 'opacity-0'}`}
+                className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                 onError={handleImgError}
-                onLoad={() => setImgLoaded(true)}
                 loading={priority ? 'eager' : 'lazy'}
             />
          ) : (
-            <div className="absolute inset-0 grid place-items-center text-gray-400">
+            <div className="absolute inset-0 grid place-items-center text-gray-400 bg-gray-100 dark:bg-gray-800">
                 <span className="text-xs">Brez slike</span>
             </div>
          )}
@@ -129,7 +122,7 @@ export default function ArticleCard({ news, priority = false }: Props) {
          </button>
       </div>
 
-      {/* VSEBINA - Flex grow, da se poravna dno kartic */}
+      {/* VSEBINA */}
       <div className="p-4 flex flex-col flex-1">
          <div className="flex justify-between items-baseline mb-2">
             <span className="text-[10px] font-bold tracking-wider uppercase truncate pr-2" style={{ color: sourceColor }}>
@@ -140,12 +133,10 @@ export default function ArticleCard({ news, priority = false }: Props) {
             </span>
          </div>
 
-         {/* Naslov - Povečan line-clamp na 3 */}
          <h3 className="text-[17px] font-bold text-gray-900 dark:text-gray-100 leading-snug line-clamp-3 group-hover:text-brand transition-colors mb-2">
             {news.title}
          </h3>
 
-         {/* Snippet - Povečan line-clamp na 4 in večji font */}
          {(news as any).contentSnippet && (
              <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-4 leading-relaxed mt-auto">
                  {(news as any).contentSnippet}
