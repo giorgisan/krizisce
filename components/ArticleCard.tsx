@@ -27,7 +27,6 @@ interface Props {
   priority?: boolean
 }
 
-// Helperji
 function formatRelativeTime(ms: number | null | undefined, now: number): string {
   if (!ms) return ''
   const diff = now - ms
@@ -50,7 +49,7 @@ export default function ArticleCard({ news, priority = false }: Props) {
   const primaryTime = useMemo(() => formatRelativeTime(news.publishedAt, now), [news.publishedAt, minuteTick])
   const sourceColor = (sourceColors as Record<string, string>)[news.source] || '#fc9c6c'
 
-  // Image
+  // Image Logic
   const rawImg = news.image ?? null
   const [useProxy, setUseProxy] = useState(!!rawImg)
   const [useFallback, setUseFallback] = useState(!rawImg)
@@ -73,10 +72,9 @@ export default function ArticleCard({ news, priority = false }: Props) {
     else setUseFallback(true)
   }
 
-  // Actions
+  // Click handler (lahko dodaš sendBeacon tukaj če rabiš)
   const handleClick = (e: MouseEvent) => {
     if (e.ctrlKey || e.metaKey || e.button === 1) return
-    // Tu bi klical sendBeacon analitiko
   }
   
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
@@ -99,10 +97,10 @@ export default function ArticleCard({ news, priority = false }: Props) {
       onMouseEnter={() => { setHover(true); triggerPrefetch() }}
       onMouseLeave={() => setHover(false)}
       onTouchStart={triggerPrefetch}
-      className="group block bg-white dark:bg-gray-800 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-all duration-200 hover:-translate-y-0.5 border border-gray-100 dark:border-gray-700/50"
+      className="group flex flex-col h-full bg-white dark:bg-gray-800 rounded-xl overflow-hidden shadow-sm hover:shadow-lg transition-all duration-300 hover:-translate-y-1 border border-gray-100 dark:border-gray-700/50"
     >
       {/* SLIKA */}
-      <div className="relative w-full aspect-[16/9] overflow-hidden bg-gray-200 dark:bg-gray-700">
+      <div className="relative w-full aspect-[16/9] overflow-hidden bg-gray-200 dark:bg-gray-700 shrink-0">
          {!imgLoaded && lqipSrc && !useFallback && (
              <div className="absolute inset-0 bg-cover bg-center blur-lg opacity-50 scale-110" style={{ backgroundImage: `url(${lqipSrc})` }} />
          )}
@@ -119,36 +117,37 @@ export default function ArticleCard({ news, priority = false }: Props) {
             />
          ) : (
             <div className="absolute inset-0 grid place-items-center text-gray-400">
-                <svg className="w-8 h-8 opacity-20" fill="currentColor" viewBox="0 0 24 24"><path d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                <span className="text-xs">Brez slike</span>
             </div>
          )}
          
-         {/* Preview Button */}
          <button
             onClick={(e) => { e.preventDefault(); e.stopPropagation(); setPreviewUrl(news.link) }}
-            className={`absolute top-2 right-2 h-7 w-7 grid place-items-center rounded-full bg-white/90 dark:bg-gray-900/90 text-gray-700 dark:text-gray-200 shadow-sm transition-all duration-200 ${hover ? 'opacity-100 scale-100' : 'opacity-0 scale-90'}`}
+            className={`absolute top-2 right-2 h-8 w-8 grid place-items-center rounded-full bg-white/95 dark:bg-gray-900/95 text-gray-700 dark:text-gray-200 shadow-sm transition-all duration-200 ${hover ? 'opacity-100 scale-100' : 'opacity-0 scale-90'}`}
          >
-            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12Z" /><circle cx="12" cy="12" r="3" /></svg>
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12Z" /><circle cx="12" cy="12" r="3" /></svg>
          </button>
       </div>
 
-      {/* VSEBINA */}
-      <div className="p-3.5 flex flex-col gap-1.5">
-         <div className="flex justify-between items-baseline">
-            <span className="text-[10px] font-bold tracking-wider uppercase truncate" style={{ color: sourceColor }}>
+      {/* VSEBINA - Flex grow, da se poravna dno kartic */}
+      <div className="p-4 flex flex-col flex-1">
+         <div className="flex justify-between items-baseline mb-2">
+            <span className="text-[10px] font-bold tracking-wider uppercase truncate pr-2" style={{ color: sourceColor }}>
                 {news.source}
             </span>
-            <span className="text-[10px] text-gray-400 shrink-0 whitespace-nowrap">
+            <span className="text-[11px] text-gray-400 shrink-0 whitespace-nowrap font-medium">
                 {primaryTime}
             </span>
          </div>
 
-         <h3 className="text-[15px] sm:text-[16px] font-bold text-gray-900 dark:text-gray-100 leading-snug line-clamp-3 group-hover:text-brand transition-colors">
+         {/* Naslov - Povečan line-clamp na 3 */}
+         <h3 className="text-[17px] font-bold text-gray-900 dark:text-gray-100 leading-snug line-clamp-3 group-hover:text-brand transition-colors mb-2">
             {news.title}
          </h3>
 
+         {/* Snippet - Povečan line-clamp na 4 in večji font */}
          {(news as any).contentSnippet && (
-             <p className="text-xs text-gray-500 dark:text-gray-400 line-clamp-2 mt-0.5">
+             <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-4 leading-relaxed mt-auto">
                  {(news as any).contentSnippet}
              </p>
          )}
