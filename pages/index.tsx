@@ -87,12 +87,16 @@ type Props = {
 }
 
 export default function Home({ initialNews, initialTrendingWords }: Props) {
+  // --- STATE ---
   const [itemsLatest, setItemsLatest] = useState<NewsItem[]>(initialNews)
   const [itemsTrending, setItemsTrending] = useState<NewsItem[]>([])
      
   const [mode, setMode] = useState<Mode>('latest')
   const [trendingLoaded, setTrendingLoaded] = useState(false)
   const lastTrendingFetchRef = useRef<number>(0)
+
+  // Novo: Desktop detekcija za 2-stolpčni layout
+  const [isDesktop, setIsDesktop] = useState(false)
 
   const [selectedSources, setSelectedSources] = useState<string[]>([]) 
   const [selectedCategory, setSelectedCategory] = useState<CategoryId | 'vse'>('vse')
@@ -107,12 +111,37 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
     
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [bootRefreshed, setBootRefreshed] = useState(false)
-     
+
+  // --- INIT & RESIZE ---
   useEffect(() => {
     kickSyncIfStale(5 * 60_000)
     setBootRefreshed(true)
+
+    // Detekcija širine zaslona
+    const checkDesktop = () => setIsDesktop(window.innerWidth >= 1024)
+    checkDesktop()
+    window.addEventListener('resize', checkDesktop)
+    return () => window.removeEventListener('resize', checkDesktop)
   }, [])
 
+  // Samodejno nalaganje TRENDING novic, če smo na desktopu (ker rabimo zapolniti desni stolpec)
+  useEffect(() => {
+    if (isDesktop && !trendingLoaded && !isRefreshing && bootRefreshed) {
+      const fetchTrendingSide = async () => {
+        try {
+          const fresh = await loadNews('trending', [], 'vse', null, null)
+          if (fresh) {
+            setItemsTrending(fresh)
+            setTrendingLoaded(true)
+            lastTrendingFetchRef.current = Date.now()
+          }
+        } catch {}
+      }
+      fetchTrendingSide()
+    }
+  }, [isDesktop, trendingLoaded, isRefreshing, bootRefreshed])
+
+  // --- RESET ---
   const resetAll = () => {
     startTransition(() => {
       setSelectedSources([])
@@ -127,9 +156,12 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
+  // --- FETCHING GLAVNE VSEBINE ---
   useEffect(() => {
     if (!bootRefreshed) return
-    if (mode === 'trending' && !searchQuery && !tagQuery) return
+    // Na desktopu "mode" ne vpliva na skrivanje vsebine, ampak na mobilcu da.
+    // Če iščemo (search/tag), ponavadi iščemo po "latest" endpointu.
+    if (mode === 'trending' && !searchQuery && !tagQuery && !isDesktop) return
 
     const fetchData = async () => {
         setIsRefreshing(true)
@@ -153,16 +185,19 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
         fetchData()
     }
 
-  }, [selectedSources, selectedCategory, searchQuery, tagQuery, mode, bootRefreshed])
+  }, [selectedSources, selectedCategory, searchQuery, tagQuery, mode, bootRefreshed, isDesktop])
 
+  // --- POLLING ZA NOVE NOVICE (Samo Latest) ---
   const missCountRef = useRef(0)
   const timerRef = useRef<number | null>(null)
 
   useEffect(() => {
     if (!bootRefreshed) return
     const runCheckSimple = async () => {
-      if (mode !== 'latest') return
+      // Polling samo, če gledamo latest
+      if (mode !== 'latest' && !isDesktop) return
       if (searchQuery || tagQuery) return
+
       kickSyncIfStale(10 * 60_000)
       const fresh = await loadNews('latest', selectedSources, selectedCategory, null, null)
       if (!fresh || fresh.length === 0) {
@@ -181,7 +216,7 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
       }
     }
     const schedule = () => {
-      if (mode !== 'latest') return
+      if (mode !== 'latest' && !isDesktop) return
       const hidden = document.visibilityState === 'hidden'
       const base = hidden ? HIDDEN_POLL_MS : POLL_MS
       const extra = missCountRef.current * 10_000
@@ -197,15 +232,20 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
       if (timerRef.current) window.clearInterval(timerRef.current)
       document.removeEventListener('visibilitychange', onVis)
     }
-  }, [itemsLatest, bootRefreshed, mode, selectedSources, selectedCategory, searchQuery, tagQuery])
+  }, [itemsLatest, bootRefreshed, mode, selectedSources, selectedCategory, searchQuery, tagQuery, isDesktop])
 
+  // --- USER REFRESH ---
   useEffect(() => {
     const onRefresh = () => {
       window.dispatchEvent(new CustomEvent('news-refreshing', { detail: true }))
       startTransition(() => {
-        loadNews(mode, selectedSources, selectedCategory, searchQuery || null, tagQuery || null, true).then((fresh) => {
+        // Refreshamo tisto, kar je trenutno glavni fokus. 
+        // Na desktopu lahko oboje, ampak primarno 'latest'.
+        const targetMode = (mode === 'trending' && !isDesktop) ? 'trending' : 'latest'
+
+        loadNews(targetMode, selectedSources, selectedCategory, searchQuery || null, tagQuery || null, true).then((fresh) => {
           if (fresh) {
-            if (mode === 'latest') {
+            if (targetMode === 'latest') {
               setItemsLatest(fresh)
               setHasMore(true)
               setCursor(null)
@@ -215,6 +255,13 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
               lastTrendingFetchRef.current = Date.now() 
             }
           }
+          // Če smo na desktopu, osvežimo še trending v ozadju
+          if (isDesktop && targetMode === 'latest') {
+             loadNews('trending', [], 'vse', null, null, true).then(tr => {
+                 if (tr) setItemsTrending(tr)
+             })
+          }
+
           window.dispatchEvent(new CustomEvent('news-refreshing', { detail: false }))
           window.dispatchEvent(new CustomEvent('news-has-new', { detail: false }))
           missCountRef.current = 0
@@ -223,19 +270,20 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
     }
     window.addEventListener('refresh-news', onRefresh as EventListener)
     return () => window.removeEventListener('refresh-news', onRefresh as EventListener)
-  }, [mode, selectedSources, selectedCategory, searchQuery, tagQuery])
+  }, [mode, selectedSources, selectedCategory, searchQuery, tagQuery, isDesktop])
 
-  const visibleNews = mode === 'trending' ? itemsTrending : itemsLatest
+  // --- PAGINATION CURSOR ---
+  const visibleNews = (mode === 'trending' && !isDesktop) ? itemsTrending : itemsLatest
 
   useEffect(() => {
-    if (mode === 'trending') return 
+    if (mode === 'trending' && !isDesktop) return 
     if (!visibleNews.length) {
       setCursor(null)
       return
     }
     const minMs = visibleNews.reduce((acc, n) => Math.min(acc, n.publishedAt || acc), visibleNews[0].publishedAt || 0)
     setCursor(minMs || null)
-  }, [visibleNews, mode])
+  }, [visibleNews, mode, isDesktop])
 
   async function fetchPage(cursorVal: number) {
     const qs = new URLSearchParams()
@@ -252,7 +300,8 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
   }
 
   const handleLoadMore = async () => {
-    if (mode !== 'latest') return
+    // Load more dela samo za 'latest' seznam
+    if (mode !== 'latest' && !isDesktop) return
     if (isLoadingMore || !hasMore || cursor == null || cursor <= 0) return
     setIsLoadingMore(true)
     try {
@@ -300,10 +349,6 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
     }
   }
 
-  const gridClasses = mode === 'trending'
-      ? 'grid gap-4 md:gap-6 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5'
-      : 'grid gap-4 md:gap-6 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5'
-
   const activeSourceLabel = selectedSources.length === 0 
     ? 'Vse' 
     : selectedSources.length === 1 
@@ -317,6 +362,7 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
   const handleTrendingClick = (word: string) => {
     let clean = word.replace(/^#/, '').trim();
      
+    // Ko kliknemo tag, gremo vedno na iskanje po Latest
     setItemsLatest([]); 
     setIsRefreshing(true); 
 
@@ -331,10 +377,14 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
     }
   }
 
-  // --- HANDLE SEARCH CHANGE (Za novi input) ---
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchQuery(e.target.value)
   }
+
+  // --- LAYOUT LOGIC ---
+  // Na desktopu sta prikazana oba stolpca. Na mobilcu se izmenjujeta glede na 'mode'.
+  const showLatest = isDesktop || mode === 'latest'
+  const showTrending = isDesktop || mode === 'trending'
 
   return (
     <>
@@ -349,6 +399,7 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
         onSelectCategory={(cat) => {
            startTransition(() => {
              setSelectedCategory(cat)
+             // Če nismo 'vse', avtomatsko preklopimo na 'latest' pregled
              if (cat !== 'vse') {
                 setMode('latest')
                 setHasMore(true)
@@ -373,32 +424,41 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
         
         <div className="max-w-[1800px] mx-auto w-full">
 
-            {/* --- ZGORNJA VRSTICA: OPTIMIZIRANI RAZMAKI --- */}
-            <div className="px-4 md:px-8 lg:px-16 pt-2 pb-1 flex flex-col md:flex-row md:items-center gap-y-1 md:gap-2 border-b border-transparent">
+            {/* --- ZGORNJA VRSTICA: Kontrole & Tags --- */}
+            <div className="px-4 md:px-8 lg:px-16 pt-2 pb-1 flex flex-col md:flex-row md:items-center gap-y-2 md:gap-4 border-b border-transparent mb-4">
                 
-                {/* 1. SKLOP: Gumbi + Iskalnik (Mobile) */}
-                <div className="flex items-center justify-between gap-2 w-full md:w-auto">
+                {/* LEVO: Tabi (samo Mobile) ali Naslov Kategorije */}
+                <div className="flex items-center justify-between gap-2 w-full md:w-auto shrink-0">
                     
-                    {/* LEVO: Gumbi Najnovejše/Aktualno */}
-                    {selectedCategory === 'vse' ? (
-                      <div className="scale-90 origin-left shrink-0 -ml-2 -mr-3">
-                        <NewsTabs active={mode} onChange={handleTabChange} />
-                      </div>
-                    ) : (
-                      <span className="text-xl md:text-2xl font-bold tracking-tight capitalize shrink-0">
-                        {currentCategoryLabel}
-                      </span>
-                    )}
+                    {/* Mobile Tabs - skriti na desktopu, ker imamo 2 stolpca */}
+                    <div className="lg:hidden scale-90 origin-left shrink-0 -ml-2 -mr-3">
+                        {selectedCategory === 'vse' ? (
+                            <NewsTabs active={mode} onChange={handleTabChange} />
+                        ) : (
+                            <div className="px-2 py-1">
+                                <span className="text-xl font-bold tracking-tight capitalize">
+                                    {currentCategoryLabel}
+                                </span>
+                            </div>
+                        )}
+                    </div>
+                    
+                    {/* Desktop Category Label */}
+                    <div className="hidden lg:block">
+                        {selectedCategory !== 'vse' && (
+                             <span className="text-2xl font-bold tracking-tight capitalize mr-4">
+                                {currentCategoryLabel}
+                             </span>
+                        )}
+                    </div>
 
-                    {/* DESNO: Mobile Iskalnik (skrit na desktopu) */}
+                    {/* Mobile Search Input */}
                     <div className="md:hidden flex-1 min-w-0 ml-1 relative">
-                        {/* IKONA LUPE */}
                         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                           <svg className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                           </svg>
                         </div>
-                        {/* INPUT */}
                         <input
                           type="search"
                           placeholder="Išči ..."
@@ -407,22 +467,11 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
                           onChange={handleSearchChange}
                         />
                     </div>
-
-                    {/* Filtri Labela (mobile) */}
-                    {selectedSources.length > 0 && (
-                      <div className="md:hidden flex items-center gap-2 shrink-0">
-                        <div className="text-xs text-brand font-medium border border-brand/20 bg-brand/5 px-2 py-1 rounded">
-                          {selectedSources.length}
-                        </div>
-                        <button onClick={() => setSelectedSources([])}>✕</button>
-                      </div>
-                    )}
                 </div>
 
-                {/* 2. SKLOP: Trending bar (Žarišče) */}
-                {/* Mobile: Nova vrstica, stisnjena k zgornji. Desktop: Desno od gumbov, minimalen razmak. */}
-                {mode === 'latest' && selectedCategory === 'vse' && !searchQuery && !tagQuery && (
-                  <div className="min-w-0 overflow-hidden w-full md:w-auto md:flex-1 mt-0.5 md:mt-0">
+                {/* SREDINA/DESNO: Trending Keywords (Vedno vidno na desktopu, pogojno na mobile) */}
+                {(isDesktop || (mode === 'latest' && selectedCategory === 'vse' && !searchQuery && !tagQuery)) && (
+                  <div className="min-w-0 overflow-hidden w-full md:flex-1 mt-0.5 md:mt-0">
                       <TrendingBar 
                         words={initialTrendingWords}
                         selectedWord={tagQuery || searchQuery} 
@@ -431,7 +480,7 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
                   </div>
                 )}
                 
-                {/* Desktop Filter gumb (skrajno desno) */}
+                {/* DESNO: Filtri gumb */}
                 {selectedSources.length > 0 && (
                   <div className="hidden md:flex items-center gap-2 ml-auto shrink-0">
                     <div className="text-xs text-brand font-medium border border-brand/20 bg-brand/5 px-2 py-1 rounded whitespace-nowrap">
@@ -449,74 +498,112 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
                 )}
             </div>
 
-            <div className="px-4 md:px-8 lg:px-16 mt-2 md:mt-4">
+            {/* --- GLAVNA VSEBINA: 2 STOLPCA NA DESKTOPU --- */}
+            <div className="px-4 md:px-8 lg:px-16 flex flex-col lg:flex-row gap-8">
                 
-                {(searchQuery || tagQuery) && (
-                <div className="mb-6 flex items-center gap-2">
-                    <span className="text-sm text-gray-500">
-                        Rezultati za: <span className="font-bold text-gray-900 dark:text-white">"{tagQuery || searchQuery}"</span>
-                    </span>
-                    <button 
-                        onClick={() => {
-                            setSearchQuery('');
-                            setTagQuery('');
-                        }}
-                        className="text-xs px-2 py-1 bg-gray-200 dark:bg-gray-800 rounded-md hover:bg-gray-300 dark:hover:bg-gray-700 transition-colors"
-                    >
-                        Počisti ✕
-                    </button>
-                </div>
-                )}
+                {/* 1. LEVI STOLPEC: LATEST (2/3) */}
+                <div className={`flex-1 min-w-0 ${!showLatest ? 'hidden' : ''}`}>
+                    
+                    {(searchQuery || tagQuery) && (
+                        <div className="mb-6 flex items-center gap-2">
+                            <span className="text-sm text-gray-500">
+                                Rezultati za: <span className="font-bold text-gray-900 dark:text-white">"{tagQuery || searchQuery}"</span>
+                            </span>
+                            <button 
+                                onClick={() => { setSearchQuery(''); setTagQuery(''); }}
+                                className="text-xs px-2 py-1 bg-gray-200 dark:bg-gray-800 rounded-md hover:bg-gray-300 dark:hover:bg-gray-700 transition-colors"
+                            >
+                                Počisti ✕
+                            </button>
+                        </div>
+                    )}
 
-                {isRefreshing && visibleNews.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center pt-20 pb-20">
-                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand mb-4"></div>
-                        <p className="opacity-60">Iščem novice ...</p>
-                    </div>
-                ) : visibleNews.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center pt-20 pb-20 text-center">
-                        {(searchQuery || tagQuery) ? (
-                            <p className="opacity-60">Ni rezultatov za iskanje &quot;{tagQuery || searchQuery}&quot;.</p>
-                        ) : (
-                            <p className="opacity-60">Trenutno ni novic s temi filtri.</p>
-                        )}
-                    </div>
-                ) : (
-                    <div className={gridClasses}>
-                        {visibleNews.map((article, i) => (
-                        <div key={article.link + '|' + i} className="col-span-1">
-                            {mode === 'trending' ? (
-                            <div className="h-full"><TrendingCard news={article as any} /></div>
+                    {/* Loading State */}
+                    {isRefreshing && itemsLatest.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center pt-20 pb-20">
+                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand mb-4"></div>
+                            <p className="opacity-60">Iščem novice ...</p>
+                        </div>
+                    ) : itemsLatest.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center pt-20 pb-20 text-center">
+                            {(searchQuery || tagQuery) ? (
+                                <p className="opacity-60">Ni rezultatov za iskanje &quot;{tagQuery || searchQuery}&quot;.</p>
                             ) : (
-                            <ArticleCard 
-                                news={article as any} 
-                                priority={i < 10} 
-                            />
+                                <p className="opacity-60">Trenutno ni novic s temi filtri.</p>
                             )}
                         </div>
-                        ))}
-                    </div>
-                )}
+                    ) : (
+                        // Grid za novice
+                        <div className="grid gap-4 md:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3">
+                            {itemsLatest.map((article, i) => (
+                                <div key={article.link + '|' + i} className="col-span-1">
+                                    <ArticleCard 
+                                        news={article} 
+                                        priority={i < 6} 
+                                    />
+                                </div>
+                            ))}
+                        </div>
+                    )}
 
-                {mode === 'latest' && hasMore && visibleNews.length > 0 && (
-                <div className="text-center mt-8 mb-4">
-                    <button
-                    onClick={handleLoadMore}
-                    disabled={isLoadingMore}
-                    className="px-6 py-2.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white rounded-full hover:bg-gray-50 dark:hover:bg-gray-700 transition-all shadow-sm font-medium disabled:opacity-50"
-                    >
-                    {isLoadingMore ? 'Nalagam...' : 'Naloži več novic'}
-                    </button>
+                    {/* Load More Button */}
+                    {hasMore && itemsLatest.length > 0 && (
+                        <div className="text-center mt-10 mb-4">
+                            <button
+                                onClick={handleLoadMore}
+                                disabled={isLoadingMore}
+                                className="px-8 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white rounded-full hover:bg-gray-50 dark:hover:bg-gray-700 transition-all shadow-sm font-medium disabled:opacity-50"
+                            >
+                                {isLoadingMore ? 'Nalagam...' : 'Naloži starejše novice'}
+                            </button>
+                        </div>
+                    )}
                 </div>
-                )}
+
+                {/* 2. DESNI STOLPEC: TRENDING (1/3) - Sidebar na Desktopu */}
+                <aside className={`lg:w-[380px] xl:w-[420px] shrink-0 ${!showTrending ? 'hidden' : ''}`}>
+                    
+                    <div className="lg:sticky lg:top-24 transition-all">
+                        {/* Naslov na Desktopu */}
+                        <div className="hidden lg:flex items-center gap-2 mb-4 pb-2 border-b border-gray-200 dark:border-gray-800">
+                             <span className="text-lg font-bold text-gray-900 dark:text-white">🔥 Aktualno</span>
+                        </div>
+
+                        {/* Loading State za Trending */}
+                        {itemsTrending.length === 0 && !trendingLoaded ? (
+                             <div className="py-12 text-center opacity-50 text-sm">Nalagam aktualno ...</div>
+                        ) : (
+                            // Grid ali Stack, odvisno od naprave
+                            <div className={`
+                                ${isDesktop ? 'flex flex-col gap-5' : 'grid gap-4 sm:grid-cols-2'}
+                            `}>
+                                {itemsTrending.map((article, i) => (
+                                    <div key={article.link + '|tr|' + i}>
+                                        <TrendingCard news={article} />
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                        
+                        {/* Footer v sidebaru na desktopu */}
+                        <div className="hidden lg:block mt-8 pt-6 border-t border-gray-200 dark:border-gray-800">
+                            <p className="text-xs text-gray-400 text-center">
+                                © 2026 Križišče. Vse pravice pridržane.
+                            </p>
+                        </div>
+                    </div>
+                </aside>
+
             </div>
-            
         </div>
 
       </main>
 
       <BackToTop threshold={200} />
-      <Footer />
+      {/* Footer prikažemo na mobilcu vedno, na desktopu ga lahko skrijemo, če ga imamo v sidebaru, ali pa pustimo na dnu */}
+      <div className="lg:hidden">
+         <Footer />
+      </div>
     </>
   )
 }
