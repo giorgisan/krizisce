@@ -87,7 +87,6 @@ type Props = {
 }
 
 export default function Home({ initialNews, initialTrendingWords }: Props) {
-  // --- STATE ---
   const [itemsLatest, setItemsLatest] = useState<NewsItem[]>(initialNews)
   const [itemsTrending, setItemsTrending] = useState<NewsItem[]>([])
      
@@ -110,7 +109,7 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [bootRefreshed, setBootRefreshed] = useState(false)
 
-  // --- INIT & RESIZE ---
+  // --- INIT ---
   useEffect(() => {
     kickSyncIfStale(5 * 60_000)
     setBootRefreshed(true)
@@ -137,7 +136,7 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
     }
   }, [isDesktop, trendingLoaded, isRefreshing, bootRefreshed])
 
-  // --- RESET ---
+  // --- LOGIKA ---
   const resetAll = () => {
     startTransition(() => {
       setSelectedSources([])
@@ -152,7 +151,7 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
-  // --- FETCHING MAIN CONTENT ---
+  // --- FETCHING ---
   useEffect(() => {
     if (!bootRefreshed) return
     if (mode === 'trending' && !searchQuery && !tagQuery && !isDesktop) return
@@ -161,12 +160,9 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
         setIsRefreshing(true)
         setCursor(null)
         setHasMore(true)
-        
         const fresh = await loadNews('latest', selectedSources, selectedCategory, searchQuery || null, tagQuery || null)
-        
         if (fresh) setItemsLatest(fresh)
         else setItemsLatest([])
-        
         setIsRefreshing(false)
     }
     
@@ -176,10 +172,9 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
     } else {
         fetchData()
     }
-
   }, [selectedSources, selectedCategory, searchQuery, tagQuery, mode, bootRefreshed, isDesktop])
 
-  // --- POLLING (Latest) ---
+  // --- POLLING ---
   const missCountRef = useRef(0)
   const timerRef = useRef<number | null>(null)
 
@@ -188,7 +183,6 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
     const runCheckSimple = async () => {
       if (mode !== 'latest' && !isDesktop) return
       if (searchQuery || tagQuery) return
-
       kickSyncIfStale(10 * 60_000)
       const fresh = await loadNews('latest', selectedSources, selectedCategory, null, null)
       if (!fresh || fresh.length === 0) {
@@ -225,7 +219,7 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
     }
   }, [itemsLatest, bootRefreshed, mode, selectedSources, selectedCategory, searchQuery, tagQuery, isDesktop])
 
-  // --- REFRESH ---
+  // --- REFRESH EVENT ---
   useEffect(() => {
     const onRefresh = () => {
       window.dispatchEvent(new CustomEvent('news-refreshing', { detail: true }))
@@ -233,11 +227,8 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
         const targetMode = (mode === 'trending' && !isDesktop) ? 'trending' : 'latest'
         loadNews(targetMode, selectedSources, selectedCategory, searchQuery || null, tagQuery || null, true).then((fresh) => {
           if (fresh) {
-            if (targetMode === 'latest') {
-              setItemsLatest(fresh); setHasMore(true); setCursor(null)
-            } else {
-              setItemsTrending(fresh); setTrendingLoaded(true); lastTrendingFetchRef.current = Date.now() 
-            }
+            if (targetMode === 'latest') { setItemsLatest(fresh); setHasMore(true); setCursor(null) } 
+            else { setItemsTrending(fresh); setTrendingLoaded(true); lastTrendingFetchRef.current = Date.now() }
           }
           if (isDesktop && targetMode === 'latest') {
              loadNews('trending', [], 'vse', null, null, true).then(tr => { if (tr) setItemsTrending(tr) })
@@ -254,7 +245,6 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
 
   // --- PAGINATION ---
   const visibleNews = (mode === 'trending' && !isDesktop) ? itemsTrending : itemsLatest
-
   useEffect(() => {
     if (mode === 'trending' && !isDesktop) return 
     if (!visibleNews.length) { setCursor(null); return }
@@ -264,9 +254,7 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
 
   async function fetchPage(cursorVal: number) {
     const qs = new URLSearchParams()
-    qs.set('paged', '1')
-    qs.set('limit', '25') 
-    qs.set('cursor', String(cursorVal))
+    qs.set('paged', '1'); qs.set('limit', '25'); qs.set('cursor', String(cursorVal))
     if (selectedSources.length > 0) qs.set('source', selectedSources.join(','))
     if (selectedCategory !== 'vse') qs.set('category', selectedCategory)
     if (searchQuery) qs.set('q', searchQuery)
@@ -299,14 +287,11 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
     if (next === mode) return
     window.scrollTo({ top: 0, behavior: 'smooth' })
     setMode(next)
-
-    if (next === 'latest') {
-      setHasMore(true); setCursor(null)
-    } else {
+    if (next === 'latest') { setHasMore(true); setCursor(null) } 
+    else {
       setHasMore(false); setCursor(null)
       const now = Date.now()
-      const isStale = (now - lastTrendingFetchRef.current) > 5 * 60_000
-      if (!trendingLoaded || isStale) {
+      if (!trendingLoaded || (now - lastTrendingFetchRef.current) > 5 * 60_000) {
         setIsRefreshing(true)
         try {
           const fresh = await loadNews('trending', [], 'vse', null, null)
@@ -316,6 +301,7 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
     }
   }
 
+  // --- RENDER VARS ---
   const activeSourceLabel = selectedSources.length === 0 ? 'Vse' : selectedSources.length === 1 ? selectedSources[0] : `${selectedSources.length} virov`
   const currentCategoryLabel = selectedCategory === 'vse' ? '' : CATEGORIES.find(c => c.id === selectedCategory)?.label || selectedCategory;
 
@@ -363,7 +349,7 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
       <main className="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white pb-12">
         <div className="max-w-[1600px] mx-auto w-full px-4 sm:px-6 lg:px-8">
 
-            {/* --- HEADER CONTROLS --- */}
+            {/* --- HEADER vrstica --- */}
             <div className="py-4 flex flex-col md:flex-row md:items-center gap-4">
                 <div className="flex items-center gap-4 w-full md:w-auto shrink-0">
                     <div className="lg:hidden scale-90 origin-left">
@@ -400,10 +386,10 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
                 )}
             </div>
 
-            {/* --- MAIN GRID --- */}
+            {/* --- LAYOUT: GRID + SIDEBAR --- */}
             <div className="flex flex-col lg:flex-row gap-8 items-start">
                 
-                {/* 1. LEFT: NEWS GRID (3 or 4 columns for DENSITY) */}
+                {/* GLAVNI DEL (Najnovejše) */}
                 <div className={`flex-1 w-full ${!showLatest ? 'hidden' : ''}`}>
                     
                     {(searchQuery || tagQuery) && (
@@ -418,7 +404,8 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
                     ) : itemsLatest.length === 0 ? (
                         <div className="py-20 text-center opacity-50">Ni novic.</div>
                     ) : (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6">
+                        // POPRAVEK: grid-cols-3 namesto 4 za več prostora
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-6">
                             {itemsLatest.map((article, i) => (
                                 <ArticleCard 
                                     key={article.link + i} 
@@ -431,25 +418,25 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
 
                     {hasMore && itemsLatest.length > 0 && (
                         <div className="text-center mt-12">
-                            <button onClick={handleLoadMore} disabled={isLoadingMore} className="px-8 py-2.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full hover:bg-gray-50 shadow-sm text-sm font-semibold tracking-wide">
+                            <button onClick={handleLoadMore} disabled={isLoadingMore} className="px-8 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full hover:bg-gray-50 shadow-sm text-sm font-bold tracking-wide transition-all hover:shadow-md">
                                 {isLoadingMore ? 'Nalagam ...' : 'NALOŽI VEČ'}
                             </button>
                         </div>
                     )}
                 </div>
 
-                {/* 2. RIGHT: SIDEBAR (Compact List) */}
-                <aside className={`w-full lg:w-[320px] xl:w-[360px] shrink-0 sticky top-20 ${!showTrending ? 'hidden' : ''}`}>
-                    <div className="bg-white dark:bg-gray-800/40 rounded-xl p-4 border border-gray-100 dark:border-gray-800 shadow-sm backdrop-blur-sm">
-                        <div className="flex items-center gap-2 mb-4 pb-2 border-b border-gray-100 dark:border-gray-700">
-                             <span className="text-lg font-bold">🔥 V Žarišču</span>
+                {/* STRANSKI STOLPEC (Aktualno) */}
+                <aside className={`w-full lg:w-[360px] xl:w-[400px] shrink-0 sticky top-20 ${!showTrending ? 'hidden' : ''}`}>
+                    <div className="bg-white/50 dark:bg-gray-900/50 rounded-2xl p-4 border border-gray-200 dark:border-gray-800 shadow-sm backdrop-blur-xl">
+                        <div className="flex items-center gap-2 mb-4 pb-2 border-b border-gray-200 dark:border-gray-700">
+                             <span className="text-xl font-bold">🔥 V Žarišču</span>
                         </div>
 
                         {itemsTrending.length === 0 && !trendingLoaded ? (
                              <div className="py-8 text-center text-xs opacity-50">Nalagam ...</div>
                         ) : (
-                            <div className="flex flex-col gap-2">
-                                {itemsTrending.slice(0, 8).map((article, i) => (
+                            <div className="flex flex-col gap-4">
+                                {itemsTrending.slice(0, 10).map((article, i) => (
                                     <TrendingCard 
                                         key={article.link + 'tr' + i} 
                                         news={article} 
@@ -460,8 +447,8 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
                             </div>
                         )}
                         
-                        <div className="mt-6 pt-4 border-t border-gray-100 dark:border-gray-800 text-center">
-                            <p className="text-[10px] text-gray-400 uppercase tracking-widest">Križišče 2026</p>
+                        <div className="mt-6 pt-4 border-t border-gray-200 dark:border-gray-800 text-center">
+                            <Footer simple />
                         </div>
                     </div>
                 </aside>
