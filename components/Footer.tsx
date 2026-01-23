@@ -1,5 +1,3 @@
-// components/Footer.tsx
-
 'use client'
 
 import Link from 'next/link'
@@ -58,7 +56,11 @@ function LogoImg({ slug, origin, label }: { slug: string; origin: string; label:
   )
 }
 
-export default function Footer() {
+interface Props {
+  simple?: boolean // Dodan prop za sidebar način
+}
+
+export default function Footer({ simple = false }: Props) {
   const year = new Date().getFullYear()
   const [open, setOpen] = useState(false)
   const popRef = useRef<HTMLDivElement | null>(null)
@@ -76,16 +78,33 @@ export default function Footer() {
     return () => { document.removeEventListener('mousedown', onDoc); document.removeEventListener('keydown', onEsc) }
   }, [open])
 
+  // --- SIMPLE NAČIN (ZA SIDEBAR) ---
+  if (simple) {
+    return (
+      <div className="flex flex-col items-center gap-2 text-xs text-gray-400 dark:text-gray-500 py-4">
+        <div className="flex gap-3">
+          <Link href="/zasebnost" className="hover:text-gray-600 dark:hover:text-gray-300 transition-colors">
+            Zasebnost
+          </Link>
+          <span className="opacity-30">•</span>
+          <Link href="/pogoji" className="hover:text-gray-600 dark:hover:text-gray-300 transition-colors">
+            Pogoji
+          </Link>
+        </div>
+        <p>© {year} Križišče</p>
+      </div>
+    )
+  }
+
+  // --- STANDARDNI NAČIN ---
   return (
     <footer className="mt-8 w-full relative">
       
-      {/* --- SPREMEMBA: Dodan logo ornament na sredino črte --- */}
       <div className="absolute top-0 left-0 w-full -translate-y-1/2 flex items-center justify-center pointer-events-none z-10">
          <div className="bg-white dark:bg-[#0b101b] p-2 rounded-full border border-gray-100 dark:border-white/5 transition-colors">
             <Image src="/logo.png" alt="Križišče" width={35} height={35} className="w-7 h-7 object-contain opacity-65" />
          </div>
       </div>
-      {/* ----------------------------------------------------- */}
 
       <div className="w-full h-px bg-gradient-to-r from-transparent via-brand/30 dark:via-brand/30 to-transparent opacity-80"></div>
 
@@ -93,7 +112,7 @@ export default function Footer() {
         <div className="mx-auto max-w-6xl px-4 md:px-8 lg:px-16 text-gray-800 dark:text-gray-400">
           <div className="grid gap-6 sm:grid-cols-3 items-start">
             
-            {/* Levi stolpec: Info */}
+            {/* Levi stolpec */}
             <div>
               <div className="flex items-center mb-2">
                 <Image src="/logo.png" alt="Križišče" width={32} height={32} className="w-6 h-6 rounded-md mr-2" />
@@ -105,7 +124,7 @@ export default function Footer() {
               </p>
             </div>
             
-            {/* Srednji stolpec: Povezave */}
+            {/* Srednji stolpec */}
             <div>
               <h4 className="text-sm font-semibold text-gray-900 dark:text-gray-200 mb-2">Povezave</h4>
               <ul className="space-y-1 text-xs sm:text-sm text-gray-600 dark:text-gray-500">
@@ -116,7 +135,7 @@ export default function Footer() {
               </ul>
             </div>
             
-            {/* Desni stolpec: Kontakt */}
+            {/* Desni stolpec */}
             <div>
               <h4 className="text-sm font-semibold text-gray-900 dark:text-gray-200 mb-2">Kontakt</h4>
               <a href="mailto:gjkcme@gmail.com" className="text-xs sm:text-sm text-gray-600 dark:text-gray-500 hover:text-brand dark:hover:text-brand transition">
@@ -170,9 +189,8 @@ export default function Footer() {
             </div>
           </div>
 
-          {/* Copyright vrstica */}
+          {/* Copyright */}
           <div className="border-t border-gray-200 dark:border-white/5 mt-6 pt-4 text-center text-xs text-gray-500 dark:text-gray-600 pb-[calc(env(safe-area-inset-bottom,0px))]">
-            {/* SPREMEMBA: Odstranjen font-serif, ohranjen italic */}
             <p className="italic mb-1 opacity-80 font-sans">Informacija ni znanje. Edino razumevanje šteje.</p>
             <p className="opacity-80">© {year} Križišče – Vse pravice pridržane.</p>
           </div>
