@@ -26,8 +26,8 @@ const IMAGE_WIDTHS = [320, 480, 640, 960, 1280]
 
 interface Props {
   news: NewsItem & { [key: string]: any }
-  compact?: boolean // Za sidebar
-  rank?: number     // Številka (1, 2, 3...)
+  compact?: boolean // Za sidebar prikaz
+  rank?: number     // Zaporedna številka
 }
 
 type RelatedItem = {
@@ -96,7 +96,7 @@ function formatRelativeTime(
 }
 
 export default function TrendingCard({ news, compact = false, rank }: Props) {
-  // Osveževanje časa
+  // --- ČAS ---
   const [minuteTick, setMinuteTick] = useState(0)
   useEffect(() => {
     const onMinute = () => setMinuteTick((m) => (m + 1) % 60)
@@ -114,7 +114,7 @@ export default function TrendingCard({ news, compact = false, rank }: Props) {
     return (sourceColors as Record<string, string>)[news.source] || '#fc9c6c'
   }, [news.source])
 
-  // --- TOUCH LOGIKA ---
+  // --- TOUCH DETEKCIJA ---
   const [isTouch, setIsTouch] = useState(false)
   useEffect(() => {
     try {
@@ -138,7 +138,7 @@ export default function TrendingCard({ news, compact = false, rank }: Props) {
 
   const currentSrc = useMemo(() => {
     if (!rawImg) return null
-    // Če je compact, rabimo manjšo, a še vedno dovolj ostro sliko
+    // Compact: 240px, Standard: 640px
     if (compact) return proxiedImage(rawImg, 240, 240, 1) 
     if (useProxy) return proxiedImage(rawImg, 640, 360, 1)
     return rawImg
@@ -228,38 +228,40 @@ export default function TrendingCard({ news, compact = false, rank }: Props) {
   // ================= RENDER: COMPACT (Sidebar) =================
   if (compact) {
     return (
-      <a
-        ref={cardRef}
-        href={news.link}
-        target="_blank"
-        rel="noopener"
-        onClick={handleClick}
-        onMouseEnter={triggerPrefetch}
-        className="group flex gap-3 p-3 bg-white dark:bg-gray-800 rounded-xl shadow-sm hover:shadow-md transition-all duration-200 border border-transparent hover:border-gray-200 dark:hover:border-gray-700 relative overflow-hidden"
-      >
-        {/* Številka ranga (če je podana) */}
+      <div className="group relative bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-transparent hover:border-gray-200 dark:hover:border-gray-700 transition-all p-3 flex gap-3">
+        
+        {/* GLAVNA POVEZAVA (Pokriva vse razen interaktivnih gumbov spodaj) */}
+        <a 
+          href={news.link}
+          target="_blank"
+          rel="noopener"
+          onClick={handleClick}
+          onMouseEnter={triggerPrefetch}
+          className="absolute inset-0 z-0 rounded-xl"
+          aria-hidden="true"
+        />
+
+        {/* Številka ranga */}
         {rank && (
-            <div className="absolute top-0 left-0 w-6 h-6 bg-gray-100 dark:bg-gray-700/50 flex items-center justify-center rounded-br-lg z-10">
-                <span className="text-xs font-bold text-gray-500 dark:text-gray-400 font-serif">{rank}</span>
+            <div className="absolute top-0 left-0 w-6 h-6 bg-gray-50 dark:bg-gray-700/50 flex items-center justify-center rounded-br-lg z-10 pointer-events-none">
+                <span className="text-xs font-bold text-gray-400 font-serif">{rank}</span>
             </div>
         )}
 
         {/* Slika */}
-        <div className="shrink-0 w-20 h-20 sm:w-24 sm:h-24 relative rounded-lg overflow-hidden bg-gray-200 dark:bg-gray-700 shadow-inner">
+        <div className="shrink-0 w-20 h-20 relative rounded-lg overflow-hidden bg-gray-200 dark:bg-gray-700 pointer-events-none shadow-sm">
              {!imgLoaded && !useFallback && !!currentSrc && (
                 <div className="absolute inset-0 bg-gray-200 animate-pulse" />
              )}
              
              {useFallback || !currentSrc ? (
-                 <div className="w-full h-full grid place-items-center text-xs text-gray-400 bg-gray-100 dark:bg-gray-800">
-                    <span className="opacity-50 scale-75">NO IMG</span>
-                 </div>
+                 <div className="w-full h-full grid place-items-center text-[10px] text-gray-400">IMG</div>
              ) : (
                  <img 
                     key={imgKey}
                     src={currentSrc} 
                     alt="" 
-                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                     onError={handleImgError}
                     onLoad={() => setImgLoaded(true)}
                  />
@@ -267,48 +269,58 @@ export default function TrendingCard({ news, compact = false, rank }: Props) {
         </div>
 
         {/* Vsebina */}
-        <div className="flex flex-col min-w-0 flex-1 justify-between py-0.5">
-            <div>
-                <div className="flex items-center gap-2 mb-1">
-                    <span className="text-[10px] uppercase font-bold tracking-wider text-brand" style={{ color: sourceColor }}>
-                        {news.source}
-                    </span>
-                    <span className="text-[10px] text-gray-400">{primaryTime}</span>
-                </div>
-                <h4 className="text-[14px] font-bold leading-snug text-gray-900 dark:text-gray-100 line-clamp-3 group-hover:text-brand transition-colors">
-                    {news.title}
-                </h4>
+        <div className="flex flex-col min-w-0 flex-1 justify-center relative z-10 pointer-events-none">
+            {/* Meta */}
+            <div className="flex items-center gap-2 mb-1">
+                <span className="text-[10px] uppercase font-bold tracking-wider" style={{ color: sourceColor }}>
+                    {news.source}
+                </span>
+                <span className="text-[10px] text-gray-400">{primaryTime}</span>
             </div>
+            
+            {/* Naslov */}
+            <h4 className="text-[14px] font-bold leading-snug text-gray-900 dark:text-gray-100 line-clamp-2 group-hover:text-brand transition-colors">
+                {news.title}
+            </h4>
 
-            {/* Prikaz drugih virov v Compact načinu - to je manjkalo! */}
+            {/* DRUGI VIRI (Interaktivni gumbi - popravljeno!) */}
             {related.length > 0 && (
-                <div className="mt-1.5 flex items-center gap-1.5 overflow-hidden">
-                    <span className="text-[9px] text-gray-400 whitespace-nowrap">Tudi na:</span>
-                    <div className="flex -space-x-1">
-                        {related.slice(0, 3).map((r, i) => {
+                <div className="mt-2 pt-1 border-t border-gray-100 dark:border-gray-700/50 flex items-center gap-1.5 pointer-events-auto">
+                    <span className="text-[9px] text-gray-400 whitespace-nowrap">Beri tudi:</span>
+                    <div className="flex -space-x-1 hover:space-x-1 transition-all">
+                        {related.slice(0, 4).map((r, i) => {
                              const logo = getSourceLogoPath(r.source)
                              return (
-                                 <div key={i} className="w-4 h-4 rounded-full bg-gray-100 dark:bg-gray-700 border border-white dark:border-gray-800 flex items-center justify-center overflow-hidden" title={r.source}>
+                                 <a 
+                                    key={i} 
+                                    href={r.link}
+                                    target="_blank"
+                                    rel="noopener"
+                                    title={`Preberi na ${r.source}`}
+                                    className="w-5 h-5 rounded-full bg-white dark:bg-gray-700 border border-gray-100 dark:border-gray-600 flex items-center justify-center overflow-hidden hover:scale-125 hover:z-20 transition-transform shadow-sm cursor-pointer"
+                                    onClick={(e) => {
+                                        e.stopPropagation() // Prepreči klik na glavno kartico
+                                        logClick('open_related', { parent: news.link, url: r.link })
+                                    }}
+                                 >
                                      {logo ? (
                                          <Image src={logo} alt={r.source} width={16} height={16} className="w-full h-full object-cover" />
                                      ) : (
-                                         <span className="text-[6px] font-bold text-gray-500">{r.source[0]}</span>
+                                         <span className="text-[7px] font-bold text-gray-500">{r.source[0]}</span>
                                      )}
-                                 </div>
+                                 </a>
                              )
                         })}
                     </div>
-                    {related.length > 3 && (
-                        <span className="text-[9px] text-gray-400">+{related.length - 3}</span>
-                    )}
                 </div>
             )}
         </div>
-      </a>
+      </div>
     )
   }
 
-  // ================= RENDER: STANDARD (Polna kartica) =================
+  // ================= RENDER: STANDARD (Polna kartica za Mobile/Grid) =================
+  // To je originalna koda, ki sem jo prej izbrisal. Zdaj je vrnjena.
   return (
     <>
       <a
@@ -363,7 +375,7 @@ export default function TrendingCard({ news, compact = false, rank }: Props) {
             />
           )}
 
-          {/* Eye Button */}
+          {/* Gumb za predogled */}
           <button
             onClick={(e) => {
               e.preventDefault(); e.stopPropagation();
