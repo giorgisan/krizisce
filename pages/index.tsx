@@ -94,8 +94,6 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
   const [mode, setMode] = useState<Mode>('latest')
   const [trendingLoaded, setTrendingLoaded] = useState(false)
   const lastTrendingFetchRef = useRef<number>(0)
-
-  // Novo: Desktop detekcija za 2-stolpčni layout
   const [isDesktop, setIsDesktop] = useState(false)
 
   const [selectedSources, setSelectedSources] = useState<string[]>([]) 
@@ -116,15 +114,13 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
   useEffect(() => {
     kickSyncIfStale(5 * 60_000)
     setBootRefreshed(true)
-
-    // Detekcija širine zaslona
     const checkDesktop = () => setIsDesktop(window.innerWidth >= 1024)
     checkDesktop()
     window.addEventListener('resize', checkDesktop)
     return () => window.removeEventListener('resize', checkDesktop)
   }, [])
 
-  // Samodejno nalaganje TRENDING novic, če smo na desktopu (ker rabimo zapolniti desni stolpec)
+  // Auto-load trending on desktop
   useEffect(() => {
     if (isDesktop && !trendingLoaded && !isRefreshing && bootRefreshed) {
       const fetchTrendingSide = async () => {
@@ -156,11 +152,9 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
-  // --- FETCHING GLAVNE VSEBINE ---
+  // --- FETCHING MAIN CONTENT ---
   useEffect(() => {
     if (!bootRefreshed) return
-    // Na desktopu "mode" ne vpliva na skrivanje vsebine, ampak na mobilcu da.
-    // Če iščemo (search/tag), ponavadi iščemo po "latest" endpointu.
     if (mode === 'trending' && !searchQuery && !tagQuery && !isDesktop) return
 
     const fetchData = async () => {
@@ -170,11 +164,9 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
         
         const fresh = await loadNews('latest', selectedSources, selectedCategory, searchQuery || null, tagQuery || null)
         
-        if (fresh) {
-            setItemsLatest(fresh)
-        } else {
-            setItemsLatest([])
-        }
+        if (fresh) setItemsLatest(fresh)
+        else setItemsLatest([])
+        
         setIsRefreshing(false)
     }
     
@@ -187,14 +179,13 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
 
   }, [selectedSources, selectedCategory, searchQuery, tagQuery, mode, bootRefreshed, isDesktop])
 
-  // --- POLLING ZA NOVE NOVICE (Samo Latest) ---
+  // --- POLLING (Latest) ---
   const missCountRef = useRef(0)
   const timerRef = useRef<number | null>(null)
 
   useEffect(() => {
     if (!bootRefreshed) return
     const runCheckSimple = async () => {
-      // Polling samo, če gledamo latest
       if (mode !== 'latest' && !isDesktop) return
       if (searchQuery || tagQuery) return
 
@@ -234,34 +225,23 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
     }
   }, [itemsLatest, bootRefreshed, mode, selectedSources, selectedCategory, searchQuery, tagQuery, isDesktop])
 
-  // --- USER REFRESH ---
+  // --- REFRESH ---
   useEffect(() => {
     const onRefresh = () => {
       window.dispatchEvent(new CustomEvent('news-refreshing', { detail: true }))
       startTransition(() => {
-        // Refreshamo tisto, kar je trenutno glavni fokus. 
-        // Na desktopu lahko oboje, ampak primarno 'latest'.
         const targetMode = (mode === 'trending' && !isDesktop) ? 'trending' : 'latest'
-
         loadNews(targetMode, selectedSources, selectedCategory, searchQuery || null, tagQuery || null, true).then((fresh) => {
           if (fresh) {
             if (targetMode === 'latest') {
-              setItemsLatest(fresh)
-              setHasMore(true)
-              setCursor(null)
+              setItemsLatest(fresh); setHasMore(true); setCursor(null)
             } else {
-              setItemsTrending(fresh)
-              setTrendingLoaded(true)
-              lastTrendingFetchRef.current = Date.now() 
+              setItemsTrending(fresh); setTrendingLoaded(true); lastTrendingFetchRef.current = Date.now() 
             }
           }
-          // Če smo na desktopu, osvežimo še trending v ozadju
           if (isDesktop && targetMode === 'latest') {
-             loadNews('trending', [], 'vse', null, null, true).then(tr => {
-                 if (tr) setItemsTrending(tr)
-             })
+             loadNews('trending', [], 'vse', null, null, true).then(tr => { if (tr) setItemsTrending(tr) })
           }
-
           window.dispatchEvent(new CustomEvent('news-refreshing', { detail: false }))
           window.dispatchEvent(new CustomEvent('news-has-new', { detail: false }))
           missCountRef.current = 0
@@ -272,15 +252,12 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
     return () => window.removeEventListener('refresh-news', onRefresh as EventListener)
   }, [mode, selectedSources, selectedCategory, searchQuery, tagQuery, isDesktop])
 
-  // --- PAGINATION CURSOR ---
+  // --- PAGINATION ---
   const visibleNews = (mode === 'trending' && !isDesktop) ? itemsTrending : itemsLatest
 
   useEffect(() => {
     if (mode === 'trending' && !isDesktop) return 
-    if (!visibleNews.length) {
-      setCursor(null)
-      return
-    }
+    if (!visibleNews.length) { setCursor(null); return }
     const minMs = visibleNews.reduce((acc, n) => Math.min(acc, n.publishedAt || acc), visibleNews[0].publishedAt || 0)
     setCursor(minMs || null)
   }, [visibleNews, mode, isDesktop])
@@ -300,7 +277,6 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
   }
 
   const handleLoadMore = async () => {
-    // Load more dela samo za 'latest' seznam
     if (mode !== 'latest' && !isDesktop) return
     if (isLoadingMore || !hasMore || cursor == null || cursor <= 0) return
     setIsLoadingMore(true)
@@ -330,59 +306,31 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
       setHasMore(false); setCursor(null)
       const now = Date.now()
       const isStale = (now - lastTrendingFetchRef.current) > 5 * 60_000
-        
       if (!trendingLoaded || isStale) {
         setIsRefreshing(true)
         try {
           const fresh = await loadNews('trending', [], 'vse', null, null)
-          if (fresh) {
-            setItemsTrending(fresh); 
-            setTrendingLoaded(true); 
-            lastTrendingFetchRef.current = Date.now() 
-          }
-        } catch (e) { 
-            console.error(e) 
-        } finally {
-            setIsRefreshing(false)
-        }
+          if (fresh) { setItemsTrending(fresh); setTrendingLoaded(true); lastTrendingFetchRef.current = Date.now() }
+        } catch (e) { console.error(e) } finally { setIsRefreshing(false) }
       }
     }
   }
 
-  const activeSourceLabel = selectedSources.length === 0 
-    ? 'Vse' 
-    : selectedSources.length === 1 
-      ? selectedSources[0] 
-      : `${selectedSources.length} virov`
-
-  const currentCategoryLabel = selectedCategory === 'vse' 
-    ? '' 
-    : CATEGORIES.find(c => c.id === selectedCategory)?.label || selectedCategory;
+  const activeSourceLabel = selectedSources.length === 0 ? 'Vse' : selectedSources.length === 1 ? selectedSources[0] : `${selectedSources.length} virov`
+  const currentCategoryLabel = selectedCategory === 'vse' ? '' : CATEGORIES.find(c => c.id === selectedCategory)?.label || selectedCategory;
 
   const handleTrendingClick = (word: string) => {
     let clean = word.replace(/^#/, '').trim();
-     
-    // Ko kliknemo tag, gremo vedno na iskanje po Latest
-    setItemsLatest([]); 
-    setIsRefreshing(true); 
-
+    setItemsLatest([]); setIsRefreshing(true); 
     window.scrollTo({ top: 0, behavior: 'smooth' })
-    setSearchQuery('') 
-    setTagQuery(clean) 
-     
-    if (mode === 'trending') {
-        setMode('latest');
-        setHasMore(true); 
-        setCursor(null);
-    }
+    setSearchQuery(''); setTagQuery(clean) 
+    if (mode === 'trending') { setMode('latest'); setHasMore(true); setCursor(null); }
   }
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchQuery(e.target.value)
   }
 
-  // --- LAYOUT LOGIC ---
-  // Na desktopu sta prikazana oba stolpca. Na mobilcu se izmenjujeta glede na 'mode'.
   const showLatest = isDesktop || mode === 'latest'
   const showTrending = isDesktop || mode === 'trending'
 
@@ -390,21 +338,13 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
     <>
       <Header 
         onOpenFilter={() => setFilterModalOpen(true)}
-        onSearch={(q) => { 
-            setSearchQuery(q); 
-            setTagQuery(''); 
-        }} 
+        onSearch={(q) => { setSearchQuery(q); setTagQuery(''); }} 
         activeSource={activeSourceLabel}
         activeCategory={selectedCategory}
         onSelectCategory={(cat) => {
            startTransition(() => {
              setSelectedCategory(cat)
-             // Če nismo 'vse', avtomatsko preklopimo na 'latest' pregled
-             if (cat !== 'vse') {
-                setMode('latest')
-                setHasMore(true)
-                setCursor(null)
-             }
+             if (cat !== 'vse') { setMode('latest'); setHasMore(true); setCursor(null) }
            })
            window.scrollTo({ top: 0, behavior: 'smooth' })
         }}
@@ -420,261 +360,152 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
 
       <SeoHead title="Križišče" description="Agregator najnovejših novic." />
 
-      <main className="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white pb-8">
-        
-        <div className="max-w-[1800px] mx-auto w-full">
+      <main className="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white pb-12">
+        <div className="max-w-[1600px] mx-auto w-full px-4 sm:px-6 lg:px-8">
 
-            {/* --- ZGORNJA VRSTICA: Kontrole & Tags --- */}
-            <div className="px-4 md:px-8 lg:px-16 pt-2 pb-1 flex flex-col md:flex-row md:items-center gap-y-2 md:gap-4 border-b border-transparent mb-4">
-                
-                {/* LEVO: Tabi (samo Mobile) ali Naslov Kategorije */}
-                <div className="flex items-center justify-between gap-2 w-full md:w-auto shrink-0">
-                    
-                    {/* Mobile Tabs - skriti na desktopu, ker imamo 2 stolpca */}
-                    <div className="lg:hidden scale-90 origin-left shrink-0 -ml-2 -mr-3">
+            {/* --- HEADER CONTROLS --- */}
+            <div className="py-4 flex flex-col md:flex-row md:items-center gap-4">
+                <div className="flex items-center gap-4 w-full md:w-auto shrink-0">
+                    <div className="lg:hidden scale-90 origin-left">
                         {selectedCategory === 'vse' ? (
                             <NewsTabs active={mode} onChange={handleTabChange} />
                         ) : (
-                            <div className="px-2 py-1">
-                                <span className="text-xl font-bold tracking-tight capitalize">
-                                    {currentCategoryLabel}
-                                </span>
-                            </div>
+                            <span className="text-xl font-bold capitalize">{currentCategoryLabel}</span>
                         )}
                     </div>
-                    
-                    {/* Desktop Category Label */}
                     <div className="hidden lg:block">
-                        {selectedCategory !== 'vse' && (
-                             <span className="text-2xl font-bold tracking-tight capitalize mr-4">
-                                {currentCategoryLabel}
-                             </span>
-                        )}
+                        {selectedCategory !== 'vse' && <span className="text-2xl font-bold capitalize mr-4">{currentCategoryLabel}</span>}
                     </div>
-
-                    {/* Mobile Search Input */}
-                    <div className="md:hidden flex-1 min-w-0 ml-1 relative">
-                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                          <svg className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                          </svg>
-                        </div>
+                    <div className="md:hidden flex-1 relative">
                         <input
                           type="search"
                           placeholder="Išči ..."
-                          className="w-full h-9 pl-9 pr-4 bg-gray-100 dark:bg-gray-800 border-none rounded-full text-sm placeholder-gray-500 text-gray-900 dark:text-white focus:ring-1 focus:ring-brand/50"
+                          className="w-full h-9 pl-3 pr-4 bg-gray-100 dark:bg-gray-800 rounded-full text-sm"
                           value={searchQuery}
                           onChange={handleSearchChange}
                         />
                     </div>
                 </div>
 
-                {/* SREDINA/DESNO: Trending Keywords (Vedno vidno na desktopu, pogojno na mobile) */}
-                {(isDesktop || (mode === 'latest' && selectedCategory === 'vse' && !searchQuery && !tagQuery)) && (
-                  <div className="min-w-0 overflow-hidden w-full md:flex-1 mt-0.5 md:mt-0">
-                      <TrendingBar 
-                        words={initialTrendingWords}
-                        selectedWord={tagQuery || searchQuery} 
-                        onSelectWord={handleTrendingClick} 
-                      />
+                {(isDesktop || (mode === 'latest' && selectedCategory === 'vse' && !searchQuery)) && (
+                  <div className="min-w-0 w-full md:flex-1 overflow-hidden">
+                      <TrendingBar words={initialTrendingWords} selectedWord={tagQuery || searchQuery} onSelectWord={handleTrendingClick} />
                   </div>
                 )}
                 
-                {/* DESNO: Filtri gumb */}
                 {selectedSources.length > 0 && (
-                  <div className="hidden md:flex items-center gap-2 ml-auto shrink-0">
-                    <div className="text-xs text-brand font-medium border border-brand/20 bg-brand/5 px-2 py-1 rounded whitespace-nowrap">
-                      Filtri: {selectedSources.length}
-                    </div>
-                    <button 
-                      onClick={() => setSelectedSources([])} 
-                      className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md" 
-                    >
-                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                    </button>
-                  </div>
+                  <button onClick={() => setSelectedSources([])} className="hidden md:flex text-xs text-red-500 bg-red-50 dark:bg-red-900/20 px-3 py-1 rounded-full whitespace-nowrap">
+                     Počisti filtre ({selectedSources.length})
+                  </button>
                 )}
             </div>
 
-            {/* --- GLAVNA VSEBINA: 2 STOLPCA NA DESKTOPU --- */}
-            <div className="px-4 md:px-8 lg:px-16 flex flex-col lg:flex-row gap-8">
+            {/* --- MAIN GRID --- */}
+            <div className="flex flex-col lg:flex-row gap-8 items-start">
                 
-                {/* 1. LEVI STOLPEC: LATEST (2/3) */}
-                <div className={`flex-1 min-w-0 ${!showLatest ? 'hidden' : ''}`}>
+                {/* 1. LEFT: NEWS GRID (3 or 4 columns for DENSITY) */}
+                <div className={`flex-1 w-full ${!showLatest ? 'hidden' : ''}`}>
                     
                     {(searchQuery || tagQuery) && (
-                        <div className="mb-6 flex items-center gap-2">
-                            <span className="text-sm text-gray-500">
-                                Rezultati za: <span className="font-bold text-gray-900 dark:text-white">"{tagQuery || searchQuery}"</span>
-                            </span>
-                            <button 
-                                onClick={() => { setSearchQuery(''); setTagQuery(''); }}
-                                className="text-xs px-2 py-1 bg-gray-200 dark:bg-gray-800 rounded-md hover:bg-gray-300 dark:hover:bg-gray-700 transition-colors"
-                            >
-                                Počisti ✕
-                            </button>
+                        <div className="mb-4 flex items-center gap-2 text-sm">
+                            <span>Rezultati za: <b>"{tagQuery || searchQuery}"</b></span>
+                            <button onClick={() => { setSearchQuery(''); setTagQuery(''); }} className="text-brand text-xs underline">Počisti</button>
                         </div>
                     )}
 
-                    {/* Loading State */}
                     {isRefreshing && itemsLatest.length === 0 ? (
-                        <div className="flex flex-col items-center justify-center pt-20 pb-20">
-                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand mb-4"></div>
-                            <p className="opacity-60">Iščem novice ...</p>
-                        </div>
+                        <div className="py-20 text-center opacity-50">Nalagam novice ...</div>
                     ) : itemsLatest.length === 0 ? (
-                        <div className="flex flex-col items-center justify-center pt-20 pb-20 text-center">
-                            {(searchQuery || tagQuery) ? (
-                                <p className="opacity-60">Ni rezultatov za iskanje &quot;{tagQuery || searchQuery}&quot;.</p>
-                            ) : (
-                                <p className="opacity-60">Trenutno ni novic s temi filtri.</p>
-                            )}
-                        </div>
+                        <div className="py-20 text-center opacity-50">Ni novic.</div>
                     ) : (
-                        // Grid za novice
-                        <div className="grid gap-4 md:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6">
                             {itemsLatest.map((article, i) => (
-                                <div key={article.link + '|' + i} className="col-span-1">
-                                    <ArticleCard 
-                                        news={article} 
-                                        priority={i < 6} 
-                                    />
-                                </div>
+                                <ArticleCard 
+                                    key={article.link + i} 
+                                    news={article} 
+                                    priority={i < 6} 
+                                />
                             ))}
                         </div>
                     )}
 
-                    {/* Load More Button */}
                     {hasMore && itemsLatest.length > 0 && (
-                        <div className="text-center mt-10 mb-4">
-                            <button
-                                onClick={handleLoadMore}
-                                disabled={isLoadingMore}
-                                className="px-8 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white rounded-full hover:bg-gray-50 dark:hover:bg-gray-700 transition-all shadow-sm font-medium disabled:opacity-50"
-                            >
-                                {isLoadingMore ? 'Nalagam...' : 'Naloži starejše novice'}
+                        <div className="text-center mt-12">
+                            <button onClick={handleLoadMore} disabled={isLoadingMore} className="px-8 py-2.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full hover:bg-gray-50 shadow-sm text-sm font-semibold tracking-wide">
+                                {isLoadingMore ? 'Nalagam ...' : 'NALOŽI VEČ'}
                             </button>
                         </div>
                     )}
                 </div>
 
-                {/* 2. DESNI STOLPEC: TRENDING (1/3) - Sidebar na Desktopu */}
-                <aside className={`lg:w-[380px] xl:w-[420px] shrink-0 ${!showTrending ? 'hidden' : ''}`}>
-                    
-                    <div className="lg:sticky lg:top-24 transition-all">
-                        {/* Naslov na Desktopu */}
-                        <div className="hidden lg:flex items-center gap-2 mb-4 pb-2 border-b border-gray-200 dark:border-gray-800">
-                             <span className="text-lg font-bold text-gray-900 dark:text-white">🔥 Aktualno</span>
+                {/* 2. RIGHT: SIDEBAR (Compact List) */}
+                <aside className={`w-full lg:w-[320px] xl:w-[360px] shrink-0 sticky top-20 ${!showTrending ? 'hidden' : ''}`}>
+                    <div className="bg-white dark:bg-gray-800/40 rounded-xl p-4 border border-gray-100 dark:border-gray-800 shadow-sm backdrop-blur-sm">
+                        <div className="flex items-center gap-2 mb-4 pb-2 border-b border-gray-100 dark:border-gray-700">
+                             <span className="text-lg font-bold">🔥 V Žarišču</span>
                         </div>
 
-                        {/* Loading State za Trending */}
                         {itemsTrending.length === 0 && !trendingLoaded ? (
-                             <div className="py-12 text-center opacity-50 text-sm">Nalagam aktualno ...</div>
+                             <div className="py-8 text-center text-xs opacity-50">Nalagam ...</div>
                         ) : (
-                            // Grid ali Stack, odvisno od naprave
-                            <div className={`
-                                ${isDesktop ? 'flex flex-col gap-5' : 'grid gap-4 sm:grid-cols-2'}
-                            `}>
-                                {itemsTrending.map((article, i) => (
-                                    <div key={article.link + '|tr|' + i}>
-                                        <TrendingCard news={article} />
-                                    </div>
+                            <div className="flex flex-col gap-2">
+                                {itemsTrending.slice(0, 8).map((article, i) => (
+                                    <TrendingCard 
+                                        key={article.link + 'tr' + i} 
+                                        news={article} 
+                                        compact={true} 
+                                        rank={i + 1}
+                                    />
                                 ))}
                             </div>
                         )}
                         
-                        {/* Footer v sidebaru na desktopu */}
-                        <div className="hidden lg:block mt-8 pt-6 border-t border-gray-200 dark:border-gray-800">
-                            <p className="text-xs text-gray-400 text-center">
-                                © 2026 Križišče. Vse pravice pridržane.
-                            </p>
+                        <div className="mt-6 pt-4 border-t border-gray-100 dark:border-gray-800 text-center">
+                            <p className="text-[10px] text-gray-400 uppercase tracking-widest">Križišče 2026</p>
                         </div>
                     </div>
                 </aside>
 
             </div>
         </div>
-
       </main>
 
-      <BackToTop threshold={200} />
-      {/* Footer prikažemo na mobilcu vedno, na desktopu ga lahko skrijemo, če ga imamo v sidebaru, ali pa pustimo na dnu */}
-      <div className="lg:hidden">
-         <Footer />
-      </div>
+      <BackToTop threshold={300} />
+      <div className="lg:hidden"><Footer /></div>
     </>
   )
 }
 
 /* ================= SSR ================= */
 export const getServerSideProps: GetServerSideProps = async ({ res }) => {
-  res.setHeader(
-    'Cache-Control',
-    'public, s-maxage=60, stale-while-revalidate=300'
-  )
-
+  res.setHeader('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=300')
   const { createClient } = await import('@supabase/supabase-js')
-  const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL as string
-  const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string
-  const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-    auth: { persistSession: false },
-  })
+  const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, { auth: { persistSession: false } })
 
-  const newsPromise = supabase
-    .from('news')
-    .select('id, link, title, source, summary, contentsnippet, image, published_at, publishedat, category')
-    .neq('category', 'oglas')
-    .order('publishedat', { ascending: false })
-    .order('id', { ascending: false })
-    .limit(25)
-
+  const newsPromise = supabase.from('news').select('id, link, title, source, summary, contentsnippet, image, published_at, publishedat, category').neq('category', 'oglas').order('publishedat', { ascending: false }).order('id', { ascending: false }).limit(25)
+  
   let trendsData: any[] = []
-
-  const { data: aiData } = await supabase
-    .from('trending_ai')
-    .select('words')
-    .order('updated_at', { ascending: false }) 
-    .limit(1) 
-    .single()
-
-  if (aiData && aiData.words && Array.isArray(aiData.words) && aiData.words.length > 0) {
-     trendsData = aiData.words.map((w: string) => ({ 
-       word: w, 
-       count: 1 
-     }))
+  const { data: aiData } = await supabase.from('trending_ai').select('words').order('updated_at', { ascending: false }).limit(1).single()
+  
+  if (aiData?.words?.length) {
+     trendsData = aiData.words.map((w: string) => ({ word: w, count: 1 }))
   } else {
-     const sqlTrends = await supabase.rpc('get_trending_words', {
-       hours_lookback: 48,
-       limit_count: 8
-     })
+     const sqlTrends = await supabase.rpc('get_trending_words', { hours_lookback: 48, limit_count: 8 })
      trendsData = sqlTrends.data || []
   }
 
   const [newsRes] = await Promise.all([newsPromise])
-
   const rows = (newsRes.data ?? []) as any[]
-  const initialNews: NewsItem[] = rows.map((r) => {
-    const link = r.link || ''
-    return {
-      title: r.title,
-      link,
-      source: r.source,
-      contentSnippet: r.contentsnippet ?? r.summary ?? '',
-      image: r.image ?? null,
-      publishedAt: (r.publishedat ?? (r.published_at ? Date.parse(r.published_at) : 0)) || 0,
-      isoDate: r.published_at,
-      category: (r.category as CategoryId) || determineCategory({ link, categories: [] }) 
-    }
-  })
+  const initialNews: NewsItem[] = rows.map((r) => ({
+    title: r.title,
+    link: r.link || '',
+    source: r.source,
+    contentSnippet: r.contentsnippet ?? r.summary ?? '',
+    image: r.image ?? null,
+    publishedAt: (r.publishedat ?? (r.published_at ? Date.parse(r.published_at) : 0)) || 0,
+    isoDate: r.published_at,
+    category: (r.category as CategoryId) || determineCategory({ link: r.link || '', categories: [] }) 
+  }))
 
-  const initialTrendingWords: TrendingWord[] = trendsData as TrendingWord[]
-
-  return { 
-    props: { 
-      initialNews, 
-      initialTrendingWords 
-    } 
-  }
+  return { props: { initialNews, initialTrendingWords: trendsData } }
 }
