@@ -93,7 +93,6 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
   const [mode, setMode] = useState<Mode>('latest')
   const [trendingLoaded, setTrendingLoaded] = useState(false)
   const lastTrendingFetchRef = useRef<number>(0)
-  // Odstranjen isDesktop state za layout, uporabljen samo za logiko nalaganja
   const [isDesktopLogic, setIsDesktopLogic] = useState(false)
 
   const [selectedSources, setSelectedSources] = useState<string[]>([]) 
@@ -120,7 +119,7 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
     return () => window.removeEventListener('resize', checkDesktop)
   }, [])
 
-  // Auto-load trending on desktop logic only
+  // Auto-load trending
   useEffect(() => {
     if (isDesktopLogic && !trendingLoaded && !isRefreshing && bootRefreshed) {
       const fetchTrendingSide = async () => {
@@ -137,7 +136,7 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
     }
   }, [isDesktopLogic, trendingLoaded, isRefreshing, bootRefreshed])
 
-  // --- LOGIKA ---
+  // --- LOGIC ---
   const resetAll = () => {
     startTransition(() => {
       setSelectedSources([])
@@ -152,10 +151,8 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
-  // --- FETCHING ---
   useEffect(() => {
     if (!bootRefreshed) return
-    // Fetch if we are in latest mode OR if we are searching (search is always latest mode logic)
     if (mode === 'trending' && !searchQuery && !tagQuery && !isDesktopLogic) return
 
     const fetchData = async () => {
@@ -176,20 +173,16 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
     }
   }, [selectedSources, selectedCategory, searchQuery, tagQuery, mode, bootRefreshed, isDesktopLogic])
 
-  // --- REFRESH EVENT ---
   useEffect(() => {
     const onRefresh = () => {
       window.dispatchEvent(new CustomEvent('news-refreshing', { detail: true }))
       startTransition(() => {
-        // Refresh visible content
         const targetMode = (mode === 'trending' && !isDesktopLogic) ? 'trending' : 'latest'
-        
         loadNews(targetMode, selectedSources, selectedCategory, searchQuery || null, tagQuery || null, true).then((fresh) => {
           if (fresh) {
             if (targetMode === 'latest') { setItemsLatest(fresh); setHasMore(true); setCursor(null) } 
             else { setItemsTrending(fresh); setTrendingLoaded(true); lastTrendingFetchRef.current = Date.now() }
           }
-          // Also refresh trending sidebar if desktop
           if (isDesktopLogic && targetMode === 'latest') {
              loadNews('trending', [], 'vse', null, null, true).then(tr => { if (tr) setItemsTrending(tr) })
           }
@@ -301,9 +294,10 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
       <SeoHead title="Križišče" description="Agregator najnovejših novic." />
 
       <main className="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white pb-12">
-        <div className="max-w-[1920px] mx-auto w-full px-4 sm:px-6 lg:px-8">
+        {/* POPRAVEK 2: Usklajeni max-width in padding s Header.tsx (1800px + px-4 md:px-8 lg:px-16) */}
+        <div className="max-w-[1800px] mx-auto w-full px-4 md:px-8 lg:px-16">
 
-            {/* --- HEADER CONTROLS --- */}
+            {/* --- ZGORNJA KONTROLNA VRSTICA (Samo naslov/tabi/search - BREZ TrendingBar) --- */}
             <div className="py-4 flex flex-col md:flex-row md:items-center gap-4">
                 <div className="flex items-center gap-4 w-full md:w-auto shrink-0">
                     <div className="lg:hidden scale-90 origin-left">
@@ -326,25 +320,32 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
                         />
                     </div>
                 </div>
-
-                {/* Trending bar - visible on desktop, or mobile if no search/tag */}
-                <div className={`min-w-0 w-full md:flex-1 overflow-hidden ${(!isDesktopLogic && (searchQuery || tagQuery)) ? 'hidden' : 'block'}`}>
-                      <TrendingBar words={initialTrendingWords} selectedWord={tagQuery || searchQuery} onSelectWord={handleTrendingClick} />
-                </div>
                 
                 {selectedSources.length > 0 && (
-                  <button onClick={() => setSelectedSources([])} className="hidden md:flex text-xs text-red-500 bg-red-50 dark:bg-red-900/20 px-3 py-1 rounded-full whitespace-nowrap">
-                     Počisti filtre ({selectedSources.length})
-                  </button>
+                  <div className="ml-auto">
+                      <button onClick={() => setSelectedSources([])} className="hidden md:flex text-xs text-red-500 bg-red-50 dark:bg-red-900/20 px-3 py-1 rounded-full whitespace-nowrap">
+                         Počisti filtre ({selectedSources.length})
+                      </button>
+                  </div>
                 )}
             </div>
 
-            {/* --- LAYOUT: 2 STOLPCA --- */}
+            {/* --- GLAVNI LAYOUT (2 Stolpca) --- */}
             <div className="flex flex-col lg:flex-row gap-8 items-start">
                 
-                {/* LEVI STOLPEC (Novice) - Skrit na mobilcu če je mode 'trending', sicer vedno viden */}
-                <div className={`flex-1 w-full ${mode === 'trending' ? 'hidden lg:block' : 'block'}`}>
+                {/* 1. LEVI STOLPEC (Tags + Novice) */}
+                <div className={`flex-1 w-full min-w-0 ${mode === 'trending' ? 'hidden lg:block' : 'block'}`}>
                     
+                    {/* POPRAVEK 1: TrendingBar prestavljen SEM notri, da se poravna z vrhom sidebara */}
+                    <div className={`mb-6 min-w-0 w-full overflow-hidden ${(!isDesktopLogic && (searchQuery || tagQuery)) ? 'hidden' : 'block'}`}>
+                          <TrendingBar 
+                            words={initialTrendingWords} 
+                            selectedWord={tagQuery || searchQuery} 
+                            onSelectWord={handleTrendingClick} 
+                          />
+                    </div>
+
+                    {/* Rezultati iskanja */}
                     {(searchQuery || tagQuery) && (
                         <div className="mb-4 flex items-center gap-2 text-sm">
                             <span>Rezultati za: <b>"{tagQuery || searchQuery}"</b></span>
@@ -352,12 +353,12 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
                         </div>
                     )}
 
+                    {/* Grid Novic */}
                     {isRefreshing && itemsLatest.length === 0 ? (
                         <div className="py-20 text-center opacity-50">Nalagam novice ...</div>
                     ) : itemsLatest.length === 0 ? (
                         <div className="py-20 text-center opacity-50">Ni novic.</div>
                     ) : (
-                        // --- GOSTEJŠA MREŽA (do 5 stolpcev na zelo velikih zaslonih) ---
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
                             {itemsLatest.map((article, i) => (
                                 <ArticleCard 
@@ -369,6 +370,7 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
                         </div>
                     )}
 
+                    {/* Load More */}
                     {hasMore && itemsLatest.length > 0 && (
                         <div className="text-center mt-12">
                             <button onClick={handleLoadMore} disabled={isLoadingMore} className="px-8 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full hover:bg-gray-50 shadow-sm text-sm font-bold tracking-wide transition-all hover:shadow-md">
@@ -378,9 +380,7 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
                     )}
                 </div>
 
-                {/* DESNI STOLPEC (Sidebar) - Skrit na mobilcu če je mode 'latest', prikazan če je 'trending'. 
-                    NA DESKTOPU: Vedno viden (lg:block). To prepreči FOUC (skakanje layouta). */}
-                {/* POPRAVEK: top-32 (128px) da se izognemo prekrivanju z menijem */}
+                {/* 2. DESNI STOLPEC (Sidebar) - Zgornji rob se bo zdaj ujemal z TrendingBar */}
                 <aside className={`w-full lg:w-[340px] xl:w-[380px] shrink-0 sticky top-32 
                     ${mode === 'trending' ? 'block' : 'hidden lg:block'}
                 `}>
@@ -403,8 +403,6 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
                                 ))}
                             </div>
                         )}
-                        
-                        {/* Footer odstranjen iz sidebara */}
                     </div>
                 </aside>
 
@@ -413,8 +411,6 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
       </main>
 
       <BackToTop threshold={300} />
-      
-      {/* Footer je prikazan globalno na dnu strani */}
       <Footer />
     </>
   )
