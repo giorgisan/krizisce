@@ -16,21 +16,19 @@ export default function TrendingBar({ words, onSelectWord, selectedWord }: Trend
 
   return (
     <div className="flex items-center h-full min-h-[40px] w-full">
-      {/* Ločilna črta (samo na desktopu) */}
-      <div className="h-4 w-px bg-gray-300 dark:bg-gray-700 mx-4 shrink-0 hidden md:block" />
-
-      {/* Scrollable container */}
-      <div className="flex items-center gap-4 overflow-x-auto no-scrollbar mask-gradient w-full py-1 pr-4">
+      {/* POPRAVEK 3: Odstranjena ločilna črta (div hidden md:block) */}
+      
+      {/* Scrollable container - brez levega paddinga/marginov */}
+      <div className="flex items-center gap-3 overflow-x-auto no-scrollbar mask-gradient w-full py-1">
         
-        {/* --- LABELA "ŽARIŠČE" --- */}
-        {/* Uporabimo native 'title' atribut za tooltip, ki ga brskalnik prikaže vedno pravilno */}
+        {/* --- LABELA "TRENDI" (Prej Žarišče) --- */}
         <div 
-          className="group flex items-center gap-1.5 shrink-0 select-none cursor-default hover:opacity-80 transition-opacity"
-          title="O čem trenutno pišejo mediji" 
+          className="group flex items-center gap-1.5 shrink-0 select-none cursor-default hover:opacity-80 transition-opacity mr-2"
+          title="Najbolj vroče teme zadnjih 100 objav" 
         >
           <span className="text-sm animate-pulse">🔥</span>
-          <span className="text-sm font-semibold text-gray-500 dark:text-gray-400">
-            Žarišče:
+          <span className="text-sm font-bold text-gray-800 dark:text-gray-200 uppercase tracking-tight">
+            Trendi
           </span>
         </div>
 
@@ -49,14 +47,14 @@ export default function TrendingBar({ words, onSelectWord, selectedWord }: Trend
                 key={item.word}
                 onClick={() => onSelectWord(cleanWord)}
                 className={`
-                  whitespace-nowrap text-[13px] font-medium transition-colors duration-200 flex items-center rounded px-1.5 py-0.5
+                  whitespace-nowrap text-[13px] font-medium transition-colors duration-200 flex items-center rounded-md px-2 py-1
                   ${isSelected 
-                    ? 'text-brand font-bold bg-brand/10' 
-                    : 'text-gray-600 dark:text-gray-400 hover:text-brand dark:hover:text-brand hover:bg-gray-100 dark:hover:bg-gray-800'
+                    ? 'text-white bg-brand shadow-sm' 
+                    : 'text-gray-600 dark:text-gray-400 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:border-brand/50 hover:text-brand'
                   }
                 `}
               >
-                <span className={`mr-0.5 text-xs ${isSelected ? 'opacity-60' : 'opacity-40'}`}>#</span>
+                <span className={`mr-0.5 text-xs ${isSelected ? 'opacity-80' : 'opacity-40'}`}>#</span>
                 {cleanWord}
               </button>
             )
