@@ -93,7 +93,8 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
   const [mode, setMode] = useState<Mode>('latest')
   const [trendingLoaded, setTrendingLoaded] = useState(false)
   const lastTrendingFetchRef = useRef<number>(0)
-  const [isDesktop, setIsDesktop] = useState(false)
+  // Odstranjen isDesktop state za layout, uporabljen samo za logiko nalaganja
+  const [isDesktopLogic, setIsDesktopLogic] = useState(false)
 
   const [selectedSources, setSelectedSources] = useState<string[]>([]) 
   const [selectedCategory, setSelectedCategory] = useState<CategoryId | 'vse'>('vse')
@@ -113,15 +114,15 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
   useEffect(() => {
     kickSyncIfStale(5 * 60_000)
     setBootRefreshed(true)
-    const checkDesktop = () => setIsDesktop(window.innerWidth >= 1024)
+    const checkDesktop = () => setIsDesktopLogic(window.innerWidth >= 1024)
     checkDesktop()
     window.addEventListener('resize', checkDesktop)
     return () => window.removeEventListener('resize', checkDesktop)
   }, [])
 
-  // Auto-load trending on desktop
+  // Auto-load trending on desktop logic only
   useEffect(() => {
-    if (isDesktop && !trendingLoaded && !isRefreshing && bootRefreshed) {
+    if (isDesktopLogic && !trendingLoaded && !isRefreshing && bootRefreshed) {
       const fetchTrendingSide = async () => {
         try {
           const fresh = await loadNews('trending', [], 'vse', null, null)
@@ -134,7 +135,7 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
       }
       fetchTrendingSide()
     }
-  }, [isDesktop, trendingLoaded, isRefreshing, bootRefreshed])
+  }, [isDesktopLogic, trendingLoaded, isRefreshing, bootRefreshed])
 
   // --- LOGIKA ---
   const resetAll = () => {
@@ -154,7 +155,8 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
   // --- FETCHING ---
   useEffect(() => {
     if (!bootRefreshed) return
-    if (mode === 'trending' && !searchQuery && !tagQuery && !isDesktop) return
+    // Fetch if we are in latest mode OR if we are searching (search is always latest mode logic)
+    if (mode === 'trending' && !searchQuery && !tagQuery && !isDesktopLogic) return
 
     const fetchData = async () => {
         setIsRefreshing(true)
@@ -172,85 +174,41 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
     } else {
         fetchData()
     }
-  }, [selectedSources, selectedCategory, searchQuery, tagQuery, mode, bootRefreshed, isDesktop])
-
-  // --- POLLING ---
-  const missCountRef = useRef(0)
-  const timerRef = useRef<number | null>(null)
-
-  useEffect(() => {
-    if (!bootRefreshed) return
-    const runCheckSimple = async () => {
-      if (mode !== 'latest' && !isDesktop) return
-      if (searchQuery || tagQuery) return
-      kickSyncIfStale(10 * 60_000)
-      const fresh = await loadNews('latest', selectedSources, selectedCategory, null, null)
-      if (!fresh || fresh.length === 0) {
-        window.dispatchEvent(new CustomEvent('news-has-new', { detail: false }))
-        missCountRef.current = Math.min(POLL_MAX_BACKOFF, missCountRef.current + 1)
-        return
-      }
-      const curSet = new Set(itemsLatest.map((n) => n.link))
-      const newLinksCount = fresh.filter((n) => !curSet.has(n.link)).length
-      if (newLinksCount > 0) {
-        window.dispatchEvent(new CustomEvent('news-has-new', { detail: true }))
-        missCountRef.current = 0
-      } else {
-        window.dispatchEvent(new CustomEvent('news-has-new', { detail: false }))
-        missCountRef.current = Math.min(POLL_MAX_BACKOFF, missCountRef.current + 1)
-      }
-    }
-    const schedule = () => {
-      if (mode !== 'latest' && !isDesktop) return
-      const hidden = document.visibilityState === 'hidden'
-      const base = hidden ? HIDDEN_POLL_MS : POLL_MS
-      const extra = missCountRef.current * 10_000
-      if (timerRef.current) window.clearInterval(timerRef.current)
-      timerRef.current = window.setInterval(runCheckSimple, base + extra) as unknown as number
-    }
-    const initialTimer = setTimeout(runCheckSimple, 10000)
-    schedule()
-    const onVis = () => { if (document.visibilityState === 'visible') runCheckSimple(); schedule() }
-    document.addEventListener('visibilitychange', onVis)
-    return () => {
-      clearTimeout(initialTimer)
-      if (timerRef.current) window.clearInterval(timerRef.current)
-      document.removeEventListener('visibilitychange', onVis)
-    }
-  }, [itemsLatest, bootRefreshed, mode, selectedSources, selectedCategory, searchQuery, tagQuery, isDesktop])
+  }, [selectedSources, selectedCategory, searchQuery, tagQuery, mode, bootRefreshed, isDesktopLogic])
 
   // --- REFRESH EVENT ---
   useEffect(() => {
     const onRefresh = () => {
       window.dispatchEvent(new CustomEvent('news-refreshing', { detail: true }))
       startTransition(() => {
-        const targetMode = (mode === 'trending' && !isDesktop) ? 'trending' : 'latest'
+        // Refresh visible content
+        const targetMode = (mode === 'trending' && !isDesktopLogic) ? 'trending' : 'latest'
+        
         loadNews(targetMode, selectedSources, selectedCategory, searchQuery || null, tagQuery || null, true).then((fresh) => {
           if (fresh) {
             if (targetMode === 'latest') { setItemsLatest(fresh); setHasMore(true); setCursor(null) } 
             else { setItemsTrending(fresh); setTrendingLoaded(true); lastTrendingFetchRef.current = Date.now() }
           }
-          if (isDesktop && targetMode === 'latest') {
+          // Also refresh trending sidebar if desktop
+          if (isDesktopLogic && targetMode === 'latest') {
              loadNews('trending', [], 'vse', null, null, true).then(tr => { if (tr) setItemsTrending(tr) })
           }
           window.dispatchEvent(new CustomEvent('news-refreshing', { detail: false }))
-          window.dispatchEvent(new CustomEvent('news-has-new', { detail: false }))
-          missCountRef.current = 0
         })
       })
     }
     window.addEventListener('refresh-news', onRefresh as EventListener)
     return () => window.removeEventListener('refresh-news', onRefresh as EventListener)
-  }, [mode, selectedSources, selectedCategory, searchQuery, tagQuery, isDesktop])
+  }, [mode, selectedSources, selectedCategory, searchQuery, tagQuery, isDesktopLogic])
 
   // --- PAGINATION ---
-  const visibleNews = (mode === 'trending' && !isDesktop) ? itemsTrending : itemsLatest
+  const visibleNews = (mode === 'trending' && !isDesktopLogic) ? itemsTrending : itemsLatest
   useEffect(() => {
-    if (mode === 'trending' && !isDesktop) return 
+    if (mode === 'trending' && !isDesktopLogic) return 
     if (!visibleNews.length) { setCursor(null); return }
     const minMs = visibleNews.reduce((acc, n) => Math.min(acc, n.publishedAt || acc), visibleNews[0].publishedAt || 0)
     setCursor(minMs || null)
-  }, [visibleNews, mode, isDesktop])
+  }, [visibleNews, mode, isDesktopLogic])
 
   async function fetchPage(cursorVal: number) {
     const qs = new URLSearchParams()
@@ -265,7 +223,7 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
   }
 
   const handleLoadMore = async () => {
-    if (mode !== 'latest' && !isDesktop) return
+    if (mode !== 'latest' && !isDesktopLogic) return
     if (isLoadingMore || !hasMore || cursor == null || cursor <= 0) return
     setIsLoadingMore(true)
     try {
@@ -301,7 +259,6 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
     }
   }
 
-  // --- RENDER VARS ---
   const activeSourceLabel = selectedSources.length === 0 ? 'Vse' : selectedSources.length === 1 ? selectedSources[0] : `${selectedSources.length} virov`
   const currentCategoryLabel = selectedCategory === 'vse' ? '' : CATEGORIES.find(c => c.id === selectedCategory)?.label || selectedCategory;
 
@@ -316,9 +273,6 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchQuery(e.target.value)
   }
-
-  const showLatest = isDesktop || mode === 'latest'
-  const showTrending = isDesktop || mode === 'trending'
 
   return (
     <>
@@ -347,9 +301,9 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
       <SeoHead title="Križišče" description="Agregator najnovejših novic." />
 
       <main className="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white pb-12">
-        <div className="max-w-[1600px] mx-auto w-full px-4 sm:px-6 lg:px-8">
+        <div className="max-w-[1920px] mx-auto w-full px-4 sm:px-6 lg:px-8">
 
-            {/* --- HEADER vrstica --- */}
+            {/* --- HEADER CONTROLS --- */}
             <div className="py-4 flex flex-col md:flex-row md:items-center gap-4">
                 <div className="flex items-center gap-4 w-full md:w-auto shrink-0">
                     <div className="lg:hidden scale-90 origin-left">
@@ -373,11 +327,10 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
                     </div>
                 </div>
 
-                {(isDesktop || (mode === 'latest' && selectedCategory === 'vse' && !searchQuery)) && (
-                  <div className="min-w-0 w-full md:flex-1 overflow-hidden">
+                {/* Trending bar - visible on desktop, or mobile if no search/tag */}
+                <div className={`min-w-0 w-full md:flex-1 overflow-hidden ${(!isDesktopLogic && (searchQuery || tagQuery)) ? 'hidden' : 'block'}`}>
                       <TrendingBar words={initialTrendingWords} selectedWord={tagQuery || searchQuery} onSelectWord={handleTrendingClick} />
-                  </div>
-                )}
+                </div>
                 
                 {selectedSources.length > 0 && (
                   <button onClick={() => setSelectedSources([])} className="hidden md:flex text-xs text-red-500 bg-red-50 dark:bg-red-900/20 px-3 py-1 rounded-full whitespace-nowrap">
@@ -386,11 +339,11 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
                 )}
             </div>
 
-            {/* --- LAYOUT: GRID + SIDEBAR --- */}
+            {/* --- LAYOUT: 2 STOLPCA --- */}
             <div className="flex flex-col lg:flex-row gap-8 items-start">
                 
-                {/* GLAVNI DEL (Najnovejše) */}
-                <div className={`flex-1 w-full ${!showLatest ? 'hidden' : ''}`}>
+                {/* LEVI STOLPEC (Novice) - Skrit na mobilcu če je mode 'trending', sicer vedno viden */}
+                <div className={`flex-1 w-full ${mode === 'trending' ? 'hidden lg:block' : 'block'}`}>
                     
                     {(searchQuery || tagQuery) && (
                         <div className="mb-4 flex items-center gap-2 text-sm">
@@ -404,13 +357,13 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
                     ) : itemsLatest.length === 0 ? (
                         <div className="py-20 text-center opacity-50">Ni novic.</div>
                     ) : (
-                        // POPRAVEK: grid-cols-3 namesto 4 za več prostora
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+                        // --- GOSTEJŠA MREŽA (do 5 stolpcev na zelo velikih zaslonih) ---
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
                             {itemsLatest.map((article, i) => (
                                 <ArticleCard 
                                     key={article.link + i} 
                                     news={article} 
-                                    priority={i < 6} 
+                                    priority={i < 8} 
                                 />
                             ))}
                         </div>
@@ -425,8 +378,11 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
                     )}
                 </div>
 
-                {/* STRANSKI STOLPEC (Aktualno) */}
-                <aside className={`w-full lg:w-[360px] xl:w-[400px] shrink-0 sticky top-20 ${!showTrending ? 'hidden' : ''}`}>
+                {/* DESNI STOLPEC (Sidebar) - Skrit na mobilcu če je mode 'latest', prikazan če je 'trending'. 
+                    NA DESKTOPU: Vedno viden (lg:block). To prepreči FOUC (skakanje layouta). */}
+                <aside className={`w-full lg:w-[340px] xl:w-[380px] shrink-0 sticky top-20 
+                    ${mode === 'trending' ? 'block' : 'hidden lg:block'}
+                `}>
                     <div className="bg-white/50 dark:bg-gray-900/50 rounded-2xl p-4 border border-gray-200 dark:border-gray-800 shadow-sm backdrop-blur-xl">
                         <div className="flex items-center gap-2 mb-4 pb-2 border-b border-gray-200 dark:border-gray-700">
                              <span className="text-xl font-bold">🔥 V Žarišču</span>
@@ -435,7 +391,7 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
                         {itemsTrending.length === 0 && !trendingLoaded ? (
                              <div className="py-8 text-center text-xs opacity-50">Nalagam ...</div>
                         ) : (
-                            <div className="flex flex-col gap-4">
+                            <div className="flex flex-col gap-3">
                                 {itemsTrending.slice(0, 10).map((article, i) => (
                                     <TrendingCard 
                                         key={article.link + 'tr' + i} 
@@ -447,9 +403,7 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
                             </div>
                         )}
                         
-                        <div className="mt-6 pt-4 border-t border-gray-200 dark:border-gray-800 text-center">
-                            <Footer simple />
-                        </div>
+                        {/* Footer odstranjen iz sidebara */}
                     </div>
                 </aside>
 
@@ -458,7 +412,9 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
       </main>
 
       <BackToTop threshold={300} />
-      <div className="lg:hidden"><Footer /></div>
+      
+      {/* Footer je prikazan globalno na dnu strani */}
+      <Footer />
     </>
   )
 }
