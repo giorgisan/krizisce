@@ -14,53 +14,77 @@ interface TrendingBarProps {
 export default function TrendingBar({ words, onSelectWord, selectedWord }: TrendingBarProps) {
   const hasWords = words && words.length > 0;
 
+  // Podvojimo besede za "seamless" loop efekt (samo če jih je dovolj, da ne izgleda čudno)
+  const marqueeWords = hasWords ? [...words, ...words] : [];
+
   return (
-    <div className="flex items-center h-full min-h-[40px] w-full">
-      {/* POPRAVEK 3: Odstranjena ločilna črta (div hidden md:block) */}
+    <div className="flex items-center w-full overflow-hidden py-1 border-b border-gray-100 dark:border-gray-800/50 lg:border-none">
       
-      {/* Scrollable container - brez levega paddinga/marginov */}
-      <div className="flex items-center gap-3 overflow-x-auto no-scrollbar mask-gradient w-full py-1">
-        
-        {/* --- LABELA "TRENDI" (Prej Žarišče) --- */}
-        <div 
-          className="group flex items-center gap-1.5 shrink-0 select-none cursor-default hover:opacity-80 transition-opacity mr-2"
-          title="Najbolj vroče teme zadnjih 100 objav" 
-        >
-          <span className="text-sm animate-pulse">🔥</span>
-          <span className="text-sm font-bold text-gray-800 dark:text-gray-200 uppercase tracking-tight">
-            Trendi
-          </span>
-        </div>
+      {/* LABELA: TRENDI (Fiksna na levi) */}
+      <div 
+        className="relative z-10 flex items-center gap-1.5 shrink-0 pr-4 bg-gray-50 dark:bg-gray-900 select-none cursor-default"
+        style={{ boxShadow: '10px 0 20px -5px var(--bg-page)' }} // Fade efekt desno od labele
+      >
+        <span className="text-sm animate-pulse">🔥</span>
+        <span className="text-xs font-bold text-gray-900 dark:text-gray-100 uppercase tracking-wide">
+          Trendi
+        </span>
+      </div>
 
-        {/* --- SEZNAM TAGOV --- */}
+      {/* MARQUEE CONTAINER */}
+      <div className="flex-1 overflow-hidden relative mask-gradient-right">
         {!hasWords ? (
-           <span className="text-xs text-gray-400 italic whitespace-nowrap">
-             Trenutno ni vročih tem.
-           </span>
+           <span className="text-xs text-gray-400 italic pl-2">Trenutno ni vročih tem.</span>
         ) : (
-          words.map((item) => {
-            const cleanWord = item.word.replace(/^#/, '');
-            const isSelected = selectedWord?.toLowerCase().replace(/^#/, '') === cleanWord.toLowerCase();
+          // Wrapper za animacijo
+          <div className="flex w-max hover:pause animate-marquee items-center">
+            {marqueeWords.map((item, index) => {
+              const cleanWord = item.word.replace(/^#/, '');
+              const isSelected = selectedWord?.toLowerCase().replace(/^#/, '') === cleanWord.toLowerCase();
+              // Unikaten ključ ker smo podvojili array
+              const key = `${item.word}-${index}`;
 
-            return (
-              <button
-                key={item.word}
-                onClick={() => onSelectWord(cleanWord)}
-                className={`
-                  whitespace-nowrap text-[13px] font-medium transition-colors duration-200 flex items-center rounded-md px-2 py-1
-                  ${isSelected 
-                    ? 'text-white bg-brand shadow-sm' 
-                    : 'text-gray-600 dark:text-gray-400 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:border-brand/50 hover:text-brand'
-                  }
-                `}
-              >
-                <span className={`mr-0.5 text-xs ${isSelected ? 'opacity-80' : 'opacity-40'}`}>#</span>
-                {cleanWord}
-              </button>
-            )
-          })
+              return (
+                <button
+                  key={key}
+                  onClick={() => onSelectWord(cleanWord)}
+                  className={`
+                    mx-3 text-xs sm:text-[13px] transition-colors duration-200 flex items-center group
+                    ${isSelected 
+                      ? 'text-brand font-bold' 
+                      : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+                    }
+                  `}
+                >
+                  <span className={`mr-0.5 opacity-40 group-hover:text-brand group-hover:opacity-100 transition-all ${isSelected ? 'text-brand opacity-100' : ''}`}>#</span>
+                  <span className="group-hover:underline decoration-brand/30 underline-offset-2 decoration-1">
+                    {cleanWord}
+                  </span>
+                </button>
+              )
+            })}
+          </div>
         )}
       </div>
+
+      {/* INLINE CSS ZA ANIMACIJO (da ne rabiš spreminjati config datotek) */}
+      <style jsx>{`
+        .animate-marquee {
+          animation: marquee 40s linear infinite;
+        }
+        .hover\:pause:hover {
+          animation-play-state: paused;
+        }
+        @keyframes marquee {
+          0% { transform: translateX(0); }
+          100% { transform: translateX(-50%); }
+        }
+        /* Fade efekt na desni strani, da tekst lepo izgine */
+        .mask-gradient-right {
+          mask-image: linear-gradient(to right, black 90%, transparent 100%);
+          -webkit-mask-image: linear-gradient(to right, black 90%, transparent 100%);
+        }
+      `}</style>
     </div>
   )
 }
