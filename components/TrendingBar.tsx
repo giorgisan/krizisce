@@ -14,16 +14,19 @@ interface TrendingBarProps {
 export default function TrendingBar({ words, onSelectWord, selectedWord }: TrendingBarProps) {
   const hasWords = words && words.length > 0;
 
-  // Podvojimo besede za "seamless" loop efekt (samo če jih je dovolj, da ne izgleda čudno)
-  const marqueeWords = hasWords ? [...words, ...words] : [];
+  // Podvojimo seznam za neskončno zanko (seamless loop)
+  // Če je besed malo, jih potrojimo, da napolnijo vrstico
+  const marqueeWords = hasWords 
+    ? (words.length < 10 ? [...words, ...words, ...words, ...words] : [...words, ...words]) 
+    : [];
 
   return (
-    <div className="flex items-center w-full overflow-hidden py-1 border-b border-gray-100 dark:border-gray-800/50 lg:border-none">
+    <div className="flex items-center w-full overflow-hidden py-2 border-b border-gray-100 dark:border-gray-800/50 lg:border-none">
       
-      {/* LABELA: TRENDI (Fiksna na levi) */}
+      {/* LABELA: TRENDI (Fiksna na levi, z senco desno) */}
       <div 
-        className="relative z-10 flex items-center gap-1.5 shrink-0 pr-4 bg-gray-50 dark:bg-gray-900 select-none cursor-default"
-        style={{ boxShadow: '10px 0 20px -5px var(--bg-page)' }} // Fade efekt desno od labele
+        className="relative z-20 flex items-center gap-1.5 shrink-0 pr-4 bg-gray-50 dark:bg-gray-900 select-none cursor-default"
+        style={{ boxShadow: '15px 0 20px -10px var(--bg-page)' }} 
       >
         <span className="text-sm animate-pulse">🔥</span>
         <span className="text-xs font-bold text-gray-900 dark:text-gray-100 uppercase tracking-wide">
@@ -36,12 +39,12 @@ export default function TrendingBar({ words, onSelectWord, selectedWord }: Trend
         {!hasWords ? (
            <span className="text-xs text-gray-400 italic pl-2">Trenutno ni vročih tem.</span>
         ) : (
-          // Wrapper za animacijo
-          <div className="flex w-max hover:pause animate-marquee items-center">
+          // Wrapper za animacijo - dodaš class 'group' za hover detekcijo
+          <div className="flex w-max animate-marquee hover:pause items-center">
             {marqueeWords.map((item, index) => {
               const cleanWord = item.word.replace(/^#/, '');
               const isSelected = selectedWord?.toLowerCase().replace(/^#/, '') === cleanWord.toLowerCase();
-              // Unikaten ključ ker smo podvojili array
+              // Unikaten ključ
               const key = `${item.word}-${index}`;
 
               return (
@@ -49,15 +52,15 @@ export default function TrendingBar({ words, onSelectWord, selectedWord }: Trend
                   key={key}
                   onClick={() => onSelectWord(cleanWord)}
                   className={`
-                    mx-3 text-xs sm:text-[13px] transition-colors duration-200 flex items-center group
+                    mx-4 text-[13px] font-medium transition-colors duration-200 flex items-center group/btn
                     ${isSelected 
-                      ? 'text-brand font-bold' 
+                      ? 'text-brand' 
                       : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
                     }
                   `}
                 >
-                  <span className={`mr-0.5 opacity-40 group-hover:text-brand group-hover:opacity-100 transition-all ${isSelected ? 'text-brand opacity-100' : ''}`}>#</span>
-                  <span className="group-hover:underline decoration-brand/30 underline-offset-2 decoration-1">
+                  <span className={`mr-0.5 text-xs opacity-40 group-hover/btn:text-brand group-hover/btn:opacity-100 transition-all ${isSelected ? 'text-brand opacity-100' : ''}`}>#</span>
+                  <span className="group-hover/btn:underline decoration-brand/30 underline-offset-2 decoration-1">
                     {cleanWord}
                   </span>
                 </button>
@@ -67,11 +70,12 @@ export default function TrendingBar({ words, onSelectWord, selectedWord }: Trend
         )}
       </div>
 
-      {/* INLINE CSS ZA ANIMACIJO (da ne rabiš spreminjati config datotek) */}
+      {/* INLINE CSS ZA ANIMACIJO IN MASKO */}
       <style jsx>{`
         .animate-marquee {
-          animation: marquee 40s linear infinite;
+          animation: marquee 60s linear infinite; /* Počasno premikanje */
         }
+        /* Ustavi animacijo, ko je miška nad containerjem */
         .hover\:pause:hover {
           animation-play-state: paused;
         }
@@ -79,10 +83,10 @@ export default function TrendingBar({ words, onSelectWord, selectedWord }: Trend
           0% { transform: translateX(0); }
           100% { transform: translateX(-50%); }
         }
-        /* Fade efekt na desni strani, da tekst lepo izgine */
+        /* Fade efekt na desni, da tekst mehko izgine */
         .mask-gradient-right {
-          mask-image: linear-gradient(to right, black 90%, transparent 100%);
-          -webkit-mask-image: linear-gradient(to right, black 90%, transparent 100%);
+          mask-image: linear-gradient(to right, black 85%, transparent 100%);
+          -webkit-mask-image: linear-gradient(to right, black 85%, transparent 100%);
         }
       `}</style>
     </div>
