@@ -56,11 +56,7 @@ function LogoImg({ slug, origin, label }: { slug: string; origin: string; label:
   )
 }
 
-interface Props {
-  simple?: boolean // Dodan prop za sidebar način
-}
-
-export default function Footer({ simple = false }: Props) {
+export default function Footer() {
   const year = new Date().getFullYear()
   const [open, setOpen] = useState(false)
   const popRef = useRef<HTMLDivElement | null>(null)
@@ -78,28 +74,8 @@ export default function Footer({ simple = false }: Props) {
     return () => { document.removeEventListener('mousedown', onDoc); document.removeEventListener('keydown', onEsc) }
   }, [open])
 
-  // --- SIMPLE NAČIN (ZA SIDEBAR) ---
-  if (simple) {
-    return (
-      <div className="flex flex-col items-center gap-2 text-xs text-gray-400 dark:text-gray-500 py-4">
-        <div className="flex gap-3">
-          <Link href="/zasebnost" className="hover:text-gray-600 dark:hover:text-gray-300 transition-colors">
-            Zasebnost
-          </Link>
-          <span className="opacity-30">•</span>
-          <Link href="/pogoji" className="hover:text-gray-600 dark:hover:text-gray-300 transition-colors">
-            Pogoji
-          </Link>
-        </div>
-        <p>© {year} Križišče</p>
-      </div>
-    )
-  }
-
-  // --- STANDARDNI NAČIN ---
   return (
-    <footer className="mt-8 w-full relative">
-      
+    <footer className="mt-16 w-full relative">
       <div className="absolute top-0 left-0 w-full -translate-y-1/2 flex items-center justify-center pointer-events-none z-10">
          <div className="bg-white dark:bg-[#0b101b] p-2 rounded-full border border-gray-100 dark:border-white/5 transition-colors">
             <Image src="/logo.png" alt="Križišče" width={35} height={35} className="w-7 h-7 object-contain opacity-65" />
@@ -111,8 +87,6 @@ export default function Footer({ simple = false }: Props) {
       <div className="bg-gray-50/80 dark:bg-[#0b101b] pt-8 pb-8 transition-colors">
         <div className="mx-auto max-w-6xl px-4 md:px-8 lg:px-16 text-gray-800 dark:text-gray-400">
           <div className="grid gap-6 sm:grid-cols-3 items-start">
-            
-            {/* Levi stolpec */}
             <div>
               <div className="flex items-center mb-2">
                 <Image src="/logo.png" alt="Križišče" width={32} height={32} className="w-6 h-6 rounded-md mr-2" />
@@ -123,8 +97,6 @@ export default function Footer({ simple = false }: Props) {
                 Članki so last izvornih portalov.
               </p>
             </div>
-            
-            {/* Srednji stolpec */}
             <div>
               <h4 className="text-sm font-semibold text-gray-900 dark:text-gray-200 mb-2">Povezave</h4>
               <ul className="space-y-1 text-xs sm:text-sm text-gray-600 dark:text-gray-500">
@@ -134,8 +106,6 @@ export default function Footer({ simple = false }: Props) {
                 <li><Link href="/zasebnost" className="hover:text-brand dark:hover:text-brand transition">Politika zasebnosti</Link></li>
               </ul>
             </div>
-            
-            {/* Desni stolpec */}
             <div>
               <h4 className="text-sm font-semibold text-gray-900 dark:text-gray-200 mb-2">Kontakt</h4>
               <a href="mailto:gjkcme@gmail.com" className="text-xs sm:text-sm text-gray-600 dark:text-gray-500 hover:text-brand dark:hover:text-brand transition">
@@ -144,7 +114,6 @@ export default function Footer({ simple = false }: Props) {
             </div>
           </div>
 
-          {/* Gumb za Vire */}
           <div className="mt-6 flex justify-center">
             <div className="relative">
               <button
@@ -189,7 +158,6 @@ export default function Footer({ simple = false }: Props) {
             </div>
           </div>
 
-          {/* Copyright */}
           <div className="border-t border-gray-200 dark:border-white/5 mt-6 pt-4 text-center text-xs text-gray-500 dark:text-gray-600 pb-[calc(env(safe-area-inset-bottom,0px))]">
             <p className="italic mb-1 opacity-80 font-sans">Informacija ni znanje. Edino razumevanje šteje.</p>
             <p className="opacity-80">© {year} Križišče – Vse pravice pridržane.</p>
