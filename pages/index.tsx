@@ -380,12 +380,13 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
 
                 {/* DESNI STOLPEC (Sidebar) - Skrit na mobilcu če je mode 'latest', prikazan če je 'trending'. 
                     NA DESKTOPU: Vedno viden (lg:block). To prepreči FOUC (skakanje layouta). */}
-                <aside className={`w-full lg:w-[340px] xl:w-[380px] shrink-0 sticky top-20 
+                {/* POPRAVEK: top-32 (128px) da se izognemo prekrivanju z menijem */}
+                <aside className={`w-full lg:w-[340px] xl:w-[380px] shrink-0 sticky top-32 
                     ${mode === 'trending' ? 'block' : 'hidden lg:block'}
                 `}>
                     <div className="bg-white/50 dark:bg-gray-900/50 rounded-2xl p-4 border border-gray-200 dark:border-gray-800 shadow-sm backdrop-blur-xl">
                         <div className="flex items-center gap-2 mb-4 pb-2 border-b border-gray-200 dark:border-gray-700">
-                             <span className="text-xl font-bold">🔥 V Žarišču</span>
+                             <span className="text-xl font-bold">🔥 Aktualno</span>
                         </div>
 
                         {itemsTrending.length === 0 && !trendingLoaded ? (
