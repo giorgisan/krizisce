@@ -86,8 +86,8 @@ function formatRelativeTime(
   const min = Math.floor(diff / 60_000)
   const hr = Math.floor(min / 60)
   if (diff < 60_000) return 'zdaj'
-  if (min < 60) return `${min} min`
-  if (hr < 24) return `${hr} h`
+  if (min < 60) return `pred ${min} min`
+  if (hr < 24) return `pred ${hr} h`
   const d = new Date(ms)
   return new Intl.DateTimeFormat('sl-SI', {
     day: 'numeric',
