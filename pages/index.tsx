@@ -298,7 +298,7 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
       <main className="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white pb-12">
         <div className="max-w-[1800px] mx-auto w-full px-4 md:px-8 lg:px-16">
 
-            {/* --- ZGORNJA KONTROLNA VRSTICA (Samo naslov/tabi/search - BREZ TrendingBar) --- */}
+            {/* --- ZGORNJA KONTROLNA VRSTICA (Samo naslov/tabi/search) --- */}
             <div className="py-4 flex flex-col md:flex-row md:items-center gap-4">
                 <div className="flex items-center gap-4 w-full md:w-auto shrink-0">
                     <div className="lg:hidden scale-90 origin-left">
@@ -337,8 +337,8 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
                 {/* 1. LEVI STOLPEC (Tags + Novice) */}
                 <div className={`flex-1 w-full min-w-0 ${mode === 'trending' ? 'hidden lg:block' : 'block'}`}>
                     
-                    {/* TRENDI BAR */}
-                    <div className={`mb-3 min-w-0 w-full overflow-hidden ${(!isDesktopLogic && (searchQuery || tagQuery)) ? 'hidden' : 'block'}`}>
+                    {/* TRENDI BAR (Tagi) */}
+                    <div className={`mb-2 min-w-0 w-full overflow-hidden ${(!isDesktopLogic && (searchQuery || tagQuery)) ? 'hidden' : 'block'}`}>
                           <TrendingBar 
                             words={initialTrendingWords} 
                             selectedWord={tagQuery || searchQuery} 
@@ -354,13 +354,13 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
                         </div>
                     )}
 
-                    {/* Grid Novic - SPREMENJENO: Manj stolpcev -> Večje kartice */}
+                    {/* GRID: POPRAVLJENO NA 4 STOLPCE (xl:grid-cols-4) */}
                     {isRefreshing && itemsLatest.length === 0 ? (
                         <div className="py-20 text-center opacity-50">Nalagam novice ...</div>
                     ) : itemsLatest.length === 0 ? (
                         <div className="py-20 text-center opacity-50">Ni novic.</div>
                     ) : (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                             {itemsLatest.map((article, i) => (
                                 <ArticleCard 
                                     key={article.link + i} 
@@ -381,7 +381,7 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
                     )}
                 </div>
 
-                {/* 2. DESNI STOLPEC (Sidebar) - Zgornji rob se bo zdaj ujemal z TrendingBar */}
+                {/* 2. DESNI STOLPEC (Sidebar) */}
                 <aside className={`w-full lg:w-[340px] xl:w-[380px] shrink-0 sticky top-32 
                     ${mode === 'trending' ? 'block' : 'hidden lg:block'}
                 `}>
