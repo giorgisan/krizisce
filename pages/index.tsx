@@ -154,7 +154,6 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
   // --- FETCHING ---
   useEffect(() => {
     if (!bootRefreshed) return
-    // Fetch if we are in latest mode OR if we are searching (search is always latest mode logic)
     if (mode === 'trending' && !searchQuery && !tagQuery && !isDesktopLogic) return
 
     const fetchData = async () => {
@@ -175,12 +174,76 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
     }
   }, [selectedSources, selectedCategory, searchQuery, tagQuery, mode, bootRefreshed, isDesktopLogic])
 
+  // --- POLLING ZA NOVE NOVICE (VRNJENO) ---
+  const missCountRef = useRef(0)
+  const timerRef = useRef<number | null>(null)
+
+  useEffect(() => {
+    if (!bootRefreshed) return
+    
+    const runCheckSimple = async () => {
+      // Preverjamo samo v 'latest' načinu in brez iskanja
+      if (mode !== 'latest' && !isDesktopLogic) return
+      if (searchQuery || tagQuery) return
+
+      kickSyncIfStale(10 * 60_000)
+      
+      // Vedno preverimo 'latest'
+      const fresh = await loadNews('latest', selectedSources, selectedCategory, null, null)
+      
+      if (!fresh || fresh.length === 0) {
+        window.dispatchEvent(new CustomEvent('news-has-new', { detail: false }))
+        missCountRef.current = Math.min(POLL_MAX_BACKOFF, missCountRef.current + 1)
+        return
+      }
+      
+      const curSet = new Set(itemsLatest.map((n) => n.link))
+      const newLinksCount = fresh.filter((n) => !curSet.has(n.link)).length
+      
+      if (newLinksCount > 0) {
+        // Obvestimo Header, da prikaže banner
+        window.dispatchEvent(new CustomEvent('news-has-new', { detail: true }))
+        missCountRef.current = 0
+      } else {
+        window.dispatchEvent(new CustomEvent('news-has-new', { detail: false }))
+        missCountRef.current = Math.min(POLL_MAX_BACKOFF, missCountRef.current + 1)
+      }
+    }
+
+    const schedule = () => {
+      // Če smo v trending mode (in nismo desktop), ne pollaj
+      if (mode === 'trending' && !isDesktopLogic) return
+      
+      const hidden = document.visibilityState === 'hidden'
+      const base = hidden ? HIDDEN_POLL_MS : POLL_MS
+      const extra = missCountRef.current * 10_000
+      
+      if (timerRef.current) window.clearInterval(timerRef.current)
+      timerRef.current = window.setInterval(runCheckSimple, base + extra) as unknown as number
+    }
+
+    const initialTimer = setTimeout(runCheckSimple, 10000) // Prvi check čez 10s
+    schedule()
+    
+    const onVis = () => { 
+        if (document.visibilityState === 'visible') runCheckSimple(); 
+        schedule() 
+    }
+    
+    document.addEventListener('visibilitychange', onVis)
+    return () => {
+      clearTimeout(initialTimer)
+      if (timerRef.current) window.clearInterval(timerRef.current)
+      document.removeEventListener('visibilitychange', onVis)
+    }
+  }, [itemsLatest, bootRefreshed, mode, selectedSources, selectedCategory, searchQuery, tagQuery, isDesktopLogic])
+
+
   // --- REFRESH EVENT ---
   useEffect(() => {
     const onRefresh = () => {
       window.dispatchEvent(new CustomEvent('news-refreshing', { detail: true }))
       startTransition(() => {
-        // Refresh visible content
         const targetMode = (mode === 'trending' && !isDesktopLogic) ? 'trending' : 'latest'
         
         loadNews(targetMode, selectedSources, selectedCategory, searchQuery || null, tagQuery || null, true).then((fresh) => {
@@ -192,6 +255,9 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
              loadNews('trending', [], 'vse', null, null, true).then(tr => { if (tr) setItemsTrending(tr) })
           }
           window.dispatchEvent(new CustomEvent('news-refreshing', { detail: false }))
+          // Reset bannerja
+          window.dispatchEvent(new CustomEvent('news-has-new', { detail: false }))
+          missCountRef.current = 0
         })
       })
     }
@@ -210,7 +276,6 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
 
   async function fetchPage(cursorVal: number) {
     const qs = new URLSearchParams()
-    // POPRAVEK: Limit spremenjen na 24 za lepo poravnavo v gridu (deljivo z 2, 3, 4)
     qs.set('paged', '1'); qs.set('limit', '24'); qs.set('cursor', String(cursorVal))
     if (selectedSources.length > 0) qs.set('source', selectedSources.join(','))
     if (selectedCategory !== 'vse') qs.set('category', selectedCategory)
@@ -390,9 +455,8 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
                     ${mode === 'trending' ? 'block' : 'hidden lg:block'}
                 `}>
                     <div className="bg-white/50 dark:bg-gray-900/50 rounded-2xl px-4 pb-4 pt-2 border border-gray-200 dark:border-gray-800 shadow-sm backdrop-blur-xl">
-                        {/* HEADER SIDEBARA - POPRAVEK: Nevtralna ikona (ura) namesto strele */}
+                        {/* HEADER SIDEBARA - Ikona ure, minimalistična */}
                         <div className="flex items-center gap-2 mb-4 pb-2 border-b border-gray-200 dark:border-gray-700">
-                             {/* SVG Ikona Ure - siva, minimalistična */}
                              <svg className="w-4 h-4 text-gray-400 dark:text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                              </svg>
@@ -434,7 +498,6 @@ export const getServerSideProps: GetServerSideProps = async ({ res }) => {
   const { createClient } = await import('@supabase/supabase-js')
   const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, { auth: { persistSession: false } })
 
-  // POPRAVEK: Limit spremenjen na 24 (namesto 25) za lepo polnjenje grida
   const newsPromise = supabase.from('news').select('id, link, title, source, summary, contentsnippet, image, published_at, publishedat, category').neq('category', 'oglas').order('publishedat', { ascending: false }).order('id', { ascending: false }).limit(24)
   
   let trendsData: any[] = []
