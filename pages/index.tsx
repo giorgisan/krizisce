@@ -352,7 +352,8 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
                         {selectedCategory === 'vse' ? (
                             <NewsTabs active={mode} onChange={handleTabChange} />
                         ) : (
-                            <span className="text-xl font-bold capitalize mr-1">{currentCategoryLabel}</span>
+                            /* UX: Dodan shrink-0 in zmanjšan desni odmik za mobile iskalnik */
+                            <span className="text-xl font-bold capitalize mr-1 shrink-0">{currentCategoryLabel}</span>
                         )}
                     </div>
                     <div className="hidden lg:block shrink-0">
@@ -362,7 +363,7 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
                         <input
                           type="search"
                           placeholder="Išči ..."
-                          className="w-full h-9 pl-3 pr-4 bg-gray-100 dark:bg-gray-800 rounded-full text-sm"
+                          className="w-full h-9 pl-3 pr-4 bg-gray-100 dark:bg-gray-800 rounded-full text-sm outline-none focus:ring-1 focus:ring-brand/20"
                           value={searchQuery}
                           onChange={handleSearchChange}
                         />
@@ -425,9 +426,9 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
                 <aside className={`w-full lg:w-[340px] xl:w-[380px] shrink-0 lg:sticky lg:top-32 
                     ${mode === 'trending' ? 'block' : 'hidden lg:block'}
                 `}>
-                    {/* OZADJE SIDEBARA: Povečan kontrast (bg-gray-200/60) za Nielsen "sidro" */}
-                    <div className="bg-gray-200/60 dark:bg-gray-800/80 rounded-2xl px-4 pb-4 pt-4 backdrop-blur-xl">
-                        {/* NASLOV: Vrnjeno prejšnje subtilno stanje */}
+                    {/* UX: Povečan kontrast ozadja sidebara (bg-gray-200/70) za jasno vizualno sidro */}
+                    <div className="bg-gray-200/70 dark:bg-gray-800/90 rounded-2xl px-4 pb-4 pt-4 backdrop-blur-xl">
+                        {/* NASLOV: Subtilen dizajn v skladu z minimalizmom */}
                         <div className="flex items-center gap-2 mb-4 pb-2 border-b border-gray-300/50 dark:border-gray-700">
                              <svg className="w-4 h-4 text-gray-400 dark:text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -453,8 +454,8 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
                         ) : (
                             <div className="flex flex-col gap-3">
                                 {itemsTrending.slice(0, 10).map((article, i) => (
-                                    /* KARTICE: shadow-md za globino (izrazit kontrast na sivi podlagi) */
-                                    <div key={article.link + 'tr' + i} className="bg-white dark:bg-gray-700/60 rounded-xl shadow-md overflow-hidden transition-shadow hover:shadow-lg">
+                                    /* UX: Bela kartica z močnejšo senco (shadow-md) na temnem ozadju za maksimalen kontrast */
+                                    <div key={article.link + 'tr' + i} className="bg-white dark:bg-gray-700/60 rounded-xl shadow-md overflow-hidden transition-all hover:shadow-lg">
                                         <TrendingCard 
                                             news={article} 
                                             compact={true} 
