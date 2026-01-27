@@ -26,8 +26,8 @@ const IMAGE_WIDTHS = [320, 480, 640, 960, 1280]
 
 interface Props {
   news: NewsItem & { [key: string]: any }
-  compact?: boolean
-  rank?: number
+  compact?: boolean // Za sidebar prikaz
+  rank?: number     // Zaporedna številka
 }
 
 type RelatedItem = {
@@ -36,6 +36,8 @@ type RelatedItem = {
   link: string
   publishedAt?: number | null
 }
+
+/* ================= HELPERJI ================= */
 
 function extractRelatedItems(news: any): RelatedItem[] {
   const raw =
@@ -94,6 +96,7 @@ function formatRelativeTime(
 }
 
 export default function TrendingCard({ news, compact = false, rank }: Props) {
+  // --- ČAS ---
   const [minuteTick, setMinuteTick] = useState(0)
   useEffect(() => {
     const onMinute = () => setMinuteTick((m) => (m + 1) % 60)
@@ -111,6 +114,7 @@ export default function TrendingCard({ news, compact = false, rank }: Props) {
     return (sourceColors as Record<string, string>)[news.source] || '#fc9c6c'
   }, [news.source])
 
+  // --- TOUCH DETEKCIJA ---
   const [isTouch, setIsTouch] = useState(false)
   useEffect(() => {
     try {
@@ -120,6 +124,7 @@ export default function TrendingCard({ news, compact = false, rank }: Props) {
     } catch { setIsTouch(false) }
   }, [])
 
+  // --- SLIKA ---
   const rawImg = news.image ?? null
   const proxyInitiallyOn = !!rawImg
 
@@ -168,6 +173,7 @@ export default function TrendingCard({ news, compact = false, rank }: Props) {
     }
   }
 
+  // --- ANALITIKA ---
   const sendBeacon = (payload: any) => {
     try {
       const json = JSON.stringify(payload)
@@ -195,6 +201,7 @@ export default function TrendingCard({ news, compact = false, rank }: Props) {
     logClick()
   }
 
+  // --- PREVIEW ---
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   
   const preloadedRef = useRef(false)
@@ -209,6 +216,7 @@ export default function TrendingCard({ news, compact = false, rank }: Props) {
     }
   }
 
+  // --- PODATKI ---
   const primarySource = getPrimarySource(news)
   const relatedAll = extractRelatedItems(news)
   const related = relatedAll.filter((r) => r.link !== news.link)
@@ -221,6 +229,7 @@ export default function TrendingCard({ news, compact = false, rank }: Props) {
         className="group relative bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-transparent hover:border-gray-200 dark:hover:border-gray-700 transition-all p-3 flex gap-3"
         title={(news as any).contentSnippet || news.title}
       >
+        
         <a 
           href={news.link}
           target="_blank"
@@ -254,14 +263,15 @@ export default function TrendingCard({ news, compact = false, rank }: Props) {
                  )}
              </div>
 
-             {/* POPRAVEK: Gumb je na mobilcu (default) viden, na desktopu (lg) skrit in se pokaže na hover */}
+             {/* POPRAVEK: VEČJI GUMB ZA PREDOGLED, VEDNO VIDEN NA MOBILE */}
              <button
                 onClick={(e) => {
                   e.preventDefault(); e.stopPropagation();
                   setPreviewUrl(news.link)
                 }}
                 className={`
-                    absolute top-1 right-1 p-1 
+                    absolute top-1 right-1 
+                    h-8 w-8 grid place-items-center
                     bg-white/90 dark:bg-gray-900/90 rounded-full shadow-sm 
                     text-gray-700 dark:text-gray-200 
                     transition-all duration-200 hover:scale-110 z-20
@@ -269,7 +279,7 @@ export default function TrendingCard({ news, compact = false, rank }: Props) {
                 `}
                 title="Hitri predogled"
              >
-                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.5">
                     <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12Z" />
                     <circle cx="12" cy="12" r="3" />
                 </svg>
@@ -332,8 +342,7 @@ export default function TrendingCard({ news, compact = false, rank }: Props) {
     )
   }
 
-  // ================= RENDER: STANDARD =================
-  // (Uporabi se na glavni strani za velike novice, koda ostane enaka)
+  // ================= RENDER: STANDARD (Nespremenjeno, samo za referenco) =================
   const [eyeVisible, setEyeVisible] = useState(false)
   const [eyeHover, setEyeHover] = useState(false)
   const showEye = isTouch ? true : eyeVisible
