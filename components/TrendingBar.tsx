@@ -28,7 +28,9 @@ export default function TrendingBar({ words, onSelectWord, selectedWord }: Trend
         style={{ boxShadow: '15px 0 20px -10px var(--bg-page)' }} 
       >
         <span className="text-sm opacity-80">🔥</span>
-        <span className="text-xs font-bold text-gray-900 dark:text-gray-100 uppercase tracking-wide">
+        
+        {/* POPRAVEK: Odstranjen uppercase, mehkejša barva (text-gray-700/300) */}
+        <span className="text-xs font-bold text-gray-700 dark:text-gray-300 tracking-wide">
           Trendi
         </span>
       </div>
@@ -40,6 +42,7 @@ export default function TrendingBar({ words, onSelectWord, selectedWord }: Trend
         ) : (
           <>
             {/* --- MOBILE: SCROLLABLE LIST (Drag to scroll) --- */}
+            {/* Vse čisto: samo tekst #, brez podčrtajev, brez ozadij */}
             <div className="flex md:hidden overflow-x-auto no-scrollbar items-center gap-3 pl-2 pr-8 w-full">
                 {words.map((item) => {
                     const cleanWord = item.word.replace(/^#/, '');
@@ -57,7 +60,6 @@ export default function TrendingBar({ words, onSelectWord, selectedWord }: Trend
                           `}
                         >
                           <span className={`mr-0.5 text-xs opacity-40 ${isSelected ? 'text-brand opacity-100' : ''}`}>#</span>
-                          {/* Samo tekst, brez podčrtaja */}
                           {cleanWord}
                         </button>
                     )
@@ -83,10 +85,8 @@ export default function TrendingBar({ words, onSelectWord, selectedWord }: Trend
                         }
                       `}
                     >
-                      {/* # se obarva na hover (group-hover/btn:text-brand) */}
                       <span className={`mr-0.5 text-xs opacity-40 group-hover/btn:text-brand group-hover/btn:opacity-100 transition-all ${isSelected ? 'text-brand opacity-100' : ''}`}>#</span>
-                      
-                      {/* POPRAVEK: Odstranjen span z underline, samo čisto besedilo */}
+                      {/* Tudi tu samo tekst, brez podčrtaja */}
                       {cleanWord}
                     </button>
                   )
