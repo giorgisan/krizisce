@@ -226,8 +226,8 @@ export default function TrendingCard({ news, compact = false, rank }: Props) {
     return (
       <>
       <div 
-        // SPREMEMBA: Odstranjen 'border' in 'shadow-sm', dodan 'bg-gray-50' (temnejše ozadje)
-        className="group relative bg-gray-50 dark:bg-gray-800/60 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-all p-3 sm:p-4 lg:p-3 flex gap-4 lg:gap-3"
+        // SPREMEMBA: Dizajn brez roba, sivo ozadje
+        className="group relative bg-gray-50 dark:bg-gray-800/50 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors p-3 sm:p-4 lg:p-3 flex gap-4 lg:gap-3"
         title={(news as any).contentSnippet || news.title}
       >
         
@@ -247,7 +247,7 @@ export default function TrendingCard({ news, compact = false, rank }: Props) {
             </div>
         )}
 
-        {/* Slika + Gumb - VEČJE NA MOBILE */}
+        {/* Slika + Gumb */}
         <div className="shrink-0 w-32 h-32 lg:w-24 lg:h-24 relative rounded-lg overflow-hidden bg-gray-200 dark:bg-gray-700 z-10 pointer-events-auto shadow-sm">
              <div onClick={(e) => { handleClick(e as any) }} className="absolute inset-0 cursor-pointer">
                  {currentSrc && !useFallback ? (
@@ -303,7 +303,7 @@ export default function TrendingCard({ news, compact = false, rank }: Props) {
                 <div className="mt-auto lg:mt-2 pt-2 lg:pt-1 border-t border-gray-200 dark:border-gray-700/50 flex items-center gap-2 lg:gap-1.5 pointer-events-auto">
                     <span className="text-[10px] lg:text-[9px] text-gray-400 whitespace-nowrap">Beri tudi:</span>
                     <div className="flex -space-x-1 hover:space-x-1 transition-all">
-                        {/* POPRAVEK: Odstranjen slice(0, 4) - prikažemo VSE vire */}
+                        {/* POPRAVEK: Izpis vseh virov (brez slice) */}
                         {related.map((r, i) => {
                              const logo = getSourceLogoPath(r.source)
                              return (
