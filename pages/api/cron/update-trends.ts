@@ -12,67 +12,51 @@ const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_KEY || '')
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   // Varnostno preverjanje
   if (req.query.key !== process.env.CRON_SECRET) {
+    return res.status(401).json({ error: 'Unauthorized' });
   }
 
   let trends: string[] = []
   let usedModel = 'unknown'
   
   try {
-    // 1. ZAJEM NOVIC (100 zadnjih)
+    // 1. ZAJEM NOVIC (Povečano na 150 za boljšo analizo trendov)
     const { data: allNews, error } = await supabase
       .from('news')
       .select('title, publishedat, source')
       .neq('category', 'oglas')
       .neq('category', 'promo')
       .order('publishedat', { ascending: false })
-      .limit(100)
+      .limit(150)
 
     if (error) throw error
     if (!allNews || allNews.length === 0) {
         return res.status(200).json({ success: false, message: 'Baza je prazna.' })
     }
 
-    // 2. FILTRIRANJE (24 ur)
-    const cutoffTime = new Date(Date.now() - 24 * 60 * 60 * 1000)
-    let recentNews = allNews.filter(n => new Date(n.publishedat) > cutoffTime)
+    // 2. PRIPRAVA VSEBINE
+    const headlines = allNews.map(n => `- ${n.source}: ${n.title}`).join('\n')
 
-    // Fallback: če je premalo novic
-    if (recentNews.length < 10) {
-        recentNews = allNews.slice(0, 20);
-    }
-
-    // 3. PRIPRAVA VSEBINE
-    const headlines = recentNews.map(n => `- ${n.source}: ${n.title}`).join('\n')
-
-    // 4. OPTIMIZIRAN PROMPT
+    // 3. IZBOLJŠAN PROMPT
     const prompt = `
-        Kot urednik novičarskega portala analiziraj spodnji seznam naslovov in izlušči seznam trenutno najbolj vročih tem (#Trending).
-        
-        VHODNI PODATKI (Naslovi zadnjih 100 novic):
+        Kot izkušen urednik slovenskega novičarskega portala analiziraj spodnji seznam naslovov zadnjih novic.
+        Tvoja naloga je ustvariti dinamičen in raznolik seznam trendov (#TemeDneva), ki so trenutno najbolj aktualni.
+
+        VHODNI PODATKI:
         ${headlines}
 
-        PRAVILA ZA IZBOR (KRITERIJI):
-        1. RELEVANTNOST: Tema mora biti omenjena v vsaj 3 RAZLIČNIH virih (npr. Delo, RTV in 24ur pišeta o isti stvari).
-        2. UNIKATNOST: Ne podvajaj tem (npr. ne izpiši hkrati "#Volitve" in "#Rezultati volitev").
-        3. ČE NI VSAJ 3 VIROV, TEME NE IZPIŠI.
+        STRATEGIJA IZBORA:
+        1. RELEVANTNOST: Izpostavi teme, o katerih piše več različnih virov (npr. RTV, 24ur, Delo, Siol).
+        2. BREZ PODVAJANJA: Ne ustvarjaj vsebinsko podobnih tagov.
+        3. SVEŽINA: Če opaziš izreden dogodek (npr. zmaga, nesreča, pomembna odločitev), naj bo ta na vrhu.
 
-        PRAVILA ZA OBLIKOVANJE (STROGO!!):
-        1. IZHOD: Vrni SAMO čisti JSON array stringov. Brez markdowna, brez "json" oznak.
-        2. FORMAT: Vsak tag se začne z lojtro (#).
-        3. PRESLEDKI SO OBVEZNI:
-           - PREPOVEDANO: Združevanje besed (CamelCase).
-           - PREPOVEDANO: "#LukaDončić", "#VladaRS", "#VojnaVUkrajini"
-           - PRAVILNO: "#Luka Dončić", "#Vlada RS", "#Vojna v Ukrajini"
-        4. JEZIK IN OBLIKA:
-           - Uporabi slovenski jezik.
-           - Besede naj bodo v osnovni obliki (imenovalnik), razen če kontekst zahteva drugače.
-           - Ne uporabljaj narekovajev znotraj taga.
-           - Uporabljal le izraze, ki se pojavijo v novici (naslov, opis)
-        5. DOLŽINA:
-           - Idealno: 2 besedi na tag.
-           - Največ: 3 besede (samo za zelo specifične dogodke).
-        
-        CILJ: Vrni točno 5 do 7 najbolj relevantnih tagov.
+        PRAVILA OBLIKOVANJA (STROGO):
+        - Vrni IZKLJUČNO JSON array stringov: ["#Tag1", "#Tag2", ...]
+        - Vsak tag se mora začeti z lojtro (#).
+        - Uporabljaj slovenski jezik in presledke (NE CamelCase).
+        - Dolžina: 1 do 3 besede na tag.
+        - Besede naj bodo v osnovni obliki (imenovalnik).
+
+        CILJ: Vrni med 6 in 12 najbolj relevantnih tagov za premikajoči se trak.
     `
     
     const tryGenerate = async (modelName: string) => {
@@ -87,48 +71,51 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         })
         const result = await model.generateContent(prompt)
         const responseText = result.response.text()
-        const cleanJson = responseText.replace(/```json|```/g, '').trim()
+        
+        // Robustno iskanje JSON-a (najde vsebino med [ in ])
+        const jsonStart = responseText.indexOf('[');
+        const jsonEnd = responseText.lastIndexOf(']') + 1;
+        const cleanJson = responseText.substring(jsonStart, jsonEnd);
+        
         return JSON.parse(cleanJson)
     }
 
-    // 5. GENERIRANJE (Spremenjen vrstni red: Lite -> Flash)
+    // 4. GENERIRANJE
     try {
-        // PRVI POSKUS: Lite (varčnejši z kvoto)
-        console.log("Poskušam gemini-2.5-flash-lite...");
-        trends = await tryGenerate("gemini-2.5-flash-lite");
-        usedModel = "gemini-2.5-flash-lite";
+        console.log("Poskušam gemini-1.5-flash-lite...");
+        trends = await tryGenerate("gemini-1.5-flash-lite");
+        usedModel = "gemini-1.5-flash-lite";
     } catch (err1: any) {
-        console.warn(`⚠️ Lite verzija ni uspela, preklapljam na navaden Flash...`, err1.message);
+        console.warn(`⚠️ Lite verzija ni uspela, preklapljam na Flash...`, err1.message);
         try {
-            // DRUGI POSKUS: Flash (močnejši, a bolj omejen)
-            trends = await tryGenerate("gemini-2.5-flash");
-            usedModel = "gemini-2.5-flash";
+            trends = await tryGenerate("gemini-1.5-flash");
+            usedModel = "gemini-1.5-flash";
         } catch (err2: any) {
-            console.error("❌ Vsi modeli odpovedali.");
-            return res.status(500).json({ error: 'AI generation failed', details: err2.message });
+            console.error("❌ AI modeli niso vrnili veljavnega JSON-a.");
+            return res.status(500).json({ error: 'AI generation failed' });
         }
     }
 
-    // 6. SHRANJEVANJE (ZGODOVINA)
+    // 5. SHRANJEVANJE
     if (Array.isArray(trends) && trends.length > 0) {
+        // Čiščenje in omejitev na max 12 (za marquee)
         trends = trends
             .map(t => {
-                // Zagotovimo lojtro in odstranimo morebitne odvečne presledke
                 let tag = t.trim();
                 if (!tag.startsWith('#')) tag = `#${tag}`;
                 return tag; 
             })
-            .filter(t => t.length > 3) // Malo strožji filter za smeti
-            .slice(0, 8);
+            .filter(t => t.length > 3)
+            .slice(0, 12);
 
-        const { error } = await supabase
+        const { error: insertError } = await supabase
           .from('trending_ai')
           .insert({ 
              words: trends, 
              updated_at: new Date().toISOString() 
           })
         
-        if (error) throw error
+        if (insertError) throw insertError
         
         return res.status(200).json({ 
             success: true, 
