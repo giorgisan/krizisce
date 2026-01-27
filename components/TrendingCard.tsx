@@ -228,7 +228,11 @@ export default function TrendingCard({ news, compact = false, rank }: Props) {
   // ================= RENDER: COMPACT (Sidebar) =================
   if (compact) {
     return (
-      <div className="group relative bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-transparent hover:border-gray-200 dark:hover:border-gray-700 transition-all p-3 flex gap-3">
+      <div 
+        className="group relative bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-transparent hover:border-gray-200 dark:hover:border-gray-700 transition-all p-3 flex gap-3"
+        // UX DODATEK: Native tooltip s povzetkom, če uporabnik zadrži miško
+        title={(news as any).contentSnippet || news.title}
+      >
         
         {/* GLAVNA POVEZAVA (Pokriva vse razen gumbov) */}
         <a 
@@ -241,18 +245,17 @@ export default function TrendingCard({ news, compact = false, rank }: Props) {
           aria-hidden="true"
         />
 
-        {/* --- 1. POPRAVEK: BOLJ VIDNA ŠTEVILKA (RANK) --- */}
+        {/* Številka ranga */}
         {rank && (
             <div className="absolute top-0 left-0 w-6 h-6 bg-gray-900 dark:bg-white flex items-center justify-center rounded-br-lg z-20 shadow-md pointer-events-none">
                 <span className="text-xs font-bold text-white dark:text-gray-900 font-serif">{rank}</span>
             </div>
         )}
 
-        {/* --- 2. POPRAVEK: GUMB ZA PREDOGLED NA SLIKI --- */}
-        <div className="shrink-0 w-24 h-24 relative rounded-lg overflow-hidden bg-gray-200 dark:bg-gray-700 z-10 pointer-events-auto">
-             {/* Klik na sliko odpre članek (kot glavna povezava) */}
+        {/* Slika + Gumb za predogled */}
+        <div className="shrink-0 w-24 h-24 relative rounded-lg overflow-hidden bg-gray-200 dark:bg-gray-700 z-10 pointer-events-auto shadow-sm">
+             {/* Klik na sliko odpre članek */}
              <div onClick={(e) => {
-                 // Propagiramo klik na glavno povezavo
                  handleClick(e as any)
              }} className="absolute inset-0 cursor-pointer">
                  {currentSrc && !useFallback ? (
@@ -269,7 +272,7 @@ export default function TrendingCard({ news, compact = false, rank }: Props) {
                  )}
              </div>
 
-             {/* GUMB ZA PREDOGLED (OKO) */}
+             {/* GUMB ZA PREDOGLED (OKO) - Pojavi se ob hoverju na kartico (group-hover) */}
              <button
                 onClick={(e) => {
                   e.preventDefault(); e.stopPropagation();
@@ -296,16 +299,11 @@ export default function TrendingCard({ news, compact = false, rank }: Props) {
             </div>
             
             {/* Naslov */}
-            <h4 className="text-[14px] font-bold leading-snug text-gray-900 dark:text-gray-100 line-clamp-2 group-hover:text-brand transition-colors">
+            <h4 className="text-[14px] font-bold leading-snug text-gray-900 dark:text-gray-100 line-clamp-3 group-hover:text-brand transition-colors">
                 {news.title}
             </h4>
 
-            {/* --- 3. POPRAVEK: PODNASLOV (SNIPPET) --- */}
-            {(news as any).contentSnippet && (
-                <p className="text-[11px] leading-snug text-gray-500 dark:text-gray-400 line-clamp-2 mt-1 hidden sm:block">
-                    {(news as any).contentSnippet}
-                </p>
-            )}
+            {/* POPRAVEK: ODSTRANJEN POVZETEK (SNIPPET) */}
 
             {/* DRUGI VIRI (Interaktivni gumbi) */}
             {related.length > 0 && (
@@ -323,7 +321,7 @@ export default function TrendingCard({ news, compact = false, rank }: Props) {
                                     title={`Preberi na ${r.source}`}
                                     className="w-5 h-5 rounded-full bg-white dark:bg-gray-700 border border-gray-100 dark:border-gray-600 flex items-center justify-center overflow-hidden hover:scale-125 hover:z-20 transition-transform shadow-sm cursor-pointer"
                                     onClick={(e) => {
-                                        e.stopPropagation() // Prepreči klik na glavno kartico
+                                        e.stopPropagation() 
                                         logClick('open_related', { parent: news.link, url: r.link })
                                     }}
                                  >
