@@ -355,7 +355,6 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
         <div className="max-w-[1800px] mx-auto w-full px-4 md:px-8 lg:px-16">
 
             {/* --- ZGORNJA KONTROLNA VRSTICA (Minimalni prostor) --- */}
-            {/* POPRAVEK: Zmanjšan gap na gap-2 za mobile */}
             <div className="pt-1 pb-1 flex flex-col md:flex-row md:items-center gap-2">
                 <div className="flex items-center gap-2 w-full md:w-auto shrink-0">
                     <div className="lg:hidden scale-90 origin-left">
@@ -453,7 +452,19 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
                         </div>
 
                         {itemsTrending.length === 0 && !trendingLoaded ? (
-                             <div className="py-8 text-center text-xs opacity-50">Nalagam ...</div>
+                             // POPRAVEK: Skeleton Loader za sidebar
+                             <div className="flex flex-col gap-3 animate-pulse">
+                                {[1,2,3,4,5].map((i) => (
+                                    <div key={i} className="flex gap-3 p-3 bg-white/50 dark:bg-gray-800/50 rounded-xl border border-gray-100 dark:border-gray-800">
+                                        <div className="w-24 h-24 bg-gray-200 dark:bg-gray-700 rounded-lg shrink-0" />
+                                        <div className="flex-1 flex flex-col justify-center gap-2">
+                                            <div className="h-3 w-16 bg-gray-200 dark:bg-gray-700 rounded" />
+                                            <div className="h-4 w-full bg-gray-200 dark:bg-gray-700 rounded" />
+                                            <div className="h-4 w-3/4 bg-gray-200 dark:bg-gray-700 rounded" />
+                                        </div>
+                                    </div>
+                                ))}
+                             </div>
                         ) : (
                             <div className="flex flex-col gap-3">
                                 {itemsTrending.slice(0, 10).map((article, i) => (
