@@ -355,8 +355,9 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
         <div className="max-w-[1800px] mx-auto w-full px-4 md:px-8 lg:px-16">
 
             {/* --- ZGORNJA KONTROLNA VRSTICA (Minimalni prostor) --- */}
-            <div className="pt-1 pb-1 flex flex-col md:flex-row md:items-center gap-2">
-                <div className="flex items-center gap-2 w-full md:w-auto shrink-0">
+            {/* POPRAVEK: Zmanjšan gap na gap-1, da bo iskalnik širši */}
+            <div className="pt-1 pb-1 flex flex-col md:flex-row md:items-center gap-1">
+                <div className="flex items-center gap-1 w-full md:w-auto shrink-0">
                     <div className="lg:hidden scale-90 origin-left">
                         {selectedCategory === 'vse' ? (
                             <NewsTabs active={mode} onChange={handleTabChange} />
@@ -452,15 +453,14 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
                         </div>
 
                         {itemsTrending.length === 0 && !trendingLoaded ? (
-                             // POPRAVEK: Skeleton Loader za sidebar
                              <div className="flex flex-col gap-3 animate-pulse">
-                                {[1,2,3,4,5].map((i) => (
-                                    <div key={i} className="flex gap-3 p-3 bg-white/50 dark:bg-gray-800/50 rounded-xl border border-gray-100 dark:border-gray-800">
-                                        <div className="w-24 h-24 bg-gray-200 dark:bg-gray-700 rounded-lg shrink-0" />
+                                {[...Array(6)].map((_, i) => (
+                                    <div key={i} className="flex gap-3 p-2 rounded-xl bg-gray-50 dark:bg-gray-800/30">
+                                        <div className="w-20 h-20 bg-gray-200 dark:bg-gray-700 rounded-lg shrink-0" />
                                         <div className="flex-1 flex flex-col justify-center gap-2">
                                             <div className="h-3 w-16 bg-gray-200 dark:bg-gray-700 rounded" />
                                             <div className="h-4 w-full bg-gray-200 dark:bg-gray-700 rounded" />
-                                            <div className="h-4 w-3/4 bg-gray-200 dark:bg-gray-700 rounded" />
+                                            <div className="h-4 w-2/3 bg-gray-200 dark:bg-gray-700 rounded" />
                                         </div>
                                     </div>
                                 ))}
