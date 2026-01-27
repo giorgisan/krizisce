@@ -425,10 +425,10 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
                 <aside className={`w-full lg:w-[340px] xl:w-[380px] shrink-0 lg:sticky lg:top-32 
                     ${mode === 'trending' ? 'block' : 'hidden lg:block'}
                 `}>
-                    {/* OZADJE SIDEBARA: Še malo temnejše za večji kontrast (bg-gray-200/40) */}
-                    <div className="bg-gray-200/40 dark:bg-gray-800/80 rounded-2xl px-4 pb-4 pt-4 backdrop-blur-xl">
-                        {/* NASLOV: Vrnjeno prejšnje stanje - nežen naslov in siva ikona */}
-                        <div className="flex items-center gap-2 mb-4 pb-2 border-b border-gray-200 dark:border-gray-700">
+                    {/* OZADJE SIDEBARA: Povečan kontrast (bg-gray-200/60) za Nielsen "sidro" */}
+                    <div className="bg-gray-200/60 dark:bg-gray-800/80 rounded-2xl px-4 pb-4 pt-4 backdrop-blur-xl">
+                        {/* NASLOV: Vrnjeno prejšnje subtilno stanje */}
+                        <div className="flex items-center gap-2 mb-4 pb-2 border-b border-gray-300/50 dark:border-gray-700">
                              <svg className="w-4 h-4 text-gray-400 dark:text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                              </svg>
@@ -440,7 +440,7 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
                         {itemsTrending.length === 0 && !trendingLoaded ? (
                              <div className="flex flex-col gap-3 animate-pulse">
                                 {[...Array(6)].map((_, i) => (
-                                    <div key={i} className="flex gap-3 p-3 rounded-xl bg-white dark:bg-gray-700/50 shadow-sm">
+                                    <div key={i} className="flex gap-3 p-3 rounded-xl bg-white/60 dark:bg-gray-700/50 shadow-sm">
                                         <div className="w-20 h-20 bg-gray-200 dark:bg-gray-600 rounded-lg shrink-0" />
                                         <div className="flex-1 flex flex-col justify-center gap-2">
                                             <div className="h-3 w-16 bg-gray-200 dark:bg-gray-600 rounded" />
@@ -453,8 +453,8 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
                         ) : (
                             <div className="flex flex-col gap-3">
                                 {itemsTrending.slice(0, 10).map((article, i) => (
-                                    /* KARTICE: Bele z nežno senco za maksimalen kontrast na sivi podlagi sidebara */
-                                    <div key={article.link + 'tr' + i} className="bg-white dark:bg-gray-700/60 rounded-xl shadow-sm overflow-hidden">
+                                    /* KARTICE: shadow-md za globino (izrazit kontrast na sivi podlagi) */
+                                    <div key={article.link + 'tr' + i} className="bg-white dark:bg-gray-700/60 rounded-xl shadow-md overflow-hidden transition-shadow hover:shadow-lg">
                                         <TrendingCard 
                                             news={article} 
                                             compact={true} 
