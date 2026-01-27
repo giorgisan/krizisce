@@ -230,7 +230,7 @@ export default function TrendingCard({ news, compact = false, rank }: Props) {
     return (
       <div className="group relative bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-transparent hover:border-gray-200 dark:hover:border-gray-700 transition-all p-3 flex gap-3">
         
-        {/* GLAVNA POVEZAVA (Pokriva vse razen interaktivnih gumbov spodaj) */}
+        {/* GLAVNA POVEZAVA (Pokriva vse razen gumbov) */}
         <a 
           href={news.link}
           target="_blank"
@@ -241,31 +241,48 @@ export default function TrendingCard({ news, compact = false, rank }: Props) {
           aria-hidden="true"
         />
 
-        {/* Številka ranga */}
+        {/* --- 1. POPRAVEK: BOLJ VIDNA ŠTEVILKA (RANK) --- */}
         {rank && (
-            <div className="absolute top-0 left-0 w-6 h-6 bg-gray-50 dark:bg-gray-700/50 flex items-center justify-center rounded-br-lg z-10 pointer-events-none">
-                <span className="text-xs font-bold text-gray-400 font-serif">{rank}</span>
+            <div className="absolute top-0 left-0 w-6 h-6 bg-gray-900 dark:bg-white flex items-center justify-center rounded-br-lg z-20 shadow-md pointer-events-none">
+                <span className="text-xs font-bold text-white dark:text-gray-900 font-serif">{rank}</span>
             </div>
         )}
 
-        {/* Slika */}
-        <div className="shrink-0 w-20 h-20 relative rounded-lg overflow-hidden bg-gray-200 dark:bg-gray-700 pointer-events-none shadow-sm">
-             {!imgLoaded && !useFallback && !!currentSrc && (
-                <div className="absolute inset-0 bg-gray-200 animate-pulse" />
-             )}
-             
-             {useFallback || !currentSrc ? (
-                 <div className="w-full h-full grid place-items-center text-[10px] text-gray-400">IMG</div>
-             ) : (
-                 <img 
-                    key={imgKey}
-                    src={currentSrc} 
-                    alt="" 
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                    onError={handleImgError}
-                    onLoad={() => setImgLoaded(true)}
-                 />
-             )}
+        {/* --- 2. POPRAVEK: GUMB ZA PREDOGLED NA SLIKI --- */}
+        <div className="shrink-0 w-24 h-24 relative rounded-lg overflow-hidden bg-gray-200 dark:bg-gray-700 z-10 pointer-events-auto">
+             {/* Klik na sliko odpre članek (kot glavna povezava) */}
+             <div onClick={(e) => {
+                 // Propagiramo klik na glavno povezavo
+                 handleClick(e as any)
+             }} className="absolute inset-0 cursor-pointer">
+                 {currentSrc && !useFallback ? (
+                     <img 
+                        key={imgKey}
+                        src={currentSrc} 
+                        alt="" 
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                        onError={handleImgError}
+                        onLoad={() => setImgLoaded(true)}
+                     />
+                 ) : (
+                     <div className="w-full h-full grid place-items-center text-[10px] text-gray-400">IMG</div>
+                 )}
+             </div>
+
+             {/* GUMB ZA PREDOGLED (OKO) */}
+             <button
+                onClick={(e) => {
+                  e.preventDefault(); e.stopPropagation();
+                  setPreviewUrl(news.link)
+                }}
+                className={`absolute top-1 right-1 p-1 bg-white/90 dark:bg-gray-900/90 rounded-full shadow-sm text-gray-700 dark:text-gray-200 opacity-0 group-hover:opacity-100 transition-all duration-200 hover:scale-110 z-20`}
+                title="Hitri predogled"
+             >
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5">
+                    <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12Z" />
+                    <circle cx="12" cy="12" r="3" />
+                </svg>
+             </button>
         </div>
 
         {/* Vsebina */}
@@ -283,7 +300,14 @@ export default function TrendingCard({ news, compact = false, rank }: Props) {
                 {news.title}
             </h4>
 
-            {/* DRUGI VIRI (Interaktivni gumbi - popravljeno!) */}
+            {/* --- 3. POPRAVEK: PODNASLOV (SNIPPET) --- */}
+            {(news as any).contentSnippet && (
+                <p className="text-[11px] leading-snug text-gray-500 dark:text-gray-400 line-clamp-2 mt-1 hidden sm:block">
+                    {(news as any).contentSnippet}
+                </p>
+            )}
+
+            {/* DRUGI VIRI (Interaktivni gumbi) */}
             {related.length > 0 && (
                 <div className="mt-2 pt-1 border-t border-gray-100 dark:border-gray-700/50 flex items-center gap-1.5 pointer-events-auto">
                     <span className="text-[9px] text-gray-400 whitespace-nowrap">Beri tudi:</span>
@@ -320,7 +344,6 @@ export default function TrendingCard({ news, compact = false, rank }: Props) {
   }
 
   // ================= RENDER: STANDARD (Polna kartica za Mobile/Grid) =================
-  // To je originalna koda, ki sem jo prej izbrisal. Zdaj je vrnjena.
   return (
     <>
       <a
