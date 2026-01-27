@@ -346,24 +346,28 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
       <main className="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white pb-12">
         <div className="max-w-[1800px] mx-auto w-full px-4 md:px-8 lg:px-16">
 
+            {/* --- ZGORNJA KONTROLNA VRSTICA (POPRVALJENO ZA MOBILE RAZMIK) --- */}
             <div className="pt-1 pb-1 flex flex-col md:flex-row md:items-center gap-0">
-                <div className="flex items-center gap-0 w-full md:w-auto shrink-0">
+                <div className="flex items-center gap-0 w-full md:w-auto">
+                    {/* Levo: Zavihki ali Naslov (shrink-0 prepreči stiskanje) */}
                     <div className="lg:hidden scale-90 origin-left shrink-0">
                         {selectedCategory === 'vse' ? (
                             <NewsTabs active={mode} onChange={handleTabChange} />
                         ) : (
-                            /* UX: Dodan shrink-0 in zmanjšan desni odmik za mobile iskalnik */
-                            <span className="text-xl font-bold capitalize mr-1 shrink-0">{currentCategoryLabel}</span>
+                            <span className="text-xl font-bold capitalize mr-1">{currentCategoryLabel}</span>
                         )}
                     </div>
+                    {/* Desktop naslov */}
                     <div className="hidden lg:block shrink-0">
                         {selectedCategory !== 'vse' && <span className="text-2xl font-bold capitalize mr-4">{currentCategoryLabel}</span>}
                     </div>
-                    <div className="md:hidden flex-1 relative ml-1">
+
+                    {/* Iskalnik (Mobile): flex-1 in ml-0 popolnoma odstranita razmik */}
+                    <div className="md:hidden flex-1 relative ml-0">
                         <input
                           type="search"
                           placeholder="Išči ..."
-                          className="w-full h-9 pl-3 pr-4 bg-gray-100 dark:bg-gray-800 rounded-full text-sm outline-none focus:ring-1 focus:ring-brand/20"
+                          className="w-full h-9 pl-3 pr-4 bg-gray-200 dark:bg-gray-800 rounded-full text-sm outline-none focus:ring-1 focus:ring-brand/20"
                           value={searchQuery}
                           onChange={handleSearchChange}
                         />
@@ -426,9 +430,8 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
                 <aside className={`w-full lg:w-[340px] xl:w-[380px] shrink-0 lg:sticky lg:top-32 
                     ${mode === 'trending' ? 'block' : 'hidden lg:block'}
                 `}>
-                    {/* UX: Povečan kontrast ozadja sidebara (bg-gray-200/70) za jasno vizualno sidro */}
-                    <div className="bg-gray-200/70 dark:bg-gray-800/90 rounded-2xl px-4 pb-4 pt-4 backdrop-blur-xl">
-                        {/* NASLOV: Subtilen dizajn v skladu z minimalizmom */}
+                    {/* NIELSEN UX: Visok kontrast ozadja sidebara (bg-gray-200/70) */}
+                    <div className="bg-gray-200/70 dark:bg-gray-800/90 rounded-2xl px-4 pb-4 pt-4 backdrop-blur-xl shadow-inner">
                         <div className="flex items-center gap-2 mb-4 pb-2 border-b border-gray-300/50 dark:border-gray-700">
                              <svg className="w-4 h-4 text-gray-400 dark:text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -454,8 +457,8 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
                         ) : (
                             <div className="flex flex-col gap-3">
                                 {itemsTrending.slice(0, 10).map((article, i) => (
-                                    /* UX: Bela kartica z močnejšo senco (shadow-md) na temnem ozadju za maksimalen kontrast */
-                                    <div key={article.link + 'tr' + i} className="bg-white dark:bg-gray-700/60 rounded-xl shadow-md overflow-hidden transition-all hover:shadow-lg">
+                                    /* UX: Bela kartica na temnem ozadju za maksimalen fokus */
+                                    <div key={article.link + 'tr' + i} className="bg-white dark:bg-gray-700/60 rounded-xl shadow-md overflow-hidden transition-shadow hover:shadow-lg hover:z-10 relative">
                                         <TrendingCard 
                                             news={article} 
                                             compact={true} 
