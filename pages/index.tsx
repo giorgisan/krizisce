@@ -302,7 +302,6 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
         <div className="max-w-[1800px] mx-auto w-full px-4 md:px-8 lg:px-16">
 
             {/* --- ZGORNJA KONTROLNA VRSTICA (Minimalni prostor) --- */}
-            {/* SPREMEMBA: 'py-4' -> 'pt-1 pb-1' in 'gap-4' -> 'gap-2' za minimalizem */}
             <div className="pt-1 pb-1 flex flex-col md:flex-row md:items-center gap-2">
                 <div className="flex items-center gap-4 w-full md:w-auto shrink-0">
                     <div className="lg:hidden scale-90 origin-left">
@@ -342,7 +341,6 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
                 <div className={`flex-1 w-full min-w-0 ${mode === 'trending' ? 'hidden lg:block' : 'block'}`}>
                     
                     {/* TRENDI BAR (Tagi) */}
-                    {/* SPREMEMBA: 'mb-2' -> 'mb-1' za še manj prostora */}
                     <div className={`mb-1 min-w-0 w-full overflow-hidden ${(!isDesktopLogic && (searchQuery || tagQuery)) ? 'hidden' : 'block'}`}>
                           <TrendingBar 
                             words={initialTrendingWords} 
@@ -392,8 +390,12 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
                 `}>
                     {/* SPREMEMBA: 'pt-2' za lepšo poravnavo z napisom 'Trendi' na levi */}
                     <div className="bg-white/50 dark:bg-gray-900/50 rounded-2xl px-4 pb-4 pt-2 border border-gray-200 dark:border-gray-800 shadow-sm backdrop-blur-xl">
+                        {/* HEADER SIDEBARA - SPREMENJENO */}
                         <div className="flex items-center gap-2 mb-4 pb-2 border-b border-gray-200 dark:border-gray-700">
-                             <span className="text-xl font-bold">🔥 Aktualno</span>
+                             <span className="text-sm text-amber-500">⚡</span> {/* Strela in manjša ikona */}
+                             <span className="text-xs font-bold uppercase tracking-wide text-gray-900 dark:text-gray-100">
+                                Aktualno
+                             </span>
                         </div>
 
                         {itemsTrending.length === 0 && !trendingLoaded ? (
