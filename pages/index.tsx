@@ -355,9 +355,9 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
         <div className="max-w-[1800px] mx-auto w-full px-4 md:px-8 lg:px-16">
 
             {/* --- ZGORNJA KONTROLNA VRSTICA (Minimalni prostor) --- */}
-            {/* POPRAVEK: Zmanjšan gap na gap-1, da bo iskalnik širši */}
-            <div className="pt-1 pb-1 flex flex-col md:flex-row md:items-center gap-1">
-                <div className="flex items-center gap-1 w-full md:w-auto shrink-0">
+            {/* POPRAVEK: Zmanjšan gap na gap-0, da se input dotika naslova */}
+            <div className="pt-1 pb-1 flex flex-col md:flex-row md:items-center gap-0">
+                <div className="flex items-center gap-0 w-full md:w-auto shrink-0">
                     <div className="lg:hidden scale-90 origin-left">
                         {selectedCategory === 'vse' ? (
                             <NewsTabs active={mode} onChange={handleTabChange} />
@@ -368,7 +368,7 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
                     <div className="hidden lg:block">
                         {selectedCategory !== 'vse' && <span className="text-2xl font-bold capitalize mr-4">{currentCategoryLabel}</span>}
                     </div>
-                    <div className="md:hidden flex-1 relative">
+                    <div className="md:hidden flex-1 relative ml-1">
                         <input
                           type="search"
                           placeholder="Išči ..."
