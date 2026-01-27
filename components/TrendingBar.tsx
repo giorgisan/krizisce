@@ -14,8 +14,7 @@ interface TrendingBarProps {
 export default function TrendingBar({ words, onSelectWord, selectedWord }: TrendingBarProps) {
   const hasWords = words && words.length > 0;
 
-  // Podvojimo seznam za neskončno zanko (seamless loop)
-  // Če je besed malo, jih potrojimo, da napolnijo vrstico
+  // Podvojimo seznam za neskončno zanko
   const marqueeWords = hasWords 
     ? (words.length < 10 ? [...words, ...words, ...words, ...words] : [...words, ...words]) 
     : [];
@@ -23,12 +22,13 @@ export default function TrendingBar({ words, onSelectWord, selectedWord }: Trend
   return (
     <div className="flex items-center w-full overflow-hidden py-2 border-b border-gray-100 dark:border-gray-800/50 lg:border-none">
       
-      {/* LABELA: TRENDI (Fiksna na levi, z senco desno) */}
+      {/* LABELA: TRENDI */}
       <div 
         className="relative z-20 flex items-center gap-1.5 shrink-0 pr-4 bg-gray-50 dark:bg-gray-900 select-none cursor-default"
         style={{ boxShadow: '15px 0 20px -10px var(--bg-page)' }} 
       >
-        <span className="text-sm animate-pulse">🔥</span>
+        {/* SPREMEMBA: Odstranjen 'animate-pulse' in zmanjšana velikost na 'text-xs' */}
+        <span className="text-xs">🔥</span>
         <span className="text-xs font-bold text-gray-900 dark:text-gray-100 uppercase tracking-wide">
           Trendi
         </span>
@@ -39,12 +39,10 @@ export default function TrendingBar({ words, onSelectWord, selectedWord }: Trend
         {!hasWords ? (
            <span className="text-xs text-gray-400 italic pl-2">Trenutno ni vročih tem.</span>
         ) : (
-          // Wrapper za animacijo - dodaš class 'group' za hover detekcijo
           <div className="flex w-max animate-marquee hover:pause items-center">
             {marqueeWords.map((item, index) => {
               const cleanWord = item.word.replace(/^#/, '');
               const isSelected = selectedWord?.toLowerCase().replace(/^#/, '') === cleanWord.toLowerCase();
-              // Unikaten ključ
               const key = `${item.word}-${index}`;
 
               return (
@@ -70,12 +68,10 @@ export default function TrendingBar({ words, onSelectWord, selectedWord }: Trend
         )}
       </div>
 
-      {/* INLINE CSS ZA ANIMACIJO IN MASKO */}
       <style jsx>{`
         .animate-marquee {
-          animation: marquee 60s linear infinite; /* Počasno premikanje */
+          animation: marquee 60s linear infinite;
         }
-        /* Ustavi animacijo, ko je miška nad containerjem */
         .hover\:pause:hover {
           animation-play-state: paused;
         }
@@ -83,7 +79,6 @@ export default function TrendingBar({ words, onSelectWord, selectedWord }: Trend
           0% { transform: translateX(0); }
           100% { transform: translateX(-50%); }
         }
-        /* Fade efekt na desni, da tekst mehko izgine */
         .mask-gradient-right {
           mask-image: linear-gradient(to right, black 85%, transparent 100%);
           -webkit-mask-image: linear-gradient(to right, black 85%, transparent 100%);
