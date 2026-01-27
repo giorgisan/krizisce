@@ -138,7 +138,7 @@ export default function TrendingCard({ news, compact = false, rank }: Props) {
 
   const currentSrc = useMemo(() => {
     if (!rawImg) return null
-    if (compact) return proxiedImage(rawImg, 240, 240, 1) 
+    if (compact) return proxiedImage(rawImg, 320, 320, 1) // Večja kvaliteta za mobile
     if (useProxy) return proxiedImage(rawImg, 640, 360, 1)
     return rawImg
   }, [rawImg, useProxy, compact])
@@ -221,12 +221,12 @@ export default function TrendingCard({ news, compact = false, rank }: Props) {
   const relatedAll = extractRelatedItems(news)
   const related = relatedAll.filter((r) => r.link !== news.link)
 
-  // ================= RENDER: COMPACT (Sidebar) =================
+  // ================= RENDER: COMPACT (Sidebar + Mobile Trendi) =================
   if (compact) {
     return (
       <>
       <div 
-        className="group relative bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-transparent hover:border-gray-200 dark:hover:border-gray-700 transition-all p-3 flex gap-3"
+        className="group relative bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-transparent hover:border-gray-200 dark:hover:border-gray-700 transition-all p-3 sm:p-4 lg:p-3 flex gap-4 lg:gap-3"
         title={(news as any).contentSnippet || news.title}
       >
         
@@ -241,13 +241,13 @@ export default function TrendingCard({ news, compact = false, rank }: Props) {
         />
 
         {rank && (
-            <div className="absolute top-0 left-0 w-6 h-6 bg-gray-900 dark:bg-white flex items-center justify-center rounded-br-lg z-20 shadow-md pointer-events-none">
-                <span className="text-xs font-bold text-white dark:text-gray-900 font-serif">{rank}</span>
+            <div className="absolute top-0 left-0 w-7 h-7 lg:w-6 lg:h-6 bg-gray-900 dark:bg-white flex items-center justify-center rounded-br-xl lg:rounded-br-lg z-20 shadow-md pointer-events-none">
+                <span className="text-sm lg:text-xs font-bold text-white dark:text-gray-900 font-serif">{rank}</span>
             </div>
         )}
 
-        {/* Slika + Gumb */}
-        <div className="shrink-0 w-24 h-24 relative rounded-lg overflow-hidden bg-gray-200 dark:bg-gray-700 z-10 pointer-events-auto shadow-sm">
+        {/* SLIKA: Večja na mobile (w-28), manjša na desktopu (lg:w-24) */}
+        <div className="shrink-0 w-28 h-28 lg:w-24 lg:h-24 relative rounded-lg overflow-hidden bg-gray-200 dark:bg-gray-700 z-10 pointer-events-auto shadow-sm">
              <div onClick={(e) => { handleClick(e as any) }} className="absolute inset-0 cursor-pointer">
                  {currentSrc && !useFallback ? (
                      <img 
@@ -263,7 +263,7 @@ export default function TrendingCard({ news, compact = false, rank }: Props) {
                  )}
              </div>
 
-             {/* POPRAVEK: VEČJI GUMB ZA PREDOGLED, VEDNO VIDEN NA MOBILE */}
+             {/* OKO: Večje na mobile (h-9), manjše na desktopu (lg:h-8) */}
              <button
                 onClick={(e) => {
                   e.preventDefault(); e.stopPropagation();
@@ -271,7 +271,7 @@ export default function TrendingCard({ news, compact = false, rank }: Props) {
                 }}
                 className={`
                     absolute top-1 right-1 
-                    h-8 w-8 grid place-items-center
+                    h-9 w-9 lg:h-8 lg:w-8 grid place-items-center
                     bg-white/90 dark:bg-gray-900/90 rounded-full shadow-sm 
                     text-gray-700 dark:text-gray-200 
                     transition-all duration-200 hover:scale-110 z-20
@@ -286,22 +286,23 @@ export default function TrendingCard({ news, compact = false, rank }: Props) {
              </button>
         </div>
 
-        {/* Vsebina */}
+        {/* VSEBINA: Večji font na mobile */}
         <div className="flex flex-col min-w-0 flex-1 justify-center relative z-10 pointer-events-none">
-            <div className="flex items-center gap-2 mb-1">
-                <span className="text-[10px] uppercase font-bold tracking-wider" style={{ color: sourceColor }}>
+            <div className="flex items-center gap-2 mb-1.5 lg:mb-1">
+                <span className="text-[11px] lg:text-[10px] uppercase font-bold tracking-wider" style={{ color: sourceColor }}>
                     {news.source}
                 </span>
-                <span className="text-[10px] text-gray-400">{primaryTime}</span>
+                <span className="text-[11px] lg:text-[10px] text-gray-400">{primaryTime}</span>
             </div>
             
-            <h4 className="text-[14px] font-bold leading-snug text-gray-900 dark:text-gray-100 line-clamp-2 group-hover:text-brand transition-colors">
+            {/* NASLOV: Večji na mobile (text-[15px]), manjši v sidebaru (lg:text-[14px]) */}
+            <h4 className="text-[15px] lg:text-[14px] font-bold leading-snug text-gray-900 dark:text-gray-100 line-clamp-3 lg:line-clamp-2 group-hover:text-brand transition-colors mb-2 lg:mb-0">
                 {news.title}
             </h4>
 
             {related.length > 0 && (
-                <div className="mt-2 pt-1 border-t border-gray-100 dark:border-gray-700/50 flex items-center gap-1.5 pointer-events-auto">
-                    <span className="text-[9px] text-gray-400 whitespace-nowrap">Beri tudi:</span>
+                <div className="mt-auto lg:mt-2 pt-2 lg:pt-1 border-t border-gray-100 dark:border-gray-700/50 flex items-center gap-2 lg:gap-1.5 pointer-events-auto">
+                    <span className="text-[10px] lg:text-[9px] text-gray-400 whitespace-nowrap">Beri tudi:</span>
                     <div className="flex -space-x-1 hover:space-x-1 transition-all">
                         {related.slice(0, 4).map((r, i) => {
                              const logo = getSourceLogoPath(r.source)
@@ -312,16 +313,16 @@ export default function TrendingCard({ news, compact = false, rank }: Props) {
                                     target="_blank"
                                     rel="noopener"
                                     title={`Preberi na ${r.source}`}
-                                    className="w-5 h-5 rounded-full bg-white dark:bg-gray-700 border border-gray-100 dark:border-gray-600 flex items-center justify-center overflow-hidden hover:scale-125 hover:z-20 transition-transform shadow-sm cursor-pointer"
+                                    className="w-6 h-6 lg:w-5 lg:h-5 rounded-full bg-white dark:bg-gray-700 border border-gray-100 dark:border-gray-600 flex items-center justify-center overflow-hidden hover:scale-125 hover:z-20 transition-transform shadow-sm cursor-pointer"
                                     onClick={(e) => {
                                         e.stopPropagation() 
                                         logClick('open_related', { parent: news.link, url: r.link })
                                     }}
                                  >
                                      {logo ? (
-                                         <Image src={logo} alt={r.source} width={16} height={16} className="w-full h-full object-cover" />
+                                         <Image src={logo} alt={r.source} width={20} height={20} className="w-full h-full object-cover" />
                                      ) : (
-                                         <span className="text-[7px] font-bold text-gray-500">{r.source[0]}</span>
+                                         <span className="text-[8px] font-bold text-gray-500">{r.source[0]}</span>
                                      )}
                                  </a>
                              )
@@ -342,7 +343,7 @@ export default function TrendingCard({ news, compact = false, rank }: Props) {
     )
   }
 
-  // ================= RENDER: STANDARD (Nespremenjeno, samo za referenco) =================
+  // ================= RENDER: STANDARD (Nespremenjeno) =================
   const [eyeVisible, setEyeVisible] = useState(false)
   const [eyeHover, setEyeHover] = useState(false)
   const showEye = isTouch ? true : eyeVisible
@@ -356,7 +357,7 @@ export default function TrendingCard({ news, compact = false, rank }: Props) {
         rel="noopener"
         onClick={handleClick}
         onMouseEnter={() => { setEyeVisible(true); triggerPrefetch() }}
-        onMouseLeave={() => setEyeVisible(false)}
+        onMouseLeave={() => { setEyeVisible(false)} }
         onTouchStart={triggerPrefetch}
         className="group block bg-white dark:bg-gray-800 rounded-xl shadow-md overflow-hidden transition-all duration-300 hover:shadow-xl hover:-translate-y-1 dark:border dark:border-gray-700/50"
       >
