@@ -174,7 +174,7 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
     }
   }, [selectedSources, selectedCategory, searchQuery, tagQuery, mode, bootRefreshed, isDesktopLogic])
 
-  // --- POLLING ZA NOVE NOVICE (VRNJENO) ---
+  // --- POLLING ZA NOVE NOVICE ---
   const missCountRef = useRef(0)
   const timerRef = useRef<number | null>(null)
 
@@ -182,14 +182,12 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
     if (!bootRefreshed) return
     
     const runCheckSimple = async () => {
-      // Preverjamo samo v 'latest' načinu in brez iskanja
-      if (mode !== 'latest' && !isDesktopLogic) return
-      if (searchQuery || tagQuery) return
+      if (!isDesktopLogic && mode !== 'latest') return
+      if (searchQuery || tagQuery || selectedCategory !== 'vse' || selectedSources.length > 0) return
 
       kickSyncIfStale(10 * 60_000)
       
-      // Vedno preverimo 'latest'
-      const fresh = await loadNews('latest', selectedSources, selectedCategory, null, null)
+      const fresh = await loadNews('latest', [], 'vse', null, null)
       
       if (!fresh || fresh.length === 0) {
         window.dispatchEvent(new CustomEvent('news-has-new', { detail: false }))
@@ -201,7 +199,6 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
       const newLinksCount = fresh.filter((n) => !curSet.has(n.link)).length
       
       if (newLinksCount > 0) {
-        // Obvestimo Header, da prikaže banner
         window.dispatchEvent(new CustomEvent('news-has-new', { detail: true }))
         missCountRef.current = 0
       } else {
@@ -211,9 +208,6 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
     }
 
     const schedule = () => {
-      // Če smo v trending mode (in nismo desktop), ne pollaj
-      if (mode === 'trending' && !isDesktopLogic) return
-      
       const hidden = document.visibilityState === 'hidden'
       const base = hidden ? HIDDEN_POLL_MS : POLL_MS
       const extra = missCountRef.current * 10_000
@@ -222,21 +216,17 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
       timerRef.current = window.setInterval(runCheckSimple, base + extra) as unknown as number
     }
 
-    const initialTimer = setTimeout(runCheckSimple, 10000) // Prvi check čez 10s
+    const initialTimer = setTimeout(runCheckSimple, 15000) 
     schedule()
     
-    const onVis = () => { 
-        if (document.visibilityState === 'visible') runCheckSimple(); 
-        schedule() 
-    }
-    
+    const onVis = () => { if (document.visibilityState === 'visible') { runCheckSimple(); schedule(); } }
     document.addEventListener('visibilitychange', onVis)
     return () => {
       clearTimeout(initialTimer)
       if (timerRef.current) window.clearInterval(timerRef.current)
       document.removeEventListener('visibilitychange', onVis)
     }
-  }, [itemsLatest, bootRefreshed, mode, selectedSources, selectedCategory, searchQuery, tagQuery, isDesktopLogic])
+  }, [itemsLatest, bootRefreshed, mode, isDesktopLogic, searchQuery, tagQuery, selectedCategory, selectedSources])
 
 
   // --- REFRESH EVENT ---
@@ -244,18 +234,15 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
     const onRefresh = () => {
       window.dispatchEvent(new CustomEvent('news-refreshing', { detail: true }))
       startTransition(() => {
-        const targetMode = (mode === 'trending' && !isDesktopLogic) ? 'trending' : 'latest'
-        
-        loadNews(targetMode, selectedSources, selectedCategory, searchQuery || null, tagQuery || null, true).then((fresh) => {
+        loadNews('latest', selectedSources, selectedCategory, searchQuery || null, tagQuery || null, true).then((fresh) => {
           if (fresh) {
-            if (targetMode === 'latest') { setItemsLatest(fresh); setHasMore(true); setCursor(null) } 
-            else { setItemsTrending(fresh); setTrendingLoaded(true); lastTrendingFetchRef.current = Date.now() }
-          }
-          if (isDesktopLogic && targetMode === 'latest') {
+             setItemsLatest(fresh)
+             setHasMore(true)
+             setCursor(null)
              loadNews('trending', [], 'vse', null, null, true).then(tr => { if (tr) setItemsTrending(tr) })
           }
+          
           window.dispatchEvent(new CustomEvent('news-refreshing', { detail: false }))
-          // Reset bannerja
           window.dispatchEvent(new CustomEvent('news-has-new', { detail: false }))
           missCountRef.current = 0
         })
@@ -263,7 +250,7 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
     }
     window.addEventListener('refresh-news', onRefresh as EventListener)
     return () => window.removeEventListener('refresh-news', onRefresh as EventListener)
-  }, [mode, selectedSources, selectedCategory, searchQuery, tagQuery, isDesktopLogic])
+  }, [selectedSources, selectedCategory, searchQuery, tagQuery])
 
   // --- PAGINATION ---
   const visibleNews = (mode === 'trending' && !isDesktopLogic) ? itemsTrending : itemsLatest
@@ -274,33 +261,33 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
     setCursor(minMs || null)
   }, [visibleNews, mode, isDesktopLogic])
 
-  async function fetchPage(cursorVal: number) {
-    const qs = new URLSearchParams()
-    qs.set('paged', '1'); qs.set('limit', '24'); qs.set('cursor', String(cursorVal))
-    if (selectedSources.length > 0) qs.set('source', selectedSources.join(','))
-    if (selectedCategory !== 'vse') qs.set('category', selectedCategory)
-    if (searchQuery) qs.set('q', searchQuery)
-    if (tagQuery) qs.set('tag', tagQuery) 
-    const res = await fetch(`/api/news?${qs.toString()}`, { cache: 'no-store' })
-    if (!res.ok) return { items: [], nextCursor: null }
-    return await res.json()
-  }
-
   const handleLoadMore = async () => {
     if (mode !== 'latest' && !isDesktopLogic) return
     if (isLoadingMore || !hasMore || cursor == null || cursor <= 0) return
     setIsLoadingMore(true)
     try {
-      const { items, nextCursor } = await fetchPage(cursor)
-      const seen = new Set(itemsLatest.map((n) => n.link))
-      const fresh = items
-        .filter((i: any) => !seen.has(i.link))
-        .map((i: any) => ({ ...i, category: i.category || determineCategory({ link: i.link, categories: [] }) }))
-      if (fresh.length) setItemsLatest((prev) => [...prev, ...fresh])
-      if (!nextCursor || nextCursor === cursor || items.length === 0) {
-        setHasMore(false); setCursor(null)
-      } else {
-        setCursor(nextCursor); setHasMore(true)
+      const qs = new URLSearchParams()
+      qs.set('paged', '1'); qs.set('limit', '24'); qs.set('cursor', String(cursor))
+      if (selectedSources.length > 0) qs.set('source', selectedSources.join(','))
+      if (selectedCategory !== 'vse') qs.set('category', selectedCategory)
+      if (searchQuery) qs.set('q', searchQuery)
+      if (tagQuery) qs.set('tag', tagQuery) 
+      
+      const res = await fetch(`/api/news?${qs.toString()}`, { cache: 'no-store' })
+      if (res.ok) {
+          const { items, nextCursor } = await res.json()
+          const seen = new Set(itemsLatest.map((n) => n.link))
+          const fresh = items
+            .filter((i: any) => !seen.has(i.link))
+            .map((i: any) => ({ ...i, category: i.category || determineCategory({ link: i.link, categories: [] }) }))
+          
+          if (fresh.length) setItemsLatest((prev) => [...prev, ...fresh])
+          
+          if (!nextCursor || nextCursor === cursor || items.length === 0) {
+            setHasMore(false); setCursor(null)
+          } else {
+            setCursor(nextCursor); setHasMore(true)
+          }
       }
     } finally { setIsLoadingMore(false) }
   }
@@ -368,8 +355,9 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
         <div className="max-w-[1800px] mx-auto w-full px-4 md:px-8 lg:px-16">
 
             {/* --- ZGORNJA KONTROLNA VRSTICA (Minimalni prostor) --- */}
+            {/* POPRAVEK: Zmanjšan gap na gap-2 za mobile */}
             <div className="pt-1 pb-1 flex flex-col md:flex-row md:items-center gap-2">
-                <div className="flex items-center gap-4 w-full md:w-auto shrink-0">
+                <div className="flex items-center gap-2 w-full md:w-auto shrink-0">
                     <div className="lg:hidden scale-90 origin-left">
                         {selectedCategory === 'vse' ? (
                             <NewsTabs active={mode} onChange={handleTabChange} />
@@ -423,7 +411,7 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
                         </div>
                     )}
 
-                    {/* Grid Novic - 4 stolpci (xl) */}
+                    {/* Grid Novic - 3-4 stolpci */}
                     {isRefreshing && itemsLatest.length === 0 ? (
                         <div className="py-20 text-center opacity-50">Nalagam novice ...</div>
                     ) : itemsLatest.length === 0 ? (
@@ -455,7 +443,6 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
                     ${mode === 'trending' ? 'block' : 'hidden lg:block'}
                 `}>
                     <div className="bg-white/50 dark:bg-gray-900/50 rounded-2xl px-4 pb-4 pt-2 border border-gray-200 dark:border-gray-800 shadow-sm backdrop-blur-xl">
-                        {/* HEADER SIDEBARA - Ikona ure, minimalistična */}
                         <div className="flex items-center gap-2 mb-4 pb-2 border-b border-gray-200 dark:border-gray-700">
                              <svg className="w-4 h-4 text-gray-400 dark:text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -492,7 +479,6 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
   )
 }
 
-/* ================= SSR ================= */
 export const getServerSideProps: GetServerSideProps = async ({ res }) => {
   res.setHeader('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=300')
   const { createClient } = await import('@supabase/supabase-js')
