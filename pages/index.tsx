@@ -109,7 +109,6 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [bootRefreshed, setBootRefreshed] = useState(false)
 
-  // --- INIT ---
   useEffect(() => {
     kickSyncIfStale(5 * 60_000)
     setBootRefreshed(true)
@@ -119,7 +118,6 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
     return () => window.removeEventListener('resize', checkDesktop)
   }, [])
 
-  // Auto-load trending on desktop logic only
   useEffect(() => {
     if (isDesktopLogic && !trendingLoaded && !isRefreshing && bootRefreshed) {
       const fetchTrendingSide = async () => {
@@ -136,7 +134,6 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
     }
   }, [isDesktopLogic, trendingLoaded, isRefreshing, bootRefreshed])
 
-  // --- LOGIKA ---
   const resetAll = () => {
     startTransition(() => {
       setSelectedSources([])
@@ -151,7 +148,6 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
-  // --- FETCHING ---
   useEffect(() => {
     if (!bootRefreshed) return
     if (mode === 'trending' && !searchQuery && !tagQuery && !isDesktopLogic) return
@@ -174,7 +170,6 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
     }
   }, [selectedSources, selectedCategory, searchQuery, tagQuery, mode, bootRefreshed, isDesktopLogic])
 
-  // --- POLLING ZA NOVE NOVICE ---
   const missCountRef = useRef(0)
   const timerRef = useRef<number | null>(null)
 
@@ -228,8 +223,6 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
     }
   }, [itemsLatest, bootRefreshed, mode, isDesktopLogic, searchQuery, tagQuery, selectedCategory, selectedSources])
 
-
-  // --- REFRESH EVENT ---
   useEffect(() => {
     const onRefresh = () => {
       window.dispatchEvent(new CustomEvent('news-refreshing', { detail: true }))
@@ -252,7 +245,6 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
     return () => window.removeEventListener('refresh-news', onRefresh as EventListener)
   }, [selectedSources, selectedCategory, searchQuery, tagQuery])
 
-  // --- PAGINATION ---
   const visibleNews = (mode === 'trending' && !isDesktopLogic) ? itemsTrending : itemsLatest
   useEffect(() => {
     if (mode === 'trending' && !isDesktopLogic) return 
@@ -355,17 +347,16 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
         <div className="max-w-[1800px] mx-auto w-full px-4 md:px-8 lg:px-16">
 
             {/* --- ZGORNJA KONTROLNA VRSTICA (Minimalni prostor) --- */}
-            {/* POPRAVEK: Zmanjšan gap na gap-0, da se input dotika naslova */}
             <div className="pt-1 pb-1 flex flex-col md:flex-row md:items-center gap-0">
                 <div className="flex items-center gap-0 w-full md:w-auto shrink-0">
-                    <div className="lg:hidden scale-90 origin-left">
+                    <div className="lg:hidden scale-90 origin-left shrink-0">
                         {selectedCategory === 'vse' ? (
                             <NewsTabs active={mode} onChange={handleTabChange} />
                         ) : (
-                            <span className="text-xl font-bold capitalize">{currentCategoryLabel}</span>
+                            <span className="text-xl font-bold capitalize mr-1">{currentCategoryLabel}</span>
                         )}
                     </div>
-                    <div className="hidden lg:block">
+                    <div className="hidden lg:block shrink-0">
                         {selectedCategory !== 'vse' && <span className="text-2xl font-bold capitalize mr-4">{currentCategoryLabel}</span>}
                     </div>
                     <div className="md:hidden flex-1 relative ml-1">
@@ -439,11 +430,13 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
                 </div>
 
                 {/* 2. DESNI STOLPEC (Sidebar) */}
-                <aside className={`w-full lg:w-[340px] xl:w-[380px] shrink-0 sticky top-32 
+                <aside className={`w-full lg:w-[340px] xl:w-[380px] shrink-0 lg:sticky lg:top-32 
                     ${mode === 'trending' ? 'block' : 'hidden lg:block'}
                 `}>
-                    <div className="bg-white/50 dark:bg-gray-900/50 rounded-2xl px-4 pb-4 pt-2 border border-gray-200 dark:border-gray-800 shadow-sm backdrop-blur-xl">
-                        <div className="flex items-center gap-2 mb-4 pb-2 border-b border-gray-200 dark:border-gray-700">
+                    {/* POPRAVEK: Temnejše ozadje, brez roba in sence */}
+                    <div className="bg-gray-100/50 dark:bg-gray-800/40 rounded-2xl px-4 pb-4 pt-2 backdrop-blur-xl">
+                        {/* POPRAVEK: Brez spodnje črte pod naslovom */}
+                        <div className="flex items-center gap-2 mb-4 pb-2">
                              <svg className="w-4 h-4 text-gray-400 dark:text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                              </svg>
@@ -455,12 +448,13 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
                         {itemsTrending.length === 0 && !trendingLoaded ? (
                              <div className="flex flex-col gap-3 animate-pulse">
                                 {[...Array(6)].map((_, i) => (
-                                    <div key={i} className="flex gap-3 p-2 rounded-xl bg-gray-50 dark:bg-gray-800/30">
-                                        <div className="w-20 h-20 bg-gray-200 dark:bg-gray-700 rounded-lg shrink-0" />
+                                    /* POPRAVEK: Brez roba v skeletonu */
+                                    <div key={i} className="flex gap-3 p-2 rounded-xl bg-gray-200/50 dark:bg-gray-700/30">
+                                        <div className="w-20 h-20 bg-gray-300 dark:bg-gray-600 rounded-lg shrink-0" />
                                         <div className="flex-1 flex flex-col justify-center gap-2">
-                                            <div className="h-3 w-16 bg-gray-200 dark:bg-gray-700 rounded" />
-                                            <div className="h-4 w-full bg-gray-200 dark:bg-gray-700 rounded" />
-                                            <div className="h-4 w-2/3 bg-gray-200 dark:bg-gray-700 rounded" />
+                                            <div className="h-3 w-16 bg-gray-300 dark:bg-gray-600 rounded" />
+                                            <div className="h-4 w-full bg-gray-300 dark:bg-gray-600 rounded" />
+                                            <div className="h-4 w-2/3 bg-gray-300 dark:bg-gray-600 rounded" />
                                         </div>
                                     </div>
                                 ))}
