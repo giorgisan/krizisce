@@ -154,6 +154,7 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
   // --- FETCHING ---
   useEffect(() => {
     if (!bootRefreshed) return
+    // Fetch if we are in latest mode OR if we are searching (search is always latest mode logic)
     if (mode === 'trending' && !searchQuery && !tagQuery && !isDesktopLogic) return
 
     const fetchData = async () => {
@@ -179,7 +180,9 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
     const onRefresh = () => {
       window.dispatchEvent(new CustomEvent('news-refreshing', { detail: true }))
       startTransition(() => {
+        // Refresh visible content
         const targetMode = (mode === 'trending' && !isDesktopLogic) ? 'trending' : 'latest'
+        
         loadNews(targetMode, selectedSources, selectedCategory, searchQuery || null, tagQuery || null, true).then((fresh) => {
           if (fresh) {
             if (targetMode === 'latest') { setItemsLatest(fresh); setHasMore(true); setCursor(null) } 
@@ -298,8 +301,9 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
       <main className="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white pb-12">
         <div className="max-w-[1800px] mx-auto w-full px-4 md:px-8 lg:px-16">
 
-            {/* --- ZGORNJA KONTROLNA VRSTICA (Samo naslov/tabi/search) --- */}
-            <div className="py-4 flex flex-col md:flex-row md:items-center gap-4">
+            {/* --- ZGORNJA KONTROLNA VRSTICA --- */}
+            {/* POPRAVEK 2: Zmanjšan spodnji padding (pb-1), da je manj praznega prostora nad trendi */}
+            <div className="pt-4 pb-1 flex flex-col md:flex-row md:items-center gap-4">
                 <div className="flex items-center gap-4 w-full md:w-auto shrink-0">
                     <div className="lg:hidden scale-90 origin-left">
                         {selectedCategory === 'vse' ? (
@@ -337,7 +341,7 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
                 {/* 1. LEVI STOLPEC (Tags + Novice) */}
                 <div className={`flex-1 w-full min-w-0 ${mode === 'trending' ? 'hidden lg:block' : 'block'}`}>
                     
-                    {/* TRENDI BAR (Tagi) */}
+                    {/* TRENDI BAR */}
                     <div className={`mb-2 min-w-0 w-full overflow-hidden ${(!isDesktopLogic && (searchQuery || tagQuery)) ? 'hidden' : 'block'}`}>
                           <TrendingBar 
                             words={initialTrendingWords} 
@@ -354,7 +358,7 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
                         </div>
                     )}
 
-                    {/* GRID: POPRAVLJENO NA 4 STOLPCE (xl:grid-cols-4) */}
+                    {/* Grid Novic - 4 stolpci (xl) */}
                     {isRefreshing && itemsLatest.length === 0 ? (
                         <div className="py-20 text-center opacity-50">Nalagam novice ...</div>
                     ) : itemsLatest.length === 0 ? (
@@ -382,10 +386,11 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
                 </div>
 
                 {/* 2. DESNI STOLPEC (Sidebar) */}
+                {/* POPRAVEK 1: Zamenjan 'p-4' z 'px-4 pb-4 pt-2' da se napis 'Aktualno' dvigne in poravna s 'Trendi' */}
                 <aside className={`w-full lg:w-[340px] xl:w-[380px] shrink-0 sticky top-32 
                     ${mode === 'trending' ? 'block' : 'hidden lg:block'}
                 `}>
-                    <div className="bg-white/50 dark:bg-gray-900/50 rounded-2xl p-4 border border-gray-200 dark:border-gray-800 shadow-sm backdrop-blur-xl">
+                    <div className="bg-white/50 dark:bg-gray-900/50 rounded-2xl px-4 pb-4 pt-2 border border-gray-200 dark:border-gray-800 shadow-sm backdrop-blur-xl">
                         <div className="flex items-center gap-2 mb-4 pb-2 border-b border-gray-200 dark:border-gray-700">
                              <span className="text-xl font-bold">🔥 Aktualno</span>
                         </div>
