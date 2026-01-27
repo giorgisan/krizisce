@@ -324,13 +324,12 @@ export default function Header({
             <nav className="flex items-center gap-6 overflow-x-auto no-scrollbar flex-1 relative">
               
               {/* STICKY "VSE NOVICE" GUMB */}
-              {/* POPRAVEK: Odstranjen background, da ni čudnega okvirja */}
               <div className="md:sticky md:left-0 z-10 flex items-center md:pr-4">
                   <button
                     onClick={() => onSelectCategory('vse')}
                     style={{ fontFamily: 'var(--font-inter)' }}
                     className={`
-                      relative py-3 text-sm uppercase tracking-wide whitespace-nowrap transition-colors font-bold 
+                      relative py-3 text-sm uppercase tracking-wide whitespace-nowrap transition-colors font-bold group
                       ${activeCategory === 'vse' 
                         ? 'text-brand' 
                         : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'}
@@ -338,9 +337,12 @@ export default function Header({
                   >
                     {activeCategory !== 'vse' && <span className="mr-1 text-brand">←</span>}
                     Vse novice
-                    {activeCategory === 'vse' && (
-                      <span className="absolute bottom-0 left-0 w-full h-0.5 bg-brand rounded-t-md" />
-                    )}
+                    <span className={`
+                      absolute bottom-0 left-0 w-full h-0.5 bg-brand rounded-t-md transition-all duration-200 origin-left
+                      ${activeCategory === 'vse' 
+                        ? 'opacity-100 scale-x-100' 
+                        : 'opacity-0 scale-x-0 group-hover:opacity-100 group-hover:scale-x-100'}
+                    `} />
                   </button>
                   <div className="hidden md:block absolute right-0 top-1/2 -translate-y-1/2 h-4 w-px bg-gray-200 dark:bg-gray-700"></div>
               </div>
@@ -354,19 +356,25 @@ export default function Header({
                     style={{ fontFamily: 'var(--font-inter)' }}
                     className={`
                       relative py-3 text-sm uppercase tracking-wide whitespace-nowrap transition-colors
-                      font-bold shrink-0
+                      font-bold shrink-0 group
                       ${isActive 
                         ? 'text-gray-900 dark:text-white' 
                         : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'}
                     `}
                   >
                     {cat.label}
-                    {isActive && (
-                      <span 
-                        className={`absolute bottom-0 left-0 w-full h-0.5 rounded-t-md ${activeSource !== 'Vse' ? 'bg-brand' : ''}`}
-                        style={{ backgroundColor: activeSource === 'Vse' ? getCategoryColor(cat.color) : undefined }} 
-                      />
-                    )}
+                    <span 
+                      className={`
+                        absolute bottom-0 left-0 w-full h-0.5 rounded-t-md transition-all duration-200 origin-left
+                        ${isActive 
+                          ? 'opacity-100 scale-x-100' 
+                          : 'opacity-0 scale-x-0 group-hover:opacity-100 group-hover:scale-x-100'}
+                        ${activeSource !== 'Vse' ? 'bg-brand' : ''}
+                      `}
+                      style={{ 
+                        backgroundColor: activeSource === 'Vse' ? getCategoryColor(cat.color) : undefined 
+                      }} 
+                    />
                   </button>
                 )
               })}
