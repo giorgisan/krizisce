@@ -138,7 +138,7 @@ export default function TrendingCard({ news, compact = false, rank }: Props) {
 
   const currentSrc = useMemo(() => {
     if (!rawImg) return null
-    if (compact) return proxiedImage(rawImg, 320, 320, 1) // Večja kvaliteta za mobile
+    if (compact) return proxiedImage(rawImg, 320, 320, 1) 
     if (useProxy) return proxiedImage(rawImg, 640, 360, 1)
     return rawImg
   }, [rawImg, useProxy, compact])
@@ -226,7 +226,8 @@ export default function TrendingCard({ news, compact = false, rank }: Props) {
     return (
       <>
       <div 
-        className="group relative bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-transparent hover:border-gray-200 dark:hover:border-gray-700 transition-all p-3 sm:p-4 lg:p-3 flex gap-4 lg:gap-3"
+        // SPREMEMBA: Odstranjen 'border' in 'shadow-sm', dodan 'bg-gray-50' (temnejše ozadje)
+        className="group relative bg-gray-50 dark:bg-gray-800/60 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-all p-3 sm:p-4 lg:p-3 flex gap-4 lg:gap-3"
         title={(news as any).contentSnippet || news.title}
       >
         
@@ -246,8 +247,8 @@ export default function TrendingCard({ news, compact = false, rank }: Props) {
             </div>
         )}
 
-        {/* SLIKA: Večja na mobile (w-28), manjša na desktopu (lg:w-24) */}
-        <div className="shrink-0 w-28 h-28 lg:w-24 lg:h-24 relative rounded-lg overflow-hidden bg-gray-200 dark:bg-gray-700 z-10 pointer-events-auto shadow-sm">
+        {/* Slika + Gumb - VEČJE NA MOBILE */}
+        <div className="shrink-0 w-32 h-32 lg:w-24 lg:h-24 relative rounded-lg overflow-hidden bg-gray-200 dark:bg-gray-700 z-10 pointer-events-auto shadow-sm">
              <div onClick={(e) => { handleClick(e as any) }} className="absolute inset-0 cursor-pointer">
                  {currentSrc && !useFallback ? (
                      <img 
@@ -263,7 +264,6 @@ export default function TrendingCard({ news, compact = false, rank }: Props) {
                  )}
              </div>
 
-             {/* OKO: Večje na mobile (h-9), manjše na desktopu (lg:h-8) */}
              <button
                 onClick={(e) => {
                   e.preventDefault(); e.stopPropagation();
@@ -286,7 +286,7 @@ export default function TrendingCard({ news, compact = false, rank }: Props) {
              </button>
         </div>
 
-        {/* VSEBINA: Večji font na mobile */}
+        {/* Vsebina */}
         <div className="flex flex-col min-w-0 flex-1 justify-center relative z-10 pointer-events-none">
             <div className="flex items-center gap-2 mb-1.5 lg:mb-1">
                 <span className="text-[11px] lg:text-[10px] uppercase font-bold tracking-wider" style={{ color: sourceColor }}>
@@ -295,16 +295,16 @@ export default function TrendingCard({ news, compact = false, rank }: Props) {
                 <span className="text-[11px] lg:text-[10px] text-gray-400">{primaryTime}</span>
             </div>
             
-            {/* NASLOV: Večji na mobile (text-[15px]), manjši v sidebaru (lg:text-[14px]) */}
             <h4 className="text-[15px] lg:text-[14px] font-bold leading-snug text-gray-900 dark:text-gray-100 line-clamp-3 lg:line-clamp-2 group-hover:text-brand transition-colors mb-2 lg:mb-0">
                 {news.title}
             </h4>
 
             {related.length > 0 && (
-                <div className="mt-auto lg:mt-2 pt-2 lg:pt-1 border-t border-gray-100 dark:border-gray-700/50 flex items-center gap-2 lg:gap-1.5 pointer-events-auto">
+                <div className="mt-auto lg:mt-2 pt-2 lg:pt-1 border-t border-gray-200 dark:border-gray-700/50 flex items-center gap-2 lg:gap-1.5 pointer-events-auto">
                     <span className="text-[10px] lg:text-[9px] text-gray-400 whitespace-nowrap">Beri tudi:</span>
                     <div className="flex -space-x-1 hover:space-x-1 transition-all">
-                        {related.slice(0, 4).map((r, i) => {
+                        {/* POPRAVEK: Odstranjen slice(0, 4) - prikažemo VSE vire */}
+                        {related.map((r, i) => {
                              const logo = getSourceLogoPath(r.source)
                              return (
                                  <a 
@@ -357,7 +357,7 @@ export default function TrendingCard({ news, compact = false, rank }: Props) {
         rel="noopener"
         onClick={handleClick}
         onMouseEnter={() => { setEyeVisible(true); triggerPrefetch() }}
-        onMouseLeave={() => { setEyeVisible(false)} }
+        onMouseLeave={() => setEyeVisible(false)}
         onTouchStart={triggerPrefetch}
         className="group block bg-white dark:bg-gray-800 rounded-xl shadow-md overflow-hidden transition-all duration-300 hover:shadow-xl hover:-translate-y-1 dark:border dark:border-gray-700/50"
       >
