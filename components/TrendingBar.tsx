@@ -40,9 +40,9 @@ export default function TrendingBar({ words, onSelectWord, selectedWord }: Trend
         ) : (
           <>
             {/* --- MOBILE: SCROLLABLE LIST (Drag to scroll) --- */}
-            {/* Prikazan privzeto, skrit na MD+ */}
-            <div className="flex md:hidden overflow-x-auto no-scrollbar items-center gap-2 pl-2 pr-8 w-full">
-                {words.map((item) => { // Tukaj uporabimo originalni seznam, ne podvojenega
+            {/* POPRAVEK: Odstranjena ozadja (pills), samo tekst */}
+            <div className="flex md:hidden overflow-x-auto no-scrollbar items-center gap-3 pl-2 pr-8 w-full">
+                {words.map((item) => {
                     const cleanWord = item.word.replace(/^#/, '');
                     const isSelected = selectedWord?.toLowerCase().replace(/^#/, '') === cleanWord.toLowerCase();
                     return (
@@ -50,22 +50,23 @@ export default function TrendingBar({ words, onSelectWord, selectedWord }: Trend
                           key={item.word}
                           onClick={() => onSelectWord(cleanWord)}
                           className={`
-                            whitespace-nowrap text-[13px] font-medium transition-colors duration-200 flex items-center px-2 py-1 rounded-md
+                            whitespace-nowrap text-[13px] font-medium transition-colors duration-200 flex items-center
                             ${isSelected 
-                              ? 'text-brand bg-brand/10' 
-                              : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 bg-gray-50 dark:bg-gray-800/50'
+                              ? 'text-brand font-bold' 
+                              : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
                             }
                           `}
                         >
                           <span className={`mr-0.5 text-xs opacity-40 ${isSelected ? 'text-brand opacity-100' : ''}`}>#</span>
-                          {cleanWord}
+                          <span className={isSelected ? 'underline decoration-brand/30 underline-offset-2' : ''}>
+                            {cleanWord}
+                          </span>
                         </button>
                     )
                 })}
             </div>
 
             {/* --- DESKTOP: MARQUEE (Moving text) --- */}
-            {/* Skrit privzeto, prikazan na MD+ */}
             <div className="hidden md:flex w-max animate-marquee hover:pause items-center">
                 {marqueeWords.map((item, index) => {
                   const cleanWord = item.word.replace(/^#/, '');
@@ -111,7 +112,6 @@ export default function TrendingBar({ words, onSelectWord, selectedWord }: Trend
           mask-image: linear-gradient(to right, black 85%, transparent 100%);
           -webkit-mask-image: linear-gradient(to right, black 85%, transparent 100%);
         }
-        /* Hide scrollbar for mobile */
         .no-scrollbar::-webkit-scrollbar {
           display: none;
         }
