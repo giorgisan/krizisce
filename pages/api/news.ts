@@ -492,7 +492,7 @@ export default async function handler(
 
     // --- 3. PRIPRAVA POIZVEDBE (GET NEWS) ---
     const limitParam = parseInt(String(req.query.limit), 10)
-    const defaultLimit = 25 
+    const defaultLimit = 24 
     const limit = Math.min(Math.max(limitParam || defaultLimit, 1), 300)
     const cursor = req.query.cursor ? Number(req.query.cursor) : null
 
