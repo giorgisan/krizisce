@@ -210,7 +210,8 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
 
   async function fetchPage(cursorVal: number) {
     const qs = new URLSearchParams()
-    qs.set('paged', '1'); qs.set('limit', '25'); qs.set('cursor', String(cursorVal))
+    // POPRAVEK: Limit spremenjen na 24 za lepo poravnavo v gridu (deljivo z 2, 3, 4)
+    qs.set('paged', '1'); qs.set('limit', '24'); qs.set('cursor', String(cursorVal))
     if (selectedSources.length > 0) qs.set('source', selectedSources.join(','))
     if (selectedCategory !== 'vse') qs.set('category', selectedCategory)
     if (searchQuery) qs.set('q', searchQuery)
@@ -388,11 +389,13 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
                 <aside className={`w-full lg:w-[340px] xl:w-[380px] shrink-0 sticky top-32 
                     ${mode === 'trending' ? 'block' : 'hidden lg:block'}
                 `}>
-                    {/* SPREMEMBA: 'pt-2' za lepšo poravnavo z napisom 'Trendi' na levi */}
                     <div className="bg-white/50 dark:bg-gray-900/50 rounded-2xl px-4 pb-4 pt-2 border border-gray-200 dark:border-gray-800 shadow-sm backdrop-blur-xl">
-                        {/* HEADER SIDEBARA - SPREMENJENO */}
+                        {/* HEADER SIDEBARA - POPRAVEK: Nevtralna ikona (ura) namesto strele */}
                         <div className="flex items-center gap-2 mb-4 pb-2 border-b border-gray-200 dark:border-gray-700">
-                             <span className="text-sm text-amber-500">⚡</span> {/* Strela in manjša ikona */}
+                             {/* SVG Ikona Ure - siva, minimalistična */}
+                             <svg className="w-4 h-4 text-gray-400 dark:text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                             </svg>
                              <span className="text-xs font-bold uppercase tracking-wide text-gray-900 dark:text-gray-100">
                                 Aktualno
                              </span>
@@ -431,7 +434,8 @@ export const getServerSideProps: GetServerSideProps = async ({ res }) => {
   const { createClient } = await import('@supabase/supabase-js')
   const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, { auth: { persistSession: false } })
 
-  const newsPromise = supabase.from('news').select('id, link, title, source, summary, contentsnippet, image, published_at, publishedat, category').neq('category', 'oglas').order('publishedat', { ascending: false }).order('id', { ascending: false }).limit(25)
+  // POPRAVEK: Limit spremenjen na 24 (namesto 25) za lepo polnjenje grida
+  const newsPromise = supabase.from('news').select('id, link, title, source, summary, contentsnippet, image, published_at, publishedat, category').neq('category', 'oglas').order('publishedat', { ascending: false }).order('id', { ascending: false }).limit(24)
   
   let trendsData: any[] = []
   const { data: aiData } = await supabase.from('trending_ai').select('words').order('updated_at', { ascending: false }).limit(1).single()
