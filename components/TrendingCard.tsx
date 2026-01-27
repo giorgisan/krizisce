@@ -226,11 +226,10 @@ export default function TrendingCard({ news, compact = false, rank }: Props) {
     return (
       <>
       <div 
-        // SPREMEMBA: Dizajn brez roba, sivo ozadje
+        // SPREMEMBA: Sivo ozadje (bg-gray-50), brez robu, brez sence
         className="group relative bg-gray-50 dark:bg-gray-800/50 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors p-3 sm:p-4 lg:p-3 flex gap-4 lg:gap-3"
         title={(news as any).contentSnippet || news.title}
       >
-        
         <a 
           href={news.link}
           target="_blank"
@@ -242,56 +241,34 @@ export default function TrendingCard({ news, compact = false, rank }: Props) {
         />
 
         {rank && (
-            <div className="absolute top-0 left-0 w-7 h-7 lg:w-6 lg:h-6 bg-gray-900 dark:bg-white flex items-center justify-center rounded-br-xl lg:rounded-br-lg z-20 shadow-md pointer-events-none">
+            <div className="absolute top-0 left-0 w-7 h-7 lg:w-6 lg:h-6 bg-gray-900 dark:bg-white flex items-center justify-center rounded-br-xl lg:rounded-br-lg z-20 shadow-none pointer-events-none">
                 <span className="text-sm lg:text-xs font-bold text-white dark:text-gray-900 font-serif">{rank}</span>
             </div>
         )}
 
-        {/* Slika + Gumb */}
-        <div className="shrink-0 w-32 h-32 lg:w-24 lg:h-24 relative rounded-lg overflow-hidden bg-gray-200 dark:bg-gray-700 z-10 pointer-events-auto shadow-sm">
+        {/* Slika: Večja na mobile (w-32) */}
+        <div className="shrink-0 w-32 h-32 lg:w-24 lg:h-24 relative rounded-lg overflow-hidden bg-gray-200 dark:bg-gray-700 z-10 pointer-events-auto">
              <div onClick={(e) => { handleClick(e as any) }} className="absolute inset-0 cursor-pointer">
                  {currentSrc && !useFallback ? (
-                     <img 
-                        key={imgKey}
-                        src={currentSrc} 
-                        alt="" 
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                        onError={handleImgError}
-                        onLoad={() => setImgLoaded(true)}
-                     />
+                     <img key={imgKey} src={currentSrc} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" onError={handleImgError} onLoad={() => setImgLoaded(true)} />
                  ) : (
                      <div className="w-full h-full grid place-items-center text-[10px] text-gray-400">IMG</div>
                  )}
              </div>
-
+             {/* Oko: Večje na mobile */}
              <button
-                onClick={(e) => {
-                  e.preventDefault(); e.stopPropagation();
-                  setPreviewUrl(news.link)
-                }}
-                className={`
-                    absolute top-1 right-1 
-                    h-9 w-9 lg:h-8 lg:w-8 grid place-items-center
-                    bg-white/90 dark:bg-gray-900/90 rounded-full shadow-sm 
-                    text-gray-700 dark:text-gray-200 
-                    transition-all duration-200 hover:scale-110 z-20
-                    opacity-100 lg:opacity-0 lg:group-hover:opacity-100
-                `}
+                onClick={(e) => { e.preventDefault(); e.stopPropagation(); setPreviewUrl(news.link) }}
+                className="absolute top-1 right-1 h-9 w-9 lg:h-8 lg:w-8 grid place-items-center bg-white/90 dark:bg-gray-900/90 rounded-full shadow-sm text-gray-700 dark:text-gray-200 transition-all duration-200 hover:scale-110 z-20 opacity-100 lg:opacity-0 lg:group-hover:opacity-100"
                 title="Hitri predogled"
              >
-                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.5">
-                    <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12Z" />
-                    <circle cx="12" cy="12" r="3" />
-                </svg>
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12Z" /><circle cx="12" cy="12" r="3" /></svg>
              </button>
         </div>
 
         {/* Vsebina */}
         <div className="flex flex-col min-w-0 flex-1 justify-center relative z-10 pointer-events-none">
             <div className="flex items-center gap-2 mb-1.5 lg:mb-1">
-                <span className="text-[11px] lg:text-[10px] uppercase font-bold tracking-wider" style={{ color: sourceColor }}>
-                    {news.source}
-                </span>
+                <span className="text-[11px] lg:text-[10px] uppercase font-bold tracking-wider" style={{ color: sourceColor }}>{news.source}</span>
                 <span className="text-[11px] lg:text-[10px] text-gray-400">{primaryTime}</span>
             </div>
             
@@ -303,27 +280,12 @@ export default function TrendingCard({ news, compact = false, rank }: Props) {
                 <div className="mt-auto lg:mt-2 pt-2 lg:pt-1 border-t border-gray-200 dark:border-gray-700/50 flex items-center gap-2 lg:gap-1.5 pointer-events-auto">
                     <span className="text-[10px] lg:text-[9px] text-gray-400 whitespace-nowrap">Beri tudi:</span>
                     <div className="flex -space-x-1 hover:space-x-1 transition-all">
-                        {/* POPRAVEK: Izpis vseh virov (brez slice) */}
+                        {/* POPRAVEK: Prikazujemo VSE vire (odstranjen slice) */}
                         {related.map((r, i) => {
                              const logo = getSourceLogoPath(r.source)
                              return (
-                                 <a 
-                                    key={i} 
-                                    href={r.link}
-                                    target="_blank"
-                                    rel="noopener"
-                                    title={`Preberi na ${r.source}`}
-                                    className="w-6 h-6 lg:w-5 lg:h-5 rounded-full bg-white dark:bg-gray-700 border border-gray-100 dark:border-gray-600 flex items-center justify-center overflow-hidden hover:scale-125 hover:z-20 transition-transform shadow-sm cursor-pointer"
-                                    onClick={(e) => {
-                                        e.stopPropagation() 
-                                        logClick('open_related', { parent: news.link, url: r.link })
-                                    }}
-                                 >
-                                     {logo ? (
-                                         <Image src={logo} alt={r.source} width={20} height={20} className="w-full h-full object-cover" />
-                                     ) : (
-                                         <span className="text-[8px] font-bold text-gray-500">{r.source[0]}</span>
-                                     )}
+                                 <a key={i} href={r.link} target="_blank" rel="noopener" title={`Preberi na ${r.source}`} className="w-6 h-6 lg:w-5 lg:h-5 rounded-full bg-white dark:bg-gray-700 border border-gray-100 dark:border-gray-600 flex items-center justify-center overflow-hidden hover:scale-125 hover:z-20 transition-transform shadow-sm cursor-pointer" onClick={(e) => { e.stopPropagation(); logClick('open_related', { parent: news.link, url: r.link }) }}>
+                                     {logo ? <Image src={logo} alt={r.source} width={20} height={20} className="w-full h-full object-cover" /> : <span className="text-[8px] font-bold text-gray-500">{r.source[0]}</span>}
                                  </a>
                              )
                         })}
@@ -333,12 +295,7 @@ export default function TrendingCard({ news, compact = false, rank }: Props) {
         </div>
       </div>
       
-      {previewUrl && (
-        <ArticlePreview 
-            url={previewUrl} 
-            onClose={() => setPreviewUrl(null)} 
-        />
-      )}
+      {previewUrl && <ArticlePreview url={previewUrl} onClose={() => setPreviewUrl(null)} />}
       </>
     )
   }
