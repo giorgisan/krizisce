@@ -40,7 +40,6 @@ export default function TrendingBar({ words, onSelectWord, selectedWord }: Trend
         ) : (
           <>
             {/* --- MOBILE: SCROLLABLE LIST (Drag to scroll) --- */}
-            {/* POPRAVEK: Odstranjena ozadja (pills) in podčrtaji, samo tekst */}
             <div className="flex md:hidden overflow-x-auto no-scrollbar items-center gap-3 pl-2 pr-8 w-full">
                 {words.map((item) => {
                     const cleanWord = item.word.replace(/^#/, '');
@@ -58,7 +57,7 @@ export default function TrendingBar({ words, onSelectWord, selectedWord }: Trend
                           `}
                         >
                           <span className={`mr-0.5 text-xs opacity-40 ${isSelected ? 'text-brand opacity-100' : ''}`}>#</span>
-                          {/* Odstranjen span z underline, samo tekst */}
+                          {/* Samo tekst, brez podčrtaja */}
                           {cleanWord}
                         </button>
                     )
@@ -84,10 +83,11 @@ export default function TrendingBar({ words, onSelectWord, selectedWord }: Trend
                         }
                       `}
                     >
+                      {/* # se obarva na hover (group-hover/btn:text-brand) */}
                       <span className={`mr-0.5 text-xs opacity-40 group-hover/btn:text-brand group-hover/btn:opacity-100 transition-all ${isSelected ? 'text-brand opacity-100' : ''}`}>#</span>
-                      <span className="group-hover/btn:underline decoration-brand/30 underline-offset-2 decoration-1">
-                        {cleanWord}
-                      </span>
+                      
+                      {/* POPRAVEK: Odstranjen span z underline, samo čisto besedilo */}
+                      {cleanWord}
                     </button>
                   )
                 })}
