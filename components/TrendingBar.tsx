@@ -15,7 +15,6 @@ interface TrendingBarProps {
 export default function TrendingBar({ words, onSelectWord, selectedWord }: TrendingBarProps) {
   const hasWords = words && words.length > 0;
 
-  // Podvojimo seznam za neskončno zanko
   const marqueeWords = hasWords 
     ? (words.length < 10 ? [...words, ...words, ...words, ...words] : [...words, ...words]) 
     : [];
@@ -23,19 +22,21 @@ export default function TrendingBar({ words, onSelectWord, selectedWord }: Trend
   return (
     <div className="flex items-center w-full overflow-hidden py-2 border-b border-gray-100 dark:border-gray-800/50 lg:border-none">
       
-      <div className="relative z-20 flex items-center gap-1.5 shrink-0 pr-4 bg-gray-50 dark:bg-gray-900 select-none cursor-default">
-        {/* DODANA ANIMACIJA: animate-gentle-pulse */}
-        <span className="text-sm animate-gentle-pulse cursor-help" title="Vroče teme">🔥</span>
+      {/* POPRAVEK 1: Zmanjšan padding iz pr-4 na pr-2.
+         To bo zmanjšalo tisto praznino med "Odmevno" in začetkom tagov.
+      */}
+      <div className="relative z-20 flex items-center gap-1.5 shrink-0 pr-2 bg-gray-50 dark:bg-gray-900 select-none cursor-default">
+        {/* POPRAVEK 2: Nova animacija 'animate-fire' */}
+        <span className="text-sm animate-fire cursor-help" title="Najbolj pogoste teme zadnje ure">🔥</span>
         
-        {/* SPREMEMBA IZRAZA */}
-        <span className="text-xs font-bold text-gray-700 dark:text-gray-300 tracking-wide">
+        <span className="text-xs font-bold text-gray-700 dark:text-gray-300 tracking-wide uppercase">
           Odmevno
         </span>
       </div>
 
       <div className="flex-1 overflow-hidden relative mask-gradient-right">
         {!hasWords ? (
-           <span className="text-xs text-gray-400 italic pl-2">Trenutno ni vročih tem.</span>
+           <span className="text-xs text-gray-400 italic pl-2">Trenutno ni izstopajočih tem.</span>
         ) : (
           <>
             {/* MOBILE LIST */}
@@ -94,14 +95,23 @@ export default function TrendingBar({ words, onSelectWord, selectedWord }: Trend
       </div>
 
       <style jsx>{`
-        /* NOVO: Nežen utrip za ogenjček */
-        .animate-gentle-pulse {
-            animation: gentlePulse 2s infinite ease-in-out;
+        /* POPRAVEK: Optimizirana animacija */
+        .animate-fire {
+            display: inline-block;
+            transform-origin: bottom center; /* Ogenj raste od spodaj navzgor */
+            animation: fireBreath 2.5s ease-in-out infinite;
+            will-change: transform, filter; /* Pove brskalniku, naj optimizira */
         }
-        @keyframes gentlePulse {
-            0% { transform: scale(1); opacity: 0.8; filter: drop-shadow(0 0 0 rgba(255, 69, 0, 0)); }
-            50% { transform: scale(1.15); opacity: 1; filter: drop-shadow(0 0 2px rgba(255, 69, 0, 0.3)); }
-            100% { transform: scale(1); opacity: 0.8; filter: drop-shadow(0 0 0 rgba(255, 69, 0, 0)); }
+        
+        @keyframes fireBreath {
+            0%, 100% { 
+                transform: scale(1); 
+                filter: brightness(100%);
+            }
+            50% { 
+                transform: scale(1.15); 
+                filter: brightness(115%); /* Namesto drop-shadow uporabimo brightness - veliko bolj gladko */
+            }
         }
 
         .marquee-container {
