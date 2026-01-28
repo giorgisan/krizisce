@@ -64,7 +64,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         - Uporabljaj slovenski jezik in presledke (NE CamelCase).
         - Dolžina: 1 do 3 besede na tag.
         - Besede naj bodo v osnovni obliki (imenovalnik), da se ujemajo z iskalnim indeksom.
-        - Izogibaj se generičnim besedam kot so "Novice", "Dogajanje", "Stanje", razen če so del specifične fraze.
+        - Izogibaj se generičnim besedam kot so "Šport", "Novice", "Dogajanje", "Stanje", razen če so del specifične fraze.
 
         CILJ: Vrni med 6 in 10 najbolj relevantnih tagov za premikajoči se trak.
     `
@@ -86,7 +86,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         const result = await model.generateContent({
             contents: [{ role: 'user', parts: [{ text: prompt }] }],
             generationConfig: {
-                temperature: 0.2, // Nizka temperatura za natančnost in manj halucinacij
+                temperature: 0.3, // Nizka temperatura za natančnost in manj halucinacij
                 maxOutputTokens: 1000,
             }
         });
