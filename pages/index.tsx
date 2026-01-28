@@ -436,14 +436,17 @@ export default function Home({ initialNews, initialTrendingWords, initialTrendin
                     )}
                 </div>
 
-                {/* --- SIDEBAR (POPRAVLJEN ZA SCROLL) --- */}
+                {/* --- SIDEBAR (POPRAVLJEN: Scroll samo na Desktopu) --- */}
                 <aside className={`w-full lg:w-[340px] xl:w-[380px] shrink-0 lg:sticky lg:top-24 
                     ${mode === 'trending' ? 'block' : 'hidden lg:block'}
                 `}>
                     {/* NIELSEN UX: Visok kontrast ozadja sidebara (bg-gray-200/70) */}
-                    <div className="bg-gray-200/70 dark:bg-gray-800/90 rounded-2xl backdrop-blur-xl shadow-inner flex flex-col max-h-[calc(100vh-8rem)] overflow-hidden">
+                    <div className={`
+                        bg-gray-200/70 dark:bg-gray-800/90 rounded-2xl backdrop-blur-xl shadow-inner flex flex-col
+                        lg:max-h-[calc(100vh-8rem)] lg:overflow-hidden /* Samo desktop omejitev */
+                    `}>
                         
-                        {/* NASLOV (Fiksiran na vrhu) */}
+                        {/* NASLOV (Fiksiran na vrhu samo na desktopu) */}
                         <div className="flex items-center gap-2 mb-0 p-4 pb-2 border-b border-gray-300/50 dark:border-gray-700 shrink-0 z-10 bg-inherit rounded-t-2xl">
                              <svg className="w-4 h-4 text-gray-400 dark:text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -453,8 +456,8 @@ export default function Home({ initialNews, initialTrendingWords, initialTrendin
                              </span>
                         </div>
 
-                        {/* VSEBINA (Scrollable) */}
-                        <div className="overflow-y-auto p-4 pt-2 space-y-3 custom-scrollbar">
+                        {/* VSEBINA (Scrollable samo na desktopu) */}
+                        <div className="p-4 pt-2 space-y-3 lg:overflow-y-auto lg:custom-scrollbar">
                             {itemsTrending.length === 0 && !trendingLoaded ? (
                                  <div className="flex flex-col gap-3 animate-pulse">
                                     {[...Array(6)].map((_, i) => (
