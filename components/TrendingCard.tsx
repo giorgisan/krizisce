@@ -236,8 +236,8 @@ export default function TrendingCard({ news, compact = false, rank }: Props) {
         {/* --- RANK: Vrnjeno na originalno pozicijo (rob kartice) + Glass efekt --- */}
         {rank && (
            <div className="absolute top-0 left-0 w-8 h-8 lg:w-7 lg:h-7 flex items-center justify-center z-20 pointer-events-none">
-               {/* Ozadje: Zelo prosojno (25%) zamegljeno črno, z zaobljenim zgornjim levim kotom */}
-               <div className="absolute inset-0 bg-black/15 backdrop-blur-sm rounded-br-2xl rounded-tl-xl border-b border-r border-white/10 shadow-sm" />
+               {/* Ozadje: Zelo prosojno (15%) zamegljeno črno, z zaobljenim zgornjim levim kotom */}
+               <div className="absolute inset-0 bg-black/15 backdrop-blur-md rounded-br-2xl rounded-tl-xl border-b border-r border-white/10 shadow-sm" />
                
                {/* Številka: Bela z rahlo senco za berljivost */}
                <span className="relative text-sm lg:text-xs font-black text-white/90 font-sans drop-shadow-sm leading-none">
