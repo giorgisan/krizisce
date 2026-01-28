@@ -1,3 +1,4 @@
+/* components/TrendingBar.tsx */
 import React from 'react'
 
 export type TrendingWord = {
@@ -14,7 +15,7 @@ interface TrendingBarProps {
 export default function TrendingBar({ words, onSelectWord, selectedWord }: TrendingBarProps) {
   const hasWords = words && words.length > 0;
 
-  // Podvojimo seznam za neskončno zanko (samo za desktop marquee)
+  // Podvojimo seznam za neskončno zanko
   const marqueeWords = hasWords 
     ? (words.length < 10 ? [...words, ...words, ...words, ...words] : [...words, ...words]) 
     : [];
@@ -22,27 +23,19 @@ export default function TrendingBar({ words, onSelectWord, selectedWord }: Trend
   return (
     <div className="flex items-center w-full overflow-hidden py-2 border-b border-gray-100 dark:border-gray-800/50 lg:border-none">
       
-      {/* LABELA: TRENDI */}
-      <div 
-        className="relative z-20 flex items-center gap-1.5 shrink-0 pr-4 bg-gray-50 dark:bg-gray-900 select-none cursor-default"
-        style={{ boxShadow: '15px 0 20px -10px var(--bg-page)' }} 
-      >
+      <div className="relative z-20 flex items-center gap-1.5 shrink-0 pr-4 bg-gray-50 dark:bg-gray-900 select-none cursor-default">
         <span className="text-sm opacity-80">🔥</span>
-        
-        {/* POPRAVEK: Odstranjen uppercase, mehkejša barva (text-gray-700/300) */}
         <span className="text-xs font-bold text-gray-700 dark:text-gray-300 tracking-wide">
           Trendi
         </span>
       </div>
 
-      {/* CONTAINER */}
       <div className="flex-1 overflow-hidden relative mask-gradient-right">
         {!hasWords ? (
            <span className="text-xs text-gray-400 italic pl-2">Trenutno ni vročih tem.</span>
         ) : (
           <>
-            {/* --- MOBILE: SCROLLABLE LIST (Drag to scroll) --- */}
-            {/* Vse čisto: samo tekst #, brez podčrtajev, brez ozadij */}
+            {/* MOBILE LIST */}
             <div className="flex md:hidden overflow-x-auto no-scrollbar items-center gap-3 pl-2 pr-8 w-full">
                 {words.map((item) => {
                     const cleanWord = item.word.replace(/^#/, '');
@@ -66,46 +59,53 @@ export default function TrendingBar({ words, onSelectWord, selectedWord }: Trend
                 })}
             </div>
 
-            {/* --- DESKTOP: MARQUEE (Moving text) --- */}
-            <div className="hidden md:flex w-max animate-marquee hover:pause items-center">
-                {marqueeWords.map((item, index) => {
-                  const cleanWord = item.word.replace(/^#/, '');
-                  const isSelected = selectedWord?.toLowerCase().replace(/^#/, '') === cleanWord.toLowerCase();
-                  const key = `${item.word}-${index}`;
+            {/* DESKTOP MARQUEE - POPRAVEK ZA SAFARI */}
+            <div className="hidden md:flex w-max items-center marquee-container">
+                <div className="animate-marquee hover-pause flex items-center">
+                    {marqueeWords.map((item, index) => {
+                      const cleanWord = item.word.replace(/^#/, '');
+                      const isSelected = selectedWord?.toLowerCase().replace(/^#/, '') === cleanWord.toLowerCase();
+                      const key = `${item.word}-${index}`;
 
-                  return (
-                    <button
-                      key={key}
-                      onClick={() => onSelectWord(cleanWord)}
-                      className={`
-                        mx-4 text-[13px] font-medium transition-colors duration-200 flex items-center group/btn
-                        ${isSelected 
-                          ? 'text-brand' 
-                          : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
-                        }
-                      `}
-                    >
-                      <span className={`mr-0.5 text-xs opacity-40 group-hover/btn:text-brand group-hover/btn:opacity-100 transition-all ${isSelected ? 'text-brand opacity-100' : ''}`}>#</span>
-                      {/* Tudi tu samo tekst, brez podčrtaja */}
-                      {cleanWord}
-                    </button>
-                  )
-                })}
+                      return (
+                        <button
+                          key={key}
+                          onClick={() => onSelectWord(cleanWord)}
+                          className={`
+                            mx-4 text-[13px] font-medium transition-colors duration-200 flex items-center group/btn
+                            ${isSelected 
+                              ? 'text-brand' 
+                              : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+                            }
+                          `}
+                        >
+                          <span className={`mr-0.5 text-xs opacity-40 group-hover/btn:text-brand group-hover/btn:opacity-100 transition-all ${isSelected ? 'text-brand opacity-100' : ''}`}>#</span>
+                          {cleanWord}
+                        </button>
+                      )
+                    })}
+                </div>
             </div>
           </>
         )}
       </div>
 
       <style jsx>{`
+        .marquee-container {
+            /* Safari potrebuje definiran prostor in will-change */
+            will-change: transform;
+        }
         .animate-marquee {
+          display: flex;
           animation: marquee 60s linear infinite;
         }
-        .hover\:pause:hover {
+        /* Uporabimo neposreden razred namesto tailwind hover:pause za boljšo Safari kompatibilnost */
+        .marquee-container:hover .animate-marquee {
           animation-play-state: paused;
         }
         @keyframes marquee {
-          0% { transform: translateX(0); }
-          100% { transform: translateX(-50%); }
+          0% { transform: translate3d(0, 0, 0); }
+          100% { transform: translate3d(-50%, 0, 0); }
         }
         .mask-gradient-right {
           mask-image: linear-gradient(to right, black 85%, transparent 100%);
