@@ -67,7 +67,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         - Izogibaj se generičnim besedam kot so "Šport", "Novice", "Dogajanje", "Stanje", razen če so del specifične fraze.
         - Ne izmišljuj si besed (ne haluciniraj)
 
-        CILJ: Vrni med 6 in 10 najbolj relevantnih tagov za premikajoči se trak.
+        CILJ: Vrni med 6 in 12 najbolj relevantnih tagov za premikajoči se trak.
     `
     
     const tryGenerate = async (modelName: string) => {
