@@ -53,8 +53,8 @@ export default function TrendingBar({ words, onSelectWord, selectedWord }: Trend
   };
 
   return (
-    // SPREMEMBA: Povečan padding iz py-2 na py-1 za manj prostora
-    <div className="flex items-center w-full overflow-hidden py-1 border-b border-gray-100 dark:border-gray-800/50 lg:border-none">
+    // SPREMEMBA: Povečan padding iz py-2 na py-0.5 za manj prostora
+    <div className="flex items-center w-full overflow-hidden py-0.5 border-b border-gray-100 dark:border-gray-800/50 lg:border-none">
       
       {/* LABELA: Odmevno */}
       <div 
@@ -86,8 +86,8 @@ export default function TrendingBar({ words, onSelectWord, selectedWord }: Trend
             onMouseMove={handleMouseMove}
             onMouseEnter={() => setIsPaused(true)}
           >
-            {/* SPREMEMBA: Hitrost nastavljena na 0.6 */}
-            <AutoScroller isPaused={isPaused} containerRef={containerRef} speed={0.6} />
+            {/* SPREMEMBA: Hitrost nastavljena na 0.5 */}
+            <AutoScroller isPaused={isPaused} containerRef={containerRef} speed={0.5} />
 
             {marqueeWords.map((item, index) => {
                 const cleanWord = item.word.replace(/^#/, '');
