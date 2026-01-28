@@ -2,8 +2,8 @@
 import { NewsItem } from '@/types'
 
 // Konstante za algoritem
-const TREND_WINDOW_HOURS = 6 
-const TREND_MIN_SOURCES = 2        
+const TREND_WINDOW_HOURS = 8 
+const TREND_MIN_SOURCES = 3        
 const TREND_MIN_OVERLAP = 2
 const TREND_MAX_ITEMS = 10 // Povečamo za sidebar
 const TREND_HOT_CUTOFF_HOURS = 4
