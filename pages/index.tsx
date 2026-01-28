@@ -83,16 +83,19 @@ async function loadNews(
 
 type Props = { 
   initialNews: NewsItem[]
-  initialTrendingWords: TrendingWord[] 
+  initialTrendingWords: TrendingWord[]
+  initialTrendingNews: NewsItem[] // <--- NOVO: Trendi iz strežnika
 }
 
-export default function Home({ initialNews, initialTrendingWords }: Props) {
+export default function Home({ initialNews, initialTrendingWords, initialTrendingNews }: Props) {
   const [itemsLatest, setItemsLatest] = useState<NewsItem[]>(initialNews)
-  const [itemsTrending, setItemsTrending] = useState<NewsItem[]>([])
+  
+  // POPRAVEK: Začetno stanje napolnimo s podatki iz SSR (nič več praznega arraya!)
+  const [itemsTrending, setItemsTrending] = useState<NewsItem[]>(initialTrendingNews || [])
+  const [trendingLoaded, setTrendingLoaded] = useState(!!initialTrendingNews?.length)
      
   const [mode, setMode] = useState<Mode>('latest')
-  const [trendingLoaded, setTrendingLoaded] = useState(false)
-  const lastTrendingFetchRef = useRef<number>(0)
+  const lastTrendingFetchRef = useRef<number>(Date.now()) // Ker so že naloženi, nastavimo čas na zdaj
   const [isDesktopLogic, setIsDesktopLogic] = useState(false)
 
   const [selectedSources, setSelectedSources] = useState<string[]>([]) 
@@ -118,19 +121,24 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
     return () => window.removeEventListener('resize', checkDesktop)
   }, [])
 
+  // POPRAVEK: Ta efekt zdaj služi samo za osveževanje v ozadju, če so podatki stari
   useEffect(() => {
-    if (isDesktopLogic && !trendingLoaded && !isRefreshing && bootRefreshed) {
-      const fetchTrendingSide = async () => {
-        try {
-          const fresh = await loadNews('trending', [], 'vse', null, null)
-          if (fresh) {
-            setItemsTrending(fresh)
-            setTrendingLoaded(true)
-            lastTrendingFetchRef.current = Date.now()
-          }
-        } catch {}
-      }
-      fetchTrendingSide()
+    if (isDesktopLogic && !isRefreshing && bootRefreshed) {
+        // Če še nimamo trendov ali so starejši od 15 min, jih osveži
+        const now = Date.now();
+        if (!trendingLoaded || (now - lastTrendingFetchRef.current > 15 * 60_000)) {
+             const fetchTrendingSide = async () => {
+                try {
+                  const fresh = await loadNews('trending', [], 'vse', null, null)
+                  if (fresh) {
+                    setItemsTrending(fresh)
+                    setTrendingLoaded(true)
+                    lastTrendingFetchRef.current = Date.now()
+                  }
+                } catch {}
+              }
+              fetchTrendingSide()
+        }
     }
   }, [isDesktopLogic, trendingLoaded, isRefreshing, bootRefreshed])
 
@@ -292,6 +300,7 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
     else {
       setHasMore(false); setCursor(null)
       const now = Date.now()
+      // Osvežimo samo, če je preteklo več časa (npr. 5 min)
       if (!trendingLoaded || (now - lastTrendingFetchRef.current) > 5 * 60_000) {
         setIsRefreshing(true)
         try {
@@ -486,19 +495,18 @@ export const getServerSideProps: GetServerSideProps = async ({ res }) => {
   const { createClient } = await import('@supabase/supabase-js')
   const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, { auth: { persistSession: false } })
 
+  // 1. POIZVEDBA: Glavne novice
   const newsPromise = supabase.from('news').select('id, link, title, source, summary, contentsnippet, image, published_at, publishedat, category').neq('category', 'oglas').order('publishedat', { ascending: false }).order('id', { ascending: false }).limit(24)
   
-  let trendsData: any[] = []
-  const { data: aiData } = await supabase.from('trending_ai').select('words').order('updated_at', { ascending: false }).limit(1).single()
-  
-  if (aiData?.words?.length) {
-     trendsData = aiData.words.map((w: string) => ({ word: w, count: 1 }))
-  } else {
-     const sqlTrends = await supabase.rpc('get_trending_words', { hours_lookback: 48, limit_count: 8 })
-     trendsData = sqlTrends.data || []
-  }
+  // 2. POIZVEDBA: Tagi
+  const trendsWordsPromise = supabase.from('trending_ai').select('words').order('updated_at', { ascending: false }).limit(1).single()
 
-  const [newsRes] = await Promise.all([newsPromise])
+  // 3. POIZVEDBA: Trending Novice (Iz Cacha v bazi - NOVO!)
+  const trendingGroupsPromise = supabase.from('trending_groups_cache').select('data').order('updated_at', { ascending: false }).limit(1).single()
+
+  const [newsRes, wordsRes, groupsRes] = await Promise.all([newsPromise, trendsWordsPromise, trendingGroupsPromise])
+
+  // Obdelava glavnih novic
   const rows = (newsRes.data ?? []) as any[]
   const initialNews: NewsItem[] = rows.map((r) => ({
     title: r.title,
@@ -511,5 +519,20 @@ export const getServerSideProps: GetServerSideProps = async ({ res }) => {
     category: (r.category as CategoryId) || determineCategory({ link: r.link || '', categories: [] }) 
   }))
 
-  return { props: { initialNews, initialTrendingWords: trendsData } }
+  // Obdelava tagov
+  let trendsData: any[] = []
+  const aiData = wordsRes.data
+  if (aiData?.words?.length) {
+     trendsData = aiData.words.map((w: string) => ({ word: w, count: 1 }))
+  } else {
+     // Fallback če ni AI podatkov
+     const sqlTrends = await supabase.rpc('get_trending_words', { hours_lookback: 48, limit_count: 8 })
+     trendsData = sqlTrends.data || []
+  }
+
+  // Obdelava Trending Novic
+  // Podatki v bazi so že v pravem formatu (JSON), samo preberemo jih
+  const initialTrendingNews = groupsRes.data?.data || []
+
+  return { props: { initialNews, initialTrendingWords: trendsData, initialTrendingNews } }
 }
