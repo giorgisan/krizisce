@@ -19,7 +19,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   let usedModel = 'unknown'
   
   try {
-    // 1. ZAJEM NOVIC (Povečano na 200 za boljšo analizo trendov)
+    // --- 1. PREVERJANJE ŠTEVILA DANAŠNJIH KLICEV (Za preventivni preklop) ---
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const { count } = await supabase
+      .from('trending_ai')
+      .select('*', { count: 'exact', head: true })
+      .gte('updated_at', today.toISOString());
+
+    const dailyCount = count || 0;
+
+    // 2. ZAJEM NOVIC (200 za boljšo analizo trendov)
     const { data: allNews, error } = await supabase
       .from('news')
       .select('title, publishedat, source')
@@ -33,10 +43,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(200).json({ success: false, message: 'Baza je prazna.' })
     }
 
-    // 2. PRIPRAVA VSEBINE
     const headlines = allNews.map(n => `- ${n.source}: ${n.title}`).join('\n')
 
-    // 3. IZBOLJŠAN PROMPT
     const prompt = `
         Kot izkušen urednik slovenskega novičarskega portala analiziraj spodnji seznam naslovov zadnjih novic.
         Tvoja naloga je ustvariti dinamičen in raznolik seznam trendov (#TemeDneva), ki so trenutno najbolj aktualni.
@@ -71,34 +79,40 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         })
         const result = await model.generateContent(prompt)
         const responseText = result.response.text()
-        
-        // Robustno iskanje JSON-a (najde vsebino med [ in ])
         const jsonStart = responseText.indexOf('[');
         const jsonEnd = responseText.lastIndexOf(']') + 1;
         const cleanJson = responseText.substring(jsonStart, jsonEnd);
-        
         return JSON.parse(cleanJson)
     }
 
-    // 4. GENERIRANJE
-    try {
-        console.log("Poskušam gemini-1.5-flash-lite...");
-        trends = await tryGenerate("gemini-1.5-flash-lite");
-        usedModel = "gemini-1.5-flash-lite";
-    } catch (err1: any) {
-        console.warn(`⚠️ Lite verzija ni uspela, preklapljam na Flash...`, err1.message);
+    // --- 3. LOGIKA PREKLOPA (Da preprečimo rdeče številke) ---
+    if (dailyCount < 15) {
+        // Prvih 15 klicev uporabljamo Lite
         try {
+            trends = await tryGenerate("gemini-2.0-flash-lite");
+            usedModel = "gemini-2.0-flash-lite";
+        } catch (e) {
+            try {
+                trends = await tryGenerate("gemini-2.0-flash");
+                usedModel = "gemini-2.0-flash";
+            } catch (e2) {
+                trends = await tryGenerate("gemini-1.5-flash");
+                usedModel = "gemini-1.5-flash";
+            }
+        }
+    } else {
+        // Po 15. klicu gremo takoj na navaden Flash, da Lite ne preseže 20
+        try {
+            trends = await tryGenerate("gemini-2.0-flash");
+            usedModel = "gemini-2.0-flash";
+        } catch (e) {
             trends = await tryGenerate("gemini-1.5-flash");
             usedModel = "gemini-1.5-flash";
-        } catch (err2: any) {
-            console.error("❌ AI modeli niso vrnili veljavnega JSON-a.");
-            return res.status(500).json({ error: 'AI generation failed' });
         }
     }
 
-    // 5. SHRANJEVANJE
+    // 4. SHRANJEVANJE
     if (Array.isArray(trends) && trends.length > 0) {
-        // Čiščenje in omejitev na max 12 (za marquee)
         trends = trends
             .map(t => {
                 let tag = t.trim();
@@ -120,7 +134,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(200).json({ 
             success: true, 
             used_model: usedModel, 
-            count: trends.length, 
+            daily_count: dailyCount,
             trends 
         })
     } 
