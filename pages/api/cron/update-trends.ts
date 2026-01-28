@@ -33,9 +33,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(200).json({ success: false, message: 'Baza je prazna.' })
     }
 
-    // 2. PRIPRAVA VSEBINE (Vključuje naslov in kratek opis za boljši kontekst)
+    // 2. PRIPRAVA VSEBINE (Popravljeno: Skrajšano na 150, da preprečimo odrezan JSON)
     const headlines = allNews.map(n => {
-        const desc = (n.contentsnippet || n.summary || '').replace(/\s+/g, ' ').trim().substring(0, 200);
+        const desc = (n.contentsnippet || n.summary || '').replace(/\s+/g, ' ').trim().substring(0, 150);
         return `- ${n.source}: ${n.title} ${desc ? `| ${desc}` : ''}`;
     }).join('\n')
 
@@ -85,22 +85,25 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             ]
         })
 
-        // DODANO: responseMimeType in temperatura
         const result = await model.generateContent({
             contents: [{ role: 'user', parts: [{ text: prompt }] }],
             generationConfig: {
                 temperature: 0.2,
-                maxOutputTokens: 1000,
-                responseMimeType: "application/json" // To prisili AI v čisti JSON
+                maxOutputTokens: 800,
+                responseMimeType: "application/json"
             }
         })
 
         let responseText = result.response.text();
         
-        // POPRAVEK: Agresivno čiščenje markdown znakov za vsak slučaj
+        // Čiščenje markdownov
         responseText = responseText.replace(/```json/g, '').replace(/```/g, '').trim();
         
-        // Robustno iskanje JSON-a
+        // POPRAVEK: Če je JSON odrezan, ga poskusimo ročno zapreti
+        if (responseText.includes('[') && !responseText.endsWith(']')) {
+            responseText = responseText.substring(0, responseText.lastIndexOf('"') + 1) + ']';
+        }
+
         const jsonStart = responseText.indexOf('[');
         const jsonEnd = responseText.lastIndexOf(']') + 1;
         
@@ -112,16 +115,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return JSON.parse(cleanJson)
     }
 
-    // 4. GENERIRANJE (Spremenjen vrstni red: Lite -> Flash)
+    // 4. GENERIRANJE
     try {
-        // PRVI POSKUS: Lite (varčnejši z kvoto)
         console.log("Poskušam gemini-2.5-flash-lite...");
         trends = await tryGenerate("gemini-2.5-flash-lite");
         usedModel = "gemini-2.5-flash-lite";
     } catch (err1: any) {
         console.warn(`⚠️ Lite verzija ni uspela, preklapljam na navaden Flash...`, err1.message);
         try {
-            // DRUGI POSKUS: Flash (močnejši, a bolj omejen)
             trends = await tryGenerate("gemini-2.5-flash");
             usedModel = "gemini-2.5-flash";
         } catch (err2: any) {
@@ -130,10 +131,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         }
     }
 
-
     // 5. SHRANJEVANJE
     if (Array.isArray(trends) && trends.length > 0) {
-        // Ročni filter za vsak slučaj
         const BLACKLIST = ['šport', 'novice', 'vlada', 'slovenija', 'policija', 'gasilci', 'kronika', 'svet', 'dogajanje', 'stanje', 'posnetek', 'video', 'foto', 'preverite', 'v živo', 'članek'];
 
         trends = trends
