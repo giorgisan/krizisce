@@ -19,18 +19,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   let usedModel = 'unknown'
   
   try {
-    // 1. ZAJEM NOVIC
-    // --- PREVERJANJE ŠTEVILA DANAŠNJIH KLICEV ---
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const { count } = await supabase
-      .from('trending_ai')
-      .select('*', { count: 'exact', head: true })
-      .gte('updated_at', today.toISOString());
-
-    const dailyCount = count || 0;
-
-    // --- ZAJEM VSEBINE ---
+    // 1. ZAJEM NOVIC (Povečano na 200 za boljšo analizo trendov)
     const { data: allNews, error } = await supabase
       .from('news')
       .select('title, publishedat, source')
@@ -44,9 +33,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(200).json({ success: false, message: 'Baza je prazna.' })
     }
 
+    // 2. PRIPRAVA VSEBINE
     const headlines = allNews.map(n => `- ${n.source}: ${n.title}`).join('\n')
 
-    // 2. PRIPRAVA PROMPTA
+    // 3. IZBOLJŠAN PROMPT
     const prompt = `
         Kot izkušen urednik slovenskega novičarskega portala analiziraj spodnji seznam naslovov zadnjih novic.
         Tvoja naloga je ustvariti dinamičen in raznolik seznam trendov (#TemeDneva), ki so trenutno najbolj aktualni.
@@ -69,9 +59,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         CILJ: Vrni med 6 in 12 najbolj relevantnih tagov za premikajoči se trak.
     `
     
-    // Pomožna funkcija za klic AI
     const tryGenerate = async (modelName: string) => {
-        console.log(`Poskušam z modelom: ${modelName}...`);
         const model = genAI.getGenerativeModel({ 
             model: modelName,
             safetySettings: [
@@ -84,56 +72,33 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         const result = await model.generateContent(prompt)
         const responseText = result.response.text()
         
+        // Robustno iskanje JSON-a (najde vsebino med [ in ])
         const jsonStart = responseText.indexOf('[');
         const jsonEnd = responseText.lastIndexOf(']') + 1;
-        
-        if (jsonStart === -1 || jsonEnd === 0) {
-             throw new Error("Invalid JSON structure returned by AI");
-        }
-
         const cleanJson = responseText.substring(jsonStart, jsonEnd);
+        
         return JSON.parse(cleanJson)
     }
 
-    // --- 3. IZBIRA MODELOV ---
-    // Sestavimo seznam modelov glede na prioriteto
-    let modelsToTry: string[] = [];
-
-    // gemini-1.5-flash JE "Lite" model (najhitrejši in najcenejši).
-    // gemini-1.5-pro je pametnejši.
-    // gemini-pro je stari model za rezervo.
-
-    if (dailyCount < 15) {
-        // Varčevalni način: Najprej Flash, nato Pro, nato stari Pro
-        modelsToTry = ["gemini-1.5-flash", "gemini-1.5-pro", "gemini-pro"];
-    } else {
-        // Limit dosežen: Razporedimo breme, poskusimo Pro first, nato Flash
-        modelsToTry = ["gemini-1.5-pro", "gemini-1.5-flash", "gemini-pro"];
-    }
-
-    let success = false;
-    let lastError = null;
-
-    // Zanka čez modele (Iterator Pattern) - to prepreči "Vsi modeli so odpovedali"
-    for (const modelName of modelsToTry) {
+    // 4. GENERIRANJE
+    try {
+        console.log("Poskušam gemini-1.5-flash-lite...");
+        trends = await tryGenerate("gemini-1.5-flash-lite");
+        usedModel = "gemini-1.5-flash-lite";
+    } catch (err1: any) {
+        console.warn(`⚠️ Lite verzija ni uspela, preklapljam na Flash...`, err1.message);
         try {
-            trends = await tryGenerate(modelName);
-            usedModel = modelName;
-            success = true;
-            break; // Uspelo je, nehaj poskušati druge modele
-        } catch (e: any) {
-            console.warn(`Model ${modelName} ni uspel: ${e.message}`);
-            lastError = e;
-            // Nadaljuj na naslednji model v zanki
+            trends = await tryGenerate("gemini-1.5-flash");
+            usedModel = "gemini-1.5-flash";
+        } catch (err2: any) {
+            console.error("❌ AI modeli niso vrnili veljavnega JSON-a.");
+            return res.status(500).json({ error: 'AI generation failed' });
         }
     }
 
-    if (!success) {
-        throw new Error(`Vsi poskusi so spodleteli. Zadnja napaka: ${lastError?.message}`);
-    }
-
-    // 4. SHRANJEVANJE
+    // 5. SHRANJEVANJE
     if (Array.isArray(trends) && trends.length > 0) {
+        // Čiščenje in omejitev na max 12 (za marquee)
         trends = trends
             .map(t => {
                 let tag = t.trim();
@@ -155,8 +120,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(200).json({ 
             success: true, 
             used_model: usedModel, 
-            count: trends.length,
-            daily_count: dailyCount,
+            count: trends.length, 
             trends 
         })
     } 
