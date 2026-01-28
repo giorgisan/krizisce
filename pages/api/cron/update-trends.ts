@@ -19,14 +19,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   let usedModel = 'unknown'
   
   try {
-    // 1. ZAJEM NOVIC (Povečano na 200 za boljšo analizo trendov)
+    // 1. ZAJEM NOVIC (Povečano na 300 za boljšo analizo trendov)
     const { data: allNews, error } = await supabase
       .from('news')
       .select('title, publishedat, source')
       .neq('category', 'oglas')
       .neq('category', 'promo')
       .order('publishedat', { ascending: false })
-      .limit(200)
+      .limit(300)
 
     if (error) throw error
     if (!allNews || allNews.length === 0) {
