@@ -19,7 +19,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   let usedModel = 'unknown'
   
   try {
-    // 1. ZAJEM NOVIC (Povečano na 300 za boljšo analizo trendov)
+    // 1. ZAJEM NOVIC
     const { data: allNews, error } = await supabase
       .from('news')
       .select('title, source, summary, contentsnippet')
@@ -33,10 +33,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(200).json({ success: false, message: 'Baza je prazna.' })
     }
 
-    // 2. PRIPRAVA VSEBINE
-    const headlines = allNews.map(n => `- ${n.source}: ${n.title}`).join('\n')
+    // 2. PRIPRAVA VSEBINE (DODANO: Vključitev opisa, ker ga že zajemamo!)
+    const headlines = allNews.map(n => {
+        // Uporabimo contentsnippet ali summary, očistimo in skrajšamo
+        const desc = (n.contentsnippet || n.summary || '').replace(/\s+/g, ' ').trim().substring(0, 200);
+        return `- ${n.source}: ${n.title} ${desc ? `| ${desc}` : ''}`;
+    }).join('\n')
 
-    // 3. IZBOLJŠAN PROMPT
+    // 3. TVOJ TRENUTNI PROMPT (Nespremenjen, kot si želel)
     const prompt = `
         Kot izkušen urednik slovenskega novičarskega portala analiziraj spodnji seznam naslovov zadnjih novic.
         Tvoja naloga je ustvariti dinamičen in raznolik seznam trendov (#TemeDneva), ki so trenutno najbolj aktualni.
@@ -81,10 +85,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                 { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE },
             ]
         })
-        const result = await model.generateContent(prompt)
+
+        // DODANO: Temperatura in config
+        const result = await model.generateContent({
+            contents: [{ role: 'user', parts: [{ text: prompt }] }],
+            generationConfig: {
+                temperature: 0.2, // Nizka temperatura prepreči "#Minilna"
+                maxOutputTokens: 1000,
+            }
+        })
+
         const responseText = result.response.text()
         
-        // Robustno iskanje JSON-a (najde vsebino med [ in ])
         const jsonStart = responseText.indexOf('[');
         const jsonEnd = responseText.lastIndexOf(']') + 1;
         const cleanJson = responseText.substring(jsonStart, jsonEnd);
@@ -92,16 +104,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return JSON.parse(cleanJson)
     }
 
-    // 4. GENERIRANJE (Spremenjen vrstni red: Lite -> Flash)
+    // 4. GENERIRANJE 
     try {
-        // PRVI POSKUS: Lite (varčnejši z kvoto)
         console.log("Poskušam gemini-2.5-flash-lite...");
         trends = await tryGenerate("gemini-2.5-flash-lite");
         usedModel = "gemini-2.5-flash-lite";
     } catch (err1: any) {
-        console.warn(`⚠️ Lite verzija ni uspela, preklapljam na navaden Flash...`, err1.message);
+        console.warn(`⚠️ Lite verzija ni uspela...`, err1.message);
         try {
-            // DRUGI POSKUS: Flash (močnejši, a bolj omejen)
             trends = await tryGenerate("gemini-2.5-flash");
             usedModel = "gemini-2.5-flash";
         } catch (err2: any) {
@@ -112,14 +122,22 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // 5. SHRANJEVANJE
     if (Array.isArray(trends) && trends.length > 0) {
-        // Čiščenje in omejitev na max 12 (za marquee)
+        // DODANO: Ročni filter za "Šport" in ostale smeti
+        const BLACKLIST = ['šport', 'novice', 'vlada', 'slovenija', 'policija', 'gasilci', 'kronika', 'svet', 'dogajanje', 'stanje', 'posnetek', 'video', 'foto', 'preverite', 'v živo', 'članek'];
+
         trends = trends
             .map(t => {
                 let tag = t.trim();
                 if (!tag.startsWith('#')) tag = `#${tag}`;
                 return tag; 
             })
-            .filter(t => t.length > 3)
+            .filter(t => {
+                const lower = t.toLowerCase().replace('#', '');
+                if (t.length <= 3) return false;
+                // Če je tag točno enak prepovedani besedi (npr. "#Šport"), ga vržemo ven
+                if (BLACKLIST.includes(lower)) return false;
+                return true;
+            })
             .slice(0, 12);
 
         const { error: insertError } = await supabase
