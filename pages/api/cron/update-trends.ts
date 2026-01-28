@@ -69,7 +69,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         CILJ: Vrni med 6 in 10 najbolj relevantnih tagov za premikajoči se trak.
     `
     
-    const tryGenerate = async (modelName: string) => {
+    cconst tryGenerate = async (modelName: string) => {
         const model = genAI.getGenerativeModel({ 
             model: modelName,
             safetySettings: [
@@ -79,7 +79,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                 { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE },
             ]
         })
-        const result = await model.generateContent(prompt)
+
+        // --- SPREMEMBA TUKAJ ---
+        // Namesto: const result = await model.generateContent(prompt)
+        // Uporabimo konfiguracijo s temperaturo:
+        const result = await model.generateContent({
+            contents: [{ role: 'user', parts: [{ text: prompt }] }],
+            generationConfig: {
+                temperature: 0.2, // Nizka temperatura za natančnost in manj halucinacij
+                maxOutputTokens: 1000,
+            }
+        });
+        // -----------------------
+      
         const responseText = result.response.text()
         
         // Robustno iskanje JSON-a (najde vsebino med [ in ])
