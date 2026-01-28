@@ -22,9 +22,7 @@ export default function TrendingBar({ words, onSelectWord, selectedWord }: Trend
   const [startX, setStartX] = useState(0);
   const [scrollLeft, setScrollLeft] = useState(0);
 
-  // Podvojimo seznam samo, če imamo dovolj besed, da zapolnimo trak
-  // Če uporabljamo ročno premikanje, morda ne želimo neskončnega podvajanja, 
-  // ampak za "marquee" efekt je to nujno.
+  // Podvojimo seznam za neskončno zanko
   const marqueeWords = hasWords 
     ? (words.length < 15 ? [...words, ...words, ...words] : [...words, ...words]) 
     : [];
@@ -44,33 +42,33 @@ export default function TrendingBar({ words, onSelectWord, selectedWord }: Trend
 
   const handleMouseUp = () => {
     setIsDragging(false);
-    // Ne odstranimo pavze takoj, da uporabnik prebere, ampak onMouseLeave
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
     if (!isDragging || !containerRef.current) return;
     e.preventDefault();
     const x = e.pageX - containerRef.current.offsetLeft;
-    const walk = (x - startX) * 2; // Hitrost premikanja
+    const walk = (x - startX) * 2; // Faktor hitrosti vlečenja
     containerRef.current.scrollLeft = scrollLeft - walk;
   };
 
   return (
-    <div className="flex items-center w-full overflow-hidden py-2 border-b border-gray-100 dark:border-gray-800/50 lg:border-none">
+    // SPREMEMBA: Povečan padding iz py-2 na py-3 za več prostora
+    <div className="flex items-center w-full overflow-hidden py-3 border-b border-gray-100 dark:border-gray-800/50 lg:border-none">
       
-      {/* LABELA */}
+      {/* LABELA: Odmevno */}
       <div 
         className="relative z-20 flex items-center gap-1.5 shrink-0 pr-2 bg-gray-50 dark:bg-gray-900 select-none cursor-default group/label"
         title="Najbolj pogoste teme zadnje ure"
       >
         <span className="text-sm animate-fire group-hover/label:scale-110 transition-transform duration-300">🔥</span>
         
-        {/* POPRAVEK: Normalna velikost črk (ne uppercase) */}
         <span className="text-xs font-bold text-gray-700 dark:text-gray-300 tracking-wide">
           Odmevno
         </span>
       </div>
 
+      {/* MARQUEE CONTAINER */}
       <div className="flex-1 overflow-hidden relative mask-gradient-right h-[30px] flex items-center">
         {!hasWords ? (
            <span className="text-xs text-gray-400 italic pl-2">Trenutno ni izstopajočih tem.</span>
@@ -88,37 +86,36 @@ export default function TrendingBar({ words, onSelectWord, selectedWord }: Trend
             onMouseMove={handleMouseMove}
             onMouseEnter={() => setIsPaused(true)}
           >
-            {/* TRIK: Ko je "paused", uporabimo JS scroll ali drag.
-               Ko NI paused, uporabimo CSS animacijo. 
-               Ampak ker želimo kombinacijo, je najbolje narediti takole:
-               Uporabimo naravni "overflow-x" scroll. 
-               Z JavaScriptom ga avtomatsko premikamo (kot marquee), ko miška ni gor.
-            */}
-            <AutoScroller isPaused={isPaused} containerRef={containerRef} speed={0.8} />
+            {/* SPREMEMBA: Hitrost nastavljena na 0.6 */}
+            <AutoScroller isPaused={isPaused} containerRef={containerRef} speed={0.6} />
 
             {marqueeWords.map((item, index) => {
                 const cleanWord = item.word.replace(/^#/, '');
                 const isSelected = selectedWord?.toLowerCase().replace(/^#/, '') === cleanWord.toLowerCase();
-                // Edinstven key, ker se besede ponavljajo
                 const key = `${item.word}-${index}`; 
 
                 return (
                     <button
                         key={key}
                         onClick={(e) => {
-                            // Preprečimo klik, če samo vlečemo (drag)
                             if (isDragging) e.preventDefault();
                             else onSelectWord(cleanWord);
                         }}
+                        // SPREMEMBA: Dodan 'group/btn' za hover efekt na otrocih
                         className={`
-                        whitespace-nowrap text-[13px] font-medium transition-colors duration-200 flex items-center shrink-0
+                        whitespace-nowrap text-[13px] font-medium transition-colors duration-200 flex items-center shrink-0 group/btn
                         ${isSelected 
                             ? 'text-brand font-bold' 
                             : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
                         }
                         `}
                     >
-                        <span className={`mr-0.5 text-xs opacity-40 ${isSelected ? 'text-brand opacity-100' : ''}`}>#</span>
+                        {/* SPREMEMBA: Vrnjeni hover class-i (group-hover/btn:text-brand ...) */}
+                        <span className={`
+                            mr-0.5 text-xs opacity-40 transition-all
+                            group-hover/btn:text-brand group-hover/btn:opacity-100
+                            ${isSelected ? 'text-brand opacity-100' : ''}
+                        `}>#</span>
                         {cleanWord}
                     </button>
                 )
@@ -156,8 +153,7 @@ export default function TrendingBar({ words, onSelectWord, selectedWord }: Trend
   )
 }
 
-// --- POMOŽNA KOMPONENTA ZA AVTOMATSKO SCROLLANJE ---
-// To nadomesti CSS marquee in omogoči hibridno delovanje (auto + manual)
+// --- POMOŽNA KOMPONENTA ZA SCROLLANJE ---
 function AutoScroller({ isPaused, containerRef, speed }: { isPaused: boolean, containerRef: React.RefObject<HTMLDivElement>, speed: number }) {
     useEffect(() => {
         let animationFrameId: number;
@@ -166,15 +162,8 @@ function AutoScroller({ isPaused, containerRef, speed }: { isPaused: boolean, co
             if (!isPaused && containerRef.current) {
                 containerRef.current.scrollLeft += speed;
                 
-                // Logika za neskončno zanko (resetiranje)
-                // Ko pridemo do konca (minus viewport), skočimo na začetek
-                // Opomba: Za popoln seamless loop bi potrebovali bolj kompleksen setup,
-                // ampak za tage je tole ponavadi dovolj dobro (jump back).
+                // Preprost reset na začetek za "infinite" občutek
                 if (containerRef.current.scrollLeft >= (containerRef.current.scrollWidth - containerRef.current.clientWidth - 1)) {
-                     // Če imamo dovolj podvojenih elementov, to niti ni opazno
-                     // Ali pa preprosto pustimo, da teče in ko zmanjka, zmanjka.
-                     // Za pravi "infinite" scroll bi morali meriti širino vsebine.
-                     // Tukaj enostaven "reset":
                      containerRef.current.scrollLeft = 0;
                 }
             }
