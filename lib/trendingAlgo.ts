@@ -1,15 +1,14 @@
-// lib/trendingAlgo.ts
 import { NewsItem } from '@/types'
 
-// Konstante za algoritem
-const TREND_WINDOW_HOURS = 8 
+// Konstante za algoritem - DODAN 'export'
+export const TREND_WINDOW_HOURS = 8 // Gledamo novice zadnjih 8 ur
 const TREND_MIN_SOURCES = 3        
 const TREND_MIN_OVERLAP = 2
-const TREND_MAX_ITEMS = 10 // Povečamo za sidebar
+const TREND_MAX_ITEMS = 10 
 const TREND_HOT_CUTOFF_HOURS = 4
 const TREND_JACCARD_THRESHOLD = 0.20
 
-// Stop besede (skrajšan seznam za demo, lahko kopiraš celotnega iz news.ts)
+// Stop besede (skrajšan seznam za demo)
 const STORY_STOPWORDS = new Set(['v', 'na', 'ob', 'po', 'pri', 'pod', 'nad', 'za', 'do', 'od', 'z', 's', 'in', 'ali', 'pa', 'kot', 'je', 'so', 'se', 'bo', 'bodo', 'bil', 'bila', 'bili', 'bilo', 'bi', 'ko', 'ker', 'da', 'ne', 'ni', 'sta', 'ste', 'smo', 'danes', 'vceraj', 'nocoj', 'slovenija', 'ljubljana', 'foto', 'video']);
 
 function unaccent(s: string) { return s.normalize('NFD').replace(/[\u0300-\u036f]/g, '') }
@@ -39,7 +38,6 @@ export function computeTrending(rows: any[]): TrendingGroupResult[] {
   if (!rows || rows.length === 0) return []
 
   const metas = rows.map((row) => {
-      // Uporabimo publishedat (number) ali pretvorimo published_at
       const ms = row.publishedat || (row.published_at ? Date.parse(row.published_at) : Date.now())
       const text = `${row.title} ${row.title} ${row.summary || row.contentsnippet || ''}`
       return { row, ms, keywords: extractKeywords(text) }
@@ -77,7 +75,6 @@ export function computeTrending(rows: any[]): TrendingGroupResult[] {
     if (attachedIndex >= 0) {
       const g = groups[attachedIndex]
       g.rows.push(m)
-      // Dodaj nove ključne besede v skupino
       for (const kw of m.keywords) {
           if (!g.keywords.includes(kw)) g.keywords.push(kw)
       }
@@ -94,18 +91,14 @@ export function computeTrending(rows: any[]): TrendingGroupResult[] {
      const uniqueSources = new Set(g.rows.map((r: any) => r.row.source)).size
      if (uniqueSources < TREND_MIN_SOURCES) continue
 
-     // Najdi predstavnika (najnovejši članek z sliko če se da)
      let rep = g.rows[0]
      let newestMs = 0
      
-     // Iščemo najnovejšega
      for (const r of g.rows) {
          if (r.ms > newestMs) newestMs = r.ms
-         // Preferiramo tistega s sliko za predstavnika
          if (r.row.image && !rep.row.image) rep = r
      }
      
-     // Če je skupina stara, jo vrzi ven (Hot Cutoff)
      if ((nowMs - newestMs) > (TREND_HOT_CUTOFF_HOURS * 3600000)) continue
 
      scored.push({ group: g, rep, uniqueSources, newestMs })
@@ -121,9 +114,8 @@ export function computeTrending(rows: any[]): TrendingGroupResult[] {
   return scored.slice(0, TREND_MAX_ITEMS).map(sg => {
       const repRow = sg.rep.row
       
-      // Zgodbe v ozadju
       const storyArticles = sg.group.rows
-        .filter((r: any) => r.row.id !== repRow.id) // Brez predstavnika
+        .filter((r: any) => r.row.id !== repRow.id)
         .map((r: any) => ({
             source: r.row.source,
             title: r.row.title,
@@ -138,7 +130,7 @@ export function computeTrending(rows: any[]): TrendingGroupResult[] {
           source: repRow.source,
           image: repRow.image,
           contentSnippet: repRow.summary || repRow.contentsnippet,
-          publishedAt: sg.newestMs, // Uporabimo čas najnovejšega v skupini
+          publishedAt: sg.newestMs,
           category: repRow.category || 'ostalo',
           storyArticles: storyArticles
       }
