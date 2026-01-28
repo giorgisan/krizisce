@@ -1,7 +1,7 @@
-// pages/api/cron/refresh-groups.ts
 import { NextApiRequest, NextApiResponse } from 'next'
 import { createClient } from '@supabase/supabase-js'
-import { computeTrending } from '@/lib/trendingAlgo' // <--- Uvozimo logiko
+// SPREMEMBA: Uvozimo tudi TREND_WINDOW_HOURS
+import { computeTrending, TREND_WINDOW_HOURS } from '@/lib/trendingAlgo' 
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -15,12 +15,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
-    // 2. Zajem zadnjih novic (zadnjih 12 ur je dovolj za trende)
-    const cutoff = Date.now() - (12 * 60 * 60 * 1000)
+    // 2. Zajem zadnjih novic (Uporabimo uvoženo konstanto!)
+    // Namesto hardcoded 12 ur, uporabimo nastavitev iz algo datoteke
+    const cutoff = Date.now() - (TREND_WINDOW_HOURS * 60 * 60 * 1000)
     
     const { data: rows, error } = await supabase
         .from('news')
-        .select('*') // Rabimo vse za algoritem
+        .select('*') 
         .gt('publishedat', cutoff)
         .neq('category', 'oglas')
         .order('publishedat', { ascending: false })
@@ -28,13 +29,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     if (error) throw error
 
-    // 3. Izvedba Algoritma (CPU intenzivno, ampak teče v cronu)
+    // 3. Izvedba Algoritma
     const trendingData = computeTrending(rows || [])
 
     // 4. Shranjevanje v Cache tabelo
-    // Vedno posodobimo ID=1 (ali pa zadnji zapis), da ne polnimo baze
-    // Najprej pobrišemo stare (ali pa samo updejtamo če imamo ID)
-    await supabase.from('trending_groups_cache').delete().neq('id', 0) // Čiščenje (poenostavljeno)
+    await supabase.from('trending_groups_cache').delete().neq('id', 0) 
     
     const { error: saveError } = await supabase
         .from('trending_groups_cache')
@@ -42,7 +41,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     if (saveError) throw saveError
 
-    return res.status(200).json({ success: true, count: trendingData.length })
+    return res.status(200).json({ 
+        success: true, 
+        count: trendingData.length,
+        windowHours: TREND_WINDOW_HOURS // Za debug informacijo
+    })
 
   } catch (e: any) {
       console.error(e)
