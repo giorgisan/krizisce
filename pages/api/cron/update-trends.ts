@@ -49,7 +49,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         2. BREZ PODVAJANJA: Ne ustvarjaj vsebinsko podobnih tagov.
         
         KRITERIJI ZA TAG:
-        1. UPORABNOST PRI ISKANJU: Tag mora vsebovati besede, ki se DOBESEDNO nahajajo v naslovih novic.
+        1. UPORABNOST PRI ISKANJU: Tag mora vsebovati besede, ki se nahajajo v naslovih oz. podnaslovih novic.
            - SLABO: #Politično Dogajanje (preveč splošno, te besede ni v naslovih)
            - DOBRO: #Golob (če se v naslovih omenja premier Golob)
            - DOBRO: #Vojna v Ukrajini (če se v naslovih omenja Ukrajina/vojna)
@@ -65,6 +65,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         - Dolžina: 1 do 3 besede na tag.
         - Besede naj bodo v osnovni obliki (imenovalnik), da se ujemajo z iskalnim indeksom.
         - Izogibaj se generičnim besedam kot so "Šport", "Novice", "Dogajanje", "Stanje", razen če so del specifične fraze.
+        - Ne izmišljuj si besed (ne haluciniraj)
 
         CILJ: Vrni med 6 in 10 najbolj relevantnih tagov za premikajoči se trak.
     `
@@ -79,19 +80,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                 { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE },
             ]
         })
-
-        // --- SPREMEMBA TUKAJ ---
-        // Namesto: const result = await model.generateContent(prompt)
-        // Uporabimo konfiguracijo s temperaturo:
-        const result = await model.generateContent({
-            contents: [{ role: 'user', parts: [{ text: prompt }] }],
-            generationConfig: {
-                temperature: 0.3, // Nizka temperatura za natančnost in manj halucinacij
-                maxOutputTokens: 1000,
-            }
-        });
-        // -----------------------
-      
+        const result = await model.generateContent(prompt)
         const responseText = result.response.text()
         
         // Robustno iskanje JSON-a (najde vsebino med [ in ])
