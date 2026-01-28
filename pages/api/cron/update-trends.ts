@@ -33,14 +33,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(200).json({ success: false, message: 'Baza je prazna.' })
     }
 
-    // 2. PRIPRAVA VSEBINE (DODANO: Vključitev opisa, ker ga že zajemamo!)
+    // 2. PRIPRAVA VSEBINE (Vključuje naslov in kratek opis za boljši kontekst)
     const headlines = allNews.map(n => {
-        // Uporabimo contentsnippet ali summary, očistimo in skrajšamo
         const desc = (n.contentsnippet || n.summary || '').replace(/\s+/g, ' ').trim().substring(0, 200);
         return `- ${n.source}: ${n.title} ${desc ? `| ${desc}` : ''}`;
     }).join('\n')
 
-    // 3. TVOJ TRENUTNI PROMPT (Nespremenjen, kot si želel)
+    // 3. TVOJ PROMPT
     const prompt = `
         Kot izkušen urednik slovenskega novičarskega portala analiziraj spodnji seznam naslovov zadnjih novic.
         Tvoja naloga je ustvariti dinamičen in raznolik seznam trendov (#TemeDneva), ki so trenutno najbolj aktualni.
@@ -86,34 +85,43 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             ]
         })
 
-        // DODANO: Temperatura in config
+        // DODANO: responseMimeType in temperatura
         const result = await model.generateContent({
             contents: [{ role: 'user', parts: [{ text: prompt }] }],
             generationConfig: {
-                temperature: 0.2, // Nizka temperatura prepreči "#Minilna"
+                temperature: 0.2,
                 maxOutputTokens: 1000,
+                responseMimeType: "application/json" // To prisili AI v čisti JSON
             }
         })
 
-        const responseText = result.response.text()
+        let responseText = result.response.text();
         
+        // POPRAVEK: Agresivno čiščenje markdown znakov za vsak slučaj
+        responseText = responseText.replace(/```json/g, '').replace(/```/g, '').trim();
+        
+        // Robustno iskanje JSON-a
         const jsonStart = responseText.indexOf('[');
         const jsonEnd = responseText.lastIndexOf(']') + 1;
-        const cleanJson = responseText.substring(jsonStart, jsonEnd);
         
+        if (jsonStart === -1 || jsonEnd === 0) {
+            throw new Error(`Invalid JSON format: ${responseText.substring(0, 100)}...`);
+        }
+
+        const cleanJson = responseText.substring(jsonStart, jsonEnd);
         return JSON.parse(cleanJson)
     }
 
-    // 4. GENERIRANJE 
+    // 4. GENERIRANJE
     try {
-        console.log("Poskušam gemini-2.5-flash-lite...");
-        trends = await tryGenerate("gemini-2.5-flash-lite");
-        usedModel = "gemini-2.5-flash-lite";
+        console.log("Poskušam gemini-1.5-flash...");
+        trends = await tryGenerate("gemini-1.5-flash");
+        usedModel = "gemini-1.5-flash";
     } catch (err1: any) {
-        console.warn(`⚠️ Lite verzija ni uspela...`, err1.message);
+        console.warn(`⚠️ 1.5 Flash ni uspel...`, err1.message);
         try {
-            trends = await tryGenerate("gemini-2.5-flash");
-            usedModel = "gemini-2.5-flash";
+            trends = await tryGenerate("gemini-1.5-pro");
+            usedModel = "gemini-1.5-pro";
         } catch (err2: any) {
             console.error("❌ Vsi modeli odpovedali.");
             return res.status(500).json({ error: 'AI generation failed', details: err2.message });
@@ -122,7 +130,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // 5. SHRANJEVANJE
     if (Array.isArray(trends) && trends.length > 0) {
-        // DODANO: Ročni filter za "Šport" in ostale smeti
+        // Ročni filter za vsak slučaj
         const BLACKLIST = ['šport', 'novice', 'vlada', 'slovenija', 'policija', 'gasilci', 'kronika', 'svet', 'dogajanje', 'stanje', 'posnetek', 'video', 'foto', 'preverite', 'v živo', 'članek'];
 
         trends = trends
@@ -134,7 +142,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             .filter(t => {
                 const lower = t.toLowerCase().replace('#', '');
                 if (t.length <= 3) return false;
-                // Če je tag točno enak prepovedani besedi (npr. "#Šport"), ga vržemo ven
                 if (BLACKLIST.includes(lower)) return false;
                 return true;
             })
