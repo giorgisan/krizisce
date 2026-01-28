@@ -15,49 +15,57 @@ interface TrendingBarProps {
 export default function TrendingBar({ words, onSelectWord, selectedWord }: TrendingBarProps) {
   const hasWords = words && words.length > 0;
   
-  // Ref samo za desktop kontejner (kjer deluje avtomatika)
-  const desktopContainerRef = useRef<HTMLDivElement>(null);
+  // Ref za notranji kontejner, ki ga bomo premikali s transformacijo
+  const contentRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const [isPaused, setIsPaused] = useState(false);
   
-  // State za Drag-to-Scroll (samo desktop)
+  // State za Drag-to-Scroll logiko (deluje s transformacijo)
   const [isDragging, setIsDragging] = useState(false);
   const [startX, setStartX] = useState(0);
-  const [scrollLeft, setScrollLeft] = useState(0);
+  
+  // Trenutna pozicija transformacije (shranjena v refu za performance)
+  const currentTranslate = useRef(0);
 
-  // Za desktop podvojimo seznam za zanko, za mobile pustimo original
+  // Podvojimo seznam za zanko
   const marqueeWords = hasWords 
     ? (words.length < 15 ? [...words, ...words, ...words] : [...words, ...words]) 
     : [];
 
-  // --- DRAG LOGIKA (Samo za Desktop) ---
+  // --- DRAG LOGIKA (Prilagojena za transform) ---
   const handleMouseDown = (e: React.MouseEvent) => {
-    if (!desktopContainerRef.current) return;
+    if (!contentRef.current) return;
     setIsDragging(true);
-    setIsPaused(true); // Ustavimo avtomatiko ko primemo
-    setStartX(e.pageX - desktopContainerRef.current.offsetLeft);
-    setScrollLeft(desktopContainerRef.current.scrollLeft);
+    setIsPaused(true);
+    setStartX(e.pageX);
   };
 
   const handleMouseLeave = () => {
     setIsDragging(false);
-    setIsPaused(false); // Ponovno zaženemo ko gremo ven
+    setIsPaused(false);
   };
 
   const handleMouseUp = () => {
     setIsDragging(false);
-    // Tu ne od-pavziramo takoj, ampak onMouseLeave ali onMouseEnter logika spodaj
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
-    if (!isDragging || !desktopContainerRef.current) return;
+    if (!isDragging || !contentRef.current) return;
     e.preventDefault();
-    const x = e.pageX - desktopContainerRef.current.offsetLeft;
-    const walk = (x - startX) * 2; 
-    desktopContainerRef.current.scrollLeft = scrollLeft - walk;
+    const x = e.pageX;
+    const walk = (x - startX) * 1.5; // Faktor občutljivosti vlečenja
+    setStartX(x); // Resetiramo startX za naslednji premik (delta)
+    
+    currentTranslate.current += walk;
+    
+    // Omejitev vlečenja (da ne potegnemo preveč v prazno)
+    if (currentTranslate.current > 0) currentTranslate.current = 0;
+    
+    contentRef.current.style.transform = `translate3d(${currentTranslate.current}px, 0, 0)`;
   };
 
   return (
-    // SPREMEMBA: Padding nastavljen na py-0.5 (zelo ozko)
+    // SPREMEMBA: Padding py-0.5 (4px) - kompromis med preveč in premalo
     <div className="flex items-center w-full overflow-hidden py-0.5 border-b border-gray-100 dark:border-gray-800/50 lg:border-none">
       
       {/* LABELA */}
@@ -71,12 +79,13 @@ export default function TrendingBar({ words, onSelectWord, selectedWord }: Trend
         </span>
       </div>
 
+      {/* MARQUEE CONTAINER */}
       <div className="flex-1 overflow-hidden relative mask-gradient-right h-[30px] flex items-center">
         {!hasWords ? (
            <span className="text-xs text-gray-400 italic pl-2">Trenutno ni izstopajočih tem.</span>
         ) : (
           <>
-            {/* --- MOBILE VIEW (Native Scroll, Brez Autoscrolla) --- */}
+            {/* --- MOBILE VIEW (Native Scroll) --- */}
             <div className="flex md:hidden items-center gap-3 w-full h-full px-2 overflow-x-auto no-scrollbar">
                 {words.map((item) => {
                     const cleanWord = item.word.replace(/^#/, '');
@@ -100,12 +109,11 @@ export default function TrendingBar({ words, onSelectWord, selectedWord }: Trend
                 })}
             </div>
 
-            {/* --- DESKTOP VIEW (AutoScroller + Drag) --- */}
+            {/* --- DESKTOP VIEW (Smooth Transform Animation) --- */}
             <div 
-                ref={desktopContainerRef}
+                ref={containerRef}
                 className={`
-                    hidden md:flex items-center gap-4 w-full h-full px-2
-                    overflow-x-auto no-scrollbar
+                    hidden md:flex items-center w-full h-full px-2 overflow-hidden
                     ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}
                 `}
                 onMouseDown={handleMouseDown}
@@ -114,38 +122,49 @@ export default function TrendingBar({ words, onSelectWord, selectedWord }: Trend
                 onMouseMove={handleMouseMove}
                 onMouseEnter={() => setIsPaused(true)}
             >
-                {/* SPREMEMBA: pixelsPerSecond=30 za zelo počasno drsenje */}
-                <AutoScroller isPaused={isPaused} containerRef={desktopContainerRef} pixelsPerSecond={30} />
+                {/* HITROST: Nastavi `speed` parameter. 
+                    0.5 = 30px/s (počasno)
+                    1.0 = 60px/s (hitro)
+                    Zaradi transformacije so vmesne vrednosti (0.3, 0.7) zdaj popolnoma gladke!
+                */}
+                <SmoothScroller 
+                    isPaused={isPaused} 
+                    contentRef={contentRef} 
+                    containerRef={containerRef} 
+                    speed={0.5} // IGRALNO POLJE: Poskusi 0.4 ali 0.6
+                />
 
-                {marqueeWords.map((item, index) => {
-                    const cleanWord = item.word.replace(/^#/, '');
-                    const isSelected = selectedWord?.toLowerCase().replace(/^#/, '') === cleanWord.toLowerCase();
-                    const key = `${item.word}-${index}`; 
+                <div ref={contentRef} className="flex items-center gap-4 will-change-transform">
+                    {marqueeWords.map((item, index) => {
+                        const cleanWord = item.word.replace(/^#/, '');
+                        const isSelected = selectedWord?.toLowerCase().replace(/^#/, '') === cleanWord.toLowerCase();
+                        const key = `${item.word}-${index}`; 
 
-                    return (
-                        <button
-                            key={key}
-                            onClick={(e) => {
-                                if (isDragging) e.preventDefault();
-                                else onSelectWord(cleanWord);
-                            }}
-                            className={`
-                            whitespace-nowrap text-[13px] font-medium transition-colors duration-200 flex items-center shrink-0 group/btn
-                            ${isSelected 
-                                ? 'text-brand font-bold' 
-                                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
-                            }
-                            `}
-                        >
-                            <span className={`
-                                mr-0.5 text-xs opacity-40 transition-all
-                                group-hover/btn:text-brand group-hover/btn:opacity-100
-                                ${isSelected ? 'text-brand opacity-100' : ''}
-                            `}>#</span>
-                            {cleanWord}
-                        </button>
-                    )
-                })}
+                        return (
+                            <button
+                                key={key}
+                                onClick={(e) => {
+                                    if (isDragging) e.preventDefault();
+                                    else onSelectWord(cleanWord);
+                                }}
+                                className={`
+                                whitespace-nowrap text-[13px] font-medium transition-colors duration-200 flex items-center shrink-0 group/btn
+                                ${isSelected 
+                                    ? 'text-brand font-bold' 
+                                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+                                }
+                                `}
+                            >
+                                <span className={`
+                                    mr-0.5 text-xs opacity-40 transition-all
+                                    group-hover/btn:text-brand group-hover/btn:opacity-100
+                                    ${isSelected ? 'text-brand opacity-100' : ''}
+                                `}>#</span>
+                                {cleanWord}
+                            </button>
+                        )
+                    })}
+                </div>
             </div>
           </>
         )}
@@ -178,44 +197,63 @@ export default function TrendingBar({ words, onSelectWord, selectedWord }: Trend
   )
 }
 
-// --- IZBOLJŠAN SCROLLER (Time-Based) ---
-function AutoScroller({ isPaused, containerRef, pixelsPerSecond }: { isPaused: boolean, containerRef: React.RefObject<HTMLDivElement>, pixelsPerSecond: number }) {
-    // Ref za hranjenje decimalne pozicije
-    const accumulatedPos = useRef(0);
+// --- SMOOTH TRANSFORM SCROLLER ---
+// Uporablja sub-pixel transformacijo za maksimalno gladkost
+function SmoothScroller({ 
+    isPaused, 
+    contentRef, 
+    containerRef, 
+    speed 
+}: { 
+    isPaused: boolean, 
+    contentRef: React.RefObject<HTMLDivElement>, 
+    containerRef: React.RefObject<HTMLDivElement>,
+    speed: number 
+}) {
+    // Shranimo pozicijo, da se ne izgubi med renderji
+    const position = useRef(0);
 
     useEffect(() => {
-        // Sinhronizacija ob startu
-        if (containerRef.current) {
-            accumulatedPos.current = containerRef.current.scrollLeft;
+        // Sinhroniziramo interno pozicijo z dejansko transformacijo (če je uporabnik vlekel)
+        if (contentRef.current) {
+            // Parsamo trenutni translateX iz style stringa
+            const match = contentRef.current.style.transform.match(/translate3d\(([-\d.]+)px/);
+            if (match) {
+                position.current = parseFloat(match[1]);
+            }
         }
 
         if (isPaused) return;
 
         let animationFrameId: number;
-        let lastTimestamp: number | null = null;
+        let lastTime = performance.now();
 
-        const scroll = (timestamp: number) => {
-            if (!lastTimestamp) lastTimestamp = timestamp;
-            const deltaTime = (timestamp - lastTimestamp) / 1000; // sekunde
-            lastTimestamp = timestamp;
+        const animate = (time: number) => {
+            const deltaTime = (time - lastTime) / 16; // Normaliziramo na ~60fps
+            lastTime = time;
 
-            if (containerRef.current) {
-                const move = pixelsPerSecond * deltaTime;
-                accumulatedPos.current += move;
-                containerRef.current.scrollLeft = accumulatedPos.current;
+            if (contentRef.current && containerRef.current) {
+                // Premikamo v levo (negativno)
+                position.current -= speed * deltaTime;
 
-                // Reset
-                if (containerRef.current.scrollLeft >= (containerRef.current.scrollWidth - containerRef.current.clientWidth - 1)) {
-                     containerRef.current.scrollLeft = 0;
-                     accumulatedPos.current = 0;
+                const contentWidth = contentRef.current.scrollWidth;
+                const containerWidth = containerRef.current.clientWidth;
+                
+                // Reset logika: ko pridemo do konca vsebine (minus viewport)
+                // Ker je seznam podvojen, lahko skočimo nazaj na 0 ali polovico
+                // Enostaven reset: ko zmanjka vsebine
+                if (-position.current >= (contentWidth - containerWidth)) {
+                    position.current = 0;
                 }
+
+                contentRef.current.style.transform = `translate3d(${position.current}px, 0, 0)`;
             }
-            animationFrameId = requestAnimationFrame(scroll);
+            animationFrameId = requestAnimationFrame(animate);
         };
 
-        animationFrameId = requestAnimationFrame(scroll);
+        animationFrameId = requestAnimationFrame(animate);
         return () => cancelAnimationFrame(animationFrameId);
-    }, [isPaused, pixelsPerSecond, containerRef]);
+    }, [isPaused, speed, contentRef, containerRef]);
 
     return null;
 }
