@@ -69,6 +69,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         CILJ: Vrni med 6 in 12 najbolj relevantnih tagov za premikajoči se trak.
     `
     
+    // Pomožna funkcija za klic AI
     const tryGenerate = async (modelName: string) => {
         console.log(`Poskušam z modelom: ${modelName}...`);
         const model = genAI.getGenerativeModel({ 
@@ -95,33 +96,35 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     // --- 3. IZBIRA MODELOV ---
-    // Uporabljamo uradna imena.
-    // gemini-1.5-flash JE najhitrejši/najcenejši model.
-    // gemini-1.5-pro je pametnejši/dražji.
-    
+    // Sestavimo seznam modelov glede na prioriteto
     let modelsToTry: string[] = [];
 
+    // gemini-1.5-flash JE "Lite" model (najhitrejši in najcenejši).
+    // gemini-1.5-pro je pametnejši.
+    // gemini-pro je stari model za rezervo.
+
     if (dailyCount < 15) {
-        // Varčevalni način: Flash -> Pro
-        modelsToTry = ["gemini-1.5-flash", "gemini-1.5-pro"];
+        // Varčevalni način: Najprej Flash, nato Pro, nato stari Pro
+        modelsToTry = ["gemini-1.5-flash", "gemini-1.5-pro", "gemini-pro"];
     } else {
         // Limit dosežen: Razporedimo breme, poskusimo Pro first, nato Flash
-        modelsToTry = ["gemini-1.5-pro", "gemini-1.5-flash"];
+        modelsToTry = ["gemini-1.5-pro", "gemini-1.5-flash", "gemini-pro"];
     }
 
     let success = false;
     let lastError = null;
 
-    // Zanka čez modele (Iterator Pattern)
+    // Zanka čez modele (Iterator Pattern) - to prepreči "Vsi modeli so odpovedali"
     for (const modelName of modelsToTry) {
         try {
             trends = await tryGenerate(modelName);
             usedModel = modelName;
             success = true;
-            break; // Uspelo je!
+            break; // Uspelo je, nehaj poskušati druge modele
         } catch (e: any) {
             console.warn(`Model ${modelName} ni uspel: ${e.message}`);
             lastError = e;
+            // Nadaljuj na naslednji model v zanki
         }
     }
 
