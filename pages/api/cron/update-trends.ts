@@ -47,16 +47,26 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         STRATEGIJA IZBORA:
         1. RELEVANTNOST: Izpostavi teme, o katerih piše več različnih virov (npr. RTV, 24ur, Delo, Siol).
         2. BREZ PODVAJANJA: Ne ustvarjaj vsebinsko podobnih tagov.
-        3. SVEŽINA: Če opaziš izreden dogodek (npr. zmaga, nesreča, pomembna odločitev), naj bo ta na vrhu.
+        
+        KRITERIJI ZA TAG:
+        1. UPORABNOST PRI ISKANJU: Tag mora vsebovati besede, ki se DEJANSKO nahajajo v naslovih novic.
+           - SLABO: #Politično Dogajanje (preveč splošno, te besede ni v naslovih)
+           - DOBRO: #Golob (če se v naslovih omenja premier Golob)
+           - DOBRO: #Vojna v Ukrajini (če se v naslovih omenja Ukrajina/vojna)
+
+        2. KONKRETNOST: Raje uporabi imena oseb, krajev ali dogodkov kot pa abstraktne pojme.
+           - Namesto #Kriminal uporabi #Umor v Mariboru (če je to tema).
+           - Namesto #Šport uporabi #Dončić (če je tema Luka Dončić).
 
         PRAVILA OBLIKOVANJA (STROGO):
         - Vrni IZKLJUČNO JSON array stringov: ["#Tag1", "#Tag2", ...]
         - Vsak tag se mora začeti z lojtro (#).
         - Uporabljaj slovenski jezik in presledke (NE CamelCase).
         - Dolžina: 1 do 3 besede na tag.
-        - Besede naj bodo v osnovni obliki (imenovalnik).
+        - Besede naj bodo v osnovni obliki (imenovalnik), da se ujemajo z iskalnim indeksom.
+        - Izogibaj se generičnim besedam kot so "Novice", "Dogajanje", "Stanje", razen če so del specifične fraze.
 
-        CILJ: Vrni med 6 in 12 najbolj relevantnih tagov za premikajoči se trak.
+        CILJ: Vrni med 6 in 10 najbolj relevantnih tagov za premikajoči se trak.
     `
     
     const tryGenerate = async (modelName: string) => {
