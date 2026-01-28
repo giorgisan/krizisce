@@ -19,8 +19,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   let usedModel = 'unknown'
   
   try {
-    // 1. ZAJEM NOVIC
-    // --- PREVERJANJE ŠTEVILA DANAŠNJIH KLICEV ---
+    // --- 1. PREVERJANJE ŠTEVILA DANAŠNJIH KLICEV ---
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const { count } = await supabase
@@ -30,7 +29,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const dailyCount = count || 0;
 
-    // --- ZAJEM VSEBINE ---
+    // --- 2. ZAJEM NOVIC ---
     const { data: allNews, error } = await supabase
       .from('news')
       .select('title, publishedat, source')
@@ -46,7 +45,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const headlines = allNews.map(n => `- ${n.source}: ${n.title}`).join('\n')
 
-    // 2. PRIPRAVA PROMPTA
+    // --- 3. PRIPRAVA PROMPTA ---
     const prompt = `
         Kot izkušen urednik slovenskega novičarskega portala analiziraj spodnji seznam naslovov zadnjih novic.
         Tvoja naloga je ustvariti dinamičen in raznolik seznam trendov (#TemeDneva), ki so trenutno najbolj aktualni.
@@ -89,9 +88,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return JSON.parse(cleanJson)
     }
 
-    // 3. GENERIRANJE Z LOGIKO PREKLOPA
-    // Če je manj kot 15 klicov, probaj najprej Lite, nato navaden Flash.
-    // Če je 15 ali več, preskoči Lite in pojdi direktno na navaden Flash.
+    // --- 4. GENERIRANJE Z LOGIKO PREKLOPA ---
+    // Logika: 
+    // - Če je < 15 klicev: poskusi Lite -> fallback na Flash
+    // - Če je >= 15 klicev: poskusi direktno Flash -> fallback na (nič/error) ali stari Flash
     
     if (dailyCount < 15) {
         // SCENARIJ A: Varčujemo (Lite first)
@@ -99,18 +99,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             console.log("Poskušam gemini-1.5-flash-lite...");
             trends = await tryGenerate("gemini-1.5-flash-lite");
             usedModel = "gemini-1.5-flash-lite";
-        } catch (err1) {
-            console.warn("Lite ni uspel, preklapljam na Flash...");
+        } catch (err1: any) {
+            console.warn(`⚠️ Lite verzija ni uspela (${err1.message}), preklapljam na Flash...`);
             try {
                 trends = await tryGenerate("gemini-1.5-flash");
                 usedModel = "gemini-1.5-flash";
             } catch (err2) {
-                 // Če oba odpovesta, vrnemo napako
-                 throw new Error("Vsi modeli so odpovedali.");
+                 throw new Error("Vsi modeli so odpovedali (Lite in Flash).");
             }
         }
     } else {
-        // SCENARIJ B: Smo že čez limit za Lite, gremo direktno na Flash
+        // SCENARIJ B: Smo čez limit za Lite, gremo direktno na Flash
         console.log("Limit 15 dosežen, uporabljam direktno Flash...");
         try {
             trends = await tryGenerate("gemini-1.5-flash");
@@ -120,7 +119,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         }
     }
 
-    // 4. SHRANJEVANJE
+    // --- 5. SHRANJEVANJE ---
     if (Array.isArray(trends) && trends.length > 0) {
         trends = trends
             .map(t => {
