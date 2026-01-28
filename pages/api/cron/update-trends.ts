@@ -19,7 +19,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   let usedModel = 'unknown'
   
   try {
-    // --- 1. PREVERJANJE ŠTEVILA DANAŠNJIH KLICEV ---
+    // 1. ZAJEM NOVIC
+    // --- PREVERJANJE ŠTEVILA DANAŠNJIH KLICEV ---
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const { count } = await supabase
@@ -29,7 +30,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const dailyCount = count || 0;
 
-    // --- 2. ZAJEM NOVIC ---
+    // --- ZAJEM VSEBINE ---
     const { data: allNews, error } = await supabase
       .from('news')
       .select('title, publishedat, source')
@@ -45,7 +46,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const headlines = allNews.map(n => `- ${n.source}: ${n.title}`).join('\n')
 
-    // --- 3. PRIPRAVA PROMPTA ---
+    // 2. PRIPRAVA PROMPTA
     const prompt = `
         Kot izkušen urednik slovenskega novičarskega portala analiziraj spodnji seznam naslovov zadnjih novic.
         Tvoja naloga je ustvariti dinamičen in raznolik seznam trendov (#TemeDneva), ki so trenutno najbolj aktualni.
@@ -68,7 +69,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         CILJ: Vrni med 6 in 12 najbolj relevantnih tagov za premikajoči se trak.
     `
     
-    // Funkcija za generiranje z določenim modelom
     const tryGenerate = async (modelName: string) => {
         console.log(`Poskušam z modelom: ${modelName}...`);
         const model = genAI.getGenerativeModel({ 
@@ -87,40 +87,41 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         const jsonEnd = responseText.lastIndexOf(']') + 1;
         
         if (jsonStart === -1 || jsonEnd === 0) {
-             throw new Error("Invalid JSON structure");
+             throw new Error("Invalid JSON structure returned by AI");
         }
 
         const cleanJson = responseText.substring(jsonStart, jsonEnd);
         return JSON.parse(cleanJson)
     }
 
-    // --- 4. PAMETNA IZBIRA MODELOV (Iterator) ---
-    // Sestavimo seznam modelov glede na prioriteto
+    // --- 3. IZBIRA MODELOV ---
+    // Uporabljamo uradna imena.
+    // gemini-1.5-flash JE najhitrejši/najcenejši model.
+    // gemini-1.5-pro je pametnejši/dražji.
+    
     let modelsToTry: string[] = [];
 
     if (dailyCount < 15) {
-        // Varčevalni način: Najprej Lite (če obstaja), nato Flash, nato Pro
-        // Opomba: 'gemini-1.5-flash-lite' morda ne obstaja, zato bo verjetno padel na drugega.
-        modelsToTry = ["gemini-1.5-flash-lite", "gemini-1.5-flash", "gemini-pro"];
+        // Varčevalni način: Flash -> Pro
+        modelsToTry = ["gemini-1.5-flash", "gemini-1.5-pro"];
     } else {
-        // Limit dosežen: Preskoči Lite, pojdi direktno na Flash in Pro
-        modelsToTry = ["gemini-1.5-flash", "gemini-pro"];
+        // Limit dosežen: Razporedimo breme, poskusimo Pro first, nato Flash
+        modelsToTry = ["gemini-1.5-pro", "gemini-1.5-flash"];
     }
 
-    // Poskusimo vsak model v vrsti
     let success = false;
     let lastError = null;
 
+    // Zanka čez modele (Iterator Pattern)
     for (const modelName of modelsToTry) {
         try {
             trends = await tryGenerate(modelName);
             usedModel = modelName;
             success = true;
-            break; // Uspelo je, nehaj poskušati druge modele
+            break; // Uspelo je!
         } catch (e: any) {
             console.warn(`Model ${modelName} ni uspel: ${e.message}`);
             lastError = e;
-            // Nadaljuj na naslednji model v zanki
         }
     }
 
@@ -128,7 +129,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         throw new Error(`Vsi poskusi so spodleteli. Zadnja napaka: ${lastError?.message}`);
     }
 
-    // --- 5. SHRANJEVANJE ---
+    // 4. SHRANJEVANJE
     if (Array.isArray(trends) && trends.length > 0) {
         trends = trends
             .map(t => {
