@@ -114,8 +114,8 @@ export default function TrendingBar({ words, onSelectWord, selectedWord }: Trend
                 onMouseMove={handleMouseMove}
                 onMouseEnter={() => setIsPaused(true)}
             >
-                {/* SPREMEMBA: pixelsPerSecond=20 za zelo počasno drsenje */}
-                <AutoScroller isPaused={isPaused} containerRef={desktopContainerRef} pixelsPerSecond={20} />
+                {/* SPREMEMBA: pixelsPerSecond=30 za zelo počasno drsenje */}
+                <AutoScroller isPaused={isPaused} containerRef={desktopContainerRef} pixelsPerSecond={30} />
 
                 {marqueeWords.map((item, index) => {
                     const cleanWord = item.word.replace(/^#/, '');
