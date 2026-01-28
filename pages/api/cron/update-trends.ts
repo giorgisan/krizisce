@@ -19,7 +19,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   let usedModel = 'unknown'
   
   try {
-    // --- 1. PREVERJANJE ŠTEVILA DANAŠNJIH KLICEV (Za preventivni preklop) ---
+    // 1. ZAJEM NOVIC
+    // --- PREVERJANJE ŠTEVILA DANAŠNJIH KLICEV ---
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const { count } = await supabase
@@ -29,7 +30,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const dailyCount = count || 0;
 
-    // 2. ZAJEM NOVIC (200 za boljšo analizo trendov)
+    // --- ZAJEM VSEBINE ---
     const { data: allNews, error } = await supabase
       .from('news')
       .select('title, publishedat, source')
@@ -45,6 +46,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const headlines = allNews.map(n => `- ${n.source}: ${n.title}`).join('\n')
 
+    // 2. PRIPRAVA PROMPTA
     const prompt = `
         Kot izkušen urednik slovenskega novičarskega portala analiziraj spodnji seznam naslovov zadnjih novic.
         Tvoja naloga je ustvariti dinamičen in raznolik seznam trendov (#TemeDneva), ki so trenutno najbolj aktualni.
@@ -79,35 +81,42 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         })
         const result = await model.generateContent(prompt)
         const responseText = result.response.text()
+        
         const jsonStart = responseText.indexOf('[');
         const jsonEnd = responseText.lastIndexOf(']') + 1;
         const cleanJson = responseText.substring(jsonStart, jsonEnd);
+        
         return JSON.parse(cleanJson)
     }
 
-    // --- 3. LOGIKA PREKLOPA (Da preprečimo rdeče številke) ---
+    // 3. GENERIRANJE Z LOGIKO PREKLOPA
+    // Če je manj kot 15 klicov, probaj najprej Lite, nato navaden Flash.
+    // Če je 15 ali več, preskoči Lite in pojdi direktno na navaden Flash.
+    
     if (dailyCount < 15) {
-        // Prvih 15 klicev uporabljamo Lite
+        // SCENARIJ A: Varčujemo (Lite first)
         try {
-            trends = await tryGenerate("gemini-2.0-flash-lite");
-            usedModel = "gemini-2.0-flash-lite";
-        } catch (e) {
+            console.log("Poskušam gemini-1.5-flash-lite...");
+            trends = await tryGenerate("gemini-1.5-flash-lite");
+            usedModel = "gemini-1.5-flash-lite";
+        } catch (err1) {
+            console.warn("Lite ni uspel, preklapljam na Flash...");
             try {
-                trends = await tryGenerate("gemini-2.0-flash");
-                usedModel = "gemini-2.0-flash";
-            } catch (e2) {
                 trends = await tryGenerate("gemini-1.5-flash");
                 usedModel = "gemini-1.5-flash";
+            } catch (err2) {
+                 // Če oba odpovesta, vrnemo napako
+                 throw new Error("Vsi modeli so odpovedali.");
             }
         }
     } else {
-        // Po 15. klicu gremo takoj na navaden Flash, da Lite ne preseže 20
+        // SCENARIJ B: Smo že čez limit za Lite, gremo direktno na Flash
+        console.log("Limit 15 dosežen, uporabljam direktno Flash...");
         try {
-            trends = await tryGenerate("gemini-2.0-flash");
-            usedModel = "gemini-2.0-flash";
-        } catch (e) {
             trends = await tryGenerate("gemini-1.5-flash");
             usedModel = "gemini-1.5-flash";
+        } catch (err1) {
+             throw new Error("Flash model je odpovedal.");
         }
     }
 
@@ -134,6 +143,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(200).json({ 
             success: true, 
             used_model: usedModel, 
+            count: trends.length,
             daily_count: dailyCount,
             trends 
         })
