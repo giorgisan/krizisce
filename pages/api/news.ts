@@ -317,7 +317,7 @@ async function fetchTrendingRows(): Promise<Row[]> {
     .gt('publishedat', cutoffMs)
     .neq('category', 'oglas') 
     .order('publishedat', { ascending: false })
-    .limit(300)
+    .limit(600)
 
   if (error) throw new Error(`DB trending: ${error.message}`)
   return (data || []) as Row[]
@@ -389,12 +389,12 @@ function computeTrendingFromRows(rows: Row[]): (FeedNewsItem & { storyArticles: 
   for (let gi = 0; gi < groups.length; gi++) {
     const g = groups[gi]
     if (!g.rows.length) continue
-    const srcs: string[] = []
+    const srcs = new Set<string>()
     for (let ri = 0; ri < g.rows.length; ri++) {
-      const s = (g.rows[ri].row.source || '').trim()
-      if (s && srcs.indexOf(s) === -1) srcs.push(s)
-    }
-    const sourceCount = srcs.length
+      const s = (g.rows[ri].row.source || '').trim().toLowerCase() // Normalizacija
+      if (s) srcs.add(s)
+}
+const sourceCount = srcs.size
     if (sourceCount < TREND_MIN_SOURCES) continue
     let rep = g.rows[0]
     for (let ri = 1; ri < g.rows.length; ri++) {
