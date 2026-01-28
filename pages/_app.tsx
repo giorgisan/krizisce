@@ -3,6 +3,8 @@ import type { AppProps } from 'next/app'
 import { ThemeProvider } from 'next-themes'
 import Script from 'next/script'
 import { Analytics } from '@vercel/analytics/next'
+// 1. DODAN IMPORT ZA SPEED INSIGHTS
+import { SpeedInsights } from "@vercel/speed-insights/next"
 import Head from 'next/head'
 import { useEffect } from 'react'
 
@@ -79,7 +81,11 @@ function App({ Component, pageProps }: AppProps) {
         </main>
       </ThemeProvider>
 
+      {/* VERCEL ANALYTICS */}
       <Analytics />
+      
+      {/* 2. DODANA KOMPONENTA TUKAJ */}
+      <SpeedInsights />
     </>
   )
 }
