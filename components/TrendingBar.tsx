@@ -59,7 +59,7 @@ export default function TrendingBar({ words, onSelectWord, selectedWord }: Trend
       {/* LABELA: Odmevno */}
       <div 
         className="relative z-20 flex items-center gap-1.5 shrink-0 pr-2 bg-gray-50 dark:bg-gray-900 select-none cursor-default group/label"
-        title="Najbolj pogoste teme zadnje ure"
+        title="Najbolj odmevne teme"
       >
         <span className="text-sm animate-fire group-hover/label:scale-110 transition-transform duration-300">🔥</span>
         
@@ -86,8 +86,8 @@ export default function TrendingBar({ words, onSelectWord, selectedWord }: Trend
             onMouseMove={handleMouseMove}
             onMouseEnter={() => setIsPaused(true)}
           >
-            {/* SPREMEMBA: Hitrost nastavljena na 0.4 */}
-            <AutoScroller isPaused={isPaused} containerRef={containerRef} speed={0.4} />
+            {/* SPREMEMBA: Hitrost nastavljena na 0.5 */}
+            <AutoScroller isPaused={isPaused} containerRef={containerRef} speed={0.5} />
 
             {marqueeWords.map((item, index) => {
                 const cleanWord = item.word.replace(/^#/, '');
