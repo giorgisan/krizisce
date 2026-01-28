@@ -26,7 +26,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       .neq('category', 'oglas')
       .neq('category', 'promo')
       .order('publishedat', { ascending: false })
-      .limit(300)
+      .limit(150)
 
     if (error) throw error
     if (!allNews || allNews.length === 0) {
