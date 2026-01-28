@@ -22,7 +22,7 @@ const supabaseWrite = SUPABASE_SERVICE_ROLE_KEY
   : null
 
 /* -------------------------------------------------------------------------- */
-/* HELPER FUNKCIJE                                                            */
+/* HELPER FUNKCIJE (Potrebne za ingest in splošni API)                        */
 /* -------------------------------------------------------------------------- */
 
 function cleanUrl(raw: string): URL | null {
@@ -77,15 +77,11 @@ function makeLinkKey(raw: string, iso?: string | null): string {
 const unaccent = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
 const normTitle = (s: string) => unaccent(s).toLowerCase().replace(/\s+/g, ' ').trim()
 
-// OPTIMIZACIJA 1: Izboljšan softDedupe (ne gledamo več sekund)
+// OPTIMIZACIJA 1: Izboljšan softDedupe
 function softDedupe<T extends { source?: string; title?: string; publishedAt?: number }>(arr: T[]): T[] {
   const byKey = new Map<string, T>()
   for (const it of arr) {
-    // KLJUČNA SPREMEMBA: Odstranili smo čas iz ključa.
-    // Če vir "Delo" objavi "Novica X" ob 10:00 in popravljeno ob 10:05, je to ista novica.
     const key = `${(it.source || '').trim()}|${normTitle(it.title || '')}`
-    
-    // Vedno obdržimo tisto verzijo, ki je novejša
     const prev = byKey.get(key)
     if (!prev || (it.publishedAt || 0) > (prev.publishedAt || 0)) {
       byKey.set(key, it)
@@ -218,236 +214,6 @@ function rowToItem(r: Row): FeedNewsItem {
 }
 
 /* -------------------------------------------------------------------------- */
-/* TRENDING LOGIKA                                                            */
-/* -------------------------------------------------------------------------- */
-const TREND_WINDOW_HOURS = 6 
-const TREND_MIN_SOURCES = 2        
-const TREND_MIN_OVERLAP = 2
-const TREND_MAX_ITEMS = 5
-const TREND_HOT_CUTOFF_HOURS = 4
-const TREND_JACCARD_THRESHOLD = 0.20; 
-
-type StoryArticle = {
-  source: string
-  link: string
-  title: string
-  summary: string | null
-  publishedAt: number
-}
-
-type RowMeta = {
-  row: Row
-  ms: number
-  keywords: string[]
-}
-
-type TrendGroup = {
-  rows: RowMeta[]
-  keywords: string[]
-}
-
-// OPTIMIZACIJA 2: Razširjen seznam stop besed
-const STORY_STOPWORDS = new Set<string>([
-  'v', 'na', 'ob', 'po', 'pri', 'pod', 'nad', 'za', 'do', 'od', 'z', 's',
-  'in', 'ali', 'pa', 'kot', 'je', 'so', 'se', 'bo', 'bodo', 'bil', 'bila',
-  'bili', 'bilo', 'bi', 'ko', 'ker', 'da', 'ne', 'ni', 'sta', 'ste', 'smo',
-  'danes', 'vceraj', 'nocoj', 'noc', 'jutri', 'letos', 'lani', 'ze', 'se',
-  'slovenija', 'sloveniji', 'slovenije', 'slovenijo', 
-  'slovenski', 'slovenska', 'slovensko', 'slovenskih',
-  'ljubljana', 'ljubljani',
-  'svet', 'svetu', 'evropa', 'eu', 'zda',
-  'foto', 'video', 'galerija', 'intervju', 'clanek', 'novice', 'kronika', 'avdio',
-  'novo', 'ekskluzivno', 'v zivo', 'preberite', 'poglejte', 'podrobnosti',
-  'iz', 'ter', 'kjer', 'kako', 'zakaj', 'kaj', 'kdo', 'kam', 'kadar',
-  'razlog', 'zaradi', 'glede', 'proti', 'brez', 'med', 'pred', 'cez',
-  'lahko', 'morajo', 'mora', 'imajo', 'ima', 'gre', 'pravi', 'pravijo',
-  'znano', 'znane', 'znani', 'razkrivamo', 'vec', 'manj', 'veliko',
-  'prvi', 'prva', 'prvo', 'drugi', 'druga', 'tretji', 'novi', 'nova', 
-  'dober', 'dobra', 'slaba', 'velik', 'malo',
-  'let', 'leta', 'leto', 'letnik', 'letnika', 'letih', 'letni', 'letna',
-  'letošnji', 'letošnja', 'starost', 'star', 'stara',
-  'teden', 'tedna', 'mesec', 'meseca', 'dan', 'dni', 'ura', 'ure', 'minuti', 'uri',
-  'bozic', 'bozicni', 'bozicna', 'bozicno', 'vecer', 'praznik', 'prazniki', 
-  'praznicni', 'jutro', 'dopoldne', 'popoldne', 'koncu', 'zacetku', 'sredini',
-  'objavljeno', 'posodobljeno', 'redakcija', 'urednistvo', 'splet', 'vir'
-])
-
-function stemToken(raw: string): string {
-  if (!raw) return raw
-  if (/^\d+$/.test(raw)) return raw
-  const w = raw
-  if (w.length <= 4) return w
-  if (w.length > 6) return w.substring(0, w.length - 2)
-  return w.substring(0, w.length - 1)
-}
-
-// OPTIMIZACIJA 3: Univerzalna funkcija za tekst (namesto samo za title)
-function extractKeywordsFromText(text: string): string[] {
-  const base = unaccent(text || '').toLowerCase()
-  if (!base) return []
-  
-  const clean = base.replace(/[^a-z0-9\s]/g, ' ') 
-  const tokens = clean.split(/\s+/).filter(Boolean)
-  
-  const out: string[] = []
-  for (let i = 0; i < tokens.length; i++) {
-    let w = tokens[i]
-    if (!w || w.length < 3) continue 
-    
-    const stem = stemToken(w)
-
-    // LOGIKA: Prve 3 besede v naslovu (npr. Janez Magyar v...) 
-    // so skoraj vedno ključne. Za njih preskočimo "stop-words" filter, 
-    // razen če so ekstremno pogoste (kot "v", "na", "je").
-    if (i < 3 && w.length > 3) {
-       if (out.indexOf(stem) === -1) out.push(stem)
-       continue
-    }
-
-    if (STORY_STOPWORDS.has(w) || STORY_STOPWORDS.has(stem)) continue
-    if (stem.length < 3) continue 
-    
-    if (out.indexOf(stem) === -1) out.push(stem)
-  }
-  return out
-}
-
-async function fetchTrendingRows(): Promise<Row[]> {
-  const nowMs = Date.now()
-  const cutoffMs = nowMs - TREND_WINDOW_HOURS * 3_600_000
-  
-  const { data, error } = await supabaseRead
-    .from('news')
-    .select(
-      'id, link, link_key, title, source, image, contentsnippet, summary, published_at, publishedat, created_at, category, keywords',
-    )
-    .gt('publishedat', cutoffMs)
-    .neq('category', 'oglas') 
-    .order('publishedat', { ascending: false })
-    .limit(600)
-
-  if (error) throw new Error(`DB trending: ${error.message}`)
-  return (data || []) as Row[]
-}
-
-function computeTrendingFromRows(rows: Row[]): (FeedNewsItem & { storyArticles: StoryArticle[] })[] {
-  const metas: RowMeta[] = rows.map((row) => {
-      const ms = (row.publishedat && Number(row.publishedat)) || toMs(row.published_at) || toMs(row.created_at) || Date.now()
-      
-      // OPTIMIZACIJA 3 (nadaljevanje): Združimo naslov IN povzetek za večjo natančnost
-      // Naslovu damo večjo težo tako, da ga ponovimo 2x
-      const textToAnalyze = `${row.title} ${row.title} ${row.summary || row.contentsnippet || ''}`;
-      const keywords = extractKeywordsFromText(textToAnalyze)
-      
-      return { row, ms, keywords }
-    }).filter((m) => m.keywords.length > 0)
-
-  if (!metas.length) return []
-  metas.sort((a, b) => b.ms - a.ms)
-
-  const groups: TrendGroup[] = []
-  
-  for (let i = 0; i < metas.length; i++) {
-    const m = metas[i]
-    const mKW = m.keywords
-    let attachedIndex = -1
-    let bestScore = 0 
-    
-    for (let gi = 0; gi < groups.length; gi++) {
-      const g = groups[gi]
-      const gKW = g.keywords
-      
-      let intersect = 0
-      const unionSet = new Set<string>([...gKW]) 
-      
-      for (let ki = 0; ki < mKW.length; ki++) {
-        const kw = mKW[ki]
-        unionSet.add(kw) 
-        if (gKW.indexOf(kw) !== -1) intersect++
-      }
-
-      const jaccard = unionSet.size > 0 ? (intersect / unionSet.size) : 0;
-
-      if (intersect >= TREND_MIN_OVERLAP && jaccard >= TREND_JACCARD_THRESHOLD) {
-        if (jaccard > bestScore) {
-          bestScore = jaccard
-          attachedIndex = gi
-        }
-      }
-    }
-
-    if (attachedIndex >= 0) {
-      const g = groups[attachedIndex]
-      g.rows.push(m)
-      for (let ki = 0; ki < mKW.length; ki++) {
-        const kw = mKW[ki]
-        const ifExists = g.keywords.indexOf(kw)
-        if (ifExists === -1) g.keywords.push(kw)
-      }
-    } else {
-      groups.push({ rows: [m], keywords: mKW.slice() })
-    }
-  }
-
-  const nowMs = Date.now()
-  type ScoredGroup = { group: TrendGroup; rep: RowMeta; sourceCount: number; articleCount: number; newestMs: number }
-  const scored: ScoredGroup[] = []
-
-  for (let gi = 0; gi < groups.length; gi++) {
-    const g = groups[gi]
-    if (!g.rows.length) continue
-    const srcs = new Set<string>()
-    for (let ri = 0; ri < g.rows.length; ri++) {
-      const s = (g.rows[ri].row.source || '').trim().toLowerCase() // Normalizacija
-      if (s) srcs.add(s)
-}
-const sourceCount = srcs.size
-    if (sourceCount < TREND_MIN_SOURCES) continue
-    let rep = g.rows[0]
-    for (let ri = 1; ri < g.rows.length; ri++) {
-      if (g.rows[ri].ms > rep.ms) rep = g.rows[ri]
-    }
-    const articleCount = g.rows.length
-    let newestMs = g.rows[0].ms
-    for (let ri = 1; ri < g.rows.length; ri++) {
-      if (g.rows[ri].ms > newestMs) newestMs = g.rows[ri].ms
-    }
-    const ageHours = Math.max(0, (nowMs - newestMs) / 3_600_000)
-    if (ageHours > TREND_HOT_CUTOFF_HOURS) continue
-    scored.push({ group: g, rep, sourceCount, articleCount, newestMs })
-  }
-
-  scored.sort((a, b) => {
-    if (b.sourceCount !== a.sourceCount) return b.sourceCount - a.sourceCount
-    return b.newestMs - a.newestMs
-  })
-
-  const top = scored.slice(0, TREND_MAX_ITEMS)
-  const result: (FeedNewsItem & { storyArticles: StoryArticle[] })[] = []
-
-  for (let si = 0; si < top.length; si++) {
-    const sg = top[si]
-    const base = rowToItem(sg.rep.row)
-    const storyArticles: StoryArticle[] = []
-    const seenSrc: string[] = []
-    sg.group.rows.sort((a, b) => b.ms - a.ms)
-    for (let ri = 0; ri < sg.group.rows.length; ri++) {
-      const meta = sg.group.rows[ri]
-      const r = meta.row
-      const srcName = (r.source || '').trim()
-      const link = r.link || ''
-      if (!srcName || !link) continue
-      if (seenSrc.indexOf(srcName) !== -1) continue
-      seenSrc.push(srcName)
-      const summary = (r.summary && r.summary.trim()) || (r.contentsnippet && r.contentsnippet.trim()) || null
-      storyArticles.push({ source: srcName, link, title: r.title || '', summary, publishedAt: meta.ms })
-    }
-    result.push({ ...base, storyArticles })
-  }
-  return result
-}
-
-/* -------------------------------------------------------------------------- */
 /* API HANDLER                                                                */
 /* -------------------------------------------------------------------------- */
 type PagedOk = { items: FeedNewsItem[]; nextCursor: number | null }
@@ -467,13 +233,21 @@ export default async function handler(
     const searchQuery = (req.query.q as string) || null 
     const tagQuery = (req.query.tag as string) || null 
 
-    // --- 1. TRENDING ---
+    // --- 1. TRENDING (BRANJE IZ CACHE-A - NOVO!) ---
     if (variant === 'trending') {
       try {
-        const rows = await fetchTrendingRows()
-        const items = computeTrendingFromRows(rows)
-        res.setHeader('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=60') 
-        return res.status(200).json(items as any)
+        // Namesto računanja samo preberemo zadnji shranjen rezultat iz tabele
+        // To je super hitro in ne obremenjuje procesorja
+        const { data } = await supabaseRead
+            .from('trending_groups_cache')
+            .select('data')
+            .order('updated_at', { ascending: false })
+            .limit(1)
+            .single()
+            
+        // Kratek cache, ker je branje hitro
+        res.setHeader('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=30')
+        return res.status(200).json(data?.data || [])
       } catch (err: any) {
         return res.status(500).json({ error: err?.message || 'Trending error' })
       }
@@ -574,7 +348,6 @@ export default async function handler(
         if (terms.length > 0) {
             // 2. Za VSAKO vpisano besedo dodamo pogoj (AND logika)
             terms.forEach(term => {
-                // SPREMEMBA: Odstranili smo 'summary.ilike...', ker nima indeksa in povzroča timeout!
                 // Iščemo samo po 'title' in 'contentsnippet', ki sta hitra.
                 const orConditions = [
                     `title.ilike.%${term}%`,
@@ -592,8 +365,6 @@ export default async function handler(
 
     // -----------------------------------------------------------------------
     // OPTIMIZACIJA: "Over-fetching"
-    // Zahtevamo več novic (limit + 20), da lahko potem dedupliciramo in še vedno 
-    // vrnemo polno število (limit).
     // -----------------------------------------------------------------------
     const bufferSize = 20;
     q = q.limit(limit + bufferSize)
