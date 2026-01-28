@@ -1,3 +1,5 @@
+// lib/categories.ts
+
 export type CategoryId = 
   | 'slovenija' 
   | 'svet' 
@@ -18,16 +20,13 @@ export type CategoryDef = {
   keywords: string[] 
 }
 
-// ============================================================================
-// 1. DEFINICIJE KATEGORIJ IN KLJUČNIH BESED (FINALNA "DEEP DIVE" VERZIJA)
-// ============================================================================
 export const CATEGORIES: CategoryDef[] = [
   {
     id: 'slovenija',
     label: 'Slovenija',
     color: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300',
     keywords: [
-        '/slovenija/', '/lokalno/', '/obcine/', '/regije/', '/okolje/',
+        '/slovenija/', '/lokalno/', '/obcine/', '/regije/', '/okolje/', '/lokalne-novice/',
         'ljubljan', 'maribor', 'celj', 'koper', 'kranj', 'nov mest', 'velenj', 'mursk sobot',
         'obcin', 'zupan', 'svetnik', 'komunal', 'vodovod', 'kanalizacij', 'cest',
         'vlada', 'parlament', 'drzavni zbor', 'poslanc', 'ministr', 'premier', 'predsednik',
@@ -36,12 +35,13 @@ export const CATEGORIES: CategoryDef[] = [
         'referendum', 'ustavn sodisc', 'zakon', 'novel', 'soocenj', 'anket',
         'upokojenc', 'pokojnin', 'zpis', 'socialn transfer', 'minimaln plac', 'stavk', 'sindikat',
         'zdravstv', 'zdravstven dom', 'ukc', 'fides', 'cakaln dob', 'koncesij', 
-        'solstv', 'ucitelj', 'matur', 'vpis', 'vrtec', 'solsk', 'ucenc', 'dijak', 'sol', // Šolstvo
-        'kmet', 'kmetij', 'gozdar', 'kgzs', 'zadrug', 'pridelek', 'trgatev', // Kmetijstvo
+        'solstv', 'ucitelj', 'matur', 'vpis', 'vrtec', 'solsk', 'ucenc', 'dijak', 'sol',
+        'kmet', 'kmetij', 'gozdar', 'kgzs', 'zadrug', 'pridelek', 'trgatev',
         '/mnenja/', '/kolumne/', '/pisma/', '/bralci/',
-        'vreme', 'arso', 'napoved', 'sneg', 'dez', 'neurj', 'toc', 'poplav', 'prah', 'onesnazen', 'zrak', // Vreme/Okolje
+        'vreme', 'arso', 'napoved', 'sneg', 'dez', 'neurj', 'toc', 'poplav', 'prah', 'onesnazen', 'zrak',
         'stopinj', 'celzi', 'najtoplejs', 'mraz', 'vroc', 'rekord',
-        'dobrodeln', 'gasilsk zvez', 'sodnik', 'diskriminaci', 'rasizem', 'vrednot'
+        'dobrodeln', 'gasilsk zvez', 'sodnik', 'diskriminaci', 'rasizem', 'vrednot',
+        'spominsk', 'slovesnost' // Zgodovinski/spominski dogodki
     ]
   },
   {
@@ -195,7 +195,6 @@ export const CATEGORIES: CategoryDef[] = [
   }
 ]
 
-// 2. VRSTNI RED ZA TIE-BREAKER
 const PRIORITY_CHECK_ORDER: CategoryId[] = [
   'magazin',
   'sport',
@@ -210,7 +209,6 @@ const PRIORITY_CHECK_ORDER: CategoryId[] = [
 
 const unaccent = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
 
-// 3. HIBRIDNA LOGIKA (BULLETPROOF)
 export function determineCategory(item: { 
   link: string; 
   title?: string; 
@@ -221,26 +219,19 @@ export function determineCategory(item: {
   
   const url = item.link.toLowerCase();
   
-  // A1) MOČNI URL SIGNALI
   if (url.includes('/kronika/') || url.includes('/crna-kronika/') || url.includes('/crna/')) return 'kronika';
   if (url.includes('/sport/') || url.includes('/sportal/') || url.includes('/nogomet/') || url.includes('/kosarka/') || url.includes('/zimski-sporti/')) return 'sport';
-  
   if (url.includes('/avto/') || url.includes('/avtomoto/') || url.includes('/mobilnost/') || url.includes('/svet-vozil/')) return 'moto';
-  
   if (url.includes('/magazin/') || url.includes('/bulvar/') || url.includes('/scena/') || url.includes('/zvezde/') || url.includes('/popin/') || url.includes('/karikatura/') || url.includes('/zabava/') || url.includes('/zabava-in-slog/') || url.includes('/znani/')) return 'magazin';
-  
   if (url.includes('/lifestyle/') || url.includes('/zdravje/') || url.includes('/okusno/') || url.includes('/kulinarika/') || url.includes('/dom/') || url.includes('/osebna-rast/') || url.includes('vizita') || url.includes('/trajnostno/') || url.includes('/bivanje/')) return 'lifestyle';
-  
   if (url.includes('/kultura/') || url.includes('/glasba/') || url.includes('/mlado-pero/')) return 'kultura';
-
   if (url.includes('/gospodarstvo/') || url.includes('/posel/') || url.includes('/finance/') || url.includes('/digisvet/') || url.includes('/tech/') || url.includes('/znanoteh/')) return 'posel-tech';
 
-  // A2) ŠIBKI URL SIGNALI
   let urlHint: CategoryId | null = null;
   if (url.includes('/svet/') || url.includes('/tujina/')) urlHint = 'svet';
-  if (url.includes('/slovenija/') || url.includes('/lokalno/') || url.includes('/mnenja/') || url.includes('/kolumne/') || url.includes('/pisma/') || url.includes('/bralci/') || url.includes('/okolje/')) urlHint = 'slovenija';
+  // Dodan popravek za RTV lokalne novice
+  if (url.includes('/slovenija/') || url.includes('/lokalno/') || url.includes('/lokalne-novice/') || url.includes('/mnenja/') || url.includes('/kolumne/') || url.includes('/pisma/') || url.includes('/bralci/') || url.includes('/okolje/')) urlHint = 'slovenija';
 
-  // B) TOČKOVANJE VSEBINE
   const scores: Record<CategoryId, number> = {
     slovenija: 0, svet: 0, kronika: 0, sport: 0, magazin: 0,
     lifestyle: 0, 'posel-tech': 0, moto: 0, kultura: 0, oglas: 0, ostalo: 0
@@ -261,20 +252,12 @@ export function determineCategory(item: {
           const match = cat.keywords.some(configKw => {
               if (configKw.startsWith('/')) return false; 
               const cleanConfig = unaccent(configKw);
-              
-              // BULLETPROOF LOGIKA:
-              // Če token vsebuje keyword (npr. 'sporazum' vsebuje 'poraz')
               if (token.includes(cleanConfig)) {
-                  // Če je keyword kratek (< 5), zahtevamo popolno ujemanje ali začetek besede
                   if (cleanConfig.length < 5) {
                       return token === cleanConfig || token.startsWith(cleanConfig);
                   }
-                  // Če je keyword daljši (>= 5), zahtevamo začetek ALI konec besede.
-                  // To prepreči "s-poraz-um" ujemanje, a dovoli "super-pokal" ali "poraz-enec".
                   return token.startsWith(cleanConfig) || token.endsWith(cleanConfig);
               }
-              
-              // Obratno: če je token iz baze kratek (npr. 'televizi'), konfiguracija pa dolga ('televizija')
               if (cleanConfig.includes(token) && token.length > 3) {
                   return true;
               }
@@ -284,7 +267,6 @@ export function determineCategory(item: {
       }
   }
 
-  // C) IZBIRA ZMAGOVALCA
   let maxScore = 0;
   let bestCategory: CategoryId = 'ostalo';
 
@@ -295,7 +277,6 @@ export function determineCategory(item: {
       }
   }
 
-  // D) FINALNA ODLOČITEV
   if (urlHint) {
       if (['kronika', 'sport', 'magazin', 'moto'].includes(bestCategory) && maxScore > 0) {
           return bestCategory; 
