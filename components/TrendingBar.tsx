@@ -24,9 +24,12 @@ export default function TrendingBar({ words, onSelectWord, selectedWord }: Trend
     <div className="flex items-center w-full overflow-hidden py-2 border-b border-gray-100 dark:border-gray-800/50 lg:border-none">
       
       <div className="relative z-20 flex items-center gap-1.5 shrink-0 pr-4 bg-gray-50 dark:bg-gray-900 select-none cursor-default">
-        <span className="text-sm opacity-80">🔥</span>
+        {/* DODANA ANIMACIJA: animate-gentle-pulse */}
+        <span className="text-sm animate-gentle-pulse cursor-help" title="Vroče teme">🔥</span>
+        
+        {/* SPREMEMBA IZRAZA */}
         <span className="text-xs font-bold text-gray-700 dark:text-gray-300 tracking-wide">
-          Trendi
+          Odmevno
         </span>
       </div>
 
@@ -59,7 +62,7 @@ export default function TrendingBar({ words, onSelectWord, selectedWord }: Trend
                 })}
             </div>
 
-            {/* DESKTOP MARQUEE - POPRAVEK ZA SAFARI */}
+            {/* DESKTOP MARQUEE */}
             <div className="hidden md:flex w-max items-center marquee-container">
                 <div className="animate-marquee hover-pause flex items-center">
                     {marqueeWords.map((item, index) => {
@@ -91,15 +94,23 @@ export default function TrendingBar({ words, onSelectWord, selectedWord }: Trend
       </div>
 
       <style jsx>{`
+        /* NOVO: Nežen utrip za ogenjček */
+        .animate-gentle-pulse {
+            animation: gentlePulse 2s infinite ease-in-out;
+        }
+        @keyframes gentlePulse {
+            0% { transform: scale(1); opacity: 0.8; filter: drop-shadow(0 0 0 rgba(255, 69, 0, 0)); }
+            50% { transform: scale(1.15); opacity: 1; filter: drop-shadow(0 0 2px rgba(255, 69, 0, 0.3)); }
+            100% { transform: scale(1); opacity: 0.8; filter: drop-shadow(0 0 0 rgba(255, 69, 0, 0)); }
+        }
+
         .marquee-container {
-            /* Safari potrebuje definiran prostor in will-change */
             will-change: transform;
         }
         .animate-marquee {
           display: flex;
           animation: marquee 60s linear infinite;
         }
-        /* Uporabimo neposreden razred namesto tailwind hover:pause za boljšo Safari kompatibilnost */
         .marquee-container:hover .animate-marquee {
           animation-play-state: paused;
         }
