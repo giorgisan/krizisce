@@ -19,17 +19,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   let usedModel = 'unknown'
   
   try {
-    // --- 1. PREVERJANJE ŠTEVILA DANAŠNJIH KLICEV ---
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const { count } = await supabase
-      .from('trending_ai')
-      .select('*', { count: 'exact', head: true })
-      .gte('updated_at', today.toISOString());
-
-    const dailyCount = count || 0;
-
-    // --- 2. ZAJEM NOVIC ---
+    // 1. ZAJEM NOVIC (Povečano na 200 za boljšo analizo trendov)
     const { data: allNews, error } = await supabase
       .from('news')
       .select('title, publishedat, source')
@@ -43,9 +33,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(200).json({ success: false, message: 'Baza je prazna.' })
     }
 
+    // 2. PRIPRAVA VSEBINE
     const headlines = allNews.map(n => `- ${n.source}: ${n.title}`).join('\n')
 
-    // --- 3. PRIPRAVA PROMPTA ---
+    // 3. IZBOLJŠAN PROMPT
     const prompt = `
         Kot izkušen urednik slovenskega novičarskega portala analiziraj spodnji seznam naslovov zadnjih novic.
         Tvoja naloga je ustvariti dinamičen in raznolik seznam trendov (#TemeDneva), ki so trenutno najbolj aktualni.
@@ -81,6 +72,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         const result = await model.generateContent(prompt)
         const responseText = result.response.text()
         
+        // Robustno iskanje JSON-a (najde vsebino med [ in ])
         const jsonStart = responseText.indexOf('[');
         const jsonEnd = responseText.lastIndexOf(']') + 1;
         const cleanJson = responseText.substring(jsonStart, jsonEnd);
@@ -88,39 +80,25 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return JSON.parse(cleanJson)
     }
 
-    // --- 4. GENERIRANJE Z LOGIKO PREKLOPA ---
-    // Logika: 
-    // - Če je < 15 klicev: poskusi Lite -> fallback na Flash
-    // - Če je >= 15 klicev: poskusi direktno Flash -> fallback na (nič/error) ali stari Flash
-    
-    if (dailyCount < 15) {
-        // SCENARIJ A: Varčujemo (Lite first)
-        try {
-            console.log("Poskušam gemini-1.5-flash-lite...");
-            trends = await tryGenerate("gemini-1.5-flash-lite");
-            usedModel = "gemini-1.5-flash-lite";
-        } catch (err1: any) {
-            console.warn(`⚠️ Lite verzija ni uspela (${err1.message}), preklapljam na Flash...`);
-            try {
-                trends = await tryGenerate("gemini-1.5-flash");
-                usedModel = "gemini-1.5-flash";
-            } catch (err2) {
-                 throw new Error("Vsi modeli so odpovedali (Lite in Flash).");
-            }
-        }
-    } else {
-        // SCENARIJ B: Smo čez limit za Lite, gremo direktno na Flash
-        console.log("Limit 15 dosežen, uporabljam direktno Flash...");
+    // 4. GENERIRANJE
+    try {
+        console.log("Poskušam gemini-1.5-flash-lite...");
+        trends = await tryGenerate("gemini-1.5-flash-lite");
+        usedModel = "gemini-1.5-flash-lite";
+    } catch (err1: any) {
+        console.warn(`⚠️ Lite verzija ni uspela, preklapljam na Flash...`, err1.message);
         try {
             trends = await tryGenerate("gemini-1.5-flash");
             usedModel = "gemini-1.5-flash";
-        } catch (err1) {
-             throw new Error("Flash model je odpovedal.");
+        } catch (err2: any) {
+            console.error("❌ AI modeli niso vrnili veljavnega JSON-a.");
+            return res.status(500).json({ error: 'AI generation failed' });
         }
     }
 
-    // --- 5. SHRANJEVANJE ---
+    // 5. SHRANJEVANJE
     if (Array.isArray(trends) && trends.length > 0) {
+        // Čiščenje in omejitev na max 12 (za marquee)
         trends = trends
             .map(t => {
                 let tag = t.trim();
@@ -142,8 +120,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(200).json({ 
             success: true, 
             used_model: usedModel, 
-            count: trends.length,
-            daily_count: dailyCount,
+            count: trends.length, 
             trends 
         })
     } 
