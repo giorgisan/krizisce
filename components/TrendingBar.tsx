@@ -53,8 +53,8 @@ export default function TrendingBar({ words, onSelectWord, selectedWord }: Trend
   };
 
   return (
-    // SPREMEMBA: Povečan padding iz py-2 na py-3 za več prostora
-    <div className="flex items-center w-full overflow-hidden py-3 border-b border-gray-100 dark:border-gray-800/50 lg:border-none">
+    // SPREMEMBA: Povečan padding iz py-2 na py-1 za manj prostora
+    <div className="flex items-center w-full overflow-hidden py-1 border-b border-gray-100 dark:border-gray-800/50 lg:border-none">
       
       {/* LABELA: Odmevno */}
       <div 
