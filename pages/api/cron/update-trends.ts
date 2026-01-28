@@ -69,7 +69,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         CILJ: Vrni med 6 in 10 najbolj relevantnih tagov za premikajoči se trak.
     `
     
-    cconst tryGenerate = async (modelName: string) => {
+    const tryGenerate = async (modelName: string) => {
         const model = genAI.getGenerativeModel({ 
             model: modelName,
             safetySettings: [
