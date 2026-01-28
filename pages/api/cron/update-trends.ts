@@ -22,7 +22,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // 1. ZAJEM NOVIC (Povečano na 300 za boljšo analizo trendov)
     const { data: allNews, error } = await supabase
       .from('news')
-      .select('title, publishedat, source')
+      .select('title, source, summary, contentsnippet')
       .neq('category', 'oglas')
       .neq('category', 'promo')
       .order('publishedat', { ascending: false })
@@ -64,7 +64,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         - Uporabljaj slovenski jezik in presledke (NE CamelCase).
         - Dolžina: 1 do 3 besede na tag.
         - Besede naj bodo v osnovni obliki (imenovalnik), da se ujemajo z iskalnim indeksom.
-        - Izogibaj se generičnim besedam kot so "Šport", "Novice", "Dogajanje", "Stanje", razen če so del specifične fraze.
+        PREPOVEDANO
+        - Izogibaj se generičnim besedam kot so "Šport", "Novice", "Dogajanje", "Stanje", "Foto" ... razen če so del specifične fraze.
         - Ne izmišljuj si besed (ne haluciniraj)
 
         CILJ: Vrni med 6 in 12 najbolj relevantnih tagov za premikajoči se trak.
