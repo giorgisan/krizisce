@@ -286,18 +286,25 @@ function extractKeywordsFromText(text: string): string[] {
   const base = unaccent(text || '').toLowerCase()
   if (!base) return []
   
-  // Bolj agresivno čiščenje (samo črke in presledki)
   const clean = base.replace(/[^a-z0-9\s]/g, ' ') 
   const tokens = clean.split(/\s+/).filter(Boolean)
   
   const out: string[] = []
   for (let i = 0; i < tokens.length; i++) {
     let w = tokens[i]
-    if (!w || w.length < 3) continue // Ignoriraj prekratke
-    if (STORY_STOPWORDS.has(w)) continue
+    if (!w || w.length < 3) continue 
     
     const stem = stemToken(w)
-    if (STORY_STOPWORDS.has(stem)) continue
+
+    // LOGIKA: Prve 3 besede v naslovu (npr. Janez Magyar v...) 
+    // so skoraj vedno ključne. Za njih preskočimo "stop-words" filter, 
+    // razen če so ekstremno pogoste (kot "v", "na", "je").
+    if (i < 3 && w.length > 3) {
+       if (out.indexOf(stem) === -1) out.push(stem)
+       continue
+    }
+
+    if (STORY_STOPWORDS.has(w) || STORY_STOPWORDS.has(stem)) continue
     if (stem.length < 3) continue 
     
     if (out.indexOf(stem) === -1) out.push(stem)
