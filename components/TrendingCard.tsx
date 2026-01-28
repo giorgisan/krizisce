@@ -10,7 +10,7 @@ import {
   ComponentType,
 } from 'react'
 import dynamic from 'next/dynamic'
-import Image from 'next/image' // Samo za logotipe
+import Image from 'next/image'
 import { proxiedImage, buildSrcSet } from '@/lib/img'
 import { preloadPreview, canPrefetch, warmImage } from '@/lib/previewPrefetch'
 import { sourceColors } from '@/lib/sources'
@@ -26,6 +26,8 @@ const IMAGE_WIDTHS = [320, 480, 640, 960, 1280]
 
 interface Props {
   news: NewsItem & { [key: string]: any }
+  compact?: boolean // Za sidebar prikaz
+  rank?: number     // Zaporedna številka
 }
 
 type RelatedItem = {
@@ -35,7 +37,7 @@ type RelatedItem = {
   publishedAt?: number | null
 }
 
-// --- HELPERJI (Ločeni samo zato, da je glavna funkcija lažja) ---
+/* ================= HELPERJI ================= */
 
 function extractRelatedItems(news: any): RelatedItem[] {
   const raw =
@@ -84,8 +86,8 @@ function formatRelativeTime(
   const min = Math.floor(diff / 60_000)
   const hr = Math.floor(min / 60)
   if (diff < 60_000) return 'zdaj'
-  if (min < 60) return `${min} min` // Malo krajši zapis za trending
-  if (hr < 24) return `${hr} h`
+  if (min < 60) return `pred ${min} min`
+  if (hr < 24) return `pred ${hr} h`
   const d = new Date(ms)
   return new Intl.DateTimeFormat('sl-SI', {
     day: 'numeric',
@@ -93,8 +95,7 @@ function formatRelativeTime(
   }).format(d)
 }
 
-export default function TrendingCard({ news }: Props) {
-  // Osveževanje časa vsako minuto
+export default function TrendingCard({ news, compact = false, rank }: Props) {
   const [minuteTick, setMinuteTick] = useState(0)
   useEffect(() => {
     const onMinute = () => setMinuteTick((m) => (m + 1) % 60)
@@ -112,7 +113,6 @@ export default function TrendingCard({ news }: Props) {
     return (sourceColors as Record<string, string>)[news.source] || '#fc9c6c'
   }, [news.source])
 
-  // --- LOGIKA DOTIKA (TOUCH) ---
   const [isTouch, setIsTouch] = useState(false)
   useEffect(() => {
     try {
@@ -122,7 +122,6 @@ export default function TrendingCard({ news }: Props) {
     } catch { setIsTouch(false) }
   }, [])
 
-  // --- SLIKA (Vrnemo originalno logiko za hitrost) ---
   const rawImg = news.image ?? null
   const proxyInitiallyOn = !!rawImg
 
@@ -136,14 +135,15 @@ export default function TrendingCard({ news }: Props) {
 
   const currentSrc = useMemo(() => {
     if (!rawImg) return null
+    if (compact) return proxiedImage(rawImg, 320, 320, 1) 
     if (useProxy) return proxiedImage(rawImg, 640, 360, 1)
     return rawImg
-  }, [rawImg, useProxy])
+  }, [rawImg, useProxy, compact])
 
   const srcSet = useMemo(() => {
-    if (!rawImg || !useProxy) return ''
+    if (!rawImg || !useProxy || compact) return ''
     return buildSrcSet(rawImg, IMAGE_WIDTHS, ASPECT)
-  }, [rawImg, useProxy])
+  }, [rawImg, useProxy, compact])
 
   const lqipSrc = useMemo(() => {
     if (!rawImg) return null
@@ -170,7 +170,6 @@ export default function TrendingCard({ news }: Props) {
     }
   }
 
-  // --- ANALITIKA ---
   const sendBeacon = (payload: any) => {
     try {
       const json = JSON.stringify(payload)
@@ -198,12 +197,8 @@ export default function TrendingCard({ news }: Props) {
     logClick()
   }
 
-  // --- PREVIEW ---
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
-  const [eyeVisible, setEyeVisible] = useState(false)
-  const [eyeHover, setEyeHover] = useState(false)
-  const showEye = isTouch ? true : eyeVisible
-
+  
   const preloadedRef = useRef(false)
   const triggerPrefetch = () => {
     if (!preloadedRef.current && canPrefetch()) {
@@ -216,10 +211,132 @@ export default function TrendingCard({ news }: Props) {
     }
   }
 
-  // --- PRIPRAVA PODATKOV ---
   const primarySource = getPrimarySource(news)
   const relatedAll = extractRelatedItems(news)
   const related = relatedAll.filter((r) => r.link !== news.link)
+
+  // ================= RENDER: COMPACT (Sidebar + Mobile Trendi) =================
+  if (compact) {
+    return (
+      <>
+      <div 
+        // POPRAVEK: Odstranjen shadow-sm in border, ozadje prosojno, da se vidi glavno ozadje sidebara
+        className="group relative bg-transparent rounded-xl transition-colors p-3 sm:p-4 lg:p-3 flex gap-4 lg:gap-3"
+        title={(news as any).contentSnippet || news.title}
+      >
+        <a 
+          href={news.link}
+          target="_blank"
+          rel="noopener"
+          onClick={handleClick}
+          onMouseEnter={triggerPrefetch}
+          className="absolute inset-0 z-0 rounded-xl"
+          aria-hidden="true"
+        />
+
+        {rank && (
+            <div className="absolute top-0 left-0 w-7 h-7 lg:w-6 lg:h-6 bg-gray-900 dark:bg-white flex items-center justify-center rounded-br-xl lg:rounded-br-lg z-20 shadow-md pointer-events-none">
+                <span className="text-sm lg:text-xs font-bold text-white dark:text-gray-900 font-serif">{rank}</span>
+            </div>
+        )}
+
+        <div className="shrink-0 w-32 h-32 lg:w-24 lg:h-24 relative rounded-lg overflow-hidden bg-gray-200 dark:bg-gray-700 z-10 pointer-events-auto shadow-sm">
+             <div onClick={(e) => { handleClick(e as any) }} className="absolute inset-0 cursor-pointer">
+                 {currentSrc && !useFallback ? (
+                     <img 
+                        key={imgKey}
+                        src={currentSrc} 
+                        alt="" 
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                        onError={handleImgError}
+                        onLoad={() => setImgLoaded(true)}
+                     />
+                 ) : (
+                     <div className="w-full h-full grid place-items-center text-[10px] text-gray-400">IMG</div>
+                 )}
+             </div>
+
+             <button
+                onClick={(e) => {
+                  e.preventDefault(); e.stopPropagation();
+                  setPreviewUrl(news.link)
+                }}
+                className={`
+                    absolute top-1 right-1 
+                    h-9 w-9 lg:h-8 lg:w-8 grid place-items-center
+                    bg-white/90 dark:bg-gray-900/90 rounded-full shadow-sm 
+                    text-gray-700 dark:text-gray-200 
+                    transition-all duration-200 hover:scale-110 z-20
+                    opacity-100 lg:opacity-0 lg:group-hover:opacity-100
+                `}
+                title="Hitri predogled"
+             >
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.5">
+                    <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12Z" />
+                    <circle cx="12" cy="12" r="3" />
+                </svg>
+             </button>
+        </div>
+
+        <div className="flex flex-col min-w-0 flex-1 justify-center relative z-10 pointer-events-none">
+            <div className="flex items-center gap-2 mb-1.5 lg:mb-1">
+                <span className="text-[11px] lg:text-[10px] uppercase font-bold tracking-wider" style={{ color: sourceColor }}>
+                    {news.source}
+                </span>
+                <span className="text-[11px] lg:text-[10px] text-gray-400">{primaryTime}</span>
+            </div>
+            
+            <h4 className="text-[15px] lg:text-[14px] font-bold leading-snug text-gray-900 dark:text-gray-100 line-clamp-3 lg:line-clamp-2 group-hover:text-brand transition-colors mb-2 lg:mb-0">
+                {news.title}
+            </h4>
+
+            {related.length > 0 && (
+                <div className="mt-auto lg:mt-2 pt-2 lg:pt-1 border-t border-gray-100 dark:border-gray-700/50 flex items-center gap-2 lg:gap-1.5 pointer-events-auto">
+                    <span className="text-[10px] lg:text-[9px] text-gray-400 whitespace-nowrap">Beri tudi:</span>
+                    <div className="flex -space-x-1 hover:space-x-1 transition-all">
+                        {related.map((r, i) => {
+                             const logo = getSourceLogoPath(r.source)
+                             return (
+                                 <a 
+                                    key={i} 
+                                    href={r.link}
+                                    target="_blank"
+                                    rel="noopener"
+                                    title={`Preberi na ${r.source}`}
+                                    className="w-6 h-6 lg:w-5 lg:h-5 rounded-full bg-white dark:bg-gray-700 border border-gray-100 dark:border-gray-600 flex items-center justify-center overflow-hidden hover:scale-125 hover:z-20 transition-transform shadow-sm cursor-pointer"
+                                    onClick={(e) => {
+                                        e.stopPropagation() 
+                                        logClick('open_related', { parent: news.link, url: r.link })
+                                    }}
+                                 >
+                                     {logo ? (
+                                         <Image src={logo} alt={r.source} width={20} height={20} className="w-full h-full object-cover" />
+                                     ) : (
+                                         <span className="text-[8px] font-bold text-gray-500">{r.source[0]}</span>
+                                     )}
+                                 </a>
+                             )
+                        })}
+                    </div>
+                </div>
+            )}
+        </div>
+      </div>
+      
+      {previewUrl && (
+        <ArticlePreview 
+            url={previewUrl} 
+            onClose={() => setPreviewUrl(null)} 
+        />
+      )}
+      </>
+    )
+  }
+
+  // ================= RENDER: STANDARD =================
+  const [eyeVisible, setEyeVisible] = useState(false)
+  const [eyeHover, setEyeHover] = useState(false)
+  const showEye = isTouch ? true : eyeVisible
 
   return (
     <>
@@ -232,109 +349,48 @@ export default function TrendingCard({ news }: Props) {
         onMouseEnter={() => { setEyeVisible(true); triggerPrefetch() }}
         onMouseLeave={() => setEyeVisible(false)}
         onTouchStart={triggerPrefetch}
-        // ORIGINALNI STYLI:
-        className="cv-auto block no-underline bg-gray-900/85 dark:bg-gray-800 rounded-xl shadow-md overflow-hidden transition-colors duration-200 hover:bg-gray-900 dark:hover:bg-gray-700"
+        className="group block bg-white dark:bg-gray-800 rounded-xl shadow-md overflow-hidden transition-all duration-300 hover:shadow-xl hover:-translate-y-1 dark:border dark:border-gray-700/50"
       >
-        {/* SLIKA */}
-        <div
-          className="relative w-full aspect-[16/9] overflow-hidden"
-          style={
-            !imgLoaded && lqipSrc
-              ? {
-                  backgroundImage: `url(${lqipSrc})`,
-                  backgroundSize: 'cover',
-                  backgroundPosition: 'center',
-                  filter: 'blur(12px)',
-                  transform: 'scale(1.05)',
-                }
-              : undefined
-          }
-        >
-          {!imgLoaded && !useFallback && !!currentSrc && (
-            <div className="absolute inset-0 grid place-items-center bg-gray-800 animate-pulse">
-              <span className="text-[10px] text-gray-500">Nalagam...</span>
-            </div>
-          )}
-
+        <div className="relative w-full aspect-[16/9] overflow-hidden bg-gray-200 dark:bg-gray-700">
           {useFallback || !currentSrc ? (
-            <div className="absolute inset-0 flex items-center justify-center bg-gray-800">
-              <span className="text-sm text-gray-500">Ni slike</span>
-            </div>
+             <div className="absolute inset-0 flex items-center justify-center bg-gray-100 dark:bg-gray-800 text-gray-400"><span className="text-xs">Ni slike</span></div>
           ) : (
-            <img
-              key={imgKey}
-              ref={imgRef}
-              src={currentSrc as string}
-              srcSet={srcSet}
-              alt={news.title}
-              className="absolute inset-0 h-full w-full object-cover transition-opacity duration-200 opacity-0 data-[ok=true]:opacity-100"
-              sizes="(max-width: 640px) 100vw, (max-width: 1280px) 33vw, 20vw"
-              onError={handleImgError}
-              onLoad={() => setImgLoaded(true)}
-              loading="lazy"
-              decoding="async"
-              data-ok={imgLoaded}
-            />
+             <img src={currentSrc as string} srcSet={srcSet} alt={news.title} className="absolute inset-0 h-full w-full object-cover transition-opacity duration-300 opacity-0 data-[ok=true]:opacity-100 group-hover:scale-105" onError={handleImgError} onLoad={() => setImgLoaded(true)} data-ok={imgLoaded} />
           )}
-
-          {/* Gumb za predogled */}
+          
           <button
-            onClick={(e) => {
-              e.preventDefault(); e.stopPropagation();
-              setPreviewUrl(news.link)
-            }}
+            onClick={(e) => { e.preventDefault(); e.stopPropagation(); setPreviewUrl(news.link) }}
             onMouseEnter={() => setEyeHover(true)}
             onMouseLeave={() => setEyeHover(false)}
-            className={`peer absolute top-2 right-2 h-8 w-8 grid place-items-center rounded-full
-                        bg-white/80 dark:bg-gray-900/80 backdrop-blur text-gray-700 dark:text-gray-200
-                        transition-opacity duration-150 transform-gpu
-                        ${showEye ? 'opacity-100' : 'opacity-0'}`}
-            style={{ transform: eyeHover ? 'scale(1.2)' : 'scale(1)' }}
+            className={`absolute top-2 right-2 h-8 w-8 grid place-items-center rounded-full bg-white/90 dark:bg-gray-900/90 backdrop-blur text-gray-700 dark:text-gray-200 shadow-sm border border-gray-200 dark:border-gray-700 transition-all duration-200 transform-gpu ${showEye ? 'opacity-100 scale-100' : 'opacity-0 scale-90'}`}
+            style={{ transform: eyeHover ? 'scale(1.1)' : undefined }}
           >
-            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12Z" />
-                <circle cx="12" cy="12" r="3" />
-            </svg>
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12Z" /><circle cx="12" cy="12" r="3" /></svg>
           </button>
+          
+          <div className="absolute bottom-2 left-2"><span className="text-[10px] font-bold text-white px-2 py-0.5 rounded shadow-sm backdrop-blur-md" style={{ backgroundColor: sourceColor }}>{news.source}</span></div>
         </div>
 
-        {/* VSEBINA */}
-        <div className="p-2.5 min-h-[11rem] flex flex-col gap-2">
-          <div className="mb-1 flex items-baseline justify-between gap-2">
-            <span className="truncate text-[12px] font-medium tracking-wide" style={{ color: sourceColor }}>
-              {news.source}
-            </span>
-            <span className="text-[11px] text-gray-400 whitespace-nowrap">
-               {primaryTime}
-            </span>
+        <div className="p-4 flex flex-col gap-3">
+          <h3 className="text-lg font-bold leading-tight text-gray-900 dark:text-white line-clamp-3 group-hover:text-brand transition-colors">{news.title}</h3>
+          <div className="flex items-center justify-between text-xs text-gray-500">
+             <span>{primaryTime}</span>
+             {(news as any).contentSnippet && <span className="text-[10px] px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 rounded text-gray-400">Povzetek</span>}
           </div>
-
-          <h3 className="line-clamp-3 text-[15px] font-semibold leading-tight text-gray-50">
-            {news.title}
-          </h3>
-          <p className="mt-1 line-clamp-3 text-[13px] text-gray-200">
-            {(news as any).contentSnippet}
-          </p>
-
-          {/* --- DRUGI VIRI (Originalna logika) --- */}
           {(primarySource || related.length > 0) && (
-            <div className="mt-auto pt-3 border-t border-gray-700/50">
-               <div className="flex items-center gap-2 mb-2">
-                  <div className="h-5 w-5 rounded-full bg-indigo-500/20 flex items-center justify-center">
-                     <span className="text-[10px] text-indigo-300">▼</span>
-                  </div>
-                  <span className="text-[10px] uppercase tracking-wider text-gray-500 font-medium">
-                     Zadnja objava
+            <div className="mt-2 pt-3 border-t border-gray-100 dark:border-gray-700">
+               <div className="flex items-center gap-1.5 mb-2 opacity-80">
+                  <span className="text-[10px] uppercase tracking-wider text-gray-400 font-semibold">
+                     Pokrivajo tudi
                   </span>
                </div>
-               
-               {/* Prikaz virov */}
-               {related.length > 0 && (
+               {related.length === 0 ? (
+                    <span className="text-xs text-gray-400 italic">Samo en vir.</span>
+               ) : (
                    <div className="flex flex-col gap-1">
-                       {related.map((item, idx) => {
+                       {related.slice(0, 3).map((item, idx) => {
                            const logo = getSourceLogoPath(item.source)
                            const relTime = formatRelativeTime(item.publishedAt, now)
-                           
                            return (
                                <button
                                    key={item.link + idx}
@@ -343,48 +399,23 @@ export default function TrendingCard({ news }: Props) {
                                        window.open(item.link, '_blank');
                                        logClick('open_related', { parent: news.link, url: item.link });
                                    }}
-                                   // TUKAJ JE BILA TEŽAVA: Uporabljamo 'group/rel' za hover efekt samo na tem gumbu
-                                   className="group/rel w-full text-left rounded-lg bg-gray-900/60 hover:bg-gray-800 border border-gray-800/80 px-2 py-1.5 flex items-start gap-2 transition-colors relative"
+                                   className="group/rel w-full text-left p-1.5 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 flex items-start gap-2 transition-colors"
                                >
-                                   {/* Logo vira */}
-                                   <div className="mt-[2px] shrink-0">
+                                   <div className="mt-0.5 shrink-0">
                                        {logo ? (
-                                           <Image src={logo} alt={item.source} width={16} height={16} className="rounded-full bg-gray-200 opacity-60 group-hover/rel:opacity-100" />
+                                           <Image src={logo} alt={item.source} width={16} height={16} className="rounded-sm opacity-70 group-hover/rel:opacity-100" />
                                        ) : (
-                                           <span className="h-4 w-4 rounded-full bg-gray-700 flex items-center justify-center text-[8px] text-gray-300">
-                                               {item.source.slice(0,1)}
-                                           </span>
+                                           <div className="w-4 h-4 rounded-sm bg-gray-200 flex items-center justify-center text-[8px]">{item.source[0]}</div>
                                        )}
                                    </div>
-
-                                   {/* Tekst */}
                                    <div className="flex-1 min-w-0">
-                                       <div className="flex justify-between items-baseline">
-                                            <span className="text-[11px] text-gray-300 font-medium truncate pr-2">
-                                                {item.source}
-                                            </span>
-                                            <span className="text-[10px] text-gray-600 shrink-0">
-                                                {relTime}
-                                            </span>
-                                       </div>
-                                       <div className="text-[11px] text-gray-500 truncate group-hover/rel:text-gray-300 transition-colors">
+                                       <div className="text-sm text-gray-700 dark:text-gray-300 font-medium truncate group-hover/rel:text-brand transition-colors">
                                            {item.title}
                                        </div>
-                                   </div>
-
-                                   {/* Mali preview gumb */}
-                                   <div 
-                                        role="button"
-                                        onClick={(e) => {
-                                            e.preventDefault(); e.stopPropagation();
-                                            setPreviewUrl(item.link);
-                                        }}
-                                        className="ml-1 p-1 text-gray-500 hover:text-white opacity-0 group-hover/rel:opacity-100 transition-opacity"
-                                   >
-                                       <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2">
-                                            <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12Z" />
-                                            <circle cx="12" cy="12" r="3" />
-                                       </svg>
+                                       <div className="flex justify-between items-center text-[10px] text-gray-400 mt-0.5">
+                                           <span>{item.source}</span>
+                                           <span>{relTime}</span>
+                                       </div>
                                    </div>
                                </button>
                            )
@@ -397,10 +428,7 @@ export default function TrendingCard({ news }: Props) {
       </a>
 
       {previewUrl && (
-        <ArticlePreview 
-            url={previewUrl} 
-            onClose={() => setPreviewUrl(null)} 
-        />
+        <ArticlePreview url={previewUrl} onClose={() => setPreviewUrl(null)} />
       )}
     </>
   )

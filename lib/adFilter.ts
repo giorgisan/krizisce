@@ -1,5 +1,5 @@
 // lib/adFilter.ts
-// Poenostavljen filter (v6.0 - URL ONLY + SPECIFIC SECTIONS).
+// Poenostavljen filter (v6.1 - URL ONLY + SPECIFIC SECTIONS).
 // Blokira samo, če URL ali RSS kategorija eksplicitno vsebujeta "promo/oglas" ali znane promo sekcije.
 
 export const AD_THRESHOLD = 1 // Če najdemo match, je takoj oglas
@@ -9,18 +9,24 @@ const URL_BLOCK_PATTERNS = [
   // --- GENERIČNI VZORCI ---
   /\/promo\//i,
   /\/oglasi\//i,
-  /\/oglas\//i,
   /\/advertorial\//i,
   /\/sponzorirano\//i,
   /\/sponzor\//i,
   /\/nakup\//i,
   /\/marketing\//i,
+  /\/naročena-vsebina\//i,
+  /\/plačana-objava\//i,
   /[?&]utm_campaign=promo/i,
   /[?&]utm_medium=pr/i,
   /[?&]utm_source=advertorial/i,
 
+  // --- SPECIFIČNI POPRAVKI ZA NATANČNOST ---
+  // Namesto splošnega /oglas/ ulovimo le, če je to dejanska rubrika oglasov
+  /\/oglas\/$/i,                 // URL se konča z /oglas/
+  /^https:\/\/n1info\.si\/oglas\//i, // N1 specifična rubrika za oglase (ločeno od /novice/)
+
   // --- DELO.SI ---
-    /\/svet-kapitala\//i, // Pogosto vsebuje PR vsebine
+  /\/svet-kapitala\//i, // Pogosto vsebuje PR vsebine
   /\/dpc-/, // Delov Poslovni Center kratica v URL
 
   // --- SLOVENSKE NOVICE ---
@@ -35,18 +41,17 @@ const URL_BLOCK_PATTERNS = [
    
   // --- ŽURNAL24 ---
   /\/magazin\/promo\//i,
-  /\/uporabno\//i,       // <--- NOVO: Blokira celotno rubriko "Uporabno" (promo vsebine)
+  /\/uporabno\//i,       // Blokira celotno rubriko "Uporabno" (promo vsebine)
    
   // --- 24UR (Redkejše, a za vsak slučaj) ---
   /\/sponzorirana-vsebina\//i
 ]
 
 // 2. RSS KATEGORIJE (Metadata iz vira)
-// Če vir sam označi kategorijo kot "Promo", ji verjamemo.
 const CATEGORY_BLOCK_PATTERNS = [
   'oglas',
   'promo',
-  'sponzor', // sponzorirano, sponzor
+  'sponzor', 
   'advertorial',
   'pr članek',
   'pr sporocilo',
@@ -81,7 +86,7 @@ export function scoreAd(item: any) {
     if (rx.test(url)) {
         score = 10
         matches.push(`url:${rx.source}`)
-        break // Dovolj je en match
+        break 
     }
   }
 
@@ -96,16 +101,12 @@ export function scoreAd(item: any) {
       }
   }
 
-  // PR score tukaj ni več relevanten, ker ne analiziramo teksta
   return { score, prScore: score, matches }
 }
 
 export function isLikelyAd(item: any, opts?: { threshold?: number, aggressive?: boolean }) {
-  // Ignoriramo threshold in aggressive nastavitve, ker je ta filter binaren (je ali ni).
   const { score, matches } = scoreAd(item)
-   
   const isAd = score > 0
-   
   return { 
       isAd, 
       score, 

@@ -93,6 +93,7 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
   const [mode, setMode] = useState<Mode>('latest')
   const [trendingLoaded, setTrendingLoaded] = useState(false)
   const lastTrendingFetchRef = useRef<number>(0)
+  const [isDesktopLogic, setIsDesktopLogic] = useState(false)
 
   const [selectedSources, setSelectedSources] = useState<string[]>([]) 
   const [selectedCategory, setSelectedCategory] = useState<CategoryId | 'vse'>('vse')
@@ -107,11 +108,31 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
     
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [bootRefreshed, setBootRefreshed] = useState(false)
-     
+
   useEffect(() => {
     kickSyncIfStale(5 * 60_000)
     setBootRefreshed(true)
+    const checkDesktop = () => setIsDesktopLogic(window.innerWidth >= 1024)
+    checkDesktop()
+    window.addEventListener('resize', checkDesktop)
+    return () => window.removeEventListener('resize', checkDesktop)
   }, [])
+
+  useEffect(() => {
+    if (isDesktopLogic && !trendingLoaded && !isRefreshing && bootRefreshed) {
+      const fetchTrendingSide = async () => {
+        try {
+          const fresh = await loadNews('trending', [], 'vse', null, null)
+          if (fresh) {
+            setItemsTrending(fresh)
+            setTrendingLoaded(true)
+            lastTrendingFetchRef.current = Date.now()
+          }
+        } catch {}
+      }
+      fetchTrendingSide()
+    }
+  }, [isDesktopLogic, trendingLoaded, isRefreshing, bootRefreshed])
 
   const resetAll = () => {
     startTransition(() => {
@@ -129,20 +150,15 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
 
   useEffect(() => {
     if (!bootRefreshed) return
-    if (mode === 'trending' && !searchQuery && !tagQuery) return
+    if (mode === 'trending' && !searchQuery && !tagQuery && !isDesktopLogic) return
 
     const fetchData = async () => {
         setIsRefreshing(true)
         setCursor(null)
         setHasMore(true)
-        
         const fresh = await loadNews('latest', selectedSources, selectedCategory, searchQuery || null, tagQuery || null)
-        
-        if (fresh) {
-            setItemsLatest(fresh)
-        } else {
-            setItemsLatest([])
-        }
+        if (fresh) setItemsLatest(fresh)
+        else setItemsLatest([])
         setIsRefreshing(false)
     }
     
@@ -152,26 +168,31 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
     } else {
         fetchData()
     }
-
-  }, [selectedSources, selectedCategory, searchQuery, tagQuery, mode, bootRefreshed])
+  }, [selectedSources, selectedCategory, searchQuery, tagQuery, mode, bootRefreshed, isDesktopLogic])
 
   const missCountRef = useRef(0)
   const timerRef = useRef<number | null>(null)
 
   useEffect(() => {
     if (!bootRefreshed) return
+    
     const runCheckSimple = async () => {
-      if (mode !== 'latest') return
-      if (searchQuery || tagQuery) return
+      if (!isDesktopLogic && mode !== 'latest') return
+      if (searchQuery || tagQuery || selectedCategory !== 'vse' || selectedSources.length > 0) return
+
       kickSyncIfStale(10 * 60_000)
-      const fresh = await loadNews('latest', selectedSources, selectedCategory, null, null)
+      
+      const fresh = await loadNews('latest', [], 'vse', null, null)
+      
       if (!fresh || fresh.length === 0) {
         window.dispatchEvent(new CustomEvent('news-has-new', { detail: false }))
         missCountRef.current = Math.min(POLL_MAX_BACKOFF, missCountRef.current + 1)
         return
       }
+      
       const curSet = new Set(itemsLatest.map((n) => n.link))
       const newLinksCount = fresh.filter((n) => !curSet.has(n.link)).length
+      
       if (newLinksCount > 0) {
         window.dispatchEvent(new CustomEvent('news-has-new', { detail: true }))
         missCountRef.current = 0
@@ -180,41 +201,40 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
         missCountRef.current = Math.min(POLL_MAX_BACKOFF, missCountRef.current + 1)
       }
     }
+
     const schedule = () => {
-      if (mode !== 'latest') return
       const hidden = document.visibilityState === 'hidden'
       const base = hidden ? HIDDEN_POLL_MS : POLL_MS
       const extra = missCountRef.current * 10_000
+      
       if (timerRef.current) window.clearInterval(timerRef.current)
       timerRef.current = window.setInterval(runCheckSimple, base + extra) as unknown as number
     }
-    const initialTimer = setTimeout(runCheckSimple, 10000)
+
+    const initialTimer = setTimeout(runCheckSimple, 15000) 
     schedule()
-    const onVis = () => { if (document.visibilityState === 'visible') runCheckSimple(); schedule() }
+    
+    const onVis = () => { if (document.visibilityState === 'visible') { runCheckSimple(); schedule(); } }
     document.addEventListener('visibilitychange', onVis)
     return () => {
       clearTimeout(initialTimer)
       if (timerRef.current) window.clearInterval(timerRef.current)
       document.removeEventListener('visibilitychange', onVis)
     }
-  }, [itemsLatest, bootRefreshed, mode, selectedSources, selectedCategory, searchQuery, tagQuery])
+  }, [itemsLatest, bootRefreshed, mode, isDesktopLogic, searchQuery, tagQuery, selectedCategory, selectedSources])
 
   useEffect(() => {
     const onRefresh = () => {
       window.dispatchEvent(new CustomEvent('news-refreshing', { detail: true }))
       startTransition(() => {
-        loadNews(mode, selectedSources, selectedCategory, searchQuery || null, tagQuery || null, true).then((fresh) => {
+        loadNews('latest', selectedSources, selectedCategory, searchQuery || null, tagQuery || null, true).then((fresh) => {
           if (fresh) {
-            if (mode === 'latest') {
-              setItemsLatest(fresh)
-              setHasMore(true)
-              setCursor(null)
-            } else {
-              setItemsTrending(fresh)
-              setTrendingLoaded(true)
-              lastTrendingFetchRef.current = Date.now() 
-            }
+             setItemsLatest(fresh)
+             setHasMore(true)
+             setCursor(null)
+             loadNews('trending', [], 'vse', null, null, true).then(tr => { if (tr) setItemsTrending(tr) })
           }
+          
           window.dispatchEvent(new CustomEvent('news-refreshing', { detail: false }))
           window.dispatchEvent(new CustomEvent('news-has-new', { detail: false }))
           missCountRef.current = 0
@@ -223,49 +243,43 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
     }
     window.addEventListener('refresh-news', onRefresh as EventListener)
     return () => window.removeEventListener('refresh-news', onRefresh as EventListener)
-  }, [mode, selectedSources, selectedCategory, searchQuery, tagQuery])
+  }, [selectedSources, selectedCategory, searchQuery, tagQuery])
 
-  const visibleNews = mode === 'trending' ? itemsTrending : itemsLatest
-
+  const visibleNews = (mode === 'trending' && !isDesktopLogic) ? itemsTrending : itemsLatest
   useEffect(() => {
-    if (mode === 'trending') return 
-    if (!visibleNews.length) {
-      setCursor(null)
-      return
-    }
+    if (mode === 'trending' && !isDesktopLogic) return 
+    if (!visibleNews.length) { setCursor(null); return }
     const minMs = visibleNews.reduce((acc, n) => Math.min(acc, n.publishedAt || acc), visibleNews[0].publishedAt || 0)
     setCursor(minMs || null)
-  }, [visibleNews, mode])
-
-  async function fetchPage(cursorVal: number) {
-    const qs = new URLSearchParams()
-    qs.set('paged', '1')
-    qs.set('limit', '25') 
-    qs.set('cursor', String(cursorVal))
-    if (selectedSources.length > 0) qs.set('source', selectedSources.join(','))
-    if (selectedCategory !== 'vse') qs.set('category', selectedCategory)
-    if (searchQuery) qs.set('q', searchQuery)
-    if (tagQuery) qs.set('tag', tagQuery) 
-    const res = await fetch(`/api/news?${qs.toString()}`, { cache: 'no-store' })
-    if (!res.ok) return { items: [], nextCursor: null }
-    return await res.json()
-  }
+  }, [visibleNews, mode, isDesktopLogic])
 
   const handleLoadMore = async () => {
-    if (mode !== 'latest') return
+    if (mode !== 'latest' && !isDesktopLogic) return
     if (isLoadingMore || !hasMore || cursor == null || cursor <= 0) return
     setIsLoadingMore(true)
     try {
-      const { items, nextCursor } = await fetchPage(cursor)
-      const seen = new Set(itemsLatest.map((n) => n.link))
-      const fresh = items
-        .filter((i: any) => !seen.has(i.link))
-        .map((i: any) => ({ ...i, category: i.category || determineCategory({ link: i.link, categories: [] }) }))
-      if (fresh.length) setItemsLatest((prev) => [...prev, ...fresh])
-      if (!nextCursor || nextCursor === cursor || items.length === 0) {
-        setHasMore(false); setCursor(null)
-      } else {
-        setCursor(nextCursor); setHasMore(true)
+      const qs = new URLSearchParams()
+      qs.set('paged', '1'); qs.set('limit', '24'); qs.set('cursor', String(cursor))
+      if (selectedSources.length > 0) qs.set('source', selectedSources.join(','))
+      if (selectedCategory !== 'vse') qs.set('category', selectedCategory)
+      if (searchQuery) qs.set('q', searchQuery)
+      if (tagQuery) qs.set('tag', tagQuery) 
+      
+      const res = await fetch(`/api/news?${qs.toString()}`, { cache: 'no-store' })
+      if (res.ok) {
+          const { items, nextCursor } = await res.json()
+          const seen = new Set(itemsLatest.map((n) => n.link))
+          const fresh = items
+            .filter((i: any) => !seen.has(i.link))
+            .map((i: any) => ({ ...i, category: i.category || determineCategory({ link: i.link, categories: [] }) }))
+          
+          if (fresh.length) setItemsLatest((prev) => [...prev, ...fresh])
+          
+          if (!nextCursor || nextCursor === cursor || items.length === 0) {
+            setHasMore(false); setCursor(null)
+          } else {
+            setCursor(nextCursor); setHasMore(true)
+          }
       }
     } finally { setIsLoadingMore(false) }
   }
@@ -274,64 +288,31 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
     if (next === mode) return
     window.scrollTo({ top: 0, behavior: 'smooth' })
     setMode(next)
-
-    if (next === 'latest') {
-      setHasMore(true); setCursor(null)
-    } else {
+    if (next === 'latest') { setHasMore(true); setCursor(null) } 
+    else {
       setHasMore(false); setCursor(null)
       const now = Date.now()
-      const isStale = (now - lastTrendingFetchRef.current) > 5 * 60_000
-        
-      if (!trendingLoaded || isStale) {
+      if (!trendingLoaded || (now - lastTrendingFetchRef.current) > 5 * 60_000) {
         setIsRefreshing(true)
         try {
           const fresh = await loadNews('trending', [], 'vse', null, null)
-          if (fresh) {
-            setItemsTrending(fresh); 
-            setTrendingLoaded(true); 
-            lastTrendingFetchRef.current = Date.now() 
-          }
-        } catch (e) { 
-            console.error(e) 
-        } finally {
-            setIsRefreshing(false)
-        }
+          if (fresh) { setItemsTrending(fresh); setTrendingLoaded(true); lastTrendingFetchRef.current = Date.now() }
+        } catch (e) { console.error(e) } finally { setIsRefreshing(false) }
       }
     }
   }
 
-  const gridClasses = mode === 'trending'
-      ? 'grid gap-4 md:gap-6 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5'
-      : 'grid gap-4 md:gap-6 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5'
-
-  const activeSourceLabel = selectedSources.length === 0 
-    ? 'Vse' 
-    : selectedSources.length === 1 
-      ? selectedSources[0] 
-      : `${selectedSources.length} virov`
-
-  const currentCategoryLabel = selectedCategory === 'vse' 
-    ? '' 
-    : CATEGORIES.find(c => c.id === selectedCategory)?.label || selectedCategory;
+  const activeSourceLabel = selectedSources.length === 0 ? 'Vse' : selectedSources.length === 1 ? selectedSources[0] : `${selectedSources.length} virov`
+  const currentCategoryLabel = selectedCategory === 'vse' ? '' : CATEGORIES.find(c => c.id === selectedCategory)?.label || selectedCategory;
 
   const handleTrendingClick = (word: string) => {
     let clean = word.replace(/^#/, '').trim();
-     
-    setItemsLatest([]); 
-    setIsRefreshing(true); 
-
+    setItemsLatest([]); setIsRefreshing(true); 
     window.scrollTo({ top: 0, behavior: 'smooth' })
-    setSearchQuery('') 
-    setTagQuery(clean) 
-     
-    if (mode === 'trending') {
-        setMode('latest');
-        setHasMore(true); 
-        setCursor(null);
-    }
+    setSearchQuery(''); setTagQuery(clean) 
+    if (mode === 'trending') { setMode('latest'); setHasMore(true); setCursor(null); }
   }
 
-  // --- HANDLE SEARCH CHANGE (Za novi input) ---
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchQuery(e.target.value)
   }
@@ -340,20 +321,13 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
     <>
       <Header 
         onOpenFilter={() => setFilterModalOpen(true)}
-        onSearch={(q) => { 
-            setSearchQuery(q); 
-            setTagQuery(''); 
-        }} 
+        onSearch={(q) => { setSearchQuery(q); setTagQuery(''); }} 
         activeSource={activeSourceLabel}
         activeCategory={selectedCategory}
         onSelectCategory={(cat) => {
            startTransition(() => {
              setSelectedCategory(cat)
-             if (cat !== 'vse') {
-                setMode('latest')
-                setHasMore(true)
-                setCursor(null)
-             }
+             if (cat !== 'vse') { setMode('latest'); setHasMore(true); setCursor(null) }
            })
            window.scrollTo({ top: 0, behavior: 'smooth' })
         }}
@@ -369,225 +343,173 @@ export default function Home({ initialNews, initialTrendingWords }: Props) {
 
       <SeoHead title="Križišče" description="Agregator najnovejših novic." />
 
-      <main className="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white pb-8">
-        
-        <div className="max-w-[1800px] mx-auto w-full">
+      <main className="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white pb-12">
+        <div className="max-w-[1800px] mx-auto w-full px-4 md:px-8 lg:px-16">
 
-            {/* --- ZGORNJA VRSTICA: OPTIMIZIRANI RAZMAKI --- */}
-            <div className="px-4 md:px-8 lg:px-16 pt-2 pb-1 flex flex-col md:flex-row md:items-center gap-y-1 md:gap-2 border-b border-transparent">
-                
-                {/* 1. SKLOP: Gumbi + Iskalnik (Mobile) */}
-                <div className="flex items-center justify-between gap-2 w-full md:w-auto">
-                    
-                    {/* LEVO: Gumbi Najnovejše/Aktualno */}
-                    {selectedCategory === 'vse' ? (
-                      <div className="scale-90 origin-left shrink-0 -ml-2 -mr-3">
-                        <NewsTabs active={mode} onChange={handleTabChange} />
-                      </div>
-                    ) : (
-                      <span className="text-xl md:text-2xl font-bold tracking-tight capitalize shrink-0">
-                        {currentCategoryLabel}
-                      </span>
-                    )}
+            {/* --- ZGORNJA KONTROLNA VRSTICA (POPRVALJENO ZA MOBILE RAZMIK) --- */}
+            <div className="pt-1 pb-1 flex flex-col md:flex-row md:items-center gap-0">
+                <div className="flex items-center gap-0 w-full md:w-auto">
+                    {/* Levo: Zavihki ali Naslov (shrink-0 prepreči stiskanje) */}
+                    <div className="lg:hidden scale-90 origin-left shrink-0">
+                        {selectedCategory === 'vse' ? (
+                            <NewsTabs active={mode} onChange={handleTabChange} />
+                        ) : (
+                            <span className="text-xl font-bold capitalize mr-1">{currentCategoryLabel}</span>
+                        )}
+                    </div>
+                    {/* Desktop naslov */}
+                    <div className="hidden lg:block shrink-0">
+                        {selectedCategory !== 'vse' && <span className="text-2xl font-bold capitalize mr-4">{currentCategoryLabel}</span>}
+                    </div>
 
-                    {/* DESNO: Mobile Iskalnik (skrit na desktopu) */}
-                    <div className="md:hidden flex-1 min-w-0 ml-1 relative">
-                        {/* IKONA LUPE */}
-                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                          <svg className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                          </svg>
-                        </div>
-                        {/* INPUT */}
+                    {/* Iskalnik (Mobile): flex-1 in ml-0 popolnoma odstranita razmik */}
+                    <div className="md:hidden flex-1 relative ml-0">
                         <input
                           type="search"
                           placeholder="Išči ..."
-                          className="w-full h-9 pl-9 pr-4 bg-gray-100 dark:bg-gray-800 border-none rounded-full text-sm placeholder-gray-500 text-gray-900 dark:text-white focus:ring-1 focus:ring-brand/50"
+                          className="w-full h-9 pl-3 pr-4 bg-gray-200 dark:bg-gray-800 rounded-full text-sm outline-none focus:ring-1 focus:ring-brand/20"
                           value={searchQuery}
                           onChange={handleSearchChange}
                         />
                     </div>
+                </div>
+                
+                {selectedSources.length > 0 && (
+                  <div className="ml-auto">
+                      <button onClick={() => setSelectedSources([])} className="hidden md:flex text-xs text-red-500 bg-red-50 dark:bg-red-900/20 px-3 py-1 rounded-full whitespace-nowrap">
+                         Počisti filtre ({selectedSources.length})
+                      </button>
+                  </div>
+                )}
+            </div>
 
-                    {/* Filtri Labela (mobile) */}
-                    {selectedSources.length > 0 && (
-                      <div className="md:hidden flex items-center gap-2 shrink-0">
-                        <div className="text-xs text-brand font-medium border border-brand/20 bg-brand/5 px-2 py-1 rounded">
-                          {selectedSources.length}
+            <div className="flex flex-col lg:flex-row gap-8 items-start">
+                
+                <div className={`flex-1 w-full min-w-0 ${mode === 'trending' ? 'hidden lg:block' : 'block'}`}>
+                    
+                    <div className={`mb-1 min-w-0 w-full overflow-hidden ${(!isDesktopLogic && (searchQuery || tagQuery)) ? 'hidden' : 'block'}`}>
+                          <TrendingBar 
+                            words={initialTrendingWords} 
+                            selectedWord={tagQuery || searchQuery} 
+                            onSelectWord={handleTrendingClick} 
+                          />
+                    </div>
+
+                    {(searchQuery || tagQuery) && (
+                        <div className="mb-4 flex items-center gap-2 text-sm">
+                            <span>Rezultati za: <b>"{tagQuery || searchQuery}"</b></span>
+                            <button onClick={() => { setSearchQuery(''); setTagQuery(''); }} className="text-brand text-xs underline">Počisti</button>
                         </div>
-                        <button onClick={() => setSelectedSources([])}>✕</button>
-                      </div>
+                    )}
+
+                    {isRefreshing && itemsLatest.length === 0 ? (
+                        <div className="py-20 text-center opacity-50">Nalagam novice ...</div>
+                    ) : itemsLatest.length === 0 ? (
+                        <div className="py-20 text-center opacity-50">Ni novic.</div>
+                    ) : (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                            {itemsLatest.map((article, i) => (
+                                <ArticleCard 
+                                    key={article.link + i} 
+                                    news={article} 
+                                    priority={i < 8} 
+                                />
+                            ))}
+                        </div>
+                    )}
+
+                    {hasMore && itemsLatest.length > 0 && (
+                        <div className="text-center mt-12">
+                            <button onClick={handleLoadMore} disabled={isLoadingMore} className="px-8 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full hover:bg-gray-50 shadow-sm text-sm font-bold tracking-wide transition-all hover:shadow-md">
+                                {isLoadingMore ? 'Nalagam ...' : 'NALOŽI VEČ'}
+                            </button>
+                        </div>
                     )}
                 </div>
 
-                {/* 2. SKLOP: Trending bar (Žarišče) */}
-                {/* Mobile: Nova vrstica, stisnjena k zgornji. Desktop: Desno od gumbov, minimalen razmak. */}
-                {mode === 'latest' && selectedCategory === 'vse' && !searchQuery && !tagQuery && (
-                  <div className="min-w-0 overflow-hidden w-full md:w-auto md:flex-1 mt-0.5 md:mt-0">
-                      <TrendingBar 
-                        words={initialTrendingWords}
-                        selectedWord={tagQuery || searchQuery} 
-                        onSelectWord={handleTrendingClick} 
-                      />
-                  </div>
-                )}
-                
-                {/* Desktop Filter gumb (skrajno desno) */}
-                {selectedSources.length > 0 && (
-                  <div className="hidden md:flex items-center gap-2 ml-auto shrink-0">
-                    <div className="text-xs text-brand font-medium border border-brand/20 bg-brand/5 px-2 py-1 rounded whitespace-nowrap">
-                      Filtri: {selectedSources.length}
-                    </div>
-                    <button 
-                      onClick={() => setSelectedSources([])} 
-                      className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md" 
-                    >
-                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                    </button>
-                  </div>
-                )}
-            </div>
+                <aside className={`w-full lg:w-[340px] xl:w-[380px] shrink-0 lg:sticky lg:top-32 
+                    ${mode === 'trending' ? 'block' : 'hidden lg:block'}
+                `}>
+                    {/* NIELSEN UX: Visok kontrast ozadja sidebara (bg-gray-200/70) */}
+                    <div className="bg-gray-200/70 dark:bg-gray-800/90 rounded-2xl px-4 pb-4 pt-4 backdrop-blur-xl shadow-inner">
+                        <div className="flex items-center gap-2 mb-4 pb-2 border-b border-gray-300/50 dark:border-gray-700">
+                             <svg className="w-4 h-4 text-gray-400 dark:text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                             </svg>
+                             <span className="text-xs font-bold uppercase tracking-wide text-gray-900 dark:text-gray-100">
+                                Aktualno
+                             </span>
+                        </div>
 
-            <div className="px-4 md:px-8 lg:px-16 mt-2 md:mt-4">
-                
-                {(searchQuery || tagQuery) && (
-                <div className="mb-6 flex items-center gap-2">
-                    <span className="text-sm text-gray-500">
-                        Rezultati za: <span className="font-bold text-gray-900 dark:text-white">"{tagQuery || searchQuery}"</span>
-                    </span>
-                    <button 
-                        onClick={() => {
-                            setSearchQuery('');
-                            setTagQuery('');
-                        }}
-                        className="text-xs px-2 py-1 bg-gray-200 dark:bg-gray-800 rounded-md hover:bg-gray-300 dark:hover:bg-gray-700 transition-colors"
-                    >
-                        Počisti ✕
-                    </button>
-                </div>
-                )}
-
-                {isRefreshing && visibleNews.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center pt-20 pb-20">
-                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand mb-4"></div>
-                        <p className="opacity-60">Iščem novice ...</p>
-                    </div>
-                ) : visibleNews.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center pt-20 pb-20 text-center">
-                        {(searchQuery || tagQuery) ? (
-                            <p className="opacity-60">Ni rezultatov za iskanje &quot;{tagQuery || searchQuery}&quot;.</p>
+                        {itemsTrending.length === 0 && !trendingLoaded ? (
+                             <div className="flex flex-col gap-3 animate-pulse">
+                                {[...Array(6)].map((_, i) => (
+                                    <div key={i} className="flex gap-3 p-3 rounded-xl bg-white/60 dark:bg-gray-700/50 shadow-sm">
+                                        <div className="w-20 h-20 bg-gray-200 dark:bg-gray-600 rounded-lg shrink-0" />
+                                        <div className="flex-1 flex flex-col justify-center gap-2">
+                                            <div className="h-3 w-16 bg-gray-200 dark:bg-gray-600 rounded" />
+                                            <div className="h-4 w-full bg-gray-200 dark:bg-gray-600 rounded" />
+                                            <div className="h-4 w-2/3 bg-gray-200 dark:bg-gray-600 rounded" />
+                                        </div>
+                                    </div>
+                                ))}
+                             </div>
                         ) : (
-                            <p className="opacity-60">Trenutno ni novic s temi filtri.</p>
+                            <div className="flex flex-col gap-3">
+                                {itemsTrending.slice(0, 10).map((article, i) => (
+                                    /* UX: Bela kartica na temnem ozadju za maksimalen fokus */
+                                    <div key={article.link + 'tr' + i} className="bg-white dark:bg-gray-700/60 rounded-xl shadow-md overflow-hidden transition-shadow hover:shadow-lg hover:z-10 relative">
+                                        <TrendingCard 
+                                            news={article} 
+                                            compact={true} 
+                                            rank={i + 1}
+                                        />
+                                    </div>
+                                ))}
+                            </div>
                         )}
                     </div>
-                ) : (
-                    <div className={gridClasses}>
-                        {visibleNews.map((article, i) => (
-                        <div key={article.link + '|' + i} className="col-span-1">
-                            {mode === 'trending' ? (
-                            <div className="h-full"><TrendingCard news={article as any} /></div>
-                            ) : (
-                            <ArticleCard 
-                                news={article as any} 
-                                priority={i < 10} 
-                            />
-                            )}
-                        </div>
-                        ))}
-                    </div>
-                )}
+                </aside>
 
-                {mode === 'latest' && hasMore && visibleNews.length > 0 && (
-                <div className="text-center mt-8 mb-4">
-                    <button
-                    onClick={handleLoadMore}
-                    disabled={isLoadingMore}
-                    className="px-6 py-2.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white rounded-full hover:bg-gray-50 dark:hover:bg-gray-700 transition-all shadow-sm font-medium disabled:opacity-50"
-                    >
-                    {isLoadingMore ? 'Nalagam...' : 'Naloži več novic'}
-                    </button>
-                </div>
-                )}
             </div>
-            
         </div>
-
       </main>
 
-      <BackToTop threshold={200} />
+      <BackToTop threshold={300} />
       <Footer />
     </>
   )
 }
 
-/* ================= SSR ================= */
 export const getServerSideProps: GetServerSideProps = async ({ res }) => {
-  res.setHeader(
-    'Cache-Control',
-    'public, s-maxage=60, stale-while-revalidate=300'
-  )
-
+  res.setHeader('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=300')
   const { createClient } = await import('@supabase/supabase-js')
-  const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL as string
-  const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string
-  const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-    auth: { persistSession: false },
-  })
+  const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, { auth: { persistSession: false } })
 
-  const newsPromise = supabase
-    .from('news')
-    .select('id, link, title, source, summary, contentsnippet, image, published_at, publishedat, category')
-    .neq('category', 'oglas')
-    .order('publishedat', { ascending: false })
-    .order('id', { ascending: false })
-    .limit(25)
-
+  const newsPromise = supabase.from('news').select('id, link, title, source, summary, contentsnippet, image, published_at, publishedat, category').neq('category', 'oglas').order('publishedat', { ascending: false }).order('id', { ascending: false }).limit(24)
+  
   let trendsData: any[] = []
-
-  const { data: aiData } = await supabase
-    .from('trending_ai')
-    .select('words')
-    .order('updated_at', { ascending: false }) 
-    .limit(1) 
-    .single()
-
-  if (aiData && aiData.words && Array.isArray(aiData.words) && aiData.words.length > 0) {
-     trendsData = aiData.words.map((w: string) => ({ 
-       word: w, 
-       count: 1 
-     }))
+  const { data: aiData } = await supabase.from('trending_ai').select('words').order('updated_at', { ascending: false }).limit(1).single()
+  
+  if (aiData?.words?.length) {
+     trendsData = aiData.words.map((w: string) => ({ word: w, count: 1 }))
   } else {
-     const sqlTrends = await supabase.rpc('get_trending_words', {
-       hours_lookback: 48,
-       limit_count: 8
-     })
+     const sqlTrends = await supabase.rpc('get_trending_words', { hours_lookback: 48, limit_count: 8 })
      trendsData = sqlTrends.data || []
   }
 
   const [newsRes] = await Promise.all([newsPromise])
-
   const rows = (newsRes.data ?? []) as any[]
-  const initialNews: NewsItem[] = rows.map((r) => {
-    const link = r.link || ''
-    return {
-      title: r.title,
-      link,
-      source: r.source,
-      contentSnippet: r.contentsnippet ?? r.summary ?? '',
-      image: r.image ?? null,
-      publishedAt: (r.publishedat ?? (r.published_at ? Date.parse(r.published_at) : 0)) || 0,
-      isoDate: r.published_at,
-      category: (r.category as CategoryId) || determineCategory({ link, categories: [] }) 
-    }
-  })
+  const initialNews: NewsItem[] = rows.map((r) => ({
+    title: r.title,
+    link: r.link || '',
+    source: r.source,
+    contentSnippet: r.contentsnippet ?? r.summary ?? '',
+    image: r.image ?? null,
+    publishedAt: (r.publishedat ?? (r.published_at ? Date.parse(r.published_at) : 0)) || 0,
+    isoDate: r.published_at,
+    category: (r.category as CategoryId) || determineCategory({ link: r.link || '', categories: [] }) 
+  }))
 
-  const initialTrendingWords: TrendingWord[] = trendsData as TrendingWord[]
-
-  return { 
-    props: { 
-      initialNews, 
-      initialTrendingWords 
-    } 
-  }
+  return { props: { initialNews, initialTrendingWords: trendsData } }
 }

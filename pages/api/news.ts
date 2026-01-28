@@ -286,18 +286,25 @@ function extractKeywordsFromText(text: string): string[] {
   const base = unaccent(text || '').toLowerCase()
   if (!base) return []
   
-  // Bolj agresivno čiščenje (samo črke in presledki)
   const clean = base.replace(/[^a-z0-9\s]/g, ' ') 
   const tokens = clean.split(/\s+/).filter(Boolean)
   
   const out: string[] = []
   for (let i = 0; i < tokens.length; i++) {
     let w = tokens[i]
-    if (!w || w.length < 3) continue // Ignoriraj prekratke
-    if (STORY_STOPWORDS.has(w)) continue
+    if (!w || w.length < 3) continue 
     
     const stem = stemToken(w)
-    if (STORY_STOPWORDS.has(stem)) continue
+
+    // LOGIKA: Prve 3 besede v naslovu (npr. Janez Magyar v...) 
+    // so skoraj vedno ključne. Za njih preskočimo "stop-words" filter, 
+    // razen če so ekstremno pogoste (kot "v", "na", "je").
+    if (i < 3 && w.length > 3) {
+       if (out.indexOf(stem) === -1) out.push(stem)
+       continue
+    }
+
+    if (STORY_STOPWORDS.has(w) || STORY_STOPWORDS.has(stem)) continue
     if (stem.length < 3) continue 
     
     if (out.indexOf(stem) === -1) out.push(stem)
@@ -317,7 +324,7 @@ async function fetchTrendingRows(): Promise<Row[]> {
     .gt('publishedat', cutoffMs)
     .neq('category', 'oglas') 
     .order('publishedat', { ascending: false })
-    .limit(300)
+    .limit(600)
 
   if (error) throw new Error(`DB trending: ${error.message}`)
   return (data || []) as Row[]
@@ -389,12 +396,12 @@ function computeTrendingFromRows(rows: Row[]): (FeedNewsItem & { storyArticles: 
   for (let gi = 0; gi < groups.length; gi++) {
     const g = groups[gi]
     if (!g.rows.length) continue
-    const srcs: string[] = []
+    const srcs = new Set<string>()
     for (let ri = 0; ri < g.rows.length; ri++) {
-      const s = (g.rows[ri].row.source || '').trim()
-      if (s && srcs.indexOf(s) === -1) srcs.push(s)
-    }
-    const sourceCount = srcs.length
+      const s = (g.rows[ri].row.source || '').trim().toLowerCase() // Normalizacija
+      if (s) srcs.add(s)
+}
+const sourceCount = srcs.size
     if (sourceCount < TREND_MIN_SOURCES) continue
     let rep = g.rows[0]
     for (let ri = 1; ri < g.rows.length; ri++) {
@@ -492,7 +499,7 @@ export default async function handler(
 
     // --- 3. PRIPRAVA POIZVEDBE (GET NEWS) ---
     const limitParam = parseInt(String(req.query.limit), 10)
-    const defaultLimit = 25 
+    const defaultLimit = 24 
     const limit = Math.min(Math.max(limitParam || defaultLimit, 1), 300)
     const cursor = req.query.cursor ? Number(req.query.cursor) : null
 
