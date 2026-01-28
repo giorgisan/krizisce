@@ -237,10 +237,16 @@ export default function TrendingCard({ news, compact = false, rank }: Props) {
         {/* --- SPREMEMBA: Številka je zdaj znotraj slike (glej spodaj), ta blok je odstranjen --- */}
 
         <div className="shrink-0 w-32 h-32 lg:w-24 lg:h-24 relative rounded-lg overflow-hidden bg-gray-200 dark:bg-gray-700 z-10 pointer-events-auto shadow-sm">
-             {/* --- NOVO MESTO ZA RANK --- */}
+             {/* --- NOVO MESTO ZA RANK (Soft Glass efekt) --- */}
              {rank && (
-                <div className="absolute top-0 left-0 w-7 h-7 flex items-center justify-center bg-gray-900/90 dark:bg-white/90 backdrop-blur-sm rounded-br-lg z-20 shadow-sm pointer-events-none border-b border-r border-white/10 dark:border-gray-900/10">
-                    <span className="text-sm font-black text-white dark:text-gray-900 font-sans leading-none">{rank}</span>
+                <div className="absolute top-0 left-0 w-8 h-8 flex items-center justify-center z-20 pointer-events-none">
+                    {/* Ozadje: Prosojno črno (40%) z močnim blur efektom in mehkim robom */}
+                    <div className="absolute inset-0 bg-black/40 backdrop-blur-md rounded-br-2xl border-b border-r border-white/10 shadow-sm" />
+                    
+                    {/* Številka: Bela, z rahlo senco za berljivost na svetlih delih slike */}
+                    <span className="relative text-sm font-black text-white/95 font-sans drop-shadow-sm leading-none">
+                        {rank}
+                    </span>
                 </div>
              )}
 
