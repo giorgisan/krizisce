@@ -49,7 +49,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         2. BREZ PODVAJANJA: Ne ustvarjaj vsebinsko podobnih tagov.
         
         KRITERIJI ZA TAG:
-        1. UPORABNOST PRI ISKANJU: Tag mora vsebovati besede, ki se DEJANSKO nahajajo v naslovih novic.
+        1. UPORABNOST PRI ISKANJU: Tag mora vsebovati besede, ki se DOBESEDNO nahajajo v naslovih novic.
            - SLABO: #Politično Dogajanje (preveč splošno, te besede ni v naslovih)
            - DOBRO: #Golob (če se v naslovih omenja premier Golob)
            - DOBRO: #Vojna v Ukrajini (če se v naslovih omenja Ukrajina/vojna)
