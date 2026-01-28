@@ -222,7 +222,7 @@ type Err = { error: string }
 
 export default async function handler(
   req: NextApiRequest,
-  res: NextApiResponse<PagedOk | ListOk | Err>,
+  res: NextApiResponse<PagedOk | ListOk | Err | { message: string } | { success: boolean; message: string }>,
 ) {
   try {
     const paged = req.query.paged === '1'
@@ -233,11 +233,9 @@ export default async function handler(
     const searchQuery = (req.query.q as string) || null 
     const tagQuery = (req.query.tag as string) || null 
 
-    // --- 1. TRENDING (BRANJE IZ CACHE-A - NOVO!) ---
+    // --- 1. TRENDING (BRANJE IZ CACHE-A) ---
     if (variant === 'trending') {
       try {
-        // Namesto računanja samo preberemo zadnji shranjen rezultat iz tabele
-        // To je super hitro in ne obremenjuje procesorja
         const { data } = await supabaseRead
             .from('trending_groups_cache')
             .select('data')
@@ -245,7 +243,6 @@ export default async function handler(
             .limit(1)
             .single()
             
-        // Kratek cache, ker je branje hitro
         res.setHeader('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=30')
         return res.status(200).json(data?.data || [])
       } catch (err: any) {
@@ -262,16 +259,27 @@ export default async function handler(
     const allowPublic = process.env.ALLOW_PUBLIC_REFRESH === '1'
     const canIngest = isCronCaller || isInternalIngest || isDev || tokenOk || allowPublic
 
-    if (!paged && wantsFresh && canIngest) {
-      try {
-        const rss = await fetchRSSFeeds({ forceFresh: true })
-        if (rss?.length) {
-            await syncToSupabase(rss.slice(0, 250))
+    // POPRAVEK: Logika, ki prepreči "puščanje" in takoj vrne odgovor
+    if (wantsFresh) {
+        if (canIngest) {
+            try {
+                const rss = await fetchRSSFeeds({ forceFresh: true })
+                if (rss?.length) {
+                    await syncToSupabase(rss.slice(0, 250))
+                }
+                return res.status(200).json({ success: true, message: 'Ingest completed' })
+            } catch (err: any) { 
+                console.error('❌ RSS sync error:', err)
+                return res.status(500).json({ error: err.message })
+            }
+        } else {
+            // Če uporabnik nima pravic, TAKOJ zaključimo in NE beremo novic iz baze!
+            return res.status(200).json({ message: 'Ingest skipped (not authorized)' })
         }
-      } catch (err) { console.error('❌ RSS sync error:', err) }
     }
 
     // --- 3. PRIPRAVA POIZVEDBE (GET NEWS) ---
+    // Če smo prišli do sem, pomeni, da gre za navaden ogled novic (ne forceFresh)
     const limitParam = parseInt(String(req.query.limit), 10)
     const defaultLimit = 24 
     const limit = Math.min(Math.max(limitParam || defaultLimit, 1), 300)
