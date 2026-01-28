@@ -215,12 +215,11 @@ export default function TrendingCard({ news, compact = false, rank }: Props) {
   const relatedAll = extractRelatedItems(news)
   const related = relatedAll.filter((r) => r.link !== news.link)
 
-  // ================= RENDER: COMPACT (Sidebar + Mobile Trendi) =================
+// ================= RENDER: COMPACT (Sidebar + Mobile Trendi) =================
   if (compact) {
     return (
       <>
       <div 
-        // POPRAVEK: Odstranjen shadow-sm in border, ozadje prosojno, da se vidi glavno ozadje sidebara
         className="group relative bg-transparent rounded-xl transition-colors p-3 sm:p-4 lg:p-3 flex gap-4 lg:gap-3"
         title={(news as any).contentSnippet || news.title}
       >
@@ -234,22 +233,20 @@ export default function TrendingCard({ news, compact = false, rank }: Props) {
           aria-hidden="true"
         />
 
-        {/* --- SPREMEMBA: Številka je zdaj znotraj slike (glej spodaj), ta blok je odstranjen --- */}
+        {/* --- RANK: Vrnjeno na originalno pozicijo (rob kartice) + Glass efekt --- */}
+        {rank && (
+           <div className="absolute top-0 left-0 w-8 h-8 lg:w-7 lg:h-7 flex items-center justify-center z-20 pointer-events-none">
+               {/* Ozadje: Zelo prosojno (25%) zamegljeno črno, z zaobljenim zgornjim levim kotom */}
+               <div className="absolute inset-0 bg-black/25 backdrop-blur-sm rounded-br-2xl rounded-tl-xl border-b border-r border-white/10 shadow-sm" />
+               
+               {/* Številka: Bela z rahlo senco za berljivost */}
+               <span className="relative text-sm lg:text-xs font-black text-white/90 font-sans drop-shadow-sm leading-none">
+                   {rank}
+               </span>
+           </div>
+        )}
 
         <div className="shrink-0 w-32 h-32 lg:w-24 lg:h-24 relative rounded-lg overflow-hidden bg-gray-200 dark:bg-gray-700 z-10 pointer-events-auto shadow-sm">
-             {/* --- NOVO MESTO ZA RANK (Soft Glass efekt) --- */}
-             {rank && (
-                <div className="absolute top-0 left-0 w-8 h-8 flex items-center justify-center z-20 pointer-events-none">
-                    {/* Ozadje: Prosojno črno (40%) z močnim blur efektom in mehkim robom */}
-                    <div className="absolute inset-0 bg-black/40 backdrop-blur-md rounded-br-2xl border-b border-r border-white/10 shadow-sm" />
-                    
-                    {/* Številka: Bela, z rahlo senco za berljivost na svetlih delih slike */}
-                    <span className="relative text-sm font-black text-white/95 font-sans drop-shadow-sm leading-none">
-                        {rank}
-                    </span>
-                </div>
-             )}
-
              <div onClick={(e) => { handleClick(e as any) }} className="absolute inset-0 cursor-pointer">
                  {currentSrc && !useFallback ? (
                      <img 
