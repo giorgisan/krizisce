@@ -92,26 +92,26 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return JSON.parse(cleanJson)
     }
 
-    // 4. GENERIRANJE (Uporabljamo točna imena s tvojega seznama)
+    // 4. GENERIRANJE - Poskus z modeli, ki bi morali imeti aktivno kvoto
     try {
-        // PRVI POSKUS: Stabilen 2.0 Flash
-        console.log("Poskušam gemini-2.0-flash-001...");
-        usedModel = "gemini-2.0-flash-001";
+        // 1. POSKUS: Alias, ki ga imaš na seznamu in je ponavadi najbolj darežljiv s kvoto
+        console.log("Poskušam gemini-flash-latest...");
+        usedModel = "gemini-flash-latest";
         trends = await tryGenerate(usedModel);
     } catch (err1: any) {
-        console.warn(`⚠️ 2.0-flash-001 ni uspel, poskušam Lite verzijo...`, err1.message);
+        console.warn(`⚠️ gemini-flash-latest ni uspel, poskušam Gemini 3...`, err1.message);
         try {
-            // DRUGI POSKUS: Lite verzija, ki je na tvojem seznamu
-            usedModel = "gemini-2.0-flash-lite-001";
+            // 2. POSKUS: Gemini 3 Flash (iz tvojega maila)
+            usedModel = "gemini-3-flash-preview";
             trends = await tryGenerate(usedModel);
         } catch (err2: any) {
-            console.warn(`⚠️ Poskušam še zadnji stabilen 2.5 Flash...`);
+            console.warn(`⚠️ Gemini 3 ni uspel, poskušam gemini-pro-latest...`);
             try {
-                // TRETJI POSKUS: 2.5 Flash (pazi, tu je lahko kvota 20)
-                usedModel = "gemini-2.5-flash";
+                // 3. POSKUS: Pro verzija
+                usedModel = "gemini-pro-latest";
                 trends = await tryGenerate(usedModel);
             } catch (err3: any) {
-                console.error("❌ Vsi modeli odpovedali.");
+                console.error("❌ Vsi modeli odpovedali. Limit je verjetno na 0 za vse brezplačne modele.");
                 return res.status(500).json({ error: 'AI generation failed', details: err3.message });
             }
         }
