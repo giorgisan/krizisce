@@ -19,25 +19,22 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   let usedModel = 'unknown'
   
   try {
-    // 1. ZAJEM NOVIC
+    // 1. ZAJEM NOVIC (Povečano na 200 za boljšo analizo trendov)
     const { data: allNews, error } = await supabase
       .from('news')
-      .select('title, source, summary, contentsnippet')
+      .select('title, publishedat, source')
       .neq('category', 'oglas')
       .neq('category', 'promo')
       .order('publishedat', { ascending: false })
-      .limit(150)
+      .limit(200)
 
     if (error) throw error
     if (!allNews || allNews.length === 0) {
         return res.status(200).json({ success: false, message: 'Baza je prazna.' })
     }
 
-    // 2. PRIPRAVA VSEBINE (Popravljeno: Skrajšano na 150, da preprečimo odrezan JSON)
-    const headlines = allNews.map(n => {
-        const desc = (n.contentsnippet || n.summary || '').replace(/\s+/g, ' ').trim().substring(0, 150);
-        return `- ${n.source}: ${n.title} ${desc ? `| ${desc}` : ''}`;
-    }).join('\n')
+    // 2. PRIPRAVA VSEBINE
+    const headlines = allNews.map(n => `- ${n.source}: ${n.title}`).join('\n')
 
     // 3. TVOJ PROMPT
     const prompt = `
@@ -84,45 +81,27 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                 { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE },
             ]
         })
-
-        const result = await model.generateContent({
-            contents: [{ role: 'user', parts: [{ text: prompt }] }],
-            generationConfig: {
-                temperature: 0.2,
-                maxOutputTokens: 800,
-                responseMimeType: "application/json"
-            }
-        })
-
-        let responseText = result.response.text();
+        const result = await model.generateContent(prompt)
+        const responseText = result.response.text()
         
-        // Čiščenje markdownov
-        responseText = responseText.replace(/```json/g, '').replace(/```/g, '').trim();
-        
-        // POPRAVEK: Če je JSON odrezan, ga poskusimo ročno zapreti
-        if (responseText.includes('[') && !responseText.endsWith(']')) {
-            responseText = responseText.substring(0, responseText.lastIndexOf('"') + 1) + ']';
-        }
-
+        // Robustno iskanje JSON-a (najde vsebino med [ in ])
         const jsonStart = responseText.indexOf('[');
         const jsonEnd = responseText.lastIndexOf(']') + 1;
-        
-        if (jsonStart === -1 || jsonEnd === 0) {
-            throw new Error(`Invalid JSON format: ${responseText.substring(0, 100)}...`);
-        }
-
         const cleanJson = responseText.substring(jsonStart, jsonEnd);
+        
         return JSON.parse(cleanJson)
     }
 
-    // 4. GENERIRANJE
+    // 4. GENERIRANJE (Spremenjen vrstni red: Lite -> Flash)
     try {
+        // PRVI POSKUS: Lite (varčnejši z kvoto)
         console.log("Poskušam gemini-2.5-flash-lite...");
         trends = await tryGenerate("gemini-2.5-flash-lite");
         usedModel = "gemini-2.5-flash-lite";
     } catch (err1: any) {
         console.warn(`⚠️ Lite verzija ni uspela, preklapljam na navaden Flash...`, err1.message);
         try {
+            // DRUGI POSKUS: Flash (močnejši, a bolj omejen)
             trends = await tryGenerate("gemini-2.5-flash");
             usedModel = "gemini-2.5-flash";
         } catch (err2: any) {
@@ -133,20 +112,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // 5. SHRANJEVANJE
     if (Array.isArray(trends) && trends.length > 0) {
-        const BLACKLIST = ['šport', 'novice', 'vlada', 'slovenija', 'policija', 'gasilci', 'kronika', 'svet', 'dogajanje', 'stanje', 'posnetek', 'video', 'foto', 'preverite', 'v živo', 'članek'];
-
+        // Čiščenje in omejitev na max 12 (za marquee)
         trends = trends
             .map(t => {
                 let tag = t.trim();
                 if (!tag.startsWith('#')) tag = `#${tag}`;
                 return tag; 
             })
-            .filter(t => {
-                const lower = t.toLowerCase().replace('#', '');
-                if (t.length <= 3) return false;
-                if (BLACKLIST.includes(lower)) return false;
-                return true;
-            })
+            .filter(t => t.length > 3)
             .slice(0, 12);
 
         const { error: insertError } = await supabase
