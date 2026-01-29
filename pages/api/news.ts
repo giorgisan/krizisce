@@ -334,19 +334,20 @@ export default async function handler(
     const isSearching = (tagQuery && tagQuery.trim().length > 0) || (searchQuery && searchQuery.trim().length > 0);
 
     // A) HITRO ISKANJE PO TAGU (Klik na trending tag)
-if (tagQuery && tagQuery.trim().length > 0) {
-    const rawTag = tagQuery.trim().replace('#', '');
-    const stems = generateKeywords(rawTag);
-    
-    if (stems.length > 0) {
-        // 1. Primarno iščemo po ključnih besedah (tvoja originalna logika s koreni)
-        // To bo našlo "Afera Hamburgerji" preko korenov 'afer' in 'hamburg'
-        q = q.contains('keywords', stems);
-    } else {
-        // 2. Varnostna mreža za naslov, če koreni ne vrnejo ničesar
-        q = q.ilike('title', `%${rawTag}%`);
+    if (tagQuery && tagQuery.trim().length > 0) {
+        const rawTag = tagQuery.trim().replace('#', ''); // Odstranimo lojtro za varno iskanje
+        const stems = generateKeywords(rawTag);
+        
+        if (stems.length > 0) {
+            // Primarno iščemo po ključnih besedah (tvoja originalna logika s koreni)
+            // Dodamo .or() z ILIKE varnostno mrežo po naslovu
+            // To reši problem, če bi AI kljub navodilom zgeneriral besedo, ki je algoritem ne bi 'ujel'
+            q = q.or(`keywords.contains.{${stems.join(',')}},title.ilike.%${rawTag}%`);
+        } else {
+            // Fallback, če stems ne vrnejo ničesar
+            q = q.ilike('title', `%${rawTag}%`);
+        }
     }
-}
     
     // -------------------------------------------------------------------------------------
     // B) SPLOŠNO ISKANJE (Vpis v search bar) - STRICT TEXT ONLY & OPTIMIZED
