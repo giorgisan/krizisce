@@ -64,6 +64,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         - Uporabljaj slovenski jezik in presledke (NE CamelCase).
         - Dolžina: 1 do 3 besede na tag.
         - Besede naj bodo v osnovni obliki (imenovalnik), da se ujemajo z iskalnim indeksom.
+        - Uporabljaj izključno besede, ki se v dobesedni obliki ali korenu pojavljajo v naslovih. 
+        - Ne spreminjaj glagolov v samostalnike, če to spremeni koren besede.
+        
         PREPOVEDANO
         - Izogibaj se generičnim besedam kot so "Šport", "Novice", "Dogajanje", "Stanje", "Foto" ... razen če so del specifične fraze.
         - Ne izmišljuj si besed (ne haluciniraj)
