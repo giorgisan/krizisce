@@ -96,8 +96,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     try {
         // PRVI POSKUS: Lite (varčnejši z kvoto)
         console.log("Poskušam gemini-2.5-flash-lite...");
-        trends = await tryGenerate("gemini-2.5-flash-lite");
-        usedModel = "gemini-2.5-flash-lite";
+        trends = await tryGenerate("gemini-1.5-flash");
+        usedModel = "gemini-1.5-flash";
     } catch (err1: any) {
         console.warn(`⚠️ Lite verzija ni uspela, preklapljam na navaden Flash...`, err1.message);
         try {
