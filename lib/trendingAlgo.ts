@@ -2,7 +2,7 @@ import { NewsItem } from '@/types'
 
 // Konstante za algoritem - DODAN 'export'
 export const TREND_WINDOW_HOURS = 12 // Gledamo novice zadnjih 8 ur
-const TREND_MIN_SOURCES = 3        
+const TREND_MIN_SOURCES = 2        
 const TREND_MIN_OVERLAP = 2
 const TREND_MAX_ITEMS = 10 
 const TREND_HOT_CUTOFF_HOURS = 4
