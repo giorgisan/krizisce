@@ -334,14 +334,19 @@ export default async function handler(
     const isSearching = (tagQuery && tagQuery.trim().length > 0) || (searchQuery && searchQuery.trim().length > 0);
 
     // A) HITRO ISKANJE PO TAGU (Klik na trending tag)
-    if (tagQuery && tagQuery.trim().length > 0) {
-        const rawTag = tagQuery.trim().replace('#', ''); // Odstranimo lojtro za iskanje
-        
-        // Namesto strogega ujemanja korenov v 'keywords' (AND logika), 
-        // razširimo iskanje še na naslov novice (title).
-        // Uporabimo .or(), da povečamo možnost ujemanja.
-        q = q.or(`keywords.cs.{${rawTag}},title.ilike.%${rawTag}%`);
+if (tagQuery && tagQuery.trim().length > 0) {
+    const rawTag = tagQuery.trim().replace('#', '');
+    const stems = generateKeywords(rawTag);
+    
+    if (stems.length > 0) {
+        // 1. Primarno iščemo po ključnih besedah (tvoja originalna logika s koreni)
+        // To bo našlo "Afera Hamburgerji" preko korenov 'afer' in 'hamburg'
+        q = q.contains('keywords', stems);
+    } else {
+        // 2. Varnostna mreža za naslov, če koreni ne vrnejo ničesar
+        q = q.ilike('title', `%${rawTag}%`);
     }
+}
     
     // -------------------------------------------------------------------------------------
     // B) SPLOŠNO ISKANJE (Vpis v search bar) - STRICT TEXT ONLY & OPTIMIZED
