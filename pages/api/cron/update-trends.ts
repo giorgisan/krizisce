@@ -92,26 +92,26 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return JSON.parse(cleanJson)
     }
 
-    // 4. GENERIRANJE - Poskus z modeli, ki bi morali imeti aktivno kvoto
+    // 4. GENERIRANJE - Optimiziran vrstni red za tvoj projekt (Gemini 3 je primaren)
     try {
-        // 1. POSKUS: Alias, ki ga imaš na seznamu in je ponavadi najbolj darežljiv s kvoto
-        console.log("Poskušam gemini-flash-latest...");
-        usedModel = "gemini-flash-latest";
+        // 1. POSKUS: Gemini 3 Flash (Tvoj novi standard, ki preverjeno deluje)
+        console.log("Poskušam gemini-3-flash-preview...");
+        usedModel = "gemini-3-flash-preview";
         trends = await tryGenerate(usedModel);
     } catch (err1: any) {
-        console.warn(`⚠️ gemini-flash-latest ni uspel, poskušam Gemini 3...`, err1.message);
+        console.warn(`⚠️ Gemini 3 ni uspel, poskušam alias flash-latest...`, err1.message);
         try {
-            // 2. POSKUS: Gemini 3 Flash (iz tvojega maila)
-            usedModel = "gemini-3-flash-preview";
+            // 2. POSKUS: Alias (Fallback, če Gemini 3 nima kvote)
+            usedModel = "gemini-flash-latest";
             trends = await tryGenerate(usedModel);
         } catch (err2: any) {
-            console.warn(`⚠️ Gemini 3 ni uspel, poskušam gemini-pro-latest...`);
+            console.warn(`⚠️ Alias ni uspel, poskušam še gemini-pro-latest...`);
             try {
-                // 3. POSKUS: Pro verzija
+                // 3. POSKUS: Pro verzija (Zadnja rešilna bilka)
                 usedModel = "gemini-pro-latest";
                 trends = await tryGenerate(usedModel);
             } catch (err3: any) {
-                console.error("❌ Vsi modeli odpovedali. Limit je verjetno na 0 za vse brezplačne modele.");
+                console.error("❌ Vsi modeli odpovedali. Limit je verjetno na 0 ali 20 na vseh.");
                 return res.status(500).json({ error: 'AI generation failed', details: err3.message });
             }
         }
