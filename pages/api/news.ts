@@ -338,10 +338,10 @@ export default async function handler(
         const rawTag = tagQuery.trim().replace('#', '');
         const stems = generateKeywords(rawTag);
         
-        // Namesto kompleksnega and(ilike), uporabimo preprosto contains na keywords
-        // Če keywords ne najdejo nič, poskusimo s celotnim ilike na naslov (eno iskanje, ne več)
         if (stems.length > 0) {
-            // .cs. je zelo hiter indeksiran query
+            // Ker imamo zdaj trigram indeks, lahko uporabimo 'or' brez strahu pred timeoutom.
+            // Najprej iščemo korene v keywords, če pa to zgreši (npr. zaradi Sabalenke/gor), 
+            // pa trigram indeks v sekundi preveri še naslov.
             q = q.or(`keywords.cs.{${stems.join(',')}},title.ilike.%${rawTag}%`);
         } else {
             q = q.ilike('title', `%${rawTag}%`);
