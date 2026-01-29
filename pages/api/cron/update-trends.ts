@@ -95,7 +95,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // 4. GENERIRANJE (Spremenjen vrstni red: Lite -> Flash)
     try {
         // PRVI POSKUS: Lite (varčnejši z kvoto)
-        console.log("Poskušam gemini-2.5-flash-lite...");
+        console.log("Poskušam gemini-1.5-flash...");
         trends = await tryGenerate("gemini-1.5-flash");
         usedModel = "gemini-1.5-flash";
     } catch (err1: any) {
