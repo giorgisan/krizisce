@@ -65,8 +65,8 @@ export default function TrendingBar({ words, onSelectWord, selectedWord }: Trend
   };
 
   return (
-    // SPREMEMBA: Padding py-0.5 (4px) - kompromis med preveč in premalo
-    <div className="flex items-center w-full overflow-hidden py-0.5 border-b border-gray-100 dark:border-gray-800/50 lg:border-none">
+    // SPREMEMBA: Padding py-1 (4px) - kompromis med preveč in premalo
+    <div className="flex items-center w-full overflow-hidden py-1 border-b border-gray-100 dark:border-gray-800/50 lg:border-none">
       
       {/* LABELA */}
       <div 
