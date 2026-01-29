@@ -14,15 +14,13 @@ export default function SeoHead({
   title = 'Križišče',
   description = 'Agregator najnovejših novic iz slovenskih medijev. Članki so last izvornih portalov.',
   url = 'https://krizisce.si/',
-  // POPRAVEK: Tukaj smo zamenjali staro pot z novo datoteko, ki si jo naložil.
-  // Pazimo na točen zapis končnice (.JPG), kot je na sliki.
+  // Uporabljamo tvojo naloženo datoteko og-default.JPG
   image = 'og-default.JPG',
   jsonLd,
 }: Props) {
   const fullTitle = title === 'Križišče' ? 'Križišče' : `${title} · Križišče`
   
-  // Logika: če je slika absolutni URL (http...), jo uporabi, 
-  // sicer jo sestavi z osnovnim URL-jem (https://krizisce.si/og-default.JPG)
+  // Sestavimo polno pot do slike za socialna omrežja
   const ogImage = image.startsWith('http') ? image : new URL(image, url).toString()
 
   const fallbackJsonLd = {
@@ -36,9 +34,6 @@ export default function SeoHead({
       '@type': 'Organization',
       name: 'Križišče',
       url,
-      // Preveri, če imaš logotip še vedno v mapi 'logos' ali v rootu public. 
-      // Glede na tvoj screenshot imaš zdaj 'logo.png' direktno v public mapi,
-      // zato sem tukaj popravil pot na '/logo.png'.
       logo: new URL('/logo.png', url).toString(),
     },
     potentialAction: {
@@ -50,14 +45,19 @@ export default function SeoHead({
 
   return (
     <Head>
-      {/* Title + canonical */}
+      {/* Osnovni Meta podatki */}
       <title>{fullTitle}</title>
+      <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5" />
       <link rel="canonical" href={url} />
-
-      {/* Meta description */}
       <meta name="description" content={description} />
+      <meta name="theme-color" content="#ffffff" />
 
-      {/* Open Graph */}
+      {/* Favicons & Manifest (povezano s tvojimi datotekami v public/) */}
+      <link rel="icon" href="/favicon.ico" />
+      <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+      <link rel="manifest" href="/site.webmanifest" />
+
+      {/* Open Graph / Facebook */}
       <meta property="og:type" content="website" />
       <meta property="og:site_name" content="Križišče" />
       <meta property="og:title" content={fullTitle} />
@@ -66,31 +66,31 @@ export default function SeoHead({
       <meta property="og:image" content={ogImage} />
       <meta property="og:image:width" content="1200" />
       <meta property="og:image:height" content="630" />
-      <meta property="og:image:alt" content="Križišče – predogledna slika" />
+      <meta property="og:image:alt" content="Križišče – agregator novic" />
       <meta property="og:locale" content="sl_SI" />
 
-      {/* Twitter */}
+      {/* Twitter kartica */}
       <meta name="twitter:card" content="summary_large_image" />
       <meta name="twitter:title" content={fullTitle} />
       <meta name="twitter:description" content={description} />
       <meta name="twitter:image" content={ogImage} />
 
-      {/* JSON-LD */}
+      {/* JSON-LD za Google Search Console */}
       <script
         type="application/ld+json"
         // eslint-disable-next-line react/no-danger
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd ?? fallbackJsonLd) }}
       />
 
-      {/* Preload logotipa v headerju */}
+      {/* Performance optimizacije */}
+      {/* Preload logotipa, ki se pojavi takoj v Headerju */}
       <link rel="preload" href="/logo.png" as="image" />
 
-      {/* Preconnect na image CDN za hitrejši prvi handshake */}
+      {/* Hitrejša povezava do CDN-ja za slike */}
       <link rel="preconnect" href="https://images.weserv.nl" crossOrigin="anonymous" />
-      {/* Dodatno: DNS-prefetch */}
       <link rel="dns-prefetch" href="https://images.weserv.nl" />
 
-      {/* Globalna politika pošiljanja Referrer-ja */}
+      {/* Varnost in Referrer */}
       <meta name="referrer" content="strict-origin-when-cross-origin" />
     </Head>
   )
