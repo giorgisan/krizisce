@@ -338,16 +338,11 @@ export default async function handler(
         const rawTag = tagQuery.trim().replace('#', '');
         const stems = generateKeywords(rawTag);
         
+        // Namesto kompleksnega and(ilike), uporabimo preprosto contains na keywords
+        // Če keywords ne najdejo nič, poskusimo s celotnim ilike na naslov (eno iskanje, ne več)
         if (stems.length > 0) {
-            // 1. Pripravimo pogoje za ILIKE za vsako besedo v tagu posebej
-            // To omogoči, da tag "Slovenske gore" najde naslov "Slovenskih gorah"
-            const words = rawTag.split(/\s+/).filter(w => w.length > 2);
-            const titleConditions = words.map(w => `title.ilike.%${w}%`).join(',');
-
-            // 2. Kombiniramo:
-            // - Ali keywords vsebujejo VSE korene (tvoja stara logika)
-            // - ALI naslov vsebuje VSE ključne besede iz taga (bolj fleksibilno)
-            q = q.or(`keywords.cs.{${stems.join(',')}},and(${titleConditions})`);
+            // .cs. je zelo hiter indeksiran query
+            q = q.or(`keywords.cs.{${stems.join(',')}},title.ilike.%${rawTag}%`);
         } else {
             q = q.ilike('title', `%${rawTag}%`);
         }
