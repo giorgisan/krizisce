@@ -22,7 +22,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // 1. ZAJEM NOVIC (Povečano na 200 za boljšo analizo trendov)
     const { data: allNews, error } = await supabase
       .from('news')
-      .select('title, publishedat, source')
+      .select('title, summary, publishedat, source')
       .neq('category', 'oglas')
       .neq('category', 'promo')
       .order('publishedat', { ascending: false })
@@ -34,7 +34,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     // 2. PRIPRAVA VSEBINE
-    const headlines = allNews.map(n => `- ${n.source}: ${n.title}`).join('\n')
+    const headlines = allNews.map(n => `- ${n.source}: ${n.title} (Povzetek: ${n.summary?.substring(0, 100)}...)`).join('\n')
 
     // 3. TVOJ PROMPT
     const prompt = `
