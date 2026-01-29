@@ -334,19 +334,19 @@ export default async function handler(
     const isSearching = (tagQuery && tagQuery.trim().length > 0) || (searchQuery && searchQuery.trim().length > 0);
 
     // A) HITRO ISKANJE PO TAGU (Klik na trending tag)
-if (tagQuery && tagQuery.trim().length > 0) {
-    const rawTag = tagQuery.trim().replace('#', '');
-    const stems = generateKeywords(rawTag);
-    
-    if (stems.length > 0) {
-        // 1. Primarno iščemo po ključnih besedah (tvoja originalna logika s koreni)
-        // To bo našlo "Afera Hamburgerji" preko korenov 'afer' in 'hamburg'
-        q = q.contains('keywords', stems);
-    } else {
-        // 2. Varnostna mreža za naslov, če koreni ne vrnejo ničesar
-        q = q.ilike('title', `%${rawTag}%`);
+    if (tagQuery && tagQuery.trim().length > 0) {
+        const rawTag = tagQuery.trim().replace('#', '');
+        const stems = generateKeywords(rawTag);
+        
+        if (stems.length > 0) {
+            // REŠITEV: Preverimo keywords (koreni) ALI naslov (originalno besedilo)
+            // .cs. pomeni "contains" (vsebuje vse korene)
+            // .ilike. pa je varnostna mreža za naslov, če se koreni ne ujemajo
+            q = q.or(`keywords.cs.{${stems.join(',')}},title.ilike.%${rawTag}%`);
+        } else {
+            q = q.ilike('title', `%${rawTag}%`);
+        }
     }
-}
     
     // -------------------------------------------------------------------------------------
     // B) SPLOŠNO ISKANJE (Vpis v search bar) - STRICT TEXT ONLY & OPTIMIZED
