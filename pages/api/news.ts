@@ -339,10 +339,15 @@ export default async function handler(
         const stems = generateKeywords(rawTag);
         
         if (stems.length > 0) {
-            // REŠITEV: Preverimo keywords (koreni) ALI naslov (originalno besedilo)
-            // .cs. pomeni "contains" (vsebuje vse korene)
-            // .ilike. pa je varnostna mreža za naslov, če se koreni ne ujemajo
-            q = q.or(`keywords.cs.{${stems.join(',')}},title.ilike.%${rawTag}%`);
+            // 1. Pripravimo pogoje za ILIKE za vsako besedo v tagu posebej
+            // To omogoči, da tag "Slovenske gore" najde naslov "Slovenskih gorah"
+            const words = rawTag.split(/\s+/).filter(w => w.length > 2);
+            const titleConditions = words.map(w => `title.ilike.%${w}%`).join(',');
+
+            // 2. Kombiniramo:
+            // - Ali keywords vsebujejo VSE korene (tvoja stara logika)
+            // - ALI naslov vsebuje VSE ključne besede iz taga (bolj fleksibilno)
+            q = q.or(`keywords.cs.{${stems.join(',')}},and(${titleConditions})`);
         } else {
             q = q.ilike('title', `%${rawTag}%`);
         }
