@@ -335,16 +335,13 @@ export default async function handler(
 
     // A) HITRO ISKANJE PO TAGU (Klik na trending tag)
     if (tagQuery && tagQuery.trim().length > 0) {
-        const rawTag = tagQuery.trim();
-        const stems = generateKeywords(rawTag);
+        const rawTag = tagQuery.trim().replace('#', ''); // Odstranimo lojtro za iskanje
         
-        if (stems.length > 0) {
-            // Uporabimo .contains() za AND logiko (bolj varno)
-            q = q.contains('keywords', stems);
-        } else {
-             q = q.ilike('title', `%${rawTag}%`);
-        }
-    } 
+        // Namesto strogega ujemanja korenov v 'keywords' (AND logika), 
+        // razširimo iskanje še na naslov novice (title).
+        // Uporabimo .or(), da povečamo možnost ujemanja.
+        q = q.or(`keywords.cs.{${rawTag}},title.ilike.%${rawTag}%`);
+    }
     
     // -------------------------------------------------------------------------------------
     // B) SPLOŠNO ISKANJE (Vpis v search bar) - STRICT TEXT ONLY & OPTIMIZED
