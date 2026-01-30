@@ -39,7 +39,8 @@ export function computeTrending(rows: any[]): TrendingGroupResult[] {
 
   const metas = rows.map((row) => {
       const ms = row.publishedat || (row.published_at ? Date.parse(row.published_at) : Date.now())
-      const text = `${row.title} ${row.title} ${row.summary || row.contentsnippet || ''}`
+      // POPRAVEK: Odstranjen row.summary
+      const text = `${row.title} ${row.title} ${row.contentsnippet || ''}`
       return { row, ms, keywords: extractKeywords(text) }
   }).filter(m => m.keywords.length > 0)
 
@@ -129,7 +130,8 @@ export function computeTrending(rows: any[]): TrendingGroupResult[] {
           link: repRow.link,
           source: repRow.source,
           image: repRow.image,
-          contentSnippet: repRow.summary || repRow.contentsnippet,
+          // POPRAVEK: Odstranjen repRow.summary
+          contentSnippet: repRow.contentsnippet,
           publishedAt: sg.newestMs,
           category: repRow.category || 'ostalo',
           storyArticles: storyArticles
