@@ -475,7 +475,8 @@ export default function Home({ initialNews, initialTrendingWords, initialTrendin
                                 <div className="py-10 px-4 text-center">
                                     <div className="text-4xl mb-2 grayscale opacity-50">☕</div>
                                     <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">
-                                        Jutranje zatišje. <br/> Trendi se še zbirajo.
+                                        Jutranje zatišje. <br/> 
+                                        Zbiramo aktualne novice.
                                     </p>
                                 </div>
                             ) : (
