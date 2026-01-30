@@ -471,6 +471,13 @@ export default function Home({ initialNews, initialTrendingWords, initialTrendin
                                         </div>
                                     ))}
                                  </div>
+                            ) : itemsTrending.length === 0 ? (
+                                <div className="py-10 px-4 text-center">
+                                    <div className="text-4xl mb-2 grayscale opacity-50">☕</div>
+                                    <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">
+                                        Jutranje zatišje. <br/> Trendi se še zbirajo.
+                                    </p>
+                                </div>
                             ) : (
                                 <div className="flex flex-col gap-3">
                                     {itemsTrending.slice(0, 10).map((article, i) => (
