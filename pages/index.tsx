@@ -421,7 +421,7 @@ export default function Home({ initialNews, initialTrendingWords, initialTrendin
                                 <ArticleCard 
                                     key={article.link + i} 
                                     news={article} 
-                                    priority={i < 8} 
+                                    priority={i < 4} // POPRAVEK 1: Zmanjšan priority (prej 8)
                                 />
                             ))}
                         </div>
@@ -437,12 +437,14 @@ export default function Home({ initialNews, initialTrendingWords, initialTrendin
                 </div>
 
                 {/* --- SIDEBAR (POPRAVLJEN: Scroll samo na Desktopu) --- */}
-                <aside className={`w-full lg:w-[340px] xl:w-[380px] shrink-0 lg:sticky lg:top-24 
+                {/* POPRAVEK 2: Dodan 'transform-gpu' za strojno pospeševanje sticky elementa */}
+                <aside className={`w-full lg:w-[340px] xl:w-[380px] shrink-0 lg:sticky lg:top-24 transform-gpu 
                     ${mode === 'trending' ? 'block' : 'hidden lg:block'}
                 `}>
-                    {/* NIELSEN UX: Visok kontrast ozadja sidebara (bg-gray-200/70) */}
+                    {/* NIELSEN UX: Visok kontrast ozadja sidebara */}
+                    {/* POPRAVEK 3: Zmanjšan blur iz xl na md za hitrejši scroll */}
                     <div className={`
-                        bg-gray-200/70 dark:bg-gray-800/90 rounded-2xl backdrop-blur-xl shadow-inner flex flex-col
+                        bg-gray-200/70 dark:bg-gray-800/90 rounded-2xl backdrop-blur-md shadow-inner flex flex-col
                         lg:max-h-[calc(100vh-8rem)] lg:overflow-hidden /* Samo desktop omejitev */
                     `}>
                         
@@ -475,7 +477,7 @@ export default function Home({ initialNews, initialTrendingWords, initialTrendin
                                 <div className="py-10 px-4 text-center">
                                     <div className="text-4xl mb-2 grayscale opacity-50">☕</div>
                                     <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">
-                                        Jutranje zatišje. <br/> 
+                                        Jutranje zatišje. <br/>
                                         Zbiramo aktualne novice.
                                     </p>
                                 </div>
