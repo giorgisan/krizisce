@@ -382,9 +382,8 @@ export default function ArchivePage() {
       .filter((it) => !sourceFilter || it.source === sourceFilter)
       .filter((it) => {
         if (!q) return true
-        const summary =
-          (it.contentSnippet ?? '') || ''
-        return norm(`${it.title} ${summary} ${it.source}`).includes(q)
+        const snippet = (it.contentSnippet ?? '') || ''
+        return norm(`${it.title} ${snippet} ${it.source}`).includes(q)
       })
   }, [items, deferredSearch, sourceFilter])
 
@@ -745,7 +744,7 @@ export default function ArchivePage() {
                       const src = it.source
                       const hex = sourceColors[src] || '#7c7c7c'
                       const ts = it.publishedAt
-                      const summary = (it.contentSnippet ?? '').trim()
+                      const snippet = (it.contentSnippet ?? '').trim()
 
                       return (
                         <li key={`${link}-${i}`} className="px-2 sm:px-3 py-1">
@@ -804,11 +803,11 @@ export default function ArchivePage() {
                                   ? highlight(it.title, search)
                                   : it.title}
                               </a>
-                              {summary && (
+                              {snippet && (
                                 <div className="pointer-events-none absolute left-0 top-full mt-1 z-50 max-w-[60ch] rounded-md bg-gray-900 text-white text-[12px] leading-snug px-2.5 py-2 shadow-lg ring-1 ring-black/20 opacity-0 invisible translate-y-1 transition peer-hover:opacity-100 peer-hover:visible peer-hover:translate-y-0">
                                   {search.trim()
-                                    ? highlight(summary, search)
-                                    : summary}
+                                    ? highlight(snippet, search)
+                                    : snippet}
                                 </div>
                               )}
                             </div>
