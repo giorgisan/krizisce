@@ -10,19 +10,24 @@ const supabase = createClient(
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_KEY || '')
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  // Varnostno preverjanje
   if (req.query.key !== process.env.CRON_SECRET) {
     return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  const hour = (new Date().getUTCHours() + 1) % 24;
+  if (hour >= 22 || hour < 4) {
+    console.log(`Nočni mir (ura: ${hour}:00). Preskakujem AI.`);
+    return res.status(200).json({ success: true, message: 'Nočni premor.' });
   }
 
   let trends: string[] = []
   let usedModel = 'unknown'
   
   try {
-    // 1. ZAJEM NOVIC (Povečano na 200 za boljšo analizo trendov)
+    // 1. ZAJEM NOVIC - Zamenjali 'summary' s 'contentsnippet'
     const { data: allNews, error } = await supabase
       .from('news')
-      .select('title, summary, publishedat, source')
+      .select('title, contentsnippet, publishedat, source')
       .neq('category', 'oglas')
       .neq('category', 'promo')
       .order('publishedat', { ascending: false })
@@ -33,10 +38,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(200).json({ success: false, message: 'Baza je prazna.' })
     }
 
-    // 2. PRIPRAVA VSEBINE
-    const headlines = allNews.map(n => `- ${n.source}: ${n.title} (Povzetek: ${n.summary?.substring(0, 100)}...)`).join('\n')
+    // 2. PRIPRAVA VSEBINE - Uporabimo n.contentsnippet namesto n.summary
+    const headlines = allNews.map(n => `- ${n.source}: ${n.title} (Povzetek: ${n.contentsnippet?.substring(0, 100)}...)`).join('\n')
 
-    // 3. TVOJ PROMPT
+    // 3. PROMPT
     const prompt = `
         Kot izkušen urednik slovenskega novičarskega portala analiziraj spodnji seznam naslovov zadnjih novic.
         Tvoja naloga je ustvariti dinamičen in raznolik seznam trendov (#TemeDneva), ki so trenutno najbolj aktualni.
@@ -86,43 +91,33 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         })
         const result = await model.generateContent(prompt)
         const responseText = result.response.text()
-        
-        // Robustno iskanje JSON-a (najde vsebino med [ in ])
         const jsonStart = responseText.indexOf('[');
         const jsonEnd = responseText.lastIndexOf(']') + 1;
         const cleanJson = responseText.substring(jsonStart, jsonEnd);
-        
         return JSON.parse(cleanJson)
     }
 
-    // 4. GENERIRANJE - Optimiziran vrstni red za tvoj projekt (Gemini 3 je primaren)
     try {
-        // 1. POSKUS: Gemini 3 Flash (Tvoj novi standard, ki preverjeno deluje)
         console.log("Poskušam gemini-3-flash-preview...");
         usedModel = "gemini-3-flash-preview";
         trends = await tryGenerate(usedModel);
     } catch (err1: any) {
         console.warn(`⚠️ Gemini 3 ni uspel, poskušam alias flash-latest...`, err1.message);
         try {
-            // 2. POSKUS: Alias (Fallback, če Gemini 3 nima kvote)
             usedModel = "gemini-flash-latest";
             trends = await tryGenerate(usedModel);
         } catch (err2: any) {
             console.warn(`⚠️ Alias ni uspel, poskušam še gemini-pro-latest...`);
             try {
-                // 3. POSKUS: Pro verzija (Zadnja rešilna bilka)
                 usedModel = "gemini-pro-latest";
                 trends = await tryGenerate(usedModel);
             } catch (err3: any) {
-                console.error("❌ Vsi modeli odpovedali. Limit je verjetno na 0 ali 20 na vseh.");
                 return res.status(500).json({ error: 'AI generation failed', details: err3.message });
             }
         }
     }
 
-    // 5. SHRANJEVANJE
     if (Array.isArray(trends) && trends.length > 0) {
-        // Čiščenje in omejitev na max 12 (za marquee)
         trends = trends
             .map(t => {
                 let tag = t.trim();
@@ -135,18 +130,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         const { error: insertError } = await supabase
           .from('trending_ai')
           .insert({ 
-             words: trends, 
-             updated_at: new Date().toISOString() 
+              words: trends, 
+              updated_at: new Date().toISOString() 
           })
         
         if (insertError) throw insertError
-        
-        return res.status(200).json({ 
-            success: true, 
-            used_model: usedModel, 
-            count: trends.length, 
-            trends 
-        })
+        return res.status(200).json({ success: true, used_model: usedModel, count: trends.length, trends })
     } 
 
     return res.status(200).json({ success: false, message: 'AI je vrnil prazen rezultat.' })
