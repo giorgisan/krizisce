@@ -505,7 +505,7 @@ export const getServerSideProps: GetServerSideProps = async ({ res }) => {
   const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, { auth: { persistSession: false } })
 
   // 1. POIZVEDBA: Glavne novice
-  const newsPromise = supabase.from('news').select('id, link, title, source, summary, contentsnippet, image, published_at, publishedat, category').neq('category', 'oglas').order('publishedat', { ascending: false }).order('id', { ascending: false }).limit(24)
+  const newsPromise = supabase.from('news').select('id, link, title, source, contentsnippet, image, published_at, publishedat, category').neq('category', 'oglas').order('publishedat', { ascending: false }).order('id', { ascending: false }).limit(24)
   
   // 2. POIZVEDBA: Tagi
   const trendsWordsPromise = supabase.from('trending_ai').select('words').order('updated_at', { ascending: false }).limit(1).single()
@@ -521,7 +521,7 @@ export const getServerSideProps: GetServerSideProps = async ({ res }) => {
     title: r.title,
     link: r.link || '',
     source: r.source,
-    contentSnippet: r.contentsnippet ?? r.summary ?? '',
+    contentSnippet: r.contentsnippet ?? '',
     image: r.image ?? null,
     publishedAt: (r.publishedat ?? (r.published_at ? Date.parse(r.published_at) : 0)) || 0,
     isoDate: r.published_at,
