@@ -96,6 +96,9 @@ function formatRelativeTime(
 }
 
 export default function TrendingCard({ news, compact = false, rank }: Props) {
+  // --- VAROVALKA: Če ni novice, ne renderiraj ničesar ---
+  if (!news || !news.title) return null
+  
   const [minuteTick, setMinuteTick] = useState(0)
   useEffect(() => {
     const onMinute = () => setMinuteTick((m) => (m + 1) % 60)
@@ -145,11 +148,6 @@ export default function TrendingCard({ news, compact = false, rank }: Props) {
     return buildSrcSet(rawImg, IMAGE_WIDTHS, ASPECT)
   }, [rawImg, useProxy, compact])
 
-  const lqipSrc = useMemo(() => {
-    if (!rawImg) return null
-    return proxiedImage(rawImg, 28, 16, 1)
-  }, [rawImg])
-
   useEffect(() => {
     setUseProxy(!!rawImg)
     setUseFallback(!rawImg)
@@ -198,7 +196,7 @@ export default function TrendingCard({ news, compact = false, rank }: Props) {
   }
 
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
-  
+   
   const preloadedRef = useRef(false)
   const triggerPrefetch = () => {
     if (!preloadedRef.current && canPrefetch()) {
@@ -233,13 +231,10 @@ export default function TrendingCard({ news, compact = false, rank }: Props) {
           aria-hidden="true"
         />
 
-        {/* --- RANK: Vrnjeno na originalno pozicijo (rob kartice) + Glass efekt --- */}
+        {/* --- RANK --- */}
         {rank && (
            <div className="absolute top-0 left-0 w-8 h-8 lg:w-7 lg:h-7 flex items-center justify-center z-20 pointer-events-none">
-               {/* Ozadje: Zelo prosojno (15%) zamegljeno črno, z zaobljenim zgornjim levim kotom */}
                <div className="absolute inset-0 bg-black/15 backdrop-blur-sm rounded-br-2xl rounded-tl-xl border-b border-r border-white/10 shadow-sm" />
-               
-               {/* Številka: Bela z rahlo senco za berljivost */}
                <span className="relative text-sm lg:text-xs font-black text-white/90 font-sans drop-shadow-sm leading-none">
                    {rank}
                </span>
@@ -311,8 +306,8 @@ export default function TrendingCard({ news, compact = false, rank }: Props) {
                                    title={`Preberi na ${r.source}`}
                                    className="w-6 h-6 lg:w-5 lg:h-5 rounded-full bg-white dark:bg-gray-700 border border-gray-100 dark:border-gray-600 flex items-center justify-center overflow-hidden hover:scale-125 hover:z-20 transition-transform shadow-sm cursor-pointer"
                                    onClick={(e) => {
-                                       e.stopPropagation() 
-                                       logClick('open_related', { parent: news.link, url: r.link })
+                                      e.stopPropagation() 
+                                      logClick('open_related', { parent: news.link, url: r.link })
                                    }}
                                 >
                                      {logo ? (
@@ -387,7 +382,7 @@ export default function TrendingCard({ news, compact = false, rank }: Props) {
             <div className="mt-2 pt-3 border-t border-gray-100 dark:border-gray-700">
                <div className="flex items-center gap-1.5 mb-2 opacity-80">
                   <span className="text-[10px] uppercase tracking-wider text-gray-400 font-semibold">
-                     Pokrivajo tudi
+                      Pokrivajo tudi
                   </span>
                </div>
                {related.length === 0 ? (
