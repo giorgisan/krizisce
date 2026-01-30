@@ -22,7 +22,7 @@ const supabaseWrite = SUPABASE_SERVICE_ROLE_KEY
   : null
 
 /* -------------------------------------------------------------------------- */
-/* HELPER FUNKCIJE (Potrebne za ingest in splošni API)                        */
+/* HELPER FUNKCIJE                                                            */
 /* -------------------------------------------------------------------------- */
 
 function cleanUrl(raw: string): URL | null {
@@ -77,7 +77,6 @@ function makeLinkKey(raw: string, iso?: string | null): string {
 const unaccent = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
 const normTitle = (s: string) => unaccent(s).toLowerCase().replace(/\s+/g, ' ').trim()
 
-// OPTIMIZACIJA 1: Izboljšan softDedupe
 function softDedupe<T extends { source?: string; title?: string; publishedAt?: number }>(arr: T[]): T[] {
   const byKey = new Map<string, T>()
   for (const it of arr) {
@@ -141,7 +140,7 @@ function feedItemToDbRow(item: FeedNewsItem) {
     source,
     image: item.image?.trim() || null,
     contentsnippet: snippet,
-    summary: snippet,
+    // summary: snippet,  <--- ODSTRANJENO! (Podatek je isti kot contentsnippet)
     published_at: ts.iso,
     publishedat: ts.ms,
     category: category, 
@@ -184,7 +183,7 @@ type Row = {
   source: string
   image: string | null
   contentsnippet: string | null
-  summary: string | null
+  // summary: string | null <-- ODSTRANJENO!
   published_at: string | null
   publishedat: number | null
   created_at: string | null
@@ -205,7 +204,8 @@ function rowToItem(r: Row): FeedNewsItem {
     link: r.link || '',
     source: r.source,
     image: r.image || null,
-    contentSnippet: r.contentsnippet?.trim() || r.summary?.trim() || null,
+    // Vrnemo contentsnippet kot contentSnippet (standardno polje)
+    contentSnippet: r.contentsnippet?.trim() || null,
     publishedAt: ms,
     isoDate: r.published_at || null,
     category: (r.category as CategoryId) || 'ostalo',
@@ -259,7 +259,6 @@ export default async function handler(
     const allowPublic = process.env.ALLOW_PUBLIC_REFRESH === '1'
     const canIngest = isCronCaller || isInternalIngest || isDev || tokenOk || allowPublic
 
-    // POPRAVEK: Logika, ki prepreči "puščanje" in takoj vrne odgovor
     if (wantsFresh) {
         if (canIngest) {
             try {
@@ -273,25 +272,21 @@ export default async function handler(
                 return res.status(500).json({ error: err.message })
             }
         } else {
-            // Če uporabnik nima pravic, TAKOJ zaključimo in NE beremo novic iz baze!
             return res.status(200).json({ message: 'Ingest skipped (not authorized)' })
         }
     }
 
     // --- 3. PRIPRAVA POIZVEDBE (GET NEWS) ---
-    // Če smo prišli do sem, pomeni, da gre za navaden ogled novic (ne forceFresh)
     const limitParam = parseInt(String(req.query.limit), 10)
     const defaultLimit = 24 
     const limit = Math.min(Math.max(limitParam || defaultLimit, 1), 300)
     const cursor = req.query.cursor ? Number(req.query.cursor) : null
 
-    // Glavni query
+    // Glavni query - ODSTRANJEN summary iz SELECT
     let q = supabaseRead
       .from('news')
-      .select('id, link, link_key, title, source, image, contentsnippet, summary, published_at, publishedat, created_at, category, keywords')
+      .select('id, link, link_key, title, source, image, contentsnippet, published_at, publishedat, created_at, category, keywords')
       .gt('publishedat', 0)
-      
-      // --- 4. FILTRIRANJE OGLASOV ---
       .neq('category', 'oglas') 
       
     // SORTIRANJE:
@@ -329,8 +324,6 @@ export default async function handler(
     }
 
     // --- 5. LOGIKA ISKANJA ---
-    
-    // Spremenljivka, ki pove, ali se izvaja iskanje (za cache)
     const isSearching = (tagQuery && tagQuery.trim().length > 0) || (searchQuery && searchQuery.trim().length > 0);
 
     // A) HITRO ISKANJE PO TAGU (Klik na trending tag)
@@ -339,36 +332,26 @@ export default async function handler(
         const stems = generateKeywords(rawTag);
         
         if (stems.length > 0) {
-            // Ker imamo zdaj trigram indeks, lahko uporabimo 'or' brez strahu pred timeoutom.
-            // Najprej iščemo korene v keywords, če pa to zgreši (npr. zaradi Sabalenke/gor), 
-            // pa trigram indeks v sekundi preveri še naslov.
+            // Ker imamo zdaj trigram indeks na title, lahko uporabimo 'ilike' z % brez strahu.
             q = q.or(`keywords.cs.{${stems.join(',')}},title.ilike.%${rawTag}%`);
         } else {
             q = q.ilike('title', `%${rawTag}%`);
         }
     }
     
-    // -------------------------------------------------------------------------------------
-    // B) SPLOŠNO ISKANJE (Vpis v search bar) - STRICT TEXT ONLY & OPTIMIZED
-    // -------------------------------------------------------------------------------------
+    // B) SPLOŠNO ISKANJE (Header)
     if (searchQuery && searchQuery.trim().length > 0) {
-        // 1. Razbijemo iskanje na posamezne besede
         const terms = searchQuery.trim().split(/\s+/).filter(t => t.length > 1);
 
         if (terms.length > 0) {
-            // 2. Za VSAKO vpisano besedo dodamo pogoj (AND logika)
             terms.forEach(term => {
-                // Iščemo samo po 'title' in 'contentsnippet', ki sta hitra.
                 const orConditions = [
                     `title.ilike.%${term}%`,
                     `contentsnippet.ilike.%${term}%`
                 ];
-                
-                // Iščemo samo po vidnem tekstu (brez keywords).
                 q = q.or(orConditions.join(','));
             });
         } else {
-             // Fallback varnostna mreža
              q = q.ilike('title', `%${searchQuery.trim()}%`);
         }
     }
@@ -390,19 +373,11 @@ export default async function handler(
     const rows = (data || []) as Row[]
     const rawItems = rows.map(rowToItem)
     
-    // Uporabimo softDedupe, ki poskrbi za čistejši seznam
     const dedupedItems = softDedupe(rawItems).sort((a, b) => b.publishedAt - a.publishedAt)
-    
-    // --- FINALNO REZANJE ---
-    // Odrežemo točno toliko, kot je bilo zahtevano, da ne vračamo bufferja
     const items = dedupedItems.slice(0, limit);
-
-    // Izračunamo kursor za naslednjo stran na podlagi ZADNJEGA vrnjenega elementa
     const nextCursor = items.length === limit ? items[items.length - 1].publishedAt : null
 
-    // --- 7. CACHE CONTROL (FIX ZA LAGGING ISKANJE) ---
-    // Če iščemo, NE smemo predpomniti (no-store), da dobimo vedno sveže rezultate.
-    // Če samo listamo, uporabimo cache.
+    // --- 7. CACHE CONTROL ---
     if (isSearching) {
         res.setHeader('Cache-Control', 'no-store, max-age=0');
     } else {
