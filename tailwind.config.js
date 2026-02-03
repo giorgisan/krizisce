@@ -14,7 +14,6 @@ module.exports = {
         sans: ['var(--font-inter)', ...defaultTheme.fontFamily.sans],
         serif: ['var(--font-playfair)', ...defaultTheme.fontFamily.serif],
       },
-      // IZBRISAL SEM SEKCIJO fontWeight - pusti privzeto (700 za bold)!
       colors: {
         brand: '#fc9c6c',
         'brand-hover': '#e57b53',
@@ -31,8 +30,7 @@ module.exports = {
     },
   },
   plugins: [
-    // Preveri, če rabiš line-clamp (v novejšem Tailwindu je vgrajen, ampak pusti če dela)
-    require('@tailwindcss/line-clamp'),
+    // require('@tailwindcss/line-clamp') je odstranjen, ker je vgrajen v Tailwind v3.3+
     require('tailwind-scrollbar-hide'), 
   ],
   safelist: [
