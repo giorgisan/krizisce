@@ -57,7 +57,8 @@ export const CATEGORIES: CategoryDef[] = [
         'eu', 'evropsk komisij', 'parlament', 'von der leyen', 'nato',
         'scholz', 'macron', 'orban', 'vucic', 'plenkovic',
         'potres', 'terorist', 'napad', 'protest', 'valut',
-        'hrvask', 'zagreb', 'beograd', 'balkan', 'papez', 'vatikan', 'kralj'
+        'hrvask', 'zagreb', 'beograd', 'balkan', 'papez', 'vatikan', 'kralj',
+        'prehod', 'meja', 'begunec', 'humanitarn', 'rafa', 'zn'
     ]
   },
   {
@@ -90,7 +91,7 @@ export const CATEGORIES: CategoryDef[] = [
         'odbojka', 'rokomet', 'kolesar', 'pogacar', 'roglic', 'tour', 'giro', 'vuelta',
         'tenis', 'djokovic', 'nadal', 'alkaraz', 'sabalenk', 'kyrgios',
         'plezanje', 'garnbret', 'motogp', 'formula 1', 'verstappen', 'hamilton',
-        'boks', 'joshua', 'tyson', 'fury', 'olimpijsk', 'kolajn', 'drsalk'
+        'boks', 'joshua', 'tyson', 'fury', 'olimpijsk', 'kolajn', 'drsalk', 'led'
     ]
   },
   {
@@ -189,12 +190,11 @@ export const CATEGORIES: CategoryDef[] = [
         'kino', 'premier', 'oskar', 'cannes', 'liffe', 'sarajevo film',
         'knjizn', 'pisatelj', 'pesnik', 'roman', 'zbirk', 'proz', 'literarn', 'recenzi',
         'dokumentarec', 'karikatur', 'strip', 'reziser', 'umetnin', 'mojstrov',
-        'umrl', 'pevec', 'skupin', 'bend', 'parni valjak', 'glasben', 'slovenscin'
+        'pevec', 'skupin', 'bend', 'parni valjak', 'glasben', 'slovenscin'
     ]
   }
 ]
 
-// Vrstni red preverjanja zadetkov v "ostalo"
 const PRIORITY_CHECK_ORDER: CategoryId[] = [
   'magazin',
   'sport',
@@ -219,19 +219,19 @@ export function determineCategory(item: {
   
   const url = item.link.toLowerCase();
   
-  // 1. NAJBOLJ SPECIFIČNI URL SEGMENTI (Moto, Lifestyle, Tech) imajo prednost pred splošnimi (Magazin)
+  // 1. SPECIFIČNI URL SEGMENTI imajo absolutno prednost (Early Exit)
+  // Če vir novico uvrsti v te podrubrike, verjamemo uredniku vira.
+  if (url.includes('/svet/') || url.includes('/tujina/')) return 'svet';
   if (url.includes('/avto/') || url.includes('/avtomoto/') || url.includes('/avtomobilno/') || url.includes('/mobilnost/') || url.includes('/svet-vozil/')) return 'moto';
   if (url.includes('/zdravje/') || url.includes('/okusno/') || url.includes('/kulinarika/') || url.includes('/lifestyle/') || url.includes('/dom/') || url.includes('/osebna-rast/') || url.includes('vizita') || url.includes('/trajnostno/') || url.includes('/bivanje/')) return 'lifestyle';
   if (url.includes('/gospodarstvo/') || url.includes('/posel/') || url.includes('/finance/') || url.includes('/digisvet/') || url.includes('/tech/') || url.includes('/znanoteh/')) return 'posel-tech';
   if (url.includes('/kronika/') || url.includes('/crna-kronika/') || url.includes('/crna/')) return 'kronika';
   if (url.includes('/sport/') || url.includes('/sportal/') || url.includes('/nogomet/') || url.includes('/kosarka/') || url.includes('/zimski-sporti/')) return 'sport';
   if (url.includes('/kultura/') || url.includes('/glasba/') || url.includes('/mlado-pero/')) return 'kultura';
-  
-  // Šele nato preverimo splošni Magazin
   if (url.includes('/magazin/') || url.includes('/bulvar/') || url.includes('/scena/') || url.includes('/zvezde/') || url.includes('/popin/') || url.includes('/karikatura/') || url.includes('/zabava/') || url.includes('/zabava-in-slog/') || url.includes('/znani/')) return 'magazin';
 
   let urlHint: CategoryId | null = null;
-  if (url.includes('/svet/') || url.includes('/tujina/')) urlHint = 'svet';
+  // Popravek za splošne lokalne novice, ki nimajo specifičnega segmenta zgoraj
   if (url.includes('/slovenija/') || url.includes('/lokalno/') || url.includes('/lokalne-novice/') || url.includes('/mnenja/') || url.includes('/kolumne/') || url.includes('/pisma/') || url.includes('/bralci/') || url.includes('/okolje/')) urlHint = 'slovenija';
 
   const scores: Record<CategoryId, number> = {
