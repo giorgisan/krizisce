@@ -114,7 +114,7 @@ export const CATEGORIES: CategoryDef[] = [
         'aplikacij', 'programiranj', 'kibernetsk', 'heker', 'prevar', 'znanstven', 'splet', 'telef', 'mobiln', 'regulativ', 'direktiv', 'zasebnost', 'podatk',
         'milijard', 'milijonar', 'bogatas', 'bogastv', 'premozenj', 'uspeh',
         'gamers', 'igric', 'konzola', 'xbox', 'playstation', 'asus', 'racunalnik',
-        'algorit', 'omrez', 'digitaln odpornost', 'mediji'
+        'algorit', 'omrez', 'digitaln odpornost', 'medi'
     ]
   },
   {
@@ -175,7 +175,7 @@ export const CATEGORIES: CategoryDef[] = [
         'dopust', 'pocitnic', 'morje', 'hrib', 'izlet', 'hotel', 'kamp', 'razgled', 'potep', 'turizem', 'turist', 'destinacij', 'wellness', 'razvajanj', 'term',
         'huj', 'navad', 'vitaln',
         'trebuh', 'mascob', 'misic', 'telovad', 'staran', 'utrujenost', 'teles',
-        'imen', 'stars', 'otrok', 'hlaca', 'hlacn', 'nogavic', 'srcni spodbujevalnik', 'lepot bivan'
+        'imen', 'stars', 'otrok', 'hlaca', 'hlacn', 'nogavic', 'srcn', 'spodbujevalnik', 'lepota bivan'
     ]
   },
   {
@@ -220,7 +220,7 @@ export function determineCategory(item: {
   const url = item.link.toLowerCase();
   
   // 1. SPECIFIČNI URL SEGMENTI imajo absolutno prednost (Early Exit)
-  // Če vir novico uvrsti v te podrubrike, verjamemo uredniku vira.
+  // Če je v URL /svet/, potem verjamemo uredniku Dela, da je to svet.
   if (url.includes('/svet/') || url.includes('/tujina/')) return 'svet';
   if (url.includes('/avto/') || url.includes('/avtomoto/') || url.includes('/avtomobilno/') || url.includes('/mobilnost/') || url.includes('/svet-vozil/')) return 'moto';
   if (url.includes('/zdravje/') || url.includes('/okusno/') || url.includes('/kulinarika/') || url.includes('/lifestyle/') || url.includes('/dom/') || url.includes('/osebna-rast/') || url.includes('vizita') || url.includes('/trajnostno/') || url.includes('/bivanje/')) return 'lifestyle';
@@ -231,7 +231,7 @@ export function determineCategory(item: {
   if (url.includes('/magazin/') || url.includes('/bulvar/') || url.includes('/scena/') || url.includes('/zvezde/') || url.includes('/popin/') || url.includes('/karikatura/') || url.includes('/zabava/') || url.includes('/zabava-in-slog/') || url.includes('/znani/')) return 'magazin';
 
   let urlHint: CategoryId | null = null;
-  // Popravek za splošne lokalne novice, ki nimajo specifičnega segmenta zgoraj
+  // Popravek za splošne slovenske novice
   if (url.includes('/slovenija/') || url.includes('/lokalno/') || url.includes('/lokalne-novice/') || url.includes('/mnenja/') || url.includes('/kolumne/') || url.includes('/pisma/') || url.includes('/bralci/') || url.includes('/okolje/')) urlHint = 'slovenija';
 
   const scores: Record<CategoryId, number> = {
