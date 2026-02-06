@@ -347,11 +347,11 @@ export default function ArticlePreview({ url, onClose }: Props) {
 
         setContent(truncated)
         
-        // --- ZMANJŠAN ZAMIK NA 150ms ---
+        // --- ZMANJŠAN ZAMIK IZ 150ms NA 80ms ---
         setProgress(100)
         setTimeout(() => {
             if (alive) setLoading(false)
-        }, 150)
+        }, 80)
         // ------------------------------
 
       } catch {
