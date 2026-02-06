@@ -28,21 +28,22 @@ const AUTO_CLOSE_ON_OPEN = true
 
 /* --- NOVO: Helper za barve virov --- */
 const getSourceColor = (site: string) => {
-  const s = site.toLowerCase();
+  const s = (site || '').toLowerCase();
   if (s.includes('24ur')) return '#f97316';     // Oranžna
-  if (s.includes('rtvslo')) return '#ef4444';   // Rdeča
+  if (s.includes('rtvslo')) return '#009681';   // RTV MMC Zelena/Turkizna (ali #ef4444 za rdečo)
   if (s.includes('siol')) return '#00a1e1';     // Modra
   if (s.includes('delo')) return '#e11927';     // Temno rdeča
   if (s.includes('n1')) return '#004a99';       // Temno modra
   if (s.includes('dnevnik')) return '#374151';  // Siva
   if (s.includes('svet24')) return '#eab308';   // Rumena
   if (s.includes('zurnal24')) return '#dc2626'; // Živo rdeča
+  if (s.includes('vecer')) return '#dc2626';    // Rdeča
   return '#fc9c6c'; // Privzeta brand barva
 }
 
-/* --- NOVO: Skeleton Loader Komponenta --- */
+/* --- NOVO: Skeleton Loader (Vizualni okvir) --- */
 const SkeletonLoader = () => (
-  <div className="animate-pulse space-y-8 py-6 px-1">
+  <div className="animate-pulse space-y-8 py-4 px-1 max-w-2xl mx-auto w-full">
     {/* Naslov */}
     <div className="space-y-3">
       <div className="h-7 bg-gray-200 dark:bg-gray-700 rounded-md w-3/4"></div>
@@ -340,33 +341,19 @@ export default function ArticlePreview({ url, onClose }: Props) {
   /* --- DINAMIČNA BARVA --- */
   const accentColor = useMemo(() => getSourceColor(site), [site]);
 
-  // POPRAVEK: Simulacija progressa (ki ne povozi 100%)
+  // NALAGANJE: Reset progressa
   useEffect(() => {
-    if (!loading) {
-      return
-    }
+    if (!loading) return
     setProgress(0)
-
-    const interval = setInterval(() => {
-      setProgress(old => {
-        if (old >= 100) return 100 // Če smo ročno nastavili 100, ostani tam
-        if (old >= 90) return 90   // Ustavi se na 90%
-        const diff = Math.random() * 15
-        return Math.min(old + diff, 90)
-      })
-    }, 200)
-    
-    return () => clearInterval(interval)
+    // Simuliramo samo če rabimo (tu skeleton nadomesti)
   }, [loading])
 
-  // POPRAVEK: Nalaganje s hitrejšim finish efektom (150ms -> 80ms)
+  // NALAGANJE VSEBINE
   useEffect(() => {
     let alive = true
     setContent(''); setCoverSnapSrc(null)
     setLoading(true); setError(null)
-    // Resetiramo progress ob novem URL-ju
-    setProgress(0)
-
+    
     const run = async () => {
       try {
         let data = peekPreview(url) as ApiPayload | null
@@ -385,12 +372,11 @@ export default function ArticlePreview({ url, onClose }: Props) {
 
         setContent(truncated)
         
-        // --- ZMANJŠAN ZAMIK IZ 150ms NA 80ms ---
+        // Zmanjšan zamik za gladek prehod iz skeletona
         setProgress(100)
         setTimeout(() => {
             if (alive) setLoading(false)
-        }, 80)
-        // ------------------------------
+        }, 150)
 
       } catch {
         if (!alive) return
@@ -402,6 +388,7 @@ export default function ArticlePreview({ url, onClose }: Props) {
     return () => { alive = false }
   }, [url, cacheBust])
 
+  // TIPKOVNICA
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
@@ -430,6 +417,7 @@ export default function ArticlePreview({ url, onClose }: Props) {
     }
   }, [onClose, shareOpen])
 
+  // KLIK ZUNAJ (za share meni)
   useEffect(() => {
     const onDocClick = (e: globalThis.MouseEvent) => {
       if (!shareOpen) return
@@ -644,96 +632,108 @@ export default function ArticlePreview({ url, onClose }: Props) {
   return createPortal(
     <>
       <style>{`
-        body.preview-open { overflow: hidden; }
         body.preview-open a,
         body.preview-open a:hover,
         body.preview-open a:focus { text-decoration: none !important; }
         body.preview-open .group:hover { transform: none !important; }
         body.preview-open .group:hover * { text-decoration: none !important; }
         @media (prefers-reduced-motion: reduce) { .anim-soft { transition: none !important; } }
-        ${PREVIEW_TYPO_CSS}
       `}</style>
+      <style>{PREVIEW_TYPO_CSS}</style>
 
       <div
-        className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-black/60 backdrop-blur-sm px-4"
+        className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-black/60 transition-opacity duration-300 backdrop-blur-sm"
         role="dialog"
+        aria-modal="true"
         onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
       >
         <div
           ref={modalRef}
           style={{ '--accent-color': accentColor } as React.CSSProperties}
-          className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[85vh] overflow-hidden border border-white/10 flex flex-col transform animate-in fade-in zoom-in duration-200"
+          className="bg-white/95 dark:bg-gray-900/95 rounded-xl shadow-2xl w-full max-w-2xl mx-4 max-h-[80vh] overflow-y-auto border border-gray-200/10 transform transition-all duration-300 ease-out scale-95 opacity-0 animate-fadeInUp flex flex-col overflow-hidden relative"
         >
-          {/* DINAMIČNI HEADER ACCENT */}
-          <div style={{ backgroundColor: accentColor }} className="h-1 w-full" />
+          {/* --- TOP ACCENT BORDER --- */}
+          <div style={{ backgroundColor: accentColor }} className="h-1 w-full absolute top-0 left-0 z-20" />
 
           {/* Header */}
-          <div className="flex items-center justify-between gap-3 px-5 py-3 border-b border-gray-100 dark:border-gray-800 bg-white/50 dark:bg-gray-900/50 backdrop-blur-md">
-            <div className="min-w-0 flex-1 flex flex-col">
-               {/* FIX: LOGO PORTALA (Križišče) */}
-               <div className="flex items-center gap-1.5 mb-0.5">
+          <div className="sticky top-0 z-10 flex items-center justify-between gap-3 px-5 py-4 border-b border-gray-200/20 bg-white/90 dark:bg-gray-900/90 backdrop-blur-md rounded-t-xl mt-1">
+            <div className="min-w-0 flex-1 flex flex-col gap-0.5">
+               {/* Križišče branding - POPRAVEK: Priority loading */}
+               <div className="flex items-center gap-1.5 opacity-80 mb-1">
                   <NextImage 
                     src="/logo.png" 
-                    width={18} 
-                    height={18} 
+                    width={16} 
+                    height={16} 
                     alt="Križišče" 
                     className="object-contain" 
-                    priority
+                    priority // Tole je nujno za takojšen prikaz
+                    unoptimized 
                   />
-                  <span style={{ color: accentColor }} className="text-[10px] font-black uppercase tracking-widest">Križišče</span>
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-brand" style={{ color: accentColor }}>Križišče</span>
                </div>
                
-               {/* Vir novice */}
+               {/* Vir branding */}
                <div className="flex items-center gap-2">
-                  <div className="relative w-4 h-4 rounded-full overflow-hidden bg-gray-100">
-                     <NextImage 
-                       src={`/logos/${site.replace('www.','').split('.')[0]}.png`}
-                       alt={site}
-                       fill
-                       className="object-cover"
-                       unoptimized
-                       onError={(e) => { (e.target as HTMLElement).style.display='none' }}
-                     />
+                  <div className="relative w-4 h-4 shrink-0 rounded-full overflow-hidden bg-gray-100">
+                      <NextImage 
+                        src={`/logos/${site.replace('www.','').split('.')[0]}.png`}
+                        alt={site}
+                        fill
+                        className="object-cover"
+                        unoptimized
+                        onError={(e) => { (e.target as HTMLElement).style.display='none' }}
+                      />
                   </div>
-                  <span className="text-xs font-bold text-gray-500 dark:text-gray-400 truncate uppercase tracking-tight">{site}</span>
+                  <span className="text-sm font-bold text-gray-900 dark:text-gray-100 truncate">{site}</span>
                </div>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 shrink-0 relative">
+              {/* Gumb ODPRI s tekstom (Obarvan) */}
               <a 
-                href={url} target="_blank" rel="noopener" onClick={openSourceAndTrack}
-                style={{ color: accentColor }}
-                className="hidden sm:inline-flex items-center gap-1.5 px-3 h-8 rounded-lg bg-gray-50 dark:bg-gray-800 hover:brightness-95 text-xs font-bold transition-all"
-              >
-                ODPRI <IconExternal />
-              </a>
+                 href={url} target="_blank" rel="noopener" onClick={openSourceAndTrack}
+                 style={{ color: accentColor }}
+                 className="hidden sm:inline-flex items-center gap-1 px-3 h-8 rounded-lg bg-gray-50 dark:bg-gray-800 hover:brightness-95 text-xs font-bold anim-soft"
+                 title="Odpri celoten članek"
+               >
+                 <span>Odpri</span>
+                 <IconExternal />
+               </a>
+               <a 
+                 href={url} target="_blank" rel="noopener" onClick={openSourceAndTrack}
+                 style={{ color: accentColor }}
+                 className="sm:hidden inline-flex items-center justify-center rounded-lg h-8 w-8 text-sm bg-gray-50 dark:bg-gray-800 hover:brightness-95 anim-soft"
+               >
+                 <IconExternal />
+               </a>
 
-               {/* Snapshot Button */}
-               <button
+              {/* Snapshot */}
+              <button
                 type="button"
                 onClick={handleSnapshot}
                 disabled={snapshotBusy}
                 aria-label="Snapshot"
-                className="inline-flex items-center justify-center rounded-lg h-8 w-8 text-sm bg-gray-50 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300 transition-colors"
+                className="inline-flex items-center justify-center rounded-lg h-8 w-8 text-sm bg-gray-100/70 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300 transition-colors"
               >
                 <IconCamera />
               </button>
 
-              {/* Share Button */}
+              {/* Share */}
               <button
                 ref={shareBtnRef}
                 type="button"
                 onClick={handleShareClick}
                 aria-haspopup="menu"
                 aria-expanded={shareOpen}
-                className="inline-flex items-center justify-center rounded-lg h-8 w-8 text-sm bg-gray-50 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 anim-soft"
+                className="inline-flex items-center justify-center rounded-lg px-3 h-8 text-sm bg-gray-100/70 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 anim-soft"
                 title="Deli"
               >
-                <IconShareIOS />
+                <IconShareIOS className="mr-1" />
+                <span className="hidden sm:inline">Deli</span>
               </button>
 
-               {/* Share menu */}
-               {shareOpen && (
+              {/* Share menu */}
+              {shareOpen && (
                 useSheet ? (
                   /* Mobile sheet */
                   <div ref={shareMenuRef} role="menu" aria-label="Deli" className="fixed inset-x-0 bottom-0 z-50">
@@ -780,63 +780,85 @@ export default function ArticlePreview({ url, onClose }: Props) {
               )}
 
               <button
+                ref={closeRef}
                 onClick={onClose}
-                className="h-8 w-8 flex items-center justify-center rounded-lg bg-gray-50 dark:bg-gray-800 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors"
+                aria-label="Zapri predogled"
+                className="inline-flex h-8 px-2 items-center justify-center rounded-lg text-sm bg-gray-100/70 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 anim-soft"
               >
                 ✕
               </button>
             </div>
           </div>
 
-          {/* Body Content */}
-          <div className="flex-1 overflow-y-auto p-6 scrollbar-hide">
-            {loading ? (
-              <SkeletonLoader />
-            ) : error ? (
-              <div className="py-20 text-center text-gray-500">{error}</div>
-            ) : (
-              <div className="preview-typo animate-in fade-in slide-in-from-bottom-2 duration-500">
+          {/* Body */}
+          <div className="px-5 pt-0 pb-5">
+            {loading && (
+              <div className="flex flex-col items-center justify-center py-10">
+                 {/* SKELETON LOADER namesto kroga */}
+                 <SkeletonLoader />
+              </div>
+            )}
+
+            {!loading && !error && (
+              <div className="preview-typo max-w-none text-gray-900 dark:text-gray-100">
+                {/* This area is captured for snapshot */}
                 <div key={url} ref={snapshotRef} className="relative">
-                    <h1 className="text-2xl font-black leading-tight mb-4 tracking-tight">
+                  {/* Naslov na vrhu */}
+                  <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white leading-tight mb-2">
                     {title}
-                    </h1>
-                    <div dangerouslySetInnerHTML={{ __html: content }} />
-                    
-                    {/* Gradient Fade na dnu */}
-                    <div className="h-20 bg-gradient-to-t from-white dark:from-gray-900 to-transparent sticky bottom-0 -mx-6 pointer-events-none" />
+                  </h1>
+
+                  <div dangerouslySetInnerHTML={{ __html: content }} />
+                  <div className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-white dark:from-gray-900 to-transparent" />
+                </div>
+
+                <div className="mt-5 flex flex-col items-center gap-2">
+                  <a
+                    href={url}
+                    target="_blank"
+                    rel="noopener"
+                    referrerPolicy="strict-origin-when-cross-origin"
+                    onClick={openSourceAndTrack}
+                    onAuxClick={onAuxOpen}
+                    style={{ backgroundColor: accentColor }}
+                    className="no-underline inline-flex justify-center rounded-full px-8 py-3 text-white text-sm font-bold shadow-lg hover:scale-105 active:scale-95 transition-transform whitespace-nowrap"
+                  >
+                    Preberi celoten članek na {site} 🔗
+                  </a>
                 </div>
               </div>
             )}
           </div>
 
-          {/* Footer gumbi */}
-          {!loading && !error && (
-            <div className="p-4 border-t border-gray-100 dark:border-gray-800 flex justify-center bg-gray-50/50 dark:bg-gray-900/50">
-                <button
-                    onClick={openSourceAndTrack}
-                    style={{ backgroundColor: accentColor }}
-                    className="px-8 py-2.5 rounded-full text-white text-sm font-bold shadow-lg hover:scale-105 active:scale-95 transition-all"
-                >
-                    Preberi celoten članek na {site}
-                </button>
-            </div>
-          )}
-
-           {/* Toast */}
-           {snapMsg && (
+          {/* Toast */}
+          {snapMsg && (
             <div className="pointer-events-none fixed left-4 bottom-4 z-[60] rounded-lg bg-black/80 text-white text-sm px-3 py-2 shadow-lg">
               {snapMsg}
             </div>
           )}
         </div>
 
-        {/* Zunanji gumb za zapiranje za lažji UX na mobilnikih */}
+        {/* --- NOVI GUMB ZA ZAPIRANJE (Zunaj okna) --- */}
         <button
           onClick={onClose}
-          className="mt-6 h-12 w-12 rounded-full bg-white/10 hover:bg-white/20 text-white backdrop-blur-md flex items-center justify-center border border-white/20 transition-all shadow-2xl"
+          className="mt-4 flex items-center justify-center w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 text-white backdrop-blur-md transition-colors border border-white/10 shadow-lg shrink-0"
+          aria-label="Zapri"
         >
-          <IconX className="w-6 h-6" />
+          <svg 
+            viewBox="0 0 24 24" 
+            width="24" 
+            height="24" 
+            stroke="currentColor" 
+            strokeWidth="2" 
+            fill="none" 
+            strokeLinecap="round" 
+            strokeLinejoin="round"
+          >
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
         </button>
+
       </div>
     </>,
     document.body
