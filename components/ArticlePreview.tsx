@@ -637,7 +637,7 @@ export default function ArticlePreview({ url, onClose }: Props) {
                       alt="Križišče" 
                       fill
                       className="object-contain" 
-                      priority
+                      priority={true}
                       unoptimized
                     />
                   </div>
