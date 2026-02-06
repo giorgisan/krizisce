@@ -26,42 +26,6 @@ const TEXT_PERCENT = 0.60
 const VIA_TEXT = ' — via Križišče (krizisce.si)'
 const AUTO_CLOSE_ON_OPEN = true
 
-/* --- NOVO: Helper za barve virov (za lepši okvir) --- */
-const getSourceColor = (site: string) => {
-  const s = (site || '').toLowerCase();
-  if (s.includes('24ur')) return '#f97316';     // Oranžna
-  if (s.includes('rtvslo')) return '#009681';   // RTV MMC Zelena
-  if (s.includes('siol')) return '#00a1e1';     // Modra
-  if (s.includes('delo')) return '#e11927';     // Rdeča
-  if (s.includes('n1')) return '#004a99';       // Temno modra
-  if (s.includes('dnevnik')) return '#374151';  // Siva
-  if (s.includes('svet24')) return '#eab308';   // Rumena
-  if (s.includes('zurnal')) return '#dc2626';   // Živo rdeča
-  if (s.includes('vecer')) return '#e11927';    // Rdeča
-  return '#fc9c6c'; // Privzeta brand barva
-}
-
-/* --- NOVO: Skeleton Loader (nadomesti krog) --- */
-const SkeletonLoader = () => (
-  <div className="animate-pulse space-y-8 py-8 px-2 max-w-2xl mx-auto w-full">
-    {/* Naslov */}
-    <div className="space-y-3">
-      <div className="h-8 bg-gray-200 dark:bg-gray-800 rounded-lg w-3/4"></div>
-      <div className="h-8 bg-gray-200 dark:bg-gray-800 rounded-lg w-1/2"></div>
-    </div>
-    {/* Slika */}
-    <div className="h-64 bg-gray-200 dark:bg-gray-800 rounded-2xl w-full"></div>
-    {/* Besedilo */}
-    <div className="space-y-4">
-      <div className="h-4 bg-gray-200 dark:bg-gray-800 rounded w-full"></div>
-      <div className="h-4 bg-gray-200 dark:bg-gray-800 rounded w-full"></div>
-      <div className="h-4 bg-gray-200 dark:bg-gray-800 rounded w-5/6"></div>
-      <div className="h-4 bg-gray-200 dark:bg-gray-800 rounded w-full"></div>
-      <div className="h-4 bg-gray-200 dark:bg-gray-800 rounded w-4/6"></div>
-    </div>
-  </div>
-)
-
 const PREVIEW_TYPO_CSS = `
   .preview-typo { font-size: 1rem; line-height: 1.7; color: inherit; }
   .preview-typo > *:first-child { margin-top: 0 !important; }
@@ -79,12 +43,12 @@ const PREVIEW_TYPO_CSS = `
   .preview-typo figcaption { font-size: 0.85rem; opacity: .75; margin-top: -0.2rem; text-align: center; }
   .preview-typo blockquote {
     margin: 1.5rem 0; padding: 0.5rem 0 0.5rem 1.25rem;
-    border-left: 4px solid var(--accent-color, #fc9c6c); opacity: .95;
+    border-left: 4px solid var(--brand, #fc9c6c); opacity: .95;
     background: rgba(0,0,0,0.03); font-style: italic;
   }
   .dark .preview-typo blockquote { background: rgba(255,255,255,0.05); }
   .preview-typo hr { margin: 1.5rem 0; opacity: .25; }
-  .preview-typo a { text-decoration: underline; text-underline-offset: 2px; color: var(--accent-color, #fc9c6c); }
+  .preview-typo a { text-decoration: underline; text-underline-offset: 2px; color: var(--brand, #fc9c6c); }
 `
 
 /* Icons */
@@ -338,9 +302,6 @@ export default function ArticlePreview({ url, onClose }: Props) {
     return () => mq.removeEventListener?.('change', set)
   }, [])
 
-  /* --- DINAMIČNA BARVA --- */
-  const accentColor = useMemo(() => getSourceColor(site), [site]);
-
   // POPRAVEK: Simulacija progressa (ki ne povozi 100%)
   useEffect(() => {
     if (!loading) {
@@ -360,7 +321,7 @@ export default function ArticlePreview({ url, onClose }: Props) {
     return () => clearInterval(interval)
   }, [loading])
 
-  // POPRAVEK: Nalaganje s hitrejšim finish efektom (150ms -> 80ms)
+  // POPRAVEK: Nalaganje s hitrejšim finish efektom (150ms)
   useEffect(() => {
     let alive = true
     setContent(''); setCoverSnapSrc(null)
@@ -386,11 +347,11 @@ export default function ArticlePreview({ url, onClose }: Props) {
 
         setContent(truncated)
         
-        // --- ZMANJŠAN ZAMIK IZ 150ms NA 80ms ---
+        // --- ZMANJŠAN ZAMIK NA 150ms ---
         setProgress(100)
         setTimeout(() => {
             if (alive) setLoading(false)
-        }, 80)
+        }, 150)
         // ------------------------------
 
       } catch {
@@ -645,16 +606,16 @@ export default function ArticlePreview({ url, onClose }: Props) {
   return createPortal(
     <>
       <style>{`
-        body.preview-open { overflow: hidden; }
         body.preview-open a,
         body.preview-open a:hover,
         body.preview-open a:focus { text-decoration: none !important; }
         body.preview-open .group:hover { transform: none !important; }
         body.preview-open .group:hover * { text-decoration: none !important; }
         @media (prefers-reduced-motion: reduce) { .anim-soft { transition: none !important; } }
-        ${PREVIEW_TYPO_CSS}
       `}</style>
+      <style>{PREVIEW_TYPO_CSS}</style>
 
+      {/* --- SPREMEMBA: Dodan flex-col, da se gumb zloži POD okno --- */}
       <div
         className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-black/60 transition-opacity duration-300 backdrop-blur-sm"
         role="dialog"
@@ -663,30 +624,18 @@ export default function ArticlePreview({ url, onClose }: Props) {
       >
         <div
           ref={modalRef}
-          style={{ '--accent-color': accentColor } as React.CSSProperties}
-          className="bg-white/95 dark:bg-gray-900/95 rounded-xl shadow-2xl w-full max-w-2xl mx-4 max-h-[80vh] overflow-y-auto border border-gray-200/10 transform transition-all duration-300 ease-out scale-95 opacity-0 animate-fadeInUp flex flex-col overflow-hidden relative"
+          className="bg-white/95 dark:bg-gray-900/95 rounded-xl shadow-2xl w-full max-w-2xl mx-4 max-h-[80vh] overflow-y-auto border border-gray-200/10 transform transition-all duration-300 ease-out scale-95 opacity-0 animate-fadeInUp"
         >
-          {/* --- TOP ACCENT BORDER --- */}
-          <div style={{ backgroundColor: accentColor }} className="h-1 w-full absolute top-0 left-0 z-20" />
-
           {/* Header */}
-          <div className="sticky top-0 z-10 flex items-center justify-between gap-3 px-5 py-4 border-b border-gray-200/20 bg-white/90 dark:bg-gray-900/90 backdrop-blur-md rounded-t-xl mt-1">
+          <div className="sticky top-0 z-10 flex items-center justify-between gap-3 px-5 py-4 border-b border-gray-200/20 bg-white/90 dark:bg-gray-900/90 backdrop-blur-md rounded-t-xl">
             <div className="min-w-0 flex-1 flex flex-col gap-0.5">
-               {/* Križišče branding - POPRAVEK: Priority loading */}
-               <div className="flex items-center gap-1.5 opacity-80 mb-1">
-                  <NextImage 
-                    src="/logo.png" 
-                    width={16} 
-                    height={16} 
-                    alt="Križišče" 
-                    className="object-contain" 
-                    priority // Tole je nujno za takojšen prikaz
-                    unoptimized 
-                  />
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-brand" style={{ color: accentColor }}>Križišče</span>
+               {/* Križišče branding - HITRO NALAGANJE (BREZ WESERV) */}
+               <div className="flex items-center gap-1.5 opacity-80">
+                  <NextImage src="/logo.png" width={16} height={16} alt="Križišče" className="object-contain" unoptimized />
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-brand">Križišče</span>
                </div>
                
-               {/* Vir branding - POPRAVEK: Re-mount ob spremembi site-a */}
+               {/* Vir branding - HITRO NALAGANJE (BREZ WESERV) */}
                <div className="flex items-center gap-2">
                   {/* --- POPRAVEK: POGOČNO RENDERING + KEY --- */}
                   {site && (
@@ -706,11 +655,10 @@ export default function ArticlePreview({ url, onClose }: Props) {
             </div>
 
             <div className="flex items-center gap-2 shrink-0 relative">
-              {/* Gumb ODPRI s tekstom (Obarvan) */}
+              {/* Gumb ODPRI s tekstom */}
               <a 
                  href={url} target="_blank" rel="noopener" onClick={openSourceAndTrack}
-                 style={{ color: accentColor }}
-                 className="hidden sm:inline-flex items-center gap-1 px-3 h-8 rounded-lg bg-gray-50 dark:bg-gray-800 hover:brightness-95 text-xs font-bold anim-soft"
+                 className="hidden sm:inline-flex items-center gap-1 px-3 h-8 rounded-lg bg-gray-100/70 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-brand text-xs font-medium anim-soft"
                  title="Odpri celoten članek"
                >
                  <span>Odpri</span>
@@ -718,8 +666,7 @@ export default function ArticlePreview({ url, onClose }: Props) {
                </a>
                <a 
                  href={url} target="_blank" rel="noopener" onClick={openSourceAndTrack}
-                 style={{ color: accentColor }}
-                 className="sm:hidden inline-flex items-center justify-center rounded-lg h-8 w-8 text-sm bg-gray-50 dark:bg-gray-800 hover:brightness-95 anim-soft"
+                 className="sm:hidden inline-flex items-center justify-center rounded-lg h-8 w-8 text-sm bg-gray-100/70 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-brand anim-soft"
                >
                  <IconExternal />
                </a>
@@ -810,9 +757,22 @@ export default function ArticlePreview({ url, onClose }: Props) {
           {/* Body */}
           <div className="px-5 pt-0 pb-5">
             {loading && (
-              <div className="flex flex-col items-center justify-center py-10">
-                 {/* POPRAVEK: SKELETON LOADER namesto kroga */}
-                 <SkeletonLoader />
+              <div className="flex flex-col items-center justify-center py-20 space-y-8 relative">
+                {/* Pulsating Circle */}
+                <div className="relative flex items-center justify-center">
+                   <div className="absolute w-12 h-12 rounded-full bg-brand/20 animate-ping" />
+                   <div className="w-8 h-8 rounded-full bg-brand/80 animate-pulse" />
+                </div>
+                
+                {/* Text Animation z odštevanjem */}
+                <div className="text-center space-y-2">
+                   <p className="text-base font-medium text-gray-900 dark:text-white animate-pulse">
+                     Pripravljam vsebino: {Math.floor(progress)} %
+                   </p>
+                   <p className="text-xs text-gray-500 dark:text-gray-400">
+                     Samo še trenutek ...
+                   </p>
+                </div>
               </div>
             )}
 
@@ -837,10 +797,9 @@ export default function ArticlePreview({ url, onClose }: Props) {
                     referrerPolicy="strict-origin-when-cross-origin"
                     onClick={openSourceAndTrack}
                     onAuxClick={onAuxOpen}
-                    style={{ backgroundColor: accentColor }}
-                    className="no-underline inline-flex justify-center rounded-full px-8 py-3 text-white text-sm font-bold shadow-lg hover:scale-105 active:scale-95 transition-transform whitespace-nowrap"
+                    className="no-underline inline-flex justify-center rounded-md px-5 py-2 dark:bg-gray-700 text-white text-sm dark:hover:bg-gray-600 whitespace-nowrap anim-soft"
                   >
-                    Preberi celoten članek na {site} 🔗
+                    Preberi celoten članek 🔗
                   </a>
                 </div>
               </div>
