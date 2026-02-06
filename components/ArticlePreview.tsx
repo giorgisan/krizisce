@@ -631,7 +631,7 @@ export default function ArticlePreview({ url, onClose }: Props) {
             <div className="min-w-0 flex-1 flex flex-col gap-0.5">
                {/* Križišče branding - HITRO NALAGANJE (BREZ WESERV) */}
                <div className="flex items-center gap-1.5 opacity-80">
-                  <NextImage src="/logo.png" width={16} height={16} alt="Križišče" className="object-contain" unoptimized />
+                  <NextImage src="/logo.png" width={18} height={18} alt="Križišče" className="object-contain" unoptimized />
                   <span className="text-[11px] font-bold uppercase tracking-wider text-brand">Križišče</span>
                </div>
                
