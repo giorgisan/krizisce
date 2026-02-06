@@ -629,19 +629,20 @@ export default function ArticlePreview({ url, onClose }: Props) {
           {/* Header */}
           <div className="sticky top-0 z-10 flex items-center justify-between gap-3 px-5 py-4 border-b border-gray-200/20 bg-white/90 dark:bg-gray-900/90 backdrop-blur-md rounded-t-xl">
             <div className="min-w-0 flex-1 flex flex-col gap-0.5">
-               {/* Križišče branding - HITRO NALAGANJE (BREZ WESERV) */}
-               <div className="flex items-center gap-1.5 opacity-80">
-                <NextImage 
-                  src="/logo.png" 
-                  width={18} // Povečano za boljšo vidljivost
-                  height={18} 
-                  alt="Križišče" 
-                  className="object-contain" 
-                  priority // Ključno: Naloži takoj!
-                  unoptimized // Pusti to, če ti sicer ne dela
-                />
-                <span className="text-[11px] font-bold uppercase tracking-wider text-brand">Križišče</span>
-              </div>
+               {/* Križišče branding - HITRO NALAGANJE */}
+                <div className="flex items-center gap-1.5 opacity-80">
+                  <div className="relative w-4 h-4 shrink-0">
+                    <NextImage 
+                      src="/logo.png" 
+                      alt="Križišče" 
+                      fill
+                      className="object-contain" 
+                      priority
+                      unoptimized
+                    />
+                  </div>
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-brand">Križišče</span>
+                </div>
                
                {/* Vir branding - HITRO NALAGANJE (BREZ WESERV) */}
                <div className="flex items-center gap-2">
