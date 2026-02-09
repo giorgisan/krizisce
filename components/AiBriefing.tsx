@@ -31,7 +31,7 @@ export default function AiBriefing({ summary }: Props) {
               V OSPREDJU
             </h3>
             <span className="text-[10px] text-gray-400 truncate">
-              Analiza zadnjih 80 novic
+              Analiza nedavno objavljenih novic
             </span>
           </div>
           
