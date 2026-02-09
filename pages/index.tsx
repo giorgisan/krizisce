@@ -353,23 +353,23 @@ export default function Home({ initialNews, initialTrendingWords, initialTrendin
       <main className="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white pb-12">
         <div className="max-w-[1800px] mx-auto w-full px-4 md:px-8 lg:px-16">
 
-            {/* --- AI BRIEFING & TRENDING (NA VRHU) --- */}
-            {(!isDesktopLogic || (isDesktopLogic && !searchQuery && !tagQuery)) && (
-               <>
-                 {/* 1. AI Robotek */}
-                 <AiBriefing summary={aiSummary} />
-                 
-                 {/* 2. Tekoči trak */}
-                 <div className="mt-2 mb-4 min-w-0 w-full overflow-hidden">
-                    <TrendingBar 
-                        words={initialTrendingWords} 
-                        selectedWord={tagQuery || searchQuery} 
-                        onSelectWord={handleTrendingClick} 
-                    />
-                 </div>
-               </>
-            )}
-
+              {/* --- AI BRIEFING & TRENDING (NA VRHU) --- */}
+              {/* Prikazujemo vedno, razen če uporabnik išče/filtrira */}
+              {showHeaderElements && (
+                 <>
+                   {/* 1. AI Robotek - VEDNO prikažemo, če imamo summary */}
+                   <AiBriefing summary={aiSummary} />
+                   
+                   {/* 2. Tekoči trak - Zmanjšan spodnji rob (mb-1 namesto mb-4) */}
+                   <div className="mt-1 mb-1 min-w-0 w-full overflow-hidden">
+                      <TrendingBar 
+                          words={initialTrendingWords} 
+                          selectedWord={tagQuery || searchQuery} 
+                          onSelectWord={handleTrendingClick} 
+                      />
+                   </div>
+                 </>
+              )}
             {/* --- ZGORNJA KONTROLNA VRSTICA --- */}
             <div className="pt-1 pb-1 flex flex-col md:flex-row md:items-center gap-0">
                 <div className="flex items-center gap-0 w-full md:w-auto">
