@@ -90,7 +90,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     
     // Klic AI modela
     const model = genAI.getGenerativeModel({ 
-        model: "gemini-1.5-flash", 
+        model: "gemini-3-flash-preview", 
         generationConfig: { responseMimeType: "application/json" }
     });
 
