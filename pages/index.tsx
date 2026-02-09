@@ -12,6 +12,7 @@ import Header from '@/components/Header'
 import ArticleCard from '@/components/ArticleCard'
 import TrendingCard from '@/components/TrendingCard'
 import TrendingBar, { TrendingWord } from '@/components/TrendingBar' 
+import AiBriefing from '@/components/AiBriefing' // <--- NOVO
 import SeoHead from '@/components/SeoHead'
 import BackToTop from '@/components/BackToTop'
 import SourceFilter from '@/components/SourceFilter' 
@@ -66,7 +67,7 @@ async function loadNews(
       fetch(`/api/news?${qs.toString()}`, { cache: 'no-store', signal }),
       timeout(12_000),
     ])) as Response
-     
+      
     if (res.ok) {
       const data: NewsItem[] = await res.json()
       if (Array.isArray(data)) return data
@@ -84,16 +85,16 @@ async function loadNews(
 type Props = { 
   initialNews: NewsItem[]
   initialTrendingWords: TrendingWord[]
-  initialTrendingNews: NewsItem[] // <--- Trendi iz strežnika
+  initialTrendingNews: NewsItem[]
+  aiSummary: string | null // <--- NOVO
 }
 
-export default function Home({ initialNews, initialTrendingWords, initialTrendingNews }: Props) {
+export default function Home({ initialNews, initialTrendingWords, initialTrendingNews, aiSummary }: Props) {
   const [itemsLatest, setItemsLatest] = useState<NewsItem[]>(initialNews)
   
-  // POPRAVEK: Začetno stanje napolnimo s podatki iz SSR
   const [itemsTrending, setItemsTrending] = useState<NewsItem[]>(initialTrendingNews || [])
   const [trendingLoaded, setTrendingLoaded] = useState(!!initialTrendingNews?.length)
-     
+      
   const [mode, setMode] = useState<Mode>('latest')
   const lastTrendingFetchRef = useRef<number>(Date.now()) 
   const [isDesktopLogic, setIsDesktopLogic] = useState(false)
@@ -121,13 +122,11 @@ export default function Home({ initialNews, initialTrendingWords, initialTrendin
     return () => window.removeEventListener('resize', checkDesktop)
   }, [])
 
-  // POPRAVEK: Ta efekt zdaj služi samo za osveževanje v ozadju, če so podatki stari
   useEffect(() => {
     if (isDesktopLogic && !isRefreshing && bootRefreshed) {
-        // Če še nimamo trendov ali so starejši od 15 min, jih osveži
         const now = Date.now();
         if (!trendingLoaded || (now - lastTrendingFetchRef.current > 15 * 60_000)) {
-             const fetchTrendingSide = async () => {
+              const fetchTrendingSide = async () => {
                 try {
                   const fresh = await loadNews('trending', [], 'vse', null, null)
                   if (fresh) {
@@ -300,7 +299,6 @@ export default function Home({ initialNews, initialTrendingWords, initialTrendin
     else {
       setHasMore(false); setCursor(null)
       const now = Date.now()
-      // Osvežimo samo, če je preteklo več časa (npr. 5 min)
       if (!trendingLoaded || (now - lastTrendingFetchRef.current) > 5 * 60_000) {
         setIsRefreshing(true)
         try {
@@ -355,10 +353,27 @@ export default function Home({ initialNews, initialTrendingWords, initialTrendin
       <main className="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white pb-12">
         <div className="max-w-[1800px] mx-auto w-full px-4 md:px-8 lg:px-16">
 
-            {/* --- ZGORNJA KONTROLNA VRSTICA (POPRVALJENO ZA MOBILE RAZMIK) --- */}
+            {/* --- AI BRIEFING & TRENDING (NA VRHU) --- */}
+            {(!isDesktopLogic || (isDesktopLogic && !searchQuery && !tagQuery)) && (
+               <>
+                 {/* 1. AI Robotek */}
+                 <AiBriefing summary={aiSummary} />
+                 
+                 {/* 2. Tekoči trak */}
+                 <div className="mt-2 mb-4 min-w-0 w-full overflow-hidden">
+                    <TrendingBar 
+                        words={initialTrendingWords} 
+                        selectedWord={tagQuery || searchQuery} 
+                        onSelectWord={handleTrendingClick} 
+                    />
+                 </div>
+               </>
+            )}
+
+            {/* --- ZGORNJA KONTROLNA VRSTICA --- */}
             <div className="pt-1 pb-1 flex flex-col md:flex-row md:items-center gap-0">
                 <div className="flex items-center gap-0 w-full md:w-auto">
-                    {/* Levo: Zavihki ali Naslov (shrink-0 prepreči stiskanje) */}
+                    {/* Levo: Zavihki ali Naslov */}
                     <div className="lg:hidden scale-90 origin-left shrink-0">
                         {selectedCategory === 'vse' ? (
                             <NewsTabs active={mode} onChange={handleTabChange} />
@@ -371,7 +386,7 @@ export default function Home({ initialNews, initialTrendingWords, initialTrendin
                         {selectedCategory !== 'vse' && <span className="text-2xl font-bold capitalize mr-4">{currentCategoryLabel}</span>}
                     </div>
 
-                    {/* Iskalnik (Mobile): flex-1 in ml-0 popolnoma odstranita razmik */}
+                    {/* Iskalnik (Mobile) */}
                     <div className="md:hidden flex-1 relative ml-0">
                         <input
                           type="search"
@@ -396,14 +411,6 @@ export default function Home({ initialNews, initialTrendingWords, initialTrendin
                 
                 <div className={`flex-1 w-full min-w-0 ${mode === 'trending' ? 'hidden lg:block' : 'block'}`}>
                     
-                    <div className={`mb-1 min-w-0 w-full overflow-hidden ${(!isDesktopLogic && (searchQuery || tagQuery)) ? 'hidden' : 'block'}`}>
-                          <TrendingBar 
-                            words={initialTrendingWords} 
-                            selectedWord={tagQuery || searchQuery} 
-                            onSelectWord={handleTrendingClick} 
-                          />
-                    </div>
-
                     {(searchQuery || tagQuery) && (
                         <div className="mb-4 flex items-center gap-2 text-sm">
                             <span>Rezultati za: <b>"{tagQuery || searchQuery}"</b></span>
@@ -421,7 +428,7 @@ export default function Home({ initialNews, initialTrendingWords, initialTrendin
                                 <ArticleCard 
                                     key={article.link + i} 
                                     news={article} 
-                                    priority={i < 4} // POPRAVEK 1: Zmanjšan priority (prej 8)
+                                    priority={i < 4} 
                                 />
                             ))}
                         </div>
@@ -436,19 +443,16 @@ export default function Home({ initialNews, initialTrendingWords, initialTrendin
                     )}
                 </div>
 
-                {/* --- SIDEBAR (POPRAVLJEN: Scroll samo na Desktopu) --- */}
-                {/* POPRAVEK 2: Dodan 'transform-gpu' za strojno pospeševanje sticky elementa */}
+                {/* --- SIDEBAR --- */}
                 <aside className={`w-full lg:w-[340px] xl:w-[380px] shrink-0 lg:sticky lg:top-24 transform-gpu 
                     ${mode === 'trending' ? 'block' : 'hidden lg:block'}
                 `}>
-                    {/* NIELSEN UX: Visok kontrast ozadja sidebara */}
-                    {/* POPRAVEK 3: Zmanjšan blur iz xl na md za hitrejši scroll */}
                     <div className={`
                         bg-gray-200/70 dark:bg-gray-800/90 rounded-2xl backdrop-blur-md shadow-inner flex flex-col
-                        lg:max-h-[calc(100vh-8rem)] lg:overflow-hidden /* Samo desktop omejitev */
+                        lg:max-h-[calc(100vh-8rem)] lg:overflow-hidden
                     `}>
                         
-                        {/* NASLOV (Fiksiran na vrhu samo na desktopu) */}
+                        {/* NASLOV SIDEBARA */}
                         <div className="flex items-center gap-2 mb-0 p-4 pb-2 border-b border-gray-300/50 dark:border-gray-700 shrink-0 z-10 bg-inherit rounded-t-2xl">
                              <svg className="w-4 h-4 text-gray-400 dark:text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -458,21 +462,21 @@ export default function Home({ initialNews, initialTrendingWords, initialTrendin
                              </span>
                         </div>
 
-                        {/* VSEBINA (Scrollable samo na desktopu) */}
+                        {/* VSEBINA SIDEBARA */}
                         <div className="p-4 pt-2 space-y-3 lg:overflow-y-auto lg:custom-scrollbar">
                             {itemsTrending.length === 0 && !trendingLoaded ? (
                                  <div className="flex flex-col gap-3 animate-pulse">
-                                    {[...Array(6)].map((_, i) => (
-                                        <div key={i} className="flex gap-3 p-3 rounded-xl bg-white/60 dark:bg-gray-700/50 shadow-sm">
-                                            <div className="w-20 h-20 bg-gray-200 dark:bg-gray-600 rounded-lg shrink-0" />
-                                            <div className="flex-1 flex flex-col justify-center gap-2">
-                                                <div className="h-3 w-16 bg-gray-200 dark:bg-gray-600 rounded" />
-                                                <div className="h-4 w-full bg-gray-200 dark:bg-gray-600 rounded" />
-                                                <div className="h-4 w-2/3 bg-gray-200 dark:bg-gray-600 rounded" />
-                                            </div>
-                                        </div>
-                                    ))}
-                                 </div>
+                                     {[...Array(6)].map((_, i) => (
+                                         <div key={i} className="flex gap-3 p-3 rounded-xl bg-white/60 dark:bg-gray-700/50 shadow-sm">
+                                             <div className="w-20 h-20 bg-gray-200 dark:bg-gray-600 rounded-lg shrink-0" />
+                                             <div className="flex-1 flex flex-col justify-center gap-2">
+                                                 <div className="h-3 w-16 bg-gray-200 dark:bg-gray-600 rounded" />
+                                                 <div className="h-4 w-full bg-gray-200 dark:bg-gray-600 rounded" />
+                                                 <div className="h-4 w-2/3 bg-gray-200 dark:bg-gray-600 rounded" />
+                                             </div>
+                                         </div>
+                                     ))}
+                                  </div>
                             ) : itemsTrending.length === 0 ? (
                                 <div className="py-10 px-4 text-center">
                                     <div className="text-4xl mb-2 grayscale opacity-50">☕</div>
@@ -484,7 +488,6 @@ export default function Home({ initialNews, initialTrendingWords, initialTrendin
                             ) : (
                                 <div className="flex flex-col gap-3">
                                     {itemsTrending.slice(0, 10).map((article, i) => (
-                                        /* UX: Bela kartica na temnem ozadju za maksimalen fokus */
                                         <div key={article.link + 'tr' + i} className="bg-white dark:bg-gray-700/60 rounded-xl shadow-md overflow-hidden transition-shadow hover:shadow-lg hover:z-10 relative shrink-0">
                                             <TrendingCard 
                                                 news={article} 
@@ -517,10 +520,10 @@ export const getServerSideProps: GetServerSideProps = async ({ res }) => {
   // 1. POIZVEDBA: Glavne novice
   const newsPromise = supabase.from('news').select('id, link, title, source, contentsnippet, image, published_at, publishedat, category').neq('category', 'oglas').order('publishedat', { ascending: false }).order('id', { ascending: false }).limit(24)
   
-  // 2. POIZVEDBA: Tagi
-  const trendsWordsPromise = supabase.from('trending_ai').select('words').order('updated_at', { ascending: false }).limit(1).single()
+  // 2. POIZVEDBA: Tagi in AI Summary (NOVO: Preberemo tudi summary)
+  const trendsWordsPromise = supabase.from('trending_ai').select('words, summary').order('updated_at', { ascending: false }).limit(1).single()
 
-  // 3. POIZVEDBA: Trending Novice (Iz Cacha v bazi - NOVO!)
+  // 3. POIZVEDBA: Trending Novice
   const trendingGroupsPromise = supabase.from('trending_groups_cache').select('data').order('updated_at', { ascending: false }).limit(1).single()
 
   const [newsRes, wordsRes, groupsRes] = await Promise.all([newsPromise, trendsWordsPromise, trendingGroupsPromise])
@@ -538,20 +541,28 @@ export const getServerSideProps: GetServerSideProps = async ({ res }) => {
     category: (r.category as CategoryId) || determineCategory({ link: r.link || '', categories: [] }) 
   }))
 
-  // Obdelava tagov
+  // Obdelava tagov in povzetka
   let trendsData: any[] = []
+  let aiSummary = null; // Default null
+
   const aiData = wordsRes.data
-  if (aiData?.words?.length) {
-     trendsData = aiData.words.map((w: string) => ({ word: w, count: 1 }))
-  } else {
-     // Fallback če ni AI podatkov
-     const sqlTrends = await supabase.rpc('get_trending_words', { hours_lookback: 48, limit_count: 8 })
-     trendsData = sqlTrends.data || []
+  if (aiData) {
+      if (aiData.words?.length) {
+          trendsData = aiData.words.map((w: string) => ({ word: w, count: 1 }))
+      }
+      if (aiData.summary) {
+          aiSummary = aiData.summary // Nastavimo summary
+      }
+  } 
+  
+  // Fallback za tage, če AI ni vrnil nič
+  if (trendsData.length === 0) {
+      const sqlTrends = await supabase.rpc('get_trending_words', { hours_lookback: 48, limit_count: 8 })
+      trendsData = sqlTrends.data || []
   }
 
   // Obdelava Trending Novic
-  // Podatki v bazi so že v pravem formatu (JSON), samo preberemo jih
   const initialTrendingNews = groupsRes.data?.data || []
 
-  return { props: { initialNews, initialTrendingWords: trendsData, initialTrendingNews } }
+  return { props: { initialNews, initialTrendingWords: trendsData, initialTrendingNews, aiSummary } }
 }
