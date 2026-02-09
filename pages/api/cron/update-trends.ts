@@ -10,138 +10,126 @@ const supabase = createClient(
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_KEY || '')
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+  // 1. Varnostni pregled
   if (req.query.key !== process.env.CRON_SECRET) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
-  const hour = (new Date().getUTCHours() + 1) % 24;
-  if (hour >= 22 || hour < 4) {
-    console.log(`Nočni mir (ura: ${hour}:00). Preskakujem AI.`);
+  // 2. Nočni mir (opcijsko, glede na tvoje želje)
+  const hour = (new Date().getUTCHours() + 1) % 24; // CET čas
+  if (hour >= 23 || hour < 5) {
     return res.status(200).json({ success: true, message: 'Nočni premor.' });
   }
 
-  let trends: string[] = []
-  let usedModel = 'unknown'
-  
   try {
-    // 1. ZAJEM NOVIC - Zamenjali 'summary' s 'contentsnippet'
+    // 3. Zajem novic (povečan limit za boljši kontekst)
     const { data: allNews, error } = await supabase
       .from('news')
-      .select('title, contentsnippet, publishedat, source')
+      .select('title, contentsnippet, source')
       .neq('category', 'oglas')
       .neq('category', 'promo')
       .order('publishedat', { ascending: false })
-      .limit(200)
+      .limit(80) // Več novic za boljši "brief"
 
     if (error) throw error
     if (!allNews || allNews.length === 0) {
         return res.status(200).json({ success: false, message: 'Baza je prazna.' })
     }
 
-    // 2. PRIPRAVA VSEBINE - Uporabimo n.contentsnippet namesto n.summary
-    const headlines = allNews.map(n => `- ${n.source}: ${n.title} (Povzetek: ${n.contentsnippet?.substring(0, 100)}...)`).join('\n')
+    // Priprava tekstovnega vnosa
+    const headlines = allNews.map(n => `- ${n.source}: ${n.title} ${n.contentsnippet ? `(${n.contentsnippet.substring(0, 100)}...)` : ''}`).join('\n')
 
-    // 3. PROMPT
+    // 4. SESTAVLJEN PROMPT (Tvoj original + dodatek za Brief)
     const prompt = `
-        Kot izkušen urednik slovenskega novičarskega portala analiziraj spodnji seznam naslovov zadnjih novic.
-        Tvoja naloga je ustvariti dinamičen in raznolik seznam trendov (#TemeDneva), ki so trenutno najbolj aktualni.
+       Kot izkušen urednik slovenskega novičarskega portala analiziraj spodnji seznam naslovov zadnjih novic.
+       Tvoja naloga je dvojna:
+       1. Ustvariti seznam trendov (#TemeDneva).
+       2. Napisati kratek AI povzetek dogajanja (Brief).
 
-        VHODNI PODATKI:
-        ${headlines}
+       VHODNI PODATKI:
+       ${headlines}
 
-        STRATEGIJA IZBORA:
-        1. RELEVANTNOST: Izpostavi teme, o katerih piše več različnih virov (npr. RTV, 24ur, Delo, Siol).
-        2. BREZ PODVAJANJA: Ne ustvarjaj vsebinsko podobnih tagov.
+       --- 1. DEL: TRENDI (TAGI) ---
+       STRATEGIJA IZBORA:
+       1. RELEVANTNOST: Izpostavi teme, o katerih piše več različnih virov.
+       2. BREZ PODVAJANJA: Ne ustvarjaj vsebinsko podobnih tagov.
         
-        KRITERIJI ZA TAG:
-        1. UPORABNOST PRI ISKANJU: Tag mora vsebovati besede, ki se nahajajo v naslovih oz. podnaslovih novic.
-           - SLABO: #Politično Dogajanje (preveč splošno, te besede ni v naslovih)
-           - DOBRO: #Golob (če se v naslovih omenja premier Golob)
-           - DOBRO: #Vojna v Ukrajini (če se v naslovih omenja Ukrajina/vojna)
+       KRITERIJI ZA TAG:
+       1. UPORABNOST PRI ISKANJU: Tag mora vsebovati besede iz naslovov.
+          - SLABO: #Politično Dogajanje
+          - DOBRO: #Golob, #Vojna v Ukrajini
+       2. KONKRETNOST: Raje uporabi imena oseb, krajev ali dogodkov.
+          - Namesto #Kriminal uporabi #Umor v Mariboru.
 
-        2. KONKRETNOST: Raje uporabi imena oseb, krajev ali dogodkov kot pa abstraktne pojme.
-           - Namesto #Kriminal uporabi #Umor v Mariboru (če je to tema).
-           - Namesto #Šport uporabi #Dončić (če je tema Luka Dončić).
-
-        PRAVILA OBLIKOVANJA (STROGO):
-        - Vrni IZKLJUČNO JSON array stringov: ["#Tag1", "#Tag2", ...]
-        - Vsak tag se mora začeti z lojtro (#).
-        - Uporabljaj slovenski jezik in presledke (NE CamelCase).
-        - Dolžina: 1 do 3 besede na tag.
-        - Besede naj bodo v osnovni obliki (imenovalnik), da se ujemajo z iskalnim indeksom.
-        - Uporabljaj izključno besede, ki se v dobesedni obliki ali korenu pojavljajo v naslovih. 
-        - Ne spreminjaj glagolov v samostalnike, če to spremeni koren besede.
+       PRAVILA OBLIKOVANJA TAGOV:
+       - Vsak tag se mora začeti z lojtro (#).
+       - Uporabljaj slovenski jezik in presledke (NE CamelCase).
+       - Dolžina: 1 do 3 besede na tag.
+       - Besede naj bodo v osnovni obliki (imenovalnik).
+       - Ne spreminjaj glagolov v samostalnike, če to spremeni koren.
         
-        PREPOVEDANO
-        - Izogibaj se generičnim besedam kot so "Šport", "Novice", "Dogajanje", "Stanje", "Foto" ... razen če so del specifične fraze.
-        - Ne izmišljuj si besed (ne haluciniraj)
+       PREPOVEDANO PRI TAGIH:
+       - Izogibaj se generičnim besedam (Šport, Novice, Stanje...).
+       - Ne izmišljuj si besed.
 
-        CILJ: Vrni med 6 in 12 najbolj relevantnih tagov za premikajoči se trak.
-    `
+       --- 2. DEL: AI BRIEF (POVZETEK) ---
+       Napiši kratek, jedrnat povzetek trenutnega dogajanja v Sloveniji in svetu na podlagi zgornjih novic.
+       - Dolžina: 2 do 3 stavki (maksimalno 400 znakov).
+       - Stil: Objektiven, informativen, tekoč. Kot bi bralec prebral "flash news".
+       - Začni z najpomembnejšo novico.
+       - Ne naštevaj virov (npr. ne piši "RTV pravi...", ampak samo dejstva).
+
+       --- FORMAT IZHODA (JSON) ---
+       Vrni IZKLJUČNO validen JSON objekt (brez markdowna ```json):
+       {
+         "trends": ["#Tag1", "#Tag2", ...],
+         "summary": "Tukaj napiši besedilo povzetka."
+       }
+   `
     
-    const tryGenerate = async (modelName: string) => {
-        const model = genAI.getGenerativeModel({ 
-            model: modelName,
-            safetySettings: [
-                { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
-                { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE },
-                { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_NONE },
-                { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE },
-            ]
-        })
-        const result = await model.generateContent(prompt)
-        const responseText = result.response.text()
-        const jsonStart = responseText.indexOf('[');
-        const jsonEnd = responseText.lastIndexOf(']') + 1;
-        const cleanJson = responseText.substring(jsonStart, jsonEnd);
-        return JSON.parse(cleanJson)
-    }
+    // Klic AI modela
+    const model = genAI.getGenerativeModel({ 
+        model: "gemini-1.5-flash", // Flash je hiter in dovolj dober
+        generationConfig: { responseMimeType: "application/json" }
+    })
 
+    const result = await model.generateContent(prompt)
+    const responseText = result.response.text()
+    
+    // Parsanje
+    let data;
     try {
-        console.log("Poskušam gemini-3-flash-preview...");
-        usedModel = "gemini-3-flash-preview";
-        trends = await tryGenerate(usedModel);
-    } catch (err1: any) {
-        console.warn(`⚠️ Gemini 3 ni uspel, poskušam alias flash-latest...`, err1.message);
-        try {
-            usedModel = "gemini-flash-latest";
-            trends = await tryGenerate(usedModel);
-        } catch (err2: any) {
-            console.warn(`⚠️ Alias ni uspel, poskušam še gemini-pro-latest...`);
-            try {
-                usedModel = "gemini-pro-latest";
-                trends = await tryGenerate(usedModel);
-            } catch (err3: any) {
-                return res.status(500).json({ error: 'AI generation failed', details: err3.message });
-            }
-        }
+        data = JSON.parse(responseText);
+    } catch (e) {
+        // Fallback čiščenje če AI vrne markdown
+        const cleanJson = responseText.replace(/```json|```/g, '').trim();
+        data = JSON.parse(cleanJson);
     }
 
-    if (Array.isArray(trends) && trends.length > 0) {
-        trends = trends
-            .map(t => {
-                let tag = t.trim();
-                if (!tag.startsWith('#')) tag = `#${tag}`;
-                return tag; 
-            })
-            .filter(t => t.length > 3)
+    // 5. Shranjevanje v bazo
+    if (data && Array.isArray(data.trends)) {
+        // Dodatno čiščenje tagov za vsak slučaj
+        const cleanTrends = data.trends
+            .map((t: string) => t.trim().startsWith('#') ? t.trim() : `#${t.trim()}`)
             .slice(0, 12);
 
         const { error: insertError } = await supabase
           .from('trending_ai')
           .insert({ 
-              words: trends, 
+              words: cleanTrends, 
+              summary: data.summary || null, // Shranimo še povzetek
               updated_at: new Date().toISOString() 
           })
         
         if (insertError) throw insertError
-        return res.status(200).json({ success: true, used_model: usedModel, count: trends.length, trends })
-    } 
+        
+        return res.status(200).json({ success: true, trends: cleanTrends, summary: data.summary })
+    }
 
-    return res.status(200).json({ success: false, message: 'AI je vrnil prazen rezultat.' })
+    return res.status(500).json({ error: 'Invalid AI response structure' })
 
   } catch (error: any) {
-    console.error('Critical Error:', error)
+    console.error('AI Cron Error:', error)
     return res.status(500).json({ error: error.message })
   }
 }
