@@ -1,6 +1,7 @@
+/* pages/api/cron/update-trends.ts */
 import { NextApiRequest, NextApiResponse } from 'next'
 import { createClient } from '@supabase/supabase-js'
-import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } from '@google/generative-ai'
+import { GoogleGenerativeAI } from '@google/generative-ai'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -29,7 +30,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       .neq('category', 'oglas')
       .neq('category', 'promo')
       .order('publishedat', { ascending: false })
-      .limit(80) // Več novic za boljši "brief"
+      .limit(80); // DODANO PODPIČJE
 
     if (error) throw error
     if (!allNews || allNews.length === 0) {
@@ -37,10 +38,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     // Priprava tekstovnega vnosa
-    const headlines = allNews.map(n => `- ${n.source}: ${n.title} ${n.contentsnippet ? `(${n.contentsnippet.substring(0, 100)}...)` : ''}`).join('\n')
+    const headlines = allNews.map(n => `- ${n.source}: ${n.title} ${n.contentsnippet ? `(${n.contentsnippet.substring(0, 100)}...)` : ''}`).join('\n'); // DODANO PODPIČJE
 
-    // 4. SESTAVLJEN PROMPT (Tvoj original + dodatek za Brief)
-    const prompt = `
+    // 4. SESTAVLJEN PROMPT (Preimenovano v aiPrompt)
+    const aiPrompt = `
        Kot izkušen urednik slovenskega novičarskega portala analiziraj spodnji seznam naslovov zadnjih novic.
        Tvoja naloga je dvojna:
        1. Ustvariti seznam trendov (#TemeDneva).
@@ -80,21 +81,21 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
        - Ne naštevaj virov (npr. ne piši "RTV pravi...", ampak samo dejstva).
 
        --- FORMAT IZHODA (JSON) ---
-       Vrni IZKLJUČNO validen JSON objekt (brez markdowna ```json):
+       Vrni IZKLJUČNO validen JSON objekt (brez markdowna \`\`\`json):
        {
          "trends": ["#Tag1", "#Tag2", ...],
          "summary": "Tukaj napiši besedilo povzetka."
        }
-   `
+   `;
     
     // Klic AI modela
     const model = genAI.getGenerativeModel({ 
-        model: "gemini-1.5-flash", // Flash je hiter in dovolj dober
+        model: "gemini-1.5-flash", 
         generationConfig: { responseMimeType: "application/json" }
-    })
+    });
 
-    const result = await model.generateContent(prompt)
-    const responseText = result.response.text()
+    const result = await model.generateContent(aiPrompt); // Uporabimo aiPrompt
+    const responseText = result.response.text();
     
     // Parsanje
     let data;
@@ -117,9 +118,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           .from('trending_ai')
           .insert({ 
               words: cleanTrends, 
-              summary: data.summary || null, // Shranimo še povzetek
+              summary: data.summary || null, 
               updated_at: new Date().toISOString() 
-          })
+          });
         
         if (insertError) throw insertError
         
