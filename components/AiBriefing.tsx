@@ -10,7 +10,12 @@ export default function AiBriefing({ summary }: Props) {
   if (!summary) return null;
 
   return (
-    <div className="w-full mt-1 mb-2">
+    <motion.div 
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      className="w-full mt-1 mb-2" // <--- SPREMEMBA: Zmanjšan razmik zgoraj (prej mt-3)
+    >
+      {/* Uporabljen 'block' in 'clearfix' (čeprav sodobni brskalniki tega ne rabijo nujno, je varneje za float) */}
       <div className="block p-3 bg-white dark:bg-gray-800/80 border-l-4 border-l-brand border-y border-r border-gray-100 dark:border-gray-700/50 rounded-r-lg shadow-sm">
         
         {/* Ikona - Plavajoča levo (float-left) */}
@@ -20,7 +25,7 @@ export default function AiBriefing({ summary }: Props) {
            </span>
         </div>
 
-        {/* Naslovna vrstica - Inline */}
+        {/* Naslovna vrstica - Inline s tekstom */}
         <div className="mb-1">
             <span className="text-[10px] font-black uppercase tracking-widest text-brand dark:text-brand/80 mr-2">
               V OSPREDJU
@@ -30,12 +35,12 @@ export default function AiBriefing({ summary }: Props) {
             </span>
         </div>
           
-        {/* Vsebina - Tekst teče okoli ikone + obojestranska poravnava */}
-        <p className="text-sm leading-snug text-justify text-gray-700 dark:text-gray-200">
+        {/* Vsebina - Tekst, ki bo tekel okoli ikone (wrap) */}
+        <p className="text-sm leading-snug text-gray-700 dark:text-gray-200">
             {summary}
         </p>
 
       </div>
-    </div>
+    </motion.div>
   )
 }
