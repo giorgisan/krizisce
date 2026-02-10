@@ -13,7 +13,7 @@ export default function AiBriefing({ summary }: Props) {
     <motion.div 
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      className="w-full mt-1 mb-2" // <--- SPREMEMBA: Zmanjšan razmik zgoraj (prej mt-3)
+      className="w-full mt-2 mb-2" // <--- SPREMEMBA: Zmanjšan razmik zgoraj (prej mt-3)
     >
       {/* Uporabljen 'block' in 'clearfix' (čeprav sodobni brskalniki tega ne rabijo nujno, je varneje za float) */}
       <div className="block p-3 bg-white dark:bg-gray-800/80 border-l-4 border-l-brand border-y border-r border-gray-100 dark:border-gray-700/50 rounded-r-lg shadow-sm">
