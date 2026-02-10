@@ -1,20 +1,16 @@
 /* components/AiBriefing.tsx */
 import React from 'react'
-import { motion } from 'framer-motion'
 
 interface Props {
   summary: string | null;
+  time?: string | null; // <--- NOV PROP
 }
 
-export default function AiBriefing({ summary }: Props) {
+export default function AiBriefing({ summary, time }: Props) {
   if (!summary) return null;
 
   return (
-    <motion.div 
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      className="w-full mt-2 mb-2"
-    >
+    <div className="w-full mt-2 mb-2">
       <div className="block p-2 bg-white dark:bg-gray-800/80 border-l-4 border-l-brand border-y border-r border-gray-100 dark:border-gray-700/50 rounded-r-lg shadow-sm">
         
         {/* Ikona */}
@@ -25,13 +21,20 @@ export default function AiBriefing({ summary }: Props) {
         </div>
 
         {/* Naslovna vrstica */}
-        <div className="mb-1">
-            <span className="text-[10px] font-black uppercase tracking-widest text-brand dark:text-brand/80 mr-2">
+        <div className="mb-1 flex items-baseline gap-2">
+            <span className="text-[10px] font-black uppercase tracking-widest text-brand dark:text-brand/80">
               AI BRIEF
             </span>
             <span className="text-[10px] text-gray-400 font-medium">
               Analiza zadnjih objav
             </span>
+            
+            {/* --- PRIKAZ URE --- */}
+            {time && (
+              <span className="ml-auto text-[9px] font-mono text-gray-300 dark:text-gray-600 bg-gray-50 dark:bg-gray-800 px-1 rounded border border-gray-100 dark:border-gray-700">
+                {time}
+              </span>
+            )}
         </div>
           
         {/* Vsebina */}
@@ -40,6 +43,6 @@ export default function AiBriefing({ summary }: Props) {
         </p>
 
       </div>
-    </motion.div>
+    </div>
   )
 }
