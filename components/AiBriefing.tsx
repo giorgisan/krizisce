@@ -28,7 +28,7 @@ export default function AiBriefing({ summary }: Props) {
         {/* Naslovna vrstica - Inline s tekstom */}
         <div className="mb-1">
             <span className="text-[10px] font-black uppercase tracking-widest text-brand dark:text-brand/80 mr-2">
-              V OSPREDJU
+              TRENUTNO
             </span>
             <span className="text-[10px] text-gray-400 font-medium">
               Povzetek zadnjih objav
