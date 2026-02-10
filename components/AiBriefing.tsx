@@ -15,7 +15,7 @@ export default function AiBriefing({ summary }: Props) {
       animate={{ opacity: 1 }}
       className="w-full mt-2 mb-2"
     >
-      <div className="block p-3 bg-white dark:bg-gray-800/80 border-l-4 border-l-brand border-y border-r border-gray-100 dark:border-gray-700/50 rounded-r-lg shadow-sm">
+      <div className="block p-2 bg-white dark:bg-gray-800/80 border-l-4 border-l-brand border-y border-r border-gray-100 dark:border-gray-700/50 rounded-r-lg shadow-sm">
         
         {/* Ikona */}
         <div className="float-left mr-3 mt-0.5">
