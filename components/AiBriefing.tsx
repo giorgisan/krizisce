@@ -13,32 +13,31 @@ export default function AiBriefing({ summary }: Props) {
     <motion.div 
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      className="w-full mt-3 mb-2" // Zmanjšan margin
+      className="w-full mt-3 mb-2"
     >
-      <div className="flex flex-row items-start gap-3 p-3 bg-white dark:bg-gray-800/80 border-l-4 border-l-brand border-y border-r border-gray-100 dark:border-gray-700/50 rounded-r-lg shadow-sm">
+      <div className="block p-3 bg-white dark:bg-gray-800/80 border-l-4 border-l-brand border-y border-r border-gray-100 dark:border-gray-700/50 rounded-r-lg shadow-sm clearfix">
         
-        {/* Ikona - Majhna in diskretna */}
-        <div className="shrink-0 pt-0.5">
-           <span className="flex items-center justify-center w-6 h-6 rounded-full bg-brand/10 text-sm">
+        {/* Ikona - Plavajoča levo (float-left) z marginom */}
+        <div className="float-left mr-3 mt-0.5">
+           <span className="flex items-center justify-center w-6 h-6 rounded-full bg-brand/10 text-sm shadow-sm border border-brand/5">
              🤖
            </span>
         </div>
 
-        {/* Vsebina - Kompaktna */}
-        <div className="flex-1 min-w-0">
-          <div className="flex items-baseline gap-2 mb-0.5">
-            <h3 className="text-[10px] font-black uppercase tracking-widest text-brand dark:text-brand/80">
+        {/* Naslovna vrstica - Inline s tekstom ali nad njim */}
+        <div className="mb-1">
+            <span className="text-[10px] font-black uppercase tracking-widest text-brand dark:text-brand/80 mr-2">
               V OSPREDJU
-            </h3>
-            <span className="text-[10px] text-gray-400 truncate">
+            </span>
+            <span className="text-[10px] text-gray-400 font-medium">
               Povzetek zadnjih objav
             </span>
-          </div>
-          
-          <p className="text-sm leading-snug text-gray-700 dark:text-gray-200">
-            {summary}
-          </p>
         </div>
+          
+        {/* Vsebina - Tekst, ki bo tekel okoli ikone */}
+        <p className="text-sm leading-snug text-gray-700 dark:text-gray-200">
+            {summary}
+        </p>
 
       </div>
     </motion.div>
