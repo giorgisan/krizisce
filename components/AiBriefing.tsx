@@ -31,7 +31,7 @@ export default function AiBriefing({ summary, time }: Props) {
             
             {/* Prikaz ure - TAKOJ ZRAVEN */}
             {time && (
-              <span className="text-[9px] font-mono text-gray-300 dark:text-gray-600">
+              <span className="text-[10px] font-mono text-gray-300 dark:text-gray-600">
                 • {time}
               </span>
             )}
