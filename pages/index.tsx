@@ -87,10 +87,11 @@ type Props = {
   initialNews: NewsItem[]
   initialTrendingWords: TrendingWord[]
   initialTrendingNews: NewsItem[]
-  aiSummary: string | null 
+  aiSummary: string | null
+  aiTime: string | null // <--- NOV PROP
 }
 
-export default function Home({ initialNews, initialTrendingWords, initialTrendingNews, aiSummary }: Props) {
+export default function Home({ initialNews, initialTrendingWords, initialTrendingNews, aiSummary, aiTime }: Props) {
   const [itemsLatest, setItemsLatest] = useState<NewsItem[]>(initialNews)
   
   const [itemsTrending, setItemsTrending] = useState<NewsItem[]>(initialTrendingNews || [])
@@ -325,7 +326,7 @@ export default function Home({ initialNews, initialTrendingWords, initialTrendin
     setSearchQuery(e.target.value)
   }
 
-  // --- POPRAVEK: Definicija spremenljivke ---
+  // --- LOGIKA ZA PRIKAZ (VEDNO, razen pri iskanju) ---
   const showHeaderElements = !searchQuery && !tagQuery;
 
   return (
@@ -357,12 +358,11 @@ export default function Home({ initialNews, initialTrendingWords, initialTrendin
       <main className="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white pb-12">
         <div className="max-w-[1800px] mx-auto w-full px-4 md:px-8 lg:px-16">
 
-            {/* --- AI BRIEFING & TRENDING (NA VRHU) --- */}
-            {/* Prikazujemo vedno, razen če uporabnik išče/filtrira */}
+            {/* --- AI BRIEFING & TRENDING --- */}
             {showHeaderElements && (
                <>
-                 {/* 1. AI Robotek - VEDNO prikažemo, če imamo summary */}
-                 <AiBriefing summary={aiSummary} />
+                 {/* 1. AI Robotek - Zdaj s časom! */}
+                 <AiBriefing summary={aiSummary} time={aiTime} />
                  
                  {/* 2. Tekoči trak - Zmanjšan spodnji rob (mb-1) */}
                  <div className="mt-1 mb-1 min-w-0 w-full overflow-hidden">
@@ -525,8 +525,8 @@ export const getServerSideProps: GetServerSideProps = async ({ res }) => {
   // 1. POIZVEDBA: Glavne novice
   const newsPromise = supabase.from('news').select('id, link, title, source, contentsnippet, image, published_at, publishedat, category').neq('category', 'oglas').order('publishedat', { ascending: false }).order('id', { ascending: false }).limit(24)
   
-  // 2. POIZVEDBA: Tagi in AI Summary (NOVO: Preberemo tudi summary)
-  const trendsWordsPromise = supabase.from('trending_ai').select('words, summary').order('updated_at', { ascending: false }).limit(1).single()
+  // 2. POIZVEDBA: Tagi in AI Summary (Zdaj vključno z updated_at)
+  const trendsWordsPromise = supabase.from('trending_ai').select('words, summary, updated_at').order('updated_at', { ascending: false }).limit(1).single()
 
   // 3. POIZVEDBA: Trending Novice
   const trendingGroupsPromise = supabase.from('trending_groups_cache').select('data').order('updated_at', { ascending: false }).limit(1).single()
@@ -548,7 +548,8 @@ export const getServerSideProps: GetServerSideProps = async ({ res }) => {
 
   // Obdelava tagov in povzetka
   let trendsData: any[] = []
-  let aiSummary = null; // Default null
+  let aiSummary = null;
+  let aiTime = null;
 
   const aiData = wordsRes.data
   if (aiData) {
@@ -556,7 +557,11 @@ export const getServerSideProps: GetServerSideProps = async ({ res }) => {
           trendsData = aiData.words.map((w: string) => ({ word: w, count: 1 }))
       }
       if (aiData.summary) {
-          aiSummary = aiData.summary // Nastavimo summary
+          aiSummary = aiData.summary
+      }
+      if (aiData.updated_at) {
+          const date = new Date(aiData.updated_at);
+          aiTime = date.toLocaleTimeString('sl-SI', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Ljubljana' });
       }
   } 
   
@@ -569,5 +574,5 @@ export const getServerSideProps: GetServerSideProps = async ({ res }) => {
   // Obdelava Trending Novic
   const initialTrendingNews = groupsRes.data?.data || []
 
-  return { props: { initialNews, initialTrendingWords: trendsData, initialTrendingNews, aiSummary } }
+  return { props: { initialNews, initialTrendingWords: trendsData, initialTrendingNews, aiSummary, aiTime } }
 }
