@@ -100,12 +100,21 @@ export default function AnalizaPage({ analysis, lastUpdated }: Props) {
                                 alt={item.topic}
                                 className="w-full h-full object-cover transition-transform duration-700 hover:scale-105"
                                 loading="lazy"
+                                onError={(e) => {
+                                  // Fallback če slika ne naloži
+                                  (e.target as HTMLImageElement).style.display = 'none';
+                                  (e.target as HTMLImageElement).nextElementSibling?.classList.remove('hidden');
+                                }}
                               />
                           ) : (
                               <div className="w-full h-full flex items-center justify-center bg-gray-100 dark:bg-gray-800">
                                   <span className="text-4xl opacity-20">📷</span>
                               </div>
                           )}
+                          {/* Fallback element, če slika rata error (skrit po defaultu) */}
+                          <div className="hidden w-full h-full absolute inset-0 flex items-center justify-center bg-gray-100 dark:bg-gray-800">
+                               <span className="text-4xl opacity-20">📷</span>
+                          </div>
                           
                           {/* Števec virov */}
                           <div className="absolute bottom-3 left-3 bg-white/90 dark:bg-black/80 backdrop-blur-sm text-gray-900 dark:text-white text-xs font-bold px-3 py-1 rounded-full border border-black/5">
