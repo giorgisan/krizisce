@@ -3,17 +3,23 @@ import React from 'react'
 import { GetServerSideProps } from 'next'
 import Head from 'next/head'
 import Link from 'next/link'
+import Image from 'next/image'
 import Header from '@/components/Header'
 import Footer from '@/components/Footer'
 import { createClient } from '@supabase/supabase-js'
 
+// Definicija tipov glede na nov API response
+interface SourceItem {
+  source: string;
+  title: string;
+  tone: string;
+}
+
 interface AnalysisItem {
   topic: string;
-  clickbait_score: number;
-  sensationalism: string;
-  comparison: string;
-  best_headline: string;
-  worst_headline: string | null;
+  summary: string;
+  tone_difference: string;
+  sources: SourceItem[];
 }
 
 interface Props {
@@ -21,121 +27,150 @@ interface Props {
   lastUpdated: string | null;
 }
 
+// Helper za logotipe (lahko uporabiš svojo obstoječo logiko ali tole poenostavljeno)
+const getLogoSrc = (sourceName: string) => {
+  const s = sourceName.toLowerCase().replace(/\s/g, '').replace(/\./g, '');
+  if (s.includes('rtv')) return '/logos/rtvslo.png';
+  if (s.includes('24ur')) return '/logos/24ur.png';
+  if (s.includes('siol')) return '/logos/siol.png';
+  if (s.includes('delo')) return '/logos/delo.png';
+  if (s.includes('dnevnik')) return '/logos/dnevnik.png';
+  if (s.includes('slovenske')) return '/logos/slovenskenovice.png';
+  if (s.includes('večer')) return '/logos/vecer.png';
+  if (s.includes('n1')) return '/logos/n1.png';
+  if (s.includes('svet24')) return '/logos/svet24.png';
+  if (s.includes('zurnal')) return '/logos/zurnal24.png';
+  return '/logo.png'; // Fallback
+}
+
+// Helper za barvo tona (manj vsiljivo)
+const getToneStyle = (tone: string) => {
+  const t = tone.toLowerCase();
+  if (t.includes('senzacija') || t.includes('drama') || t.includes('alarm')) 
+    return 'bg-red-50 text-red-600 border-red-100';
+  if (t.includes('vprašal') || t.includes('provokat')) 
+    return 'bg-orange-50 text-orange-600 border-orange-100';
+  return 'bg-gray-50 text-gray-500 border-gray-100'; // Nevtralen/Informativen
+}
+
 export default function AnalizaPage({ analysis, lastUpdated }: Props) {
   
-  // Funkcija za barvo score-a
-  const getScoreColor = (score: number) => {
-    if (score < 3) return 'bg-green-100 text-green-700 border-green-200';
-    if (score < 6) return 'bg-yellow-100 text-yellow-700 border-yellow-200';
-    if (score < 8) return 'bg-orange-100 text-orange-700 border-orange-200';
-    return 'bg-red-100 text-red-700 border-red-200';
-  }
-
   return (
     <>
       <Head>
-        <title>Analiza Medijev | Križišče</title>
-        <meta name="description" content="AI analiza poročanja slovenskih medijev. Kdo je objektiven in kdo senzacionalističen?" />
+        <title>Medijski Monitor | Križišče</title>
+        <meta name="description" content="Primerjava poročanja slovenskih medijev o istih temah." />
       </Head>
 
-      {/* Header - poenostavljen, brez filtrov, ker smo na podstrani */}
-      <Header 
-         activeCategory="vse" 
-         activeSource="Vse" 
-         onOpenFilter={() => {}} 
-         onSearch={() => {}} 
-         onSelectCategory={() => {}} 
-         onReset={() => {}}
-      />
+      <Header activeCategory="vse" activeSource="Vse" />
 
-      <main className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8 px-4 md:px-8">
-        <div className="max-w-4xl mx-auto">
-          
-          <div className="mb-8 text-center">
-            <h1 className="text-3xl md:text-4xl font-black text-gray-900 dark:text-white mb-2">
-              <span className="text-brand">AI</span> ANALIZA MEDIJEV
-            </h1>
-            <p className="text-gray-600 dark:text-gray-400 text-lg">
-              Kako različni viri poročajo o istih zgodbah?
-            </p>
-            {lastUpdated && (
-              <div className="mt-2 text-xs text-gray-400 font-mono">
-                Zadnja osvežitev: {new Date(lastUpdated).toLocaleString('sl-SI')}
-              </div>
-            )}
-          </div>
+      <main className="min-h-screen bg-[#F8F9FA] dark:bg-gray-900 pb-20">
+        
+        {/* Intro Section */}
+        <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 py-12 px-4">
+            <div className="max-w-4xl mx-auto text-center">
+                <span className="inline-block py-1 px-3 rounded-full bg-brand/10 text-brand text-xs font-bold tracking-widest uppercase mb-4">
+                    Beta Funkcija
+                </span>
+                <h1 className="text-3xl md:text-5xl font-serif font-bold text-gray-900 dark:text-white mb-4 tracking-tight">
+                    Medijski Monitor
+                </h1>
+                <p className="text-lg text-gray-600 dark:text-gray-300 max-w-2xl mx-auto leading-relaxed">
+                    Kako se razlikujejo naslovnice, ko vsi poročajo o isti stvari? 
+                    <br className="hidden md:block"/>
+                    Primerjajte pristope različnih uredništev.
+                </p>
+                {lastUpdated && (
+                    <div className="mt-6 text-xs text-gray-400 font-mono">
+                        Zadnja analiza: {new Date(lastUpdated).toLocaleString('sl-SI', { 
+                            day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' 
+                        })}
+                    </div>
+                )}
+            </div>
+        </div>
 
+        <div className="max-w-4xl mx-auto px-4 mt-12 space-y-16">
           {!analysis || analysis.length === 0 ? (
-            <div className="text-center py-20 text-gray-500">
-              Trenutno ni na voljo nobene analize. Poskusite kasneje.
+            <div className="text-center py-20 bg-white rounded-3xl shadow-sm border border-gray-100">
+               <p className="text-gray-500">Trenutno ni na voljo nobene analize.</p>
             </div>
           ) : (
-            <div className="space-y-8">
-              {analysis.map((item, idx) => (
-                <div key={idx} className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
+            analysis.map((item, idx) => (
+              <section key={idx} className="group">
                   
-                  {/* Glava kartice */}
-                  <div className="p-6 border-b border-gray-100 dark:border-gray-700 flex flex-col md:flex-row md:items-center justify-between gap-4">
-                    <div>
-                      <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+                  {/* Naslov Teme */}
+                  <div className="flex flex-col md:flex-row md:items-baseline gap-4 mb-6 px-2">
+                      <h2 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white">
                         {item.topic}
                       </h2>
-                      <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                        {item.comparison}
-                      </p>
-                    </div>
-                    
-                    {/* Clickbait Score Badge */}
-                    <div className={`flex flex-col items-center justify-center px-4 py-2 rounded-xl border ${getScoreColor(item.clickbait_score)}`}>
-                        <span className="text-xs font-bold uppercase tracking-wider opacity-70">Clickbait</span>
-                        <span className="text-2xl font-black">{item.clickbait_score}<span className="text-sm opacity-50">/10</span></span>
-                    </div>
+                      <div className="h-px bg-gray-200 dark:bg-gray-700 flex-1 relative top-[-6px] hidden md:block"></div>
                   </div>
 
-                  {/* Vsebina kartice */}
-                  <div className="p-6 grid md:grid-cols-2 gap-6 bg-gray-50/50 dark:bg-gray-800/50">
-                     {/* Najboljši naslov */}
-                     <div className="bg-green-50 dark:bg-green-900/10 p-4 rounded-xl border border-green-100 dark:border-green-800/30">
-                        <div className="flex items-center gap-2 mb-2">
-                           <span className="text-lg">✅</span>
-                           <span className="text-xs font-bold uppercase text-green-700 dark:text-green-400">Najbolj korekten</span>
-                        </div>
-                        <p className="text-gray-800 dark:text-gray-200 font-medium italic">
-                          "{item.best_headline}"
-                        </p>
-                     </div>
+                  {/* AI Povzetek & Razlika (Editorial Box) */}
+                  <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 md:p-8 shadow-sm border border-gray-100 dark:border-gray-700 mb-6 relative overflow-hidden">
+                      <div className="absolute top-0 left-0 w-1 h-full bg-brand"></div>
+                      
+                      <div className="flex gap-4 items-start">
+                         <span className="text-2xl pt-1">💡</span>
+                         <div>
+                             <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-2">Bistvo & Razlike</h3>
+                             <p className="text-gray-900 dark:text-gray-100 text-lg leading-relaxed font-medium mb-3">
+                                {item.summary}
+                             </p>
+                             <p className="text-gray-600 dark:text-gray-400 text-base italic leading-relaxed">
+                                "{item.tone_difference}"
+                             </p>
+                         </div>
+                      </div>
+                  </div>
 
-                     {/* Najslabši naslov (če obstaja) */}
-                     {item.worst_headline && (
-                       <div className="bg-red-50 dark:bg-red-900/10 p-4 rounded-xl border border-red-100 dark:border-red-800/30">
-                          <div className="flex items-center gap-2 mb-2">
-                             <span className="text-lg">⚠️</span>
-                             <span className="text-xs font-bold uppercase text-red-700 dark:text-red-400">Senzacionalizem</span>
+                  {/* Primerjalna Mreža Naslovov */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {item.sources.map((source, sIdx) => (
+                          <div key={sIdx} className="bg-white dark:bg-gray-800 p-5 rounded-xl border border-gray-200 dark:border-gray-700 hover:border-brand/30 transition-colors shadow-sm hover:shadow-md">
+                              
+                              {/* Vir & Logo */}
+                              <div className="flex items-center justify-between mb-3">
+                                  <div className="flex items-center gap-2">
+                                      <div className="relative w-5 h-5 rounded-full overflow-hidden bg-gray-100">
+                                         <Image 
+                                            src={getLogoSrc(source.source)} 
+                                            alt={source.source} 
+                                            fill 
+                                            className="object-cover"
+                                            onError={(e) => { (e.target as any).src = '/logo.png' }}
+                                         />
+                                      </div>
+                                      <span className="text-xs font-bold uppercase text-gray-500 tracking-wide">
+                                          {source.source}
+                                      </span>
+                                  </div>
+                                  
+                                  {/* Ton Badge */}
+                                  <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full border ${getToneStyle(source.tone)}`}>
+                                      {source.tone}
+                                  </span>
+                              </div>
+
+                              {/* Naslov */}
+                              <h3 className="text-lg font-serif font-medium text-gray-900 dark:text-gray-100 leading-snug">
+                                  {source.title}
+                              </h3>
                           </div>
-                          <p className="text-gray-800 dark:text-gray-200 font-medium italic">
-                            "{item.worst_headline}"
-                          </p>
-                       </div>
-                     )}
-                  </div>
-                  
-                  {/* AI Komentar */}
-                  <div className="px-6 py-3 bg-gray-100 dark:bg-gray-900/50 border-t border-gray-100 dark:border-gray-700 text-xs text-gray-500 dark:text-gray-400 flex items-center gap-2">
-                     <span>🤖 AI Komentar:</span>
-                     <span>{item.sensationalism}</span>
+                      ))}
                   </div>
 
-                </div>
-              ))}
-            </div>
+                  {/* Ločilna črta med temami (razen zadnje) */}
+                  {idx < analysis.length - 1 && (
+                      <div className="my-16 flex justify-center">
+                          <div className="w-12 h-1 bg-gray-200 rounded-full"></div>
+                      </div>
+                  )}
+
+              </section>
+            ))
           )}
-
-          <div className="mt-12 text-center">
-             <Link href="/" className="px-6 py-3 rounded-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:shadow-md transition-shadow text-sm font-bold text-gray-700 dark:text-gray-200">
-                ← Nazaj na novice
-             </Link>
-          </div>
-
         </div>
       </main>
       <Footer />
@@ -143,12 +178,11 @@ export default function AnalizaPage({ analysis, lastUpdated }: Props) {
   )
 }
 
+// ... getServerSideProps ostane ENAK kot prej, samo prekopiraj ga spodaj ...
 export const getServerSideProps: GetServerSideProps = async ({ res }) => {
   res.setHeader('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=600')
-  
   const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
 
-  // Dobimo ZADNJO analizo
   const { data, error } = await supabase
     .from('media_analysis')
     .select('data, created_at')
@@ -156,14 +190,7 @@ export const getServerSideProps: GetServerSideProps = async ({ res }) => {
     .limit(1)
     .single()
 
-  if (error || !data) {
-    return { props: { analysis: null, lastUpdated: null } }
-  }
+  if (error || !data) return { props: { analysis: null, lastUpdated: null } }
 
-  return { 
-    props: { 
-      analysis: data.data,
-      lastUpdated: data.created_at
-    } 
-  }
+  return { props: { analysis: data.data, lastUpdated: data.created_at } }
 }
