@@ -18,7 +18,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
-    // 2. Zajem novic (48h za večji vzorec)
+    // 2. Zajem novic (48h za večji vzorec in boljše zgodbe)
     const cutoff = Date.now() - (48 * 60 * 60 * 1000)
     const { data: rows, error } = await supabase
         .from('news')
@@ -34,16 +34,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // 3. Grupiranje
     const groups = computeTrending(rows || [])
     
-    console.log(`AI Analiza: Našel ${groups.length} skupin.`);
-
-    // 4. Filtriranje (ZDAJ VKLJUČUJE TUDI storyArticles!)
+    // 4. Filtriranje (Vključuje 'storyArticles'!)
     const topStories = groups
       .filter((g: any) => {
-          // TU JE BIL PROBLEM: Dodali smo še 'storyArticles'
           const list = g.items || g.articles || g.storyArticles || [];
           return list.length >= 2; 
       })
-      // Razvrstimo po velikosti
+      // Razvrstimo po velikosti (največje zgodbe prve)
       .sort((a: any, b: any) => {
           const lenA = (a.items || a.articles || a.storyArticles || []).length;
           const lenB = (b.items || b.articles || b.storyArticles || []).length;
@@ -58,32 +55,33 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         })
     }
 
-    // 5. Priprava prompta
+    // 5. Priprava prompta (Vključimo URL in Sliko!)
     let promptData = ""
     topStories.forEach((group: any, index: number) => {
        promptData += `\nZGODBA ${index + 1}:\n`
        const list = group.items || group.articles || group.storyArticles || [];
        
-       // Pošljemo VSE naslove (ne samo prvih 6, če jih ni preveč), da jih AI lahko vrne
+       // Pošljemo do 8 naslovov na zgodbo
        list.slice(0, 8).forEach((item: any) => {
-          promptData += `- Vir: ${item.source}, Naslov: "${item.title}", Slika: "${item.image || ''}"\n`
+          promptData += `- Vir: ${item.source}, Naslov: "${item.title}", Link: "${item.link}", Slika: "${item.image || ''}"\n`
        })
     })
 
-    // 6. NOV PROMPT (Manj sojenja, več analize razlik)
+    // 6. PROMPT (Analiza razlik in tonov)
     const prompt = `
       Analiziraj spodnjih ${topStories.length} medijskih zgodb.
       Tvoja naloga je primerjati, kako različni slovenski mediji poročajo o isti temi.
-      Ne ocenjuj clickbaita s številko, ampak opiši razlike v tonu.
+      Bodi analitičen, ne obsojajoč.
       
       Za vsako zgodbo vrni JSON objekt:
       1. "topic": Kratek, nevtralen naslov dogodka (max 5 besed).
       2. "summary": En stavek, ki pove bistvo dogodka (objektivno).
-      3. "tone_difference": Kratek opis (max 2 stavka), kako se viri razlikujejo (npr. "RTV in Delo poročata faktografsko, medtem ko Slovenske Novice izpostavljajo čustveni vidik in dramo.").
+      3. "tone_difference": Kratek opis (max 2 stavka), kako se viri razlikujejo (npr. "RTV poroča zadržano, medtem ko Slovenske Novice ustvarjajo dramo.").
       4. "sources": Seznam vseh virov v tej zgodbi. Za vsak vir vrni:
           - "source": Ime medija.
           - "title": Njihov naslov (dobesedno).
-          - "tone": Ena beseda, ki opiše ton tega naslova (npr. "Nevtralen", "Senzacionalen", "Dramatičen", "Informativen", "Vprašalni").
+          - "url": Povezava do novice (kopiraj točno iz VHODA "Link").
+          - "tone": Ena beseda, ki opiše ton (npr. "Nevtralen", "Senzacionalen", "Alarmanten", "Informativen", "Vprašalni").
       
       VHODNI PODATKI:
       ${promptData}
@@ -94,13 +92,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           "topic": "...", 
           "summary": "...", 
           "tone_difference": "...",
-          "sources": [ { "source": "RTV", "title": "...", "tone": "Nevtralen" }, ... ]
+          "sources": [ { "source": "RTV", "title": "...", "url": "...", "tone": "Nevtralen" }, ... ]
         }, 
         ... 
       ]
     `
 
-    // 7. Klic AI
+    // 7. Klic AI (Uporabljamo generični alias za najboljšo združljivost)
     const model = genAI.getGenerativeModel({ model: "gemini-flash-latest" });
     
     const result = await model.generateContent(prompt);
