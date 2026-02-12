@@ -42,57 +42,45 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // 2. PRIPRAVA VSEBINE
     const headlines = allNews.map(n => `- ${n.source}: ${n.title} ${n.contentsnippet ? `(${n.contentsnippet.substring(0, 100)}...)` : ''}`).join('\n');
 
-    // 3. PROMPT (Tvoj original + dodatek za Brief)
+    // 3. IZBOLJŠAN PROMPT
     const prompt = `
-       Kot izkušen urednik slovenskega novičarskega portala analiziraj spodnji seznam naslovov zadnjih novic.
-       Tvoja naloga je dvojna:
-       1. Ustvariti seznam trendov (#TemeDneva).
-       2. Napisati kratek AI povzetek dogajanja (Brief).
+        Kot izkušen in strog urednik slovenskega novičarskega portala analiziraj spodnji seznam naslovov zadnjih novic.
+        Tvoja naloga je dvojna in mora biti opravljena z novinarsko natančnostjo:
+        1. Ustvariti seznam trendov (#TemeDneva) za iskanje.
+        2. Napisati izjemno kratek in jedrnat "executive summary" dogajanja.
 
-       VHODNI PODATKI:
-       ${headlines}
+        VHODNI PODATKI:
+        ${headlines}
 
-       --- 1. DEL: TRENDI (TAGI) ---
-       STRATEGIJA IZBORA:
-       1. RELEVANTNOST: Izpostavi teme, o katerih piše več različnih virov (npr. RTV, 24ur, Delo, Siol).
-       2. BREZ PODVAJANJA: Ne ustvarjaj vsebinsko podobnih tagov.
+        --- 1. DEL: TRENDI (TAGI) ---
+        CILJ: Ustvari 6-8 najbolj vročih in konkretnih tagov.
         
-       KRITERIJI ZA TAG:
-       1. UPORABNOST PRI ISKANJU: Tag mora vsebovati besede, ki se nahajajo v naslovih oz. podnaslovih novic.
-          - SLABO: #Politično Dogajanje (preveč splošno, te besede ni v naslovih)
-          - DOBRO: #Golob (če se v naslovih omenja premier Golob)
-          - DOBRO: #Vojna v Ukrajini (če se v naslovih omenja Ukrajina/vojna)
-
-       2. KONKRETNOST: Raje uporabi imena oseb, krajev ali dogodkov kot pa abstraktne pojme.
-          - Namesto #Kriminal uporabi #Umor v Mariboru (če je to tema).
-          - Namesto #Šport uporabi #Dončić (če je tema Luka Dončić).
-
-       PRAVILA OBLIKOVANJA (STROGO):
-       - Vsak tag se mora začeti z lojtro (#).
-       - Uporabljaj slovenski jezik in presledke (NE CamelCase).
-       - Dolžina: 1 do 3 besede na tag.
-       - Besede naj bodo v osnovni obliki (imenovalnik), da se ujemajo z iskalnim indeksom.
-       - Uporabljaj izključno besede, ki se v dobesedni obliki ali korenu pojavljajo v naslovih.  
-       - Ne spreminjaj glagolov v samostalnike, če to spremeni koren besede.
+        STRATEGIJA:
+        - Išči preseke: Teme, ki jih pokriva VEČ različnih medijev hkrati.
+        - Bodi specifičen: #Pogačar (ne #Kolesarstvo), #Požar na Krasu (ne #Gasilci).
+        - Uporabljaj samo samostalnike v imenovalniku (osnovna oblika).
         
-       PREPOVEDANO
-       - Izogibaj se generičnim besedam kot so "Šport", "Novice", "Dogajanje", "Stanje", "Foto" ... razen če so del specifične fraze.
-       - Ne izmišljuj si besed (ne haluciniraj)
+        STROGO PREPOVEDANO PRI TAGIH:
+        - Generične besede (#Novice, #Slovenija, #Svet, #Kronika).
+        - Dolžina tagov (max 3 besede).
+        - Izmišljene besede, ki jih ni v naslovih.
 
-       --- 2. DEL: AI BRIEF (POVZETEK) ---
-       Napiši kratek, jedrnat povzetek trenutnega dogajanja v Sloveniji in svetu na podlagi zgornjih novic.
-       - Dolžina: 2 do 3 stavki (maksimalno 400 znakov).
-       - Stil: Objektiven, informativen, tekoč. Kot bi bralec prebral "flash news".
-       - Začni z najpomembnejšo novico.
-       - Ne naštevaj virov (npr. ne piši "RTV pravi...", ampak samo dejstva).
+        --- 2. DEL: AI BRIEF (POVZETEK) ---
+        CILJ: Napiši "Elevator Pitch" trenutnega dogajanja. Bralec ima le 10 sekund.
+        
+        PRAVILA PISANJA:
+        - DOLŽINA: Maksimalno 400 znakov. To sta približno 2-3 kratki stavki.
+        - STRUKTURA: Prvi stavek = Glavna tema dneva (udarno). Drugi stavek = Druga najpomembnejša tema ali zanimivost.
+        - SLOG: Objektiven, telegrafski, brez mašil ("V današnjem dnevu...", "Poročajo, da..."). Samo bistvo.
+        - VSEBINA: Fokusiraj se na dogodek, ne na medij. Ne omenjaj "RTV", "24ur" itd.
 
-       --- FORMAT IZHODA (JSON) ---
-       Vrni IZKLJUČNO validen JSON objekt (brez markdowna \`\`\`json):
-       {
-         "trends": ["#Tag1", "#Tag2", ...],
-         "summary": "Tukaj napiši besedilo povzetka."
-       }
-   `;
+        --- FORMAT IZHODA (JSON) ---
+        Vrni IZKLJUČNO validen JSON objekt (brez markdowna \`\`\`json in brez dodatnega teksta):
+        {
+          "trends": ["#Tag1", "#Tag2", ...],
+          "summary": "Kratek tekst povzetka."
+        }
+    `;
     
     // Tvoja originalna logika za generiranje
     const tryGenerate = async (modelName: string) => {
