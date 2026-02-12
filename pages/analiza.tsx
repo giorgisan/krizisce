@@ -3,7 +3,7 @@ import React from 'react'
 import { GetServerSideProps } from 'next'
 import Head from 'next/head'
 import Link from 'next/link'
-import Image from 'next/image' // Samo za logotipe
+import Image from 'next/image' 
 import Header from '@/components/Header'
 import Footer from '@/components/Footer'
 import { createClient } from '@supabase/supabase-js'
@@ -45,9 +45,9 @@ const getLogoSrc = (sourceName: string) => {
 
 const getToneColor = (tone: string) => {
   const t = tone.toLowerCase();
-  if (t.includes('senzacija') || t.includes('drama') || t.includes('alarm')) return 'bg-red-50 text-red-600 border-red-100';
-  if (t.includes('vprašal') || t.includes('provokat')) return 'bg-orange-50 text-orange-600 border-orange-100';
-  return 'bg-gray-50 text-gray-500 border-gray-200';
+  if (t.includes('senzacija') || t.includes('drama') || t.includes('alarm')) return 'bg-red-50 text-red-700 border-red-100';
+  if (t.includes('vprašal') || t.includes('provokat')) return 'bg-orange-50 text-orange-700 border-orange-100';
+  return 'bg-gray-50 text-gray-700 border-gray-200';
 }
 
 export default function AnalizaPage({ analysis, lastUpdated }: Props) {
@@ -61,7 +61,7 @@ export default function AnalizaPage({ analysis, lastUpdated }: Props) {
 
       <main className="min-h-screen bg-gray-50 dark:bg-black pb-20">
         
-        {/* Header */}
+        {/* Naslovna vrstica */}
         <div className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 py-8 px-4">
             <div className="max-w-5xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
                 <div>
@@ -90,16 +90,16 @@ export default function AnalizaPage({ analysis, lastUpdated }: Props) {
               <article key={idx} className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-800 overflow-hidden hover:shadow-md transition-shadow">
                   
                   {/* ZGORNJI DEL: Split View */}
-                  <div className="grid md:grid-cols-12 gap-0 min-h-[280px]">
+                  <div className="flex flex-col md:flex-row min-h-[280px]">
                       
-                      {/* LEVA STRAN: SLIKA (md:col-span-5) */}
-                      <div className="md:col-span-5 relative h-56 md:h-auto bg-gray-200 dark:bg-gray-800 overflow-hidden">
+                      {/* 1. SLIKA (LEVO) - 40% širine */}
+                      <div className="w-full md:w-5/12 relative h-56 md:h-auto bg-gray-200 dark:bg-gray-800 overflow-hidden">
                           {item.main_image ? (
-                              // Uporabimo navaden img tag za večjo zanesljivost pri zunanjih URLjih
                               <img 
                                 src={item.main_image} 
                                 alt={item.topic}
                                 className="w-full h-full object-cover transition-transform duration-700 hover:scale-105"
+                                loading="lazy"
                               />
                           ) : (
                               <div className="w-full h-full flex items-center justify-center bg-gray-100 dark:bg-gray-800">
@@ -113,8 +113,8 @@ export default function AnalizaPage({ analysis, lastUpdated }: Props) {
                           </div>
                       </div>
 
-                      {/* DESNA STRAN: VSEBINA (md:col-span-7) */}
-                      <div className="md:col-span-7 p-6 md:p-8 flex flex-col justify-center bg-white dark:bg-gray-900">
+                      {/* 2. VSEBINA (DESNO) - 60% širine */}
+                      <div className="w-full md:w-7/12 p-6 md:p-8 flex flex-col justify-center bg-white dark:bg-gray-900 border-l border-gray-100 dark:border-gray-800">
                           <h2 className="text-2xl font-serif font-bold text-gray-900 dark:text-white mb-4 leading-tight">
                             {item.topic}
                           </h2>
@@ -123,7 +123,7 @@ export default function AnalizaPage({ analysis, lastUpdated }: Props) {
                           </p>
                           
                           {/* Tone Box */}
-                          <div className="bg-gray-50 dark:bg-gray-800/50 border-l-4 border-brand p-4 rounded-r-md">
+                          <div className="mt-auto bg-gray-50 dark:bg-gray-800/50 border-l-4 border-brand p-4 rounded-r-md">
                               <p className="text-sm text-gray-700 dark:text-gray-300 font-medium italic leading-snug">
                                  " {item.tone_difference} "
                               </p>
@@ -134,7 +134,6 @@ export default function AnalizaPage({ analysis, lastUpdated }: Props) {
 
                   {/* SPODNJI DEL: Grid Virov (2 KOLONI) */}
                   <div className="bg-gray-50/50 dark:bg-black/20 p-4 md:p-6 border-t border-gray-100 dark:border-gray-800">
-                      {/* TUKAJ JE SPREMEMBA: md:grid-cols-2 */}
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           {item.sources.map((source, sIdx) => (
                               <Link 
