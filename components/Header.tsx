@@ -281,6 +281,23 @@ export default function Header({
               </button>
             )}
 
+            {/* --- NOVO: Gumb Analiza --- */}
+            <Link
+              href="/analiza"
+              className={`hidden md:flex items-center gap-1 px-3 py-1.5 rounded-md text-sm font-semibold transition-colors 
+                ${router.pathname === '/analiza' 
+                  ? 'text-brand bg-brand/10' 
+                  : 'text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800'
+                }`}
+              title="AI Analiza Medijev"
+            >
+              <span className="text-lg leading-none">📊</span>
+              <span>Analiza</span>
+            </Link>
+            {/* ------------------------- */}
+
+            {/* Tukaj spodaj je tvoj obstoječ gumb za Arhiv */}
+                        
             <Link
               href="/arhiv"
               className={`p-2 rounded-md transition-colors text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800 ${router.pathname === '/arhiv' ? 'text-brand' : ''}`}
