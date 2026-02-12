@@ -17,7 +17,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
-    // 1. Zajem novic (48h)
+    // 1. Zajem novic
     const cutoff = Date.now() - (48 * 60 * 60 * 1000)
     const { data: rows, error } = await supabase
         .from('news')
@@ -50,7 +50,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.json({ message: "Ni dovolj velikih zgodb.", count: 0 })
     }
 
-    // 4. Priprava prompta (Slike ne pošiljamo več v prompt, ker jo bomo dodali ročno)
+    // 4. Priprava prompta
     let promptData = ""
     topStories.forEach((group: any, index: number) => {
        promptData += `\nZGODBA ${index + 1}:\n`
@@ -61,7 +61,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
        })
     })
 
-    // 5. PROMPT (Samo tekstovna analiza)
+    // 5. PROMPT
     const prompt = `
       Analiziraj spodnjih ${topStories.length} medijskih zgodb.
       
@@ -90,13 +90,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     let analysisData = JSON.parse(jsonString);
 
     // --- KLJUČNI POPRAVEK: VSTAVLJANJE SLIKE IZ BAZE ---
-    // Gremo čez vsako analizirano zgodbo in ji dodamo sliko iz originalne skupine
     analysisData = analysisData.map((aiItem: any, index: number) => {
-        // AI rezultati so v istem vrstnem redu kot topStories (1, 2, 3...)
         const originalGroup = topStories[index];
         
         if (originalGroup) {
-            const list = originalGroup.items || originalGroup.articles || originalGroup.storyArticles || [];
+            // TU JE BIL POPRAVEK: cast v 'any'
+            const groupAny = originalGroup as any;
+            const list = groupAny.items || groupAny.articles || groupAny.storyArticles || [];
             
             // Poišči prvi članek, ki ima veljaven URL slike
             const articleWithImage = list.find((a: any) => 
@@ -106,7 +106,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                 a.image.length > 10
             );
 
-            // Če najdemo sliko, jo dodamo v objekt
             if (articleWithImage) {
                 aiItem.main_image = articleWithImage.image;
             } else {
