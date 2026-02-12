@@ -18,7 +18,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
-    // 2. Zajem novic (SPREMEMBA: Povečano na 48h za večji vzorec)
+    // 2. Zajem novic (48h za večji vzorec)
     const cutoff = Date.now() - (48 * 60 * 60 * 1000)
     const { data: rows, error } = await supabase
         .from('news')
@@ -34,20 +34,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // 3. Grupiranje
     const groups = computeTrending(rows || [])
     
-    // DEBUG: Poglej v Vercel Loge, koliko skupin je našel
     console.log(`AI Analiza: Našel ${groups.length} skupin.`);
 
-    // 4. Filtriranje (SPREMEMBA: Dovolimo zgodbe z vsaj 2 člankoma)
+    // 4. Filtriranje (ZDAJ VKLJUČUJE TUDI storyArticles!)
     const topStories = groups
       .filter((g: any) => {
-          // Uporabimo 'any' in preverimo obe možni imeni polja
-          const list = g.items || g.articles || [];
-          return list.length >= 2; // <--- SPREMEMBA: Znižano na 2
+          // TU JE BIL PROBLEM: Dodali smo še 'storyArticles'
+          const list = g.items || g.articles || g.storyArticles || [];
+          return list.length >= 2; 
       })
-      // Razvrstimo po velikosti (največje zgodbe prve)
+      // Razvrstimo po velikosti
       .sort((a: any, b: any) => {
-          const lenA = (a.items || a.articles || []).length;
-          const lenB = (b.items || b.articles || []).length;
+          const lenA = (a.items || a.articles || a.storyArticles || []).length;
+          const lenB = (b.items || b.articles || b.storyArticles || []).length;
           return lenB - lenA;
       })
       .slice(0, 5)
@@ -63,7 +62,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     let promptData = ""
     topStories.forEach((group: any, index: number) => {
        promptData += `\nZGODBA ${index + 1}:\n`
-       const list = group.items || group.articles || [];
+       // TU JE BIL TUDI PROBLEM: Dodali smo še 'storyArticles'
+       const list = group.items || group.articles || group.storyArticles || [];
        
        list.slice(0, 6).forEach((item: any) => {
           promptData += `- Vir: ${item.source}, Naslov: "${item.title}"\n`
@@ -91,7 +91,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     `
 
     // 7. Klic AI
-    // Uporabimo gemini-2.0-flash (ali gemini-1.5-flash, če 2.0 ni na voljo)
     const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
     
     const result = await model.generateContent(prompt);
