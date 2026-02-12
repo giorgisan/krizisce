@@ -62,32 +62,42 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     let promptData = ""
     topStories.forEach((group: any, index: number) => {
        promptData += `\nZGODBA ${index + 1}:\n`
-       // TU JE BIL TUDI PROBLEM: Dodali smo še 'storyArticles'
        const list = group.items || group.articles || group.storyArticles || [];
        
-       list.slice(0, 6).forEach((item: any) => {
-          promptData += `- Vir: ${item.source}, Naslov: "${item.title}"\n`
+       // Pošljemo VSE naslove (ne samo prvih 6, če jih ni preveč), da jih AI lahko vrne
+       list.slice(0, 8).forEach((item: any) => {
+          promptData += `- Vir: ${item.source}, Naslov: "${item.title}", Slika: "${item.image || ''}"\n`
        })
     })
 
-    // 6. Prompt
+    // 6. NOV PROMPT (Manj sojenja, več analize razlik)
     const prompt = `
-      Analiziraj spodnjih ${topStories.length} medijskih zgodb. 
-      Tvoja naloga je oceniti način poročanja slovenskih medijev (objektivnost vs. senzacionalizem).
+      Analiziraj spodnjih ${topStories.length} medijskih zgodb.
+      Tvoja naloga je primerjati, kako različni slovenski mediji poročajo o isti temi.
+      Ne ocenjuj clickbaita s številko, ampak opiši razlike v tonu.
       
-      Za vsako zgodbo vrni JSON objekt s temi polji:
+      Za vsako zgodbo vrni JSON objekt:
       1. "topic": Kratek, nevtralen naslov dogodka (max 5 besed).
-      2. "clickbait_score": Ocena 1-10 (1=suhoparno/faktografsko, 10=ekstremni clickbait/senzacionalizem).
-      3. "sensationalism": Kratek komentar (max 1 stavek) o nivoju senzacionalizma.
-      4. "comparison": En stavek, ki pove, kako se viri razlikujejo (npr. "RTV je zadržan, medtem ko Slovenske Novice strašijo.").
-      5. "best_headline": Vir in naslov, ki je najbolj korekten/informativen.
-      6. "worst_headline": Vir in naslov, ki je najbolj zavajajoč ali pretiran (če obstaja, sicer null).
+      2. "summary": En stavek, ki pove bistvo dogodka (objektivno).
+      3. "tone_difference": Kratek opis (max 2 stavka), kako se viri razlikujejo (npr. "RTV in Delo poročata faktografsko, medtem ko Slovenske Novice izpostavljajo čustveni vidik in dramo.").
+      4. "sources": Seznam vseh virov v tej zgodbi. Za vsak vir vrni:
+          - "source": Ime medija.
+          - "title": Njihov naslov (dobesedno).
+          - "tone": Ena beseda, ki opiše ton tega naslova (npr. "Nevtralen", "Senzacionalen", "Dramatičen", "Informativen", "Vprašalni").
       
       VHODNI PODATKI:
       ${promptData}
       
-      IZHOD (Vrni SAMO validen JSON array, brez markdowna):
-      [ { "topic": "...", "clickbait_score": 5, ... }, ... ]
+      IZHOD (JSON array):
+      [ 
+        { 
+          "topic": "...", 
+          "summary": "...", 
+          "tone_difference": "...",
+          "sources": [ { "source": "RTV", "title": "...", "tone": "Nevtralen" }, ... ]
+        }, 
+        ... 
+      ]
     `
 
     // 7. Klic AI
