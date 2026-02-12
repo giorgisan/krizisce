@@ -59,6 +59,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         - Išči preseke: Teme, ki jih pokriva VEČ različnih medijev hkrati.
         - Bodi specifičen: #Pogačar (ne #Kolesarstvo), #Požar na Krasu (ne #Gasilci).
         - Uporabljaj samo samostalnike v imenovalniku (osnovna oblika).
+        - Uporabljaj slovenski jezik in presledke (NE CamelCase).
         
         STROGO PREPOVEDANO PRI TAGIH:
         - Generične besede (#Novice, #Slovenija, #Svet, #Kronika).
