@@ -1,7 +1,7 @@
 /* pages/api/cron/analyze-journalism.ts */
 import { NextApiRequest, NextApiResponse } from 'next'
 import { createClient } from '@supabase/supabase-js'
-import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } from '@google/generative-ai'
+import { GoogleGenerativeAI } from '@google/generative-ai'
 import { computeTrending } from '@/lib/trendingAlgo'
 
 const supabase = createClient(
@@ -12,13 +12,13 @@ const supabase = createClient(
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_KEY || '')
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  // 1. Varnostni pregled (Cron Secret)
+  // 1. Varnostni pregled
   if (req.query.key !== process.env.CRON_SECRET) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
   try {
-    // 2. Zajem novic (Zadnjih 24 ur)
+    // 2. Zajem novic
     const cutoff = Date.now() - (24 * 60 * 60 * 1000)
     const { data: rows, error } = await supabase
         .from('news')
@@ -31,22 +31,27 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (error) throw error
     if (!rows || rows.length === 0) return res.json({ message: "Ni dovolj novic." })
 
-    // 3. Grupiranje (Uporabimo obstoječ algoritem)
+    // 3. Grupiranje
     const groups = computeTrending(rows || [])
     
-    // Vzemi top 5 zgodb, ki imajo vsaj 3 različne vire (da je kaj primerjati)
+    // Vzemi top 5 zgodb (uporabimo 'any', ker ne poznamo točnega tipa iz trendingAlgo)
     const topStories = groups
-      .filter(g => g.items.length >= 3)
+      .filter((g: any) => {
+          // Preverimo, ali se polje imenuje 'items' ali 'articles'
+          const articles = g.items || g.articles || [];
+          return articles.length >= 3;
+      })
       .slice(0, 5)
 
     if (topStories.length === 0) return res.json({ message: "Ni dovolj velikih zgodb (min 3 viri)." })
 
     // 4. Priprava podatkov za AI
     let promptData = ""
-    topStories.forEach((group, index) => {
+    topStories.forEach((group: any, index: number) => {
        promptData += `\nZGODBA ${index + 1}:\n`
-       // Omejimo na max 6 naslovov na zgodbo, da šparamo tokene, če je zgodba ogromna
-       group.items.slice(0, 6).forEach(item => {
+       const articles = group.items || group.articles || [];
+       
+       articles.slice(0, 6).forEach((item: any) => {
           promptData += `- Vir: ${item.source}, Naslov: "${item.title}"\n`
        })
     })
@@ -71,18 +76,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     `
 
     // 6. Klic AI (Gemini 2.0 Flash)
-    // Uporabljamo 2.0 Flash, ker ima visok limit (1500 req/day)
     const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
     
     const result = await model.generateContent(prompt);
     const responseText = result.response.text();
     
-    // Čiščenje JSON-a (za vsak slučaj)
     const jsonString = responseText.replace(/```json|```/g, '').trim();
     const analysisData = JSON.parse(jsonString);
 
-    // 7. Shranjevanje v bazo
-    // Najprej pobrišemo stare analize (opcijsko, ali pa samo dodajamo) -> Tukaj samo dodajamo novo.
+    // 7. Shranjevanje
     await supabase.from('media_analysis').insert({ 
         data: analysisData,
         created_at: new Date().toISOString()
