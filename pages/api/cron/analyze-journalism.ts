@@ -17,7 +17,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
-    // 2. Zajem novic (48h)
+    // 1. Zajem novic (48h)
     const cutoff = Date.now() - (48 * 60 * 60 * 1000)
     const { data: rows, error } = await supabase
         .from('news')
@@ -30,10 +30,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (error) throw error
     if (!rows || rows.length === 0) return res.json({ message: "Baza je prazna." })
 
-    // 3. Grupiranje
+    // 2. Grupiranje
     const groups = computeTrending(rows || [])
     
-    // 4. Filtriranje
+    // 3. Filtriranje
     const topStories = groups
       .filter((g: any) => {
           const list = g.items || g.articles || g.storyArticles || [];
@@ -50,27 +50,26 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.json({ message: "Ni dovolj velikih zgodb.", count: 0 })
     }
 
-    // 5. Priprava prompta
+    // 4. Priprava prompta (Slike ne pošiljamo več v prompt, ker jo bomo dodali ročno)
     let promptData = ""
     topStories.forEach((group: any, index: number) => {
        promptData += `\nZGODBA ${index + 1}:\n`
        const list = group.items || group.articles || group.storyArticles || [];
        
-       list.slice(0, 8).forEach((item: any) => {
-          promptData += `- Vir: ${item.source}, Naslov: "${item.title}", Link: "${item.link}", Slika: "${item.image || ''}"\n`
+       list.slice(0, 10).forEach((item: any) => {
+          promptData += `- Vir: ${item.source}, Naslov: "${item.title}", Link: "${item.link}"\n`
        })
     })
 
-    // 6. PROMPT
+    // 5. PROMPT (Samo tekstovna analiza)
     const prompt = `
       Analiziraj spodnjih ${topStories.length} medijskih zgodb.
       
       Za vsako zgodbo vrni JSON objekt:
       1. "topic": Kratek, nevtralen naslov dogodka (max 5 besed).
       2. "summary": En stavek, ki pove bistvo dogodka.
-      3. "tone_difference": Kratek opis (max 2 stavka) razlik v poročanju.
-      4. "main_image": Izberi EN URL slike iz vhodnih podatkov ("Slika"), ki najboljše predstavlja to zgodbo. Če slike ni, vrni prazen string.
-      5. "sources": Seznam virov. Za vsak vir:
+      3. "tone_difference": Kratek opis (max 2 stavka) razlik v poročanju (kdo je nevtralen, kdo dramatičen).
+      4. "sources": Seznam virov. Za vsak vir:
           - "source": Ime medija.
           - "title": Naslov.
           - "url": Povezava (Link).
@@ -80,33 +79,45 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       ${promptData}
       
       IZHOD (JSON array):
-      [ { "topic": "...", "main_image": "...", "sources": [...] } ]
+      [ { "topic": "...", "sources": [...] } ]
     `
 
     const model = genAI.getGenerativeModel({ model: "gemini-flash-latest" });
     const result = await model.generateContent(prompt);
     const responseText = result.response.text();
     const jsonString = responseText.replace(/```json|```/g, '').trim();
+    
     let analysisData = JSON.parse(jsonString);
 
-    // --- POPRAVEK: VAROVALKA ZA SLIKE ---
-    // Če AI ni vrnil slike, jo poiščemo ročno v originalnih podatkih
-    analysisData = analysisData.map((item: any, index: number) => {
-        if (!item.main_image || item.main_image.length < 5) {
-            // Poišči ustrezno skupino v topStories
-            const group = topStories[index];
-            const list = group.items || group.articles || group.storyArticles || [];
-            // Najdi prvi članek, ki ima sliko
-            const articleWithImage = list.find((a: any) => a.image && a.image.length > 5);
+    // --- KLJUČNI POPRAVEK: VSTAVLJANJE SLIKE IZ BAZE ---
+    // Gremo čez vsako analizirano zgodbo in ji dodamo sliko iz originalne skupine
+    analysisData = analysisData.map((aiItem: any, index: number) => {
+        // AI rezultati so v istem vrstnem redu kot topStories (1, 2, 3...)
+        const originalGroup = topStories[index];
+        
+        if (originalGroup) {
+            const list = originalGroup.items || originalGroup.articles || originalGroup.storyArticles || [];
+            
+            // Poišči prvi članek, ki ima veljaven URL slike
+            const articleWithImage = list.find((a: any) => 
+                a.image && 
+                typeof a.image === 'string' && 
+                a.image.startsWith('http') &&
+                a.image.length > 10
+            );
+
+            // Če najdemo sliko, jo dodamo v objekt
             if (articleWithImage) {
-                item.main_image = articleWithImage.image;
+                aiItem.main_image = articleWithImage.image;
+            } else {
+                aiItem.main_image = null; 
             }
         }
-        return item;
+        return aiItem;
     });
-    // -------------------------------------
+    // ---------------------------------------------------
 
-    // 8. Shranjevanje
+    // 7. Shranjevanje
     await supabase.from('media_analysis').insert({ 
         data: analysisData,
         created_at: new Date().toISOString()
