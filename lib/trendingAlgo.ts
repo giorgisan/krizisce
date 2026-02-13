@@ -127,7 +127,7 @@ export async function computeTrending(articles: Article[]): Promise<TrendingGrou
       const uniqueSources = new Set(groupArticles.map(a => a.source));
       if (uniqueSources.size < 2) continue;
 
-      // Sortiranje: Slike imajo prednost, nato datum
+      // Sortiranje znotraj grupe: Slike imajo prednost, nato datum
       groupArticles.sort((a, b) => {
         if (a.imageurl && !b.imageurl) return -1;
         if (!a.imageurl && b.imageurl) return 1;
@@ -153,7 +153,19 @@ export async function computeTrending(articles: Article[]): Promise<TrendingGrou
         score: uniqueSources.size * 10
       });
     }
-    return results.sort((a, b) => b.storyArticles.length - a.storyArticles.length);
+
+    // --- SORTIRANJE GRUP (Tie-Breaker: Svežina) ---
+    return results.sort((a, b) => {
+        // 1. Kriterij: Količina (kdo ima več člankov?)
+        const countDiff = b.storyArticles.length - a.storyArticles.length;
+        if (countDiff !== 0) return countDiff;
+
+        // 2. Kriterij (Tie-Breaker): Svežina (kdo je novejši?)
+        const timeA = new Date(a.publishedat).getTime();
+        const timeB = new Date(b.publishedat).getTime();
+        
+        return timeB - timeA; // Novejši gre naprej
+    });
   }
 
   // B) JACCARD FALLBACK (Če AI ne uspe)
@@ -217,5 +229,13 @@ export async function computeTrending(articles: Article[]): Promise<TrendingGrou
     }
   }
 
-  return groups.sort((a, b) => b.score - a.score);
+  // Jaccard sort (prav tako z upoštevanjem svežine kot tie-breaker, če sta score enaka)
+  return groups.sort((a, b) => {
+      const scoreDiff = b.score - a.score;
+      if (scoreDiff !== 0) return scoreDiff;
+      
+      const timeA = new Date(a.publishedat).getTime();
+      const timeB = new Date(b.publishedat).getTime();
+      return timeB - timeA;
+  });
 }
