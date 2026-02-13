@@ -9,8 +9,8 @@ export interface Article {
   link: string;
   publishedat: string;
   contentsnippet?: string;
-  imageurl?: string; // Baza pogosto vrača 'imageurl' ali 'image' (odvisno od Supabase queryja)
-  image?: string;    // Dodamo 'image' za varnost
+  imageurl?: string;
+  image?: string;
   category?: string;
 }
 
@@ -19,13 +19,14 @@ export interface TrendingGroupResult {
   title: string;
   source: string;
   link: string;
-  publishedat: string;
-  image?: string;    // !!! POPRAVEK: Mora biti 'image' za Frontend (ne imageurl)
+  publishedAt: number; // !!! POPRAVEK: CamelCase in number (za "pred X min")
+  image?: string;
   contentsnippet?: string;
   storyArticles: {
     source: string;
     title: string;
     link: string;
+    publishedAt: number; // Tudi tukaj dodamo čas
   }[];
   score: number;
 }
@@ -44,9 +45,7 @@ const STOP_WORDS = new Set([
   'šest', 'sedem', 'osem', 'devet', 'deset', 'prvi', 'drugi', 'tretji', 'nov', 'nova', 'novo',
   'novi', 'velik', 'velika', 'malo', 'manj', 'več', 'dobro', 'slabo', 'dan', 'danes', 'včeraj',
   'jutri', 'leto', 'mesec', 'teden', 'ura', 'minuta', 'sekunda', 'Slovenija', 'Ljubljana', 'Maribor',
-  'vlada', 'država', 'svet', 'evropa', 'policija', 'sodišče', 'banka', 'šola', 'bolnišnica',
-  'Slovenske novice', 'Delo', 'Dnevnik', 'Večer', 'RTV', '24ur', 'Siol', 'N1', 'Metropolitan',
-  'Žurnal24', 'Svet24', 'Mladina', 'Reporter', 'Primorske novice', 'Gorenjski glas', 'Dolenjski list'
+  'vlada', 'država', 'svet', 'evropa', 'policija', 'sodišče', 'banka', 'šola', 'bolnišnica'
 ]);
 
 // --- 3. POMOŽNE FUNKCIJE ZA JACCARD ---
@@ -85,7 +84,7 @@ async function clusterNewsWithAI(articles: Article[]): Promise<Record<string, nu
     1. Group articles that report on the EXACT SAME EVENT.
     2. A valid group must have at least 2 articles from DIFFERENT sources.
     3. Ignore single-source stories.
-    4. Create a short, descriptive topic name in Slovenian (e.g., "Požar na Krasu").
+    4. Create a short, descriptive topic name in Slovenian.
     5. Return ONLY raw JSON: { "Topic Name": [indices], ... }
   `;
 
@@ -110,7 +109,6 @@ export async function computeTrending(articles: Article[]): Promise<TrendingGrou
   const aiClusters = await clusterNewsWithAI(articles);
 
   if (aiClusters) {
-    console.log("AI Clustering successful.");
     const results: TrendingGroupResult[] = [];
 
     for (const [topic, indices] of Object.entries(aiClusters)) {
@@ -122,7 +120,6 @@ export async function computeTrending(articles: Article[]): Promise<TrendingGrou
 
       // Sortiranje: Slike imajo prednost, nato datum
       groupArticles.sort((a, b) => {
-        // Preverimo obe možni imeni polja za sliko
         const imgA = a.image || a.imageurl;
         const imgB = b.image || b.imageurl;
         
@@ -134,21 +131,22 @@ export async function computeTrending(articles: Article[]): Promise<TrendingGrou
       const mainArticle = groupArticles[0];
       const others = groupArticles.slice(1);
       
-      // Določimo sliko (prednost ima 'image', nato 'imageurl')
       const finalImage = mainArticle.image || mainArticle.imageurl;
+      const mainTime = new Date(mainArticle.publishedat).getTime(); // Pretvorba v ms
 
       results.push({
         id: mainArticle.id,
         title: mainArticle.title,
         source: mainArticle.source,
         link: mainArticle.link,
-        publishedat: mainArticle.publishedat,
-        image: finalImage, // <--- POPRAVEK: Uporabimo 'image'
+        publishedAt: mainTime, // <--- Tukaj je zdaj number!
+        image: finalImage,
         contentsnippet: mainArticle.contentsnippet,
         storyArticles: others.map(o => ({
           source: o.source,
           title: o.title,
-          link: o.link
+          link: o.link,
+          publishedAt: new Date(o.publishedat).getTime() // Dodan čas za povezane
         })),
         score: uniqueSources.size * 10
       });
@@ -158,10 +156,7 @@ export async function computeTrending(articles: Article[]): Promise<TrendingGrou
     return results.sort((a, b) => {
         const countDiff = b.storyArticles.length - a.storyArticles.length;
         if (countDiff !== 0) return countDiff;
-        
-        const timeA = new Date(a.publishedat).getTime();
-        const timeB = new Date(b.publishedat).getTime();
-        return timeB - timeA;
+        return b.publishedAt - a.publishedAt; // Uporabimo number za primerjavo
     });
   }
 
@@ -206,19 +201,21 @@ export async function computeTrending(articles: Article[]): Promise<TrendingGrou
         const mainArticle = currentGroup[0];
         const others = currentGroup.slice(1);
         const finalImage = mainArticle.image || mainArticle.imageurl;
+        const mainTime = new Date(mainArticle.publishedat).getTime();
 
         groups.push({
           id: mainArticle.id,
           title: mainArticle.title,
           source: mainArticle.source,
           link: mainArticle.link,
-          publishedat: mainArticle.publishedat,
-          image: finalImage, // <--- POPRAVEK: Uporabimo 'image'
+          publishedAt: mainTime, // <--- Number
+          image: finalImage,
           contentsnippet: mainArticle.contentsnippet,
           storyArticles: others.map(o => ({
             source: o.source,
             title: o.title,
-            link: o.link
+            link: o.link,
+            publishedAt: new Date(o.publishedat).getTime() // <--- Number
           })),
           score: uniqueSources.size * 10 + currentGroup.length
         });
@@ -229,8 +226,6 @@ export async function computeTrending(articles: Article[]): Promise<TrendingGrou
   return groups.sort((a, b) => {
       const scoreDiff = b.score - a.score;
       if (scoreDiff !== 0) return scoreDiff;
-      const timeA = new Date(a.publishedat).getTime();
-      const timeB = new Date(b.publishedat).getTime();
-      return timeB - timeA;
+      return b.publishedAt - a.publishedAt;
   });
 }
