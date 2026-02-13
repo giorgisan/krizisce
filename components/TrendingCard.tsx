@@ -294,7 +294,9 @@ export default function TrendingCard({ news, compact = false, rank }: Props) {
             {related.length > 0 && (
                 <div className="mt-auto lg:mt-2 pt-2 lg:pt-1 border-t border-gray-100 dark:border-gray-700/50 flex items-center gap-2 lg:gap-1.5 pointer-events-auto">
                     <span className="text-[10px] lg:text-[9px] text-gray-400 whitespace-nowrap">Beri tudi:</span>
-                    <div className="flex -space-x-1 hover:space-x-1 transition-all">
+                    
+                    {/* --- ELEGANTEN AVATAR STACK --- */}
+                    <div className="group/list flex -space-x-2 hover:-space-x-1 transition-all duration-300 pl-1">
                         {related.map((r, i) => {
                             const logo = getSourceLogoPath(r.source)
                             return (
@@ -303,8 +305,16 @@ export default function TrendingCard({ news, compact = false, rank }: Props) {
                                    href={r.link}
                                    target="_blank"
                                    rel="noopener"
-                                   title={`Preberi na ${r.source}`}
-                                   className="w-6 h-6 lg:w-5 lg:h-5 rounded-full bg-white dark:bg-gray-700 border border-gray-100 dark:border-gray-600 flex items-center justify-center overflow-hidden hover:scale-125 hover:z-20 transition-transform shadow-sm cursor-pointer"
+                                   title={`Preberi na ${r.source}: ${r.title}`}
+                                   className={`
+                                      relative w-6 h-6 lg:w-5 lg:h-5 rounded-full 
+                                      bg-white dark:bg-gray-700 
+                                      border border-gray-100 dark:border-gray-600 
+                                      flex items-center justify-center overflow-hidden shadow-sm cursor-pointer
+                                      transition-all duration-300 ease-out
+                                      grayscale-0 group-hover/list:grayscale hover:!grayscale-0
+                                      hover:scale-125 hover:z-20 hover:border-brand/50
+                                   `}
                                    onClick={(e) => {
                                       e.stopPropagation() 
                                       logClick('open_related', { parent: news.link, url: r.link })
@@ -389,6 +399,7 @@ export default function TrendingCard({ news, compact = false, rank }: Props) {
                     <span className="text-xs text-gray-400 italic">Samo en vir.</span>
                ) : (
                    <div className="flex flex-col gap-1">
+                       {/* Tukaj pustimo kot je (vertical list), ker ima več prostora. Prikazujemo prve 3. */}
                        {related.slice(0, 3).map((item, idx) => {
                            const logo = getSourceLogoPath(item.source)
                            const relTime = formatRelativeTime(item.publishedAt, now)
@@ -421,6 +432,12 @@ export default function TrendingCard({ news, compact = false, rank }: Props) {
                                </button>
                            )
                        })}
+                       
+                       {related.length > 3 && (
+                           <div className="px-1.5 py-1 text-xs text-gray-400 italic">
+                               In še {related.length - 3} drugih virov...
+                           </div>
+                       )}
                    </div>
                )}
             </div>
