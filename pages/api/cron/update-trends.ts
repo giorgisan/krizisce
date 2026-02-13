@@ -48,7 +48,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // 3. TVOJ ORIGINALNI IZBOLJŠAN PROMPT (RESTORED)
     const prompt = `
-        Kot izkušen urednik slovenske medijske krajine, analiziraj spodnji seznam naslovov in podnaslovov zadnjih novic.
+        Kot izkušen urednik slovenske medijske krajine, analiziraj spodnji seznam naslovov in podnaslovov POMEMBNIH novic (vsaka tema je pokrita z najmanj 2 viroma).
+        
         Tvoja naloga je dvojna in mora biti opravljena z novinarsko natančnostjo:
         1. Ustvariti seznam trendov (#TemeDneva) za iskanje.
         2. Napisati kratek in jedrnat "executive summary" dogajanja.
@@ -60,7 +61,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         CILJ: Ustvari 6-10 najbolj vročih in konkretnih tagov.
         
         STRATEGIJA:
-        - Išči preseke: Teme, ki jih pokriva VEČ različnih medijev hkrati.
+        - Išči preseke: Teme, ki jih pokriva VEČ različnih medijev (več virov).
         - Bodi specifičen: #Pogačar (ne #Kolesarstvo), #Požar na Krasu (ne #Gasilci).
         - Uporabljaj samo samostalnike v imenovalniku (osnovna oblika).
         - Uporabljaj slovenski jezik in presledke (NE CamelCase).
