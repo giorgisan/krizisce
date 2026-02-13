@@ -1,7 +1,7 @@
 /* lib/trendingAlgo.ts */
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
-// 1. TIPI (skopirani in prilagojeni, da ne rabiš uvažati iz types.ts če ni nujno)
+// 1. TIPI
 export interface Article {
   id: number;
   title: string;
@@ -9,7 +9,8 @@ export interface Article {
   link: string;
   publishedat: string;
   contentsnippet?: string;
-  imageurl?: string;
+  imageurl?: string; // Baza pogosto vrača 'imageurl' ali 'image' (odvisno od Supabase queryja)
+  image?: string;    // Dodamo 'image' za varnost
   category?: string;
 }
 
@@ -19,7 +20,7 @@ export interface TrendingGroupResult {
   source: string;
   link: string;
   publishedat: string;
-  imageurl?: string;
+  image?: string;    // !!! POPRAVEK: Mora biti 'image' za Frontend (ne imageurl)
   contentsnippet?: string;
   storyArticles: {
     source: string;
@@ -32,7 +33,7 @@ export interface TrendingGroupResult {
 // 2. KONSTANTE
 export const TREND_WINDOW_HOURS = 12;
 
-// Stopwords za Jaccard (tvoja stara lista)
+// Stopwords za Jaccard
 const STOP_WORDS = new Set([
   'in', 'ali', 'da', 'pa', 'se', 'je', 'bi', 'bo', 'so', 'sta', 'pri', 'na', 'v', 'z', 's', 'k', 'h',
   'o', 'po', 'za', 'do', 'od', 'iz', 'čez', 'med', 'pod', 'nad', 'pred', 'brez', 'ki', 'ko', 'ker',
@@ -70,21 +71,16 @@ function jaccardSimilarity(setA: Set<string>, setB: Set<string>): number {
 // --- 4. AI CLUSTERING (Gemini 3 Flash) ---
 async function clusterNewsWithAI(articles: Article[]): Promise<Record<string, number[]> | null> {
   const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_KEY || "");
-  
-  // Uporabimo Gemini 3 Flash zaradi hitrosti in limita 10k
   const model = genAI.getGenerativeModel({ model: "models/gemini-3-flash-preview" });
 
-  // Priprava podatkov: Pošljemo samo ID in Naslov
   const articlesList = articles.map((a, index) => 
     `${index}. [${a.source}] ${a.title}`
   ).join('\n');
 
   const prompt = `
     You are a news clustering engine. Group these articles by TOPIC.
-    
     INPUT ARTICLES:
     ${articlesList}
-
     RULES:
     1. Group articles that report on the EXACT SAME EVENT.
     2. A valid group must have at least 2 articles from DIFFERENT sources.
@@ -96,11 +92,9 @@ async function clusterNewsWithAI(articles: Article[]): Promise<Record<string, nu
   try {
     const result = await model.generateContent(prompt);
     const responseText = result.response.text();
-    
     const jsonStart = responseText.indexOf('{');
     const jsonEnd = responseText.lastIndexOf('}') + 1;
     if (jsonStart === -1 || jsonEnd === -1) return null;
-    
     return JSON.parse(responseText.substring(jsonStart, jsonEnd));
   } catch (error) {
     console.error("AI Clustering failed:", error);
@@ -123,27 +117,33 @@ export async function computeTrending(articles: Article[]): Promise<TrendingGrou
       const groupArticles = indices.map(i => articles[i]).filter(a => a !== undefined);
 
       if (groupArticles.length < 2) continue;
-      
       const uniqueSources = new Set(groupArticles.map(a => a.source));
       if (uniqueSources.size < 2) continue;
 
-      // Sortiranje znotraj grupe: Slike imajo prednost, nato datum
+      // Sortiranje: Slike imajo prednost, nato datum
       groupArticles.sort((a, b) => {
-        if (a.imageurl && !b.imageurl) return -1;
-        if (!a.imageurl && b.imageurl) return 1;
+        // Preverimo obe možni imeni polja za sliko
+        const imgA = a.image || a.imageurl;
+        const imgB = b.image || b.imageurl;
+        
+        if (imgA && !imgB) return -1;
+        if (!imgA && imgB) return 1;
         return new Date(b.publishedat).getTime() - new Date(a.publishedat).getTime();
       });
 
       const mainArticle = groupArticles[0];
       const others = groupArticles.slice(1);
+      
+      // Določimo sliko (prednost ima 'image', nato 'imageurl')
+      const finalImage = mainArticle.image || mainArticle.imageurl;
 
       results.push({
         id: mainArticle.id,
-        title: mainArticle.title, // Lahko uporabiš 'topic' če želiš AI naslov
+        title: mainArticle.title,
         source: mainArticle.source,
         link: mainArticle.link,
         publishedat: mainArticle.publishedat,
-        imageurl: mainArticle.imageurl,
+        image: finalImage, // <--- POPRAVEK: Uporabimo 'image'
         contentsnippet: mainArticle.contentsnippet,
         storyArticles: others.map(o => ({
           source: o.source,
@@ -154,23 +154,19 @@ export async function computeTrending(articles: Article[]): Promise<TrendingGrou
       });
     }
 
-    // --- SORTIRANJE GRUP (Tie-Breaker: Svežina) ---
+    // Tie-Breaker: Količina, nato Svežina
     return results.sort((a, b) => {
-        // 1. Kriterij: Količina (kdo ima več člankov?)
         const countDiff = b.storyArticles.length - a.storyArticles.length;
         if (countDiff !== 0) return countDiff;
-
-        // 2. Kriterij (Tie-Breaker): Svežina (kdo je novejši?)
+        
         const timeA = new Date(a.publishedat).getTime();
         const timeB = new Date(b.publishedat).getTime();
-        
-        return timeB - timeA; // Novejši gre naprej
+        return timeB - timeA;
     });
   }
 
-  // B) JACCARD FALLBACK (Če AI ne uspe)
+  // B) JACCARD FALLBACK
   console.log("AI failed, falling back to Jaccard...");
-  
   const processedArticles = articles.map(article => ({
     ...article,
     wordSet: preprocessTitle(article.title),
@@ -187,10 +183,8 @@ export async function computeTrending(articles: Article[]): Promise<TrendingGrou
 
     for (let j = i + 1; j < processedArticles.length; j++) {
       if (processedArticles[j].assigned) continue;
-
-      const similarity = jaccardSimilarity(processedArticles[i].wordSet, processedArticles[j].wordSet);
       
-      // Jaccard prag 0.3 (prilagodljivo)
+      const similarity = jaccardSimilarity(processedArticles[i].wordSet, processedArticles[j].wordSet);
       if (similarity >= 0.3) {
         currentGroup.push(processedArticles[j]);
         processedArticles[j].assigned = true;
@@ -202,13 +196,16 @@ export async function computeTrending(articles: Article[]): Promise<TrendingGrou
       if (uniqueSources.size >= 2) {
         
         currentGroup.sort((a, b) => {
-            if (a.imageurl && !b.imageurl) return -1;
-            if (!a.imageurl && b.imageurl) return 1;
+            const imgA = a.image || a.imageurl;
+            const imgB = b.image || b.imageurl;
+            if (imgA && !imgB) return -1;
+            if (!imgA && imgB) return 1;
             return new Date(b.publishedat).getTime() - new Date(a.publishedat).getTime();
         });
 
         const mainArticle = currentGroup[0];
         const others = currentGroup.slice(1);
+        const finalImage = mainArticle.image || mainArticle.imageurl;
 
         groups.push({
           id: mainArticle.id,
@@ -216,7 +213,7 @@ export async function computeTrending(articles: Article[]): Promise<TrendingGrou
           source: mainArticle.source,
           link: mainArticle.link,
           publishedat: mainArticle.publishedat,
-          imageurl: mainArticle.imageurl,
+          image: finalImage, // <--- POPRAVEK: Uporabimo 'image'
           contentsnippet: mainArticle.contentsnippet,
           storyArticles: others.map(o => ({
             source: o.source,
@@ -229,11 +226,9 @@ export async function computeTrending(articles: Article[]): Promise<TrendingGrou
     }
   }
 
-  // Jaccard sort (prav tako z upoštevanjem svežine kot tie-breaker, če sta score enaka)
   return groups.sort((a, b) => {
       const scoreDiff = b.score - a.score;
       if (scoreDiff !== 0) return scoreDiff;
-      
       const timeA = new Date(a.publishedat).getTime();
       const timeB = new Date(b.publishedat).getTime();
       return timeB - timeA;
