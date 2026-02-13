@@ -16,17 +16,13 @@ const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_KEY || '')
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   // DEBUG LOG
-  console.log("--- START update-trends (Version: Gemini 2.0 Flash Primary) ---");
+  console.log("--- START update-trends (Priority: Gemini 2.5 Pro) ---");
 
   if (req.query.key !== process.env.CRON_SECRET) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
-  const hour = (new Date().getUTCHours() + 1) % 24;
-  if (hour >= 23 || hour < 5) {
-    console.log("Nightly pause active.");
-    return res.status(200).json({ success: true, message: 'Nočni premor.' });
-  }
+  // Nočni premor je odstranjen, saj imaš zdaj 1000 klicev dnevno limita.
 
   let trends: string[] = []
   let summaryText = ''
@@ -50,7 +46,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // 2. PREPARE CONTENT
     const headlines = allNews.map(n => `- ${n.source}: ${n.title} ${n.contentsnippet ? `(${n.contentsnippet.substring(0, 100)}...)` : ''}`).join('\n');
 
-    // 3. IMPROVED PROMPT
+    // 3. TVOJ ORIGINALNI IZBOLJŠAN PROMPT (RESTORED)
     const prompt = `
         Kot izkušen in strog urednik slovenskega novičarskega portala analiziraj spodnji seznam naslovov zadnjih novic.
         Tvoja naloga je dvojna in mora biti opravljena z novinarsko natančnostjo:
@@ -61,7 +57,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         ${headlines}
 
         --- 1. DEL: TRENDI (TAGI) ---
-        CILJ: Ustvari 6-10 najbolj vročih in konkretnih tagov.
+        CILJ: Ustvari 6-8 najbolj vročih in konkretnih tagov.
         
         STRATEGIJA:
         - Išči preseke: Teme, ki jih pokriva VEČ različnih medijev hkrati.
@@ -78,8 +74,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         CILJ: Napiši "Elevator Pitch" trenutnega dogajanja. Bralec ima le 10 sekund.
         
         PRAVILA PISANJA:
-        - DOLŽINA: Maksimalno 400 znakov. To so približno 2-3 kratki stavki.
-        - STRUKTURA: Prvi stavek = Glavna tema dneva (udarno). Drugi stavek = Druga najpomembnejša tema ali zanimivost. Tretji stavek po potrebi.
+        - DOLŽINA: Maksimalno 400 znakov. To sta približno 2-3 kratki stavki.
+        - STRUKTURA: Prvi stavek = Glavna tema dneva (udarno). Drugi stavek = Druga najpomembnejša tema ali zanimivost.
         - SLOG: Objektiven, telegrafski, brez mašil ("V današnjem dnevu...", "Poročajo, da..."). Samo bistvo.
         - VSEBINA: Fokusiraj se na dogodek, ne na medij. Ne omenjaj "RTV", "24ur" itd.
 
@@ -91,7 +87,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         }
     `;
     
-    // Generator function
+    // Generator function with robust parsing
     const tryGenerate = async (modelName: string) => {
         const model = genAI.getGenerativeModel({ 
             model: modelName,
@@ -105,12 +101,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         const result = await model.generateContent(prompt)
         const responseText = result.response.text()
         
-        // JSON Parsing
+        // JSON Parsing logic (Restored)
         const jsonStart = responseText.indexOf('{');
         const jsonEnd = responseText.lastIndexOf('}') + 1;
         
         if (jsonStart === -1 || jsonEnd === -1) {
-             // Fallback: Check for array if object not found
              const arrStart = responseText.indexOf('[');
              const arrEnd = responseText.lastIndexOf(']') + 1;
              if (arrStart !== -1 && arrEnd !== -1) {
@@ -124,22 +119,22 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return JSON.parse(cleanJson);
     }
 
-    // 4. MODEL SELECTION LOGIC
+    // 4. MODEL SELECTION (Gemini 2.5 Pro is now first)
     try {
-        console.log("Poskušam models/gemini-2.0-flash...");
-        usedModel = "models/gemini-2.0-flash"; 
+        console.log("Poskušam models/gemini-2.5-pro...");
+        usedModel = "models/gemini-2.5-pro"; 
         const result = await tryGenerate(usedModel);
         trends = result.trends || [];
         summaryText = result.summary || '';
     } catch (err1: any) {
-        console.warn(`⚠️ Gemini 2.0 Flash failed (${err1.message}), trying 2.0 Flash Lite...`);
+        console.warn(`⚠️ 2.5 Pro failed, trying 2.0 Flash...`);
         try {
-            usedModel = "models/gemini-2.0-flash-lite";
+            usedModel = "models/gemini-2.0-flash";
             const result = await tryGenerate(usedModel);
             trends = result.trends || [];
             summaryText = result.summary || '';
         } catch (err2: any) {
-            console.warn(`⚠️ Gemini 2.0 Flash Lite failed, trying gemini-flash-latest...`);
+            console.warn(`⚠️ 2.0 Flash failed, trying gemini-flash-latest...`);
             try {
                 usedModel = "gemini-flash-latest";
                 const result = await tryGenerate(usedModel);
@@ -153,7 +148,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // 5. SAVE TO DATABASE
     if (Array.isArray(trends) && trends.length > 0) {
-        // Clean trends
         const cleanTrends = trends
             .map((t: string) => {
                 let tag = t.trim();
@@ -172,7 +166,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           });
         
         if (insertError) throw insertError
-        
         return res.status(200).json({ success: true, used_model: usedModel, trends: cleanTrends, summary: summaryText })
     }
 
