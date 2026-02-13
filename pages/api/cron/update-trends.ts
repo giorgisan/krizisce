@@ -117,13 +117,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     try {
-        console.log("Poskušam gemini-3-flash-preview...");
-        usedModel = "gemini-2.5-pro"; // <--- TVOJ ZAHTEVAN MODEL
+        console.log("Poskušam models/gemini-2.5-pro...");
+        usedModel = "models/gemini-2.5-pro"; // <--- TVOJ ZAHTEVAN MODEL
         const result = await tryGenerate(usedModel);
         trends = result.trends || [];
         summaryText = result.summary || '';
     } catch (err1: any) {
-        console.warn(`⚠️ Gemini 3 ni uspel, poskušam alias flash-latest...`, err1.message);
+        console.warn(`⚠️ Gemini 2.5 Pro ni uspel, poskušam alias flash-latest...`, err1.message);
         try {
             usedModel = "gemini-flash-latest";
             const result = await tryGenerate(usedModel);
