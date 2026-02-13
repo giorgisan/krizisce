@@ -23,7 +23,7 @@ export default function AiBriefing({ summary, time }: Props) {
         {/* Naslovna vrstica */}
         <div className="mb-1 flex items-center gap-2 flex-wrap">
             <span className="text-[10px] font-black uppercase tracking-widest text-brand dark:text-brand/80">
-              AI BRIEF
+              NA KRATKO
             </span>
             <span className="text-[10px] text-gray-400 font-medium">
               Analiza zadnjih objav
