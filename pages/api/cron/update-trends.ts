@@ -48,16 +48,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // 3. TVOJ ORIGINALNI IZBOLJŠAN PROMPT (RESTORED)
     const prompt = `
-        Kot izkušen in strog urednik slovenskega novičarskega portala analiziraj spodnji seznam naslovov zadnjih novic.
+        Kot izkušen urednik slovenske medijske krajine, analiziraj spodnji seznam naslovov in podnaslovov zadnjih novic.
         Tvoja naloga je dvojna in mora biti opravljena z novinarsko natančnostjo:
         1. Ustvariti seznam trendov (#TemeDneva) za iskanje.
-        2. Napisati izjemno kratek in jedrnat "executive summary" dogajanja.
+        2. Napisati kratek in jedrnat "executive summary" dogajanja.
 
         VHODNI PODATKI:
         ${headlines}
 
         --- 1. DEL: TRENDI (TAGI) ---
-        CILJ: Ustvari 6-8 najbolj vročih in konkretnih tagov.
+        CILJ: Ustvari 6-10 najbolj vročih in konkretnih tagov.
         
         STRATEGIJA:
         - Išči preseke: Teme, ki jih pokriva VEČ različnih medijev hkrati.
@@ -71,10 +71,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         - Izmišljene besede, ki jih ni v naslovih.
 
         --- 2. DEL: AI BRIEF (POVZETEK) ---
-        CILJ: Napiši "Elevator Pitch" trenutnega dogajanja. Bralec ima le 10 sekund.
+        CILJ: Napiši "Elevator Pitch" trenutnega dogajanja. Bralec ima 15 sekund.
         
         PRAVILA PISANJA:
-        - DOLŽINA: Maksimalno 400 znakov. To sta približno 2-3 kratki stavki.
+        - DOLŽINA: Maksimalno 400 znakov. Nekaj kratkih stavkov.
         - STRUKTURA: Prvi stavek = Glavna tema dneva (udarno). Drugi stavek = Druga najpomembnejša tema ali zanimivost.
         - SLOG: Objektiven, telegrafski, brez mašil ("V današnjem dnevu...", "Poročajo, da..."). Samo bistvo.
         - VSEBINA: Fokusiraj se na dogodek, ne na medij. Ne omenjaj "RTV", "24ur" itd.
