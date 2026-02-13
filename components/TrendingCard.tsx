@@ -23,11 +23,12 @@ const ArticlePreview = dynamic(() => import('./ArticlePreview'), {
 
 const ASPECT = 16 / 9
 const IMAGE_WIDTHS = [320, 480, 640, 960, 1280]
+const MAX_RELATED_ICONS = 5; // Koliko jih vidimo, preden se pokaže gumb +X
 
 interface Props {
   news: NewsItem & { [key: string]: any }
-  compact?: boolean // Za sidebar prikaz
-  rank?: number     // Zaporedna številka
+  compact?: boolean 
+  rank?: number     
 }
 
 type RelatedItem = {
@@ -96,9 +97,11 @@ function formatRelativeTime(
 }
 
 export default function TrendingCard({ news, compact = false, rank }: Props) {
-  // --- VAROVALKA: Če ni novice, ne renderiraj ničesar ---
   if (!news || !news.title) return null
   
+  // --- STATE ZA RAZŠIRITEV VIROV ---
+  const [isExpanded, setIsExpanded] = useState(false);
+
   const [minuteTick, setMinuteTick] = useState(0)
   useEffect(() => {
     const onMinute = () => setMinuteTick((m) => (m + 1) % 60)
@@ -213,12 +216,20 @@ export default function TrendingCard({ news, compact = false, rank }: Props) {
   const relatedAll = extractRelatedItems(news)
   const related = relatedAll.filter((r) => r.link !== news.link)
 
+  // --- LOGIKA ZA PRIKAZ VIROV ---
+  // Če je compact in NI razširjeno, pokaži samo prvih MAX. Sicer pokaži vse.
+  const visibleRelated = (compact && !isExpanded) 
+      ? related.slice(0, MAX_RELATED_ICONS) 
+      : related;
+      
+  const hiddenCount = related.length - MAX_RELATED_ICONS;
+
 // ================= RENDER: COMPACT (Sidebar + Mobile Trendi) =================
   if (compact) {
     return (
       <>
       <div 
-        className="group relative bg-transparent rounded-xl transition-colors p-3 sm:p-4 lg:p-3 flex gap-4 lg:gap-3"
+        className={`group relative bg-transparent rounded-xl transition-colors p-3 sm:p-4 lg:p-3 flex gap-4 lg:gap-3 ${isExpanded ? 'bg-gray-50/50 dark:bg-gray-800/30' : ''}`}
         title={(news as any).contentSnippet || news.title}
       >
         <a 
@@ -279,45 +290,81 @@ export default function TrendingCard({ news, compact = false, rank }: Props) {
              </button>
         </div>
 
-        <div className="flex flex-col min-w-0 flex-1 justify-center relative z-10 pointer-events-none">
-            <div className="flex items-center gap-2 mb-1.5 lg:mb-1">
+        <div className="flex flex-col min-w-0 flex-1 justify-center relative z-10 pointer-events-auto">
+            <div className="flex items-center gap-2 mb-1.5 lg:mb-1 pointer-events-none">
                 <span className="text-[11px] lg:text-[10px] uppercase font-bold tracking-wider" style={{ color: sourceColor }}>
                     {news.source}
                 </span>
                 <span className="text-[11px] lg:text-[10px] text-gray-400">{primaryTime}</span>
             </div>
             
-            <h4 className="text-[15px] lg:text-[14px] font-bold leading-snug text-gray-900 dark:text-gray-100 line-clamp-3 lg:line-clamp-2 group-hover:text-brand transition-colors mb-2 lg:mb-0">
+            <h4 className="text-[15px] lg:text-[14px] font-bold leading-snug text-gray-900 dark:text-gray-100 line-clamp-3 lg:line-clamp-2 group-hover:text-brand transition-colors mb-2 lg:mb-0 pointer-events-none">
                 {news.title}
             </h4>
 
             {related.length > 0 && (
-                <div className="mt-auto lg:mt-2 pt-2 lg:pt-1 border-t border-gray-100 dark:border-gray-700/50 flex items-center gap-2 lg:gap-1.5 pointer-events-auto">
-                    <span className="text-[10px] lg:text-[9px] text-gray-400 whitespace-nowrap">Beri tudi:</span>
-                    <div className="flex -space-x-1 hover:space-x-1 transition-all">
-                        {related.map((r, i) => {
-                            const logo = getSourceLogoPath(r.source)
-                            return (
-                                <a 
-                                   key={i} 
-                                   href={r.link}
-                                   target="_blank"
-                                   rel="noopener"
-                                   title={`Preberi na ${r.source}`}
-                                   className="w-6 h-6 lg:w-5 lg:h-5 rounded-full bg-white dark:bg-gray-700 border border-gray-100 dark:border-gray-600 flex items-center justify-center overflow-hidden hover:scale-125 hover:z-20 transition-transform shadow-sm cursor-pointer"
-                                   onClick={(e) => {
-                                      e.stopPropagation() 
-                                      logClick('open_related', { parent: news.link, url: r.link })
-                                   }}
-                                >
-                                     {logo ? (
-                                         <Image src={logo} alt={r.source} width={20} height={20} className="w-full h-full object-cover" />
-                                     ) : (
-                                         <span className="text-[8px] font-bold text-gray-500">{r.source[0]}</span>
-                                     )}
-                                </a>
-                            )
-                        })}
+                <div className="mt-auto lg:mt-2 pt-2 lg:pt-1 border-t border-gray-100 dark:border-gray-700/50 flex flex-col gap-1 pointer-events-auto">
+                    <span className="text-[10px] lg:text-[9px] text-gray-400 whitespace-nowrap pointer-events-none">Beri tudi:</span>
+                    
+                    {/* --- EXPANDABLE ICONS LOGIC --- */}
+                    <div className="flex items-start flex-wrap gap-y-1">
+                        {/* Če je razširjeno (isExpanded), uporabimo 'flex-wrap gap-1' za mrežo.
+                           Če NI razširjeno, uporabimo '-space-x-1' za zlaganje (avatar stack).
+                        */}
+                        <div className={`flex transition-all duration-300 ${isExpanded ? 'flex-wrap gap-2' : '-space-x-1 hover:space-x-1'}`}>
+                            {visibleRelated.map((r, i) => {
+                                const logo = getSourceLogoPath(r.source)
+                                return (
+                                    <a 
+                                    key={i} 
+                                    href={r.link}
+                                    target="_blank"
+                                    rel="noopener"
+                                    title={`Preberi na ${r.source}: ${r.title}`}
+                                    className="w-6 h-6 lg:w-5 lg:h-5 rounded-full bg-white dark:bg-gray-700 border border-gray-100 dark:border-gray-600 flex items-center justify-center overflow-hidden hover:scale-125 hover:z-20 hover:border-brand/50 transition-all shadow-sm cursor-pointer"
+                                    onClick={(e) => {
+                                        e.stopPropagation() 
+                                        logClick('open_related', { parent: news.link, url: r.link })
+                                    }}
+                                    >
+                                        {logo ? (
+                                            <Image src={logo} alt={r.source} width={20} height={20} className="w-full h-full object-cover" />
+                                        ) : (
+                                            <span className="text-[8px] font-bold text-gray-500">{r.source[0]}</span>
+                                        )}
+                                    </a>
+                                )
+                            })}
+                        </div>
+
+                        {/* Gumb +X, če je kaj skritega in še nismo razširili */}
+                        {!isExpanded && hiddenCount > 0 && (
+                            <button 
+                                onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    setIsExpanded(true);
+                                }}
+                                className="ml-1.5 h-5 flex items-center text-[10px] lg:text-[9px] font-bold text-gray-500 dark:text-gray-400 hover:text-brand dark:hover:text-brand transition-colors cursor-pointer bg-transparent border-0 p-0"
+                                title="Pokaži vse vire"
+                            >
+                                +{hiddenCount}
+                            </button>
+                        )}
+                        
+                        {/* Gumb "Manj", če je razširjeno (opcijsko, da lahko zapreš nazaj) */}
+                        {isExpanded && hiddenCount > 0 && (
+                             <button 
+                                onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    setIsExpanded(false);
+                                }}
+                                className="ml-2 h-5 flex items-center text-[10px] lg:text-[9px] text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 cursor-pointer"
+                             >
+                                (zapri)
+                             </button>
+                        )}
                     </div>
                 </div>
             )}
@@ -389,6 +436,7 @@ export default function TrendingCard({ news, compact = false, rank }: Props) {
                     <span className="text-xs text-gray-400 italic">Samo en vir.</span>
                ) : (
                    <div className="flex flex-col gap-1">
+                       {/* V standardnem pogledu pokažemo vse ali pa dodamo podobno logiko. Trenutno kaže prve 3. Če želiš enako "expand" logiko tudi tukaj, mi povej. */}
                        {related.slice(0, 3).map((item, idx) => {
                            const logo = getSourceLogoPath(item.source)
                            const relTime = formatRelativeTime(item.publishedAt, now)
@@ -421,6 +469,12 @@ export default function TrendingCard({ news, compact = false, rank }: Props) {
                                </button>
                            )
                        })}
+                       
+                       {related.length > 3 && (
+                           <div className="px-1.5 py-1 text-xs text-gray-400 italic">
+                               In še {related.length - 3} drugih virov...
+                           </div>
+                       )}
                    </div>
                )}
             </div>
