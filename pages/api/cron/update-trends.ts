@@ -118,7 +118,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     try {
         console.log("Poskušam gemini-3-flash-preview...");
-        usedModel = "gemini-3-flash-preview"; // <--- TVOJ ZAHTEVAN MODEL
+        usedModel = "gemini-2.5-pro"; // <--- TVOJ ZAHTEVAN MODEL
         const result = await tryGenerate(usedModel);
         trends = result.trends || [];
         summaryText = result.summary || '';
