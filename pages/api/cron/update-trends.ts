@@ -3,6 +3,10 @@ import { NextApiRequest, NextApiResponse } from 'next'
 import { createClient } from '@supabase/supabase-js'
 import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } from '@google/generative-ai'
 
+// Set max duration to 60 seconds to prevent timeouts
+export const maxDuration = 60;
+export const dynamic = 'force-dynamic';
+
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -11,12 +15,16 @@ const supabase = createClient(
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_KEY || '')
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+  // DEBUG LOG
+  console.log("--- START update-trends (Version: Gemini 2.0 Flash Primary) ---");
+
   if (req.query.key !== process.env.CRON_SECRET) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
   const hour = (new Date().getUTCHours() + 1) % 24;
   if (hour >= 23 || hour < 5) {
+    console.log("Nightly pause active.");
     return res.status(200).json({ success: true, message: 'Nočni premor.' });
   }
 
@@ -25,7 +33,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   let usedModel = 'unknown'
   
   try {
-    // 1. ZAJEM NOVIC
+    // 1. FETCH NEWS
     const { data: allNews, error } = await supabase
       .from('news')
       .select('title, contentsnippet, source')
@@ -39,10 +47,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(200).json({ success: false, message: 'Baza je prazna.' })
     }
 
-    // 2. PRIPRAVA VSEBINE
+    // 2. PREPARE CONTENT
     const headlines = allNews.map(n => `- ${n.source}: ${n.title} ${n.contentsnippet ? `(${n.contentsnippet.substring(0, 100)}...)` : ''}`).join('\n');
 
-    // 3. IZBOLJŠAN PROMPT
+    // 3. IMPROVED PROMPT
     const prompt = `
         Kot izkušen in strog urednik slovenskega novičarskega portala analiziraj spodnji seznam naslovov zadnjih novic.
         Tvoja naloga je dvojna in mora biti opravljena z novinarsko natančnostjo:
@@ -53,7 +61,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         ${headlines}
 
         --- 1. DEL: TRENDI (TAGI) ---
-        CILJ: Ustvari 6-8 najbolj vročih in konkretnih tagov.
+        CILJ: Ustvari 6-10 najbolj vročih in konkretnih tagov.
         
         STRATEGIJA:
         - Išči preseke: Teme, ki jih pokriva VEČ različnih medijev hkrati.
@@ -70,8 +78,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         CILJ: Napiši "Elevator Pitch" trenutnega dogajanja. Bralec ima le 10 sekund.
         
         PRAVILA PISANJA:
-        - DOLŽINA: Maksimalno 400 znakov. To sta približno 2-3 kratki stavki.
-        - STRUKTURA: Prvi stavek = Glavna tema dneva (udarno). Drugi stavek = Druga najpomembnejša tema ali zanimivost.
+        - DOLŽINA: Maksimalno 400 znakov. To so približno 2-3 kratki stavki.
+        - STRUKTURA: Prvi stavek = Glavna tema dneva (udarno). Drugi stavek = Druga najpomembnejša tema ali zanimivost. Tretji stavek po potrebi.
         - SLOG: Objektiven, telegrafski, brez mašil ("V današnjem dnevu...", "Poročajo, da..."). Samo bistvo.
         - VSEBINA: Fokusiraj se na dogodek, ne na medij. Ne omenjaj "RTV", "24ur" itd.
 
@@ -83,7 +91,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         }
     `;
     
-    // Tvoja originalna logika za generiranje
+    // Generator function
     const tryGenerate = async (modelName: string) => {
         const model = genAI.getGenerativeModel({ 
             model: modelName,
@@ -97,12 +105,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         const result = await model.generateContent(prompt)
         const responseText = result.response.text()
         
-        // Parsanje JSON-a (prilagojeno za objekt namesto arraya)
+        // JSON Parsing
         const jsonStart = responseText.indexOf('{');
         const jsonEnd = responseText.lastIndexOf('}') + 1;
         
         if (jsonStart === -1 || jsonEnd === -1) {
-             // Fallback: Če ne najde objekta, poskusi najti array (za nazaj združljivost)
+             // Fallback: Check for array if object not found
              const arrStart = responseText.indexOf('[');
              const arrEnd = responseText.lastIndexOf(']') + 1;
              if (arrStart !== -1 && arrEnd !== -1) {
@@ -116,23 +124,24 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return JSON.parse(cleanJson);
     }
 
+    // 4. MODEL SELECTION LOGIC
     try {
-        console.log("Poskušam models/Gemini 2.0 Flash...");
-        usedModel = "models/gemini-2.0-flash"; // <--- TVOJ ZAHTEVAN MODEL
+        console.log("Poskušam models/gemini-2.0-flash...");
+        usedModel = "models/gemini-2.0-flash"; 
         const result = await tryGenerate(usedModel);
         trends = result.trends || [];
         summaryText = result.summary || '';
     } catch (err1: any) {
-        console.warn(`⚠️ Gemini 2.0 Flash ni uspel, poskušam alias flash-latest...`, err1.message);
+        console.warn(`⚠️ Gemini 2.0 Flash failed (${err1.message}), trying 2.0 Flash Lite...`);
         try {
-            usedModel = "gemini-flash-latest";
+            usedModel = "models/gemini-2.0-flash-lite";
             const result = await tryGenerate(usedModel);
             trends = result.trends || [];
             summaryText = result.summary || '';
         } catch (err2: any) {
-            console.warn(`⚠️ Alias ni uspel, poskušam še gemini-pro-latest...`);
+            console.warn(`⚠️ Gemini 2.0 Flash Lite failed, trying gemini-flash-latest...`);
             try {
-                usedModel = "gemini-pro-latest";
+                usedModel = "gemini-flash-latest";
                 const result = await tryGenerate(usedModel);
                 trends = result.trends || [];
                 summaryText = result.summary || '';
@@ -142,9 +151,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         }
     }
 
-    // 5. Shranjevanje v bazo
+    // 5. SAVE TO DATABASE
     if (Array.isArray(trends) && trends.length > 0) {
-        // Dodatno čiščenje tagov
+        // Clean trends
         const cleanTrends = trends
             .map((t: string) => {
                 let tag = t.trim();
