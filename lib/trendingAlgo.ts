@@ -7,7 +7,7 @@ export interface Article {
   title: string;
   source: string;
   link: string;
-  publishedat: string;
+  publishedat: string; // Iz Supabase pride kot ISO string
   contentsnippet?: string;
   imageurl?: string;
   image?: string;
@@ -19,14 +19,14 @@ export interface TrendingGroupResult {
   title: string;
   source: string;
   link: string;
-  publishedAt: number; // !!! POPRAVEK: CamelCase in number (za "pred X min")
+  publishedAt: number; // Za frontend mora biti timestamp (number)
   image?: string;
   contentsnippet?: string;
   storyArticles: {
     source: string;
     title: string;
     link: string;
-    publishedAt: number; // Tudi tukaj dodamo čas
+    publishedAt: number;
   }[];
   score: number;
 }
@@ -34,7 +34,7 @@ export interface TrendingGroupResult {
 // 2. KONSTANTE
 export const TREND_WINDOW_HOURS = 12;
 
-// Stopwords za Jaccard
+// Stopwords za Jaccard fallback
 const STOP_WORDS = new Set([
   'in', 'ali', 'da', 'pa', 'se', 'je', 'bi', 'bo', 'so', 'sta', 'pri', 'na', 'v', 'z', 's', 'k', 'h',
   'o', 'po', 'za', 'do', 'od', 'iz', 'čez', 'med', 'pod', 'nad', 'pred', 'brez', 'ki', 'ko', 'ker',
@@ -48,7 +48,15 @@ const STOP_WORDS = new Set([
   'vlada', 'država', 'svet', 'evropa', 'policija', 'sodišče', 'banka', 'šola', 'bolnišnica'
 ]);
 
-// --- 3. POMOŽNE FUNKCIJE ZA JACCARD ---
+// --- 3. POMOŽNE FUNKCIJE ---
+
+// Varna pretvorba datuma (string -> number)
+function getTime(dateInput: string | number): number {
+    if (typeof dateInput === 'number') return dateInput;
+    const t = new Date(dateInput).getTime();
+    return isNaN(t) ? 0 : t;
+}
+
 function preprocessTitle(title: string): Set<string> {
   if (!title) return new Set();
   return new Set(
@@ -70,34 +78,46 @@ function jaccardSimilarity(setA: Set<string>, setB: Set<string>): number {
 // --- 4. AI CLUSTERING (Gemini 3 Flash) ---
 async function clusterNewsWithAI(articles: Article[]): Promise<Record<string, number[]> | null> {
   const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_KEY || "");
+  // Uporabljamo Flash, ker je hiter in ima visok limit
   const model = genAI.getGenerativeModel({ model: "models/gemini-3-flash-preview" });
 
   const articlesList = articles.map((a, index) => 
     `${index}. [${a.source}] ${a.title}`
   ).join('\n');
 
+  // POPRAVLJEN PROMPT (TOČKA 1)
   const prompt = `
-    You are a news clustering engine. Group these articles by TOPIC.
-    INPUT ARTICLES:
+    You are a Slovenian news clustering expert.
+    You monitor news sources like 24ur, RTV, Delo, N1, Siol, Dnevnik, Zurnal24, Svet24, Slovenske novice.
+
+    GROUP these articles by the EXACT SAME EVENT/TOPIC:
     ${articlesList}
+
     RULES:
-    1. Group articles that report on the EXACT SAME EVENT.
-    2. A valid group must have at least 2 articles from DIFFERENT sources.
-    3. Ignore single-source stories.
-    4. Create a short, descriptive topic name in Slovenian.
+    1. A valid group = 2+ articles from DIFFERENT sources about the SAME event.
+    2. Ignore single-source articles completely.
+    3. Create SHORT topic names in Slovenian (2-4 words): "Požar na Krasu" (NOT "Natural disasters").
+    4. One article = ONE group only.
     5. Return ONLY raw JSON: { "Topic Name": [indices], ... }
+    6. Combine similar topics: "Nova vlada" + "Politične spremembe" → "Nova vlada".
+
+    RESPOND WITH PURE JSON ONLY. Do not use markdown code blocks. Just the raw JSON string.
   `;
 
   try {
     const result = await model.generateContent(prompt);
     const responseText = result.response.text();
+    
+    // Čiščenje JSON-a (če AI vseeno doda markdown)
     const jsonStart = responseText.indexOf('{');
     const jsonEnd = responseText.lastIndexOf('}') + 1;
     if (jsonStart === -1 || jsonEnd === -1) return null;
+    
     return JSON.parse(responseText.substring(jsonStart, jsonEnd));
   } catch (error) {
-    console.error("AI Clustering failed:", error);
-    return null;
+    // ERROR HANDLING (TOČKA 5)
+    console.error("❌ AI Clustering failed:", error);
+    return null; // Vrne null, da sproži Jaccard fallback
   }
 }
 
@@ -118,50 +138,49 @@ export async function computeTrending(articles: Article[]): Promise<TrendingGrou
       const uniqueSources = new Set(groupArticles.map(a => a.source));
       if (uniqueSources.size < 2) continue;
 
-      // Sortiranje: Slike imajo prednost, nato datum
+      // Sortiranje znotraj grupe (Slika > Datum)
       groupArticles.sort((a, b) => {
         const imgA = a.image || a.imageurl;
         const imgB = b.image || b.imageurl;
-        
         if (imgA && !imgB) return -1;
         if (!imgA && imgB) return 1;
-        return new Date(b.publishedat).getTime() - new Date(a.publishedat).getTime();
+        return getTime(b.publishedat) - getTime(a.publishedat); // Varna primerjava
       });
 
       const mainArticle = groupArticles[0];
       const others = groupArticles.slice(1);
       
       const finalImage = mainArticle.image || mainArticle.imageurl;
-      const mainTime = new Date(mainArticle.publishedat).getTime(); // Pretvorba v ms
+      const mainTime = getTime(mainArticle.publishedat); // TOČKA 2 (popravek datuma)
 
       results.push({
         id: mainArticle.id,
-        title: mainArticle.title,
+        title: mainArticle.title, // Lahko uporabiš 'topic' za AI naslov, a originalni je pogosto boljši
         source: mainArticle.source,
         link: mainArticle.link,
-        publishedAt: mainTime, // <--- Tukaj je zdaj number!
+        publishedAt: mainTime, // Number
         image: finalImage,
         contentsnippet: mainArticle.contentsnippet,
         storyArticles: others.map(o => ({
           source: o.source,
           title: o.title,
           link: o.link,
-          publishedAt: new Date(o.publishedat).getTime() // Dodan čas za povezane
+          publishedAt: getTime(o.publishedat) // Number
         })),
         score: uniqueSources.size * 10
       });
     }
 
-    // Tie-Breaker: Količina, nato Svežina
+    // TOČKA 6: Sortiranje grup (Velikost > Svežina) - Pustili smo kot je
     return results.sort((a, b) => {
         const countDiff = b.storyArticles.length - a.storyArticles.length;
         if (countDiff !== 0) return countDiff;
-        return b.publishedAt - a.publishedAt; // Uporabimo number za primerjavo
+        return b.publishedAt - a.publishedAt;
     });
   }
 
-  // B) JACCARD FALLBACK
-  console.log("AI failed, falling back to Jaccard...");
+  // B) JACCARD FALLBACK (Če AI ne uspe)
+  console.log("⚠️ AI failed, falling back to Jaccard...");
   const processedArticles = articles.map(article => ({
     ...article,
     wordSet: preprocessTitle(article.title),
@@ -195,27 +214,27 @@ export async function computeTrending(articles: Article[]): Promise<TrendingGrou
             const imgB = b.image || b.imageurl;
             if (imgA && !imgB) return -1;
             if (!imgA && imgB) return 1;
-            return new Date(b.publishedat).getTime() - new Date(a.publishedat).getTime();
+            return getTime(b.publishedat) - getTime(a.publishedat);
         });
 
         const mainArticle = currentGroup[0];
         const others = currentGroup.slice(1);
         const finalImage = mainArticle.image || mainArticle.imageurl;
-        const mainTime = new Date(mainArticle.publishedat).getTime();
+        const mainTime = getTime(mainArticle.publishedat);
 
         groups.push({
           id: mainArticle.id,
           title: mainArticle.title,
           source: mainArticle.source,
           link: mainArticle.link,
-          publishedAt: mainTime, // <--- Number
+          publishedAt: mainTime,
           image: finalImage,
           contentsnippet: mainArticle.contentsnippet,
           storyArticles: others.map(o => ({
             source: o.source,
             title: o.title,
             link: o.link,
-            publishedAt: new Date(o.publishedat).getTime() // <--- Number
+            publishedAt: getTime(o.publishedat)
           })),
           score: uniqueSources.size * 10 + currentGroup.length
         });
