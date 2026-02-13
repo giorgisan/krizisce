@@ -119,27 +119,24 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return JSON.parse(cleanJson);
     }
 
-    // 4. MODEL SELECTION (NOVA LOGIKA PRIORITET)
+    // --- NOVA LOGIKA PRIORITET (Gemini 3 Pro na prvem mestu) ---
     try {
-        // 1. POSKUS: Gemini 3 Flash (Tvoj najljubši, limit 10k)
-        console.log("Poskušam models/gemini-3-flash-preview...");
-        usedModel = "models/gemini-3-flash-preview"; 
+        console.log("Poskušam models/gemini-3-pro-preview...");
+        usedModel = "models/gemini-3-pro-preview"; 
         const result = await tryGenerate(usedModel);
         trends = result.trends || [];
         summaryText = result.summary || '';
     } catch (err1: any) {
-        console.warn(`⚠️ Gemini 3 Flash failed, trying 2.5 Pro...`);
+        console.warn(`⚠️ Gemini 3 Pro failed, trying 3 Flash...`);
         try {
-            // 2. POSKUS: Gemini 2.5 Pro (Limit 1k)
-            usedModel = "models/gemini-2.5-pro";
+            usedModel = "models/gemini-3-flash-preview";
             const result = await tryGenerate(usedModel);
             trends = result.trends || [];
             summaryText = result.summary || '';
         } catch (err2: any) {
-            console.warn(`⚠️ Gemini 2.5 Pro failed, trying 2.0 Flash...`);
+            console.warn(`⚠️ Gemini 3 Flash failed, trying 2.5 Pro...`);
             try {
-                // 3. POSKUS: Gemini 2.0 Flash (Unlimited)
-                usedModel = "models/gemini-2.0-flash";
+                usedModel = "models/gemini-2.5-pro";
                 const result = await tryGenerate(usedModel);
                 trends = result.trends || [];
                 summaryText = result.summary || '';
