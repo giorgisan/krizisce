@@ -3,31 +3,34 @@ import React from 'react'
 
 interface Props {
   summary: string | null;
-  time?: string | null; // Pričakuje ISO timestamp ali formatiran čas
+  time?: string | null;
 }
 
 export default function AiBriefing({ summary, time }: Props) {
   if (!summary) return null;
 
-  // Funkcija za "Editorial" prikaz časa
   const getRelativeTime = (timeStr: string | null) => {
     if (!timeStr) return null;
-    try {
-      const now = new Date();
-      const updated = new Date(timeStr);
-      const diffInMs = now.getTime() - updated.getTime();
-      const diffInMins = Math.floor(diffInMs / (1000 * 60));
-
-      if (diffInMins < 1) return "Pravkar posodobljeno";
-      if (diffInMins === 1) return "Pred 1 minuto";
-      if (diffInMins === 2) return "Pred 2 minutama";
-      if (diffInMins < 60) return `Pred ${diffInMins} minutami`;
-      
-      // Če je več kot ena ura, vrneš uro v formatu HH:MM
-      return updated.toLocaleTimeString('sl-SI', { hour: '2-digit', minute: '2-digit' });
-    } catch (e) {
-      return timeStr; // Fallback
+    
+    const updated = new Date(timeStr);
+    
+    // Preverimo, če je datum sploh veljaven
+    if (isNaN(updated.getTime())) {
+        return timeStr; // Če še vedno ni OK, vrne originalni niz
     }
+
+    const now = new Date();
+    const diffInMs = now.getTime() - updated.getTime();
+    const diffInMins = Math.floor(diffInMs / (1000 * 60));
+
+    // Logika za slovenske izpise
+    if (diffInMins < 1) return "Pravkar posodobljeno";
+    if (diffInMins === 1) return "Pred 1 minuto";
+    if (diffInMins === 2) return "Pred 2 minutama";
+    if (diffInMins < 60) return `Pred ${diffInMins} minutami`;
+    
+    // Če je več kot ena ura, vrneš uro v formatu HH:MM
+    return updated.toLocaleTimeString('sl-SI', { hour: '2-digit', minute: '2-digit' });
   };
 
   return (
