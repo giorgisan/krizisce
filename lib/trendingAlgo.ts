@@ -80,41 +80,38 @@ function jaccardSimilarity(setA: Set<string>, setB: Set<string>): number {
   return intersection.size / union.size;
 }
 
-// --- 4. AI CLUSTERING (Gemini 3 Flash) ---
+// --- 4. AI CLUSTERING (Gemini 2.0 Flash - BALANCED VERSION) ---
 async function clusterNewsWithAI(articles: Article[]): Promise<Record<string, number[]> | null> {
   const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_KEY || "");
-  const model = genAI.getGenerativeModel({ model: "models/gemini-2.0-flash" }); // Uporabi 2.0 Flash ali 1.5 Flash, sta hitrejša/boljša
+  const model = genAI.getGenerativeModel({ model: "models/gemini-2.0-flash" }); 
 
   const articlesList = articles.map((a, index) => {
-    // Krajši snippet, da ne zasedemo preveč tokenov, a dovolj za kontekst
     const snippet = a.contentsnippet ? ` | ${a.contentsnippet.substring(0, 150).replace(/\n/g, ' ')}` : '';
     return `ID:${index} [${a.source}] TITLE:"${a.title}"${snippet}`;
   }).join('\n');
 
-  // --- IZBOLJŠAN, STROŽJI PROMPT ---
+  // --- POPRAVLJEN PROMPT: MANJ STROG, VEČ KONTEKSTA ---
   const prompt = `
-    You are a strict news editor. Group articles that report on the EXACT SAME EVENT.
+    You are a news editor. Group articles into clusters that belong to the SAME STORY or TOPIC.
     
     INPUT:
     ${articlesList}
 
-    STRICT RULES FOR GROUPING:
-    1. **SAME SUBJECT + SAME ACTION**: "Zelensky speaks about Putin" and "Sajovic speaks about Defense" are DIFFERENT events, even if they are at the same conference. DO NOT GROUP THEM.
-    2. **Sport**: "Tina Maze wins Gold" and "Lindsey Vonn crashes" are DIFFERENT stories, even if at the same race. Only group reports about the EXACT SAME result/athlete performance.
-    3. **Politics**: Different politicians giving different statements are DIFFERENT stories.
-    4. **Output format**: JSON only. Keys are short Slovenian topic summaries. Values are arrays of IDs.
-    5. **If in doubt, KEEP SEPARATE.** It is better to have 2 separate groups than 1 mixed group.
+    RULES FOR GROUPING:
+    1. **CORE EVENT + CONTEXT**: Group the main news event together with reactions, analysis, and side-stories directly related to it.
+       - Example: "Domen Prevc wins gold" AND "Coach praises Prevc" AND "Prevc family medal count" -> GROUP THESE TOGETHER.
+       - Example: "Navalny dies" AND "World leaders blame Putin for Navalny" -> GROUP THESE TOGETHER.
+    
+    2. **DISTINCT EVENTS**: Keep truly different events separate.
+       - Example: "Zelensky talks about missiles" vs "Sajovic talks about Slovenian army" -> SEPARATE (even if both mention defense).
+       - Example: "Tina Maze wins" vs "Lindsey Vonn crashes" -> SEPARATE (different athletes, different focus).
 
-    EXAMPLE OF SEPARATION:
-    - Art 1: "Sajovic: Europe must defend itself" -> Group A
-    - Art 2: "Zelensky: Putin is a threat" -> Group B
-    (Do not put them in the same group just because they mention "Security")
+    3. **Output format**: JSON only. Keys are short Slovenian topic summaries. Values are arrays of IDs.
 
     RESPONSE FORMAT (JSON ONLY):
     {
-      "Zelensky o Putinu": [1, 5, 8],
-      "Sajovic o obrambi": [0],
-      "Zlato za Brazilijo": [15, 16, 17]
+      "Zlato za Domna Prevca": [1, 2, 5, 8], 
+      "Smrt Navalnega": [10, 11, 12]
     }
   `;
 
