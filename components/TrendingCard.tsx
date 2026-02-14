@@ -1,4 +1,3 @@
-/* components/TrendingCard.tsx */
 'use client'
 
 import { NewsItem } from '@/types'
@@ -27,7 +26,7 @@ const IMAGE_WIDTHS = [320, 480, 640, 960, 1280]
 
 interface Props {
   news: NewsItem & { [key: string]: any }
-  compact?: boolean // Za sidebar in mobile trending prikaz
+  compact?: boolean // Za sidebar prikaz
   rank?: number     // Zaporedna številka
 }
 
@@ -97,7 +96,7 @@ function formatRelativeTime(
 }
 
 export default function TrendingCard({ news, compact = false, rank }: Props) {
-  // --- VAROVALKA ---
+  // --- VAROVALKA: Če ni novice, ne renderiraj ničesar ---
   if (!news || !news.title) return null
   
   const [minuteTick, setMinuteTick] = useState(0)
@@ -135,7 +134,8 @@ export default function TrendingCard({ news, compact = false, rank }: Props) {
   const [imgKey, setImgKey] = useState<number>(0)
 
   const cardRef = useRef<HTMLAnchorElement>(null)
-  
+  const imgRef = useRef<HTMLImageElement>(null)
+
   const currentSrc = useMemo(() => {
     if (!rawImg) return null
     if (compact) return proxiedImage(rawImg, 320, 320, 1) 
@@ -213,141 +213,91 @@ export default function TrendingCard({ news, compact = false, rank }: Props) {
   const relatedAll = extractRelatedItems(news)
   const related = relatedAll.filter((r) => r.link !== news.link)
 
-  // ================= RENDER: COMPACT (Sidebar + Mobile Trendi) =================
+// ================= RENDER: COMPACT (Sidebar + Mobile Trendi) =================
   if (compact) {
     return (
       <>
       <div 
-        className="group relative bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700/50 p-3 sm:p-4 flex flex-col gap-2 mb-3"
+        className="group relative bg-transparent rounded-xl transition-colors p-3 sm:p-4 lg:p-3 flex gap-4 lg:gap-3"
         title={(news as any).contentSnippet || news.title}
       >
-        <div className="flex gap-4 lg:gap-3 relative z-10">
-          <a 
-            href={news.link}
-            target="_blank"
-            rel="noopener"
-            onClick={handleClick}
-            onMouseEnter={triggerPrefetch}
-            className="absolute inset-0 z-0 rounded-xl"
-            aria-hidden="true"
-          />
+        <a 
+          href={news.link}
+          target="_blank"
+          rel="noopener"
+          onClick={handleClick}
+          onMouseEnter={triggerPrefetch}
+          className="absolute inset-0 z-0 rounded-xl"
+          aria-hidden="true"
+        />
 
-          {/* --- RANK (Če obstaja) --- */}
-          {rank && (
-             <div className="absolute top-0 left-0 w-8 h-8 lg:w-7 lg:h-7 flex items-center justify-center z-20 pointer-events-none">
-                 <div className="absolute inset-0 bg-black/15 backdrop-blur-sm rounded-br-2xl rounded-tl-xl border-b border-r border-white/10 shadow-sm" />
-                 <span className="relative text-sm lg:text-xs font-black text-white/90 font-sans drop-shadow-sm leading-none">
-                     {rank}
-                 </span>
+        {/* --- RANK --- */}
+        {rank && (
+           <div className="absolute top-0 left-0 w-8 h-8 lg:w-7 lg:h-7 flex items-center justify-center z-20 pointer-events-none">
+               <div className="absolute inset-0 bg-black/15 backdrop-blur-sm rounded-br-2xl rounded-tl-xl border-b border-r border-white/10 shadow-sm" />
+               <span className="relative text-sm lg:text-xs font-black text-white/90 font-sans drop-shadow-sm leading-none">
+                   {rank}
+               </span>
+           </div>
+        )}
+
+        <div className="shrink-0 w-32 h-32 lg:w-24 lg:h-24 relative rounded-lg overflow-hidden bg-gray-200 dark:bg-gray-700 z-10 pointer-events-auto shadow-sm">
+             <div onClick={(e) => { handleClick(e as any) }} className="absolute inset-0 cursor-pointer">
+                 {currentSrc && !useFallback ? (
+                     <img 
+                       key={imgKey}
+                       src={currentSrc} 
+                       alt="" 
+                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                       onError={handleImgError}
+                       onLoad={() => setImgLoaded(true)}
+                     />
+                 ) : (
+                     <div className="w-full h-full grid place-items-center text-[10px] text-gray-400">IMG</div>
+                 )}
              </div>
-          )}
 
-          {/* --- SLIKA --- */}
-          <div className="shrink-0 w-32 h-32 lg:w-24 lg:h-24 relative rounded-lg overflow-hidden bg-gray-200 dark:bg-gray-700 z-10 pointer-events-auto shadow-sm">
-               <div onClick={(e) => { handleClick(e as any) }} className="absolute inset-0 cursor-pointer">
-                   {currentSrc && !useFallback ? (
-                       <img 
-                         key={imgKey}
-                         src={currentSrc} 
-                         alt="" 
-                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                         onError={handleImgError}
-                         onLoad={() => setImgLoaded(true)}
-                       />
-                   ) : (
-                       <div className="w-full h-full grid place-items-center text-[10px] text-gray-400">IMG</div>
-                   )}
-               </div>
-
-               <button
-                 onClick={(e) => {
-                   e.preventDefault(); e.stopPropagation();
-                   setPreviewUrl(news.link)
-                 }}
-                 className={`
-                     absolute top-1 right-1 
-                     h-9 w-9 lg:h-8 lg:w-8 grid place-items-center
-                     bg-white/90 dark:bg-gray-900/90 rounded-full shadow-sm 
-                     text-gray-700 dark:text-gray-200 
-                     transition-all duration-200 hover:scale-110 z-20
-                     opacity-100 lg:opacity-0 lg:group-hover:opacity-100
-                 `}
-                 title="Hitri predogled"
-               >
-                 <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.5">
-                     <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12Z" />
-                     <circle cx="12" cy="12" r="3" />
-                 </svg>
-               </button>
-          </div>
-
-          {/* --- VSEBINA (NASLOV + META) --- */}
-          {/* SPREMEMBA: justify-start namesto justify-center za poravnavo na vrh */}
-          <div className="flex flex-col min-w-0 flex-1 justify-start relative z-10 pointer-events-none pt-0.5">
-              
-              {/* Meta (Vir + Čas) */}
-              <div className="flex items-center gap-2 mb-1.5 lg:mb-1">
-                  <span className="text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded text-white shadow-sm" style={{ backgroundColor: sourceColor }}>
-                      {news.source}
-                  </span>
-                  <span className="text-[11px] lg:text-[10px] text-gray-400">{primaryTime}</span>
-              </div>
-              
-              {/* Naslov */}
-              <h4 className="text-[15px] lg:text-[14px] font-bold leading-snug text-gray-900 dark:text-gray-100 line-clamp-3 lg:line-clamp-2 group-hover:text-brand transition-colors mb-1">
-                  {news.title}
-              </h4>
-
-              {/* SPREMEMBA: Podnaslov (Snippet) pod naslovom */}
-              {(news as any).contentSnippet && (
-                  <p className="text-[12px] text-gray-500 dark:text-gray-400 line-clamp-2 leading-relaxed hidden sm:block lg:hidden">
-                       {/* Na desktopu (v sidebaru) snippet skrijemo, na mobile (sm) ga pokažemo če je prostor */}
-                       {(news as any).contentSnippet}
-                  </p>
-              )}
-
-              {/* DESKTOP RELATED (Originalni Avatar Stack - skrit na mobile) */}
-              {related.length > 0 && (
-                  <div className="hidden md:flex mt-auto lg:mt-2 pt-2 lg:pt-1 border-t border-gray-100 dark:border-gray-700/50 items-center gap-1 pointer-events-auto">
-                      <span className="text-[10px] lg:text-[9px] text-gray-400 whitespace-nowrap">Preberi na:</span>
-                      <div className="group/list flex -space-x-2 hover:-space-x-1 transition-all duration-300 pl-1">
-                          {related.map((r, i) => {
-                              const logo = getSourceLogoPath(r.source)
-                              return (
-                                  <a 
-                                     key={i} 
-                                     href={r.link}
-                                     target="_blank"
-                                     rel="noopener"
-                                     title={`${r.source}: ${r.title}`}
-                                     className="relative w-6 h-6 lg:w-5 lg:h-5 rounded-full bg-white dark:bg-gray-700 border border-gray-100 dark:border-gray-600 flex items-center justify-center overflow-hidden shadow-sm transition-all duration-300 hover:scale-125 hover:z-20 grayscale-0 group-hover/list:grayscale hover:!grayscale-0"
-                                     onClick={(e) => { e.stopPropagation(); logClick('open_related', { parent: news.link, url: r.link }) }}
-                                  >
-                                       {logo ? <Image src={logo} alt={r.source} width={20} height={20} className="w-full h-full object-cover" /> : <span className="text-[8px] font-bold text-gray-500">{r.source[0]}</span>}
-                                  </a>
-                              )
-                          })}
-                      </div>
-                  </div>
-              )}
-          </div>
+             <button
+               onClick={(e) => {
+                 e.preventDefault(); e.stopPropagation();
+                 setPreviewUrl(news.link)
+               }}
+               className={`
+                   absolute top-1 right-1 
+                   h-9 w-9 lg:h-8 lg:w-8 grid place-items-center
+                   bg-white/90 dark:bg-gray-900/90 rounded-full shadow-sm 
+                   text-gray-700 dark:text-gray-200 
+                   transition-all duration-200 hover:scale-110 z-20
+                   opacity-100 lg:opacity-0 lg:group-hover:opacity-100
+               `}
+               title="Hitri predogled"
+             >
+               <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.5">
+                   <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12Z" />
+                   <circle cx="12" cy="12" r="3" />
+               </svg>
+             </button>
         </div>
 
-        {/* --- MOBILE ONLY RAZŠIRITEV (Podnaslov + Viri v svojem bloku) --- */}
-        <div className="md:hidden flex flex-col gap-2 pt-0 relative z-10 pointer-events-auto">
-            {/* Snippet / Podnaslov (Vidno samo na mobile) */}
-            {(news as any).contentSnippet && (
-                <p className="text-[13px] text-gray-600 dark:text-gray-400 line-clamp-2 px-1 leading-relaxed">
-                    {(news as any).contentSnippet}
-                </p>
-            )}
+        <div className="flex flex-col min-w-0 flex-1 justify-center relative z-10 pointer-events-none">
+            <div className="flex items-center gap-2 mb-1.5 lg:mb-1">
+                <span className="text-[11px] lg:text-[10px] uppercase font-bold tracking-wider" style={{ color: sourceColor }}>
+                    {news.source}
+                </span>
+                <span className="text-[11px] lg:text-[10px] text-gray-400">{primaryTime}</span>
+            </div>
+            
+            <h4 className="text-[15px] lg:text-[14px] font-bold leading-snug text-gray-900 dark:text-gray-100 line-clamp-3 lg:line-clamp-2 group-hover:text-brand transition-colors mb-2 lg:mb-0">
+                {news.title}
+            </h4>
 
-            {/* Viri (Ikone v svoji vrstici) */}
             {related.length > 0 && (
-                <div className="flex items-center gap-2 px-1 pt-2 border-t border-gray-100 dark:border-gray-800/50">
-                    <span className="text-[10px] text-gray-400 font-normal whitespace-nowrap">Preberi na:</span>
-                    <div className="group/list flex -space-x-1.5 hover:-space-x-1 transition-all duration-300">
-                        {related.slice(0, 3).map((r, i) => {
+                <div className="mt-auto lg:mt-2 pt-2 lg:pt-1 border-t border-gray-100 dark:border-gray-700/50 flex items-center gap-0.5 pointer-events-auto">
+                    <span className="text-[10px] lg:text-[9px] text-gray-400 whitespace-nowrap">Preberi na:</span>
+                    
+                    {/* --- ELEGANTEN AVATAR STACK --- */}
+                    <div className="group/list flex -space-x-2 hover:-space-x-1 transition-all duration-300 pl-1">
+                        {related.map((r, i) => {
                             const logo = getSourceLogoPath(r.source)
                             return (
                                 <a 
@@ -356,16 +306,28 @@ export default function TrendingCard({ news, compact = false, rank }: Props) {
                                    target="_blank"
                                    rel="noopener"
                                    title={`${r.source}: ${r.title}`}
-                                   className="relative w-6 h-6 rounded-full bg-white dark:bg-gray-700 border border-gray-100 dark:border-gray-600 flex items-center justify-center overflow-hidden shadow-sm transition-all duration-300 hover:scale-125 hover:z-20 opacity-80 hover:opacity-100 grayscale hover:grayscale-0"
-                                   onClick={(e) => { e.stopPropagation(); logClick('open_related', { parent: news.link, url: r.link }) }}
+                                   className={`
+                                      relative w-6 h-6 lg:w-5 lg:h-5 rounded-full 
+                                      bg-white dark:bg-gray-700 
+                                      border border-gray-100 dark:border-gray-600 
+                                      flex items-center justify-center overflow-hidden shadow-sm cursor-pointer
+                                      transition-all duration-300 ease-out
+                                      grayscale-0 group-hover/list:grayscale hover:!grayscale-0
+                                      hover:scale-125 hover:z-20 hover:border-brand/50
+                                   `}
+                                   onClick={(e) => {
+                                      e.stopPropagation() 
+                                      logClick('open_related', { parent: news.link, url: r.link })
+                                   }}
                                 >
-                                     {logo ? <Image src={logo} alt={r.source} width={20} height={20} className="w-full h-full object-cover" /> : <span className="text-[8px] font-bold text-gray-500">{r.source[0]}</span>}
+                                     {logo ? (
+                                         <Image src={logo} alt={r.source} width={20} height={20} className="w-full h-full object-cover" />
+                                     ) : (
+                                         <span className="text-[8px] font-bold text-gray-500">{r.source[0]}</span>
+                                     )}
                                 </a>
                             )
                         })}
-                        {related.length > 3 && (
-                            <span className="text-[10px] text-gray-400 italic pl-5 flex items-center">+ {related.length - 3}</span>
-                        )}
                     </div>
                 </div>
             )}
@@ -382,7 +344,7 @@ export default function TrendingCard({ news, compact = false, rank }: Props) {
     )
   }
 
-  // ================= RENDER: STANDARD (Article Card style for Desktop Grid) =================
+  // ================= RENDER: STANDARD =================
   const [eyeVisible, setEyeVisible] = useState(false)
   const [eyeHover, setEyeHover] = useState(false)
   const showEye = isTouch ? true : eyeVisible
@@ -426,53 +388,58 @@ export default function TrendingCard({ news, compact = false, rank }: Props) {
              <span>{primaryTime}</span>
              {(news as any).contentSnippet && <span className="text-[10px] px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 rounded text-gray-400">Povzetek</span>}
           </div>
-          {(related.length > 0) && (
+          {(primarySource || related.length > 0) && (
             <div className="mt-2 pt-3 border-t border-gray-100 dark:border-gray-700">
                <div className="flex items-center gap-1.5 mb-2 opacity-80">
                   <span className="text-[10px] uppercase tracking-wider text-gray-400 font-semibold">
                       Pokrivajo tudi
                   </span>
                </div>
-               <div className="flex flex-col gap-1">
-                   {related.slice(0, 3).map((item, idx) => {
-                       const logo = getSourceLogoPath(item.source)
-                       const relTime = formatRelativeTime(item.publishedAt, now)
-                       return (
-                           <button
-                               key={item.link + idx}
-                               onClick={(e) => {
-                                   e.preventDefault(); e.stopPropagation();
-                                   window.open(item.link, '_blank');
-                                   logClick('open_related', { parent: news.link, url: item.link });
-                               }}
-                               className="group/rel w-full text-left p-1.5 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 flex items-start gap-2 transition-colors"
-                           >
-                               <div className="mt-0.5 shrink-0">
-                                   {logo ? (
-                                       <Image src={logo} alt={item.source} width={16} height={16} className="rounded-sm opacity-70 group-hover/rel:opacity-100" />
-                                   ) : (
-                                       <div className="w-4 h-4 rounded-sm bg-gray-200 flex items-center justify-center text-[8px]">{item.source[0]}</div>
-                                   )}
-                               </div>
-                               <div className="flex-1 min-w-0">
-                                   <div className="text-sm text-gray-700 dark:text-gray-300 font-medium truncate group-hover/rel:text-brand transition-colors">
-                                       {item.title}
+               {related.length === 0 ? (
+                    <span className="text-xs text-gray-400 italic">Samo en vir.</span>
+               ) : (
+                   <div className="flex flex-col gap-1">
+                       {/* Tukaj pustimo kot je (vertical list), ker ima več prostora. Prikazujemo prve 3. */}
+                       {related.slice(0, 3).map((item, idx) => {
+                           const logo = getSourceLogoPath(item.source)
+                           const relTime = formatRelativeTime(item.publishedAt, now)
+                           return (
+                               <button
+                                   key={item.link + idx}
+                                   onClick={(e) => {
+                                       e.preventDefault(); e.stopPropagation();
+                                       window.open(item.link, '_blank');
+                                       logClick('open_related', { parent: news.link, url: item.link });
+                                   }}
+                                   className="group/rel w-full text-left p-1.5 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 flex items-start gap-2 transition-colors"
+                               >
+                                   <div className="mt-0.5 shrink-0">
+                                       {logo ? (
+                                           <Image src={logo} alt={item.source} width={16} height={16} className="rounded-sm opacity-70 group-hover/rel:opacity-100" />
+                                       ) : (
+                                           <div className="w-4 h-4 rounded-sm bg-gray-200 flex items-center justify-center text-[8px]">{item.source[0]}</div>
+                                       )}
                                    </div>
-                                   <div className="flex justify-between items-center text-[10px] text-gray-400 mt-0.5">
-                                       <span>{item.source}</span>
-                                       <span>{relTime}</span>
+                                   <div className="flex-1 min-w-0">
+                                       <div className="text-sm text-gray-700 dark:text-gray-300 font-medium truncate group-hover/rel:text-brand transition-colors">
+                                           {item.title}
+                                       </div>
+                                       <div className="flex justify-between items-center text-[10px] text-gray-400 mt-0.5">
+                                           <span>{item.source}</span>
+                                           <span>{relTime}</span>
+                                       </div>
                                    </div>
-                               </div>
-                           </button>
-                       )
-                   })}
-                   
-                   {related.length > 3 && (
-                       <div className="px-1.5 py-1 text-xs text-gray-400 italic">
-                           In še {related.length - 3} drugih virov...
-                       </div>
-                   )}
-               </div>
+                               </button>
+                           )
+                       })}
+                       
+                       {related.length > 3 && (
+                           <div className="px-1.5 py-1 text-xs text-gray-400 italic">
+                               In še {related.length - 3} drugih virov...
+                           </div>
+                       )}
+                   </div>
+               )}
             </div>
           )}
         </div>
