@@ -56,14 +56,27 @@ export default function TrendingBar({ words, onSelectWord, selectedWord }: Trend
     contentRef.current.style.transform = `translate3d(${currentTranslate.current}px, 0, 0)`;
   };
 
+  // --- Aesthetic Megaphone Icon ---
+  const MegaphoneIcon = () => (
+    <svg className="w-3.5 h-3.5 text-brand" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 6V4.5a1.5 1.5 0 0 0-3 0V6a2 2 0 0 0-2 2v3a2 2 0 0 0 2 2v2.5a1.5 1.5 0 0 0 3 0V13a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2Z" />
+      <path d="M20 10.5a3 3 0 0 1-3 3" />
+      <path d="M17 7.5a3 3 0 0 1 3 3" />
+    </svg>
+  );
+
   return (
     <div className="flex items-center w-full overflow-hidden py-1 border-b border-gray-100 dark:border-gray-800/50 lg:border-none">
       
       {/* DESKTOP FIXED LABEL */}
-      <div className="hidden md:flex items-center gap-1.5 shrink-0 pr-1 mr-1 select-none">
-          <span className="text-sm animate-pulse opacity-70">🔥</span>
-          {/* SPREMEMBA: text-gray-500 -> text-gray-400 */}
-          <span className="text-xs font-bold text-gray-400 tracking-wide">Odmevno</span>
+      <div className="hidden md:flex items-center gap-2 shrink-0 pr-2 mr-1 select-none border-r border-gray-100 dark:border-gray-800/50">
+          <div className="p-1 bg-brand/10 rounded-full animate-pulse">
+            <svg className="w-3.5 h-3.5 text-brand" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+                <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+            </svg>
+          </div>
+          <span className="text-xs font-bold text-gray-500 dark:text-gray-400 tracking-wide uppercase">Odmevno</span>
       </div>
 
       <div className="flex-1 overflow-hidden relative mask-gradient-right h-[30px] flex items-center">
@@ -75,10 +88,13 @@ export default function TrendingBar({ words, onSelectWord, selectedWord }: Trend
             <div className="flex md:hidden items-center gap-2 w-full h-full px-2 overflow-x-auto no-scrollbar">
                 
                 {/* MOBILE LABEL */}
-                <div className="flex items-center gap-1 shrink-0 pr-1 select-none">
-                    <span className="text-xs animate-pulse opacity-70">🔥</span>
-                    {/* SPREMEMBA: text-gray-500 -> text-gray-400 */}
-                    <span className="text-[11px] font-bold text-gray-400 tracking-wide">Odmevno</span>
+                <div className="flex items-center gap-1.5 shrink-0 pr-2 border-r border-gray-100 dark:border-gray-800/50 select-none">
+                     {/* Ikona megafona */}
+                    <svg className="w-3.5 h-3.5 text-brand" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+                        <path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+                    </svg>
+                    <span className="text-[11px] font-bold text-gray-500 dark:text-gray-400 tracking-wide uppercase">Odmevno</span>
                 </div>
 
                 {words.map((item) => {
