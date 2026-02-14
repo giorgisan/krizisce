@@ -81,13 +81,11 @@ export default function Header({
     setMounted(true)
   }, [])
 
-  // Zapri menije ob spremembi poti
   useEffect(() => {
     setMobileMenuOpen(false)
     setMobileSearchOpen(false)
   }, [router.asPath])
 
-  // Prepreči scrollanje ko je meni odprt
   useEffect(() => {
     if (mobileMenuOpen) {
       document.body.style.overflow = 'hidden'
@@ -96,7 +94,6 @@ export default function Header({
     }
   }, [mobileMenuOpen])
 
-  // Fokus na input pri mobile search
   useEffect(() => {
     if (mobileSearchOpen && searchInputRef.current) {
         setTimeout(() => searchInputRef.current?.focus(), 100)
@@ -153,7 +150,7 @@ export default function Header({
     setTimeout(fetchWeather, 500)
   }, [])
 
-  // --- NOVE NOVICE (EVENT LISTENER - FIX) ---
+  // --- NOVE NOVICE ---
   useEffect(() => {
     const onHasNew = (e: Event) => {
         const has = (e as CustomEvent).detail === true;
@@ -236,16 +233,12 @@ export default function Header({
                 </svg>
              </button>
           </div>
-          
-{/* --- 2. SREDINA (MOBILE - CENTRIRANO) & LEVO (DESKTOP) --- */}
+
+          {/* --- 2. SREDINA & LEVO (LOGO LOGIKA) --- */}
           <div className="absolute left-1/2 -translate-x-1/2 md:static md:translate-x-0 md:flex md:items-center md:gap-4 md:mr-auto z-0">
             <Link href="/" onClick={handleLogoClick} className="group">
                 
-                {/* A) MOBILE POGLED (Prikaže se samo do md) 
-                   Struktura: 
-                   1. vrstica: Logo + Križišče (skupaj)
-                   2. vrstica: Slogan (pod njima)
-                */}
+                {/* A) MOBILE POGLED */}
                 <div className="flex flex-col items-center justify-center md:hidden">
                     <div className="flex items-center gap-1.5">
                         <div className="relative w-8 h-8 shrink-0 transition-transform group-hover:scale-105 duration-300">
@@ -261,11 +254,7 @@ export default function Header({
                     </span>
                 </div>
 
-                {/* B) DESKTOP POGLED (Prikaže se samo od md naprej) 
-                   Struktura:
-                   Levo: Logo
-                   Desno: Naslov in Slogan (v stolpcu, levo poravnano)
-                */}
+                {/* B) DESKTOP POGLED */}
                 <div className="hidden md:flex items-center gap-3">
                     <div className="relative w-11 h-11 shrink-0 transition-transform group-hover:scale-105 duration-300">
                         <Image src="/logo.png" alt="Logo" fill className="object-contain" />
@@ -281,36 +270,6 @@ export default function Header({
                 </div>
 
             </Link>
-
-            {/* SVEŽE NOVICE (DESKTOP) - Ostane nespremenjeno */}
-            <AnimatePresence initial={false}>
-                {hasNew && !refreshing && isHome && (
-                <motion.button
-                    key="fresh-pill"
-                    initial={{ opacity: 0, scale: 0.95, y: 5 }}
-                    animate={{ opacity: 1, scale: 1, y: 0 }}
-                    exit={{ opacity: 0, scale: 0.95, y: 5 }}
-                    onClick={refreshNow}
-                    className="hidden lg:flex items-center gap-2 px-3 py-1 
-                               bg-[#10b981]/10 dark:bg-[#10b981]/20 
-                               border border-[#10b981]/30
-                               hover:bg-[#10b981]/20 dark:hover:bg-[#10b981]/30
-                               text-[#10b981] dark:text-[#34d399]
-                               text-[10px] md:text-xs font-medium rounded-full 
-                               transition-all cursor-pointer ml-3 backdrop-blur-sm"
-                >
-                    <span className="relative flex h-2 w-2">
-                      <span className="absolute inline-flex h-full w-full rounded-full bg-[#10b981] opacity-75 animate-[ping_3s_cubic-bezier(0,0,0.2,1)_infinite]"></span>
-                      <span className="relative inline-flex rounded-full h-2 w-2 bg-[#10b981]"></span>
-                    </span>
-                    <span className="flex items-center leading-none">
-                        <span className="font-bold">Na voljo so sveže novice</span>
-                        <span className="ml-1 opacity-80">— kliknite za osvežitev</span>
-                    </span>
-                </motion.button>
-                )}
-            </AnimatePresence>
-
 
             {/* SVEŽE NOVICE (DESKTOP) */}
             <AnimatePresence initial={false}>
@@ -543,10 +502,10 @@ export default function Header({
     </header>
 
     {/* --- MOBILE FULLSCREEN MENU (SIDE DRAWER) --- */}
-<AnimatePresence>
+    <AnimatePresence>
       {mobileMenuOpen && (
         <>
-            {/* Backdrop - Klik zapre meni */}
+            {/* Backdrop */}
             <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
@@ -554,7 +513,7 @@ export default function Header({
                 onClick={() => setMobileMenuOpen(false)}
                 className="fixed inset-0 z-[90] bg-black/20 dark:bg-black/50 backdrop-blur-sm"
             />
-            {/* Drawer s Swipe-to-close funkcijo */}
+            {/* Drawer */}
             <motion.div
                 initial={{ x: '100%' }}
                 animate={{ x: 0 }}
@@ -568,8 +527,7 @@ export default function Header({
                         setMobileMenuOpen(false);
                     }
                 }}
-                /* TUKAJ: bg-white/80 (80% opacity) in backdrop-blur za prosojnost */
-                className="fixed top-0 right-0 bottom-0 z-[100] w-[85%] max-w-[320px] bg-white/80 dark:bg-gray-950/50 backdrop-blur-xl flex flex-col overflow-hidden shadow-2xl border-l border-gray-200/50 dark:border-gray-800/50 touch-pan-y"
+                className="fixed top-0 right-0 bottom-0 z-[100] w-[85%] max-w-[320px] bg-white/70 dark:bg-gray-950/80 backdrop-blur-xl flex flex-col overflow-hidden shadow-2xl border-l border-gray-200/50 dark:border-gray-800/50 touch-pan-y"
             >
                 {/* Menu Header */}
                 <div className="h-16 flex items-center justify-between px-4 border-b border-gray-100 dark:border-gray-800/50 shrink-0">
@@ -644,7 +602,6 @@ export default function Header({
                             </div>
                         </div>
 
-                        {/* BRANDING - PORAVNAVA LEVO */}
                         <div className="px-2 pt-6 text-left">
                             <div className="flex items-center justify-start gap-2 mb-2 opacity-80">
                                 <div className="relative w-5 h-5">
@@ -665,7 +622,6 @@ export default function Header({
       )}
     </AnimatePresence>
 
-    {/* --- FLOATING FILTER INDICATOR (Mobile Only) --- */}
     {activeSource !== 'Vse' && !mobileMenuOpen && (
         <button 
             onClick={onOpenFilter}
