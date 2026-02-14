@@ -25,7 +25,7 @@ export default function AiBriefing({ summary, time }: Props) {
     if (diffInMins < 1) return "pravkar";
     if (diffInMins === 1) return "pred 1 min";
     if (diffInMins === 2) return "pred 2 min";
-    if (diffInMins < 60) return `pred ${diffInMins} min`;
+  if (diffInMins < 60) return `pred ${diffInMins} min`;
     
     return updated.toLocaleTimeString('sl-SI', { hour: '2-digit', minute: '2-digit' });
   };
@@ -55,7 +55,7 @@ export default function AiBriefing({ summary, time }: Props) {
             {time && (
               <>
                 <span className="text-gray-300 dark:text-gray-600 text-[10px]">•</span>
-                <span className="text-[10px] font-mono text-gray-400 dark:text-gray-500 italic">
+                <span className="text-[10px] font-mono text-gray-400 dark:text-gray-500">
                   {getRelativeTime(time)}
                 </span>
               </>
