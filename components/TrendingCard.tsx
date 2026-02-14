@@ -70,7 +70,6 @@ export default function TrendingCard({ news, compact = false, rank }: TrendingCa
 
   const [touchStart, setTouchStart] = useState<number | null>(null)
   const [touchEnd, setTouchEnd] = useState<number | null>(null)
-
   const minSwipeDistance = 50
 
   const onTouchStart = (e: React.TouchEvent) => {
