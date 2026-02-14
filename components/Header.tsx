@@ -74,7 +74,6 @@ export default function Header({
   const router = useRouter()
 
   const isHome = router.pathname === '/'
-  // Prikazuj kategorije vedno (tudi na mobile)
   const showCategories = isHome 
 
   useEffect(() => {
@@ -153,15 +152,16 @@ export default function Header({
     setTimeout(fetchWeather, 500)
   }, [])
 
-  // --- NOVE NOVICE (EVENT LISTENER) ---
+  // --- NOVE NOVICE (EVENT LISTENER - FIX) ---
   useEffect(() => {
     const onHasNew = (e: Event) => {
-        console.log('EVENT: news-has-new', (e as CustomEvent).detail); // DEBUG
-        setHasNew(Boolean((e as CustomEvent).detail))
+        const has = (e as CustomEvent).detail === true;
+        setHasNew(has)
     }
     const onRefreshing = (e: Event) => {
-        setRefreshing(Boolean((e as CustomEvent).detail))
-        if ((e as CustomEvent).detail) setHasNew(false); // Ko osvežujemo, skrijemo gumb
+        const isRef = (e as CustomEvent).detail === true;
+        setRefreshing(isRef)
+        if (isRef) setHasNew(false); 
     }
     window.addEventListener('news-has-new', onHasNew as EventListener)
     window.addEventListener('news-refreshing', onRefreshing as EventListener)
@@ -236,8 +236,8 @@ export default function Header({
              </button>
           </div>
 
-          {/* --- 2. SREDINA (MOBILE - ABSOLUTNO) & LEVO (DESKTOP) --- */}
-          <div className="absolute left-1/2 -translate-x-1/2 md:static md:translate-x-0 md:flex md:items-center md:gap-4 md:mr-auto z-0 flex flex-col items-center md:flex-row">
+          {/* --- 2. SREDINA (MOBILE - CENTRIRANO) & LEVO (DESKTOP) --- */}
+          <div className="absolute left-1/2 -translate-x-1/2 md:static md:translate-x-0 md:flex md:items-center md:gap-4 md:mr-auto z-0 flex flex-col items-center md:flex-row md:items-center text-center md:text-left">
             <Link href="/" onClick={handleLogoClick} className="flex flex-col md:flex-row items-center gap-1 md:gap-3 group">
                 <div className="flex items-center gap-2">
                     <div className="relative w-7 h-7 md:w-9 md:h-9">
@@ -248,8 +248,11 @@ export default function Header({
                     </span>
                 </div>
                 
-                {/* SLOGAN - MOBILE & DESKTOP (POD NAPISOM / ZRAVEN) */}
-                <span className="text-[10px] md:text-[13px] font-serif text-gray-500 dark:text-gray-400 leading-none md:mt-1 opacity-80 md:opacity-100 whitespace-nowrap">
+                {/* --- SLOGAN --- */}
+                {/* Mobile: block (nova vrstica), text-[11px] (povečano za pikico) */}
+                {/* Desktop: večji font, serif, eleganten, skrit na mobile če želiš ali pa viden */}
+                <span className="block md:inline text-[11px] md:text-sm font-serif text-gray-500 dark:text-gray-400 leading-none mt-0.5 md:mt-1 opacity-90 whitespace-nowrap">
+                    {/* MOBILE SLOGAN FONT SIZE: text-[11px] */}
                     Zadnje novice slovenskih medijev
                 </span>
             </Link>
@@ -288,7 +291,7 @@ export default function Header({
           <div className="flex md:hidden shrink-0 z-10 w-10 justify-end">
              <button 
                 onClick={() => setMobileMenuOpen(true)}
-                className="p-2 -mr-2 text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-800 rounded-md"
+                className="p-2 -mr-2 text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-800 rounded-md active:bg-gray-200 dark:active:bg-gray-700"
              >
                 <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
@@ -520,8 +523,14 @@ export default function Header({
                     <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 px-2">Orodja</p>
                     
                     <Link href="/arhiv" onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-3 px-4 py-3 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-900">
-                        {/* Ikona Koledar */}
-                        <svg className="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><rect x="3" y="4" width="18" height="18" rx="2" ry="2" strokeWidth={2}/><line x1="16" y1="2" x2="16" y2="6" strokeWidth={2}/><line x1="8" y1="2" x2="8" y2="6" strokeWidth={2}/><line x1="3" y1="10" x2="21" y2="10" strokeWidth={2}/></svg>
+                        {/* Ikona Koledar (Ista kot Desktop Arhiv) */}
+                        <svg className="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                            <line x1="16" y1="2" x2="16" y2="6" />
+                            <line x1="8" y1="2" x2="8" y2="6" />
+                            <line x1="3" y1="10" x2="21" y2="10" />
+                            <path d="M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01M16 18h.01" strokeLinecap="round" />
+                        </svg>
                         <span>Arhiv novic</span>
                     </Link>
                     
@@ -540,7 +549,7 @@ export default function Header({
 
                 <hr className="border-gray-100 dark:border-gray-800 my-4" />
 
-                {/* 2. KONTAKT & POVEZAVE (Kopirano iz Footerja) */}
+                {/* 2. POVEZAVE + KONTAKT (Kopirano iz Footerja) */}
                 <div className="space-y-4">
                     
                     {/* Kontakt */}
@@ -567,7 +576,17 @@ export default function Header({
                         </div>
                     </div>
 
-                    <div className="px-4 pt-4">
+                    <div className="px-4 pt-6 text-center sm:text-left">
+                        <div className="flex items-center justify-center sm:justify-start gap-2 mb-2 opacity-80">
+                            <div className="relative w-5 h-5">
+                                <Image src="/logo.png" alt="Logo" fill className="object-contain" />
+                            </div>
+                            <span className="font-serif font-bold text-gray-900 dark:text-white">Križišče</span>
+                        </div>
+                        <p className="text-xs leading-relaxed text-gray-500 dark:text-gray-500 mb-2">
+                            Agregator najnovejših novic slovenskih medijev.<br/>
+                            Članki so last izvornih portalov.
+                        </p>
                         <span className="text-xs text-gray-300 dark:text-gray-600">© 2025 Križišče</span>
                     </div>
                 </div>
@@ -577,11 +596,13 @@ export default function Header({
       )}
     </AnimatePresence>
 
-    {/* --- FLOATING FILTER INDICATOR (Mobile Only) --- */}
+    {/* --- FLOATING FILTER INDICATOR (Mobile Only) --- 
+        Popravljeno: Levo spodaj (left-6), da ne prekriva BackToTop
+    */}
     {activeSource !== 'Vse' && !mobileMenuOpen && (
         <button 
             onClick={onOpenFilter}
-            className="md:hidden fixed bottom-6 right-6 z-40 bg-brand text-white p-3 rounded-full shadow-lg border-2 border-white dark:border-gray-900 animate-bounce"
+            className="md:hidden fixed bottom-6 left-6 z-40 bg-brand text-white p-3 rounded-full shadow-lg border-2 border-white dark:border-gray-900 animate-bounce"
             title="Filter je vklopljen"
         >
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
