@@ -238,21 +238,26 @@ export default function Header({
           </div>
 
           {/* --- 2. SREDINA (MOBILE - CENTRIRANO) & LEVO (DESKTOP) --- */}
-          <div className="absolute left-1/2 -translate-x-1/2 md:static md:translate-x-0 md:flex md:items-center md:gap-4 md:mr-auto z-0 flex flex-col items-center md:items-start text-center md:text-left">
-            <Link href="/" onClick={handleLogoClick} className="flex flex-col items-center md:items-start group">
-                <div className="flex items-center gap-2">
-                    <div className="relative w-7 h-7 md:w-9 md:h-9">
-                      <Image src="/logo.png" alt="Logo" fill className="object-contain" />
-                    </div>
-                    <span className="text-xl md:text-2xl font-serif font-bold tracking-tight text-gray-900 dark:text-white leading-none">
-                        Križišče
-                    </span>
-                </div>
-                
-                {/* --- SLOGAN (ZDAJ POD NAPISOM) --- */}
-                <span className="text-[10px] md:text-[12px] font-serif text-gray-500 dark:text-gray-400 leading-none mt-1 md:mt-1.5 opacity-90 whitespace-nowrap">
-                    Zadnje novice slovenskih medijev
+          <div className="absolute left-1/2 -translate-x-1/2 md:static md:translate-x-0 md:flex md:items-center md:gap-4 md:mr-auto z-0 flex flex-col items-center md:flex-row md:items-center text-center md:text-left">
+            <Link href="/" onClick={handleLogoClick} className="flex items-center gap-3 md:gap-4 group">
+              
+              {/* POVEČAN LOGO */}
+              <div className="relative w-10 h-10 md:w-14 md:h-14 shrink-0 transition-transform group-hover:scale-105 duration-300">
+                <Image src="/logo.png" alt="Logo" fill className="object-contain" />
+              </div>
+          
+              {/* DESNI DEL: NASLOV + SLOGAN POD NJIM */}
+              <div className="flex flex-col items-start justify-center">
+                <span className="text-xl md:text-3xl font-serif font-bold tracking-tight text-gray-900 dark:text-white leading-none">
+                  Križišče
                 </span>
+                
+                {/* SLOGAN POD NAPISOM */}
+                <span className="text-[10px] md:text-[13px] font-serif text-gray-500 dark:text-gray-400 leading-none mt-1 md:mt-1.5 opacity-90 whitespace-nowrap">
+                  Zadnje novice slovenskih medijev
+                </span>
+              </div>
+          
             </Link>
 
 
