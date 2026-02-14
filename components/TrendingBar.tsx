@@ -68,6 +68,12 @@ export default function TrendingBar({ words, onSelectWord, selectedWord }: Trend
     // Padding py-1 (4px) - kompromis med preveč in premalo
     <div className="flex items-center w-full overflow-hidden py-1 border-b border-gray-100 dark:border-gray-800/50 lg:border-none">
       
+      {/* DESKTOP FIXED LABEL (Nova pozicija: zunaj scrollerja, fiksna) */}
+      <div className="hidden md:flex items-center gap-1.5 shrink-0 pr-3 border-r border-gray-200 dark:border-gray-700 mr-2 select-none">
+          <span className="text-sm animate-pulse opacity-70">🔥</span>
+          <span className="text-xs font-bold text-gray-500 uppercase tracking-wide">Odmevno</span>
+      </div>
+
       {/* MARQUEE CONTAINER */}
       <div className="flex-1 overflow-hidden relative mask-gradient-right h-[30px] flex items-center">
         {!hasWords ? (
@@ -77,7 +83,7 @@ export default function TrendingBar({ words, onSelectWord, selectedWord }: Trend
             {/* --- MOBILE VIEW (Native Scroll) --- */}
             <div className="flex md:hidden items-center gap-3 w-full h-full px-2 overflow-x-auto no-scrollbar">
                 
-                {/* LABELA JE ZDAJ DEL SCROLLA TUDI NA MOBILE (da se premakne z vsebino) */}
+                {/* MOBILE LABEL (Del scrolla - se premika z vsebino) */}
                 <div className="flex items-center gap-1 shrink-0 pr-2 border-r border-gray-200 dark:border-gray-700 mr-1 select-none">
                     <span className="text-xs animate-pulse opacity-80">🔥</span>
                     <span className="text-[11px] font-bold text-gray-500 uppercase tracking-wide">Odmevno</span>
@@ -126,12 +132,8 @@ export default function TrendingBar({ words, onSelectWord, selectedWord }: Trend
                 />
 
                 <div ref={contentRef} className="flex items-center gap-4 will-change-transform">
-                    {/* LABELA JE ZDAJ DEL SCROLLA TUDI NA DESKTOPU */}
-                    <div className="flex items-center gap-1.5 shrink-0 pr-3 border-r border-gray-200 dark:border-gray-700 mr-2 select-none">
-                        <span className="text-sm animate-pulse opacity-70">🔥</span>
-                        <span className="text-xs font-bold text-gray-500 uppercase tracking-wide">Odmevno</span>
-                    </div>
-
+                    {/* LABELA JE TUKAJ ODSTRANJENA, KER JE ZDAJ FIKSNA ZGORAJ */}
+                    
                     {marqueeWords.map((item, index) => {
                         const cleanWord = item.word.replace(/^#/, '');
                         const isSelected = selectedWord?.toLowerCase().replace(/^#/, '') === cleanWord.toLowerCase();
