@@ -73,7 +73,8 @@ export default function TrendingBar({ words, onSelectWord, selectedWord }: Trend
       
       {/* DESKTOP FIXED LABEL */}
       <div className="hidden md:flex items-center gap-2 shrink-0 pr-2 mr-1 select-none border-r border-gray-100 dark:border-gray-800/50">
-          <div className="p-1 bg-brand/5 rounded-full">
+          {/* TUKAJ: opacity-90 za subtilnost */}
+          <div className="p-1 bg-brand/5 rounded-full opacity-90">
             <BroadcastIcon />
           </div>
           <span className="text-xs font-bold text-gray-500 dark:text-gray-400 tracking-wide uppercase">Odmevno</span>
@@ -89,7 +90,10 @@ export default function TrendingBar({ words, onSelectWord, selectedWord }: Trend
                 
                 {/* MOBILE LABEL */}
                 <div className="flex items-center gap-1.5 shrink-0 pr-2 border-r border-gray-100 dark:border-gray-800/50 select-none">
-                     <BroadcastIcon />
+                     {/* TUKAJ: opacity-80 */}
+                     <div className="opacity-80">
+                        <BroadcastIcon />
+                     </div>
                     <span className="text-[11px] font-bold text-gray-500 dark:text-gray-400 tracking-wide uppercase">Odmevno</span>
                 </div>
 
