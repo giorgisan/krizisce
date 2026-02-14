@@ -293,7 +293,7 @@ export default function TrendingCard({ news, compact = false, rank }: Props) {
 
             {related.length > 0 && (
                 <div className="mt-auto lg:mt-2 pt-2 lg:pt-1 border-t border-gray-100 dark:border-gray-700/50 flex items-center gap-2 lg:gap-1.5 pointer-events-auto">
-                    <span className="text-[10px] lg:text-[9px] text-gray-400 whitespace-nowrap">Beri tudi:</span>
+                    <span className="text-[10px] lg:text-[9px] text-gray-400 whitespace-nowrap">Naslov:</span>
                     
                     {/* --- ELEGANTEN AVATAR STACK --- */}
                     <div className="group/list flex -space-x-2 hover:-space-x-1 transition-all duration-300 pl-1">
