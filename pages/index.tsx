@@ -455,7 +455,7 @@ export default function Home({ initialNews, initialTrendingWords, initialTrendin
                     {/* MOBILE TRENDING VIEW (Seznam kartic) */}
                     {mode === 'trending' && !isDesktopLogic ? (
                          <div className="flex flex-col gap-4">
-                            {itemsTrending.map((article, i) => (
+                            {itemsTrending.slice(0, 10).map((article, i) => (
                                 <TrendingCard 
                                     key={article.link + 'tr' + i}
                                     news={article} 
