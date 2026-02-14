@@ -238,8 +238,8 @@ export default function Header({
           </div>
 
           {/* --- 2. SREDINA (MOBILE - CENTRIRANO) & LEVO (DESKTOP) --- */}
-          <div className="absolute left-1/2 -translate-x-1/2 md:static md:translate-x-0 md:flex md:items-center md:gap-4 md:mr-auto z-0 flex flex-col items-center md:flex-row md:items-center text-center md:text-left">
-            <Link href="/" onClick={handleLogoClick} className="flex flex-col md:flex-row items-center md:items-end gap-1 md:gap-3 group">
+          <div className="absolute left-1/2 -translate-x-1/2 md:static md:translate-x-0 md:flex md:items-center md:gap-4 md:mr-auto z-0 flex flex-col items-center md:items-start text-center md:text-left">
+            <Link href="/" onClick={handleLogoClick} className="flex flex-col items-center md:items-start group">
                 <div className="flex items-center gap-2">
                     <div className="relative w-7 h-7 md:w-9 md:h-9">
                       <Image src="/logo.png" alt="Logo" fill className="object-contain" />
@@ -249,11 +249,12 @@ export default function Header({
                     </span>
                 </div>
                 
-                {/* --- SLOGAN --- */}
-                <span className="block md:inline text-[11px] md:text-sm font-serif text-gray-500 dark:text-gray-400 leading-none mt-0.5 md:mt-1 opacity-90 whitespace-nowrap">
+                {/* --- SLOGAN (ZDAJ POD NAPISOM) --- */}
+                <span className="text-[10px] md:text-[12px] font-serif text-gray-500 dark:text-gray-400 leading-none mt-1 md:mt-1.5 opacity-90 whitespace-nowrap">
                     Zadnje novice slovenskih medijev
                 </span>
             </Link>
+
 
             {/* SVEŽE NOVICE (DESKTOP) */}
             <AnimatePresence initial={false}>
