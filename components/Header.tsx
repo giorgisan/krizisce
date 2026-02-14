@@ -249,7 +249,7 @@ export default function Header({
                         </span>
                     </div>
                     {/* Slogan tesno spodaj (-mt-0.5) */}
-                    <span className="text-[11px] font-serif text-gray-500 dark:text-gray-400 leading-none -mt-0.5 opacity-90 whitespace-nowrap">
+                    <span className="text-[11px] font-serif text-gray-500 dark:text-gray-400 leading-none mt-0 opacity-90 whitespace-nowrap">
                         Zadnje novice slovenskih medijev
                     </span>
                 </div>
