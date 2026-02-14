@@ -23,7 +23,6 @@ interface TrendingCardProps {
 export default function TrendingCard({ news, compact = false, rank }: TrendingCardProps) {
   const [imgError, setImgError] = useState(false)
   
-  // Timestamp fix
   const relativeTime = useMemo(() => {
     const now = Date.now()
     const publishedMs = typeof news.publishedAt === 'number' && news.publishedAt > 0 
@@ -46,12 +45,8 @@ export default function TrendingCard({ news, compact = false, rank }: TrendingCa
   }, [news.publishedAt])
 
   const storyArticles = news.storyArticles || []
-  const allSources = [news.source, ...storyArticles.map(a => a.source)]
-  const uniqueSources = Array.from(new Set(allSources))
-
   const sourceColor = sourceColors[news.source] || '#fc9c6c'
 
-  // Analytics
   const logClick = (targetSource: string, targetLink: string) => {
     try {
       const payload = JSON.stringify({ 
@@ -73,7 +68,6 @@ export default function TrendingCard({ news, compact = false, rank }: TrendingCa
     logClick(news.source, news.link)
   }
 
-  // Swipe state
   const [touchStart, setTouchStart] = useState<number | null>(null)
   const [touchEnd, setTouchEnd] = useState<number | null>(null)
 
@@ -90,11 +84,9 @@ export default function TrendingCard({ news, compact = false, rank }: TrendingCa
 
   const onTouchEnd = () => {
     if (!touchStart || !touchEnd) return
-    
     const distance = touchStart - touchEnd
     const isLeftSwipe = distance > minSwipeDistance
     const isRightSwipe = distance < -minSwipeDistance
-
     if (isLeftSwipe || isRightSwipe) {
       console.log(isLeftSwipe ? 'Swipe left' : 'Swipe right')
     }
@@ -107,7 +99,6 @@ export default function TrendingCard({ news, compact = false, rank }: TrendingCa
       onTouchMove={onTouchMove}
       onTouchEnd={onTouchEnd}
     >
-      {/* Slika */}
       <div className="relative w-full aspect-[16/9] bg-gray-100 dark:bg-gray-700">
         {news.image && !imgError ? (
           <Image
@@ -126,8 +117,6 @@ export default function TrendingCard({ news, compact = false, rank }: TrendingCa
             </span>
           </div>
         )}
-
-        {/* Rank badge */}
         {rank && (
           <div className="absolute top-2 left-2 bg-brand text-white text-xs font-bold px-2 py-1 rounded-full shadow-md">
             #{rank}
@@ -135,9 +124,7 @@ export default function TrendingCard({ news, compact = false, rank }: TrendingCa
         )}
       </div>
 
-      {/* Vsebina */}
       <div className="p-4">
-        {/* Glavni vir in čas */}
         <div className="flex items-center gap-2 mb-2">
           <div 
             className="w-2 h-2 rounded-full shrink-0" 
@@ -156,7 +143,6 @@ export default function TrendingCard({ news, compact = false, rank }: TrendingCa
           )}
         </div>
 
-        {/* Naslov */}
         
           href={news.link}
           target="_blank"
@@ -169,14 +155,12 @@ export default function TrendingCard({ news, compact = false, rank }: TrendingCa
           </h3>
         </a>
 
-        {/* Podnaslov */}
         {news.contentSnippet && (
           <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-2 mb-3">
             {news.contentSnippet}
           </p>
         )}
 
-        {/* Ostali viri - IKONE */}
         {storyArticles.length > 0 && (
           <div className="border-t border-gray-100 dark:border-gray-700 pt-3">
             <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400 mb-2">
@@ -208,7 +192,6 @@ export default function TrendingCard({ news, compact = false, rank }: TrendingCa
                     className="group relative flex items-center gap-1.5 px-2 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-brand hover:bg-brand/5 transition-all"
                     title={`${article.source}: ${article.title}`}
                   >
-                    {/* Logo */}
                     {logoPath ? (
                       <div className="relative w-4 h-4 rounded-full overflow-hidden bg-gray-100 dark:bg-gray-700 shrink-0">
                         <Image 
@@ -229,13 +212,9 @@ export default function TrendingCard({ news, compact = false, rank }: TrendingCa
                         style={{ backgroundColor: color }}
                       />
                     )}
-
-                    {/* Ime vira */}
                     <span className="text-xs font-medium text-gray-700 dark:text-gray-300 group-hover:text-brand transition-colors">
                       {article.source}
                     </span>
-
-                    {/* External link ikona */}
                     <svg 
                       className="w-3 h-3 text-gray-400 group-hover:text-brand transition-colors" 
                       fill="none" 
