@@ -34,6 +34,14 @@ export interface TrendingGroupResult {
 // 2. KONSTANTE
 export const TREND_WINDOW_HOURS = 12;
 
+// Teme, ki jih NE želimo v "Trending" (Aktualno) sekciji
+const IGNORED_TOPICS = new Set([
+  'horoskop', 'astro', 'zvezde', 'znamenja', 
+  'tv spored', 'vreme', 'napoved', 
+  'recept', 'kuhinja', 'nagradna igra', 
+  'loto', 'eurojackpot'
+]);
+
 // Stopwords za Jaccard fallback
 const STOP_WORDS = new Set([
   'in', 'ali', 'da', 'pa', 'se', 'je', 'bi', 'bo', 'so', 'sta', 'pri', 'na', 'v', 'z', 's', 'k', 'h',
@@ -78,14 +86,12 @@ function jaccardSimilarity(setA: Set<string>, setB: Set<string>): number {
 // --- 4. AI CLUSTERING (Gemini 3 Flash) ---
 async function clusterNewsWithAI(articles: Article[]): Promise<Record<string, number[]> | null> {
   const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_KEY || "");
-  // Uporabljamo Flash, ker je hiter in ima visok limit
   const model = genAI.getGenerativeModel({ model: "models/gemini-3-flash-preview" });
 
   const articlesList = articles.map((a, index) => 
     `${index}. [${a.source}] ${a.title}`
   ).join('\n');
 
-  // POPRAVLJEN PROMPT (TOČKA 1)
   const prompt = `
     You are a Slovenian news clustering expert.
     You monitor news sources like 24ur, RTV, Delo, N1, Siol, Dnevnik, Zurnal24, Svet24, Slovenske novice.
@@ -108,16 +114,14 @@ async function clusterNewsWithAI(articles: Article[]): Promise<Record<string, nu
     const result = await model.generateContent(prompt);
     const responseText = result.response.text();
     
-    // Čiščenje JSON-a (če AI vseeno doda markdown)
     const jsonStart = responseText.indexOf('{');
     const jsonEnd = responseText.lastIndexOf('}') + 1;
     if (jsonStart === -1 || jsonEnd === -1) return null;
     
     return JSON.parse(responseText.substring(jsonStart, jsonEnd));
   } catch (error) {
-    // ERROR HANDLING (TOČKA 5)
     console.error("❌ AI Clustering failed:", error);
-    return null; // Vrne null, da sproži Jaccard fallback
+    return null; 
   }
 }
 
@@ -144,34 +148,47 @@ export async function computeTrending(articles: Article[]): Promise<TrendingGrou
         const imgB = b.image || b.imageurl;
         if (imgA && !imgB) return -1;
         if (!imgA && imgB) return 1;
-        return getTime(b.publishedat) - getTime(a.publishedat); // Varna primerjava
+        return getTime(b.publishedat) - getTime(a.publishedat); 
       });
 
       const mainArticle = groupArticles[0];
+      
+      // --- FILTER: Ignoriraj Horoskop/Vreme/itd. ---
+      const titleLower = mainArticle.title.toLowerCase();
+      const topicLower = topic.toLowerCase();
+      const isIgnored = Array.from(IGNORED_TOPICS).some(ignoredWord => 
+          titleLower.includes(ignoredWord) || topicLower.includes(ignoredWord)
+      );
+
+      if (isIgnored) {
+          // console.log(`Skipping ignored topic: ${mainArticle.title}`);
+          continue; 
+      }
+      // ---------------------------------------------
+
       const others = groupArticles.slice(1);
       
       const finalImage = mainArticle.image || mainArticle.imageurl;
-      const mainTime = getTime(mainArticle.publishedat); // TOČKA 2 (popravek datuma)
+      const mainTime = getTime(mainArticle.publishedat);
 
       results.push({
         id: mainArticle.id,
-        title: mainArticle.title, // Lahko uporabiš 'topic' za AI naslov, a originalni je pogosto boljši
+        title: mainArticle.title,
         source: mainArticle.source,
         link: mainArticle.link,
-        publishedAt: mainTime, // Number
+        publishedAt: mainTime, 
         image: finalImage,
         contentsnippet: mainArticle.contentsnippet,
         storyArticles: others.map(o => ({
           source: o.source,
           title: o.title,
           link: o.link,
-          publishedAt: getTime(o.publishedat) // Number
+          publishedAt: getTime(o.publishedat) 
         })),
         score: uniqueSources.size * 10
       });
     }
 
-    // TOČKA 6: Sortiranje grup (Velikost > Svežina) - Pustili smo kot je
     return results.sort((a, b) => {
         const countDiff = b.storyArticles.length - a.storyArticles.length;
         if (countDiff !== 0) return countDiff;
@@ -179,7 +196,7 @@ export async function computeTrending(articles: Article[]): Promise<TrendingGrou
     });
   }
 
-  // B) JACCARD FALLBACK (Če AI ne uspe)
+  // B) JACCARD FALLBACK
   console.log("⚠️ AI failed, falling back to Jaccard...");
   const processedArticles = articles.map(article => ({
     ...article,
@@ -194,6 +211,14 @@ export async function computeTrending(articles: Article[]): Promise<TrendingGrou
 
     const currentGroup = [processedArticles[i]];
     processedArticles[i].assigned = true;
+
+    // --- Filter za Jaccard ---
+    const titleLower = processedArticles[i].title.toLowerCase();
+    const isIgnored = Array.from(IGNORED_TOPICS).some(ignoredWord => 
+        titleLower.includes(ignoredWord)
+    );
+    if (isIgnored) continue;
+    // -------------------------
 
     for (let j = i + 1; j < processedArticles.length; j++) {
       if (processedArticles[j].assigned) continue;
