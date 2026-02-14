@@ -346,8 +346,9 @@ export default function Home({ initialNews, initialTrendingWords, initialTrendin
   const isSearchOrTag = !!(searchQuery || tagQuery);
   const showHeaderElements = !isSearchOrTag;
   
-  // AI Briefing pokažemo samo, če NI iskanja IN smo na 'vse' kategoriji (in na 'latest' modu ali desktopu)
-  const showAiBriefing = showHeaderElements && selectedCategory === 'vse';
+  // POPRAVEK: AI Briefing in Trending Bar kažemo SAMO, če je 'vse' kategorija IN če smo na 'latest' (najnovejše)
+  // Če smo na 'trending' (aktualno), tega ne rabimo, ker imamo spodaj cel seznam.
+  const showHeroSection = showHeaderElements && selectedCategory === 'vse' && mode === 'latest';
 
   return (
     <>
@@ -393,12 +394,10 @@ export default function Home({ initialNews, initialTrendingWords, initialTrendin
                 </div>
             )}
 
-            {/* --- AI BRIEFING & TRENDING (Samo na 'vse') --- */}
-            {showHeaderElements && (
+            {/* --- AI BRIEFING & TRENDING (Samo na 'vse' in 'latest') --- */}
+            {showHeroSection && (
                <>
-                 {showAiBriefing && (
-                    <AiBriefing summary={currentAiSummary} time={currentAiTime} />
-                 )}
+                 <AiBriefing summary={currentAiSummary} time={currentAiTime} />
                  
                  <div className="mt-1 mb-1 min-w-0 w-full overflow-hidden">
                     <TrendingBar 
@@ -460,7 +459,7 @@ export default function Home({ initialNews, initialTrendingWords, initialTrendin
                                 <TrendingCard 
                                     key={article.link + 'tr' + i}
                                     news={article} 
-                                    compact={true} // Uporabimo compact stil (slika + viri)
+                                    compact={true} 
                                     rank={i + 1}
                                 />
                             ))}
