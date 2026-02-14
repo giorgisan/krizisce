@@ -73,8 +73,8 @@ export default function TrendingBar({ words, onSelectWord, selectedWord }: Trend
       
       {/* DESKTOP FIXED LABEL */}
       <div className="hidden md:flex items-center gap-2 shrink-0 pr-2 mr-1 select-none border-r border-gray-100 dark:border-gray-800/50">
-          {/* TUKAJ: opacity-90 za subtilnost */}
-          <div className="p-1 bg-brand/5 rounded-full opacity-90">
+          {/* TUKAJ: opacity-80 za subtilnost */}
+          <div className="p-1 bg-brand/5 rounded-full opacity-80">
             <BroadcastIcon />
           </div>
           <span className="text-xs font-bold text-gray-500 dark:text-gray-400 tracking-wide">Odmevno</span>
