@@ -195,7 +195,7 @@ export default function TrendingCard({ news, compact = false, rank }: Props) {
   }
 
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
-   
+    
   const preloadedRef = useRef(false)
   const triggerPrefetch = () => {
     if (!preloadedRef.current && canPrefetch()) {
@@ -317,7 +317,7 @@ export default function TrendingCard({ news, compact = false, rank }: Props) {
                                      className="relative w-5 h-5 rounded-full bg-white dark:bg-gray-700 border border-gray-100 dark:border-gray-600 flex items-center justify-center overflow-hidden shadow-sm transition-all duration-300 hover:scale-125 hover:z-20 grayscale-0 group-hover/list:grayscale hover:!grayscale-0"
                                      onClick={(e) => { e.stopPropagation(); logClick('open_related', { parent: news.link, url: r.link }) }}
                                   >
-                                       {logo ? <Image src={logo} alt={r.source} width={16} height={16} className="w-full h-full object-cover" /> : <span className="text-[7px] font-bold text-gray-500">{r.source[0]}</span>}
+                                      {logo ? <Image src={logo} alt={r.source} width={16} height={16} className="w-full h-full object-cover" /> : <span className="text-[7px] font-bold text-gray-500">{r.source[0]}</span>}
                                   </a>
                               )
                           })}
