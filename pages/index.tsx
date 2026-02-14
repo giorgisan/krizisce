@@ -70,8 +70,14 @@ async function loadNews(
     ])) as Response
       
     if (res.ok) {
-      const data: NewsItem[] = await res.json()
-      if (Array.isArray(data)) return data
+      const data = await res.json()
+      
+      // SPREMEMBA: Preverimo format odgovora (Array ali Object z items)
+      if (Array.isArray(data)) {
+          return data 
+      } else if (data && Array.isArray(data.items)) {
+          return data.items 
+      }
     }
   } catch {}
     
@@ -96,7 +102,7 @@ export default function Home({ initialNews, initialTrendingWords, initialTrendin
   const [itemsTrending, setItemsTrending] = useState<NewsItem[]>(initialTrendingNews || [])
   const [trendingLoaded, setTrendingLoaded] = useState(!!initialTrendingNews?.length)
   
-  // Stanja za AI povzetek (uporabljamo za dinamično posodabljanje)
+  // Stanja za AI povzetek
   const [currentAiSummary, setCurrentAiSummary] = useState(aiSummary)
   const [currentAiTime, setCurrentAiTime] = useState(aiTime)
       
@@ -133,11 +139,16 @@ export default function Home({ initialNews, initialTrendingWords, initialTrendin
         if (!trendingLoaded || (now - lastTrendingFetchRef.current > 15 * 60_000)) {
               const fetchTrendingSide = async () => {
                 try {
-                  const fresh = await loadNews('trending', [], 'vse', null, null)
-                  if (fresh) {
-                    setItemsTrending(fresh)
-                    setTrendingLoaded(true)
-                    lastTrendingFetchRef.current = Date.now()
+                  // Pri fetchu za sidebar moramo upoštevati nov format
+                  const res = await fetch('/api/news?variant=trending')
+                  const data = await res.json()
+                  
+                  if (data) {
+                      // Če je objekt, vzamemo .items, sicer cel array
+                      const freshItems = Array.isArray(data) ? data : (data.items || [])
+                      setItemsTrending(freshItems)
+                      setTrendingLoaded(true)
+                      lastTrendingFetchRef.current = Date.now()
                   }
                 } catch {}
               }
@@ -249,19 +260,23 @@ export default function Home({ initialNews, initialTrendingWords, initialTrendin
         })
 
         // 2. Osveži Trending (Grupe)
-        loadNews('trending', [], 'vse', null, null, true).then(tr => { if (tr) setItemsTrending(tr) })
-
-        // 3. Osveži AI povzetek in AI čas
-        // Ker api/news s forceFresh ponavadi osveži bazo, tukaj potegnemo zadnje stanje trendov
-        fetch('/api/news?variant=trending&forceFresh=1')
+        fetch('/api/news?variant=trending&forceFresh=1&_t=' + Date.now())
           .then(res => res.json())
           .then(data => {
-            // Predpostavljamo, da api/news vrne trendovske podatke. 
-            // Če tvoj API ne vrača summary-ja v tem klicu, ga boš moral potegniti iz baze.
-            // Zaenkrat kličemo to, da zagotovimo vsaj klic na backend.
-            if (data && data.aiSummary) {
-                setCurrentAiSummary(data.aiSummary);
-                setCurrentAiTime(data.aiTime);
+            // Logika za nov API response format
+            if (data) {
+                // Če imamo items, posodobimo trending stolpec
+                if (data.items && Array.isArray(data.items)) {
+                    setItemsTrending(data.items);
+                } else if (Array.isArray(data)) {
+                    setItemsTrending(data);
+                }
+
+                // Če imamo AI podatke, posodobimo state
+                if (data.aiSummary) {
+                    setCurrentAiSummary(data.aiSummary);
+                    setCurrentAiTime(data.aiTime);
+                }
             }
           })
           .catch(() => {})
@@ -297,7 +312,11 @@ export default function Home({ initialNews, initialTrendingWords, initialTrendin
       
       const res = await fetch(`/api/news?${qs.toString()}`, { cache: 'no-store' })
       if (res.ok) {
-          const { items, nextCursor } = await res.json()
+          const data = await res.json()
+          // Podpora za nov API format tudi tukaj
+          const items = Array.isArray(data) ? data : (data.items || [])
+          const nextCursor = data.nextCursor // Če API vrne cursor
+
           const seen = new Set(itemsLatest.map((n) => n.link))
           const fresh = items
             .filter((i: any) => !seen.has(i.link))
@@ -305,10 +324,14 @@ export default function Home({ initialNews, initialTrendingWords, initialTrendin
           
           if (fresh.length) setItemsLatest((prev) => [...prev, ...fresh])
           
-          if (!nextCursor || nextCursor === cursor || items.length === 0) {
+          // Preverimo, če je konec (nextCursor ali items.length)
+          if (items.length === 0) {
             setHasMore(false); setCursor(null)
           } else {
-            setCursor(nextCursor); setHasMore(true)
+             // Če API ne vrne nextCursorja, vzamemo zadnjega iz itemov
+             const newCursor = nextCursor || items[items.length - 1].publishedAt
+             setCursor(newCursor); 
+             setHasMore(true)
           }
       }
     } finally { setIsLoadingMore(false) }
@@ -325,8 +348,14 @@ export default function Home({ initialNews, initialTrendingWords, initialTrendin
       if (!trendingLoaded || (now - lastTrendingFetchRef.current) > 5 * 60_000) {
         setIsRefreshing(true)
         try {
-          const fresh = await loadNews('trending', [], 'vse', null, null)
-          if (fresh) { setItemsTrending(fresh); setTrendingLoaded(true); lastTrendingFetchRef.current = Date.now() }
+          const res = await fetch('/api/news?variant=trending')
+          const data = await res.json()
+          if (data) {
+              const items = Array.isArray(data) ? data : (data.items || [])
+              setItemsTrending(items)
+              setTrendingLoaded(true)
+              lastTrendingFetchRef.current = Date.now()
+          }
         } catch (e) { console.error(e) } finally { setIsRefreshing(false) }
       }
     }
@@ -347,7 +376,6 @@ export default function Home({ initialNews, initialTrendingWords, initialTrendin
     setSearchQuery(e.target.value)
   }
 
-  // --- LOGIKA ZA PRIKAZ (VEDNO, razen pri iskanju) ---
   const showHeaderElements = !searchQuery && !tagQuery;
 
   return (
