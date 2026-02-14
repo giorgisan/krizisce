@@ -66,7 +66,7 @@ export default function TrendingCard({ news, compact = false, rank }: TrendingCa
     } catch {}
   }
 
-  const handleMainClick = (e: React.MouseEvent) => {
+  const handleMainClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
     if (e.metaKey || e.ctrlKey || e.button === 1) return
     e.preventDefault()
     window.open(news.link, '_blank', 'noopener')
@@ -96,7 +96,6 @@ export default function TrendingCard({ news, compact = false, rank }: TrendingCa
     const isRightSwipe = distance < -minSwipeDistance
 
     if (isLeftSwipe || isRightSwipe) {
-      // Za zdaj samo console.log - kasneje dodamo navegacijo
       console.log(isLeftSwipe ? 'Swipe left' : 'Swipe right')
     }
   }
@@ -128,7 +127,7 @@ export default function TrendingCard({ news, compact = false, rank }: TrendingCa
           </div>
         )}
 
-        {/* Rank badge (če obstaja) */}
+        {/* Rank badge */}
         {rank && (
           <div className="absolute top-2 left-2 bg-brand text-white text-xs font-bold px-2 py-1 rounded-full shadow-md">
             #{rank}
