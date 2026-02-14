@@ -46,7 +46,7 @@ export default function AiBriefing({ summary, time }: Props) {
         </div>
         
         {/* SPREMEMBA: text-gray-600 (namesto 700/80) in text-gray-400 (namesto 300/80) */}
-        <p className="text-[13px] sm:text-sm leading-snug text-gray-600 dark:text-gray-300 font-normal text-justify">
+        <p className="text-[13px] sm:text-sm leading-snug text-gray-600 dark:text-gray-300/90 font-normal text-justify">
             {summary}
         </p>
       </div>
