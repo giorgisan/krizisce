@@ -160,11 +160,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
         const { error: insertError } = await supabase
           .from('trending_ai')
-          .insert({ 
+          .upsert({ 
+              id: 1, // <--- KLJUČNO: Vedno uporabimo isti ID!
               words: cleanTrends, 
               summary: summaryText || null, 
               updated_at: new Date().toISOString() 
-          });
+          }, { onConflict: 'id' }); // Povemo bazi, da če ID 1 obstaja, ga posodobi
         
         if (insertError) throw insertError
         return res.status(200).json({ success: true, used_model: usedModel, trends: cleanTrends, summary: summaryText })
