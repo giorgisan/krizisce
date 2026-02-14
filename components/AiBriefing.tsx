@@ -10,15 +10,18 @@ export default function AiBriefing({ summary, time }: Props) {
   if (!summary) return null;
 
   return (
-    // SPREMEMBA: 'my-4' sem zamenjal z 'mt-4 mb-2' (ali celo mb-1)
-    <div className="w-full mt-4 mb-2"> 
-      
-      <div className="relative pl-4 py-2 border-l-4 border-brand bg-gray-50/50 dark:bg-gray-800/30 rounded-r-sm">
+    <div className="w-full mt-4 mb-2">
+      {/* SPREMEMBA: 
+          - 'border-l-4' -> 'border-l-2' (tanjša črta)
+          - 'border-brand' -> 'border-brand/50' (bolj nežna/subtilna barva)
+      */}
+      <div className="relative pl-4 py-2 border-l-2 border-brand/50 bg-gray-50/50 dark:bg-gray-800/30 rounded-r-sm">
         
         {/* Naslovna vrstica */}
         <div className="flex items-center flex-wrap gap-2 mb-1.5">
             
-            <span className="text-[11px] font-black uppercase tracking-widest text-brand dark:text-brand/90">
+            {/* Tudi tekst sem malo omehčal (text-brand/80) */}
+            <span className="text-[11px] font-black uppercase tracking-widest text-brand/80 dark:text-brand/90">
               NA KRATKO
             </span>
             
@@ -39,7 +42,7 @@ export default function AiBriefing({ summary, time }: Props) {
         </div>
           
         {/* Vsebina */}
-        <p className="text-sm leading-relaxed text-gray-700 dark:text-gray-300 font-medium">
+        <p className="text-sm leading-relaxed text-gray-700 dark:text-gray-300 font-medium text-justify">
             {summary}
         </p>
 
