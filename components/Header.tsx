@@ -236,34 +236,29 @@ export default function Header({
                 </svg>
              </button>
           </div>
-
-            {/* --- 2. SREDINA (MOBILE - CENTRIRANO) & LEVO (DESKTOP) --- */}
-            <div className="absolute left-1/2 -translate-x-1/2 md:static md:translate-x-0 md:flex md:items-center md:gap-4 md:mr-auto z-0 flex flex-col items-center md:flex-row md:items-center text-center md:text-left">
-              <Link href="/" onClick={handleLogoClick} className="flex items-center gap-2 md:gap-2.5 group">
+          
+          {/* --- 2. SREDINA (MOBILE - CENTRIRANO) & LEVO (DESKTOP) --- */}
+          <div className="absolute left-1/2 -translate-x-1/2 md:static md:translate-x-0 md:flex md:items-center md:gap-4 md:mr-auto z-0 flex flex-col items-center md:flex-row md:items-center text-center md:text-left">
+            <Link href="/" onClick={handleLogoClick} className="flex flex-col md:flex-row items-center gap-1 md:gap-2.5 group">
+              
+              {/* LOGO: Na mobile je zgoraj, na desktopu levo */}
+              <div className="relative w-8 h-8 md:w-11 md:h-11 shrink-0 transition-transform group-hover:scale-105 duration-300">
+                <Image src="/logo.png" alt="Logo" fill className="object-contain" />
+              </div>
+          
+              {/* BESEDILO: Na mobile centrirano pod logom, na desktopu levo desno od loga */}
+              <div className="flex flex-col items-center md:items-start justify-center">
+                <span className="text-xl md:text-2xl font-serif font-bold tracking-tight text-gray-900 dark:text-white leading-none md:leading-[0.9]">
+                  Križišče
+                </span>
                 
-                {/* LOGO - Pikico manjši (w-8 na mobile, w-11 na desktop) */}
-                <div className="relative w-8 h-8 md:w-11 md:h-11 shrink-0 transition-transform group-hover:scale-105 duration-300">
-                  <Image src="/logo.png" alt="Logo" fill className="object-contain" />
-                </div>
-            
-                {/* DESNI DEL: NASLOV + SLOGAN */}
-                <div className="flex flex-col items-start justify-center">
-                  <span className="text-xl md:text-2xl font-serif font-bold tracking-tight text-gray-900 dark:text-white leading-[0.9]">
-                    Križišče
-                  </span>
-                  
-                  {/* SLOGAN 
-                      - md:mt-0.5: minimalen razmak na desktopu
-                      - text-[11.5px]: za pikico večji na mobile (prej 10px ali 11px)
-                      - leading-none: odstrani ves dodaten prostor nad/pod tekstom
-                  */}
-                  <span className="text-[11.5px] md:text-[11px] font-serif text-gray-500 dark:text-gray-400 leading-none mt-0.5 md:mt-0.5 opacity-90 whitespace-nowrap">
-                    Zadnje novice slovenskih medijev
-                  </span>
-                </div>
-            
-              </Link>
-
+                {/* SLOGAN: Povečan na obeh, na desktopu (md:text-[13px]) še bolj opazen */}
+                <span className="text-[11.5px] md:text-[13px] font-serif text-gray-500 dark:text-gray-400 leading-none mt-1 md:mt-1 opacity-90 whitespace-nowrap">
+                  Zadnje novice slovenskih medijev
+                </span>
+              </div>
+          
+            </Link>
 
 
             {/* SVEŽE NOVICE (DESKTOP) */}
