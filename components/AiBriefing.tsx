@@ -19,13 +19,7 @@ export default function AiBriefing({ summary, time }: Props) {
         
         {/* Naslovna vrstica */}
         <div className="flex items-center flex-wrap gap-2 mb-1.5">
-            {/* Minimalistična ikona za AI (sparkles) */}
-            <svg className="w-3.5 h-3.5 text-brand" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" />
-                <path fillRule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v5.5a1.5 1.5 0 01-3 0V7a1 1 0 00-1-1h-2a1 1 0 00-1 1v3.5a1.5 1.5 0 01-3 0V5z" clipRule="evenodd" />
-                <path d="M15.5 9a1.5 1.5 0 100-3 1.5 1.5 0 000 3zM12 15a3 3 0 100-6 3 3 0 000 6zM6 14a2 2 0 100-4 2 2 0 000 4z" />
-            </svg>
-
+            
             <span className="text-[11px] font-black uppercase tracking-widest text-brand dark:text-brand/90">
               NA KRATKO
             </span>
