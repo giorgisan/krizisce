@@ -292,7 +292,7 @@ export default function TrendingCard({ news, compact = false, rank }: Props) {
             </h4>
 
             {related.length > 0 && (
-                <div className="mt-auto lg:mt-2 pt-2 lg:pt-1 border-t border-gray-100 dark:border-gray-700/50 flex items-center gap-1 pointer-events-auto">
+                <div className="mt-auto lg:mt-2 pt-2 lg:pt-1 border-t border-gray-100 dark:border-gray-700/50 flex items-center gap-0.5 pointer-events-auto">
                     <span className="text-[10px] lg:text-[9px] text-gray-400 whitespace-nowrap">Preberi na:</span>
                     
                     {/* --- ELEGANTEN AVATAR STACK --- */}
