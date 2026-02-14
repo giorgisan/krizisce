@@ -25,9 +25,9 @@ export default function AiBriefing({ summary, time }: Props) {
 
     // Logika za slovenske izpise
     if (diffInMins < 1) return "Pravkar posodobljeno";
-    if (diffInMins === 1) return "Pred 1 minuto";
-    if (diffInMins === 2) return "Pred 2 minutama";
-    if (diffInMins < 60) return `Pred ${diffInMins} minutami`;
+    if (diffInMins === 1) return "pred 1 min";
+    if (diffInMins === 2) return "pred 2 min";
+    if (diffInMins < 60) return `pred ${diffInMins} min`;
     
     // Če je več kot ena ura, vrneš uro v formatu HH:MM
     return updated.toLocaleTimeString('sl-SI', { hour: '2-digit', minute: '2-digit' });
