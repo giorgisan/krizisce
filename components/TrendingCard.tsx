@@ -27,7 +27,7 @@ const IMAGE_WIDTHS = [320, 480, 640, 960, 1280]
 
 interface Props {
   news: NewsItem & { [key: string]: any }
-  compact?: boolean // Za sidebar prikaz
+  compact?: boolean // Za sidebar in mobile trending prikaz
   rank?: number     // Zaporedna številka
 }
 
@@ -97,7 +97,6 @@ function formatRelativeTime(
 }
 
 export default function TrendingCard({ news, compact = false, rank }: Props) {
-  // --- VAROVALKA: Če ni novice, ne renderiraj ničesar ---
   if (!news || !news.title) return null
   
   const [minuteTick, setMinuteTick] = useState(0)
@@ -135,7 +134,6 @@ export default function TrendingCard({ news, compact = false, rank }: Props) {
   const [imgKey, setImgKey] = useState<number>(0)
 
   const cardRef = useRef<HTMLAnchorElement>(null)
-  const imgRef = useRef<HTMLImageElement>(null)
 
   const currentSrc = useMemo(() => {
     if (!rawImg) return null
@@ -214,12 +212,13 @@ export default function TrendingCard({ news, compact = false, rank }: Props) {
   const relatedAll = extractRelatedItems(news)
   const related = relatedAll.filter((r) => r.link !== news.link)
 
-// ================= RENDER: COMPACT (Sidebar + Mobile Trendi) =================
+  // ================= RENDER: COMPACT (Sidebar + Mobile Trendi) =================
   if (compact) {
     return (
       <>
+      {/* SPREMEMBA: Dodan 'bg-white', 'shadow-md', 'border' in 'mb-3' za KARTIČNI VIDEZ */}
       <div 
-        className="group relative bg-transparent rounded-xl transition-colors p-3 sm:p-4 lg:p-3 flex flex-col gap-2"
+        className="group relative bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700/50 p-3 sm:p-4 flex flex-col gap-3 transition-shadow hover:shadow-md"
         title={(news as any).contentSnippet || news.title}
       >
         <div className="flex gap-4 lg:gap-3 relative z-10">
@@ -243,6 +242,7 @@ export default function TrendingCard({ news, compact = false, rank }: Props) {
              </div>
           )}
 
+          {/* SLIKA */}
           <div className="shrink-0 w-32 h-32 lg:w-24 lg:h-24 relative rounded-lg overflow-hidden bg-gray-200 dark:bg-gray-700 z-10 pointer-events-auto shadow-sm">
                <div onClick={(e) => { handleClick(e as any) }} className="absolute inset-0 cursor-pointer">
                    {currentSrc && !useFallback ? (
@@ -293,11 +293,11 @@ export default function TrendingCard({ news, compact = false, rank }: Props) {
                   {news.title}
               </h4>
 
-              {/* --- DESKTOP (MD+) PRIKAZ: AVATARJI V ISTI VRSTI Z NASLOVOM (KOT PREJ) --- */}
+              {/* DESKTOP RELATED (Tvoj originalen Avatar Stack - skrit na mobile) */}
               {related.length > 0 && (
-                  <div className="hidden md:flex mt-auto lg:mt-2 pt-2 lg:pt-1 border-t border-gray-100 dark:border-gray-700/50 items-center gap-2 lg:gap-1.5 pointer-events-auto">
+                  <div className="hidden md:flex mt-auto lg:mt-2 pt-2 lg:pt-1 border-t border-gray-100 dark:border-gray-700/50 items-center gap-1 pointer-events-auto">
                       <span className="text-[10px] lg:text-[9px] text-gray-400 whitespace-nowrap">Preberi na:</span>
-                      <div className="group/list flex -space-x-2 hover:-space-x-1 transition-all duration-300 pl-1">
+                      <div className="group/list flex -space-x-2 hover:-space-x-1 transition-all duration-300">
                           {related.map((r, i) => {
                               const logo = getSourceLogoPath(r.source)
                               return (
@@ -307,25 +307,10 @@ export default function TrendingCard({ news, compact = false, rank }: Props) {
                                      target="_blank"
                                      rel="noopener"
                                      title={`${r.source}: ${r.title}`}
-                                     className={`
-                                        relative w-6 h-6 lg:w-5 lg:h-5 rounded-full 
-                                        bg-white dark:bg-gray-700 
-                                        border border-gray-100 dark:border-gray-600 
-                                        flex items-center justify-center overflow-hidden shadow-sm cursor-pointer
-                                        transition-all duration-300 ease-out
-                                        grayscale-0 group-hover/list:grayscale hover:!grayscale-0
-                                        hover:scale-125 hover:z-20 hover:border-brand/50
-                                     `}
-                                     onClick={(e) => {
-                                        e.stopPropagation() 
-                                        logClick('open_related', { parent: news.link, url: r.link })
-                                     }}
+                                     className="relative w-6 h-6 lg:w-5 lg:h-5 rounded-full bg-white dark:bg-gray-700 border border-gray-100 dark:border-gray-600 flex items-center justify-center overflow-hidden shadow-sm transition-all duration-300 hover:scale-125 hover:z-20 grayscale-0 group-hover/list:grayscale hover:!grayscale-0"
+                                     onClick={(e) => { e.stopPropagation(); logClick('open_related', { parent: news.link, url: r.link }) }}
                                   >
-                                       {logo ? (
-                                           <Image src={logo} alt={r.source} width={20} height={20} className="w-full h-full object-cover" />
-                                       ) : (
-                                           <span className="text-[8px] font-bold text-gray-500">{r.source[0]}</span>
-                                       )}
+                                       {logo ? <Image src={logo} alt={r.source} width={20} height={20} className="w-full h-full object-cover" /> : <span className="text-[8px] font-bold text-gray-500">{r.source[0]}</span>}
                                   </a>
                               )
                           })}
@@ -335,7 +320,7 @@ export default function TrendingCard({ news, compact = false, rank }: Props) {
           </div>
         </div>
 
-        {/* --- MOBILE (MD:HIDDEN) RAZŠIRITEV: PODNASLOV IN VIRI V LOČENI VRSTICI --- */}
+        {/* --- MOBILE ONLY RAZŠIRITEV: PODNASLOV IN VIRI V SVOJEM BLOKU --- */}
         <div className="md:hidden flex flex-col gap-2 pt-1 relative z-10 pointer-events-auto">
             {/* Snippet / Podnaslov */}
             {(news as any).contentSnippet && (
@@ -346,7 +331,7 @@ export default function TrendingCard({ news, compact = false, rank }: Props) {
 
             {/* Viri (Ikone v svoji vrstici) */}
             {related.length > 0 && (
-                <div className="flex items-center gap-2 px-1 pt-1 border-t border-gray-100 dark:border-gray-800">
+                <div className="flex items-center gap-2 px-1 pt-2 border-t border-gray-100 dark:border-gray-700/50">
                     <span className="text-[10px] uppercase font-black text-gray-400 tracking-wider">Preberi na:</span>
                     <div className="group/list flex -space-x-2 hover:-space-x-1 transition-all duration-300">
                         {related.map((r, i) => {
