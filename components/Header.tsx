@@ -74,7 +74,7 @@ export default function Header({
   const router = useRouter()
 
   const isHome = router.pathname === '/'
-  // Prikazuj kategorije vedno (tudi na mobile, kot prej)
+  // Prikazuj kategorije vedno (tudi na mobile)
   const showCategories = isHome 
 
   useEffect(() => {
@@ -153,10 +153,16 @@ export default function Header({
     setTimeout(fetchWeather, 500)
   }, [])
 
-  // --- NOVE NOVICE ---
+  // --- NOVE NOVICE (EVENT LISTENER) ---
   useEffect(() => {
-    const onHasNew = (e: Event) => setHasNew(Boolean((e as CustomEvent).detail))
-    const onRefreshing = (e: Event) => setRefreshing(Boolean((e as CustomEvent).detail))
+    const onHasNew = (e: Event) => {
+        console.log('EVENT: news-has-new', (e as CustomEvent).detail); // DEBUG
+        setHasNew(Boolean((e as CustomEvent).detail))
+    }
+    const onRefreshing = (e: Event) => {
+        setRefreshing(Boolean((e as CustomEvent).detail))
+        if ((e as CustomEvent).detail) setHasNew(false); // Ko osvežujemo, skrijemo gumb
+    }
     window.addEventListener('news-has-new', onHasNew as EventListener)
     window.addEventListener('news-refreshing', onRefreshing as EventListener)
     return () => {
@@ -219,7 +225,7 @@ export default function Header({
         <div className="max-w-[1800px] mx-auto px-4 md:px-8 lg:px-16 h-16 flex items-center justify-between gap-4 relative">
           
           {/* --- 1. LEVO (MOBILE): LUPA / SEARCH --- */}
-          <div className="flex md:hidden shrink-0 z-10">
+          <div className="flex md:hidden shrink-0 z-10 w-10">
              <button 
                 onClick={() => setMobileSearchOpen(!mobileSearchOpen)}
                 className={`p-2 -ml-2 rounded-md transition-colors ${mobileSearchOpen ? 'bg-gray-100 dark:bg-gray-800 text-brand' : 'text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-800'}`}
@@ -230,25 +236,25 @@ export default function Header({
              </button>
           </div>
 
-          {/* --- 2. SREDINA (MOBILE & DESKTOP) --- */}
-          <div className="absolute left-1/2 -translate-x-1/2 md:static md:translate-x-0 md:flex md:items-center md:gap-4 md:mr-auto z-0">
-            <Link href="/" onClick={handleLogoClick} className="flex items-center gap-2 md:gap-3 group">
-                <div className="relative w-8 h-8 md:w-9 md:h-9">
-                  <Image src="/logo.png" alt="Logo" fill className="object-contain" />
+          {/* --- 2. SREDINA (MOBILE - ABSOLUTNO) & LEVO (DESKTOP) --- */}
+          <div className="absolute left-1/2 -translate-x-1/2 md:static md:translate-x-0 md:flex md:items-center md:gap-4 md:mr-auto z-0 flex flex-col items-center md:flex-row">
+            <Link href="/" onClick={handleLogoClick} className="flex flex-col md:flex-row items-center gap-1 md:gap-3 group">
+                <div className="flex items-center gap-2">
+                    <div className="relative w-7 h-7 md:w-9 md:h-9">
+                      <Image src="/logo.png" alt="Logo" fill className="object-contain" />
+                    </div>
+                    <span className="text-xl md:text-2xl font-serif font-bold tracking-tight text-gray-900 dark:text-white leading-none">
+                        Križišče
+                    </span>
                 </div>
-                <div className="flex flex-col justify-center text-center md:text-left">
-                  <span className="text-xl md:text-2xl font-serif font-bold tracking-tight text-gray-900 dark:text-white leading-none">
-                      Križišče
-                  </span>
-                  
-                  {/* SLOGAN - MOBILE & DESKTOP (ELEGANTEN, NE ITALIC) */}
-                  <span className="text-[10px] md:text-[11px] font-serif text-gray-500 dark:text-gray-400 leading-none mt-1 opacity-80 md:opacity-100">
-                      Zadnje novice slovenskih medijev
-                  </span>
-                </div>
+                
+                {/* SLOGAN - MOBILE & DESKTOP (POD NAPISOM / ZRAVEN) */}
+                <span className="text-[10px] md:text-[13px] font-serif text-gray-500 dark:text-gray-400 leading-none md:mt-1 opacity-80 md:opacity-100 whitespace-nowrap">
+                    Zadnje novice slovenskih medijev
+                </span>
             </Link>
 
-            {/* SVEŽE NOVICE (DESKTOP) - OLD STYLE */}
+            {/* SVEŽE NOVICE (DESKTOP) - ORIGINALNA KODA */}
             <AnimatePresence initial={false}>
                 {hasNew && !refreshing && isHome && (
                 <motion.button
@@ -279,10 +285,10 @@ export default function Header({
           </div>
 
           {/* --- 3. DESNO (MOBILE): HAMBURGER --- */}
-          <div className="flex md:hidden shrink-0 z-10">
+          <div className="flex md:hidden shrink-0 z-10 w-10 justify-end">
              <button 
                 onClick={() => setMobileMenuOpen(true)}
-                className="p-2 -mr-2 text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-800 rounded-md active:bg-gray-200 dark:active:bg-gray-700"
+                className="p-2 -mr-2 text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-800 rounded-md"
              >
                 <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
@@ -394,7 +400,7 @@ export default function Header({
                         <input
                             ref={searchInputRef}
                             type="search"
-                            placeholder="Išči po naslovu ali podnaslovu..."
+                            placeholder="Išči po novicah..."
                             className="w-full pl-10 pr-4 py-3 bg-gray-100 dark:bg-gray-900 border-none rounded-lg text-gray-900 dark:text-white placeholder-gray-500 focus:ring-2 focus:ring-brand"
                             value={searchVal}
                             onChange={handleSearchChange}
@@ -412,7 +418,7 @@ export default function Header({
         )}
       </AnimatePresence>
 
-      {/* --- KATEGORIJE (NAVIGACIJA) - NAZAJ ZA VSE (Desktop & Mobile) --- */}
+      {/* --- KATEGORIJE (NAVIGACIJA) - Desktop & Mobile --- */}
       {showCategories && (
         <div className="w-full bg-transparent">
           <div className="max-w-[1800px] mx-auto px-4 md:px-8 lg:px-16 flex items-center">
@@ -488,9 +494,8 @@ export default function Header({
             transition={{ type: "spring", damping: 25, stiffness: 200 }}
             className="fixed inset-0 z-[100] bg-white dark:bg-gray-950 flex flex-col overflow-hidden"
         >
-            {/* Menu Header */}
+            {/* Menu Header (Logo + "Meni") */}
             <div className="h-16 flex items-center justify-between px-4 border-b border-gray-100 dark:border-gray-800 shrink-0">
-                {/* LOGO + MENI NAPIS */}
                 <div className="flex items-center gap-3">
                     <div className="relative w-8 h-8">
                         <Image src="/logo.png" alt="Logo" fill className="object-contain" />
@@ -510,32 +515,24 @@ export default function Header({
             {/* Vsebina menija */}
             <div className="flex-1 overflow-y-auto p-6 space-y-6">
                 
-                {/* 1. ORODJA (Namesto rubrik, ki so zdaj na frontu) */}
+                {/* 1. ORODJA (Čista, brez slogana) */}
                 <div className="space-y-1">
                     <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 px-2">Orodja</p>
                     
-                    {/* VREME WIDGET (Premaknjen sem) */}
-                    {weather && (
-                        <div className="flex items-center justify-between px-4 py-3 rounded-lg bg-gray-50 dark:bg-gray-900 mb-2">
-                            <span className="text-gray-700 dark:text-gray-300 font-medium">Vreme ({weather.city})</span>
-                            <div className="flex items-center gap-2">
-                                <span className="font-bold text-gray-900 dark:text-white">{weather.temp}°C</span>
-                                <span className="text-xl">{weather.icon}</span>
-                            </div>
-                        </div>
-                    )}
-
                     <Link href="/arhiv" onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-3 px-4 py-3 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-900">
-                        <svg className="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
+                        {/* Ikona Koledar */}
+                        <svg className="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><rect x="3" y="4" width="18" height="18" rx="2" ry="2" strokeWidth={2}/><line x1="16" y1="2" x2="16" y2="6" strokeWidth={2}/><line x1="8" y1="2" x2="8" y2="6" strokeWidth={2}/><line x1="3" y1="10" x2="21" y2="10" strokeWidth={2}/></svg>
                         <span>Arhiv novic</span>
                     </Link>
+                    
                     <button onClick={() => { onOpenFilter(); setMobileMenuOpen(false); }} className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-900">
                         <svg className="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" /></svg>
                         <span>Filtriraj vire</span>
                     </button>
+                    
                     {mounted && (
                         <button onClick={() => setTheme(isDark ? 'light' : 'dark')} className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-900">
-                            <span className="text-lg">{isDark ? '🌙' : '☀️'}</span>
+                            <span className="text-lg leading-none">{isDark ? '🌙' : '☀️'}</span>
                             <span>{isDark ? 'Svetla tema' : 'Temna tema'}</span>
                         </button>
                     )}
@@ -543,22 +540,35 @@ export default function Header({
 
                 <hr className="border-gray-100 dark:border-gray-800 my-4" />
 
-                {/* 2. POVEZAVE (FOOTER LINKS) */}
-                <div className="space-y-1 pb-8">
-                    <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 px-2">Povezave</p>
-                    <div className="flex flex-col gap-1">
-                        <Link href="/projekt" onClick={() => setMobileMenuOpen(false)} className="px-4 py-2 text-sm text-gray-600 dark:text-gray-400 hover:text-brand transition-colors">
-                            O projektu
-                        </Link>
-                        <Link href="/pogoji" onClick={() => setMobileMenuOpen(false)} className="px-4 py-2 text-sm text-gray-600 dark:text-gray-400 hover:text-brand transition-colors">
-                            Pogoji uporabe
-                        </Link>
-                        <Link href="/zasebnost" onClick={() => setMobileMenuOpen(false)} className="px-4 py-2 text-sm text-gray-600 dark:text-gray-400 hover:text-brand transition-colors">
-                            Politika zasebnosti
-                        </Link>
-                        <div className="px-4 pt-4">
-                            <span className="text-xs text-gray-300 dark:text-gray-600">© 2025 Križišče</span>
+                {/* 2. KONTAKT & POVEZAVE (Kopirano iz Footerja) */}
+                <div className="space-y-4">
+                    
+                    {/* Kontakt */}
+                    <div>
+                        <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 px-2">Kontakt</p>
+                        <a href="mailto:gjkcme@gmail.com" className="block px-4 py-2 text-sm text-gray-600 dark:text-gray-400 hover:text-brand transition-colors">
+                            Pošljite nam sporočilo
+                        </a>
+                    </div>
+
+                    {/* Povezave */}
+                    <div>
+                        <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 px-2">Informacije</p>
+                        <div className="flex flex-col gap-1">
+                            <Link href="/projekt" onClick={() => setMobileMenuOpen(false)} className="px-4 py-2 text-sm text-gray-600 dark:text-gray-400 hover:text-brand transition-colors">
+                                O projektu
+                            </Link>
+                            <Link href="/pogoji" onClick={() => setMobileMenuOpen(false)} className="px-4 py-2 text-sm text-gray-600 dark:text-gray-400 hover:text-brand transition-colors">
+                                Pogoji uporabe
+                            </Link>
+                            <Link href="/zasebnost" onClick={() => setMobileMenuOpen(false)} className="px-4 py-2 text-sm text-gray-600 dark:text-gray-400 hover:text-brand transition-colors">
+                                Politika zasebnosti
+                            </Link>
                         </div>
+                    </div>
+
+                    <div className="px-4 pt-4">
+                        <span className="text-xs text-gray-300 dark:text-gray-600">© 2025 Križišče</span>
                     </div>
                 </div>
 
@@ -566,6 +576,19 @@ export default function Header({
         </motion.div>
       )}
     </AnimatePresence>
+
+    {/* --- FLOATING FILTER INDICATOR (Mobile Only) --- */}
+    {activeSource !== 'Vse' && !mobileMenuOpen && (
+        <button 
+            onClick={onOpenFilter}
+            className="md:hidden fixed bottom-6 right-6 z-40 bg-brand text-white p-3 rounded-full shadow-lg border-2 border-white dark:border-gray-900 animate-bounce"
+            title="Filter je vklopljen"
+        >
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+            </svg>
+        </button>
+    )}
     </>
   )
 }
