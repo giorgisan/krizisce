@@ -237,31 +237,79 @@ export default function Header({
              </button>
           </div>
           
-          {/* --- 2. SREDINA (MOBILE - CENTRIRANO) & LEVO (DESKTOP) --- */}
-          <div className="absolute left-1/2 -translate-x-1/2 md:static md:translate-x-0 md:flex md:items-center md:gap-4 md:mr-auto z-0 flex flex-col items-center md:items-start text-center md:text-left">
-            <Link href="/" onClick={handleLogoClick} className="flex items-center gap-3 md:gap-4 group">
-              
-              {/* LOGO */}
-              <div className="relative w-8 h-8 md:w-11 md:h-11 shrink-0 transition-transform group-hover:scale-105 duration-300">
-                <Image src="/logo.png" alt="Logo" fill className="object-contain" />
-              </div>
-          
-              {/* DESNI DEL: NASLOV + SLOGAN (V stolpcu na obeh napravah) */}
-              <div className="flex flex-col items-center md:items-start justify-center">
-                <span className="text-xl md:text-2xl font-serif font-bold tracking-tight text-gray-900 dark:text-white leading-none">
-                  Križišče
-                </span>
+{/* --- 2. SREDINA (MOBILE - CENTRIRANO) & LEVO (DESKTOP) --- */}
+          <div className="absolute left-1/2 -translate-x-1/2 md:static md:translate-x-0 md:flex md:items-center md:gap-4 md:mr-auto z-0">
+            <Link href="/" onClick={handleLogoClick} className="group">
                 
-                {/* SLOGAN 
-                    - -mt-0.5 na mobile: agresivno zmanjšanje razmaka
-                    - md:mt-1: normalen razmak na desktopu
+                {/* A) MOBILE POGLED (Prikaže se samo do md) 
+                   Struktura: 
+                   1. vrstica: Logo + Križišče (skupaj)
+                   2. vrstica: Slogan (pod njima)
                 */}
-                <span className="text-[11.5px] md:text-[13px] font-serif text-gray-500 dark:text-gray-400 leading-none -mt-0.5 md:mt-1 opacity-90 whitespace-nowrap">
-                  Zadnje novice slovenskih medijev
-                </span>
-              </div>
-          
+                <div className="flex flex-col items-center justify-center md:hidden">
+                    <div className="flex items-center gap-1.5">
+                        <div className="relative w-8 h-8 shrink-0 transition-transform group-hover:scale-105 duration-300">
+                            <Image src="/logo.png" alt="Logo" fill className="object-contain" />
+                        </div>
+                        <span className="text-xl font-serif font-bold tracking-tight text-gray-900 dark:text-white leading-none pt-0.5">
+                            Križišče
+                        </span>
+                    </div>
+                    {/* Slogan tesno spodaj (-mt-0.5) */}
+                    <span className="text-[11px] font-serif text-gray-500 dark:text-gray-400 leading-none -mt-0.5 opacity-90 whitespace-nowrap">
+                        Zadnje novice slovenskih medijev
+                    </span>
+                </div>
+
+                {/* B) DESKTOP POGLED (Prikaže se samo od md naprej) 
+                   Struktura:
+                   Levo: Logo
+                   Desno: Naslov in Slogan (v stolpcu, levo poravnano)
+                */}
+                <div className="hidden md:flex items-center gap-3">
+                    <div className="relative w-11 h-11 shrink-0 transition-transform group-hover:scale-105 duration-300">
+                        <Image src="/logo.png" alt="Logo" fill className="object-contain" />
+                    </div>
+                    <div className="flex flex-col items-start justify-center">
+                        <span className="text-2xl font-serif font-bold tracking-tight text-gray-900 dark:text-white leading-[0.9]">
+                            Križišče
+                        </span>
+                        <span className="text-[13px] font-serif text-gray-500 dark:text-gray-400 leading-none mt-1 opacity-90 whitespace-nowrap">
+                            Zadnje novice slovenskih medijev
+                        </span>
+                    </div>
+                </div>
+
             </Link>
+
+            {/* SVEŽE NOVICE (DESKTOP) - Ostane nespremenjeno */}
+            <AnimatePresence initial={false}>
+                {hasNew && !refreshing && isHome && (
+                <motion.button
+                    key="fresh-pill"
+                    initial={{ opacity: 0, scale: 0.95, y: 5 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.95, y: 5 }}
+                    onClick={refreshNow}
+                    className="hidden lg:flex items-center gap-2 px-3 py-1 
+                               bg-[#10b981]/10 dark:bg-[#10b981]/20 
+                               border border-[#10b981]/30
+                               hover:bg-[#10b981]/20 dark:hover:bg-[#10b981]/30
+                               text-[#10b981] dark:text-[#34d399]
+                               text-[10px] md:text-xs font-medium rounded-full 
+                               transition-all cursor-pointer ml-3 backdrop-blur-sm"
+                >
+                    <span className="relative flex h-2 w-2">
+                      <span className="absolute inline-flex h-full w-full rounded-full bg-[#10b981] opacity-75 animate-[ping_3s_cubic-bezier(0,0,0.2,1)_infinite]"></span>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-[#10b981]"></span>
+                    </span>
+                    <span className="flex items-center leading-none">
+                        <span className="font-bold">Na voljo so sveže novice</span>
+                        <span className="ml-1 opacity-80">— kliknite za osvežitev</span>
+                    </span>
+                </motion.button>
+                )}
+            </AnimatePresence>
 
 
             {/* SVEŽE NOVICE (DESKTOP) */}
