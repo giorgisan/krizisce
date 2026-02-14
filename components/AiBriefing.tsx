@@ -27,7 +27,7 @@ export default function AiBriefing({ summary, time }: Props) {
             </svg>
 
             <span className="text-[11px] font-black uppercase tracking-widest text-brand dark:text-brand/90">
-              AI POVZETEK
+              NA KRATKO
             </span>
             
             {/* Črtica ločilo */}
