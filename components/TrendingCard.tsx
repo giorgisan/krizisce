@@ -27,7 +27,7 @@ const IMAGE_WIDTHS = [320, 480, 640, 960, 1280]
 
 interface Props {
   news: NewsItem & { [key: string]: any }
-  compact?: boolean // Za sidebar in mobile trending prikaz
+  compact?: boolean // Za sidebar prikaz
   rank?: number     // Zaporedna številka
 }
 
@@ -219,10 +219,9 @@ export default function TrendingCard({ news, compact = false, rank }: Props) {
     return (
       <>
       <div 
-        className="group relative bg-transparent rounded-xl transition-colors p-3 sm:p-4 lg:p-3 flex flex-col gap-2 border-b border-gray-100 dark:border-gray-800 last:border-0"
+        className="group relative bg-transparent rounded-xl transition-colors p-3 sm:p-4 lg:p-3 flex flex-col gap-2"
         title={(news as any).contentSnippet || news.title}
       >
-        {/* --- 1. ZGORNJI DEL (KOT PREJ): SLIKA + NASLOV --- */}
         <div className="flex gap-4 lg:gap-3 relative z-10">
           <a 
             href={news.link}
@@ -244,7 +243,6 @@ export default function TrendingCard({ news, compact = false, rank }: Props) {
              </div>
           )}
 
-          {/* SLIKA */}
           <div className="shrink-0 w-32 h-32 lg:w-24 lg:h-24 relative rounded-lg overflow-hidden bg-gray-200 dark:bg-gray-700 z-10 pointer-events-auto shadow-sm">
                <div onClick={(e) => { handleClick(e as any) }} className="absolute inset-0 cursor-pointer">
                    {currentSrc && !useFallback ? (
@@ -283,7 +281,6 @@ export default function TrendingCard({ news, compact = false, rank }: Props) {
                </button>
           </div>
 
-          {/* NASLOV IN META */}
           <div className="flex flex-col min-w-0 flex-1 justify-center relative z-10 pointer-events-none">
               <div className="flex items-center gap-2 mb-1.5 lg:mb-1">
                   <span className="text-[11px] lg:text-[10px] uppercase font-bold tracking-wider" style={{ color: sourceColor }}>
@@ -296,11 +293,11 @@ export default function TrendingCard({ news, compact = false, rank }: Props) {
                   {news.title}
               </h4>
 
-              {/* DESKTOP RELATED (Tvoj originalen Avatar Stack - skrit na mobile) */}
+              {/* --- DESKTOP (MD+) PRIKAZ: AVATARJI V ISTI VRSTI Z NASLOVOM (KOT PREJ) --- */}
               {related.length > 0 && (
-                  <div className="hidden md:flex mt-auto lg:mt-2 pt-2 lg:pt-1 border-t border-gray-100 dark:border-gray-700/50 items-center gap-1 pointer-events-auto">
+                  <div className="hidden md:flex mt-auto lg:mt-2 pt-2 lg:pt-1 border-t border-gray-100 dark:border-gray-700/50 items-center gap-2 lg:gap-1.5 pointer-events-auto">
                       <span className="text-[10px] lg:text-[9px] text-gray-400 whitespace-nowrap">Preberi na:</span>
-                      <div className="group/list flex -space-x-2 hover:-space-x-1 transition-all duration-300">
+                      <div className="group/list flex -space-x-2 hover:-space-x-1 transition-all duration-300 pl-1">
                           {related.map((r, i) => {
                               const logo = getSourceLogoPath(r.source)
                               return (
@@ -310,10 +307,25 @@ export default function TrendingCard({ news, compact = false, rank }: Props) {
                                      target="_blank"
                                      rel="noopener"
                                      title={`${r.source}: ${r.title}`}
-                                     className="relative w-6 h-6 lg:w-5 lg:h-5 rounded-full bg-white dark:bg-gray-700 border border-gray-100 dark:border-gray-600 flex items-center justify-center overflow-hidden shadow-sm transition-all duration-300 hover:scale-125 hover:z-20 grayscale-0 group-hover/list:grayscale hover:!grayscale-0"
-                                     onClick={(e) => { e.stopPropagation(); logClick('open_related', { parent: news.link, url: r.link }) }}
+                                     className={`
+                                        relative w-6 h-6 lg:w-5 lg:h-5 rounded-full 
+                                        bg-white dark:bg-gray-700 
+                                        border border-gray-100 dark:border-gray-600 
+                                        flex items-center justify-center overflow-hidden shadow-sm cursor-pointer
+                                        transition-all duration-300 ease-out
+                                        grayscale-0 group-hover/list:grayscale hover:!grayscale-0
+                                        hover:scale-125 hover:z-20 hover:border-brand/50
+                                     `}
+                                     onClick={(e) => {
+                                        e.stopPropagation() 
+                                        logClick('open_related', { parent: news.link, url: r.link })
+                                     }}
                                   >
-                                       {logo ? <Image src={logo} alt={r.source} width={20} height={20} className="w-full h-full object-cover" /> : <span className="text-[8px] font-bold text-gray-500">{r.source[0]}</span>}
+                                       {logo ? (
+                                           <Image src={logo} alt={r.source} width={20} height={20} className="w-full h-full object-cover" />
+                                       ) : (
+                                           <span className="text-[8px] font-bold text-gray-500">{r.source[0]}</span>
+                                       )}
                                   </a>
                               )
                           })}
@@ -323,11 +335,11 @@ export default function TrendingCard({ news, compact = false, rank }: Props) {
           </div>
         </div>
 
-        {/* --- 2. MOBILE ONLY RAZŠIRITEV (Podnaslov + Viri v svojem bloku) --- */}
+        {/* --- MOBILE (MD:HIDDEN) RAZŠIRITEV: PODNASLOV IN VIRI V LOČENI VRSTICI --- */}
         <div className="md:hidden flex flex-col gap-2 pt-1 relative z-10 pointer-events-auto">
             {/* Snippet / Podnaslov */}
             {(news as any).contentSnippet && (
-                <p className="text-[13px] text-gray-600 dark:text-gray-400 line-clamp-2 px-1 leading-relaxed">
+                <p className="text-[13px] text-gray-600 dark:text-gray-400 line-clamp-2 px-1 leading-relaxed italic">
                     {(news as any).contentSnippet}
                 </p>
             )}
