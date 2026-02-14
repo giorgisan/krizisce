@@ -66,7 +66,7 @@ export default function AiBriefing({ summary, time }: Props) {
             - text-sm -> text-[13px] (malo manjše za mobile, če želiš res kompaktnost)
             - leading-snug: Manjši razmik med vrsticami (boljša berljivost na majhnem zaslonu)
         */}
-        <p className="text-[13px] sm:text-sm leading-snug text-gray-700 dark:text-gray-300 font-medium text-justify">
+        <p className="text-[13px] sm:text-sm leading-snug text-gray-700 dark:text-gray-300 font-medium text-auto">
             {summary}
         </p>
 
