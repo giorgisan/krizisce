@@ -74,7 +74,8 @@ export default function Header({
   const router = useRouter()
 
   const isHome = router.pathname === '/'
-  const showCategoriesDesktop = isHome 
+  // Prikazuj kategorije vedno (tudi na mobile, kot prej)
+  const showCategories = isHome 
 
   useEffect(() => {
     setMounted(true)
@@ -214,7 +215,7 @@ export default function Header({
         font-sans
       `}
     >
-      <div className="w-full relative z-50">
+      <div className="w-full relative z-50 border-b border-gray-100 dark:border-gray-800/60">
         <div className="max-w-[1800px] mx-auto px-4 md:px-8 lg:px-16 h-16 flex items-center justify-between gap-4 relative">
           
           {/* --- 1. LEVO (MOBILE): LUPA / SEARCH --- */}
@@ -229,7 +230,7 @@ export default function Header({
              </button>
           </div>
 
-          {/* --- 2. SREDINA (MOBILE ABSOLUTNO CENTRIRANO) & LEVO (DESKTOP) --- */}
+          {/* --- 2. SREDINA (MOBILE & DESKTOP) --- */}
           <div className="absolute left-1/2 -translate-x-1/2 md:static md:translate-x-0 md:flex md:items-center md:gap-4 md:mr-auto z-0">
             <Link href="/" onClick={handleLogoClick} className="flex items-center gap-2 md:gap-3 group">
                 <div className="relative w-8 h-8 md:w-9 md:h-9">
@@ -240,48 +241,59 @@ export default function Header({
                       Križišče
                   </span>
                   
-                  {/* SLOGAN - SAMO DESKTOP */}
-                  <span className="hidden md:block text-[11px] font-serif italic text-gray-500 dark:text-gray-400 leading-none mt-1">
+                  {/* SLOGAN - MOBILE & DESKTOP (ELEGANTEN, NE ITALIC) */}
+                  <span className="text-[10px] md:text-[11px] font-serif text-gray-500 dark:text-gray-400 leading-none mt-1 opacity-80 md:opacity-100">
                       Zadnje novice slovenskih medijev
                   </span>
                 </div>
             </Link>
 
-            {/* SVEŽE NOVICE (DESKTOP) */}
-            <AnimatePresence>
+            {/* SVEŽE NOVICE (DESKTOP) - OLD STYLE */}
+            <AnimatePresence initial={false}>
                 {hasNew && !refreshing && isHome && (
                 <motion.button
-                    initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }}
+                    key="fresh-pill"
+                    initial={{ opacity: 0, scale: 0.95, y: 5 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.95, y: 5 }}
                     onClick={refreshNow}
-                    className="hidden lg:flex items-center gap-2 px-3 py-1 bg-green-500/10 border border-green-500/20 text-green-600 dark:text-green-400 text-[10px] font-bold uppercase tracking-wider rounded-full cursor-pointer ml-4"
+                    className="hidden lg:flex items-center gap-2 px-3 py-1 
+                               bg-[#10b981]/10 dark:bg-[#10b981]/20 
+                               border border-[#10b981]/30
+                               hover:bg-[#10b981]/20 dark:hover:bg-[#10b981]/30
+                               text-[#10b981] dark:text-[#34d399]
+                               text-[10px] md:text-xs font-medium rounded-full 
+                               transition-all cursor-pointer ml-3 backdrop-blur-sm"
                 >
-                    <span className="relative flex h-1.5 w-1.5">
-                        <span className="absolute inline-flex h-full w-full rounded-full bg-green-500 opacity-75 animate-ping"></span>
-                        <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-green-500"></span>
+                    <span className="relative flex h-2 w-2">
+                      <span className="absolute inline-flex h-full w-full rounded-full bg-[#10b981] opacity-75 animate-[ping_3s_cubic-bezier(0,0,0.2,1)_infinite]"></span>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-[#10b981]"></span>
                     </span>
-                    <span>Sveže</span>
+                    <span className="flex items-center leading-none">
+                        <span className="font-bold">Na voljo so sveže novice</span>
+                        <span className="ml-1 opacity-80">— kliknite za osvežitev</span>
+                    </span>
                 </motion.button>
                 )}
             </AnimatePresence>
           </div>
 
-          {/* --- 3. DESNO (MOBILE): HAMBURGER (VEČJI) --- */}
+          {/* --- 3. DESNO (MOBILE): HAMBURGER --- */}
           <div className="flex md:hidden shrink-0 z-10">
              <button 
                 onClick={() => setMobileMenuOpen(true)}
                 className="p-2 -mr-2 text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-800 rounded-md active:bg-gray-200 dark:active:bg-gray-700"
              >
-                {/* Malo večja ikona za hamburger (w-7 h-7) */}
                 <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
                 </svg>
              </button>
           </div>
 
-          {/* --- 4. DESNO (DESKTOP): CLASSIC LAYOUT --- */}
-          <div className="hidden md:flex items-center gap-4 shrink-0">
+          {/* --- 4. DESNO (DESKTOP): CLASSIC LAYOUT (VREME, SEARCH, IKONE) --- */}
+          <div className="hidden md:flex items-center gap-4 shrink-0 ml-auto">
             
-            {/* SEARCH INPUT FIELD (OLD STYLE) */}
+            {/* SEARCH INPUT (OLD STYLE) */}
             {isHome && (
               <div className="w-64 lg:w-80">
                 <form onSubmit={handleSubmit} className="relative group">
@@ -292,10 +304,10 @@ export default function Header({
                   </div>
                   <input
                     type="search"
-                    placeholder="Išči po novicah ..."
+                    placeholder="Išči po naslovu ali podnaslovu ..."
                     className="block w-full pl-10 pr-3 py-1.5 bg-gray-100 dark:bg-gray-800 border border-transparent 
                               focus:bg-white dark:focus:bg-black focus:border-brand/30 focus:ring-2 focus:ring-brand/10
-                              rounded-full text-sm transition-all placeholder-gray-500 text-gray-900 dark:text-white"
+                              rounded-md text-sm transition-all placeholder-gray-500 text-gray-900 dark:text-white"
                     value={searchVal}
                     onChange={handleSearchChange}
                   />
@@ -382,7 +394,7 @@ export default function Header({
                         <input
                             ref={searchInputRef}
                             type="search"
-                            placeholder="Išči po novicah..."
+                            placeholder="Išči po naslovu ali podnaslovu..."
                             className="w-full pl-10 pr-4 py-3 bg-gray-100 dark:bg-gray-900 border-none rounded-lg text-gray-900 dark:text-white placeholder-gray-500 focus:ring-2 focus:ring-brand"
                             value={searchVal}
                             onChange={handleSearchChange}
@@ -400,9 +412,9 @@ export default function Header({
         )}
       </AnimatePresence>
 
-      {/* --- DESKTOP CATEGORIES --- */}
-      {showCategoriesDesktop && (
-        <div className="w-full bg-transparent hidden md:block">
+      {/* --- KATEGORIJE (NAVIGACIJA) - NAZAJ ZA VSE (Desktop & Mobile) --- */}
+      {showCategories && (
+        <div className="w-full bg-transparent">
           <div className="max-w-[1800px] mx-auto px-4 md:px-8 lg:px-16 flex items-center">
             
             <nav className="flex items-center gap-6 overflow-x-auto no-scrollbar flex-1 relative">
@@ -478,7 +490,13 @@ export default function Header({
         >
             {/* Menu Header */}
             <div className="h-16 flex items-center justify-between px-4 border-b border-gray-100 dark:border-gray-800 shrink-0">
-                <span className="text-xl font-serif font-bold text-gray-900 dark:text-white">Meni</span>
+                {/* LOGO + MENI NAPIS */}
+                <div className="flex items-center gap-3">
+                    <div className="relative w-8 h-8">
+                        <Image src="/logo.png" alt="Logo" fill className="object-contain" />
+                    </div>
+                    <span className="text-xl font-serif font-bold text-gray-900 dark:text-white">Meni</span>
+                </div>
                 <button 
                     onClick={() => setMobileMenuOpen(false)}
                     className="p-2 -mr-2 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-900 rounded-full"
@@ -489,63 +507,34 @@ export default function Header({
                 </button>
             </div>
 
-            {/* Menu Content */}
+            {/* Vsebina menija */}
             <div className="flex-1 overflow-y-auto p-6 space-y-6">
                 
-                {/* 1. BRANDING & SLOGAN (V meniju na vrhu) */}
-                <div className="text-center mb-6">
-                    <h2 className="text-3xl font-serif font-bold text-gray-900 dark:text-white mb-1">Križišče</h2>
-                    <p className="text-sm font-serif italic text-gray-500 dark:text-gray-400">
-                        Zadnje novice slovenskih medijev
-                    </p>
-                </div>
-
-                {/* 2. VREME (Če obstaja) */}
-                {weather && (
-                    <div className="flex items-center justify-center gap-4 bg-gray-50 dark:bg-gray-900 py-3 px-6 rounded-full mx-auto w-max">
-                        <span className="text-2xl">{weather.icon}</span>
-                        <div className="flex flex-col leading-none text-left">
-                            <span className="font-bold text-gray-900 dark:text-white text-sm">{weather.city}</span>
-                            <span className="text-gray-500 text-xs">{weather.temp}°C</span>
-                        </div>
-                    </div>
-                )}
-
-                {/* 3. KATEGORIJE (Kompaktno) */}
-                <div className="space-y-0.5">
-                    <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 px-2 mt-4">Rubrike</p>
-                    <button
-                        onClick={() => { onSelectCategory('vse'); setMobileMenuOpen(false); }}
-                        className={`w-full text-left px-4 py-2 rounded-lg font-sans text-base transition-colors ${activeCategory === 'vse' ? 'bg-brand/10 text-brand font-bold' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-900'}`}
-                    >
-                        Vse novice
-                    </button>
-                    {CATEGORIES.map(cat => (
-                        <button
-                            key={cat.id}
-                            onClick={() => { onSelectCategory(cat.id); setMobileMenuOpen(false); }}
-                            className={`w-full text-left px-4 py-2 rounded-lg font-sans text-base transition-colors ${activeCategory === cat.id ? 'bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white font-bold' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-900'}`}
-                        >
-                            {cat.label}
-                        </button>
-                    ))}
-                </div>
-
-                <hr className="border-gray-100 dark:border-gray-800 my-4" />
-
-                {/* 4. ORODJA & POVEZAVE */}
+                {/* 1. ORODJA (Namesto rubrik, ki so zdaj na frontu) */}
                 <div className="space-y-1">
                     <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 px-2">Orodja</p>
-                    <Link href="/arhiv" onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-3 px-4 py-2.5 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-900">
+                    
+                    {/* VREME WIDGET (Premaknjen sem) */}
+                    {weather && (
+                        <div className="flex items-center justify-between px-4 py-3 rounded-lg bg-gray-50 dark:bg-gray-900 mb-2">
+                            <span className="text-gray-700 dark:text-gray-300 font-medium">Vreme ({weather.city})</span>
+                            <div className="flex items-center gap-2">
+                                <span className="font-bold text-gray-900 dark:text-white">{weather.temp}°C</span>
+                                <span className="text-xl">{weather.icon}</span>
+                            </div>
+                        </div>
+                    )}
+
+                    <Link href="/arhiv" onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-3 px-4 py-3 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-900">
                         <svg className="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
                         <span>Arhiv novic</span>
                     </Link>
-                    <button onClick={() => { onOpenFilter(); setMobileMenuOpen(false); }} className="w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-900">
+                    <button onClick={() => { onOpenFilter(); setMobileMenuOpen(false); }} className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-900">
                         <svg className="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" /></svg>
                         <span>Filtriraj vire</span>
                     </button>
                     {mounted && (
-                        <button onClick={() => setTheme(isDark ? 'light' : 'dark')} className="w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-900">
+                        <button onClick={() => setTheme(isDark ? 'light' : 'dark')} className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-900">
                             <span className="text-lg">{isDark ? '🌙' : '☀️'}</span>
                             <span>{isDark ? 'Svetla tema' : 'Temna tema'}</span>
                         </button>
@@ -554,7 +543,7 @@ export default function Header({
 
                 <hr className="border-gray-100 dark:border-gray-800 my-4" />
 
-                {/* 5. POVEZAVE (FOOTER LINKS) */}
+                {/* 2. POVEZAVE (FOOTER LINKS) */}
                 <div className="space-y-1 pb-8">
                     <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 px-2">Povezave</p>
                     <div className="flex flex-col gap-1">
