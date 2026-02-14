@@ -96,7 +96,7 @@ export default function Home({ initialNews, initialTrendingWords, initialTrendin
   const [itemsTrending, setItemsTrending] = useState<NewsItem[]>(initialTrendingNews || [])
   const [trendingLoaded, setTrendingLoaded] = useState(!!initialTrendingNews?.length)
   
-  // Stanje za AI povzetek (da ga lahko posodobimo ob kliku na banner)
+  // Stanja za AI povzetek (uporabljamo za dinamično posodabljanje)
   const [currentAiSummary, setCurrentAiSummary] = useState(aiSummary)
   const [currentAiTime, setCurrentAiTime] = useState(aiTime)
       
@@ -251,14 +251,17 @@ export default function Home({ initialNews, initialTrendingWords, initialTrendin
         // 2. Osveži Trending (Grupe)
         loadNews('trending', [], 'vse', null, null, true).then(tr => { if (tr) setItemsTrending(tr) })
 
-        // 3. Osveži AI povzetek in AI čas (da ne bo povzetek star, ko so novice nove)
-        fetch('/api/news?variant=trending&_t=' + Date.now())
+        // 3. Osveži AI povzetek in AI čas
+        // Ker api/news s forceFresh ponavadi osveži bazo, tukaj potegnemo zadnje stanje trendov
+        fetch('/api/news?variant=trending&forceFresh=1')
           .then(res => res.json())
           .then(data => {
-            // Predpostavljamo, da api/news vrne trendovske podatke (aiSummary, aiTime) v trendovskem variantu
-            // Prilagodi pot, če imaš poseben API za te podatke
-            if (data && data.length > 0) {
-                // Če so podatki na voljo, posodobi state
+            // Predpostavljamo, da api/news vrne trendovske podatke. 
+            // Če tvoj API ne vrača summary-ja v tem klicu, ga boš moral potegniti iz baze.
+            // Zaenkrat kličemo to, da zagotovimo vsaj klic na backend.
+            if (data && data.aiSummary) {
+                setCurrentAiSummary(data.aiSummary);
+                setCurrentAiTime(data.aiTime);
             }
           })
           .catch(() => {})
@@ -344,6 +347,7 @@ export default function Home({ initialNews, initialTrendingWords, initialTrendin
     setSearchQuery(e.target.value)
   }
 
+  // --- LOGIKA ZA PRIKAZ (VEDNO, razen pri iskanju) ---
   const showHeaderElements = !searchQuery && !tagQuery;
 
   return (
@@ -378,7 +382,7 @@ export default function Home({ initialNews, initialTrendingWords, initialTrendin
             {/* --- AI BRIEFING & TRENDING --- */}
             {showHeaderElements && (
                <>
-                 {/* Uporabljamo stanja currentAiSummary in currentAiTime namesto propov */}
+                 {/* Uporabljamo stanja currentAiSummary in currentAiTime namesto propov za dinamično osveževanje */}
                  <AiBriefing summary={currentAiSummary} time={currentAiTime} />
                  
                  <div className="mt-1 mb-1 min-w-0 w-full overflow-hidden">
@@ -561,7 +565,7 @@ export const getServerSideProps: GetServerSideProps = async ({ res }) => {
           aiSummary = aiData.summary
       }
       if (aiData.updated_at) {
-          // POMEMBNO: Ne formatiraj ure tukaj, pošlji surov ISO timestamp za relativni čas
+          // POMEMBNO: Pošljemo surov ISO string, da ga komponenta AiBriefing lahko uporabi za izračun "Pred X minutami"
           aiTime = aiData.updated_at;
       }
   } 
