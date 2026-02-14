@@ -584,8 +584,9 @@ export default function Header({
                             </div>
                         </div>
 
-                        <div className="px-4 pt-6 text-center sm:text-left">
-                            <div className="flex items-center justify-center sm:justify-start gap-2 mb-2 opacity-80">
+                        {/* LEFT ALIGNED FOOTER TEXT */}
+                        <div className="px-4 pt-6 text-left">
+                            <div className="flex items-center justify-start gap-2 mb-2 opacity-80">
                                 <div className="relative w-5 h-5">
                                     <Image src="/logo.png" alt="Logo" fill className="object-contain" />
                                 </div>
