@@ -77,7 +77,7 @@ export default function TrendingBar({ words, onSelectWord, selectedWord }: Trend
           <div className="p-1 bg-brand/5 rounded-full opacity-90">
             <BroadcastIcon />
           </div>
-          <span className="text-xs font-bold text-gray-500 dark:text-gray-400 tracking-wide uppercase">Odmevno</span>
+          <span className="text-xs font-bold text-gray-500 dark:text-gray-400 tracking-wide">Odmevno</span>
       </div>
 
       <div className="flex-1 overflow-hidden relative mask-gradient-right h-[30px] flex items-center">
@@ -94,7 +94,7 @@ export default function TrendingBar({ words, onSelectWord, selectedWord }: Trend
                      <div className="opacity-80">
                         <BroadcastIcon />
                      </div>
-                    <span className="text-[11px] font-bold text-gray-500 dark:text-gray-400 tracking-wide uppercase">Odmevno</span>
+                    <span className="text-[11px] font-bold text-gray-500 dark:text-gray-400 tracking-wide">Odmevno</span>
                 </div>
 
                 {words.map((item) => {
