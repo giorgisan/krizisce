@@ -7,7 +7,7 @@ export interface Article {
   title: string;
   source: string;
   link: string;
-  publishedat: string; // Iz Supabase pride kot ISO string
+  publishedat: string; 
   contentsnippet?: string;
   imageurl?: string;
   image?: string;
@@ -19,7 +19,7 @@ export interface TrendingGroupResult {
   title: string;
   source: string;
   link: string;
-  publishedAt: number; // Za frontend mora biti timestamp (number)
+  publishedAt: number; 
   image?: string;
   contentsnippet?: string;
   storyArticles: {
@@ -34,7 +34,6 @@ export interface TrendingGroupResult {
 // 2. KONSTANTE
 export const TREND_WINDOW_HOURS = 12;
 
-// Teme, ki jih NE želimo v "Trending" (Aktualno) sekciji
 const IGNORED_TOPICS = new Set([
   'horoskop', 'astro', 'zvezde', 'znamenja', 
   'tv spored', 'vreme', 'napoved', 
@@ -42,7 +41,6 @@ const IGNORED_TOPICS = new Set([
   'loto', 'eurojackpot'
 ]);
 
-// Stopwords za Jaccard fallback
 const STOP_WORDS = new Set([
   'in', 'ali', 'da', 'pa', 'se', 'je', 'bi', 'bo', 'so', 'sta', 'pri', 'na', 'v', 'z', 's', 'k', 'h',
   'o', 'po', 'za', 'do', 'od', 'iz', 'čez', 'med', 'pod', 'nad', 'pred', 'brez', 'ki', 'ko', 'ker',
@@ -58,7 +56,6 @@ const STOP_WORDS = new Set([
 
 // --- 3. POMOŽNE FUNKCIJE ---
 
-// Varna pretvorba datuma (string -> number)
 function getTime(dateInput: string | number): number {
     if (typeof dateInput === 'number') return dateInput;
     const t = new Date(dateInput).getTime();
@@ -86,44 +83,49 @@ function jaccardSimilarity(setA: Set<string>, setB: Set<string>): number {
 // --- 4. AI CLUSTERING (Gemini 3 Flash) ---
 async function clusterNewsWithAI(articles: Article[]): Promise<Record<string, number[]> | null> {
   const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_KEY || "");
-  const model = genAI.getGenerativeModel({ model: "models/gemini-3-flash-preview" });
+  const model = genAI.getGenerativeModel({ model: "models/gemini-2.0-flash" }); // Uporabi 2.0 Flash ali 1.5 Flash, sta hitrejša/boljša
 
   const articlesList = articles.map((a, index) => {
-    const snippet = a.contentsnippet ? ` | ${a.contentsnippet.substring(0, 200).replace(/\n/g, ' ')}` : '';
-    return `${index}. [${a.source}] "${a.title}"${snippet}`;
+    // Krajši snippet, da ne zasedemo preveč tokenov, a dovolj za kontekst
+    const snippet = a.contentsnippet ? ` | ${a.contentsnippet.substring(0, 150).replace(/\n/g, ' ')}` : '';
+    return `ID:${index} [${a.source}] TITLE:"${a.title}"${snippet}`;
   }).join('\n');
 
-  // --- STROŽJI PROMPT ---
+  // --- IZBOLJŠAN, STROŽJI PROMPT ---
   const prompt = `
-    You are a strict news clustering engine.
-    Your goal is to group articles that report on the EXACT SAME SPECIFIC INCIDENT.
-
-    INPUT ARTICLES:
+    You are a strict news editor. Group articles that report on the EXACT SAME EVENT.
+    
+    INPUT:
     ${articlesList}
 
-    RULES:
-    1. A valid group = 2+ articles about the SAME SPECIFIC INCIDENT (e.g. "Specific Match Result", "Specific Accident").
-    2. DO NOT group articles just because they share a broad topic (e.g. "Olympics", "Elections").
-       - DISTINCT EVENTS MUST BE SEPARATE.
-       - Example: "Ski Jumping" and "Alpine Skiing" are DIFFERENT events. Do NOT group them.
-       - Example: "Party A Convention" and "Party B Statement" are DIFFERENT events. Do NOT group them.
-    3. SEPARATE Opinion/Commentary from News Reports.
-    4. Ignore single-source articles.
-    5. Create SHORT topic names in Slovenian.
-    6. Return ONLY raw JSON: { "Topic Name": [indices], ... }
+    STRICT RULES FOR GROUPING:
+    1. **SAME SUBJECT + SAME ACTION**: "Zelensky speaks about Putin" and "Sajovic speaks about Defense" are DIFFERENT events, even if they are at the same conference. DO NOT GROUP THEM.
+    2. **Sport**: "Tina Maze wins Gold" and "Lindsey Vonn crashes" are DIFFERENT stories, even if at the same race. Only group reports about the EXACT SAME result/athlete performance.
+    3. **Politics**: Different politicians giving different statements are DIFFERENT stories.
+    4. **Output format**: JSON only. Keys are short Slovenian topic summaries. Values are arrays of IDs.
+    5. **If in doubt, KEEP SEPARATE.** It is better to have 2 separate groups than 1 mixed group.
 
-    RESPOND WITH PURE JSON ONLY.
+    EXAMPLE OF SEPARATION:
+    - Art 1: "Sajovic: Europe must defend itself" -> Group A
+    - Art 2: "Zelensky: Putin is a threat" -> Group B
+    (Do not put them in the same group just because they mention "Security")
+
+    RESPONSE FORMAT (JSON ONLY):
+    {
+      "Zelensky o Putinu": [1, 5, 8],
+      "Sajovic o obrambi": [0],
+      "Zlato za Brazilijo": [15, 16, 17]
+    }
   `;
 
   try {
-    const result = await model.generateContent(prompt);
+    const result = await model.generateContent({
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      generationConfig: { responseMimeType: "application/json" }
+    });
+    
     const responseText = result.response.text();
-    
-    const jsonStart = responseText.indexOf('{');
-    const jsonEnd = responseText.lastIndexOf('}') + 1;
-    if (jsonStart === -1 || jsonEnd === -1) return null;
-    
-    return JSON.parse(responseText.substring(jsonStart, jsonEnd));
+    return JSON.parse(responseText);
   } catch (error) {
     console.error("❌ AI Clustering failed:", error);
     return null; 
@@ -145,7 +147,9 @@ export async function computeTrending(articles: Article[]): Promise<TrendingGrou
 
       if (groupArticles.length < 2) continue;
       const uniqueSources = new Set(groupArticles.map(a => a.source));
-      if (uniqueSources.size < 2) continue;
+      
+      // Če AI vrne grupo z samo enim virom, jo ignoriramo (razen če je res velika)
+      if (uniqueSources.size < 2 && groupArticles.length < 3) continue;
 
       // Sortiranje znotraj grupe (Slika > Datum)
       groupArticles.sort((a, b) => {
@@ -189,18 +193,21 @@ export async function computeTrending(articles: Article[]): Promise<TrendingGrou
           link: o.link,
           publishedAt: getTime(o.publishedat) 
         })),
-        score: uniqueSources.size * 10
+        score: uniqueSources.size * 10 + groupArticles.length // Malo boljši score algoritem
       });
     }
 
     return results.sort((a, b) => {
-        const countDiff = b.storyArticles.length - a.storyArticles.length;
-        if (countDiff !== 0) return countDiff;
+        // Najprej po številu različnih virov (več virov = bolj pomembna novica)
+        const sourcesA = new Set([a.source, ...a.storyArticles.map(s => s.source)]).size;
+        const sourcesB = new Set([b.source, ...b.storyArticles.map(s => s.source)]).size;
+        
+        if (sourcesB !== sourcesA) return sourcesB - sourcesA;
         return b.publishedAt - a.publishedAt;
     });
   }
 
-  // B) JACCARD FALLBACK
+  // B) JACCARD FALLBACK (Samo če AI popolnoma odpove)
   console.log("⚠️ AI failed, falling back to Jaccard...");
   const processedArticles = articles.map(article => ({
     ...article,
@@ -227,8 +234,9 @@ export async function computeTrending(articles: Article[]): Promise<TrendingGrou
     for (let j = i + 1; j < processedArticles.length; j++) {
       if (processedArticles[j].assigned) continue;
       
+      // Povečal prag podobnosti na 0.35 za Jaccard, da je manj "povezovanja vsega povprek"
       const similarity = jaccardSimilarity(processedArticles[i].wordSet, processedArticles[j].wordSet);
-      if (similarity >= 0.3) {
+      if (similarity >= 0.35) {
         currentGroup.push(processedArticles[j]);
         processedArticles[j].assigned = true;
       }
@@ -271,9 +279,5 @@ export async function computeTrending(articles: Article[]): Promise<TrendingGrou
     }
   }
 
-  return groups.sort((a, b) => {
-      const scoreDiff = b.score - a.score;
-      if (scoreDiff !== 0) return scoreDiff;
-      return b.publishedAt - a.publishedAt;
-  });
+  return groups.sort((a, b) => b.score - a.score);
 }
