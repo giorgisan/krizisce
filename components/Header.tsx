@@ -238,22 +238,25 @@ export default function Header({
           </div>
           
           {/* --- 2. SREDINA (MOBILE - CENTRIRANO) & LEVO (DESKTOP) --- */}
-          <div className="absolute left-1/2 -translate-x-1/2 md:static md:translate-x-0 md:flex md:items-center md:gap-4 md:mr-auto z-0 flex flex-col items-center md:flex-row md:items-center text-center md:text-left">
-            <Link href="/" onClick={handleLogoClick} className="flex flex-col md:flex-row items-center gap-1.5 md:gap-2.5 group">
+          <div className="absolute left-1/2 -translate-x-1/2 md:static md:translate-x-0 md:flex md:items-center md:gap-4 md:mr-auto z-0 flex flex-col items-center md:items-start text-center md:text-left">
+            <Link href="/" onClick={handleLogoClick} className="flex items-center gap-3 md:gap-4 group">
               
-              {/* ZGORNJA VRSTICA NA MOBILE (LOGO & KRIŽIŠČE) */}
-              <div className="flex items-center gap-2">
-                <div className="relative w-8 h-8 md:w-11 md:h-11 shrink-0 transition-transform group-hover:scale-105 duration-300">
-                  <Image src="/logo.png" alt="Logo" fill className="object-contain" />
-                </div>
-                <span className="text-xl md:text-2xl font-serif font-bold tracking-tight text-gray-900 dark:text-white leading-none md:leading-[0.9]">
-                  Križišče
-                </span>
+              {/* LOGO */}
+              <div className="relative w-8 h-8 md:w-11 md:h-11 shrink-0 transition-transform group-hover:scale-105 duration-300">
+                <Image src="/logo.png" alt="Logo" fill className="object-contain" />
               </div>
           
-              {/* SLOGAN (NA MOBILE SPODAJ, NA DESKTOP DESNO) */}
+              {/* DESNI DEL: NASLOV + SLOGAN (V stolpcu na obeh napravah) */}
               <div className="flex flex-col items-center md:items-start justify-center">
-                <span className="text-[11.5px] md:text-[13px] font-serif text-gray-500 dark:text-gray-400 leading-none mt-0.5 md:mt-1 opacity-90 whitespace-nowrap">
+                <span className="text-xl md:text-2xl font-serif font-bold tracking-tight text-gray-900 dark:text-white leading-none">
+                  Križišče
+                </span>
+                
+                {/* SLOGAN 
+                    - -mt-0.5 na mobile: agresivno zmanjšanje razmaka
+                    - md:mt-1: normalen razmak na desktopu
+                */}
+                <span className="text-[11.5px] md:text-[13px] font-serif text-gray-500 dark:text-gray-400 leading-none -mt-0.5 md:mt-1 opacity-90 whitespace-nowrap">
                   Zadnje novice slovenskih medijev
                 </span>
               </div>
