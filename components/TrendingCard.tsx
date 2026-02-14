@@ -208,19 +208,21 @@ export default function TrendingCard({ news, compact = false, rank }: Props) {
     }
   }
 
+  // --- DEFINICIJA SPREMENLJIVK (Popravljeno: Pred vsemi returni) ---
+  const primarySource = getPrimarySource(news)
   const relatedAll = extractRelatedItems(news)
   const related = relatedAll.filter((r) => r.link !== news.link)
 
-  // ================= RENDER: COMPACT (Sidebar + Mobile Trendi) =================
+  // ================= RENDER: COMPACT (Mobile List / Desktop Sidebar) =================
   if (compact) {
     return (
       <>
       <div 
         className={`
             group relative transition-colors flex flex-col gap-2
-            /* MOBILE STYLES (Card look) */
+            /* MOBILE STYLES (Card look - Bela, Senca, Rob) */
             bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700/50 p-3 mb-3
-            /* DESKTOP STYLES (Original list look) - Overrides Mobile */
+            /* DESKTOP STYLES (Sidebar List look - Transparent, Border Bottom) - povozi mobile */
             md:bg-transparent md:dark:bg-transparent md:rounded-none md:shadow-none md:border-0 md:border-b md:border-gray-100 md:dark:border-gray-800 md:p-3 md:mb-0 md:gap-3
         `}
         title={(news as any).contentSnippet || news.title}
@@ -298,7 +300,7 @@ export default function TrendingCard({ news, compact = false, rank }: Props) {
                   {news.title}
               </h4>
 
-              {/* MOBILE ONLY: Podnaslov (Snippet) */}
+              {/* MOBILE ONLY: Snippet (podnaslov) */}
               {(news as any).contentSnippet && (
                   <p className="md:hidden text-[12px] text-gray-500 dark:text-gray-400 line-clamp-2 leading-relaxed mt-1 italic">
                       {(news as any).contentSnippet}
@@ -346,7 +348,6 @@ export default function TrendingCard({ news, compact = false, rank }: Props) {
                                target="_blank"
                                rel="noopener"
                                title={`${r.source}: ${r.title}`}
-                               // TUKAJ: opacity-80, BREZ grayscale
                                className={`
                                   relative w-6 h-6 rounded-full 
                                   bg-white dark:bg-gray-700 
@@ -387,7 +388,7 @@ export default function TrendingCard({ news, compact = false, rank }: Props) {
     )
   }
 
-  // ================= RENDER: STANDARD =================
+  // ================= RENDER: STANDARD (Article Card style for Desktop Grid) =================
   const [eyeVisible, setEyeVisible] = useState(false)
   const [eyeHover, setEyeHover] = useState(false)
   const showEye = isTouch ? true : eyeVisible
