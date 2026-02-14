@@ -299,6 +299,7 @@ export default async function handler(
     const limit = Math.min(Math.max(limitParam || defaultLimit, 1), 300)
     const cursor = req.query.cursor ? Number(req.query.cursor) : null
 
+    // SPREMEMBA: Odstranjen image_key iz selecta
     let q = supabaseRead
       .from('news')
       .select('id, link, link_key, title, source, image, contentsnippet, published_at, publishedat, created_at, category, keywords')
