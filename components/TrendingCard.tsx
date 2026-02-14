@@ -143,6 +143,7 @@ export default function TrendingCard({ news, compact = false, rank }: TrendingCa
           )}
         </div>
 
+        {/* ✅ TUKAJ JE BIL PROBLEM - <a> tag mora biti CELOTEN */}
         
           href={news.link}
           target="_blank"
