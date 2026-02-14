@@ -27,7 +27,7 @@ export default function TrendingBar({ words, onSelectWord, selectedWord }: Trend
   // Trenutna pozicija transformacije (shranjena v refu za performance)
   const currentTranslate = useRef(0);
 
-  // Podvojimo seznam za zanko
+  // Podvojimo seznam za zanko (marquee efekt)
   const marqueeWords = hasWords 
     ? (words.length < 15 ? [...words, ...words, ...words] : [...words, ...words]) 
     : [];
@@ -58,27 +58,16 @@ export default function TrendingBar({ words, onSelectWord, selectedWord }: Trend
     
     currentTranslate.current += walk;
     
-    // Omejitev vlečenja (da ne potegnemo preveč v prazno)
+    // Omejitev vlečenja (da ne potegnemo preveč v prazno na začetku)
     if (currentTranslate.current > 0) currentTranslate.current = 0;
     
     contentRef.current.style.transform = `translate3d(${currentTranslate.current}px, 0, 0)`;
   };
 
   return (
-    // SPREMEMBA: Padding py-1 (4px) - kompromis med preveč in premalo
+    // Padding py-1 (4px) - kompromis med preveč in premalo
     <div className="flex items-center w-full overflow-hidden py-1 border-b border-gray-100 dark:border-gray-800/50 lg:border-none">
       
-      {/* LABELA */}
-      <div 
-        className="relative z-20 flex items-center gap-1.5 shrink-0 pr-2 bg-gray-50 dark:bg-gray-900 select-none cursor-default group/label"
-        title="Najbolj odmevne teme"
-      >
-        <span className="text-sm animate-fire group-hover/label:scale-110 transition-transform duration-300">🔥</span>
-        <span className="text-xs font-bold text-gray-700 dark:text-gray-300 tracking-wide">
-          Odmevno
-        </span>
-      </div>
-
       {/* MARQUEE CONTAINER */}
       <div className="flex-1 overflow-hidden relative mask-gradient-right h-[30px] flex items-center">
         {!hasWords ? (
@@ -87,6 +76,13 @@ export default function TrendingBar({ words, onSelectWord, selectedWord }: Trend
           <>
             {/* --- MOBILE VIEW (Native Scroll) --- */}
             <div className="flex md:hidden items-center gap-3 w-full h-full px-2 overflow-x-auto no-scrollbar">
+                
+                {/* LABELA JE ZDAJ DEL SCROLLA TUDI NA MOBILE (da se premakne z vsebino) */}
+                <div className="flex items-center gap-1 shrink-0 pr-2 border-r border-gray-200 dark:border-gray-700 mr-1 select-none">
+                    <span className="text-xs animate-pulse opacity-80">🔥</span>
+                    <span className="text-[11px] font-bold text-gray-500 uppercase tracking-wide">Odmevno</span>
+                </div>
+
                 {words.map((item) => {
                     const cleanWord = item.word.replace(/^#/, '');
                     const isSelected = selectedWord?.toLowerCase().replace(/^#/, '') === cleanWord.toLowerCase();
@@ -98,8 +94,7 @@ export default function TrendingBar({ words, onSelectWord, selectedWord }: Trend
                             whitespace-nowrap text-[13px] font-medium transition-colors duration-200 flex items-center shrink-0
                             ${isSelected 
                               ? 'text-brand font-bold' 
-                              : 'text-gray-600 dark:text-gray-400'
-                            }
+                              : 'text-gray-600 dark:text-gray-400'}
                           `}
                         >
                           <span className={`mr-0.5 text-xs opacity-40 ${isSelected ? 'text-brand opacity-100' : 'text-brand'}`}>#</span>
@@ -122,19 +117,21 @@ export default function TrendingBar({ words, onSelectWord, selectedWord }: Trend
                 onMouseMove={handleMouseMove}
                 onMouseEnter={() => setIsPaused(true)}
             >
-                {/* HITROST: Nastavi `speed` parameter. 
-                    0.5 = 30px/s (počasno)
-                    1.0 = 60px/s (hitro)
-                    Zaradi transformacije so vmesne vrednosti (0.3, 0.7) zdaj popolnoma gladke!
-                */}
+                {/* HITROST: 0.5 = 30px/s (počasno), 1.0 = 60px/s (hitro) */}
                 <SmoothScroller 
                     isPaused={isPaused} 
                     contentRef={contentRef} 
                     containerRef={containerRef} 
-                    speed={0.5} // IGRALNO POLJE: Poskusi 0.4 ali 0.6
+                    speed={0.5} 
                 />
 
                 <div ref={contentRef} className="flex items-center gap-4 will-change-transform">
+                    {/* LABELA JE ZDAJ DEL SCROLLA TUDI NA DESKTOPU */}
+                    <div className="flex items-center gap-1.5 shrink-0 pr-3 border-r border-gray-200 dark:border-gray-700 mr-2 select-none">
+                        <span className="text-sm animate-pulse opacity-70">🔥</span>
+                        <span className="text-xs font-bold text-gray-500 uppercase tracking-wide">Odmevno</span>
+                    </div>
+
                     {marqueeWords.map((item, index) => {
                         const cleanWord = item.word.replace(/^#/, '');
                         const isSelected = selectedWord?.toLowerCase().replace(/^#/, '') === cleanWord.toLowerCase();
@@ -171,16 +168,6 @@ export default function TrendingBar({ words, onSelectWord, selectedWord }: Trend
       </div>
 
       <style jsx>{`
-        .animate-fire {
-            display: inline-block;
-            transform-origin: bottom center;
-            animation: fireBreath 2.5s ease-in-out infinite;
-            will-change: transform, filter;
-        }
-        @keyframes fireBreath {
-            0%, 100% { transform: scale(1); filter: brightness(100%); }
-            50% { transform: scale(1.15); filter: brightness(115%); }
-        }
         .mask-gradient-right {
           mask-image: linear-gradient(to right, black 85%, transparent 100%);
           -webkit-mask-image: linear-gradient(to right, black 85%, transparent 100%);
@@ -240,8 +227,6 @@ function SmoothScroller({
                 const containerWidth = containerRef.current.clientWidth;
                 
                 // Reset logika: ko pridemo do konca vsebine (minus viewport)
-                // Ker je seznam podvojen, lahko skočimo nazaj na 0 ali polovico
-                // Enostaven reset: ko zmanjka vsebine
                 if (-position.current >= (contentWidth - containerWidth)) {
                     position.current = 0;
                 }
