@@ -593,8 +593,7 @@ export default function Header({
                                 <span className="font-serif font-bold text-gray-900 dark:text-white">Križišče</span>
                             </div>
                             <p className="text-xs leading-relaxed text-gray-500 dark:text-gray-500 mb-2">
-                                Agregator najnovejših novic slovenskih medijev.<br/>
-                                Članki so last izvornih portalov.
+                                Agregator najnovejših novic slovenskih medijev. Članki so last izvornih portalov.
                             </p>
                             <span className="text-xs text-gray-300 dark:text-gray-600">© 2025 Križišče</span>
                         </div>
