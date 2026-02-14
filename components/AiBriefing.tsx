@@ -25,28 +25,22 @@ export default function AiBriefing({ summary, time }: Props) {
     if (diffInMins < 1) return "pravkar";
     if (diffInMins === 1) return "pred 1 min";
     if (diffInMins === 2) return "pred 2 min";
-  if (diffInMins < 60) return `pred ${diffInMins} min`;
+    if (diffInMins < 60) return `pred ${diffInMins} min`;
     
     return updated.toLocaleTimeString('sl-SI', { hour: '2-digit', minute: '2-digit' });
   };
 
   return (
-    <div className="w-full mt-3 mb-1"> {/* Zmanjšan margin za kompaktnost */}
-      
-      {/* SPREMEMBE:
-          - py-1.5: Manjši vertikalni odmik (bolj kompaktno)
-          - pr-3: Desni odmik, da tekst ne gre do roba!
-      */}
-      <div className="relative pl-4 pr-3 py-1.5 border-l-2 border-brand/50 bg-gray-50/50 dark:bg-gray-800/30 rounded-r-sm">
+    <div className="w-full mt-3 mb-1">
+      <div className="relative pl-4 pr-3 py-1.5 border-l-2 border-brand/50 bg-gray-50/50 dark:bg-gray-800/20 rounded-r-sm">
         
-        {/* Naslovna vrstica - zmanjšan mb (margin bottom) */}
+        {/* Naslovna vrstica */}
         <div className="flex items-center flex-wrap gap-x-2 gap-y-0.5 mb-1">
-            
-            <span className="text-[10px] sm:text-[11px] font-black uppercase tracking-widest text-brand/80 dark:text-brand/90">
+            <span className="text-[10px] sm:text-[11px] font-black uppercase tracking-widest text-brand/70 dark:text-brand/80">
               NA KRATKO
             </span>
             
-            <span className="text-gray-300 dark:text-gray-600 text-[10px]">•</span>
+            <span className="text-gray-300 dark:text-gray-700 text-[10px]">•</span>
 
             <span className="text-[10px] sm:text-[11px] text-gray-400 dark:text-gray-500 font-medium">
               Analiza zadnjih objav
@@ -54,8 +48,8 @@ export default function AiBriefing({ summary, time }: Props) {
             
             {time && (
               <>
-                <span className="text-gray-300 dark:text-gray-600 text-[10px]">•</span>
-                <span className="text-[10px] font-mono text-gray-400 dark:text-gray-500">
+                <span className="text-gray-300 dark:text-gray-700 text-[10px]">•</span>
+                <span className="text-[10px] font-mono text-gray-400 dark:text-gray-500/80">
                   {getRelativeTime(time)}
                 </span>
               </>
@@ -63,10 +57,10 @@ export default function AiBriefing({ summary, time }: Props) {
         </div>
           
         {/* VSEBINA: 
-            - text-sm -> text-[13px] (malo manjše za mobile, če želiš res kompaktnost)
-            - leading-snug: Manjši razmik med vrsticami (boljša berljivost na majhnem zaslonu)
+            - text-gray-600 / dark:text-gray-400: Manj agresiven kontrast
+            - font-normal: Bolj eleganten, manj "težek" videz
         */}
-        <p className="text-[13px] sm:text-sm leading-snug text-gray-700 dark:text-gray-300 font-medium text-auto">
+        <p className="text-[13px] sm:text-sm leading-relaxed text-gray-600 dark:text-gray-400 font-normal text-justify">
             {summary}
         </p>
 
