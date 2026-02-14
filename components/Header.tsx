@@ -503,7 +503,6 @@ export default function Header({
                 animate={{ x: 0 }}
                 exit={{ x: '100%' }}
                 transition={{ type: "spring", damping: 30, stiffness: 300 }}
-                /* SWIPE TO CLOSE LOGIKA */
                 drag="x"
                 dragConstraints={{ left: 0, right: 0 }}
                 dragElastic={{ left: 0, right: 0.5 }}
@@ -512,9 +511,8 @@ export default function Header({
                         setMobileMenuOpen(false);
                     }
                 }}
-                /* --------------------- */
-                // TUKAJ spreminjaš prosojnost (npr. bg-white/80)
-                className="fixed top-0 right-0 bottom-0 z-[100] w-[85%] max-w-[320px] bg-white/70 dark:bg-gray-950/80 backdrop-blur-xl flex flex-col overflow-hidden shadow-2xl border-l border-gray-200/50 dark:border-gray-800/50 touch-pan-y"
+                /* TUKAJ: bg-white/80 (80% opacity) in backdrop-blur za prosojnost */
+                className="fixed top-0 right-0 bottom-0 z-[100] w-[85%] max-w-[320px] bg-white/80 dark:bg-gray-950/70 backdrop-blur-xl flex flex-col overflow-hidden shadow-2xl border-l border-gray-200/50 dark:border-gray-800/50 touch-pan-y"
             >
                 {/* Menu Header */}
                 <div className="h-16 flex items-center justify-between px-4 border-b border-gray-100 dark:border-gray-800/50 shrink-0">
@@ -540,17 +538,6 @@ export default function Header({
                     <div className="space-y-1">
                         <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 pl-1 text-left">Orodja</p>
                         
-                        {/* NOVO: Gumb za ponastavitev (UX predlog) */}
-                        <button 
-                            onClick={() => { onReset(); setMobileMenuOpen(false); }}
-                            className="w-full flex items-center gap-3 px-2 py-3 rounded-lg text-brand hover:bg-brand/5 transition-colors"
-                        >
-                            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-                            </svg>
-                            <span className="font-bold">Domov / Osveži</span>
-                        </button>
-
                         <Link href="/arhiv" onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-3 px-2 py-3 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100/50 dark:hover:bg-gray-900/50">
                             <svg className="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                                 <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
@@ -600,7 +587,7 @@ export default function Header({
                             </div>
                         </div>
 
-                        {/* PORAVNAVA LEVO */}
+                        {/* BRANDING - PORAVNAVA LEVO */}
                         <div className="px-2 pt-6 text-left">
                             <div className="flex items-center justify-start gap-2 mb-2 opacity-80">
                                 <div className="relative w-5 h-5">
