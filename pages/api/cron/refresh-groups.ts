@@ -29,7 +29,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         .gt('publishedat', cutoff)
         .neq('category', 'oglas')
         .order('publishedat', { ascending: false })
-        .limit(500) // Kompromis med 300 in 800
+        .limit(400) // Kompromis med 300 in 800
 
     if (error) throw error
 
