@@ -1,3 +1,4 @@
+/* pages/api/news.ts */
 import type { NextApiRequest, NextApiResponse } from 'next'
 import { createClient } from '@supabase/supabase-js'
 import fetchRSSFeeds from '@/lib/fetchRSSFeeds'
@@ -140,7 +141,6 @@ function feedItemToDbRow(item: FeedNewsItem) {
     source,
     image: item.image?.trim() || null,
     contentsnippet: snippet,
-    // summary: snippet,  <--- ODSTRANJENO! (Podatek je isti kot contentsnippet)
     published_at: ts.iso,
     publishedat: ts.ms,
     category: category, 
@@ -183,7 +183,6 @@ type Row = {
   source: string
   image: string | null
   contentsnippet: string | null
-  // summary: string | null <-- ODSTRANJENO!
   published_at: string | null
   publishedat: number | null
   created_at: string | null
@@ -204,7 +203,6 @@ function rowToItem(r: Row): FeedNewsItem {
     link: r.link || '',
     source: r.source,
     image: r.image || null,
-    // Vrnemo contentsnippet kot contentSnippet (standardno polje)
     contentSnippet: r.contentsnippet?.trim() || null,
     publishedAt: ms,
     isoDate: r.published_at || null,
@@ -218,11 +216,12 @@ function rowToItem(r: Row): FeedNewsItem {
 /* -------------------------------------------------------------------------- */
 type PagedOk = { items: FeedNewsItem[]; nextCursor: number | null }
 type ListOk = FeedNewsItem[]
+type TrendsOk = { items: any[]; aiSummary: string | null; aiTime: string | null } // NOVO: Tip za trends odgovor
 type Err = { error: string }
 
 export default async function handler(
   req: NextApiRequest,
-  res: NextApiResponse<PagedOk | ListOk | Err | { message: string } | { success: boolean; message: string }>,
+  res: NextApiResponse<PagedOk | ListOk | TrendsOk | Err | { message: string } | { success: boolean; message: string }>,
 ) {
   try {
     const paged = req.query.paged === '1'
@@ -233,18 +232,36 @@ export default async function handler(
     const searchQuery = (req.query.q as string) || null 
     const tagQuery = (req.query.tag as string) || null 
 
-    // --- 1. TRENDING (BRANJE IZ CACHE-A) ---
+    // --- 1. TRENDING (BRANJE IZ CACHE-A + AI POVZETEK) ---
+    // SPREMENJENO: Zdaj vrača objekt z items, aiSummary in aiTime
     if (variant === 'trending') {
       try {
-        const { data } = await supabaseRead
+        const groupsPromise = supabaseRead
             .from('trending_groups_cache')
             .select('data')
             .order('updated_at', { ascending: false })
             .limit(1)
             .single()
+
+        const aiPromise = supabaseRead
+            .from('trending_ai')
+            .select('summary, updated_at')
+            .order('updated_at', { ascending: false })
+            .limit(1)
+            .single()
+
+        const [groupsRes, aiRes] = await Promise.all([groupsPromise, aiPromise])
             
+        const items = groupsRes.data?.data || []
+        const aiSummary = aiRes.data?.summary || null
+        const aiTime = aiRes.data?.updated_at || null
+
         res.setHeader('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=30')
-        return res.status(200).json(data?.data || [])
+        return res.status(200).json({
+            items: items,
+            aiSummary: aiSummary,
+            aiTime: aiTime
+        })
       } catch (err: any) {
         return res.status(500).json({ error: err?.message || 'Trending error' })
       }
@@ -282,19 +299,16 @@ export default async function handler(
     const limit = Math.min(Math.max(limitParam || defaultLimit, 1), 300)
     const cursor = req.query.cursor ? Number(req.query.cursor) : null
 
-    // Glavni query - ODSTRANJEN summary iz SELECT
     let q = supabaseRead
       .from('news')
       .select('id, link, link_key, title, source, image, contentsnippet, published_at, publishedat, created_at, category, keywords')
       .gt('publishedat', 0)
       .neq('category', 'oglas') 
       
-    // SORTIRANJE:
     q = q
       .order('publishedat', { ascending: false })
       .order('id', { ascending: false })
 
-    // Filtri
     if (sourceParam && sourceParam !== 'Vse') {
       const sources = sourceParam.split(',').map(s => s.trim()).filter(Boolean)
       if (sources.length > 0) {
@@ -302,7 +316,6 @@ export default async function handler(
       }
     }
 
-    // Datumsko filtriranje
     const dateFrom = req.query.from ? Number(req.query.from) : null
     const dateTo = req.query.to ? Number(req.query.to) : null
 
@@ -310,7 +323,6 @@ export default async function handler(
         q = q.gte('publishedat', dateFrom).lt('publishedat', dateTo)
     } 
     
-    // Kursor (Paginacija)
     if (cursor && cursor > 0) {
         q = q.lt('publishedat', cursor)
     }
@@ -326,20 +338,17 @@ export default async function handler(
     // --- 5. LOGIKA ISKANJA ---
     const isSearching = (tagQuery && tagQuery.trim().length > 0) || (searchQuery && searchQuery.trim().length > 0);
 
-    // A) HITRO ISKANJE PO TAGU (Klik na trending tag)
     if (tagQuery && tagQuery.trim().length > 0) {
         const rawTag = tagQuery.trim().replace('#', '');
         const stems = generateKeywords(rawTag);
         
         if (stems.length > 0) {
-            // Ker imamo zdaj trigram indeks na title, lahko uporabimo 'ilike' z % brez strahu.
             q = q.or(`keywords.cs.{${stems.join(',')}},title.ilike.%${rawTag}%`);
         } else {
             q = q.ilike('title', `%${rawTag}%`);
         }
     }
     
-    // B) SPLOŠNO ISKANJE (Header)
     if (searchQuery && searchQuery.trim().length > 0) {
         const terms = searchQuery.trim().split(/\s+/).filter(t => t.length > 1);
 
@@ -356,13 +365,9 @@ export default async function handler(
         }
     }
 
-    // -----------------------------------------------------------------------
-    // OPTIMIZACIJA: "Over-fetching"
-    // -----------------------------------------------------------------------
     const bufferSize = 20;
     q = q.limit(limit + bufferSize)
 
-    // --- 6. IZVEDBA POIZVEDBE ---
     const { data, error } = await q
     
     if (error) {
@@ -377,7 +382,6 @@ export default async function handler(
     const items = dedupedItems.slice(0, limit);
     const nextCursor = items.length === limit ? items[items.length - 1].publishedAt : null
 
-    // --- 7. CACHE CONTROL ---
     if (isSearching) {
         res.setHeader('Cache-Control', 'no-store, max-age=0');
     } else {
