@@ -1,3 +1,4 @@
+/* components/Header.tsx */
 'use client'
 
 import React, { useState, useEffect, useRef } from 'react'
@@ -249,15 +250,12 @@ export default function Header({
                 </div>
                 
                 {/* --- SLOGAN --- */}
-                {/* Mobile: block (nova vrstica), text-[11px] (povečano za pikico) */}
-                {/* Desktop: večji font, serif, eleganten, skrit na mobile če želiš ali pa viden */}
                 <span className="block md:inline text-[11px] md:text-sm font-serif text-gray-500 dark:text-gray-400 leading-none mt-0.5 md:mt-1 opacity-90 whitespace-nowrap">
-                    {/* MOBILE SLOGAN FONT SIZE: text-[11px] */}
                     Zadnje novice slovenskih medijev
                 </span>
             </Link>
 
-            {/* SVEŽE NOVICE (DESKTOP) - ORIGINALNA KODA */}
+            {/* SVEŽE NOVICE (DESKTOP) */}
             <AnimatePresence initial={false}>
                 {hasNew && !refreshing && isHome && (
                 <motion.button
@@ -299,10 +297,10 @@ export default function Header({
              </button>
           </div>
 
-          {/* --- 4. DESNO (DESKTOP): CLASSIC LAYOUT (VREME, SEARCH, IKONE) --- */}
+          {/* --- 4. DESNO (DESKTOP): CLASSIC LAYOUT --- */}
           <div className="hidden md:flex items-center gap-4 shrink-0 ml-auto">
             
-            {/* SEARCH INPUT (OLD STYLE) */}
+            {/* SEARCH INPUT */}
             {isHome && (
               <div className="w-64 lg:w-80">
                 <form onSubmit={handleSubmit} className="relative group">
@@ -421,7 +419,7 @@ export default function Header({
         )}
       </AnimatePresence>
 
-      {/* --- KATEGORIJE (NAVIGACIJA) - Desktop & Mobile --- */}
+      {/* --- KATEGORIJE (NAVIGACIJA) --- */}
       {showCategories && (
         <div className="w-full bg-transparent">
           <div className="max-w-[1800px] mx-auto px-4 md:px-8 lg:px-16 flex items-center">
@@ -487,112 +485,123 @@ export default function Header({
       )}
     </header>
 
-    {/* --- MOBILE FULLSCREEN MENU --- */}
+    {/* --- MOBILE FULLSCREEN MENU (SIDE DRAWER) --- */}
     <AnimatePresence>
       {mobileMenuOpen && (
-        <motion.div
-            initial={{ x: '100%' }}
-            animate={{ x: 0 }}
-            exit={{ x: '100%' }}
-            transition={{ type: "spring", damping: 25, stiffness: 200 }}
-            className="fixed inset-0 z-[100] bg-white dark:bg-gray-950 flex flex-col overflow-hidden"
-        >
-            {/* Menu Header (Logo + "Meni") */}
-            <div className="h-16 flex items-center justify-between px-4 border-b border-gray-100 dark:border-gray-800 shrink-0">
-                <div className="flex items-center gap-3">
-                    <div className="relative w-8 h-8">
-                        <Image src="/logo.png" alt="Logo" fill className="object-contain" />
+        <>
+            {/* Backdrop - Klik zapre meni */}
+            <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={() => setMobileMenuOpen(false)}
+                className="fixed inset-0 z-[90] bg-black/20 dark:bg-black/50 backdrop-blur-sm"
+            />
+            {/* Drawer (85% Width + Glass Effect) */}
+            <motion.div
+                initial={{ x: '100%' }}
+                animate={{ x: 0 }}
+                exit={{ x: '100%' }}
+                transition={{ type: "spring", damping: 25, stiffness: 200 }}
+                className="fixed top-0 right-0 bottom-0 z-[100] w-[85%] max-w-[320px] bg-white/90 dark:bg-gray-950/90 backdrop-blur-xl flex flex-col overflow-hidden shadow-2xl border-l border-gray-200/50 dark:border-gray-800/50"
+            >
+                {/* Menu Header (Logo + "Meni") */}
+                <div className="h-16 flex items-center justify-between px-4 border-b border-gray-100 dark:border-gray-800/50 shrink-0">
+                    <div className="flex items-center gap-3">
+                        <div className="relative w-8 h-8">
+                            <Image src="/logo.png" alt="Logo" fill className="object-contain" />
+                        </div>
+                        <span className="text-xl font-serif font-bold text-gray-900 dark:text-white">Meni</span>
                     </div>
-                    <span className="text-xl font-serif font-bold text-gray-900 dark:text-white">Meni</span>
-                </div>
-                <button 
-                    onClick={() => setMobileMenuOpen(false)}
-                    className="p-2 -mr-2 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-900 rounded-full"
-                >
-                    <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                </button>
-            </div>
-
-            {/* Vsebina menija */}
-            <div className="flex-1 overflow-y-auto p-6 space-y-6">
-                
-                {/* 1. ORODJA (Čista, brez slogana) */}
-                <div className="space-y-1">
-                    <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 px-2">Orodja</p>
-                    
-                    <Link href="/arhiv" onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-3 px-4 py-3 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-900">
-                        {/* Ikona Koledar (Ista kot Desktop Arhiv) */}
-                        <svg className="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                            <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
-                            <line x1="16" y1="2" x2="16" y2="6" />
-                            <line x1="8" y1="2" x2="8" y2="6" />
-                            <line x1="3" y1="10" x2="21" y2="10" />
-                            <path d="M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01M16 18h.01" strokeLinecap="round" />
+                    <button 
+                        onClick={() => setMobileMenuOpen(false)}
+                        className="p-2 -mr-2 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-900/50 rounded-full"
+                    >
+                        <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                         </svg>
-                        <span>Arhiv novic</span>
-                    </Link>
-                    
-                    <button onClick={() => { onOpenFilter(); setMobileMenuOpen(false); }} className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-900">
-                        <svg className="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" /></svg>
-                        <span>Filtriraj vire</span>
                     </button>
+                </div>
+
+                {/* Vsebina menija */}
+                <div className="flex-1 overflow-y-auto p-6 space-y-6">
                     
-                    {mounted && (
-                        <button onClick={() => setTheme(isDark ? 'light' : 'dark')} className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-900">
-                            <span className="text-lg leading-none">{isDark ? '🌙' : '☀️'}</span>
-                            <span>{isDark ? 'Svetla tema' : 'Temna tema'}</span>
+                    {/* 1. ORODJA (Čista, brez slogana) */}
+                    <div className="space-y-1">
+                        <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 px-2">Orodja</p>
+                        
+                        <Link href="/arhiv" onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-3 px-4 py-3 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100/50 dark:hover:bg-gray-900/50">
+                            {/* Ikona Koledar (Ista kot Desktop Arhiv) */}
+                            <svg className="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                                <line x1="16" y1="2" x2="16" y2="6" />
+                                <line x1="8" y1="2" x2="8" y2="6" />
+                                <line x1="3" y1="10" x2="21" y2="10" />
+                                <path d="M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01M16 18h.01" strokeLinecap="round" />
+                            </svg>
+                            <span>Arhiv novic</span>
+                        </Link>
+                        
+                        <button onClick={() => { onOpenFilter(); setMobileMenuOpen(false); }} className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100/50 dark:hover:bg-gray-900/50">
+                            <svg className="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" /></svg>
+                            <span>Filtriraj vire</span>
                         </button>
-                    )}
-                </div>
-
-                <hr className="border-gray-100 dark:border-gray-800 my-4" />
-
-                {/* 2. POVEZAVE + KONTAKT (Kopirano iz Footerja) */}
-                <div className="space-y-4">
-                    
-                    {/* Kontakt */}
-                    <div>
-                        <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 px-2">Kontakt</p>
-                        <a href="mailto:gjkcme@gmail.com" className="block px-4 py-2 text-sm text-gray-600 dark:text-gray-400 hover:text-brand transition-colors">
-                            Pošljite nam sporočilo
-                        </a>
+                        
+                        {mounted && (
+                            <button onClick={() => setTheme(isDark ? 'light' : 'dark')} className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100/50 dark:hover:bg-gray-900/50">
+                                <span className="text-lg leading-none">{isDark ? '🌙' : '☀️'}</span>
+                                <span>{isDark ? 'Svetla tema' : 'Temna tema'}</span>
+                            </button>
+                        )}
                     </div>
 
-                    {/* Povezave */}
-                    <div>
-                        <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 px-2">Informacije</p>
-                        <div className="flex flex-col gap-1">
-                            <Link href="/projekt" onClick={() => setMobileMenuOpen(false)} className="px-4 py-2 text-sm text-gray-600 dark:text-gray-400 hover:text-brand transition-colors">
-                                O projektu
-                            </Link>
-                            <Link href="/pogoji" onClick={() => setMobileMenuOpen(false)} className="px-4 py-2 text-sm text-gray-600 dark:text-gray-400 hover:text-brand transition-colors">
-                                Pogoji uporabe
-                            </Link>
-                            <Link href="/zasebnost" onClick={() => setMobileMenuOpen(false)} className="px-4 py-2 text-sm text-gray-600 dark:text-gray-400 hover:text-brand transition-colors">
-                                Politika zasebnosti
-                            </Link>
+                    <hr className="border-gray-100 dark:border-gray-800/50 my-4" />
+
+                    {/* 2. POVEZAVE + KONTAKT (Kopirano iz Footerja) */}
+                    <div className="space-y-4">
+                        
+                        {/* Kontakt */}
+                        <div>
+                            <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 px-2">Kontakt</p>
+                            <a href="mailto:gjkcme@gmail.com" className="block px-4 py-2 text-sm text-gray-600 dark:text-gray-400 hover:text-brand transition-colors">
+                                Pošljite nam sporočilo
+                            </a>
                         </div>
-                    </div>
 
-                    <div className="px-4 pt-6 text-center sm:text-left">
-                        <div className="flex items-center justify-center sm:justify-start gap-2 mb-2 opacity-80">
-                            <div className="relative w-5 h-5">
-                                <Image src="/logo.png" alt="Logo" fill className="object-contain" />
+                        {/* Povezave */}
+                        <div>
+                            <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 px-2">Informacije</p>
+                            <div className="flex flex-col gap-1">
+                                <Link href="/projekt" onClick={() => setMobileMenuOpen(false)} className="px-4 py-2 text-sm text-gray-600 dark:text-gray-400 hover:text-brand transition-colors">
+                                    O projektu
+                                </Link>
+                                <Link href="/pogoji" onClick={() => setMobileMenuOpen(false)} className="px-4 py-2 text-sm text-gray-600 dark:text-gray-400 hover:text-brand transition-colors">
+                                    Pogoji uporabe
+                                </Link>
+                                <Link href="/zasebnost" onClick={() => setMobileMenuOpen(false)} className="px-4 py-2 text-sm text-gray-600 dark:text-gray-400 hover:text-brand transition-colors">
+                                    Politika zasebnosti
+                                </Link>
                             </div>
-                            <span className="font-serif font-bold text-gray-900 dark:text-white">Križišče</span>
                         </div>
-                        <p className="text-xs leading-relaxed text-gray-500 dark:text-gray-500 mb-2">
-                            Agregator najnovejših novic slovenskih medijev.<br/>
-                            Članki so last izvornih portalov.
-                        </p>
-                        <span className="text-xs text-gray-300 dark:text-gray-600">© 2025 Križišče</span>
-                    </div>
-                </div>
 
-            </div>
-        </motion.div>
+                        <div className="px-4 pt-6 text-center sm:text-left">
+                            <div className="flex items-center justify-center sm:justify-start gap-2 mb-2 opacity-80">
+                                <div className="relative w-5 h-5">
+                                    <Image src="/logo.png" alt="Logo" fill className="object-contain" />
+                                </div>
+                                <span className="font-serif font-bold text-gray-900 dark:text-white">Križišče</span>
+                            </div>
+                            <p className="text-xs leading-relaxed text-gray-500 dark:text-gray-500 mb-2">
+                                Agregator najnovejših novic slovenskih medijev.<br/>
+                                Članki so last izvornih portalov.
+                            </p>
+                            <span className="text-xs text-gray-300 dark:text-gray-600">© 2025 Križišče</span>
+                        </div>
+                    </div>
+
+                </div>
+            </motion.div>
+        </>
       )}
     </AnimatePresence>
 
