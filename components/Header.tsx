@@ -1,6 +1,7 @@
+/* components/Header.tsx */
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { useTheme } from 'next-themes'
@@ -63,7 +64,12 @@ export default function Header({
   const [hasNew, setHasNew] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
   
+  // Mobile states
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [mobileSearchOpen, setMobileSearchOpen] = useState(false)
+  
   const [weather, setWeather] = useState<WeatherData>(null)
+  const searchInputRef = useRef<HTMLInputElement>(null)
 
   const { theme, setTheme, resolvedTheme } = useTheme()
   const router = useRouter()
@@ -74,6 +80,25 @@ export default function Header({
   useEffect(() => {
     setMounted(true)
   }, [])
+
+  useEffect(() => {
+    setMobileMenuOpen(false)
+    setMobileSearchOpen(false)
+  }, [router.asPath])
+
+  useEffect(() => {
+    if (mobileMenuOpen) {
+      document.body.style.overflow = 'hidden'
+    } else {
+      document.body.style.overflow = 'unset'
+    }
+  }, [mobileMenuOpen])
+
+  useEffect(() => {
+    if (mobileSearchOpen && searchInputRef.current) {
+        setTimeout(() => searchInputRef.current?.focus(), 100)
+    }
+  }, [mobileSearchOpen])
 
   // --- VREME ---
   useEffect(() => {
@@ -107,7 +132,7 @@ export default function Header({
         }))
 
       } catch (err) {
-        console.log('Weather fetch skipped.')
+        // Silent fail
       }
     }
 
@@ -127,8 +152,15 @@ export default function Header({
 
   // --- NOVE NOVICE ---
   useEffect(() => {
-    const onHasNew = (e: Event) => setHasNew(Boolean((e as CustomEvent).detail))
-    const onRefreshing = (e: Event) => setRefreshing(Boolean((e as CustomEvent).detail))
+    const onHasNew = (e: Event) => {
+        const has = (e as CustomEvent).detail === true;
+        setHasNew(has)
+    }
+    const onRefreshing = (e: Event) => {
+        const isRef = (e as CustomEvent).detail === true;
+        setRefreshing(isRef)
+        if (isRef) setHasNew(false); 
+    }
     window.addEventListener('news-has-new', onHasNew as EventListener)
     window.addEventListener('news-refreshing', onRefreshing as EventListener)
     return () => {
@@ -161,6 +193,7 @@ export default function Header({
     onSearch(searchVal)
     const activeEl = document.activeElement as HTMLElement
     if (activeEl) activeEl.blur()
+    if (mobileSearchOpen) setMobileSearchOpen(false)
   }
 
   const handleLogoClick = (e: React.MouseEvent) => {
@@ -175,34 +208,70 @@ export default function Header({
   const isDark = (theme === 'dark' || resolvedTheme === 'dark')
 
   return (
+    <>
     <header 
       className={`
-        sticky top-0 z-40 w-full flex flex-col transition-all duration-300
+        sticky top-0 z-[60] w-full flex flex-col transition-all duration-300
         border-b border-gray-200 dark:border-gray-800
-        ${scrolled 
-            ? 'bg-white/80 dark:bg-gray-900/80 backdrop-blur-md shadow-sm' 
+        ${scrolled || mobileMenuOpen 
+            ? 'bg-white/95 dark:bg-gray-900/95 backdrop-blur-md shadow-sm' 
             : 'bg-white dark:bg-gray-900'}
         font-sans
       `}
     >
-      <div className="w-full border-b border-gray-100 dark:border-gray-800/60">
-        <div className="max-w-[1800px] mx-auto px-4 md:px-8 lg:px-16 h-16 flex items-center justify-between gap-4">
+      <div className="w-full relative z-50 border-b border-gray-100 dark:border-gray-800/60">
+        <div className="max-w-[1800px] mx-auto px-4 md:px-8 lg:px-16 h-16 flex items-center justify-between gap-4 relative">
           
-          <div className="flex items-center gap-4 shrink-0 mr-auto">
-            <Link href="/" onClick={handleLogoClick} className="flex items-center gap-3 group">
-                <div className="relative w-8 h-8 md:w-9 md:h-9">
-                  <Image src="/logo.png" alt="Logo" fill className="object-contain" />
+          {/* --- 1. LEVO (MOBILE): LUPA / SEARCH --- */}
+          <div className="flex md:hidden shrink-0 z-10 w-10">
+             <button 
+                onClick={() => setMobileSearchOpen(!mobileSearchOpen)}
+                className={`p-2 -ml-2 rounded-md transition-colors ${mobileSearchOpen ? 'bg-gray-100 dark:bg-gray-800 text-brand' : 'text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-800'}`}
+             >
+                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+             </button>
+          </div>
+
+          {/* --- 2. SREDINA & LEVO (LOGO LOGIKA) --- */}
+          <div className="absolute left-1/2 -translate-x-1/2 md:static md:translate-x-0 md:flex md:items-center md:gap-4 md:mr-auto z-0">
+            <Link href="/" onClick={handleLogoClick} className="group">
+                
+                {/* A) MOBILE POGLED */}
+                <div className="flex flex-col items-center justify-center md:hidden">
+                    <div className="flex items-center gap-1.5">
+                        <div className="relative w-8 h-8 shrink-0 transition-transform group-hover:scale-105 duration-300">
+                            <Image src="/logo.png" alt="Logo" fill className="object-contain" />
+                        </div>
+                        <span className="text-xl font-serif font-bold tracking-tight text-gray-900 dark:text-white leading-none pt-0.5">
+                            Križišče
+                        </span>
+                    </div>
+                    {/* Slogan tesno spodaj (-mt-0.5) */}
+                    <span className="text-[11px] font-serif text-gray-500 dark:text-gray-400 leading-none mt-0 opacity-90 whitespace-nowrap">
+                        Zadnje novice slovenskih medijev
+                    </span>
                 </div>
-                <div className="flex flex-col justify-center">
-                  <span className="text-2xl font-serif font-bold tracking-tight text-gray-900 dark:text-white leading-none">
-                      Križišče
-                  </span>
-                  <span className="text-xs font-medium tracking-wide text-gray-500 dark:text-gray-400 leading-none mt-1">
-                      Zadnje novice slovenskih medijev
-                  </span>
+
+                {/* B) DESKTOP POGLED */}
+                <div className="hidden md:flex items-center gap-3">
+                    <div className="relative w-11 h-11 shrink-0 transition-transform group-hover:scale-105 duration-300">
+                        <Image src="/logo.png" alt="Logo" fill className="object-contain" />
+                    </div>
+                    <div className="flex flex-col items-start justify-center">
+                        <span className="text-2xl font-serif font-bold tracking-tight text-gray-900 dark:text-white leading-[0.9]">
+                            Križišče
+                        </span>
+                        <span className="text-[13px] font-serif text-gray-500 dark:text-gray-400 leading-none mt-1 opacity-90 whitespace-nowrap">
+                            Zadnje novice slovenskih medijev
+                        </span>
+                    </div>
                 </div>
+
             </Link>
 
+            {/* SVEŽE NOVICE (DESKTOP) */}
             <AnimatePresence initial={false}>
                 {hasNew && !refreshing && isHome && (
                 <motion.button
@@ -211,7 +280,7 @@ export default function Header({
                     animate={{ opacity: 1, scale: 1, y: 0 }}
                     exit={{ opacity: 0, scale: 0.95, y: 5 }}
                     onClick={refreshNow}
-                    className="hidden md:flex items-center gap-2 px-3 py-1 
+                    className="hidden lg:flex items-center gap-2 px-3 py-1 
                                bg-[#10b981]/10 dark:bg-[#10b981]/20 
                                border border-[#10b981]/30
                                hover:bg-[#10b981]/20 dark:hover:bg-[#10b981]/30
@@ -232,10 +301,24 @@ export default function Header({
             </AnimatePresence>
           </div>
 
-          <div className="flex items-center gap-2 md:gap-4 shrink-0 ml-auto">
-            {/* SEARCH SAMO ZA DESKTOP */}
+          {/* --- 3. DESNO (MOBILE): HAMBURGER --- */}
+          <div className="flex md:hidden shrink-0 z-10 w-10 justify-end">
+             <button 
+                onClick={() => setMobileMenuOpen(true)}
+                className="p-2 -mr-2 text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-800 rounded-md active:bg-gray-200 dark:active:bg-gray-700"
+             >
+                <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+             </button>
+          </div>
+
+          {/* --- 4. DESNO (DESKTOP): CLASSIC LAYOUT --- */}
+          <div className="hidden md:flex items-center gap-4 shrink-0 ml-auto">
+            
+            {/* SEARCH INPUT */}
             {isHome && (
-              <div className="hidden md:block w-64 lg:w-80">
+              <div className="w-64 lg:w-80">
                 <form onSubmit={handleSubmit} className="relative group">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                     <svg className="h-4 w-4 text-gray-400 group-focus-within:text-brand transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -255,17 +338,18 @@ export default function Header({
               </div>
             )}
 
-            <div className="h-6 w-px bg-gray-200 dark:bg-gray-700 hidden md:block"></div>
+            <div className="h-6 w-px bg-gray-200 dark:bg-gray-700"></div>
             
             {/* VREME */}
             {weather && (
-              <div className="hidden lg:flex items-center text-xs font-semibold text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-800/50 px-2.5 py-1 rounded-full border border-gray-200/50 dark:border-gray-700/50" title={`${weather.city}: ${weather.temp}°C`}>
+              <div className="flex items-center text-xs font-semibold text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-800/50 px-2.5 py-1 rounded-full border border-gray-200/50 dark:border-gray-700/50" title={`${weather.city}: ${weather.temp}°C`}>
                   <span className="mr-1.5">{weather.city}</span>
                   <span className="text-gray-900 dark:text-white mr-1">{weather.temp} °C</span>
                   <span className="text-sm leading-none">{weather.icon}</span>
               </div>
             )}
 
+            {/* FILTER BUTTON */}
             {isHome && (
               <button 
                 onClick={onOpenFilter}
@@ -281,49 +365,82 @@ export default function Header({
               </button>
             )}
 
+            {/* ARHIV & THEME */}
             <Link
-              href="/arhiv"
-              className={`p-2 rounded-md transition-colors text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800 ${router.pathname === '/arhiv' ? 'text-brand' : ''}`}
-              title="Arhiv"
+                href="/arhiv"
+                className={`p-2 rounded-md transition-colors text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800 ${router.pathname === '/arhiv' ? 'text-brand' : ''}`}
+                title="Arhiv"
             >
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
-                <line x1="16" y1="2" x2="16" y2="6" />
-                <line x1="8" y1="2" x2="8" y2="6" />
-                <line x1="3" y1="10" x2="21" y2="10" />
-                <path d="M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01M16 18h.01" strokeLinecap="round" />
-              </svg>
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                    <line x1="16" y1="2" x2="16" y2="6" />
+                    <line x1="8" y1="2" x2="8" y2="6" />
+                    <line x1="3" y1="10" x2="21" y2="10" />
+                    <path d="M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01M16 18h.01" strokeLinecap="round" />
+                </svg>
             </Link>
 
             {mounted && (
-              <button
-                onClick={() => setTheme(isDark ? 'light' : 'dark')}
-                className="p-2 rounded-md text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800 transition-colors"
-              >
-                {isDark ? (
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
-                  </svg>
-                ) : (
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
-                  </svg>
-                )}
-              </button>
+                <button
+                    onClick={() => setTheme(isDark ? 'light' : 'dark')}
+                    className="p-2 rounded-md text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800 transition-colors"
+                >
+                    {isDark ? (
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+                    </svg>
+                    ) : (
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+                    </svg>
+                    )}
+                </button>
             )}
           </div>
         </div>
       </div>
 
-      {/* --- NAVIGACIJA --- */}
+      {/* --- MOBILE SEARCH BAR (Slide Down) --- */}
+      <AnimatePresence>
+        {mobileSearchOpen && (
+            <motion.div 
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                className="md:hidden border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 overflow-hidden"
+            >
+                <div className="px-4 py-3">
+                    <form onSubmit={handleSubmit} className="relative flex items-center">
+                        <svg className="absolute left-3 w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                        </svg>
+                        <input
+                            ref={searchInputRef}
+                            type="search"
+                            placeholder="Išči po novicah..."
+                            className="w-full pl-10 pr-4 py-3 bg-gray-100 dark:bg-gray-900 border-none rounded-lg text-gray-900 dark:text-white placeholder-gray-500 focus:ring-2 focus:ring-brand"
+                            value={searchVal}
+                            onChange={handleSearchChange}
+                        />
+                        <button 
+                            type="button"
+                            onClick={() => setMobileSearchOpen(false)}
+                            className="ml-3 text-sm font-medium text-gray-500 hover:text-gray-900 dark:hover:text-white"
+                        >
+                            Zapri
+                        </button>
+                    </form>
+                </div>
+            </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* --- KATEGORIJE (NAVIGACIJA) --- */}
       {showCategories && (
         <div className="w-full bg-transparent">
           <div className="max-w-[1800px] mx-auto px-4 md:px-8 lg:px-16 flex items-center">
             
-            {/* NAV BAR */}
             <nav className="flex items-center gap-6 overflow-x-auto no-scrollbar flex-1 relative">
-              
-              {/* STICKY "VSE NOVICE" GUMB */}
               <div className="md:sticky md:left-0 z-10 flex items-center md:pr-4">
                   <button
                     onClick={() => onSelectCategory('vse')}
@@ -383,5 +500,139 @@ export default function Header({
         </div>
       )}
     </header>
+
+    {/* --- MOBILE FULLSCREEN MENU (SIDE DRAWER) --- */}
+    <AnimatePresence>
+      {mobileMenuOpen && (
+        <>
+            {/* Backdrop */}
+            <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={() => setMobileMenuOpen(false)}
+                className="fixed inset-0 z-[90] bg-black/20 dark:bg-black/50 backdrop-blur-sm"
+            />
+            {/* Drawer */}
+            <motion.div
+                initial={{ x: '100%' }}
+                animate={{ x: 0 }}
+                exit={{ x: '100%' }}
+                transition={{ type: "spring", damping: 30, stiffness: 300 }}
+                drag="x"
+                dragConstraints={{ left: 0, right: 0 }}
+                dragElastic={{ left: 0, right: 0.5 }}
+                onDragEnd={(e, { offset, velocity }) => {
+                    if (offset.x > 100 || velocity.x > 500) {
+                        setMobileMenuOpen(false);
+                    }
+                }}
+                className="fixed top-0 right-0 bottom-0 z-[100] w-[85%] max-w-[320px] bg-white/70 dark:bg-gray-950/80 backdrop-blur-xl flex flex-col overflow-hidden shadow-2xl border-l border-gray-200/50 dark:border-gray-800/50 touch-pan-y"
+            >
+                {/* Menu Header */}
+                <div className="h-16 flex items-center justify-between px-4 border-b border-gray-100 dark:border-gray-800/50 shrink-0">
+                    <div className="flex items-center gap-3">
+                        <div className="relative w-8 h-8">
+                            <Image src="/logo.png" alt="Logo" fill className="object-contain" />
+                        </div>
+                        <span className="text-xl font-serif font-bold text-gray-900 dark:text-white">Meni</span>
+                    </div>
+                    <button 
+                        onClick={() => setMobileMenuOpen(false)}
+                        className="p-2 -mr-2 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-900/50 rounded-full"
+                    >
+                        <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
+
+                {/* Vsebina menija */}
+                <div className="flex-1 overflow-y-auto p-4 space-y-6">
+                    
+                    <div className="space-y-1">
+                        <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 pl-1 text-left">Orodja</p>
+                        
+                        <Link href="/arhiv" onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-3 px-2 py-3 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100/50 dark:hover:bg-gray-900/50">
+                            <svg className="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                                <line x1="16" y1="2" x2="16" y2="6" />
+                                <line x1="8" y1="2" x2="8" y2="6" />
+                                <line x1="3" y1="10" x2="21" y2="10" />
+                                <path d="M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01M16 18h.01" strokeLinecap="round" />
+                            </svg>
+                            <span className="text-left">Arhiv novic</span>
+                        </Link>
+                        
+                        <button onClick={() => { onOpenFilter(); setMobileMenuOpen(false); }} className="w-full flex items-center gap-3 px-2 py-3 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100/50 dark:hover:bg-gray-900/50">
+                            <svg className="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" /></svg>
+                            <span className="text-left">Filtriraj vire</span>
+                        </button>
+                        
+                        {mounted && (
+                            <button onClick={() => setTheme(isDark ? 'light' : 'dark')} className="w-full flex items-center gap-3 px-2 py-3 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100/50 dark:hover:bg-gray-900/50">
+                                <span className="text-lg leading-none">{isDark ? '🌙' : '☀️'}</span>
+                                <span className="text-left">{isDark ? 'Svetla tema' : 'Temna tema'}</span>
+                            </button>
+                        )}
+                    </div>
+
+                    <hr className="border-gray-100 dark:border-gray-800/50 my-4" />
+
+                    <div className="space-y-4">
+                        <div>
+                            <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 pl-1 text-left">Kontakt</p>
+                            <a href="mailto:gjkcme@gmail.com" className="block px-2 py-2 text-sm text-gray-600 dark:text-gray-400 hover:text-brand transition-colors text-left">
+                                Pošljite nam sporočilo
+                            </a>
+                        </div>
+
+                        <div>
+                            <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 pl-1 text-left">Informacije</p>
+                            <div className="flex flex-col gap-1">
+                                <Link href="/projekt" onClick={() => setMobileMenuOpen(false)} className="px-2 py-2 text-sm text-gray-600 dark:text-gray-400 hover:text-brand transition-colors text-left">
+                                    O projektu
+                                </Link>
+                                <Link href="/pogoji" onClick={() => setMobileMenuOpen(false)} className="px-2 py-2 text-sm text-gray-600 dark:text-gray-400 hover:text-brand transition-colors text-left">
+                                    Pogoji uporabe
+                                </Link>
+                                <Link href="/zasebnost" onClick={() => setMobileMenuOpen(false)} className="px-2 py-2 text-sm text-gray-600 dark:text-gray-400 hover:text-brand transition-colors text-left">
+                                    Politika zasebnosti
+                                </Link>
+                            </div>
+                        </div>
+
+                        <div className="px-2 pt-6 text-left">
+                            <div className="flex items-center justify-start gap-2 mb-2 opacity-80">
+                                <div className="relative w-5 h-5">
+                                    <Image src="/logo.png" alt="Logo" fill className="object-contain" />
+                                </div>
+                                <span className="font-serif font-bold text-gray-900 dark:text-white">Križišče</span>
+                            </div>
+                            <p className="text-xs leading-relaxed text-gray-500 dark:text-gray-500 mb-2">
+                                Agregator najnovejših novic slovenskih medijev.<br/>
+                                Članki so last izvornih portalov.
+                            </p>
+                            <span className="text-xs text-gray-300 dark:text-gray-600">© 2026 Križišče</span>
+                        </div>
+                    </div>
+                </div>
+            </motion.div>
+        </>
+      )}
+    </AnimatePresence>
+
+    {activeSource !== 'Vse' && !mobileMenuOpen && (
+        <button 
+            onClick={onOpenFilter}
+            className="md:hidden fixed bottom-6 left-6 z-40 bg-brand text-white p-3 rounded-full shadow-lg border-2 border-white dark:border-gray-900 animate-bounce"
+            title="Filter je vklopljen"
+        >
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+            </svg>
+        </button>
+    )}
+    </>
   )
 }

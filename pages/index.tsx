@@ -71,8 +71,6 @@ async function loadNews(
       
     if (res.ok) {
       const data = await res.json()
-      
-      // SPREMEMBA: Preverimo format odgovora (Array ali Object z items)
       if (Array.isArray(data)) {
           return data 
       } else if (data && Array.isArray(data.items)) {
@@ -102,7 +100,6 @@ export default function Home({ initialNews, initialTrendingWords, initialTrendin
   const [itemsTrending, setItemsTrending] = useState<NewsItem[]>(initialTrendingNews || [])
   const [trendingLoaded, setTrendingLoaded] = useState(!!initialTrendingNews?.length)
   
-  // Stanja za AI povzetek
   const [currentAiSummary, setCurrentAiSummary] = useState(aiSummary)
   const [currentAiTime, setCurrentAiTime] = useState(aiTime)
       
@@ -139,12 +136,9 @@ export default function Home({ initialNews, initialTrendingWords, initialTrendin
         if (!trendingLoaded || (now - lastTrendingFetchRef.current > 15 * 60_000)) {
               const fetchTrendingSide = async () => {
                 try {
-                  // Pri fetchu za sidebar moramo upoštevati nov format
                   const res = await fetch('/api/news?variant=trending')
                   const data = await res.json()
-                  
                   if (data) {
-                      // Če je objekt, vzamemo .items, sicer cel array
                       const freshItems = Array.isArray(data) ? data : (data.items || [])
                       setItemsTrending(freshItems)
                       setTrendingLoaded(true)
@@ -198,24 +192,18 @@ export default function Home({ initialNews, initialTrendingWords, initialTrendin
 
   useEffect(() => {
     if (!bootRefreshed) return
-    
     const runCheckSimple = async () => {
       if (!isDesktopLogic && mode !== 'latest') return
       if (searchQuery || tagQuery || selectedCategory !== 'vse' || selectedSources.length > 0) return
-
       kickSyncIfStale(10 * 60_000)
-      
       const fresh = await loadNews('latest', [], 'vse', null, null)
-      
       if (!fresh || fresh.length === 0) {
         window.dispatchEvent(new CustomEvent('news-has-new', { detail: false }))
         missCountRef.current = Math.min(POLL_MAX_BACKOFF, missCountRef.current + 1)
         return
       }
-      
       const curSet = new Set(itemsLatest.map((n) => n.link))
       const newLinksCount = fresh.filter((n) => !curSet.has(n.link)).length
-      
       if (newLinksCount > 0) {
         window.dispatchEvent(new CustomEvent('news-has-new', { detail: true }))
         missCountRef.current = 0
@@ -224,19 +212,15 @@ export default function Home({ initialNews, initialTrendingWords, initialTrendin
         missCountRef.current = Math.min(POLL_MAX_BACKOFF, missCountRef.current + 1)
       }
     }
-
     const schedule = () => {
       const hidden = document.visibilityState === 'hidden'
       const base = hidden ? HIDDEN_POLL_MS : POLL_MS
       const extra = missCountRef.current * 10_000
-      
       if (timerRef.current) window.clearInterval(timerRef.current)
       timerRef.current = window.setInterval(runCheckSimple, base + extra) as unknown as number
     }
-
     const initialTimer = setTimeout(runCheckSimple, 15000) 
     schedule()
-    
     const onVis = () => { if (document.visibilityState === 'visible') { runCheckSimple(); schedule(); } }
     document.addEventListener('visibilitychange', onVis)
     return () => {
@@ -250,7 +234,6 @@ export default function Home({ initialNews, initialTrendingWords, initialTrendin
     const onRefresh = () => {
       window.dispatchEvent(new CustomEvent('news-refreshing', { detail: true }))
       startTransition(() => {
-        // 1. Osveži novice
         loadNews('latest', selectedSources, selectedCategory, searchQuery || null, tagQuery || null, true).then((fresh) => {
           if (fresh) {
              setItemsLatest(fresh)
@@ -258,21 +241,12 @@ export default function Home({ initialNews, initialTrendingWords, initialTrendin
              setCursor(null)
           }
         })
-
-        // 2. Osveži Trending (Grupe)
         fetch('/api/news?variant=trending&forceFresh=1&_t=' + Date.now())
           .then(res => res.json())
           .then(data => {
-            // Logika za nov API response format
             if (data) {
-                // Če imamo items, posodobimo trending stolpec
-                if (data.items && Array.isArray(data.items)) {
-                    setItemsTrending(data.items);
-                } else if (Array.isArray(data)) {
-                    setItemsTrending(data);
-                }
-
-                // Če imamo AI podatke, posodobimo state
+                if (data.items && Array.isArray(data.items)) setItemsTrending(data.items);
+                else if (Array.isArray(data)) setItemsTrending(data);
                 if (data.aiSummary) {
                     setCurrentAiSummary(data.aiSummary);
                     setCurrentAiTime(data.aiTime);
@@ -280,7 +254,6 @@ export default function Home({ initialNews, initialTrendingWords, initialTrendin
             }
           })
           .catch(() => {})
-
         window.dispatchEvent(new CustomEvent('news-refreshing', { detail: false }))
         window.dispatchEvent(new CustomEvent('news-has-new', { detail: false }))
         missCountRef.current = 0
@@ -313,25 +286,18 @@ export default function Home({ initialNews, initialTrendingWords, initialTrendin
       const res = await fetch(`/api/news?${qs.toString()}`, { cache: 'no-store' })
       if (res.ok) {
           const data = await res.json()
-          // Podpora za nov API format tudi tukaj
           const items = Array.isArray(data) ? data : (data.items || [])
-          const nextCursor = data.nextCursor // Če API vrne cursor
-
+          const nextCursor = data.nextCursor
           const seen = new Set(itemsLatest.map((n) => n.link))
           const fresh = items
             .filter((i: any) => !seen.has(i.link))
             .map((i: any) => ({ ...i, category: i.category || determineCategory({ link: i.link, categories: [] }) }))
-          
           if (fresh.length) setItemsLatest((prev) => [...prev, ...fresh])
-          
-          // Preverimo, če je konec (nextCursor ali items.length)
           if (items.length === 0) {
             setHasMore(false); setCursor(null)
           } else {
-             // Če API ne vrne nextCursorja, vzamemo zadnjega iz itemov
              const newCursor = nextCursor || items[items.length - 1].publishedAt
-             setCursor(newCursor); 
-             setHasMore(true)
+             setCursor(newCursor); setHasMore(true)
           }
       }
     } finally { setIsLoadingMore(false) }
@@ -376,7 +342,13 @@ export default function Home({ initialNews, initialTrendingWords, initialTrendin
     setSearchQuery(e.target.value)
   }
 
-  const showHeaderElements = !searchQuery && !tagQuery;
+  // --- LOGIKA PRIKAZA HEADERJA ---
+  const isSearchOrTag = !!(searchQuery || tagQuery);
+  const showHeaderElements = !isSearchOrTag;
+  
+  // POPRAVEK: AI Briefing in Trending Bar kažemo SAMO, če je 'vse' kategorija IN če smo na 'latest' (najnovejše)
+  // Če smo na 'trending' (aktualno), tega ne rabimo, ker imamo spodaj cel seznam.
+  const showHeroSection = showHeaderElements && selectedCategory === 'vse' && mode === 'latest';
 
   return (
     <>
@@ -388,7 +360,8 @@ export default function Home({ initialNews, initialTrendingWords, initialTrendin
         onSelectCategory={(cat) => {
            startTransition(() => {
              setSelectedCategory(cat)
-             if (cat !== 'vse') { setMode('latest'); setHasMore(true); setCursor(null) }
+             // Ko zamenjaš kategorijo, se vedno vrni na 'latest'
+             if (cat !== 'vse' || mode !== 'latest') { setMode('latest'); setHasMore(true); setCursor(null) }
            })
            window.scrollTo({ top: 0, behavior: 'smooth' })
         }}
@@ -407,10 +380,23 @@ export default function Home({ initialNews, initialTrendingWords, initialTrendin
       <main className="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white pb-12">
         <div className="max-w-[1800px] mx-auto w-full px-4 md:px-8 lg:px-16">
 
-            {/* --- AI BRIEFING & TRENDING --- */}
-            {showHeaderElements && (
+            {/* --- 1. IZBIRA MODA (Mobile Only) - ČE SMO NA 'VSE' --- */}
+            {selectedCategory === 'vse' && !isSearchOrTag && (
+                <div className="lg:hidden mt-3 mb-2">
+                    <NewsTabs active={mode} onChange={handleTabChange} />
+                </div>
+            )}
+
+            {/* --- NASLOV KATEGORIJE (Če ni 'vse') --- */}
+            {selectedCategory !== 'vse' && !isSearchOrTag && (
+                <div className="lg:hidden mt-4 mb-4">
+                    <h1 className="text-2xl font-bold capitalize">{currentCategoryLabel}</h1>
+                </div>
+            )}
+
+            {/* --- AI BRIEFING & TRENDING (Samo na 'vse' in 'latest') --- */}
+            {showHeroSection && (
                <>
-                 {/* Uporabljamo stanja currentAiSummary in currentAiTime namesto propov za dinamično osveževanje */}
                  <AiBriefing summary={currentAiSummary} time={currentAiTime} />
                  
                  <div className="mt-1 mb-1 min-w-0 w-full overflow-hidden">
@@ -423,51 +409,19 @@ export default function Home({ initialNews, initialTrendingWords, initialTrendin
                </>
             )}
 
-            {/* --- ZGORNJA KONTROLNA VRSTICA --- */}
-            <div className="pt-1 pb-1 flex flex-col md:flex-row md:items-center gap-0">
-                <div className="flex items-center gap-0 w-full md:w-auto">
-                    <div className="lg:hidden scale-90 origin-left shrink-0">
-                        {selectedCategory === 'vse' ? (
-                            <NewsTabs active={mode} onChange={handleTabChange} />
-                        ) : (
-                            <span className="text-xl font-bold capitalize mr-1">{currentCategoryLabel}</span>
-                        )}
-                    </div>
-                    <div className="hidden lg:block shrink-0">
-                        {selectedCategory !== 'vse' && <span className="text-2xl font-bold capitalize mr-4">{currentCategoryLabel}</span>}
-                    </div>
-
-                    <div className="md:hidden flex-1 relative ml-0">
-                        <input
-                          type="search"
-                          placeholder="Išči ..."
-                          className="w-full h-9 pl-3 pr-4 bg-gray-200 dark:bg-gray-800 rounded-full text-sm outline-none focus:ring-1 focus:ring-brand/20"
-                          value={searchQuery}
-                          onChange={handleSearchChange}
-                        />
-                    </div>
+            {/* --- REZULTATI ISKANJA --- */}
+            {(searchQuery || tagQuery) && (
+                <div className="mt-4 mb-4 flex items-center gap-2 text-sm">
+                    <span>Rezultati za: <b>"{tagQuery || searchQuery}"</b></span>
+                    <button onClick={() => { setSearchQuery(''); setTagQuery(''); }} className="text-brand text-xs underline">Počisti</button>
                 </div>
-                
-                {selectedSources.length > 0 && (
-                  <div className="ml-auto">
-                      <button onClick={() => setSelectedSources([])} className="hidden md:flex text-xs text-red-500 bg-red-50 dark:bg-red-900/20 px-3 py-1 rounded-full whitespace-nowrap">
-                         Počisti filtre ({selectedSources.length})
-                      </button>
-                  </div>
-                )}
-            </div>
+            )}
 
             <div className="flex flex-col lg:flex-row gap-8 items-start">
                 
+                {/* --- LEVI STOLPEC (Novice / Mobile Trending) --- */}
                 <div className={`flex-1 w-full min-w-0 ${mode === 'trending' ? 'hidden lg:block' : 'block'}`}>
                     
-                    {(searchQuery || tagQuery) && (
-                        <div className="mb-4 flex items-center gap-2 text-sm">
-                            <span>Rezultati za: <b>"{tagQuery || searchQuery}"</b></span>
-                            <button onClick={() => { setSearchQuery(''); setTagQuery(''); }} className="text-brand text-xs underline">Počisti</button>
-                        </div>
-                    )}
-
                     {isRefreshing && itemsLatest.length === 0 ? (
                         <div className="py-20 text-center opacity-50">Nalagam novice ...</div>
                     ) : itemsLatest.length === 0 ? (
@@ -493,60 +447,62 @@ export default function Home({ initialNews, initialTrendingWords, initialTrendin
                     )}
                 </div>
 
-                <aside className={`w-full lg:w-[340px] xl:w-[380px] shrink-0 lg:sticky lg:top-24 transform-gpu 
+                {/* --- DESNI STOLPEC (Trending Desktop & Mobile View) --- */}
+                <div className={`w-full lg:w-[340px] xl:w-[380px] shrink-0 lg:sticky lg:top-24 transform-gpu 
                     ${mode === 'trending' ? 'block' : 'hidden lg:block'}
                 `}>
-                    <div className={`
-                        bg-gray-200/70 dark:bg-gray-800/90 rounded-2xl backdrop-blur-md shadow-inner flex flex-col
-                        lg:max-h-[calc(100vh-8rem)] lg:overflow-hidden
-                    `}>
-                        <div className="flex items-center gap-2 mb-0 p-4 pb-2 border-b border-gray-300/50 dark:border-gray-700 shrink-0 z-10 bg-inherit rounded-t-2xl">
-                             <svg className="w-4 h-4 text-gray-400 dark:text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                             </svg>
-                             <span className="text-xs font-bold uppercase tracking-wide text-gray-900 dark:text-gray-100">
-                                Aktualno
-                             </span>
-                        </div>
+                    
+                    {/* MOBILE TRENDING VIEW (Seznam kartic) */}
+                    {mode === 'trending' && !isDesktopLogic ? (
+                         <div className="flex flex-col gap-4">
+                            {itemsTrending.map((article, i) => (
+                                <TrendingCard 
+                                    key={article.link + 'tr' + i}
+                                    news={article} 
+                                    compact={true} 
+                                    rank={i + 1}
+                                />
+                            ))}
+                         </div>
+                    ) : (
+                        /* DESKTOP SIDEBAR (Original) */
+                        <div className={`
+                            bg-gray-200/70 dark:bg-gray-800/90 rounded-2xl backdrop-blur-md shadow-inner flex flex-col
+                            lg:max-h-[calc(100vh-8rem)] lg:overflow-hidden
+                        `}>
+                            <div className="flex items-center gap-2 mb-0 p-4 pb-2 border-b border-gray-300/50 dark:border-gray-700 shrink-0 z-10 bg-inherit rounded-t-2xl">
+                                <svg className="w-4 h-4 text-gray-400 dark:text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                                <span className="text-xs font-bold uppercase tracking-wide text-gray-900 dark:text-gray-100">
+                                    Aktualno
+                                </span>
+                            </div>
 
-                        <div className="p-4 pt-2 space-y-3 lg:overflow-y-auto lg:custom-scrollbar">
-                            {itemsTrending.length === 0 && !trendingLoaded ? (
-                                 <div className="flex flex-col gap-3 animate-pulse">
-                                     {[...Array(6)].map((_, i) => (
-                                         <div key={i} className="flex gap-3 p-3 rounded-xl bg-white/60 dark:bg-gray-700/50 shadow-sm">
-                                             <div className="w-20 h-20 bg-gray-200 dark:bg-gray-600 rounded-lg shrink-0" />
-                                             <div className="flex-1 flex flex-col justify-center gap-2">
-                                                 <div className="h-3 w-16 bg-gray-200 dark:bg-gray-600 rounded" />
-                                                 <div className="h-4 w-full bg-gray-200 dark:bg-gray-600 rounded" />
-                                                 <div className="h-4 w-2/3 bg-gray-200 dark:bg-gray-600 rounded" />
-                                             </div>
-                                         </div>
-                                     ))}
-                                  </div>
-                            ) : itemsTrending.length === 0 ? (
-                                <div className="py-10 px-4 text-center">
-                                    <div className="text-4xl mb-2 grayscale opacity-50">☕</div>
-                                    <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">
-                                        Jutranje zatišje. <br/>
-                                        Zbiramo aktualne novice.
-                                    </p>
-                                </div>
-                            ) : (
-                                <div className="flex flex-col gap-3">
-                                    {itemsTrending.slice(0, 10).map((article, i) => (
-                                        <div key={article.link + 'tr' + i} className="bg-white dark:bg-gray-700/60 rounded-xl shadow-md overflow-hidden transition-shadow hover:shadow-lg hover:z-10 relative shrink-0">
-                                            <TrendingCard 
-                                                news={article} 
-                                                compact={true} 
-                                                rank={i + 1}
-                                            />
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
+                            <div className="p-4 pt-2 space-y-3 lg:overflow-y-auto lg:custom-scrollbar">
+                                {itemsTrending.length === 0 && !trendingLoaded ? (
+                                    <div className="flex flex-col gap-3 animate-pulse">
+                                        {[...Array(6)].map((_, i) => (
+                                            <div key={i} className="h-24 bg-gray-300 dark:bg-gray-700 rounded-xl" />
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <div className="flex flex-col gap-3">
+                                        {itemsTrending.slice(0, 10).map((article, i) => (
+                                            <div key={article.link + 'tr' + i} className="bg-white dark:bg-gray-700/60 rounded-xl shadow-md overflow-hidden transition-shadow hover:shadow-lg hover:z-10 relative shrink-0">
+                                                <TrendingCard 
+                                                    news={article} 
+                                                    compact={true} 
+                                                    rank={i + 1}
+                                                />
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
                         </div>
-                    </div>
-                </aside>
+                    )}
+                </div>
             </div>
         </div>
       </main>
@@ -593,7 +549,6 @@ export const getServerSideProps: GetServerSideProps = async ({ res }) => {
           aiSummary = aiData.summary
       }
       if (aiData.updated_at) {
-          // POMEMBNO: Pošljemo surov ISO string, da ga komponenta AiBriefing lahko uporabi za izračun "Pred X minutami"
           aiTime = aiData.updated_at;
       }
   } 
