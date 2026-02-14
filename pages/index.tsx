@@ -72,7 +72,7 @@ async function loadNews(
     if (res.ok) {
       const data = await res.json()
       
-      // SPREMEMBA: Preverimo format odgovora (Array ali Object z items)
+      // Preverimo format odgovora (Array ali Object z items)
       if (Array.isArray(data)) {
           return data 
       } else if (data && Array.isArray(data.items)) {
@@ -139,12 +139,10 @@ export default function Home({ initialNews, initialTrendingWords, initialTrendin
         if (!trendingLoaded || (now - lastTrendingFetchRef.current > 15 * 60_000)) {
               const fetchTrendingSide = async () => {
                 try {
-                  // Pri fetchu za sidebar moramo upoštevati nov format
                   const res = await fetch('/api/news?variant=trending')
                   const data = await res.json()
                   
                   if (data) {
-                      // Če je objekt, vzamemo .items, sicer cel array
                       const freshItems = Array.isArray(data) ? data : (data.items || [])
                       setItemsTrending(freshItems)
                       setTrendingLoaded(true)
@@ -263,16 +261,13 @@ export default function Home({ initialNews, initialTrendingWords, initialTrendin
         fetch('/api/news?variant=trending&forceFresh=1&_t=' + Date.now())
           .then(res => res.json())
           .then(data => {
-            // Logika za nov API response format
             if (data) {
-                // Če imamo items, posodobimo trending stolpec
                 if (data.items && Array.isArray(data.items)) {
                     setItemsTrending(data.items);
                 } else if (Array.isArray(data)) {
                     setItemsTrending(data);
                 }
 
-                // Če imamo AI podatke, posodobimo state
                 if (data.aiSummary) {
                     setCurrentAiSummary(data.aiSummary);
                     setCurrentAiTime(data.aiTime);
@@ -313,9 +308,8 @@ export default function Home({ initialNews, initialTrendingWords, initialTrendin
       const res = await fetch(`/api/news?${qs.toString()}`, { cache: 'no-store' })
       if (res.ok) {
           const data = await res.json()
-          // Podpora za nov API format tudi tukaj
           const items = Array.isArray(data) ? data : (data.items || [])
-          const nextCursor = data.nextCursor // Če API vrne cursor
+          const nextCursor = data.nextCursor
 
           const seen = new Set(itemsLatest.map((n) => n.link))
           const fresh = items
@@ -324,11 +318,9 @@ export default function Home({ initialNews, initialTrendingWords, initialTrendin
           
           if (fresh.length) setItemsLatest((prev) => [...prev, ...fresh])
           
-          // Preverimo, če je konec (nextCursor ali items.length)
           if (items.length === 0) {
             setHasMore(false); setCursor(null)
           } else {
-             // Če API ne vrne nextCursorja, vzamemo zadnjega iz itemov
              const newCursor = nextCursor || items[items.length - 1].publishedAt
              setCursor(newCursor); 
              setHasMore(true)
@@ -407,10 +399,16 @@ export default function Home({ initialNews, initialTrendingWords, initialTrendin
       <main className="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white pb-12">
         <div className="max-w-[1800px] mx-auto w-full px-4 md:px-8 lg:px-16">
 
+            {/* --- 1. IZBIRA MODA (Mobile Only) - NA VRHU --- */}
+            {selectedCategory === 'vse' && !searchQuery && !tagQuery && (
+                <div className="lg:hidden mt-3 mb-2">
+                    <NewsTabs active={mode} onChange={handleTabChange} />
+                </div>
+            )}
+
             {/* --- AI BRIEFING & TRENDING --- */}
             {showHeaderElements && (
                <>
-                 {/* Uporabljamo stanja currentAiSummary in currentAiTime namesto propov za dinamično osveževanje */}
                  <AiBriefing summary={currentAiSummary} time={currentAiTime} />
                  
                  <div className="mt-1 mb-1 min-w-0 w-full overflow-hidden">
@@ -423,29 +421,19 @@ export default function Home({ initialNews, initialTrendingWords, initialTrendin
                </>
             )}
 
-            {/* --- ZGORNJA KONTROLNA VRSTICA --- */}
+            {/* --- OSTALE KONTROLE (Kategorija naslov, Search če ni v headerju) --- */}
             <div className="pt-1 pb-1 flex flex-col md:flex-row md:items-center gap-0">
                 <div className="flex items-center gap-0 w-full md:w-auto">
-                    <div className="lg:hidden scale-90 origin-left shrink-0">
-                        {selectedCategory === 'vse' ? (
-                            <NewsTabs active={mode} onChange={handleTabChange} />
-                        ) : (
-                            <span className="text-xl font-bold capitalize mr-1">{currentCategoryLabel}</span>
-                        )}
-                    </div>
-                    <div className="hidden lg:block shrink-0">
-                        {selectedCategory !== 'vse' && <span className="text-2xl font-bold capitalize mr-4">{currentCategoryLabel}</span>}
-                    </div>
+                    
+                    {/* Naslov kategorije (če ni 'vse') */}
+                    {selectedCategory !== 'vse' && (
+                        <div className="shrink-0">
+                            <span className="text-xl lg:text-2xl font-bold capitalize mr-4">{currentCategoryLabel}</span>
+                        </div>
+                    )}
 
-                    <div className="md:hidden flex-1 relative ml-0">
-                        <input
-                          type="search"
-                          placeholder="Išči ..."
-                          className="w-full h-9 pl-3 pr-4 bg-gray-200 dark:bg-gray-800 rounded-full text-sm outline-none focus:ring-1 focus:ring-brand/20"
-                          value={searchQuery}
-                          onChange={handleSearchChange}
-                        />
-                    </div>
+                    {/* Desktop Search (če ga želiš tukaj, sicer je v headerju) */}
+                    {/* Skrijemo search input tukaj, ker je zdaj v Headerju */}
                 </div>
                 
                 {selectedSources.length > 0 && (
@@ -593,7 +581,6 @@ export const getServerSideProps: GetServerSideProps = async ({ res }) => {
           aiSummary = aiData.summary
       }
       if (aiData.updated_at) {
-          // POMEMBNO: Pošljemo surov ISO string, da ga komponenta AiBriefing lahko uporabi za izračun "Pred X minutami"
           aiTime = aiData.updated_at;
       }
   } 
