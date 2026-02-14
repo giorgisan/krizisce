@@ -486,7 +486,7 @@ export default function Header({
     </header>
 
     {/* --- MOBILE FULLSCREEN MENU (SIDE DRAWER) --- */}
-    <AnimatePresence>
+<AnimatePresence>
       {mobileMenuOpen && (
         <>
             {/* Backdrop - Klik zapre meni */}
@@ -497,16 +497,26 @@ export default function Header({
                 onClick={() => setMobileMenuOpen(false)}
                 className="fixed inset-0 z-[90] bg-black/20 dark:bg-black/50 backdrop-blur-sm"
             />
-            {/* Drawer (85% Width + Glass Effect) */}
+            {/* Drawer s Swipe-to-close funkcijo */}
             <motion.div
                 initial={{ x: '100%' }}
                 animate={{ x: 0 }}
                 exit={{ x: '100%' }}
-                transition={{ type: "spring", damping: 25, stiffness: 200 }}
-                // SPREMEMBA: bg-white/80 in backdrop-blur-xl za pravo prosojnost kartice
-                className="fixed top-0 right-0 bottom-0 z-[100] w-[85%] max-w-[320px] bg-white/80 dark:bg-gray-950/80 backdrop-blur-xl flex flex-col overflow-hidden shadow-2xl border-l border-gray-200/50 dark:border-gray-800/50"
+                transition={{ type: "spring", damping: 30, stiffness: 300 }}
+                /* SWIPE TO CLOSE LOGIKA */
+                drag="x"
+                dragConstraints={{ left: 0, right: 0 }}
+                dragElastic={{ left: 0, right: 0.5 }}
+                onDragEnd={(e, { offset, velocity }) => {
+                    if (offset.x > 100 || velocity.x > 500) {
+                        setMobileMenuOpen(false);
+                    }
+                }}
+                /* --------------------- */
+                // TUKAJ spreminjaš prosojnost (npr. bg-white/80)
+                className="fixed top-0 right-0 bottom-0 z-[100] w-[85%] max-w-[320px] bg-white/70 dark:bg-gray-950/80 backdrop-blur-xl flex flex-col overflow-hidden shadow-2xl border-l border-gray-200/50 dark:border-gray-800/50 touch-pan-y"
             >
-                {/* Menu Header (Logo + "Meni") */}
+                {/* Menu Header */}
                 <div className="h-16 flex items-center justify-between px-4 border-b border-gray-100 dark:border-gray-800/50 shrink-0">
                     <div className="flex items-center gap-3">
                         <div className="relative w-8 h-8">
@@ -527,10 +537,20 @@ export default function Header({
                 {/* Vsebina menija */}
                 <div className="flex-1 overflow-y-auto p-4 space-y-6">
                     
-                    {/* 1. ORODJA */}
                     <div className="space-y-1">
                         <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 pl-1 text-left">Orodja</p>
                         
+                        {/* NOVO: Gumb za ponastavitev (UX predlog) */}
+                        <button 
+                            onClick={() => { onReset(); setMobileMenuOpen(false); }}
+                            className="w-full flex items-center gap-3 px-2 py-3 rounded-lg text-brand hover:bg-brand/5 transition-colors"
+                        >
+                            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+                            </svg>
+                            <span className="font-bold">Domov / Osveži</span>
+                        </button>
+
                         <Link href="/arhiv" onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-3 px-2 py-3 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100/50 dark:hover:bg-gray-900/50">
                             <svg className="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                                 <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
@@ -557,10 +577,7 @@ export default function Header({
 
                     <hr className="border-gray-100 dark:border-gray-800/50 my-4" />
 
-                    {/* 2. POVEZAVE + KONTAKT */}
                     <div className="space-y-4">
-                        
-                        {/* Kontakt */}
                         <div>
                             <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 pl-1 text-left">Kontakt</p>
                             <a href="mailto:gjkcme@gmail.com" className="block px-2 py-2 text-sm text-gray-600 dark:text-gray-400 hover:text-brand transition-colors text-left">
@@ -568,7 +585,6 @@ export default function Header({
                             </a>
                         </div>
 
-                        {/* Povezave */}
                         <div>
                             <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 pl-1 text-left">Informacije</p>
                             <div className="flex flex-col gap-1">
@@ -584,7 +600,7 @@ export default function Header({
                             </div>
                         </div>
 
-                        {/* BRANDING (PORAVNANO LEVO) */}
+                        {/* PORAVNAVA LEVO */}
                         <div className="px-2 pt-6 text-left">
                             <div className="flex items-center justify-start gap-2 mb-2 opacity-80">
                                 <div className="relative w-5 h-5">
@@ -599,7 +615,6 @@ export default function Header({
                             <span className="text-xs text-gray-300 dark:text-gray-600">© 2026 Križišče</span>
                         </div>
                     </div>
-
                 </div>
             </motion.div>
         </>
