@@ -302,7 +302,6 @@ export default function ArticlePreview({ url, onClose }: Props) {
     return () => mq.removeEventListener?.('change', set)
   }, [])
 
-  // POPRAVEK: Simulacija progressa (ki ne povozi 100%)
   useEffect(() => {
     if (!loading) {
       return
@@ -311,8 +310,8 @@ export default function ArticlePreview({ url, onClose }: Props) {
 
     const interval = setInterval(() => {
       setProgress(old => {
-        if (old >= 100) return 100 // Če smo ročno nastavili 100, ostani tam
-        if (old >= 90) return 90   // Ustavi se na 90%
+        if (old >= 100) return 100 
+        if (old >= 90) return 90   
         const diff = Math.random() * 15
         return Math.min(old + diff, 90)
       })
@@ -321,12 +320,10 @@ export default function ArticlePreview({ url, onClose }: Props) {
     return () => clearInterval(interval)
   }, [loading])
 
-  // POPRAVEK: Nalaganje s hitrejšim finish efektom (150ms)
   useEffect(() => {
     let alive = true
     setContent(''); setCoverSnapSrc(null)
     setLoading(true); setError(null)
-    // Resetiramo progress ob novem URL-ju
     setProgress(0)
 
     const run = async () => {
@@ -347,12 +344,10 @@ export default function ArticlePreview({ url, onClose }: Props) {
 
         setContent(truncated)
         
-        // --- ZMANJŠAN ZAMIK NA 150ms ---
         setProgress(100)
         setTimeout(() => {
             if (alive) setLoading(false)
         }, 150)
-        // ------------------------------
 
       } catch {
         if (!alive) return
@@ -615,9 +610,9 @@ export default function ArticlePreview({ url, onClose }: Props) {
       `}</style>
       <style>{PREVIEW_TYPO_CSS}</style>
 
-      {/* --- SPREMEMBA: Dodan flex-col, da se gumb zloži POD okno --- */}
+      {/* --- SPREMEMBA: z-50 -> z-[200] --- */}
       <div
-        className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-black/60 transition-opacity duration-300 backdrop-blur-sm"
+        className="fixed inset-0 z-[200] flex flex-col items-center justify-center bg-black/60 transition-opacity duration-300 backdrop-blur-sm"
         role="dialog"
         aria-modal="true"
         onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
@@ -629,15 +624,14 @@ export default function ArticlePreview({ url, onClose }: Props) {
           {/* Header */}
           <div className="sticky top-0 z-10 flex items-center justify-between gap-3 px-5 py-4 border-b border-gray-200/20 bg-white/90 dark:bg-gray-900/90 backdrop-blur-md rounded-t-xl">
             <div className="min-w-0 flex-1 flex flex-col gap-0.5">
-               {/* Križišče branding - HITRO NALAGANJE (BREZ WESERV) */}
+               {/* Križišče branding */}
                <div className="flex items-center gap-1.5 opacity-80">
                   <NextImage src="/logo.png" width={18} height={18} alt="Križišče" className="object-contain" unoptimized />
                   <span className="text-[11px] font-bold uppercase tracking-wider text-brand">Križišče</span>
                </div>
                
-               {/* Vir branding - HITRO NALAGANJE (BREZ WESERV) */}
+               {/* Vir branding */}
                <div className="flex items-center gap-2">
-                  {/* --- POPRAVEK: POGOČNO RENDERING + KEY --- */}
                   {site && (
                     <div className="relative w-4 h-4 shrink-0 rounded-full overflow-hidden bg-gray-100" key={site}>
                         <NextImage 
@@ -814,7 +808,7 @@ export default function ArticlePreview({ url, onClose }: Props) {
           )}
         </div>
 
-        {/* --- NOVI GUMB ZA ZAPIRANJE (Zunaj okna) --- */}
+        {/* --- GUMB ZA ZAPIRANJE (Zunaj okna) --- */}
         <button
           onClick={onClose}
           className="mt-4 flex items-center justify-center w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 text-white backdrop-blur-md transition-colors border border-white/10 shadow-lg shrink-0"
