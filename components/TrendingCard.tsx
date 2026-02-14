@@ -354,6 +354,7 @@ export default function TrendingCard({ news, compact = false, rank }: Props) {
                                   border border-gray-100 dark:border-gray-600 
                                   flex items-center justify-center overflow-hidden shadow-sm cursor-pointer
                                   transition-all duration-300 ease-out
+                                  /* 80% opacity, BREZ grayscale, full opacity na hover */
                                   opacity-80 hover:opacity-100
                                   hover:scale-125 hover:z-20 hover:border-brand/50
                                `}
