@@ -512,7 +512,7 @@ export default function Header({
                     }
                 }}
                 /* TUKAJ: bg-white/80 (80% opacity) in backdrop-blur za prosojnost */
-                className="fixed top-0 right-0 bottom-0 z-[100] w-[85%] max-w-[320px] bg-white/80 dark:bg-gray-950/70 backdrop-blur-xl flex flex-col overflow-hidden shadow-2xl border-l border-gray-200/50 dark:border-gray-800/50 touch-pan-y"
+                className="fixed top-0 right-0 bottom-0 z-[100] w-[85%] max-w-[320px] bg-white/80 dark:bg-gray-950/50 backdrop-blur-xl flex flex-col overflow-hidden shadow-2xl border-l border-gray-200/50 dark:border-gray-800/50 touch-pan-y"
             >
                 {/* Menu Header */}
                 <div className="h-16 flex items-center justify-between px-4 border-b border-gray-100 dark:border-gray-800/50 shrink-0">
