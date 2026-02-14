@@ -59,8 +59,9 @@ export default function TrendingBar({ words, onSelectWord, selectedWord }: Trend
   return (
     <div className="flex items-center w-full overflow-hidden py-1 border-b border-gray-100 dark:border-gray-800/50 lg:border-none">
       
-      {/* DESKTOP FIXED LABEL - Odstranjen border-r */}
-      <div className="hidden md:flex items-center gap-1.5 shrink-0 pr-2 mr-2 select-none">
+      {/* DESKTOP FIXED LABEL */}
+      {/* SPREMEMBA: Zmanjšan padding in margin (pr-2 mr-2 -> pr-1 mr-1) */}
+      <div className="hidden md:flex items-center gap-1.5 shrink-0 pr-1 mr-1 select-none">
           <span className="text-sm animate-pulse opacity-70">🔥</span>
           <span className="text-xs font-bold text-gray-500 tracking-wide">Odmevno</span>
       </div>
@@ -71,10 +72,12 @@ export default function TrendingBar({ words, onSelectWord, selectedWord }: Trend
         ) : (
           <>
             {/* --- MOBILE VIEW --- */}
-            <div className="flex md:hidden items-center gap-3 w-full h-full px-2 overflow-x-auto no-scrollbar">
+            {/* SPREMEMBA: gap-3 -> gap-2 za manjši razmak med vsemi elementi */}
+            <div className="flex md:hidden items-center gap-2 w-full h-full px-2 overflow-x-auto no-scrollbar">
                 
-                {/* MOBILE LABEL - Odstranjen border-r */}
-                <div className="flex items-center gap-1 shrink-0 pr-1 mr-1 select-none">
+                {/* MOBILE LABEL */}
+                {/* SPREMEMBA: Odstranjen mr-1 (margin right), ker gap-2 že doda prostor */}
+                <div className="flex items-center gap-1 shrink-0 pr-1 select-none">
                     <span className="text-xs animate-pulse opacity-70">🔥</span>
                     <span className="text-[11px] font-bold text-gray-500 tracking-wide">Odmevno</span>
                 </div>
