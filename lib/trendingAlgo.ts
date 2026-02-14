@@ -88,31 +88,31 @@ async function clusterNewsWithAI(articles: Article[]): Promise<Record<string, nu
   const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_KEY || "");
   const model = genAI.getGenerativeModel({ model: "models/gemini-3-flash-preview" });
 
-  // --- NOVO: Vključimo tudi 'contentsnippet' v input za AI ---
   const articlesList = articles.map((a, index) => {
-    // Omejimo snippet na 200 znakov, da ne porabimo preveč tokenov, a še vedno damo kontekst
     const snippet = a.contentsnippet ? ` | ${a.contentsnippet.substring(0, 200).replace(/\n/g, ' ')}` : '';
     return `${index}. [${a.source}] "${a.title}"${snippet}`;
   }).join('\n');
 
-  // --- NOVO: Posodobljen Prompt s pravili za dogodke in mnenja ---
+  // --- STROŽJI PROMPT ---
   const prompt = `
-    You are a Slovenian news clustering expert.
-    You monitor news sources like 24ur, RTV, Delo, N1, Siol, Dnevnik, Zurnal24, Svet24, Slovenske novice.
+    You are a strict news clustering engine.
+    Your goal is to group articles that report on the EXACT SAME SPECIFIC INCIDENT.
 
-    GROUP these articles by the EXACT SAME EVENT.
+    INPUT ARTICLES:
     ${articlesList}
 
     RULES:
-    1. A valid group = 2+ articles from DIFFERENT sources about the SAME SPECIFIC EVENT.
-    2. DO NOT group general commentary/columns (Opinion) with specific news events just because they share a topic (e.g., "Elections").
-    3. Ignore single-source articles completely.
-    4. Create SHORT topic names in Slovenian (2-4 words): "Požar na Krasu" (NOT "Natural disasters").
-    5. One article = ONE group only.
-    6. Combine similar topics: "Nova vlada" + "Politične spremembe" → "Nova vlada".
-    7. Return ONLY raw JSON: { "Topic Name": [indices], ... }
+    1. A valid group = 2+ articles about the SAME SPECIFIC INCIDENT (e.g. "Specific Match Result", "Specific Accident").
+    2. DO NOT group articles just because they share a broad topic (e.g. "Olympics", "Elections").
+       - DISTINCT EVENTS MUST BE SEPARATE.
+       - Example: "Ski Jumping" and "Alpine Skiing" are DIFFERENT events. Do NOT group them.
+       - Example: "Party A Convention" and "Party B Statement" are DIFFERENT events. Do NOT group them.
+    3. SEPARATE Opinion/Commentary from News Reports.
+    4. Ignore single-source articles.
+    5. Create SHORT topic names in Slovenian.
+    6. Return ONLY raw JSON: { "Topic Name": [indices], ... }
 
-    RESPOND WITH PURE JSON ONLY. Do not use markdown code blocks. Just the raw JSON string.
+    RESPOND WITH PURE JSON ONLY.
   `;
 
   try {
