@@ -137,7 +137,7 @@ async function clusterNewsWithAI(articles: Article[]): Promise<Record<string, nu
 }
 
 
-// --- 5. GLAVNA FUNKCIJA ---
+// --- 5. GLAVNA FUNKCIJA (POPRAVLJEN SCORE IN SORT) ---
 export async function computeTrending(articles: Article[]): Promise<TrendingGroupResult[]> {
   if (!articles || articles.length === 0) return [];
 
@@ -177,12 +177,22 @@ export async function computeTrending(articles: Article[]): Promise<TrendingGrou
       if (isIgnored) {
           continue; 
       }
-      // ---------------------------------------------
-
-      const others = groupArticles.slice(1);
       
+      const others = groupArticles.slice(1);
       const finalImage = mainArticle.image || mainArticle.imageurl;
       const mainTime = getTime(mainArticle.publishedat);
+
+      // --- NOVO TOČKOVANJE Z GRAVITACIJO ---
+      // 1. Base Score: Število virov je najpomembnejše (x50) + volumen (x1)
+      const rawScore = (uniqueSources.size * 50) + groupArticles.length;
+
+      // 2. Recency Decay (Gravitacija): 
+      // Starejše novice (npr. >12h) dobijo penalizacijo, da ne zasedajo vrha večno.
+      // (ur_starosti + 2)^1.2
+      const hoursOld = Math.max(0, (Date.now() - mainTime) / (1000 * 60 * 60));
+      const gravity = Math.pow(hoursOld + 2, 1.2); 
+      
+      const finalScore = rawScore / gravity;
 
       results.push({
         id: mainArticle.id,
@@ -198,18 +208,12 @@ export async function computeTrending(articles: Article[]): Promise<TrendingGrou
           link: o.link,
           publishedAt: getTime(o.publishedat) 
         })),
-        score: uniqueSources.size * 10 + groupArticles.length // Malo boljši score algoritem
+        score: finalScore // Shranimo izračunan score
       });
     }
 
-    return results.sort((a, b) => {
-        // Najprej po številu različnih virov (več virov = bolj pomembna novica)
-        const sourcesA = new Set([a.source, ...a.storyArticles.map(s => s.source)]).size;
-        const sourcesB = new Set([b.source, ...b.storyArticles.map(s => s.source)]).size;
-        
-        if (sourcesB !== sourcesA) return sourcesB - sourcesA;
-        return b.publishedAt - a.publishedAt;
-    });
+    // --- SORTIRANJE PO SCORE (Ne samo po virih!) ---
+    return results.sort((a, b) => b.score - a.score);
   }
 
   // B) JACCARD FALLBACK (Samo če AI popolnoma odpove)
@@ -239,7 +243,6 @@ export async function computeTrending(articles: Article[]): Promise<TrendingGrou
     for (let j = i + 1; j < processedArticles.length; j++) {
       if (processedArticles[j].assigned) continue;
       
-      // Povečal prag podobnosti na 0.35 za Jaccard, da je manj "povezovanja vsega povprek"
       const similarity = jaccardSimilarity(processedArticles[i].wordSet, processedArticles[j].wordSet);
       if (similarity >= 0.35) {
         currentGroup.push(processedArticles[j]);
@@ -264,6 +267,11 @@ export async function computeTrending(articles: Article[]): Promise<TrendingGrou
         const finalImage = mainArticle.image || mainArticle.imageurl;
         const mainTime = getTime(mainArticle.publishedat);
 
+        // Tudi pri Jaccardu uporabimo enako logiko za score
+        const rawScore = (uniqueSources.size * 50) + currentGroup.length;
+        const hoursOld = Math.max(0, (Date.now() - mainTime) / (1000 * 60 * 60));
+        const gravity = Math.pow(hoursOld + 2, 1.2); 
+
         groups.push({
           id: mainArticle.id,
           title: mainArticle.title,
@@ -278,7 +286,7 @@ export async function computeTrending(articles: Article[]): Promise<TrendingGrou
             link: o.link,
             publishedAt: getTime(o.publishedat)
           })),
-          score: uniqueSources.size * 10 + currentGroup.length
+          score: rawScore / gravity
         });
       }
     }
