@@ -80,37 +80,44 @@ function jaccardSimilarity(setA: Set<string>, setB: Set<string>): number {
   return intersection.size / union.size;
 }
 
-// --- 4. AI CLUSTERING (Gemini 2.0 Flash - BALANCED VERSION) ---
+
+// --- 4. AI CLUSTERING (Gemini 2.0 Flash - REFINED & STRICTER) ---
 async function clusterNewsWithAI(articles: Article[]): Promise<Record<string, number[]> | null> {
   const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_KEY || "");
   const model = genAI.getGenerativeModel({ model: "models/gemini-2.0-flash" }); 
 
   const articlesList = articles.map((a, index) => {
+    // Odstranimo nepotrebne znake za varčevanje tokenov
     const snippet = a.contentsnippet ? ` | ${a.contentsnippet.substring(0, 150).replace(/\n/g, ' ')}` : '';
     return `ID:${index} [${a.source}] TITLE:"${a.title}"${snippet}`;
   }).join('\n');
 
-  // --- POPRAVLJEN PROMPT: MANJ STROG, VEČ KONTEKSTA ---
+  // --- POPRAVLJEN PROMPT: PRECIZNO LOČEVANJE OSEB ---
   const prompt = `
-    You are a news editor. Group articles into clusters that belong to the SAME STORY or TOPIC.
+    You are a news editor. Group articles into clusters that belong to the EXACT SAME EVENT.
     
     INPUT:
     ${articlesList}
 
     RULES FOR GROUPING:
-    1. **CORE EVENT + CONTEXT**: Group the main news event together with reactions, analysis, and side-stories directly related to it.
-       - Example: "Domen Prevc wins gold" AND "Coach praises Prevc" AND "Prevc family medal count" -> GROUP THESE TOGETHER.
-       - Example: "Navalny dies" AND "World leaders blame Putin for Navalny" -> GROUP THESE TOGETHER.
+    1. **SAME MAIN EVENT ONLY**: Group the main report together with direct reactions and analysis of THAT specific event.
+       - Example: "Domen Prevc wins gold" AND "Coach praises Domen's jump" -> GROUP TOGETHER.
+       - Example: "Navalny dies" AND "Kremlin denies involvement in Navalny death" -> GROUP TOGETHER.
     
-    2. **DISTINCT EVENTS**: Keep truly different events separate.
-       - Example: "Zelensky talks about missiles" vs "Sajovic talks about Slovenian army" -> SEPARATE (even if both mention defense).
-       - Example: "Tina Maze wins" vs "Lindsey Vonn crashes" -> SEPARATE (different athletes, different focus).
+    2. **DISTINCT PEOPLE = DISTINCT GROUPS**: 
+       - **CRITICAL**: "Nika Prevc" and "Domen Prevc" are DIFFERENT athletes. Do NOT group them unless they are in a Mixed Team event together.
+       - A preview of a future event (e.g., "Nika will jump today") is DIFFERENT from a report of a past event (e.g., "Domen won yesterday").
+       
+    3. **DISTINCT TOPICS**:
+       - "Zelensky talks about missiles" vs "Sajovic talks about Slovenian army" -> SEPARATE.
+       - "Tina Maze wins" vs "Lindsey Vonn crashes" -> SEPARATE.
 
-    3. **Output format**: JSON only. Keys are short Slovenian topic summaries. Values are arrays of IDs.
+    4. **Output format**: JSON only. Keys are short Slovenian topic summaries. Values are arrays of IDs.
 
     RESPONSE FORMAT (JSON ONLY):
     {
-      "Zlato za Domna Prevca": [1, 2, 5, 8], 
+      "Zlato za Domna Prevca": [1, 2, 5], 
+      "Nika Prevc napada medaljo": [8, 9],
       "Smrt Navalnega": [10, 11, 12]
     }
   `;
@@ -128,6 +135,7 @@ async function clusterNewsWithAI(articles: Article[]): Promise<Record<string, nu
     return null; 
   }
 }
+
 
 // --- 5. GLAVNA FUNKCIJA ---
 export async function computeTrending(articles: Article[]): Promise<TrendingGroupResult[]> {
