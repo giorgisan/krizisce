@@ -80,19 +80,17 @@ function jaccardSimilarity(setA: Set<string>, setB: Set<string>): number {
   return intersection.size / union.size;
 }
 
-
-// --- 4. AI CLUSTERING (Gemini 2.0 Flash - REFINED & STRICTER) ---
+// --- 4. AI CLUSTERING (Gemini 2.0 Flash - WITH SAFETY) ---
 async function clusterNewsWithAI(articles: Article[]): Promise<Record<string, number[]> | null> {
   const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_KEY || "");
   const model = genAI.getGenerativeModel({ model: "models/gemini-2.0-flash" }); 
 
   const articlesList = articles.map((a, index) => {
-    // Odstranimo nepotrebne znake za varčevanje tokenov
     const snippet = a.contentsnippet ? ` | ${a.contentsnippet.substring(0, 150).replace(/\n/g, ' ')}` : '';
     return `ID:${index} [${a.source}] TITLE:"${a.title}"${snippet}`;
   }).join('\n');
 
-  // --- POPRAVLJEN PROMPT: REŠEVANJE "BRIDGE" NOVIC ---
+  // --- STRICT PROMPT ---
   const prompt = `
     You are a professional news editor. Group articles into clusters that belong to the EXACT SAME EVENT.
     
@@ -101,23 +99,21 @@ async function clusterNewsWithAI(articles: Article[]): Promise<Record<string, nu
 
     STRICT RULES FOR GROUPING:
     1. **SAME MAIN EVENT ONLY**: Group the main report together with direct reactions and analysis of THAT specific event.
-       - Example: "Domen Prevc wins gold" AND "Coach praises Domen's jump" -> GROUP TOGETHER.
+       - "Domen Prevc wins gold" AND "Coach praises Domen" -> GROUP TOGETHER.
     
-    2. **HANDLING "BRIDGE" HEADLINES (CRITICAL)**: 
-       - If a headline compares two people (e.g., "Nika wants to repeat Domen's success"), it belongs to the *ACTIVE SUBJECT'S* group (Nika).
-       - DO NOT group the *PAST EVENT* (Domen's win yesterday) into the *FUTURE PREVIEW* (Nika's jump today).
-       - Keep "Domen Prevc Gold" separate from "Nika Prevc Preview", even if Nika's article mentions Domen.
+    2. **CRITICAL: DO NOT MIX PEOPLE**: 
+       - "Nikola Jokić" (Basketball) and "Domen Prevc" (Ski Jumping) are totally different. SEPARATE THEM.
+       - "Nika Prevc" and "Domen Prevc" are different athletes. SEPARATE THEM unless it's a Mixed Team event.
 
-    3. **DISTINCT TOPICS**:
-       - "Zelensky talks about missiles" vs "Sajovic talks about Slovenian army" -> SEPARATE.
-       - "Tina Maze wins" vs "Lindsey Vonn crashes" -> SEPARATE.
+    3. **HANDLING "BRIDGE" HEADLINES**: 
+       - If a headline mentions two people (e.g., "Nika wants to be like Domen"), put it in the Active Subject's group (Nika). Do NOT pull Domen's old articles into it.
 
     4. **Output format**: JSON only. Keys are short Slovenian topic summaries. Values are arrays of IDs.
 
     RESPONSE FORMAT (JSON ONLY):
     {
       "Zlato za Domna Prevca": [1, 2, 5], 
-      "Nika Prevc napada medaljo": [8, 9],
+      "Jokićev rekord": [8, 9],
       "Smrt Navalnega": [10, 11, 12]
     }
   `;
@@ -137,7 +133,7 @@ async function clusterNewsWithAI(articles: Article[]): Promise<Record<string, nu
 }
 
 
-// --- 5. GLAVNA FUNKCIJA (POPRAVLJEN SCORE IN SORT) ---
+// --- 5. GLAVNA FUNKCIJA (Z VARNOSTNO ZANKO) ---
 export async function computeTrending(articles: Article[]): Promise<TrendingGroupResult[]> {
   if (!articles || articles.length === 0) return [];
 
@@ -148,15 +144,13 @@ export async function computeTrending(articles: Article[]): Promise<TrendingGrou
     const results: TrendingGroupResult[] = [];
 
     for (const [topic, indices] of Object.entries(aiClusters)) {
-      const groupArticles = indices.map(i => articles[i]).filter(a => a !== undefined);
+      // 1. Zberi članke
+      let groupArticles = indices.map(i => articles[i]).filter(a => a !== undefined);
 
       if (groupArticles.length < 2) continue;
-      const uniqueSources = new Set(groupArticles.map(a => a.source));
-      
-      // Če AI vrne grupo z samo enim virom, jo ignoriramo (razen če je res velika)
-      if (uniqueSources.size < 2 && groupArticles.length < 3) continue;
 
-      // Sortiranje znotraj grupe (Slika > Datum)
+      // 2. Določi glavnega (najbolj verjetno tisti, ki ima sliko ali je najnovejši, da služi kot "sidro")
+      // Za varnostno preverjanje najprej sortiramo, da dobimo najbolj reprezentativen članek na vrh
       groupArticles.sort((a, b) => {
         const imgA = a.image || a.imageurl;
         const imgB = b.image || b.imageurl;
@@ -166,7 +160,47 @@ export async function computeTrending(articles: Article[]): Promise<TrendingGrou
       });
 
       const mainArticle = groupArticles[0];
+      const mainKeywords = preprocessTitle(mainArticle.title);
+
+      // --- 3. SAFETY CHECK (VARNOSTNA ZANKA) ---
+      // Izloči članke, ki nimajo NOBENE vsebinske povezave z glavnim člankom.
+      // To prepreči, da bi "Jokić" (glavni) imel v svoji grupi "Prevca".
+      const validArticles = [mainArticle];
+      const rejectedArticles: Article[] = [];
+
+      for (let i = 1; i < groupArticles.length; i++) {
+          const candidate = groupArticles[i];
+          const candidateKeywords = preprocessTitle(candidate.title);
+          
+          // Preverimo prekrivanje ključnih besed
+          const similarity = jaccardSimilarity(mainKeywords, candidateKeywords);
+          
+          // Če je podobnost 0, je to sumljivo. 
+          // Ampak pazljivo: "Trener Hrgota" in "Domen Prevc" nimata nujno skupnih besed, če "Hrgota" ni v naslovu Prevca.
+          // Zato uporabimo zelo nizek prag, ali pa preverimo, če se vsaj ena beseda ujema.
+          const hasOverlap = [...mainKeywords].some(k => candidateKeywords.has(k));
+
+          if (hasOverlap) {
+              validArticles.push(candidate);
+          } else {
+              // Če ni prekrivanja, ga vržemo ven (rešitev za Jokić/Prevc bug)
+              // (Opomba: To lahko včasih izloči preveč abstraktne naslove, a bolje to kot napaka)
+              rejectedArticles.push(candidate);
+          }
+      }
       
+      // Če smo po čiščenju ostali sami (ali premalo), grupo ignoriramo
+      if (validArticles.length < 2) continue;
+      
+      // Posodobimo groupArticles na prečiščen seznam
+      groupArticles = validArticles;
+      const uniqueSources = new Set(groupArticles.map(a => a.source));
+
+      // Ponovno preveri pogoje po čiščenju
+      if (uniqueSources.size < 2 && groupArticles.length < 3) continue;
+
+      // ----------------------------------------
+
       // --- FILTER: Ignoriraj Horoskop/Vreme/itd. ---
       const titleLower = mainArticle.title.toLowerCase();
       const topicLower = topic.toLowerCase();
@@ -174,26 +208,17 @@ export async function computeTrending(articles: Article[]): Promise<TrendingGrou
           titleLower.includes(ignoredWord) || topicLower.includes(ignoredWord)
       );
 
-      if (isIgnored) {
-          continue; 
-      }
+      if (isIgnored) continue;
       
       const others = groupArticles.slice(1);
       const finalImage = mainArticle.image || mainArticle.imageurl;
       const mainTime = getTime(mainArticle.publishedat);
 
-      // --- NOVO TOČKOVANJE Z GRAVITACIJO ---
-      // 1. Base Score: Število virov je najpomembnejše (x50) + volumen (x1)
+      // --- TOČKOVANJE Z GRAVITACIJO ---
       const rawScore = (uniqueSources.size * 50) + groupArticles.length;
-
-      // 2. Recency Decay (Gravitacija): 
-      // Starejše novice (npr. >12h) dobijo penalizacijo, da ne zasedajo vrha večno.
-      // (ur_starosti + 2)^1.2
       const hoursOld = Math.max(0, (Date.now() - mainTime) / (1000 * 60 * 60));
       const gravity = Math.pow(hoursOld + 2, 1.2); 
       
-      const finalScore = rawScore / gravity;
-
       results.push({
         id: mainArticle.id,
         title: mainArticle.title,
@@ -208,15 +233,14 @@ export async function computeTrending(articles: Article[]): Promise<TrendingGrou
           link: o.link,
           publishedAt: getTime(o.publishedat) 
         })),
-        score: finalScore // Shranimo izračunan score
+        score: rawScore / gravity 
       });
     }
 
-    // --- SORTIRANJE PO SCORE (Ne samo po virih!) ---
     return results.sort((a, b) => b.score - a.score);
   }
 
-  // B) JACCARD FALLBACK (Samo če AI popolnoma odpove)
+  // B) JACCARD FALLBACK 
   console.log("⚠️ AI failed, falling back to Jaccard...");
   const processedArticles = articles.map(article => ({
     ...article,
@@ -238,7 +262,6 @@ export async function computeTrending(articles: Article[]): Promise<TrendingGrou
         titleLower.includes(ignoredWord)
     );
     if (isIgnored) continue;
-    // -------------------------
 
     for (let j = i + 1; j < processedArticles.length; j++) {
       if (processedArticles[j].assigned) continue;
@@ -267,7 +290,6 @@ export async function computeTrending(articles: Article[]): Promise<TrendingGrou
         const finalImage = mainArticle.image || mainArticle.imageurl;
         const mainTime = getTime(mainArticle.publishedat);
 
-        // Tudi pri Jaccardu uporabimo enako logiko za score
         const rawScore = (uniqueSources.size * 50) + currentGroup.length;
         const hoursOld = Math.max(0, (Date.now() - mainTime) / (1000 * 60 * 60));
         const gravity = Math.pow(hoursOld + 2, 1.2); 
