@@ -92,22 +92,22 @@ async function clusterNewsWithAI(articles: Article[]): Promise<Record<string, nu
     return `ID:${index} [${a.source}] TITLE:"${a.title}"${snippet}`;
   }).join('\n');
 
-  // --- POPRAVLJEN PROMPT: PRECIZNO LOČEVANJE OSEB ---
+  // --- POPRAVLJEN PROMPT: REŠEVANJE "BRIDGE" NOVIC ---
   const prompt = `
-    You are a news editor. Group articles into clusters that belong to the EXACT SAME EVENT.
+    You are a professional news editor. Group articles into clusters that belong to the EXACT SAME EVENT.
     
     INPUT:
     ${articlesList}
 
-    RULES FOR GROUPING:
+    STRICT RULES FOR GROUPING:
     1. **SAME MAIN EVENT ONLY**: Group the main report together with direct reactions and analysis of THAT specific event.
        - Example: "Domen Prevc wins gold" AND "Coach praises Domen's jump" -> GROUP TOGETHER.
-       - Example: "Navalny dies" AND "Kremlin denies involvement in Navalny death" -> GROUP TOGETHER.
     
-    2. **DISTINCT PEOPLE = DISTINCT GROUPS**: 
-       - **CRITICAL**: "Nika Prevc" and "Domen Prevc" are DIFFERENT athletes. Do NOT group them unless they are in a Mixed Team event together.
-       - A preview of a future event (e.g., "Nika will jump today") is DIFFERENT from a report of a past event (e.g., "Domen won yesterday").
-       
+    2. **HANDLING "BRIDGE" HEADLINES (CRITICAL)**: 
+       - If a headline compares two people (e.g., "Nika wants to repeat Domen's success"), it belongs to the *ACTIVE SUBJECT'S* group (Nika).
+       - DO NOT group the *PAST EVENT* (Domen's win yesterday) into the *FUTURE PREVIEW* (Nika's jump today).
+       - Keep "Domen Prevc Gold" separate from "Nika Prevc Preview", even if Nika's article mentions Domen.
+
     3. **DISTINCT TOPICS**:
        - "Zelensky talks about missiles" vs "Sajovic talks about Slovenian army" -> SEPARATE.
        - "Tina Maze wins" vs "Lindsey Vonn crashes" -> SEPARATE.
