@@ -108,7 +108,9 @@ async function clusterNewsWithAI(articles: Article[]): Promise<Record<string, nu
     3. **HANDLING "BRIDGE" HEADLINES**: 
        - If a headline mentions two people (e.g., "Nika wants to be like Domen"), put it in the Active Subject's group (Nika). Do NOT pull Domen's old articles into it.
 
-    4. **Output format**: JSON only. Keys are short Slovenian topic summaries. Values are arrays of IDs.
+    4. **UNIQUE ASSIGNMENT**: Each article ID should appear in at most ONE cluster. Do not repeat the same ID in multiple clusters.
+
+    5. **Output format**: JSON only. Keys are short Slovenian topic summaries. Values are arrays of IDs.
 
     RESPONSE FORMAT (JSON ONLY):
     {
@@ -133,7 +135,7 @@ async function clusterNewsWithAI(articles: Article[]): Promise<Record<string, nu
 }
 
 
-// --- 5. GLAVNA FUNKCIJA (Z VARNOSTNO ZANKO) ---
+// --- 5. GLAVNA FUNKCIJA (Z VARNOSTNO ZANKO IN DEDUP) ---
 export async function computeTrending(articles: Article[]): Promise<TrendingGroupResult[]> {
   if (!articles || articles.length === 0) return [];
 
@@ -142,15 +144,17 @@ export async function computeTrending(articles: Article[]): Promise<TrendingGrou
 
   if (aiClusters) {
     const results: TrendingGroupResult[] = [];
+    const usedArticleIds = new Set<number>(); // <-- NOVO: Sledenje že uporabljenih člankov
 
     for (const [topic, indices] of Object.entries(aiClusters)) {
-      // 1. Zberi članke
-      let groupArticles = indices.map(i => articles[i]).filter(a => a !== undefined);
+      // 1. Zberi članke IN filtriraj tiste, ki so že v kakšni drugi skupini
+      let groupArticles = indices
+        .map(i => articles[i])
+        .filter(a => a !== undefined && !usedArticleIds.has(a.id));
 
       if (groupArticles.length < 2) continue;
 
-      // 2. Določi glavnega (najbolj verjetno tisti, ki ima sliko ali je najnovejši, da služi kot "sidro")
-      // Za varnostno preverjanje najprej sortiramo, da dobimo najbolj reprezentativen članek na vrh
+      // 2. Določi glavnega
       groupArticles.sort((a, b) => {
         const imgA = a.image || a.imageurl;
         const imgB = b.image || b.imageurl;
@@ -163,8 +167,6 @@ export async function computeTrending(articles: Article[]): Promise<TrendingGrou
       const mainKeywords = preprocessTitle(mainArticle.title);
 
       // --- 3. SAFETY CHECK (VARNOSTNA ZANKA) ---
-      // Izloči članke, ki nimajo NOBENE vsebinske povezave z glavnim člankom.
-      // To prepreči, da bi "Jokić" (glavni) imel v svoji grupi "Prevca".
       const validArticles = [mainArticle];
       const rejectedArticles: Article[] = [];
 
@@ -172,19 +174,11 @@ export async function computeTrending(articles: Article[]): Promise<TrendingGrou
           const candidate = groupArticles[i];
           const candidateKeywords = preprocessTitle(candidate.title);
           
-          // Preverimo prekrivanje ključnih besed
-          const similarity = jaccardSimilarity(mainKeywords, candidateKeywords);
-          
-          // Če je podobnost 0, je to sumljivo. 
-          // Ampak pazljivo: "Trener Hrgota" in "Domen Prevc" nimata nujno skupnih besed, če "Hrgota" ni v naslovu Prevca.
-          // Zato uporabimo zelo nizek prag, ali pa preverimo, če se vsaj ena beseda ujema.
           const hasOverlap = [...mainKeywords].some(k => candidateKeywords.has(k));
 
           if (hasOverlap) {
               validArticles.push(candidate);
           } else {
-              // Če ni prekrivanja, ga vržemo ven (rešitev za Jokić/Prevc bug)
-              // (Opomba: To lahko včasih izloči preveč abstraktne naslove, a bolje to kot napaka)
               rejectedArticles.push(candidate);
           }
       }
@@ -199,8 +193,6 @@ export async function computeTrending(articles: Article[]): Promise<TrendingGrou
       // Ponovno preveri pogoje po čiščenju
       if (uniqueSources.size < 2 && groupArticles.length < 3) continue;
 
-      // ----------------------------------------
-
       // --- FILTER: Ignoriraj Horoskop/Vreme/itd. ---
       const titleLower = mainArticle.title.toLowerCase();
       const topicLower = topic.toLowerCase();
@@ -210,6 +202,9 @@ export async function computeTrending(articles: Article[]): Promise<TrendingGrou
 
       if (isIgnored) continue;
       
+      // --- NOVO: Zakleni članke, da se ne pojavijo v naslednji zanki ---
+      groupArticles.forEach(a => usedArticleIds.add(a.id));
+
       const others = groupArticles.slice(1);
       const finalImage = mainArticle.image || mainArticle.imageurl;
       const mainTime = getTime(mainArticle.publishedat);
