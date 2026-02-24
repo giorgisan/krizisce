@@ -112,7 +112,7 @@ export const CATEGORIES: CategoryDef[] = [
         'umetn inteligenc', 'chatgpt', 'openai', 'robotik', 'vesolj', 'nasa', 'spacex', 'luna', 'mars', 'astronavt', 'misija',
         'aplikacij', 'programiranj', 'kibernetsk', 'heker', 'prevar', 'znanstven', 'splet', 'telef', 'mobiln', 'regulativ', 'direktiv', 'zasebnost', 'podatk',
         'milijard', 'milijonar', 'bogatas', 'bogastv', 'premozenj', 'uspeh',
-        'gamers', 'igric', 'konzola', 'xbox', 'playstation', 'asus', 'racunalnik',
+        'gamers', 'igric', 'konzola', 'xbox', 'playstation', 'asus', 'racunalnik', 'znanoteh', 'tiskanje', 'raziskovalc',
         'algorit', 'omrez', 'inovacij', 'partnerstv', 'bosch', 'studira', 'poklicev', 'gotovin'
     ]
   },
@@ -137,7 +137,7 @@ export const CATEGORIES: CategoryDef[] = [
         '/magazin/', '/scena/', '/zvezde/', '/zabava/', '/zabava-in-slog/', '/znani/', '/traci/', '/bulvar/', '/ljudje/', '/popin/', '/zanimivosti/', '/trendi/', '/tuja-scena/', '/vip/', '/film-glasba-tv/', '/horoskop/',
         'kardashian', 'jenner', 'royal', 'kraljev', 'harry', 'meghan', 'william', 'kate',
         'jagger', 'madonna', 'shakira', 'swift', 'beyonc', 'severin', 'prijovic', 'lepa bren', 'ceca',
-        'chal', 'bas', 
+        'chal', 'bas', 'angel', 'horoskop',
         'znani', 'vplivnez', 'influencer', 'estradnik', 'zvezdnic', 'zvezdnik', 'ikon', 'bardot', 'klum',
         'clooney', 'dick', 'dyke', 
         'locitev', 'poroka', 'nosecnost', 'afera', 'skandal', 'mladoporoc', 'zaroka', 'nosec', 'baby',
@@ -172,7 +172,7 @@ export const CATEGORIES: CategoryDef[] = [
         'zival', 'ljubljenck', 'pes', 'psi', 'mack', 'zavetisc', 'posvojit', 'cebel', 'medved',
         '/potovanja/', '/izleti/', '/turizem/', 
         'dopust', 'pocitnic', 'morje', 'hrib', 'izlet', 'hotel', 'kamp', 'razgled', 'potep', 'turizem', 'turist', 'destinacij', 'wellness', 'razvajanj', 'term',
-        'huj', 'navad', 'vitaln',
+        'huj', 'navad', 'vitaln', 'infarkt', 'spanec', 'velnes', 'tusira',
         'trebuh', 'mascob', 'misic', 'telovad', 'staran', 'utrujenost', 'teles',
         'imen', 'stars', 'otrok', 'medenicn', 'nozev', 'gradn', 'hise', 'prepir', 'pijac', 'hidraci', 'hladilnik', 'vzigalic', 'stranisc', 'pustn', 'meduz', 'vnuk', 'babic', 'dedk', 'spolni', 'penetracija', 'ejakulacija', 'samostan', 'zelisc', 'velnes', 'tusira', 'spanec'
     ]
