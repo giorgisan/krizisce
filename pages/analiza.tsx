@@ -53,9 +53,10 @@ const getLogoSrc = (sourceName: string) => {
 
 const getToneColor = (tone: string) => {
   const t = tone.toLowerCase();
-  if (t.includes('senzacija') || t.includes('drama') || t.includes('alarm')) return 'bg-red-500/10 text-red-500 border-red-500/10';
-  if (t.includes('vprašal') || t.includes('provokat')) return 'bg-orange-500/10 text-orange-500 border-orange-500/10';
-  return 'bg-gray-500/10 text-gray-400 border-gray-500/10';
+  // Brez okvirjev, samo blago ozadje
+  if (t.includes('senzacija') || t.includes('drama') || t.includes('alarm')) return 'bg-red-500/10 text-red-500/90';
+  if (t.includes('vprašal') || t.includes('provokat')) return 'bg-orange-500/10 text-orange-500/90';
+  return 'bg-gray-500/10 text-gray-400';
 }
 
 export default function AnalizaPage({ analysis, lastUpdated, debugStr }: Props) {
@@ -88,13 +89,10 @@ export default function AnalizaPage({ analysis, lastUpdated, debugStr }: Props) 
                         </div>
                     )}
                 </div>
-                <p className="text-[12px] text-gray-500 dark:text-gray-400 mt-2 max-w-3xl leading-relaxed">
-                    AI analiza uokvirjanja najpomembnejših dogodkov v zadnjih 12 urah.
-                </p>
             </div>
         </div>
 
-        {/* 2-STOLPČNI GRID ZA PORAVNAVO VRSTIC */}
+        {/* 2-STOLPČNI GRID */}
         <div className="max-w-5xl mx-auto px-4 mt-8 grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
           {validAnalysis.length === 0 ? (
             <div className="col-span-full text-center py-20 bg-white dark:bg-gray-800/40 rounded-xl border border-dashed border-gray-300 dark:border-gray-700">
@@ -105,13 +103,13 @@ export default function AnalizaPage({ analysis, lastUpdated, debugStr }: Props) 
             validAnalysis.map((item, idx) => (
               <article key={idx} className="bg-white dark:bg-gray-800/40 rounded-xl shadow-sm border border-gray-200 dark:border-gray-800/80 overflow-hidden flex flex-col h-fit">
                   
-                  {/* SLIKA: Zelo nizka (21:9) */}
+                  {/* SLIKA: Ultra nizka 4:1 */}
                   {item.main_image && (
-                      <div className="w-full aspect-[21/9] bg-gray-100 dark:bg-gray-800 relative border-b border-gray-100 dark:border-gray-800/50">
+                      <div className="w-full aspect-[4/1] bg-gray-100 dark:bg-gray-800 relative border-b border-gray-100 dark:border-gray-800/50">
                           <img 
-                            src={proxiedImage(item.main_image, 600, 250, 1)} 
+                            src={proxiedImage(item.main_image, 600, 150, 1)} 
                             alt=""
-                            className="w-full h-full object-cover"
+                            className="w-full h-full object-cover opacity-90 group-hover:opacity-100 transition-opacity"
                             loading="lazy"
                             onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
                           />
@@ -120,10 +118,10 @@ export default function AnalizaPage({ analysis, lastUpdated, debugStr }: Props) 
 
                   <div className="p-4 flex flex-col gap-3">
                       <div>
-                          <h2 className="text-[16px] font-bold text-gray-900 dark:text-white mb-1 leading-snug">
+                          <h2 className="text-[16px] font-bold text-gray-900 dark:text-white mb-1 leading-tight">
                             {item.topic}
                           </h2>
-                          <p className="text-[12px] text-gray-600 dark:text-gray-400 leading-relaxed">
+                          <p className="text-[12px] text-gray-600 dark:text-gray-400 leading-relaxed font-normal">
                             {item.summary}
                           </p>
                       </div>
@@ -132,12 +130,13 @@ export default function AnalizaPage({ analysis, lastUpdated, debugStr }: Props) 
                           <div className="text-[8px] font-bold uppercase tracking-wider text-brand/70 mb-0.5">
                               Uredniški okvir
                           </div>
-                          <p className="text-[11px] text-gray-800 dark:text-gray-300 font-medium leading-snug italic">
+                          {/* POVEČAN TEKST ANALIZE */}
+                          <p className="text-[13px] text-gray-800 dark:text-gray-300 font-medium leading-relaxed italic">
                              "{item.framing_analysis || item.tone_difference}"
                           </p>
                       </div>
 
-                      {/* VIRI: Ekstremno stisnjeno, brez imen, samo ikone */}
+                      {/* VIRI: Brez imen, samo ikone in naslovi */}
                       <div className="pt-1 border-t border-gray-100 dark:border-gray-800/50">
                           <div className="flex flex-col">
                               {item.sources && item.sources.map((source, sIdx) => (
@@ -146,23 +145,27 @@ export default function AnalizaPage({ analysis, lastUpdated, debugStr }: Props) 
                                         href={source.url} 
                                         target="_blank" 
                                         rel="noopener" 
-                                        className="flex items-center gap-2.5 min-w-0 flex-1"
+                                        className="flex items-center gap-2.5 min-w-0 flex-1 pr-10"
                                       >
-                                          <div className="relative w-3.5 h-3.5 shrink-0 rounded-[2px] overflow-hidden grayscale group-hover:grayscale-0 transition-all">
+                                          {/* Ikona */}
+                                          <div className="relative w-3.5 h-3.5 shrink-0 rounded-sm overflow-hidden grayscale group-hover:grayscale-0 transition-all opacity-80 group-hover:opacity-100">
                                               <Image src={getLogoSrc(source.source)} alt="" fill className="object-contain" />
                                           </div>
-                                          <span className="text-[11px] font-normal text-gray-500 dark:text-gray-300 truncate group-hover:text-brand transition-colors">
+                                          {/* Naslov brez imena medija */}
+                                          <span className="text-[11px] font-normal text-gray-500 dark:text-gray-400 truncate group-hover:text-brand transition-colors">
                                               {source.title}
                                           </span>
                                       </a>
                                       
-                                      <div className="flex items-center gap-2 ml-2">
-                                          <span className={`text-[7px] px-1 py-0.5 rounded-[2px] border font-bold whitespace-nowrap uppercase ${getToneColor(source.tone)}`}>
+                                      <div className="flex items-center gap-2 shrink-0 ml-1">
+                                          {/* Tagi brez okvirja */}
+                                          <span className={`text-[7px] px-1.5 py-0.5 rounded-[2px] font-bold whitespace-nowrap uppercase ${getToneColor(source.tone)}`}>
                                               {source.tone}
                                           </span>
+                                          {/* OKO s povečavo na hover */}
                                           <button 
                                             onClick={(e) => { e.preventDefault(); e.stopPropagation(); setPreviewUrl(source.url); }}
-                                            className="text-gray-400 hover:text-brand opacity-0 group-hover:opacity-100 transition-all p-1"
+                                            className="text-gray-400 hover:text-brand transition-all p-1 hover:scale-125"
                                           >
                                               <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2.5">
                                                   <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12Z" />
