@@ -195,23 +195,27 @@ export default function AnalizaPage({ analysis, lastUpdated, debugStr }: Props) 
 }
 
 export const getServerSideProps: GetServerSideProps = async ({ res }) => {
-  // Izklopimo cache za testiranje (1 sekunda), da ti takoj osveži stran!
+  // Izklopimo cache za testiranje (1 sekunda)
   res.setHeader('Cache-Control', 'public, s-maxage=1, stale-while-revalidate=10')
   const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
 
+  // ODSTRANJEN .single() na koncu!
   const { data, error } = await supabase
     .from('media_analysis')
     .select('data, created_at')
     .order('created_at', { ascending: false })
     .limit(1)
-    .single()
 
-  if (error || !data) {
+  // Preverimo, če obstaja error ali če je array prazen
+  if (error || !data || data.length === 0) {
       return { props: { analysis: null, lastUpdated: null, debugStr: error ? error.message : 'Baza je prazna.' } }
   }
 
+  // Vzamemo prvo vrstico ročno
+  const row = data[0];
+
   let extractedAnalysis = null;
-  let rawContent = data.data;
+  let rawContent = row.data;
 
   // 1. Zavarujemo se pred DVOJNIM stringify formatom iz Supabase
   if (typeof rawContent === 'string') {
@@ -239,12 +243,12 @@ export const getServerSideProps: GetServerSideProps = async ({ res }) => {
   }
 
   // Če je po vsem tem še vedno null, pošljemo na ekran surovi tekst, da vidiva zakaj
-  const debugString = !extractedAnalysis ? JSON.stringify(data.data, null, 2) : null;
+  const debugString = !extractedAnalysis ? JSON.stringify(row.data, null, 2) : null;
 
   return { 
     props: { 
         analysis: extractedAnalysis, 
-        lastUpdated: data.created_at,
+        lastUpdated: row.created_at,
         debugStr: debugString
     } 
   }
