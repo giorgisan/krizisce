@@ -17,6 +17,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
+    // 1. Zajem 800 novic (Usklajeno s Trending groups)
     const cutoff = Date.now() - (TREND_WINDOW_HOURS * 60 * 60 * 1000)
     const { data: rows, error } = await supabase
         .from('news')
@@ -24,13 +25,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         .gt('publishedat', cutoff)
         .neq('category', 'oglas')
         .order('publishedat', { ascending: false })
-        .limit(800) // 1. POPRAVEK: Izenačeno z aktualnimi trendi na 800!
+        .limit(800)
 
     if (error) throw error
     if (!rows || rows.length === 0) return res.json({ message: "Baza je prazna." })
 
+    // 2. Grupiranje (Gemini 2.5 Flash bo uporabljen znotraj computeTrending)
     const groups = await computeTrending(rows || [])
     
+    // 3. Filtriranje top 5 največjih zgodb
     const topStories = groups
       .filter((g: any) => {
           const list = g.items || g.articles || g.storyArticles || [];
@@ -47,16 +50,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.json({ message: "Ni dovolj velikih zgodb.", count: 0 })
     }
 
+    // 4. Priprava podatkov za AI
     let promptData = ""
     topStories.forEach((group: any, index: number) => {
        promptData += `\nZGODBA ${index + 1}:\n`
        const list = group.items || group.articles || group.storyArticles || [];
-       
        list.slice(0, 10).forEach((item: any) => {
           promptData += `- Vir: ${item.source}, Naslov: "${item.title}", Link: "${item.link}"\n`
        })
     })
 
+    // 5. Prompt za analizo uredniškega okvirjanja
     const prompt = `
       You are an expert media analyst. Analyze how different Slovenian media outlets cover the same ${topStories.length} events.
       Focus on "media framing" - what angle each source chooses to highlight.
@@ -64,20 +68,21 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       For each story, return a JSON object with:
       1. "topic": Short, neutral title of the event (max 5 words).
       2. "summary": One sentence explaining the core event neutrally.
-      3. "framing_analysis": A short, analytical paragraph (2-3 sentences) explaining the difference in how media outlets framed the story. Focus on *what they emphasized* (e.g., "While RTV focused on the systemic issue, 24ur highlighted the emotional impact on the victims, and Zurnal24 used clickbait elements.").
-      4. "sources": Array of sources. For each:
+      3. "framing_analysis": A short paragraph (2-3 sentences) explaining how different media framed the story (what they emphasized).
+      4. "sources": Array of sources:
           - "source": Name of the media.
           - "title": Headline.
           - "url": The link.
-          - "tone": Headline tone (choose one: Nevtralen, Senzacionalen, Alarmanten, Informativen, Vprašalni).
+          - "tone": Headline tone (Nevtralen, Senzacionalen, Alarmanten, Informativen, Vprašalni).
       
-      INPUT DATA:
+      VHODNI PODATKI:
       ${promptData}
       
       OUTPUT FORMAT (JSON array only):
       [ { "topic": "...", "summary": "...", "framing_analysis": "...", "sources": [...] } ]
     `
 
+    // 6. Uporaba modela Gemini 2.5 Flash
     const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" }); 
     const result = await model.generateContent({
         contents: [{ role: "user", parts: [{ text: prompt }] }],
@@ -86,32 +91,22 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     
     const responseText = result.response.text();
     const jsonString = responseText.replace(/```json|```/g, '').trim();
-    
     let analysisData = JSON.parse(jsonString);
 
+    // 7. Pripis slik skupine
     analysisData = analysisData.map((aiItem: any, index: number) => {
         const originalGroup = topStories[index] as any;
-        
         if (originalGroup) {
-            if (originalGroup.image && typeof originalGroup.image === 'string' && originalGroup.image.startsWith('http')) {
-                aiItem.main_image = originalGroup.image;
-            } else {
+            aiItem.main_image = originalGroup.image || null;
+            if (!aiItem.main_image) {
                 const list = originalGroup.items || originalGroup.articles || originalGroup.storyArticles || [];
-                const articleWithImage = list.find((a: any) => 
-                    (a.image && typeof a.image === 'string' && a.image.startsWith('http')) ||
-                    (a.imageurl && typeof a.imageurl === 'string' && a.imageurl.startsWith('http'))
-                );
-
-                if (articleWithImage) {
-                    aiItem.main_image = articleWithImage.image || articleWithImage.imageurl;
-                } else {
-                    aiItem.main_image = null; 
-                }
+                aiItem.main_image = list.find((a: any) => a.image)?.image || null;
             }
         }
         return aiItem;
     });
 
+    // 8. Shranjevanje v bazo
     await supabase.from('media_analysis').insert({ 
         data: analysisData,
         created_at: new Date().toISOString()
