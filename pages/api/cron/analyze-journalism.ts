@@ -25,7 +25,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         .gt('publishedat', cutoff)
         .neq('category', 'oglas')
         .order('publishedat', { ascending: false })
-        .limit(1000)
+        .limit(400)
 
     if (error) throw error
     if (!rows || rows.length === 0) return res.json({ message: "Baza je prazna." })
@@ -83,7 +83,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       [ { "topic": "...", "summary": "...", "framing_analysis": "...", "sources": [...] } ]
     `
 
-    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" }); // Uporabljamo hitrejši in novejši model
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" }); // Uporabljamo hitrejši in novejši model
     const result = await model.generateContent({
         contents: [{ role: "user", parts: [{ text: prompt }] }],
         generationConfig: { responseMimeType: "application/json" }
