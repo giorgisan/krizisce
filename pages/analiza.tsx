@@ -27,6 +27,7 @@ interface AnalysisItem {
 interface Props {
   analysis: AnalysisItem[] | null;
   lastUpdated: string | null;
+  debugStr?: string | null; // Novo polje za pomoč pri iskanju napak
 }
 
 const getLogoSrc = (sourceName: string) => {
@@ -51,8 +52,8 @@ const getToneColor = (tone: string) => {
   return 'bg-gray-50 text-gray-700 border-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-700';
 }
 
-export default function AnalizaPage({ analysis, lastUpdated }: Props) {
-  // Dodana varovalka: če analysis ni array, ga ne poskušamo mapirati
+export default function AnalizaPage({ analysis, lastUpdated, debugStr }: Props) {
+  // Preverimo, da je analysis dejansko pravi niz (array) preden ga mapiramo
   const validAnalysis = Array.isArray(analysis) ? analysis : [];
 
   return (
@@ -86,10 +87,17 @@ export default function AnalizaPage({ analysis, lastUpdated }: Props) {
 
         <div className="max-w-5xl mx-auto px-4 mt-8 space-y-12">
           {validAnalysis.length === 0 ? (
-            <div className="text-center py-20 bg-white dark:bg-gray-900 rounded-2xl border border-dashed border-gray-300 dark:border-gray-700">
-               <p className="text-gray-500">Analiza se pripravlja ...</p>
-               {/* Dodan majhen helper text, če je analysis slucajno null ali undefined */}
-               {!analysis && <p className="text-xs text-red-400 mt-2">Podatki iz baze niso na voljo.</p>}
+            <div className="text-center py-20 px-4 bg-white dark:bg-gray-900 rounded-2xl border border-dashed border-gray-300 dark:border-gray-700">
+               <p className="text-gray-500 mb-2">Analiza se pripravlja ...</p>
+               {!analysis && <p className="text-xs text-red-400">Podatki iz baze niso na voljo v pričakovanem formatu.</p>}
+               
+               {/* DEBUG OKNO - prikaže se samo, če gre nekaj narobe z branjem iz baze */}
+               {debugStr && (
+                   <div className="mt-6 p-4 mx-auto max-w-2xl bg-red-50 dark:bg-red-900/10 text-red-800 dark:text-red-300 rounded-md text-[11px] font-mono break-words text-left h-64 overflow-y-auto border border-red-200 dark:border-red-800">
+                       <strong className="block mb-2">Sistemski izpis baze (Debug):</strong>
+                       {debugStr}
+                   </div>
+               )}
             </div>
           ) : (
             validAnalysis.map((item, idx) => (
@@ -107,7 +115,6 @@ export default function AnalizaPage({ analysis, lastUpdated }: Props) {
                                 className="w-full h-full object-cover transition-transform duration-700 hover:scale-105"
                                 loading="lazy"
                                 onError={(e) => {
-                                  // Fallback če slika ne naloži
                                   (e.target as HTMLImageElement).style.display = 'none';
                                   (e.target as HTMLImageElement).nextElementSibling?.classList.remove('hidden');
                                 }}
@@ -117,12 +124,10 @@ export default function AnalizaPage({ analysis, lastUpdated }: Props) {
                                   <span className="text-4xl opacity-20">📰</span>
                               </div>
                           )}
-                          {/* Fallback element, če slika rata error (skrit po defaultu) */}
                           <div className="hidden w-full h-full absolute inset-0 flex items-center justify-center bg-gray-100 dark:bg-gray-800">
                                <span className="text-4xl opacity-20">📰</span>
                           </div>
                           
-                          {/* Števec virov */}
                           <div className="absolute bottom-3 left-3 bg-white/90 dark:bg-black/80 backdrop-blur-sm text-gray-900 dark:text-white text-xs font-bold px-3 py-1 rounded-full border border-black/5">
                               {item.sources ? item.sources.length : 0} virov
                           </div>
@@ -137,7 +142,6 @@ export default function AnalizaPage({ analysis, lastUpdated }: Props) {
                             {item.summary}
                           </p>
                           
-                          {/* Tone Box / Framing Analysis */}
                           <div className="mt-auto bg-brand/5 dark:bg-brand/10 border-l-4 border-brand p-4 rounded-r-md">
                               <div className="flex items-center gap-2 mb-2 opacity-80">
                                   <svg className="w-4 h-4 text-brand" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
@@ -148,10 +152,9 @@ export default function AnalizaPage({ analysis, lastUpdated }: Props) {
                               </p>
                           </div>
                       </div>
-
                   </div>
 
-                  {/* SPODNJI DEL: Grid Virov (2 KOLONI) */}
+                  {/* SPODNJI DEL: Grid Virov */}
                   <div className="bg-gray-50/50 dark:bg-black/20 p-4 md:p-6 border-t border-gray-100 dark:border-gray-800">
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           {item.sources && item.sources.map((source, sIdx) => (
@@ -161,11 +164,9 @@ export default function AnalizaPage({ analysis, lastUpdated }: Props) {
                                 key={sIdx} 
                                 className="group bg-white dark:bg-gray-800 p-4 rounded-xl border border-gray-200 dark:border-gray-700 hover:border-brand/40 hover:shadow-sm transition-all flex items-start gap-4"
                               >
-                                  {/* Logo */}
                                   <div className="relative w-8 h-8 flex-shrink-0 rounded-full overflow-hidden bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-700">
                                       <Image src={getLogoSrc(source.source)} alt={source.source} fill className="object-contain p-0.5" />
                                   </div>
-
                                   <div className="flex-1 min-w-0">
                                       <div className="flex items-center gap-2 mb-1.5 flex-wrap">
                                           <span className="text-[10px] font-bold uppercase text-gray-400">
@@ -175,7 +176,6 @@ export default function AnalizaPage({ analysis, lastUpdated }: Props) {
                                               {source.tone}
                                           </span>
                                       </div>
-                                      
                                       <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100 leading-snug group-hover:text-brand transition-colors line-clamp-2">
                                           {source.title}
                                       </h3>
@@ -184,7 +184,6 @@ export default function AnalizaPage({ analysis, lastUpdated }: Props) {
                           ))}
                       </div>
                   </div>
-
               </article>
             ))
           )}
@@ -196,7 +195,9 @@ export default function AnalizaPage({ analysis, lastUpdated }: Props) {
 }
 
 export const getServerSideProps: GetServerSideProps = async ({ res }) => {
-  res.setHeader('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=600')
+  // Tukaj je Cache nastavljen na zelo kratek cas za testiranje (iz 300 na 10 sekund)
+  // Ko bo vse delovalo, lahko s-maxage vrneš na 300
+  res.setHeader('Cache-Control', 'public, s-maxage=10, stale-while-revalidate=60')
   const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
 
   const { data, error } = await supabase
@@ -206,21 +207,44 @@ export const getServerSideProps: GetServerSideProps = async ({ res }) => {
     .limit(1)
     .single()
 
-  if (error || !data) return { props: { analysis: null, lastUpdated: null } }
+  if (error || !data) {
+      return { props: { analysis: null, lastUpdated: null, debugStr: error ? error.message : 'Nobenih zapisov v bazi.' } }
+  }
 
-  // Tukaj naredimo pametno izluščevanje arraya. 
-  // Ce je data.data objekt, ki ima polje 'data', v katerem je array (to se vcasih zgodi pri dvojnem JSON encodiranju)
   let extractedAnalysis = null;
+  let rawContent = data.data;
 
-  if (Array.isArray(data.data)) {
-      extractedAnalysis = data.data;
-  } else if (data.data && typeof data.data === 'object') {
-      // V tvojem primeru izpisa crona izgleda, da je morda array shranjen pod ključem 'data'
-      // ali pa je sam glavni objekt. Preverimo.
-      if (Array.isArray(data.data.data)) {
-          extractedAnalysis = data.data.data;
+  // 1. Zavarujemo se pred tem, da Supabase vrne JSON kot string
+  if (typeof rawContent === 'string') {
+      try {
+          rawContent = JSON.parse(rawContent);
+      } catch(e) {}
+  }
+
+  // 2. Izvlečemo array, ne glede na to, kje v objektu se skriva
+  if (Array.isArray(rawContent)) {
+      extractedAnalysis = rawContent;
+  } else if (rawContent && typeof rawContent === 'object') {
+      // Preverimo direktno property 'data'
+      if (Array.isArray(rawContent.data)) {
+          extractedAnalysis = rawContent.data;
+      } else {
+          // Preiščemo vse ključe, če se kje skriva array z našimi novicami
+          for (const key of Object.keys(rawContent)) {
+              if (Array.isArray(rawContent[key])) {
+                  extractedAnalysis = rawContent[key];
+                  break;
+              }
+          }
       }
   }
 
-  return { props: { analysis: extractedAnalysis, lastUpdated: data.created_at } }
+  // 3. Pošljemo rezultat (če ni uspešen, pošljemo še surovi zapis za debug)
+  return { 
+    props: { 
+        analysis: extractedAnalysis, 
+        lastUpdated: data.created_at,
+        debugStr: !extractedAnalysis ? JSON.stringify(data.data, null, 2) : null
+    } 
+  }
 }
