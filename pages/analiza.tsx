@@ -53,10 +53,9 @@ const getLogoSrc = (sourceName: string) => {
 
 const getToneColor = (tone: string) => {
   const t = tone.toLowerCase();
-  // Veliko bolj transparentni in nežni okvirji
-  if (t.includes('senzacija') || t.includes('drama') || t.includes('alarm')) return 'bg-red-500/5 text-red-500/80 border-red-500/10';
-  if (t.includes('vprašal') || t.includes('provokat')) return 'bg-orange-500/5 text-orange-500/80 border-orange-500/10';
-  return 'bg-gray-500/5 text-gray-400 border-gray-500/10';
+  if (t.includes('senzacija') || t.includes('drama') || t.includes('alarm')) return 'bg-red-500/10 text-red-500 border-red-500/10';
+  if (t.includes('vprašal') || t.includes('provokat')) return 'bg-orange-500/10 text-orange-500 border-orange-500/10';
+  return 'bg-gray-500/10 text-gray-400 border-gray-500/10';
 }
 
 export default function AnalizaPage({ analysis, lastUpdated, debugStr }: Props) {
@@ -80,38 +79,39 @@ export default function AnalizaPage({ analysis, lastUpdated, debugStr }: Props) 
                         <span className="text-xl">⚖️</span> Medijski Monitor
                     </h1>
                     {lastUpdated && (
-                        <div className="text-[10px] font-mono font-medium text-gray-500 bg-gray-100 dark:bg-gray-800/60 px-2.5 py-1 rounded flex items-center gap-2">
+                        <div className="text-[10px] font-mono font-medium text-gray-500 bg-gray-100 dark:bg-gray-800/60 px-2.5 py-1 rounded flex items-center gap-2 border border-gray-200 dark:border-gray-700">
                             <span className="relative flex h-1.5 w-1.5">
                                 <span className="absolute inline-flex h-full w-full rounded-full bg-brand opacity-75 animate-ping"></span>
                                 <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-brand"></span>
                             </span>
-                            Zadnja osvežitev: {new Date(lastUpdated).toLocaleTimeString('sl-SI', {hour: '2-digit', minute:'2-digit'})}
+                            Osveženo: {new Date(lastUpdated).toLocaleTimeString('sl-SI', {hour: '2-digit', minute:'2-digit'})}
                         </div>
                     )}
                 </div>
-                <p className="text-[12px] text-gray-500 dark:text-gray-400 mt-2 max-w-2xl leading-relaxed">
-                    Umetna inteligenca analizira uredniške poudarke najodmevnejših zgodb v zadnjih 12 urah.
+                <p className="text-[12px] text-gray-500 dark:text-gray-400 mt-2 max-w-3xl leading-relaxed">
+                    AI analiza uokvirjanja najpomembnejših dogodkov v zadnjih 12 urah.
                 </p>
             </div>
         </div>
 
-        <div className="max-w-5xl mx-auto px-4 mt-8 grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* 2-STOLPČNI GRID ZA PORAVNAVO VRSTIC */}
+        <div className="max-w-5xl mx-auto px-4 mt-8 grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
           {validAnalysis.length === 0 ? (
             <div className="col-span-full text-center py-20 bg-white dark:bg-gray-800/40 rounded-xl border border-dashed border-gray-300 dark:border-gray-700">
                <p className="text-gray-500 text-sm">Analiza se pripravlja ...</p>
-               {debugStr && <div className="mt-4 p-4 text-[10px] font-mono text-left opacity-50">{debugStr}</div>}
+               {debugStr && <div className="mt-4 p-4 text-[10px] font-mono text-left opacity-30">{debugStr}</div>}
             </div>
           ) : (
             validAnalysis.map((item, idx) => (
               <article key={idx} className="bg-white dark:bg-gray-800/40 rounded-xl shadow-sm border border-gray-200 dark:border-gray-800/80 overflow-hidden flex flex-col h-fit">
                   
-                  {/* SLIKA: Zelo nizka (21:9) da ne dominira nad tekstom */}
+                  {/* SLIKA: Zelo nizka (21:9) */}
                   {item.main_image && (
                       <div className="w-full aspect-[21/9] bg-gray-100 dark:bg-gray-800 relative border-b border-gray-100 dark:border-gray-800/50">
                           <img 
                             src={proxiedImage(item.main_image, 600, 250, 1)} 
                             alt=""
-                            className="w-full h-full object-cover grayscale-[20%] group-hover:grayscale-0 transition-all"
+                            className="w-full h-full object-cover"
                             loading="lazy"
                             onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
                           />
@@ -137,8 +137,8 @@ export default function AnalizaPage({ analysis, lastUpdated, debugStr }: Props) 
                           </p>
                       </div>
 
-                      {/* VIRI: Brez imen medijev, samo ikone in naslovi, brez mt-auto za dinamičen razmak */}
-                      <div className="pt-2 border-t border-gray-100 dark:border-gray-800/50">
+                      {/* VIRI: Ekstremno stisnjeno, brez imen, samo ikone */}
+                      <div className="pt-1 border-t border-gray-100 dark:border-gray-800/50">
                           <div className="flex flex-col">
                               {item.sources && item.sources.map((source, sIdx) => (
                                   <div key={sIdx} className="group relative flex items-center justify-between py-1 px-1 hover:bg-gray-500/5 rounded transition-colors">
@@ -148,16 +148,16 @@ export default function AnalizaPage({ analysis, lastUpdated, debugStr }: Props) 
                                         rel="noopener" 
                                         className="flex items-center gap-2.5 min-w-0 flex-1"
                                       >
-                                          <div className="relative w-3.5 h-3.5 shrink-0 rounded-[2px] overflow-hidden grayscale group-hover:grayscale-0 transition-all opacity-70 group-hover:opacity-100">
+                                          <div className="relative w-3.5 h-3.5 shrink-0 rounded-[2px] overflow-hidden grayscale group-hover:grayscale-0 transition-all">
                                               <Image src={getLogoSrc(source.source)} alt="" fill className="object-contain" />
                                           </div>
-                                          <span className="text-[11px] font-normal text-gray-500 dark:text-gray-400 truncate group-hover:text-brand transition-colors">
+                                          <span className="text-[11px] font-normal text-gray-500 dark:text-gray-300 truncate group-hover:text-brand transition-colors">
                                               {source.title}
                                           </span>
                                       </a>
                                       
                                       <div className="flex items-center gap-2 ml-2">
-                                          <span className={`text-[8px] px-1 py-0.5 rounded-[3px] border font-bold whitespace-nowrap transition-colors ${getToneColor(source.tone)}`}>
+                                          <span className={`text-[7px] px-1 py-0.5 rounded-[2px] border font-bold whitespace-nowrap uppercase ${getToneColor(source.tone)}`}>
                                               {source.tone}
                                           </span>
                                           <button 
