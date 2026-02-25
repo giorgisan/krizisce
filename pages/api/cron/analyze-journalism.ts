@@ -1,4 +1,4 @@
-/* pages/api/cron/analyze-journalism.ts */
+// pages/api/cron/analyze-journalism.ts
 import { NextApiRequest, NextApiResponse } from 'next'
 import { createClient } from '@supabase/supabase-js'
 import { GoogleGenerativeAI } from '@google/generative-ai'
@@ -61,44 +61,46 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
        })
     })
 
-    // 5. PROMPT
+    // 5. PROMPT (NADGRAJEN ZA FRAMING ANALIZO)
     const prompt = `
-      Analiziraj spodnjih ${topStories.length} medijskih zgodb.
+      You are an expert media analyst. Analyze how different Slovenian media outlets cover the same ${topStories.length} events.
+      Focus on "media framing" - what angle each source chooses to highlight.
       
-      Za vsako zgodbo vrni JSON objekt:
-      1. "topic": Kratek, nevtralen naslov dogodka (max 5 besed).
-      2. "summary": En stavek, ki pove bistvo dogodka.
-      3. "tone_difference": Kratek opis (max 2 stavka) razlik v poročanju (kdo je nevtralen, kdo dramatičen).
-      4. "sources": Seznam virov. Za vsak vir:
-          - "source": Ime medija.
-          - "title": Naslov.
-          - "url": Povezava (Link).
-          - "tone": Ton naslova (Nevtralen, Senzacionalen, Alarmanten, Informativen, Vprašalni).
+      For each story, return a JSON object with:
+      1. "topic": Short, neutral title of the event (max 5 words).
+      2. "summary": One sentence explaining the core event neutrally.
+      3. "framing_analysis": A short, analytical paragraph (2-3 sentences) explaining the difference in how media outlets framed the story. Focus on *what they emphasized* (e.g., "While RTV focused on the systemic issue, 24ur highlighted the emotional impact on the victims, and Zurnal24 used clickbait elements.").
+      4. "sources": Array of sources. For each:
+          - "source": Name of the media.
+          - "title": Headline.
+          - "url": The link.
+          - "tone": Headline tone (choose one: Nevtralen, Senzacionalen, Alarmanten, Informativen, Vprašalni).
       
-      VHODNI PODATKI:
+      INPUT DATA:
       ${promptData}
       
-      IZHOD (JSON array):
-      [ { "topic": "...", "sources": [...] } ]
+      OUTPUT FORMAT (JSON array only):
+      [ { "topic": "...", "summary": "...", "framing_analysis": "...", "sources": [...] } ]
     `
 
-    const model = genAI.getGenerativeModel({ model: "gemini-flash-latest" });
-    const result = await model.generateContent(prompt);
+    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" }); // Uporabljamo hitrejši in novejši model
+    const result = await model.generateContent({
+        contents: [{ role: "user", parts: [{ text: prompt }] }],
+        generationConfig: { responseMimeType: "application/json" }
+    });
     const responseText = result.response.text();
     const jsonString = responseText.replace(/```json|```/g, '').trim();
     
     let analysisData = JSON.parse(jsonString);
 
-    // --- KLJUČNI POPRAVEK: VSTAVLJANJE SLIKE IZ BAZE ---
+    // --- VSTAVLJANJE SLIKE IZ BAZE ---
     analysisData = analysisData.map((aiItem: any, index: number) => {
         const originalGroup = topStories[index];
         
         if (originalGroup) {
-            // TU JE BIL POPRAVEK: cast v 'any'
             const groupAny = originalGroup as any;
             const list = groupAny.items || groupAny.articles || groupAny.storyArticles || [];
             
-            // Poišči prvi članek, ki ima veljaven URL slike
             const articleWithImage = list.find((a: any) => 
                 a.image && 
                 typeof a.image === 'string' && 
@@ -114,7 +116,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         }
         return aiItem;
     });
-    // ---------------------------------------------------
 
     // 7. Shranjevanje
     await supabase.from('media_analysis').insert({ 
