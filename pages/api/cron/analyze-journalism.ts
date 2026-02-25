@@ -1,8 +1,9 @@
-// pages/api/cron/analyze-journalism.ts
+/* pages/api/cron/analyze-journalism.ts */
 import { NextApiRequest, NextApiResponse } from 'next'
 import { createClient } from '@supabase/supabase-js'
 import { GoogleGenerativeAI } from '@google/generative-ai'
-import { computeTrending } from '@/lib/trendingAlgo'
+// Uvozimo tudi TREND_WINDOW_HOURS za enakomerno časovno okno
+import { computeTrending, TREND_WINDOW_HOURS } from '@/lib/trendingAlgo'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -17,21 +18,21 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
-    // 1. Zajem novic
-    const cutoff = Date.now() - (48 * 60 * 60 * 1000)
+    // 1. Zajem novic: Uporabimo TREND_WINDOW_HOURS (12h) namesto 48h, da drastično zmanjšamo število tokenov
+    const cutoff = Date.now() - (TREND_WINDOW_HOURS * 60 * 60 * 1000)
     const { data: rows, error } = await supabase
         .from('news')
         .select('*') 
         .gt('publishedat', cutoff)
         .neq('category', 'oglas')
         .order('publishedat', { ascending: false })
-        .limit(400)
+        .limit(400) // ZMANJŠANO IZ 1000 NA 400 (reši napako 429 Token Limit!)
 
     if (error) throw error
     if (!rows || rows.length === 0) return res.json({ message: "Baza je prazna." })
 
-    // 2. Grupiranje
-    const groups = computeTrending(rows || [])
+    // 2. Grupiranje (TUKAJ JE MANJKAL 'await' V TVOJI ORIGINALNI KODI!)
+    const groups = await computeTrending(rows || [])
     
     // 3. Filtriranje
     const topStories = groups
@@ -61,7 +62,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
        })
     })
 
-    // 5. PROMPT (NADGRAJEN ZA FRAMING ANALIZO)
+    // 5. PROMPT (Nov Framing Prompt)
     const prompt = `
       You are an expert media analyst. Analyze how different Slovenian media outlets cover the same ${topStories.length} events.
       Focus on "media framing" - what angle each source chooses to highlight.
@@ -83,11 +84,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       [ { "topic": "...", "summary": "...", "framing_analysis": "...", "sources": [...] } ]
     `
 
-    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" }); // Uporabljamo hitrejši in novejši model
+    // 6. Uporabimo gemini-2.5-flash kot si predlagal!
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" }); 
     const result = await model.generateContent({
         contents: [{ role: "user", parts: [{ text: prompt }] }],
         generationConfig: { responseMimeType: "application/json" }
     });
+    
     const responseText = result.response.text();
     const jsonString = responseText.replace(/```json|```/g, '').trim();
     
