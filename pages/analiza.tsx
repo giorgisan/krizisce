@@ -195,9 +195,8 @@ export default function AnalizaPage({ analysis, lastUpdated, debugStr }: Props) 
 }
 
 export const getServerSideProps: GetServerSideProps = async ({ res }) => {
-  // Tukaj je Cache nastavljen na zelo kratek cas za testiranje (iz 300 na 10 sekund)
-  // Ko bo vse delovalo, lahko s-maxage vrneš na 300
-  res.setHeader('Cache-Control', 'public, s-maxage=10, stale-while-revalidate=60')
+  // Izklopimo cache za testiranje (1 sekunda), da ti takoj osveži stran!
+  res.setHeader('Cache-Control', 'public, s-maxage=1, stale-while-revalidate=10')
   const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
 
   const { data, error } = await supabase
@@ -208,28 +207,28 @@ export const getServerSideProps: GetServerSideProps = async ({ res }) => {
     .single()
 
   if (error || !data) {
-      return { props: { analysis: null, lastUpdated: null, debugStr: error ? error.message : 'Nobenih zapisov v bazi.' } }
+      return { props: { analysis: null, lastUpdated: null, debugStr: error ? error.message : 'Baza je prazna.' } }
   }
 
   let extractedAnalysis = null;
   let rawContent = data.data;
 
-  // 1. Zavarujemo se pred tem, da Supabase vrne JSON kot string
+  // 1. Zavarujemo se pred DVOJNIM stringify formatom iz Supabase
   if (typeof rawContent === 'string') {
-      try {
-          rawContent = JSON.parse(rawContent);
-      } catch(e) {}
+      try { rawContent = JSON.parse(rawContent); } catch(e) {}
+  }
+  // Včasih se to zgodi dvakrat, ponovimo:
+  if (typeof rawContent === 'string') {
+      try { rawContent = JSON.parse(rawContent); } catch(e) {}
   }
 
-  // 2. Izvlečemo array, ne glede na to, kje v objektu se skriva
+  // 2. Izvlečemo array
   if (Array.isArray(rawContent)) {
       extractedAnalysis = rawContent;
   } else if (rawContent && typeof rawContent === 'object') {
-      // Preverimo direktno property 'data'
       if (Array.isArray(rawContent.data)) {
           extractedAnalysis = rawContent.data;
       } else {
-          // Preiščemo vse ključe, če se kje skriva array z našimi novicami
           for (const key of Object.keys(rawContent)) {
               if (Array.isArray(rawContent[key])) {
                   extractedAnalysis = rawContent[key];
@@ -239,12 +238,14 @@ export const getServerSideProps: GetServerSideProps = async ({ res }) => {
       }
   }
 
-  // 3. Pošljemo rezultat (če ni uspešen, pošljemo še surovi zapis za debug)
+  // Če je po vsem tem še vedno null, pošljemo na ekran surovi tekst, da vidiva zakaj
+  const debugString = !extractedAnalysis ? JSON.stringify(data.data, null, 2) : null;
+
   return { 
     props: { 
         analysis: extractedAnalysis, 
         lastUpdated: data.created_at,
-        debugStr: !extractedAnalysis ? JSON.stringify(data.data, null, 2) : null
+        debugStr: debugString
     } 
   }
 }
