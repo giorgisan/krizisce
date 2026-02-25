@@ -9,6 +9,7 @@ import Footer from '@/components/Footer'
 import { createClient } from '@supabase/supabase-js'
 import { proxiedImage } from '@/lib/img'
 
+// Dinamični uvoz predogleda
 type PreviewProps = { url: string; onClose: () => void }
 const ArticlePreview = dynamic(() => import('@/components/ArticlePreview'), {
   ssr: false,
@@ -70,32 +71,38 @@ export default function AnalizaPage({ analysis, lastUpdated, debugStr }: Props) 
 
       <Header activeCategory="vse" activeSource="Vse" />
 
-      <main className="min-h-screen bg-gray-50/50 dark:bg-[#0a0a0a] pb-24">
+      {/* Popravljeno ozadje, da se ujema s prvo stranjo (bg-gray-900) */}
+      <main className="min-h-screen bg-gray-50 dark:bg-gray-900 pb-20">
         
-        {/* Naslovna vrstica - zožana na max-w-5xl */}
-        <div className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 py-8 px-4">
-            <div className="max-w-5xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
-                <div className="text-center md:text-left">
-                    <h1 className="text-3xl font-serif font-bold text-gray-900 dark:text-white flex items-center justify-center md:justify-start gap-3">
-                        <span className="text-2xl">⚖️</span> Medijski Monitor
+        {/* NASLOVNA VRSTICA IN TRANSPARENTNOST */}
+        <div className="bg-white dark:bg-gray-800/40 border-b border-gray-200 dark:border-gray-800 py-6 px-4">
+            <div className="max-w-5xl mx-auto">
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                    <h1 className="text-2xl font-serif font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                        <span className="text-xl">⚖️</span> Medijski Monitor
                     </h1>
-                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-2 font-normal">
-                        Dnevna AI analiza uredniškega okvirjanja v slovenskih medijih
-                    </p>
+                    {lastUpdated && (
+                        <div className="text-[11px] font-mono font-medium text-gray-500 bg-gray-100 dark:bg-gray-800/80 px-2.5 py-1 rounded border border-gray-200 dark:border-gray-700 flex items-center gap-2">
+                            <span className="relative flex h-1.5 w-1.5">
+                                <span className="absolute inline-flex h-full w-full rounded-full bg-brand opacity-75 animate-ping"></span>
+                                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-brand"></span>
+                            </span>
+                            Zadnja osvežitev: {new Date(lastUpdated).toLocaleTimeString('sl-SI', {hour: '2-digit', minute:'2-digit'})}
+                        </div>
+                    )}
                 </div>
-                {lastUpdated && (
-                    <div className="text-[11px] font-mono font-medium text-gray-400 bg-gray-50 dark:bg-gray-800 px-3 py-1.5 rounded-full border border-gray-100 dark:border-gray-700">
-                        {new Date(lastUpdated).toLocaleTimeString('sl-SI', {hour: '2-digit', minute:'2-digit'})}
-                    </div>
-                )}
+                {/* Pojasnilo uporabnikom */}
+                <p className="text-[13px] text-gray-500 dark:text-gray-400 mt-3 max-w-3xl leading-relaxed">
+                    <strong>Kako deluje?</strong> Naša umetna inteligenca analizira najodmevnejše novice zadnjih 12 ur in primerja uredniške pristope slovenskih medijev. Preverjamo okvirjanje zgodb (framing) in ton naslovov, kar vam omogoča hitro prepoznavanje medijskega spina.
+                </p>
             </div>
         </div>
 
-        {/* GLAVNO TELO: CSS Grid, Max-W-5xl (bolj kompaktno) */}
-        <div className="max-w-5xl mx-auto px-4 mt-8 grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+        {/* GLAVNO TELO: CSS Columns za boljši masonry brez velikih lukenj */}
+        <div className="max-w-5xl mx-auto px-4 mt-6 columns-1 md:columns-2 gap-5">
           {validAnalysis.length === 0 ? (
-            <div className="md:col-span-2 text-center py-20 bg-white dark:bg-gray-900 rounded-xl border border-dashed border-gray-200 dark:border-gray-800">
-               <p className="text-gray-500 font-normal">Analiza se pripravlja ...</p>
+            <div className="break-inside-avoid text-center py-16 bg-white dark:bg-gray-800/40 rounded-xl border border-dashed border-gray-300 dark:border-gray-700">
+               <p className="text-gray-500 text-sm font-medium">Analiza se pripravlja ...</p>
                {debugStr && (
                    <div className="mt-4 p-4 mx-auto max-w-xl bg-red-50 dark:bg-red-900/10 text-red-800 text-[11px] font-mono text-left rounded">
                        {debugStr}
@@ -104,11 +111,11 @@ export default function AnalizaPage({ analysis, lastUpdated, debugStr }: Props) 
             </div>
           ) : (
             validAnalysis.map((item, idx) => (
-              <article key={idx} className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-200/60 dark:border-gray-800 overflow-hidden flex flex-col">
+              <article key={idx} className="break-inside-avoid mb-5 bg-white dark:bg-gray-800/40 rounded-xl shadow-sm border border-gray-200 dark:border-gray-800/80 overflow-hidden flex flex-col">
                   
-                  {/* SLIKA (16:9) */}
+                  {/* SLIKA (Nizka in široka - 21:9 za prihranek prostora) */}
                   {item.main_image && (
-                      <div className="w-full aspect-video bg-gray-100 dark:bg-gray-800 relative">
+                      <div className="w-full aspect-[21/9] bg-gray-100 dark:bg-gray-800 relative border-b border-gray-100 dark:border-gray-800">
                           <img 
                             src={proxiedImage(item.main_image, 640, 360, 1)} 
                             alt={item.topic}
@@ -119,61 +126,76 @@ export default function AnalizaPage({ analysis, lastUpdated, debugStr }: Props) 
                       </div>
                   )}
 
-                  {/* VSEBINA */}
-                  <div className="p-6 md:p-7 flex flex-col gap-6">
+                  {/* VSEBINA (Kompaktni padding) */}
+                  <div className="p-4 md:p-5 flex flex-col gap-4">
                       
-                      {/* Naslov in povzetek - manj bold, več zraka */}
+                      {/* Naslov in povzetek */}
                       <div>
-                          <h2 className="text-xl font-serif font-bold text-gray-900 dark:text-white mb-2 leading-snug">
+                          <h2 className="text-lg font-serif font-bold text-gray-900 dark:text-white mb-1.5 leading-snug">
                             {item.topic}
                           </h2>
-                          <p className="text-gray-600 dark:text-gray-400 text-sm font-normal leading-relaxed">
+                          <p className="text-[13px] text-gray-600 dark:text-gray-400 font-normal leading-relaxed">
                             {item.summary}
                           </p>
                       </div>
                       
-                      {/* AI Framing Analiza - prefinjena škatla */}
-                      <div className="bg-gray-50 dark:bg-gray-800/40 border border-gray-100 dark:border-gray-700/50 p-4 rounded-lg">
-                          <div className="flex items-center gap-1.5 mb-2">
-                              <span className="text-[10px] font-semibold uppercase tracking-widest text-brand">Uredniški okvir</span>
+                      {/* AI Framing Analiza */}
+                      <div className="bg-brand/5 border-l-2 border-brand p-3 rounded-r-md">
+                          <div className="text-[9px] font-bold uppercase tracking-wider text-brand mb-1">
+                              Uredniški okvir
                           </div>
-                          <p className="text-sm text-gray-700 dark:text-gray-300 font-normal leading-relaxed">
+                          <p className="text-xs text-gray-800 dark:text-gray-300 font-normal leading-relaxed">
                              {item.framing_analysis || item.tone_difference || "Ni na voljo"}
                           </p>
                       </div>
 
-                      {/* Seznam Virov - minimalističen seznam */}
+                      {/* Seznam Virov - Minimalističen s predogledom (Oko) */}
                       <div>
-                          <div className="text-[10px] font-semibold uppercase tracking-widest text-gray-400 mb-3 px-1">Primerjani viri</div>
+                          <div className="text-[9px] font-semibold uppercase tracking-wider text-gray-400 mb-2 px-1">Primerjani viri</div>
                           <div className="flex flex-col gap-1">
                               {item.sources && item.sources.map((source, sIdx) => (
-                                  <button 
-                                    key={sIdx}
-                                    onClick={(e) => {
-                                      e.preventDefault();
-                                      setPreviewUrl(source.url); 
-                                    }}
-                                    className="text-left group flex items-start gap-3 p-2 -mx-2 hover:bg-gray-50 dark:hover:bg-gray-800/50 rounded-lg transition-colors"
+                                  <a 
+                                    href={source.url || '#'} 
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    key={sIdx} 
+                                    className="group relative flex items-start gap-2.5 p-2 -mx-2 hover:bg-gray-50 dark:hover:bg-gray-800/80 rounded-lg transition-colors"
                                   >
-                                      {/* Logo (manjši) */}
-                                      <div className="relative w-6 h-6 mt-0.5 flex-shrink-0 rounded-full overflow-hidden bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-700">
+                                      {/* Logo (Zelo majhen) */}
+                                      <div className="relative w-5 h-5 mt-0.5 flex-shrink-0 rounded-full overflow-hidden bg-white border border-gray-100 dark:border-gray-700">
                                           <Image src={getLogoSrc(source.source)} alt={source.source} fill className="object-contain p-0.5" />
                                       </div>
 
-                                      <div className="flex-1 min-w-0">
-                                          <div className="flex items-center gap-2 mb-0.5">
-                                              <span className="text-xs font-semibold text-gray-900 dark:text-gray-200">
+                                      <div className="flex-1 min-w-0 pr-8">
+                                          <div className="flex items-center gap-1.5 mb-0.5">
+                                              <span className="text-[10px] font-bold text-gray-900 dark:text-gray-200">
                                                   {source.source}
                                               </span>
-                                              <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-medium ${getToneColor(source.tone)}`}>
+                                              <span className={`text-[8px] px-1 py-0.5 rounded font-medium ${getToneColor(source.tone)}`}>
                                                   {source.tone}
                                               </span>
                                           </div>
-                                          <h3 className="text-xs font-normal text-gray-600 dark:text-gray-400 line-clamp-2 group-hover:text-brand transition-colors">
+                                          <h3 className="text-[11px] font-normal text-gray-600 dark:text-gray-400 line-clamp-1 group-hover:text-brand transition-colors">
                                               {source.title}
                                           </h3>
                                       </div>
-                                  </button>
+
+                                      {/* OKO - Hitri predogled */}
+                                      <button 
+                                        onClick={(e) => {
+                                            e.preventDefault();
+                                            e.stopPropagation();
+                                            setPreviewUrl(source.url); 
+                                        }}
+                                        title="Hitri predogled"
+                                        className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-gray-400 hover:text-brand bg-white/90 dark:bg-gray-900/90 rounded-full shadow-sm opacity-0 group-hover:opacity-100 transition-all transform hover:scale-110"
+                                      >
+                                          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5">
+                                              <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12Z" />
+                                              <circle cx="12" cy="12" r="3" />
+                                          </svg>
+                                      </button>
+                                  </a>
                               ))}
                           </div>
                       </div>
