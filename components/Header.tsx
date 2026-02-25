@@ -1,3 +1,4 @@
+// components/Header.tsx
 'use client'
 
 import React, { useState, useEffect } from 'react'
@@ -284,15 +285,16 @@ export default function Header({
             {/* --- NOVO: Gumb Analiza --- */}
             <Link
               href="/analiza"
-              className={`hidden md:flex items-center gap-1 px-3 py-1.5 rounded-md text-sm font-semibold transition-colors 
+              className={`flex items-center p-2 rounded-md transition-colors 
                 ${router.pathname === '/analiza' 
                   ? 'text-brand bg-brand/10' 
                   : 'text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800'
                 }`}
-              title="AI Analiza Medijev"
+              title="Medijski Monitor"
             >
-              <span className="text-lg leading-none">📊</span>
-              <span>Analiza</span>
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3" />
+              </svg>
             </Link>
             {/* ------------------------- */}
 
@@ -300,7 +302,7 @@ export default function Header({
                         
             <Link
               href="/arhiv"
-              className={`p-2 rounded-md transition-colors text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800 ${router.pathname === '/arhiv' ? 'text-brand' : ''}`}
+              className={`p-2 rounded-md transition-colors ${router.pathname === '/arhiv' ? 'text-brand bg-brand/10' : 'text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800'}`}
               title="Arhiv"
             >
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
