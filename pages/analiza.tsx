@@ -53,9 +53,9 @@ const getLogoSrc = (sourceName: string) => {
 
 const getToneColor = (tone: string) => {
   const t = tone.toLowerCase();
-  if (t.includes('senzacija') || t.includes('drama') || t.includes('alarm')) return 'bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400';
-  if (t.includes('vprašal') || t.includes('provokat')) return 'bg-orange-50 text-orange-600 dark:bg-orange-900/20 dark:text-orange-400';
-  return 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400';
+  if (t.includes('senzacija') || t.includes('drama') || t.includes('alarm')) return 'bg-red-500/10 text-red-500';
+  if (t.includes('vprašal') || t.includes('provokat')) return 'bg-orange-500/10 text-orange-500';
+  return 'bg-gray-500/10 text-gray-400';
 }
 
 export default function AnalizaPage({ analysis, lastUpdated, debugStr }: Props) {
@@ -72,45 +72,42 @@ export default function AnalizaPage({ analysis, lastUpdated, debugStr }: Props) 
 
       <main className="min-h-screen bg-gray-50 dark:bg-gray-900 pb-20">
         
-        {/* NASLOVNA VRSTICA - Omejena na max-w-5xl za boljšo sredinsko poravnavo */}
-        <div className="bg-white dark:bg-gray-800/40 border-b border-gray-200 dark:border-gray-800 py-8 px-4">
+        <div className="bg-white dark:bg-gray-800/40 border-b border-gray-200 dark:border-gray-800 py-6 px-4">
             <div className="max-w-5xl mx-auto">
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                    <h1 className="text-2xl md:text-3xl font-serif font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                        <span className="text-2xl">⚖️</span> Medijski Monitor
+                    <h1 className="text-xl md:text-2xl font-serif font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                        <span className="text-xl">⚖️</span> Medijski Monitor
                     </h1>
                     {lastUpdated && (
-                        <div className="text-[11px] font-mono font-medium text-gray-500 bg-gray-100 dark:bg-gray-800 px-3 py-1.5 rounded border border-gray-200 dark:border-gray-700 flex items-center gap-2">
-                            <span className="relative flex h-1.5 w-1.5">
-                                <span className="absolute inline-flex h-full w-full rounded-full bg-brand opacity-75 animate-ping"></span>
-                                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-brand"></span>
-                            </span>
+                        <div className="text-[10px] font-mono font-medium text-gray-400 flex items-center gap-2">
+                            <span className="h-1.5 w-1.5 rounded-full bg-brand animate-pulse"></span>
                             Zadnja osvežitev: {new Date(lastUpdated).toLocaleTimeString('sl-SI', {hour: '2-digit', minute:'2-digit'})}
                         </div>
                     )}
                 </div>
-                <p className="text-sm text-gray-500 dark:text-gray-400 mt-3 max-w-2xl leading-relaxed">
-                    <strong>Transparentna AI analiza:</strong> Sistem vsakih 30 minut zajame 800 najnovejših novic (identično kot za Aktualno), jih s pomočjo Gemini 2.5 Flash modela grupira in analizira uredniške poudarke.
+                <p className="text-[12px] text-gray-500 dark:text-gray-400 mt-2 max-w-2xl leading-relaxed">
+                    Umetna inteligenca analizira uredniške poudarke najodmevnejših zgodb v zadnjih 12 urah.
                 </p>
             </div>
         </div>
 
-        {/* GLAVNO TELO: Omejeno na 5xl, 2 stolpca na desktopu */}
-        <div className="max-w-5xl mx-auto px-4 mt-8 md:columns-2 gap-6 space-y-6">
+        {/* 2-STOLPČNI GRID ZA FIKSNO PORAVNAVO VRSTIC */}
+        <div className="max-w-5xl mx-auto px-4 mt-8 grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch">
           {validAnalysis.length === 0 ? (
-            <div className="break-inside-avoid text-center py-20 bg-white dark:bg-gray-800/40 rounded-2xl border border-dashed border-gray-300 dark:border-gray-700 w-full">
-               <p className="text-gray-500 font-medium">Analiza se pripravlja ...</p>
+            <div className="col-span-full text-center py-20 bg-white dark:bg-gray-800/40 rounded-xl border border-dashed border-gray-300 dark:border-gray-700">
+               <p className="text-gray-500 text-sm">Analiza se pripravlja ...</p>
+               {debugStr && <div className="mt-4 p-4 text-[10px] font-mono text-left opacity-50">{debugStr}</div>}
             </div>
           ) : (
             validAnalysis.map((item, idx) => (
-              <article key={idx} className="break-inside-avoid inline-block w-full bg-white dark:bg-gray-800/40 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-800/80 overflow-hidden mb-6">
+              <article key={idx} className="bg-white dark:bg-gray-800/40 rounded-xl shadow-sm border border-gray-200 dark:border-gray-800/80 overflow-hidden flex flex-col h-full">
                   
-                  {/* SLIKA: Povečana in fiksna na 16:9 */}
+                  {/* SLIKA: Fiksni 16:9 aspect ratio */}
                   {item.main_image && (
                       <div className="w-full aspect-video bg-gray-100 dark:bg-gray-800 relative border-b border-gray-100 dark:border-gray-800/50">
                           <img 
-                            src={proxiedImage(item.main_image, 800, 450, 1)} 
-                            alt={item.topic}
+                            src={proxiedImage(item.main_image, 600, 338, 1)} 
+                            alt=""
                             className="w-full h-full object-cover"
                             loading="lazy"
                             onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
@@ -118,77 +115,58 @@ export default function AnalizaPage({ analysis, lastUpdated, debugStr }: Props) 
                       </div>
                   )}
 
-                  {/* VSEBINA: Bolj berljiva pisava in razmaki */}
-                  <div className="p-5 md:p-6 flex flex-col gap-5">
-                      
+                  <div className="p-4 flex flex-col flex-1 gap-4">
                       <div>
-                          <h2 className="text-xl font-serif font-bold text-gray-900 dark:text-white mb-2 leading-tight">
+                          <h2 className="text-[16px] font-bold text-gray-900 dark:text-white mb-1 leading-tight">
                             {item.topic}
                           </h2>
-                          <p className="text-sm text-gray-600 dark:text-gray-400 font-normal leading-relaxed">
+                          <p className="text-[12px] text-gray-600 dark:text-gray-400 leading-relaxed">
                             {item.summary}
                           </p>
                       </div>
                       
-                      {/* AI Framing Analiza */}
-                      <div className="bg-brand/5 border-l-4 border-brand p-4 rounded-r-lg">
-                          <div className="text-[10px] font-bold uppercase tracking-wider text-brand mb-1.5">
-                              Uredniški okvir
-                          </div>
-                          <p className="text-[13px] text-gray-800 dark:text-gray-200 font-medium leading-relaxed italic">
-                             "{item.framing_analysis || item.tone_difference || "Ni na voljo"}"
+                      <div className="bg-brand/5 border-l-2 border-brand p-2.5 rounded-r">
+                          <p className="text-[11px] text-gray-800 dark:text-gray-300 italic leading-snug">
+                             "{item.framing_analysis || item.tone_difference}"
                           </p>
                       </div>
 
-                      {/* Seznam Virov - Kompakten a berljiv */}
-                      <div className="mt-2">
-                          <div className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-3 px-1">Primerjani viri</div>
-                          <div className="flex flex-col border-t border-gray-100 dark:border-gray-800/50">
+                      {/* VIRI: Ultra kompaktni brez okvirjev */}
+                      <div className="mt-auto pt-2 border-t border-gray-100 dark:border-gray-800/50">
+                          <div className="flex flex-col">
                               {item.sources && item.sources.map((source, sIdx) => (
-                                  <div 
-                                    key={sIdx} 
-                                    className="group relative flex items-center justify-between gap-3 py-2.5 px-2 -mx-2 hover:bg-gray-50 dark:hover:bg-gray-800/80 rounded-xl transition-colors"
-                                  >
+                                  <div key={sIdx} className="group flex items-center justify-between py-1 px-1 hover:bg-gray-50 dark:hover:bg-white/5 rounded transition-colors">
                                       <a 
-                                        href={source.url || '#'} 
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="flex items-center gap-3 min-w-0 flex-1 pr-8"
+                                        href={source.url} 
+                                        target="_blank" 
+                                        rel="noopener" 
+                                        className="flex items-center gap-2 min-w-0 flex-1"
                                       >
-                                          {/* Logo - Kvadraten z robovi */}
-                                          <div className="relative w-5 h-5 shrink-0 rounded-[4px] overflow-hidden bg-white border border-gray-100 dark:border-gray-700 shadow-sm">
-                                              <Image src={getLogoSrc(source.source)} alt={source.source} fill className="object-contain p-0.5" />
+                                          <div className="relative w-4 h-4 shrink-0 rounded-[3px] overflow-hidden grayscale group-hover:grayscale-0 transition-all">
+                                              <Image src={getLogoSrc(source.source)} alt="" fill className="object-contain" />
                                           </div>
-                                          
-                                          <div className="flex flex-col min-w-0">
-                                              <div className="flex items-center gap-2">
-                                                  <span className="text-[10px] font-bold text-gray-900 dark:text-gray-100 uppercase tracking-tight">
-                                                      {source.source}
-                                                  </span>
-                                                  <span className={`text-[8px] px-1.5 py-0.5 rounded font-bold uppercase ${getToneColor(source.tone)}`}>
-                                                      {source.tone}
-                                                  </span>
-                                              </div>
-                                              <span className="text-xs font-normal text-gray-500 dark:text-gray-400 truncate group-hover:text-brand transition-colors mt-0.5">
-                                                  {source.title}
-                                              </span>
-                                          </div>
+                                          <span className="text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-tight">
+                                              {source.source}
+                                          </span>
+                                          <span className="text-[11px] font-normal text-gray-600 dark:text-gray-300 truncate group-hover:text-brand transition-colors">
+                                              {source.title}
+                                          </span>
                                       </a>
-
-                                      {/* OKO - Hitri predogled (Vidno na hover) */}
-                                      <button 
-                                        onClick={(e) => {
-                                            e.preventDefault();
-                                            e.stopPropagation();
-                                            setPreviewUrl(source.url); 
-                                        }}
-                                        className="p-1.5 text-gray-400 hover:text-brand hover:bg-brand/10 rounded-full transition-all shrink-0 opacity-0 group-hover:opacity-100"
-                                      >
-                                          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2">
-                                              <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12Z" />
-                                              <circle cx="12" cy="12" r="3" />
-                                          </svg>
-                                      </button>
+                                      
+                                      <div className="flex items-center gap-2 ml-2">
+                                          <span className={`text-[8px] px-1 py-0.5 rounded uppercase font-bold whitespace-nowrap ${getToneColor(source.tone)}`}>
+                                              {source.tone}
+                                          </span>
+                                          <button 
+                                            onClick={(e) => { e.preventDefault(); e.stopPropagation(); setPreviewUrl(source.url); }}
+                                            className="text-gray-400 hover:text-brand opacity-0 group-hover:opacity-100 transition-opacity"
+                                          >
+                                              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5">
+                                                  <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12Z" />
+                                                  <circle cx="12" cy="12" r="3" />
+                                              </svg>
+                                          </button>
+                                      </div>
                                   </div>
                               ))}
                           </div>
@@ -201,11 +179,7 @@ export default function AnalizaPage({ analysis, lastUpdated, debugStr }: Props) 
         </div>
       </main>
 
-      {/* PREDOGLED NOVICE */}
-      {previewUrl && (
-        <ArticlePreview url={previewUrl} onClose={() => setPreviewUrl(null)} />
-      )}
-
+      {previewUrl && <ArticlePreview url={previewUrl} onClose={() => setPreviewUrl(null)} />}
       <Footer />
     </>
   )
@@ -229,9 +203,9 @@ export const getServerSideProps: GetServerSideProps = async ({ res }) => {
   let extractedAnalysis = null;
   let rawContent = row.data;
 
-  if (typeof rawContent === 'string') {
-      try { rawContent = JSON.parse(rawContent); } catch(e) {}
-  }
+  if (typeof rawContent === 'string') { try { rawContent = JSON.parse(rawContent); } catch(e) {} }
+  if (typeof rawContent === 'string') { try { rawContent = JSON.parse(rawContent); } catch(e) {} }
+
   if (Array.isArray(rawContent)) {
       extractedAnalysis = rawContent;
   } else if (rawContent && typeof rawContent === 'object' && Array.isArray(rawContent.data)) {
