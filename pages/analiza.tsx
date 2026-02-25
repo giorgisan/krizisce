@@ -1,4 +1,4 @@
-// pages/analiza.tsx
+/* pages/analiza.tsx */
 import React from 'react'
 import { GetServerSideProps } from 'next'
 import Head from 'next/head'
@@ -18,8 +18,8 @@ interface SourceItem {
 interface AnalysisItem {
   topic: string;
   summary: string;
-  framing_analysis?: string; // Novo polje iz AI
-  tone_difference?: string; // Staro polje (za backward compatibility)
+  framing_analysis?: string; 
+  tone_difference?: string; 
   main_image?: string; 
   sources: SourceItem[];
 }
@@ -52,6 +52,9 @@ const getToneColor = (tone: string) => {
 }
 
 export default function AnalizaPage({ analysis, lastUpdated }: Props) {
+  // Dodana varovalka: če analysis ni array, ga ne poskušamo mapirati
+  const validAnalysis = Array.isArray(analysis) ? analysis : [];
+
   return (
     <>
       <Head>
@@ -82,12 +85,14 @@ export default function AnalizaPage({ analysis, lastUpdated }: Props) {
         </div>
 
         <div className="max-w-5xl mx-auto px-4 mt-8 space-y-12">
-          {!analysis || analysis.length === 0 ? (
+          {validAnalysis.length === 0 ? (
             <div className="text-center py-20 bg-white dark:bg-gray-900 rounded-2xl border border-dashed border-gray-300 dark:border-gray-700">
                <p className="text-gray-500">Analiza se pripravlja ...</p>
+               {/* Dodan majhen helper text, če je analysis slucajno null ali undefined */}
+               {!analysis && <p className="text-xs text-red-400 mt-2">Podatki iz baze niso na voljo.</p>}
             </div>
           ) : (
-            analysis.map((item, idx) => (
+            validAnalysis.map((item, idx) => (
               <article key={idx} className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-800 overflow-hidden hover:shadow-md transition-shadow">
                   
                   {/* ZGORNJI DEL: Split View */}
@@ -119,7 +124,7 @@ export default function AnalizaPage({ analysis, lastUpdated }: Props) {
                           
                           {/* Števec virov */}
                           <div className="absolute bottom-3 left-3 bg-white/90 dark:bg-black/80 backdrop-blur-sm text-gray-900 dark:text-white text-xs font-bold px-3 py-1 rounded-full border border-black/5">
-                              {item.sources.length} virov
+                              {item.sources ? item.sources.length : 0} virov
                           </div>
                       </div>
 
@@ -139,7 +144,7 @@ export default function AnalizaPage({ analysis, lastUpdated }: Props) {
                                   <span className="text-xs font-bold uppercase tracking-wider text-brand">Uredniški okvir (Framing)</span>
                               </div>
                               <p className="text-sm text-gray-800 dark:text-gray-200 font-medium leading-snug">
-                                 {item.framing_analysis || item.tone_difference}
+                                 {item.framing_analysis || item.tone_difference || "Ni na voljo"}
                               </p>
                           </div>
                       </div>
@@ -149,7 +154,7 @@ export default function AnalizaPage({ analysis, lastUpdated }: Props) {
                   {/* SPODNJI DEL: Grid Virov (2 KOLONI) */}
                   <div className="bg-gray-50/50 dark:bg-black/20 p-4 md:p-6 border-t border-gray-100 dark:border-gray-800">
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          {item.sources.map((source, sIdx) => (
+                          {item.sources && item.sources.map((source, sIdx) => (
                               <Link 
                                 href={source.url || '#'} 
                                 target="_blank"
@@ -203,5 +208,19 @@ export const getServerSideProps: GetServerSideProps = async ({ res }) => {
 
   if (error || !data) return { props: { analysis: null, lastUpdated: null } }
 
-  return { props: { analysis: data.data, lastUpdated: data.created_at } }
+  // Tukaj naredimo pametno izluščevanje arraya. 
+  // Ce je data.data objekt, ki ima polje 'data', v katerem je array (to se vcasih zgodi pri dvojnem JSON encodiranju)
+  let extractedAnalysis = null;
+
+  if (Array.isArray(data.data)) {
+      extractedAnalysis = data.data;
+  } else if (data.data && typeof data.data === 'object') {
+      // V tvojem primeru izpisa crona izgleda, da je morda array shranjen pod ključem 'data'
+      // ali pa je sam glavni objekt. Preverimo.
+      if (Array.isArray(data.data.data)) {
+          extractedAnalysis = data.data.data;
+      }
+  }
+
+  return { props: { analysis: extractedAnalysis, lastUpdated: data.created_at } }
 }
