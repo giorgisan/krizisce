@@ -17,7 +17,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
-    // 1. Zajem 800 novic (Usklajeno s Trending groups)
     const cutoff = Date.now() - (TREND_WINDOW_HOURS * 60 * 60 * 1000)
     const { data: rows, error } = await supabase
         .from('news')
@@ -30,10 +29,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (error) throw error
     if (!rows || rows.length === 0) return res.json({ message: "Baza je prazna." })
 
-    // 2. Grupiranje (Gemini 2.5 Flash bo uporabljen znotraj computeTrending)
     const groups = await computeTrending(rows || [])
     
-    // 3. Filtriranje top 5 največjih zgodb
     const topStories = groups
       .filter((g: any) => {
           const list = g.items || g.articles || g.storyArticles || [];
@@ -50,7 +47,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.json({ message: "Ni dovolj velikih zgodb.", count: 0 })
     }
 
-    // 4. Priprava podatkov za AI
     let promptData = ""
     topStories.forEach((group: any, index: number) => {
        promptData += `\nZGODBA ${index + 1}:\n`
@@ -60,29 +56,29 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
        })
     })
 
-    // 5. Prompt za analizo uredniškega okvirjanja
     const prompt = `
-      You are an expert media analyst. Analyze how different Slovenian media outlets cover the same ${topStories.length} events.
+      You are an expert Slovenian media analyst. Analyze how different Slovenian media outlets cover the same ${topStories.length} events.
       Focus on "media framing" - what angle each source chooses to highlight.
       
+      POMEMBNO: Odgovori izključno v SLOVENŠČINI.
+      
       For each story, return a JSON object with:
-      1. "topic": Short, neutral title of the event (max 5 words).
-      2. "summary": One sentence explaining the core event neutrally.
-      3. "framing_analysis": A short paragraph (2-3 sentences) explaining how different media framed the story (what they emphasized).
+      1. "topic": Kratek, nevtralen naslov dogodka v slovenščini (max 5 besed).
+      2. "summary": En stavek bistva v slovenščini.
+      3. "framing_analysis": Kratek odstavek (2-3 stavki) v slovenščini, ki pojasni razlike v poročanju (kaj so izpostavili).
       4. "sources": Array of sources:
           - "source": Name of the media.
           - "title": Headline.
           - "url": The link.
           - "tone": Headline tone (Nevtralen, Senzacionalen, Alarmanten, Informativen, Vprašalni).
       
-      VHODNI PODATKI:
+      INPUT DATA:
       ${promptData}
       
       OUTPUT FORMAT (JSON array only):
       [ { "topic": "...", "summary": "...", "framing_analysis": "...", "sources": [...] } ]
     `
 
-    // 6. Uporaba modela Gemini 2.5 Flash
     const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" }); 
     const result = await model.generateContent({
         contents: [{ role: "user", parts: [{ text: prompt }] }],
@@ -93,7 +89,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const jsonString = responseText.replace(/```json|```/g, '').trim();
     let analysisData = JSON.parse(jsonString);
 
-    // 7. Pripis slik skupine
     analysisData = analysisData.map((aiItem: any, index: number) => {
         const originalGroup = topStories[index] as any;
         if (originalGroup) {
@@ -106,7 +101,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return aiItem;
     });
 
-    // 8. Shranjevanje v bazo
     await supabase.from('media_analysis').insert({ 
         data: analysisData,
         created_at: new Date().toISOString()
