@@ -2,7 +2,6 @@
 import { NextApiRequest, NextApiResponse } from 'next'
 import { createClient } from '@supabase/supabase-js'
 import { GoogleGenerativeAI } from '@google/generative-ai'
-// Uvozimo tudi TREND_WINDOW_HOURS za enakomerno časovno okno
 import { computeTrending, TREND_WINDOW_HOURS } from '@/lib/trendingAlgo'
 
 const supabase = createClient(
@@ -18,7 +17,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
-    // 1. Zajem novic: Uporabimo TREND_WINDOW_HOURS (12h) namesto 48h, da drastično zmanjšamo število tokenov
     const cutoff = Date.now() - (TREND_WINDOW_HOURS * 60 * 60 * 1000)
     const { data: rows, error } = await supabase
         .from('news')
@@ -26,15 +24,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         .gt('publishedat', cutoff)
         .neq('category', 'oglas')
         .order('publishedat', { ascending: false })
-        .limit(400) // ZMANJŠANO IZ 1000 NA 400 (reši napako 429 Token Limit!)
+        .limit(800) // 1. POPRAVEK: Izenačeno z aktualnimi trendi na 800!
 
     if (error) throw error
     if (!rows || rows.length === 0) return res.json({ message: "Baza je prazna." })
 
-    // 2. Grupiranje (TUKAJ JE MANJKAL 'await' V TVOJI ORIGINALNI KODI!)
     const groups = await computeTrending(rows || [])
     
-    // 3. Filtriranje
     const topStories = groups
       .filter((g: any) => {
           const list = g.items || g.articles || g.storyArticles || [];
@@ -51,7 +47,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.json({ message: "Ni dovolj velikih zgodb.", count: 0 })
     }
 
-    // 4. Priprava prompta
     let promptData = ""
     topStories.forEach((group: any, index: number) => {
        promptData += `\nZGODBA ${index + 1}:\n`
@@ -62,7 +57,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
        })
     })
 
-    // 5. PROMPT (Nov Framing Prompt)
     const prompt = `
       You are an expert media analyst. Analyze how different Slovenian media outlets cover the same ${topStories.length} events.
       Focus on "media framing" - what angle each source chooses to highlight.
@@ -84,7 +78,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       [ { "topic": "...", "summary": "...", "framing_analysis": "...", "sources": [...] } ]
     `
 
-    // 6. Uporabimo gemini-2.5-flash kot si predlagal!
     const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" }); 
     const result = await model.generateContent({
         contents: [{ role: "user", parts: [{ text: prompt }] }],
@@ -96,17 +89,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     
     let analysisData = JSON.parse(jsonString);
 
-    // --- VSTAVLJANJE SLIKE IZ BAZE (POPRAVLJENO!) ---
     analysisData = analysisData.map((aiItem: any, index: number) => {
         const originalGroup = topStories[index] as any;
         
         if (originalGroup) {
-            // Funkcija computeTrending na koren nivoja vrne sliko v 'image' atributu
             if (originalGroup.image && typeof originalGroup.image === 'string' && originalGroup.image.startsWith('http')) {
                 aiItem.main_image = originalGroup.image;
-            } 
-            // Ce morda ni v korenu, pregledamo prvi element iz podskupine (storyArticles ali items)
-            else {
+            } else {
                 const list = originalGroup.items || originalGroup.articles || originalGroup.storyArticles || [];
                 const articleWithImage = list.find((a: any) => 
                     (a.image && typeof a.image === 'string' && a.image.startsWith('http')) ||
@@ -123,7 +112,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return aiItem;
     });
 
-    // 7. Shranjevanje
     await supabase.from('media_analysis').insert({ 
         data: analysisData,
         created_at: new Date().toISOString()
