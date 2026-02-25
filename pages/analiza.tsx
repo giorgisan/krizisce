@@ -1,4 +1,4 @@
-/* pages/analiza.tsx */
+// pages/analiza.tsx
 import React from 'react'
 import { GetServerSideProps } from 'next'
 import Head from 'next/head'
@@ -18,7 +18,8 @@ interface SourceItem {
 interface AnalysisItem {
   topic: string;
   summary: string;
-  tone_difference: string;
+  framing_analysis?: string; // Novo polje iz AI
+  tone_difference?: string; // Staro polje (za backward compatibility)
   main_image?: string; 
   sources: SourceItem[];
 }
@@ -45,9 +46,9 @@ const getLogoSrc = (sourceName: string) => {
 
 const getToneColor = (tone: string) => {
   const t = tone.toLowerCase();
-  if (t.includes('senzacija') || t.includes('drama') || t.includes('alarm')) return 'bg-red-50 text-red-700 border-red-100';
-  if (t.includes('vprašal') || t.includes('provokat')) return 'bg-orange-50 text-orange-700 border-orange-100';
-  return 'bg-gray-50 text-gray-700 border-gray-200';
+  if (t.includes('senzacija') || t.includes('drama') || t.includes('alarm')) return 'bg-red-50 text-red-700 border-red-100 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800/50';
+  if (t.includes('vprašal') || t.includes('provokat')) return 'bg-orange-50 text-orange-700 border-orange-100 dark:bg-orange-900/30 dark:text-orange-400 dark:border-orange-800/50';
+  return 'bg-gray-50 text-gray-700 border-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-700';
 }
 
 export default function AnalizaPage({ analysis, lastUpdated }: Props) {
@@ -69,12 +70,12 @@ export default function AnalizaPage({ analysis, lastUpdated }: Props) {
                         <span className="text-3xl">⚖️</span> Medijski Monitor
                     </h1>
                     <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                        Primerjava poročanja slovenskih medijev o istih temah
+                        Primerjava poročanja slovenskih medijev o istih temah (AI Analiza)
                     </p>
                 </div>
                 {lastUpdated && (
-                    <div className="text-xs font-mono text-gray-400 bg-gray-100 dark:bg-gray-800 px-3 py-1 rounded-full border border-gray-200 dark:border-gray-700">
-                        {new Date(lastUpdated).toLocaleTimeString('sl-SI', {hour: '2-digit', minute:'2-digit'})}
+                    <div className="text-xs font-mono text-gray-500 bg-gray-100 dark:bg-gray-800 px-3 py-1 rounded-full border border-gray-200 dark:border-gray-700">
+                        Zadnjič osveženo: {new Date(lastUpdated).toLocaleTimeString('sl-SI', {hour: '2-digit', minute:'2-digit'})}
                     </div>
                 )}
             </div>
@@ -108,12 +109,12 @@ export default function AnalizaPage({ analysis, lastUpdated }: Props) {
                               />
                           ) : (
                               <div className="w-full h-full flex items-center justify-center bg-gray-100 dark:bg-gray-800">
-                                  <span className="text-4xl opacity-20">📷</span>
+                                  <span className="text-4xl opacity-20">📰</span>
                               </div>
                           )}
                           {/* Fallback element, če slika rata error (skrit po defaultu) */}
                           <div className="hidden w-full h-full absolute inset-0 flex items-center justify-center bg-gray-100 dark:bg-gray-800">
-                               <span className="text-4xl opacity-20">📷</span>
+                               <span className="text-4xl opacity-20">📰</span>
                           </div>
                           
                           {/* Števec virov */}
@@ -124,17 +125,21 @@ export default function AnalizaPage({ analysis, lastUpdated }: Props) {
 
                       {/* 2. VSEBINA (DESNO) - 60% širine */}
                       <div className="w-full md:w-7/12 p-6 md:p-8 flex flex-col justify-center bg-white dark:bg-gray-900 border-l border-gray-100 dark:border-gray-800">
-                          <h2 className="text-2xl font-serif font-bold text-gray-900 dark:text-white mb-4 leading-tight">
+                          <h2 className="text-2xl font-serif font-bold text-gray-900 dark:text-white mb-3 leading-tight">
                             {item.topic}
                           </h2>
-                          <p className="text-gray-600 dark:text-gray-300 text-base leading-relaxed mb-6">
+                          <p className="text-gray-600 dark:text-gray-400 text-sm leading-relaxed mb-6 font-medium">
                             {item.summary}
                           </p>
                           
-                          {/* Tone Box */}
-                          <div className="mt-auto bg-gray-50 dark:bg-gray-800/50 border-l-4 border-brand p-4 rounded-r-md">
-                              <p className="text-sm text-gray-700 dark:text-gray-300 font-medium italic leading-snug">
-                                 " {item.tone_difference} "
+                          {/* Tone Box / Framing Analysis */}
+                          <div className="mt-auto bg-brand/5 dark:bg-brand/10 border-l-4 border-brand p-4 rounded-r-md">
+                              <div className="flex items-center gap-2 mb-2 opacity-80">
+                                  <svg className="w-4 h-4 text-brand" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                                  <span className="text-xs font-bold uppercase tracking-wider text-brand">Uredniški okvir (Framing)</span>
+                              </div>
+                              <p className="text-sm text-gray-800 dark:text-gray-200 font-medium leading-snug">
+                                 {item.framing_analysis || item.tone_difference}
                               </p>
                           </div>
                       </div>
@@ -152,27 +157,23 @@ export default function AnalizaPage({ analysis, lastUpdated }: Props) {
                                 className="group bg-white dark:bg-gray-800 p-4 rounded-xl border border-gray-200 dark:border-gray-700 hover:border-brand/40 hover:shadow-sm transition-all flex items-start gap-4"
                               >
                                   {/* Logo */}
-                                  <div className="relative w-8 h-8 flex-shrink-0 rounded-full overflow-hidden bg-gray-50 border border-gray-100">
+                                  <div className="relative w-8 h-8 flex-shrink-0 rounded-full overflow-hidden bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-700">
                                       <Image src={getLogoSrc(source.source)} alt={source.source} fill className="object-contain p-0.5" />
                                   </div>
 
                                   <div className="flex-1 min-w-0">
-                                      <div className="flex items-center gap-2 mb-1">
+                                      <div className="flex items-center gap-2 mb-1.5 flex-wrap">
                                           <span className="text-[10px] font-bold uppercase text-gray-400">
                                               {source.source}
                                           </span>
-                                          <span className={`text-[9px] px-1.5 py-0 rounded-sm border ${getToneColor(source.tone)}`}>
+                                          <span className={`text-[9px] px-1.5 py-0.5 rounded-sm border font-semibold tracking-wide ${getToneColor(source.tone)}`}>
                                               {source.tone}
                                           </span>
                                       </div>
                                       
-                                      <h3 className="text-sm font-medium text-gray-900 dark:text-gray-200 leading-snug group-hover:text-brand transition-colors line-clamp-2">
+                                      <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100 leading-snug group-hover:text-brand transition-colors line-clamp-2">
                                           {source.title}
                                       </h3>
-                                  </div>
-                                  
-                                  <div className="self-center text-gray-300 group-hover:text-brand -mr-1">
-                                      →
                                   </div>
                               </Link>
                           ))}
