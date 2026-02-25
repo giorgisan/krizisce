@@ -57,15 +57,15 @@ const getToneColor = (tone: string) => {
   return 'bg-gray-500/[0.08] text-gray-400';
 }
 
-function AnalysisCard({ item, setPreviewUrl }: { item: AnalysisItem, setPreviewUrl: (url: string) => void }) {
+function AnalysisCard({ item, setPreviewUrl, isFeatured = false }: { item: AnalysisItem, setPreviewUrl: (url: string) => void, isFeatured?: boolean }) {
   const [showSources, setShowSources] = useState(false);
 
   return (
-    <article className="bg-white dark:bg-gray-800/40 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-800/80 overflow-hidden flex flex-col md:flex-row h-full group transition-all duration-300 hover:shadow-md">
+    <article className={`bg-white dark:bg-gray-800/40 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-800/80 overflow-hidden flex flex-col group transition-all duration-300 hover:shadow-md ${isFeatured ? 'md:flex-row md:col-span-2' : 'col-span-1'}`}>
       
-      {/* LEVI DEL: SLIKA (Na desktopu fiksna širina, na mobilu polna) */}
+      {/* SLIKA: Vedno 16:9 */}
       {item.main_image && (
-        <div className="w-full md:w-[38%] aspect-video md:aspect-auto bg-gray-100 dark:bg-gray-800 relative border-b md:border-b-0 md:border-r border-gray-200 dark:border-gray-800/50 overflow-hidden">
+        <div className={`${isFeatured ? 'w-full md:w-[45%]' : 'w-full'} aspect-video bg-gray-100 dark:bg-gray-800 relative border-b md:border-b-0 ${isFeatured ? 'md:border-r' : ''} border-gray-200 dark:border-gray-800/50 overflow-hidden`}>
           <img 
             src={proxiedImage(item.main_image, 800, 450, 1)} 
             alt=""
@@ -76,13 +76,13 @@ function AnalysisCard({ item, setPreviewUrl }: { item: AnalysisItem, setPreviewU
         </div>
       )}
 
-      {/* DESNI DEL: VSEBINA */}
+      {/* VSEBINA */}
       <div className="flex-1 p-5 md:p-6 flex flex-col gap-4">
         <div className="space-y-2">
-          <h2 className="text-lg md:text-xl font-serif font-bold text-gray-900 dark:text-white leading-tight">
+          <h2 className={`${isFeatured ? 'text-xl md:text-2xl' : 'text-lg'} font-serif font-bold text-gray-900 dark:text-white leading-tight`}>
             {item.topic}
           </h2>
-          <p className="text-[13px] text-gray-600 dark:text-gray-400 leading-relaxed line-clamp-3 md:line-clamp-none">
+          <p className="text-[13px] text-gray-600 dark:text-gray-400 leading-relaxed">
             {item.summary}
           </p>
         </div>
@@ -94,7 +94,6 @@ function AnalysisCard({ item, setPreviewUrl }: { item: AnalysisItem, setPreviewU
           </p>
         </div>
 
-        {/* Gumb za postopno razkrivanje virov */}
         <button 
           onClick={() => setShowSources(!showSources)}
           className="text-[10px] font-bold uppercase tracking-widest text-gray-400 hover:text-brand flex items-center gap-2 mt-auto pt-2 transition-colors self-start"
@@ -123,7 +122,6 @@ function AnalysisCard({ item, setPreviewUrl }: { item: AnalysisItem, setPreviewU
                     <button 
                       onClick={(e) => { e.preventDefault(); e.stopPropagation(); setPreviewUrl(source.url); }}
                       className="text-gray-400 hover:text-brand opacity-0 group-hover/item:opacity-100 transition-all p-1 hover:scale-125 transform-gpu"
-                      title="Predogled"
                     >
                       <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2.5">
                         <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12Z" /><circle cx="12" cy="12" r="3" />
@@ -177,17 +175,16 @@ export default function AnalizaPage({ analysis, lastUpdated }: Props) {
             </div>
         </div>
 
-        {/* Širši grid (max-w-6xl) za horizontalne kartice */}
-        <div className="max-w-6xl mx-auto px-4 mt-10 space-y-8">
-          {validAnalysis.length === 0 ? (
-            <div className="text-center py-24 bg-white dark:bg-gray-800/40 rounded-3xl border border-dashed border-gray-300 dark:border-gray-700">
-               <p className="text-gray-500 font-medium">Analiza se pripravlja ...</p>
-            </div>
-          ) : (
-            validAnalysis.map((item, idx) => (
-              <AnalysisCard key={idx} item={item} setPreviewUrl={setPreviewUrl} />
-            ))
-          )}
+        {/* DINAMIČEN GRID: Hero (col-span-2) + Grid (col-span-1) */}
+        <div className="max-w-6xl mx-auto px-4 mt-10 grid grid-cols-1 md:grid-cols-2 gap-8 items-stretch">
+          {validAnalysis.map((item, idx) => (
+            <AnalysisCard 
+              key={idx} 
+              item={item} 
+              setPreviewUrl={setPreviewUrl} 
+              isFeatured={idx === 0} // Prvi element dobi 'Hero' stil
+            />
+          ))}
         </div>
       </main>
 
