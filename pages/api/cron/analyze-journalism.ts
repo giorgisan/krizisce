@@ -96,25 +96,28 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     
     let analysisData = JSON.parse(jsonString);
 
-    // --- VSTAVLJANJE SLIKE IZ BAZE ---
+    // --- VSTAVLJANJE SLIKE IZ BAZE (POPRAVLJENO!) ---
     analysisData = analysisData.map((aiItem: any, index: number) => {
-        const originalGroup = topStories[index];
+        const originalGroup = topStories[index] as any;
         
         if (originalGroup) {
-            const groupAny = originalGroup as any;
-            const list = groupAny.items || groupAny.articles || groupAny.storyArticles || [];
-            
-            const articleWithImage = list.find((a: any) => 
-                a.image && 
-                typeof a.image === 'string' && 
-                a.image.startsWith('http') &&
-                a.image.length > 10
-            );
+            // Funkcija computeTrending na koren nivoja vrne sliko v 'image' atributu
+            if (originalGroup.image && typeof originalGroup.image === 'string' && originalGroup.image.startsWith('http')) {
+                aiItem.main_image = originalGroup.image;
+            } 
+            // Ce morda ni v korenu, pregledamo prvi element iz podskupine (storyArticles ali items)
+            else {
+                const list = originalGroup.items || originalGroup.articles || originalGroup.storyArticles || [];
+                const articleWithImage = list.find((a: any) => 
+                    (a.image && typeof a.image === 'string' && a.image.startsWith('http')) ||
+                    (a.imageurl && typeof a.imageurl === 'string' && a.imageurl.startsWith('http'))
+                );
 
-            if (articleWithImage) {
-                aiItem.main_image = articleWithImage.image;
-            } else {
-                aiItem.main_image = null; 
+                if (articleWithImage) {
+                    aiItem.main_image = articleWithImage.image || articleWithImage.imageurl;
+                } else {
+                    aiItem.main_image = null; 
+                }
             }
         }
         return aiItem;
