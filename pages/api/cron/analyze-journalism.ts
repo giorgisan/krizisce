@@ -2,7 +2,6 @@
 import { NextApiRequest, NextApiResponse } from 'next'
 import { createClient } from '@supabase/supabase-js'
 import { GoogleGenerativeAI } from '@google/generative-ai'
-import { computeTrending, TREND_WINDOW_HOURS } from '@/lib/trendingAlgo'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -17,62 +16,49 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
-    const cutoff = Date.now() - (TREND_WINDOW_HOURS * 60 * 60 * 1000)
-    const { data: rows, error } = await supabase
-        .from('news')
-        .select('*') 
-        .gt('publishedat', cutoff)
-        .neq('category', 'oglas')
-        .order('publishedat', { ascending: false })
-        .limit(800)
+    // 1. ZAJEM IZ CACHE TABELE (Tako bo Monitor identičen naslovnici!)
+    const { data: cacheData, error: cacheError } = await supabase
+        .from('trending_groups_cache')
+        .select('data')
+        .order('updated_at', { ascending: false })
+        .limit(1)
+        .single()
 
-    if (error) throw error
-    if (!rows || rows.length === 0) return res.json({ message: "Baza je prazna." })
+    if (cacheError || !cacheData) throw new Error("Ni trendovskih podatkov v cache-u.")
 
-    const groups = await computeTrending(rows || [])
-    
-    const topStories = groups
-      .filter((g: any) => {
-          const list = g.items || g.articles || g.storyArticles || [];
-          return list.length >= 2; 
-      })
-      .sort((a: any, b: any) => {
-          const lenA = (a.items || a.articles || a.storyArticles || []).length;
-          const lenB = (b.items || b.articles || b.storyArticles || []).length;
-          return lenB - lenA;
-      })
-      .slice(0, 5)
+    const allGroups = cacheData.data;
+    if (!Array.isArray(allGroups) || allGroups.length === 0) return res.json({ message: "Ni skupin." })
 
-    if (topStories.length === 0) {
-        return res.json({ message: "Ni dovolj velikih zgodb.", count: 0 })
-    }
+    // 2. Izbor prvih 5 skupin (Točno te, ki so na vrhu prve strani)
+    const topStories = allGroups.slice(0, 5)
 
+    // 3. Priprava podatkov za AI
     let promptData = ""
     topStories.forEach((group: any, index: number) => {
        promptData += `\nZGODBA ${index + 1}:\n`
-       const list = group.items || group.articles || group.storyArticles || [];
-       list.slice(0, 10).forEach((item: any) => {
+       // Uporabimo vse artikle v skupini
+       const mainArticle = { source: group.source, title: group.title, link: group.link };
+       const otherArticles = group.storyArticles || [];
+       const allInGroup = [mainArticle, ...otherArticles];
+       
+       allInGroup.slice(0, 8).forEach((item: any) => {
           promptData += `- Vir: ${item.source}, Naslov: "${item.title}", Link: "${item.link}"\n`
        })
     })
 
     const prompt = `
-      You are an expert Slovenian media analyst. Analyze how different Slovenian media outlets cover the same ${topStories.length} events.
-      Focus on "media framing" - what angle each source chooses to highlight.
+      Analiziraj kako slovenski mediji poročajo o spodnjih ${topStories.length} dogodkih. 
+      Osredotoči se na "medijsko okvirjanje" (framing) - kateri kot poročanja izbere posamezen vir.
       
-      POMEMBNO: Odgovori izključno v SLOVENŠČINI.
+      ODGOVORI IZKLJUČNO V SLOVENŠČINI.
       
-      For each story, return a JSON object with:
-      1. "topic": Kratek, nevtralen naslov dogodka v slovenščini (max 5 besed).
-      2. "summary": En stavek bistva v slovenščini.
-      3. "framing_analysis": Kratek odstavek (2-3 stavki) v slovenščini, ki pojasni razlike v poročanju (kaj so izpostavili).
-      4. "sources": Array of sources:
-          - "source": Name of the media.
-          - "title": Headline.
-          - "url": The link.
-          - "tone": Headline tone (Nevtralen, Senzacionalen, Alarmanten, Informativen, Vprašalni).
+      Za vsako zgodbo vrni JSON:
+      1. "topic": Nevtralen naslov dogodka (max 5 besed).
+      2. "summary": Bistvo dogodka v enem stavku.
+      3. "framing_analysis": Kratek odstavek (2-3 stavki), kateri medij poudarja dramo/čustva in kateri dejstva/sistem.
+      4. "sources": Seznam virov s polji: source, title, url in tone (Nevtralen, Senzacionalen, Alarmanten, Informativen, Vprašalni).
       
-      INPUT DATA:
+      VHOD:
       ${promptData}
       
       OUTPUT FORMAT (JSON array only):
@@ -85,31 +71,27 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         generationConfig: { responseMimeType: "application/json" }
     });
     
-    const responseText = result.response.text();
-    const jsonString = responseText.replace(/```json|```/g, '').trim();
-    let analysisData = JSON.parse(jsonString);
+    const analysisData = JSON.parse(result.response.text().replace(/```json|```/g, '').trim());
 
-    analysisData = analysisData.map((aiItem: any, index: number) => {
-        const originalGroup = topStories[index] as any;
+    // 4. Pripis slik iz originalnih skupin
+    const finalData = analysisData.map((aiItem: any, index: number) => {
+        const originalGroup = topStories[index];
         if (originalGroup) {
             aiItem.main_image = originalGroup.image || null;
-            if (!aiItem.main_image) {
-                const list = originalGroup.items || originalGroup.articles || originalGroup.storyArticles || [];
-                aiItem.main_image = list.find((a: any) => a.image)?.image || null;
-            }
         }
         return aiItem;
     });
 
+    // 5. Shranjevanje
     await supabase.from('media_analysis').insert({ 
-        data: analysisData,
+        data: finalData,
         created_at: new Date().toISOString()
     })
 
-    return res.status(200).json({ success: true, count: topStories.length, data: analysisData })
+    return res.status(200).json({ success: true, count: finalData.length, data: finalData })
 
   } catch (e: any) {
-      console.error("AI Error:", e)
+      console.error("Monitor AI Error:", e)
       return res.status(500).json({ error: e.message })
   }
 }
