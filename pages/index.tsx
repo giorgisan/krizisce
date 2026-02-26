@@ -277,7 +277,7 @@ export default function Home({ initialNews, initialTrendingWords, initialTrendin
     if (isLoadingMore || !hasMore || cursor == null || cursor <= 0) return
     setIsLoadingMore(true)
     try {
-      const qs = newSearchParams()
+      const qs = new URLSearchParams()
       qs.set('paged', '1'); qs.set('limit', '24'); qs.set('cursor', String(cursor))
       if (selectedSources.length > 0) qs.set('source', selectedSources.join(','))
       if (selectedCategory !== 'vse') qs.set('category', selectedCategory)
@@ -343,7 +343,6 @@ export default function Home({ initialNews, initialTrendingWords, initialTrendin
     setSearchQuery(e.target.value)
   }
 
-  // --- LOGIKA PRIKAZA HEADERJA ---
   const isSearchOrTag = !!(searchQuery || tagQuery);
   const showHeaderElements = !isSearchOrTag;
   const showHeroSection = showHeaderElements && selectedCategory === 'vse' && mode === 'latest';
@@ -407,39 +406,46 @@ export default function Home({ initialNews, initialTrendingWords, initialTrendin
                 </div>
             )}
 
+            {/* --- HERO SEKCIJA: AI Briefing (Levo) & Medijski Monitor (Desno) --- */}
+            {showHeroSection && (
+                 <div className="flex flex-col lg:flex-row gap-8 items-stretch mb-6">
+                     
+                     {/* Levi stolpec - Ai Briefing */}
+                     <div className="flex-1 w-full min-w-0">
+                         {currentAiSummary && (
+                             <AiBriefing summary={currentAiSummary} time={currentAiTime} />
+                         )}
+                     </div>
+
+                     {/* Desni stolpec - Medijski Monitor Banner */}
+                     <div className="w-full lg:w-[340px] xl:w-[380px] shrink-0">
+                         <Link href="/analiza" className="group block h-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700/80 rounded-xl p-4 shadow-sm hover:shadow-md hover:border-brand/30 transition-all overflow-hidden relative">
+                             <div className="absolute inset-0 bg-gradient-to-r from-brand/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                             <div className="flex items-center justify-between gap-4 relative z-10 h-full">
+                                 <div className="flex items-center gap-4">
+                                     <div className="w-10 h-10 rounded-full bg-brand/10 text-brand flex items-center justify-center text-lg shrink-0 group-hover:scale-110 transition-transform transform-gpu">
+                                         ⚖️
+                                     </div>
+                                     <div>
+                                         <h3 className="text-[15px] font-bold text-gray-900 dark:text-white mb-0.5 group-hover:text-brand transition-colors">Medijski Monitor</h3>
+                                         <p className="text-[12px] text-gray-500 dark:text-gray-400">AI analiza uredniškega okvirjanja tem.</p>
+                                     </div>
+                                 </div>
+                                 <div className="shrink-0 text-brand text-[11px] font-bold uppercase tracking-wider flex items-center gap-1 group-hover:translate-x-1 transition-transform">
+                                     Preveri <span className="text-lg leading-none">›</span>
+                                 </div>
+                             </div>
+                         </Link>
+                     </div>
+                 </div>
+            )}
+
+            {/* --- GLAVNA GRID SEKCIJA --- */}
             <div className="flex flex-col lg:flex-row gap-8 items-start">
                 
                 {/* --- LEVI STOLPEC (Novice) --- */}
                 <div className={`flex-1 w-full min-w-0 ${mode === 'trending' ? 'hidden lg:block' : 'block'}`}>
                     
-                    {/* AI BRIEFING (Zdaj lepo stisnjen nad novicami) */}
-                    {showHeroSection && currentAiSummary && (
-                        <div className="mb-4">
-                            <AiBriefing summary={currentAiSummary} time={currentAiTime} />
-                        </div>
-                    )}
-
-                    {/* MEDIJSKI MONITOR WIDGET */}
-                    {showHeroSection && (
-                        <Link href="/analiza" className="group block mb-6 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700/80 rounded-xl p-4 shadow-sm hover:shadow-md hover:border-brand/30 transition-all overflow-hidden relative">
-                            <div className="absolute inset-0 bg-gradient-to-r from-brand/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-                            <div className="flex items-center justify-between gap-4 relative z-10">
-                                <div className="flex items-center gap-4">
-                                    <div className="w-10 h-10 rounded-full bg-brand/10 text-brand flex items-center justify-center text-lg shrink-0 group-hover:scale-110 transition-transform transform-gpu">
-                                        ⚖️
-                                    </div>
-                                    <div>
-                                        <h3 className="text-[15px] font-bold text-gray-900 dark:text-white mb-0.5 group-hover:text-brand transition-colors">Medijski Monitor</h3>
-                                        <p className="text-[12px] text-gray-500 dark:text-gray-400">AI analiza uredniškega okvirjanja današnjih top tem.</p>
-                                    </div>
-                                </div>
-                                <div className="shrink-0 text-brand text-[11px] font-bold uppercase tracking-wider flex items-center gap-1 group-hover:translate-x-1 transition-transform">
-                                    Preveri <span className="text-lg leading-none">›</span>
-                                </div>
-                            </div>
-                        </Link>
-                    )}
-
                     {isRefreshing && itemsLatest.length === 0 ? (
                         <div className="py-20 text-center opacity-50">Nalagam novice ...</div>
                     ) : itemsLatest.length === 0 ? (
@@ -469,7 +475,6 @@ export default function Home({ initialNews, initialTrendingWords, initialTrendin
                 <div className={`w-full lg:w-[340px] xl:w-[380px] shrink-0 lg:sticky lg:top-24 transform-gpu 
                     ${mode === 'trending' ? 'block' : 'hidden lg:block'}
                 `}>
-                    
                     {mode === 'trending' && !isDesktopLogic ? (
                          <div className="flex flex-col gap-4">
                             {itemsTrending.slice(0, 10).map((article, i) => (
