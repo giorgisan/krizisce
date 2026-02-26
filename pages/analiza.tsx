@@ -48,7 +48,6 @@ const getLogoSrc = (sourceName: string) => {
   return '/logo.png';
 }
 
-// Funkcija, ki pretvori akademski žargon v bralcu prijazen izraz in določi barvo
 const getToneUI = (tone: string) => {
   const t = tone.toLowerCase();
   if (t.includes('konfliktno')) return { label: 'Poudarja konflikt', style: 'bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20' };
@@ -94,21 +93,23 @@ export default function AnalizaPage({ analysis, lastUpdated }: Props) {
             </div>
         </div>
 
-        {/* COMPACT DASHBOARD LIST */}
-        <div className="max-w-6xl mx-auto px-4 mt-6 space-y-4">
+        {/* COMPACT DATA ROWS */}
+        <div className="max-w-6xl mx-auto px-4 mt-6 space-y-5">
           {validAnalysis.length === 0 && (
             <div className="text-center py-20 text-gray-500 font-mono text-sm">Pridobivam najnovejše analize...</div>
           )}
 
           {validAnalysis.map((item, idx) => (
-            <article key={idx} className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700/60 rounded-lg overflow-hidden shadow-sm flex flex-col md:flex-row transition-colors hover:border-gray-300 dark:hover:border-gray-600">
+            <article key={idx} className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700/60 rounded-xl overflow-hidden shadow-sm flex flex-col md:flex-row transition-colors hover:border-gray-300 dark:hover:border-gray-600">
                 
-              {/* 1. STOLPEC: Osnovna novica (~40%) */}
-              <div className="w-full md:w-[40%] p-4 flex flex-col sm:flex-row gap-4 border-b md:border-b-0 md:border-r border-gray-100 dark:border-gray-700/50">
+              {/* LEVI BLOK: Novica + Sinteza (Združeno za optimalno rabo prostora) */}
+              <div className="w-full md:w-[65%] p-4 sm:p-5 flex flex-col sm:flex-row gap-4 sm:gap-5 border-b md:border-b-0 md:border-r border-gray-100 dark:border-gray-700/50">
+                
+                {/* Slika: Na mobilcu polna širina (banner), na desktopu fiksna širina */}
                 {item.main_image && (
-                  <div className="w-full sm:w-28 h-20 bg-gray-100 dark:bg-gray-800 rounded mb-2 sm:mb-0 shrink-0 overflow-hidden relative">
+                  <div className="w-full aspect-[21/9] sm:aspect-auto sm:w-40 sm:h-32 bg-gray-100 dark:bg-gray-800 rounded-lg overflow-hidden shrink-0 relative">
                     <img 
-                      src={proxiedImage(item.main_image, 300, 200, 1)} 
+                      src={proxiedImage(item.main_image, 400, 250, 1)} 
                       alt=""
                       className="w-full h-full object-cover"
                       loading="lazy"
@@ -116,63 +117,63 @@ export default function AnalizaPage({ analysis, lastUpdated }: Props) {
                     />
                   </div>
                 )}
-                <div className="flex flex-col justify-center">
-                  <h2 className="text-[15px] font-serif font-bold text-gray-900 dark:text-white leading-snug mb-1.5">
+                
+                <div className="flex flex-col flex-1 min-w-0 justify-center">
+                  <h2 className="text-[16px] font-serif font-bold text-gray-900 dark:text-white leading-snug mb-1">
                     {item.topic}
                   </h2>
-                  <p className="text-[12px] text-gray-500 dark:text-gray-400 leading-tight">
+                  <p className="text-[12px] text-gray-500 dark:text-gray-400 leading-tight mb-3">
                     {item.summary}
                   </p>
+                  
+                  {/* Združena analiza neposredno pod povzetkom */}
+                  <div className="bg-brand/[0.03] dark:bg-brand/[0.05] border-l-2 border-brand/40 pl-3 py-1.5 mt-auto">
+                    <div className="text-[9px] font-bold uppercase tracking-wider text-brand mb-1">Analiza pristopa</div>
+                    <p className="text-[12.5px] text-gray-700 dark:text-gray-300 leading-relaxed font-normal">
+                      {item.framing_analysis}
+                    </p>
+                  </div>
                 </div>
               </div>
 
-              {/* 2. STOLPEC: AI Analiza (~35%) */}
-              <div className="w-full md:w-[35%] p-4 bg-gray-50/50 dark:bg-gray-800/30 border-b md:border-b-0 md:border-r border-gray-100 dark:border-gray-700/50 flex flex-col justify-center">
-                <div className="text-[9px] font-bold uppercase tracking-wider text-brand mb-1.5 flex items-center gap-1.5">
-                  <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
-                  Analiza pristopa
-                </div>
-                <p className="text-[13px] text-gray-700 dark:text-gray-300 leading-relaxed font-normal">
-                  {item.framing_analysis}
-                </p>
-              </div>
-
-              {/* 3. STOLPEC: Viri (~25%) */}
-              <div className="w-full md:w-[25%] p-3.5 flex flex-col justify-center">
-                <div className="flex flex-col gap-1">
+              {/* DESNI BLOK: Viri (Gosteje pakirani) */}
+              <div className="w-full md:w-[35%] p-4 sm:p-5 bg-gray-50/40 dark:bg-gray-800/20 flex flex-col justify-center">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-1 gap-1.5">
                   {item.sources?.map((source, sIdx) => {
                     const toneUI = getToneUI(source.tone);
                     return (
                       <div 
                         key={sIdx} 
                         onClick={() => setPreviewUrl(source.url)}
-                        className="group flex items-center justify-between gap-2 p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700/50 rounded cursor-pointer transition-colors relative"
+                        className="group flex items-center justify-between gap-2.5 p-1.5 -mx-1.5 hover:bg-gray-200/50 dark:hover:bg-gray-700/50 rounded-md cursor-pointer transition-colors"
                       >
                         <div className="flex items-center gap-2 min-w-0 flex-1">
-                          <div className="relative w-3.5 h-3.5 shrink-0 grayscale opacity-70 group-hover:grayscale-0 group-hover:opacity-100 transition-all">
-                            <Image src={getLogoSrc(source.source)} alt="" fill className="object-contain" />
+                          
+                          {/* INOVACIJA: Zamenjava Logotipa z Očesom ob hoverju */}
+                          <div className="relative w-4 h-4 shrink-0 transition-all">
+                            {/* Logo */}
+                            <Image 
+                                src={getLogoSrc(source.source)} 
+                                alt="" 
+                                fill 
+                                className="object-contain grayscale opacity-60 group-hover:opacity-0 transition-opacity duration-200" 
+                            />
+                            {/* Oko */}
+                            <div className="absolute inset-0 opacity-0 group-hover:opacity-100 flex items-center justify-center text-brand transition-opacity duration-200">
+                                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5">
+                                    <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12Z" /><circle cx="12" cy="12" r="3" />
+                                </svg>
+                            </div>
                           </div>
-                          <span className="text-[11px] font-medium text-gray-600 dark:text-gray-300 truncate group-hover:text-brand transition-colors">
+
+                          <span className="text-[11.5px] font-medium text-gray-600 dark:text-gray-300 truncate group-hover:text-brand transition-colors">
                             {source.source}
                           </span>
                         </div>
                         
-                        <div className="flex items-center gap-2 shrink-0">
-                          <span className={`text-[8px] px-1.5 py-0.5 rounded border font-bold uppercase tracking-wide ${toneUI.style}`}>
-                            {toneUI.label}
-                          </span>
-                          
-                          {/* OKO ZA PREDOGLED */}
-                          <button 
-                            onClick={(e) => { e.preventDefault(); e.stopPropagation(); setPreviewUrl(source.url); }}
-                            className="text-gray-400 hover:text-brand opacity-0 group-hover:opacity-100 transition-all p-0.5 hover:scale-125 transform-gpu"
-                            title="Predogled članka"
-                          >
-                            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2.5">
-                              <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12Z" /><circle cx="12" cy="12" r="3" />
-                            </svg>
-                          </button>
-                        </div>
+                        <span className={`shrink-0 text-[8.5px] px-1.5 py-0.5 rounded border font-bold uppercase tracking-wide ${toneUI.style}`}>
+                          {toneUI.label}
+                        </span>
                       </div>
                     );
                   })}
