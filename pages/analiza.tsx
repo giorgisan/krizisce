@@ -59,11 +59,9 @@ const getToneUI = (tone: string) => {
 
 function AnalysisCard({ item, setPreviewUrl }: { item: AnalysisItem, setPreviewUrl: (url: string) => void }) {
   const [showAllSources, setShowAllSources] = useState(false);
-  const [showMobileSources, setShowMobileSources] = useState(false);
   
   const hasMore = (item.sources?.length || 0) > 5;
-  // Na mobilcu prikažemo vse vire naenkrat, ko se odprejo
-  const visibleSources = (showAllSources || showMobileSources) ? item.sources : item.sources?.slice(0, 5);
+  const visibleSources = showAllSources ? item.sources : item.sources?.slice(0, 5);
 
   return (
     <article className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700/60 rounded-xl overflow-hidden shadow-sm flex flex-col md:flex-row transition-colors hover:border-gray-300 dark:hover:border-gray-600 items-stretch">
@@ -99,19 +97,11 @@ function AnalysisCard({ item, setPreviewUrl }: { item: AnalysisItem, setPreviewU
                 </p>
               </div>
           </div>
-
-          {/* SPREMEMBA: Gumb za priklic virov samo na mobilniku */}
-          <button 
-            onClick={() => setShowMobileSources(!showMobileSources)}
-            className="md:hidden mt-4 text-[10px] font-bold uppercase tracking-widest text-gray-400 hover:text-brand flex items-center gap-1.5 transition-colors self-start"
-          >
-            {showMobileSources ? '✕ Skrij vire' : `↳ Prikaži vire (${item.sources?.length || 0})`}
-          </button>
         </div>
       </div>
 
-      {/* DESNI BLOK: Viri (35%). SPREMEMBA: Skrito na mobilniku, prikazano na namizju */}
-      <div className={`w-full md:w-[35%] p-4 sm:p-5 bg-gray-50/40 dark:bg-gray-800/20 flex-col ${showMobileSources ? 'flex' : 'hidden md:flex'}`}>
+      {/* DESNI BLOK: Viri (35%) */}
+      <div className="w-full md:w-[35%] p-4 sm:p-5 bg-gray-50/40 dark:bg-gray-800/20 flex flex-col">
         <div className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-2">
             Viri poročanja ({item.sources?.length || 0})
         </div>
@@ -126,19 +116,17 @@ function AnalysisCard({ item, setPreviewUrl }: { item: AnalysisItem, setPreviewU
               >
                 <div className="flex items-center gap-2 min-w-0 flex-1">
                   
-                  {/* SPREMEMBA: Okrogel logo + 60% opacity */}
-                  <div className="relative w-6 h-6 shrink-0 rounded-full bg-white dark:bg-gray-700 border border-gray-100 dark:border-gray-600 shadow-sm flex items-center justify-center overflow-hidden transition-all">
-                    {/* Inset skrbi za majhen rob med sliko in krogom */}
-                    <div className="absolute inset-[3px]">
-                        <Image 
-                            src={getLogoSrc(source.source)} 
-                            alt="" 
-                            fill 
-                            className="object-contain opacity-60 group-hover/source:opacity-0 transition-opacity duration-200" 
-                        />
-                    </div>
-                    {/* Oko */}
-                    <div className="absolute inset-0 opacity-0 group-hover/source:opacity-100 bg-white/90 dark:bg-gray-800/90 flex items-center justify-center transition-opacity duration-200">
+                  {/* LOGO -> OKO logika */}
+                  <div className="relative w-4 h-4 shrink-0 transition-all">
+                    {/* Logo (izgine ob hoverju na vrstico, tokrat v originalnih barvah!) */}
+                    <Image 
+                        src={getLogoSrc(source.source)} 
+                        alt="" 
+                        fill 
+                        className="object-contain group-hover/source:opacity-0 transition-opacity duration-200" 
+                    />
+                    {/* Oko (se prikaže ob hoverju na vrstico, poveča se šele ob hoverju na samo oko/gumb) */}
+                    <div className="absolute inset-0 opacity-0 group-hover/source:opacity-100 flex items-center justify-center transition-opacity duration-200">
                         <button 
                             onClick={(e) => { e.preventDefault(); e.stopPropagation(); setPreviewUrl(source.url); }}
                             title="Predogled članka"
@@ -164,11 +152,11 @@ function AnalysisCard({ item, setPreviewUrl }: { item: AnalysisItem, setPreviewU
           })}
         </div>
 
-        {/* Gumb za razširitev virov (skrit na mobilcu) */}
-        {hasMore && !showMobileSources && (
+        {/* Gumb za razširitev virov */}
+        {hasMore && (
            <button 
               onClick={() => setShowAllSources(!showAllSources)}
-              className="hidden md:flex mt-3 text-[9px] font-bold uppercase tracking-widest text-brand hover:text-brand/70 transition-colors self-start items-center gap-1"
+              className="mt-3 text-[9px] font-bold uppercase tracking-widest text-brand hover:text-brand/70 transition-colors self-start flex items-center gap-1"
            >
               {showAllSources ? '✕ Pomanjšaj seznam' : `↳ Pokaži vse vire (+${(item.sources?.length || 0) - 5})`}
            </button>
