@@ -48,13 +48,14 @@ const getLogoSrc = (sourceName: string) => {
   return '/logo.png';
 }
 
-const getToneBadge = (tone: string) => {
+// Funkcija, ki pretvori akademski žargon v bralcu prijazen izraz in določi barvo
+const getToneUI = (tone: string) => {
   const t = tone.toLowerCase();
-  if (t.includes('konfliktno')) return 'bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20';
-  if (t.includes('tematsko')) return 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20';
-  if (t.includes('epizodično')) return 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20';
-  if (t.includes('ekonomsko')) return 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20';
-  return 'bg-gray-500/10 text-gray-600 dark:text-gray-400 border-gray-500/20'; 
+  if (t.includes('konfliktno')) return { label: 'Poudarja konflikt', style: 'bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20' };
+  if (t.includes('tematsko')) return { label: 'Širši kontekst', style: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20' };
+  if (t.includes('epizodično')) return { label: 'Fokus na dramo', style: 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20' };
+  if (t.includes('ekonomsko')) return { label: 'Fokus na stroške', style: 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20' };
+  return { label: 'Informativno', style: 'bg-gray-500/10 text-gray-600 dark:text-gray-400 border-gray-500/20' }; 
 }
 
 export default function AnalizaPage({ analysis, lastUpdated }: Props) {
@@ -78,7 +79,7 @@ export default function AnalizaPage({ analysis, lastUpdated }: Props) {
                       <span className="text-2xl">⚖️</span> Medijski Monitor
                   </h1>
                   <p className="text-[13px] text-gray-500 dark:text-gray-400 mt-1.5 max-w-2xl leading-relaxed">
-                    Strojna analiza uredniškega okvirjanja (framing) najpomembnejših novic. Pregled diskurza: od iskanja konfliktov (epizodično) do širših rešitev (tematsko).
+                    Strojna analiza pristopa k poročanju. Zaznavamo vzorce medijev: od iskanja drame in konfliktov do širšega konteksta in iskanja rešitev.
                   </p>
                 </div>
                 {lastUpdated && (
@@ -129,9 +130,9 @@ export default function AnalizaPage({ analysis, lastUpdated }: Props) {
               <div className="w-full md:w-[35%] p-4 bg-gray-50/50 dark:bg-gray-800/30 border-b md:border-b-0 md:border-r border-gray-100 dark:border-gray-700/50 flex flex-col justify-center">
                 <div className="text-[9px] font-bold uppercase tracking-wider text-brand mb-1.5 flex items-center gap-1.5">
                   <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
-                  Sinteza Okvirjanja
+                  Analiza pristopa
                 </div>
-                <p className="text-[13px] text-gray-800 dark:text-gray-200 leading-relaxed font-medium">
+                <p className="text-[13px] text-gray-700 dark:text-gray-300 leading-relaxed font-normal">
                   {item.framing_analysis}
                 </p>
               </div>
@@ -139,25 +140,42 @@ export default function AnalizaPage({ analysis, lastUpdated }: Props) {
               {/* 3. STOLPEC: Viri (~25%) */}
               <div className="w-full md:w-[25%] p-3.5 flex flex-col justify-center">
                 <div className="flex flex-col gap-1">
-                  {item.sources?.map((source, sIdx) => (
-                    <div 
-                      key={sIdx} 
-                      onClick={() => setPreviewUrl(source.url)}
-                      className="group flex items-center justify-between gap-2 p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700/50 rounded cursor-pointer transition-colors"
-                    >
-                      <div className="flex items-center gap-2 min-w-0">
-                        <div className="relative w-3.5 h-3.5 shrink-0 grayscale opacity-70 group-hover:grayscale-0 group-hover:opacity-100 transition-all">
-                          <Image src={getLogoSrc(source.source)} alt="" fill className="object-contain" />
+                  {item.sources?.map((source, sIdx) => {
+                    const toneUI = getToneUI(source.tone);
+                    return (
+                      <div 
+                        key={sIdx} 
+                        onClick={() => setPreviewUrl(source.url)}
+                        className="group flex items-center justify-between gap-2 p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700/50 rounded cursor-pointer transition-colors relative"
+                      >
+                        <div className="flex items-center gap-2 min-w-0 flex-1">
+                          <div className="relative w-3.5 h-3.5 shrink-0 grayscale opacity-70 group-hover:grayscale-0 group-hover:opacity-100 transition-all">
+                            <Image src={getLogoSrc(source.source)} alt="" fill className="object-contain" />
+                          </div>
+                          <span className="text-[11px] font-medium text-gray-600 dark:text-gray-300 truncate group-hover:text-brand transition-colors">
+                            {source.source}
+                          </span>
                         </div>
-                        <span className="text-[11px] font-medium text-gray-600 dark:text-gray-300 truncate group-hover:text-brand transition-colors">
-                          {source.source}
-                        </span>
+                        
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span className={`text-[8px] px-1.5 py-0.5 rounded border font-bold uppercase tracking-wide ${toneUI.style}`}>
+                            {toneUI.label}
+                          </span>
+                          
+                          {/* OKO ZA PREDOGLED */}
+                          <button 
+                            onClick={(e) => { e.preventDefault(); e.stopPropagation(); setPreviewUrl(source.url); }}
+                            className="text-gray-400 hover:text-brand opacity-0 group-hover:opacity-100 transition-all p-0.5 hover:scale-125 transform-gpu"
+                            title="Predogled članka"
+                          >
+                            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2.5">
+                              <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12Z" /><circle cx="12" cy="12" r="3" />
+                            </svg>
+                          </button>
+                        </div>
                       </div>
-                      <span className={`shrink-0 text-[8.5px] px-1.5 py-0.5 rounded border font-bold uppercase tracking-wide ${getToneBadge(source.tone)}`}>
-                        {source.tone}
-                      </span>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
 
