@@ -81,7 +81,6 @@ function AnalysisCard({ item, setPreviewUrl }: { item: AnalysisItem, setPreviewU
           </div>
         )}
         
-        {/* Odstranjen justify-center in mt-auto, da element ostane prilepljen zgoraj */}
         <div className="flex flex-col flex-1 min-w-0">
           <h2 className="text-[16px] font-serif font-bold text-gray-900 dark:text-white leading-snug mb-1">
             {item.topic}
@@ -90,7 +89,6 @@ function AnalysisCard({ item, setPreviewUrl }: { item: AnalysisItem, setPreviewU
             {item.summary}
           </p>
           
-          {/* Analiza pristopa: Brez mt-auto, navaden tekst */}
           <div className="mt-2">
               <div className="bg-brand/[0.03] dark:bg-brand/[0.05] border-l-2 border-brand/40 pl-3 py-1.5">
                 <div className="text-[9px] font-bold uppercase tracking-wider text-brand mb-1">Analiza pristopa</div>
@@ -120,12 +118,12 @@ function AnalysisCard({ item, setPreviewUrl }: { item: AnalysisItem, setPreviewU
                   
                   {/* LOGO -> OKO logika */}
                   <div className="relative w-4 h-4 shrink-0 transition-all">
-                    {/* Logo (izgine ob hoverju na vrstico) */}
+                    {/* Logo (izgine ob hoverju na vrstico, tokrat v originalnih barvah!) */}
                     <Image 
                         src={getLogoSrc(source.source)} 
                         alt="" 
                         fill 
-                        className="object-contain grayscale opacity-60 group-hover/source:opacity-0 transition-opacity duration-200" 
+                        className="object-contain group-hover/source:opacity-0 transition-opacity duration-200" 
                     />
                     {/* Oko (se prikaže ob hoverju na vrstico, poveča se šele ob hoverju na samo oko/gumb) */}
                     <div className="absolute inset-0 opacity-0 group-hover/source:opacity-100 flex items-center justify-center transition-opacity duration-200">
