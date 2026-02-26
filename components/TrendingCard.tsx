@@ -27,8 +27,8 @@ const IMAGE_WIDTHS = [320, 480, 640, 960, 1280]
 
 interface Props {
   news: NewsItem & { [key: string]: any }
-  compact?: boolean // Za sidebar in mobile trending prikaz
-  rank?: number     // Zaporedna številka
+  compact?: boolean
+  rank?: number
 }
 
 type RelatedItem = {
@@ -38,17 +38,8 @@ type RelatedItem = {
   publishedAt?: number | null
 }
 
-/* ================= HELPERJI ================= */
-
 function extractRelatedItems(news: any): RelatedItem[] {
-  const raw =
-    news.storyArticles ||
-    news.storyItems ||
-    news.otherSources ||
-    news.related ||
-    news.members ||
-    []
-
+  const raw = news.storyArticles || news.storyItems || news.otherSources || news.related || news.members || []
   if (!Array.isArray(raw)) return []
   return raw
     .map((r: any): RelatedItem | null => {
@@ -64,24 +55,11 @@ function extractRelatedItems(news: any): RelatedItem[] {
 }
 
 function getPrimarySource(news: any): string {
-  const storyPrimary =
-    Array.isArray(news.storyArticles) && news.storyArticles.length
-      ? news.storyArticles[0]?.source
-      : null
-  return (
-    storyPrimary ||
-    news.primarySource ||
-    news.mainSource ||
-    news.lastSource ||
-    news.source ||
-    ''
-  )
+  const storyPrimary = Array.isArray(news.storyArticles) && news.storyArticles.length ? news.storyArticles[0]?.source : null
+  return storyPrimary || news.primarySource || news.mainSource || news.lastSource || news.source || ''
 }
 
-function formatRelativeTime(
-  ms: number | null | undefined,
-  now: number,
-): string {
+function formatRelativeTime(ms: number | null | undefined, now: number): string {
   if (!ms) return ''
   const diff = now - ms
   const min = Math.floor(diff / 60_000)
@@ -90,10 +68,7 @@ function formatRelativeTime(
   if (min < 60) return `pred ${min} min`
   if (hr < 24) return `pred ${hr} h`
   const d = new Date(ms)
-  return new Intl.DateTimeFormat('sl-SI', {
-    day: 'numeric',
-    month: 'short',
-  }).format(d)
+  return new Intl.DateTimeFormat('sl-SI', { day: 'numeric', month: 'short' }).format(d)
 }
 
 export default function TrendingCard({ news, compact = false, rank }: Props) {
@@ -107,14 +82,8 @@ export default function TrendingCard({ news, compact = false, rank }: Props) {
   }, [])
 
   const now = Date.now()
-  const primaryTime = useMemo(() => {
-    const ms = (news as any).publishedAt || 0
-    return formatRelativeTime(ms, now)
-  }, [news.publishedAt, minuteTick])
-
-  const sourceColor = useMemo(() => {
-    return (sourceColors as Record<string, string>)[news.source] || '#fc9c6c'
-  }, [news.source])
+  const primaryTime = useMemo(() => formatRelativeTime((news as any).publishedAt || 0, now), [news.publishedAt, minuteTick])
+  const sourceColor = useMemo(() => (sourceColors as Record<string, string>)[news.source] || '#fc9c6c', [news.source])
 
   const [isTouch, setIsTouch] = useState(false)
   useEffect(() => {
@@ -132,6 +101,9 @@ export default function TrendingCard({ news, compact = false, rank }: Props) {
   const [useFallback, setUseFallback] = useState<boolean>(!rawImg)
   const [imgLoaded, setImgLoaded] = useState<boolean>(false)
   const [imgKey, setImgKey] = useState<number>(0)
+  
+  // Mobile toggle za vire
+  const [showSources, setShowSources] = useState(false)
 
   const cardRef = useRef<HTMLAnchorElement>(null)
 
@@ -173,12 +145,7 @@ export default function TrendingCard({ news, compact = false, rank }: Props) {
       if ('sendBeacon' in navigator) {
         navigator.sendBeacon('/api/click', new Blob([json], { type: 'application/json' }))
       } else {
-        fetch('/api/click', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: json,
-          keepalive: true,
-        })
+        fetch('/api/click', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: json, keepalive: true })
       }
     } catch {}
   }
@@ -219,14 +186,11 @@ export default function TrendingCard({ news, compact = false, rank }: Props) {
       <div 
         className={`
             group relative transition-colors flex flex-col gap-2
-            /* MOBILE STYLES: Card look (Belo ozadje, border, shadow) */
             bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700/50 p-3 mb-3
-            /* DESKTOP STYLES: Original sidebar look (Transparent, border-b) - povozi mobile */
             md:bg-transparent md:dark:bg-transparent md:rounded-none md:shadow-none md:border-0 md:border-b md:border-gray-100 md:dark:border-gray-800 md:p-3 md:mb-0 md:gap-3
         `}
         title={(news as any).contentSnippet || news.title}
       >
-        {/* --- RANK (GLASS EFFECT NA ROBU KARTICE) --- */}
         {rank && (
             <div className="absolute top-0 left-0 w-8 h-8 flex items-center justify-center z-20 pointer-events-none">
                 <div className="absolute inset-0 bg-black/15 backdrop-blur-sm rounded-br-2xl rounded-tl-xl border-b border-r border-white/10 shadow-sm" />
@@ -236,102 +200,65 @@ export default function TrendingCard({ news, compact = false, rank }: Props) {
             </div>
         )}
 
-        {/* --- ZGORNJI DEL: SLIKA + NASLOV --- */}
         <div className="flex gap-4 lg:gap-3 items-center relative z-10 pt-1">
           <a 
-            href={news.link}
-            target="_blank"
-            rel="noopener"
-            onClick={handleClick}
-            onMouseEnter={triggerPrefetch}
-            className="absolute inset-0 z-0 rounded-xl md:rounded-none"
-            aria-hidden="true"
+            href={news.link} target="_blank" rel="noopener" onClick={handleClick} onMouseEnter={triggerPrefetch}
+            className="absolute inset-0 z-0 rounded-xl md:rounded-none" aria-hidden="true"
           />
 
-          {/* SLIKA */}
           <div className="shrink-0 w-32 h-24 lg:w-24 lg:h-20 relative rounded-lg overflow-hidden bg-gray-200 dark:bg-gray-700 z-10 pointer-events-auto shadow-sm">
                <div onClick={(e) => { handleClick(e as any) }} className="absolute inset-0 cursor-pointer">
                    {currentSrc && !useFallback ? (
-                       <img 
-                         key={imgKey}
-                         src={currentSrc} 
-                         alt="" 
-                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                         onError={handleImgError}
-                         onLoad={() => setImgLoaded(true)}
-                       />
+                       <img key={imgKey} src={currentSrc} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" onError={handleImgError} onLoad={() => setImgLoaded(true)} />
                    ) : (
                        <div className="w-full h-full grid place-items-center text-[10px] text-gray-400">IMG</div>
                    )}
                </div>
 
                <button
-                 onClick={(e) => {
-                   e.preventDefault(); e.stopPropagation();
-                   setPreviewUrl(news.link)
-                 }}
-                 className={`
-                     absolute top-1 right-1 
-                     h-7 w-7 grid place-items-center
-                     bg-white/90 dark:bg-gray-900/90 rounded-full shadow-sm 
-                     text-gray-700 dark:text-gray-200 
-                     transition-all duration-200 hover:scale-110 z-20
-                     opacity-100 lg:opacity-0 lg:group-hover:opacity-100
-                 `}
+                 onClick={(e) => { e.preventDefault(); e.stopPropagation(); setPreviewUrl(news.link) }}
+                 className="absolute top-1 right-1 h-7 w-7 grid place-items-center bg-white/90 dark:bg-gray-900/90 rounded-full shadow-sm text-gray-700 dark:text-gray-200 transition-all duration-200 hover:scale-110 z-20 opacity-100 lg:opacity-0 lg:group-hover:opacity-100"
                  title="Hitri predogled"
                >
                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5">
-                     <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12Z" />
-                     <circle cx="12" cy="12" r="3" />
+                     <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12Z" /><circle cx="12" cy="12" r="3" />
                  </svg>
                </button>
           </div>
 
           <div className="flex flex-col min-w-0 flex-1 justify-center relative z-10 pointer-events-none">
-              {/* META (Vir + Čas) - TEKST (BREZ OZADJA) */}
               <div className="flex items-center gap-2 mb-1">
                   <span className="text-[11px] lg:text-[10px] uppercase font-bold tracking-wider" style={{ color: sourceColor }}>
                       {news.source}
                   </span>
                   <span className="text-[11px] lg:text-[10px] text-gray-400">{primaryTime}</span>
               </div>
-              
               <h4 className="text-[15px] lg:text-[14px] font-bold leading-snug text-gray-900 dark:text-gray-100 line-clamp-3 lg:line-clamp-2 group-hover:text-brand transition-colors">
                   {news.title}
               </h4>
-
-              {/* DESKTOP ONLY: Originalni Avatar Stack v isti vrstici */}
-              {related.length > 0 && (
-                  <div className="hidden md:flex mt-1 pt-1 items-center gap-2 pointer-events-auto opacity-70 hover:opacity-100 transition-opacity">
-                      <span className="text-[10px] text-gray-400 whitespace-nowrap">Preberi na:</span>
-                      <div className="group/list flex -space-x-2 hover:-space-x-1 transition-all duration-300 pl-1">
-                          {related.map((r, i) => {
-                              const logo = getSourceLogoPath(r.source)
-                              return (
-                                  <a 
-                                     key={i} 
-                                     href={r.link}
-                                     target="_blank"
-                                     rel="noopener"
-                                     title={`${r.source}: ${r.title}`}
-                                     className="relative w-5 h-5 rounded-full bg-white dark:bg-gray-700 border border-gray-100 dark:border-gray-600 flex items-center justify-center overflow-hidden shadow-sm transition-all duration-300 hover:scale-125 hover:z-20 grayscale-0 group-hover/list:grayscale hover:!grayscale-0"
-                                     onClick={(e) => { e.stopPropagation(); logClick('open_related', { parent: news.link, url: r.link }) }}
-                                  >
-                                      {logo ? <Image src={logo} alt={r.source} width={16} height={16} className="w-full h-full object-cover" /> : <span className="text-[7px] font-bold text-gray-500">{r.source[0]}</span>}
-                                  </a>
-                              )
-                          })}
-                      </div>
-                  </div>
-              )}
           </div>
         </div>
 
-        {/* --- MOBILE ONLY: VIRI V SVOJI VRSTICI SPODAJ (VSI) --- */}
+        {/* --- SPODNJI DEL: VIRI V POLNI ŠIRINI --- */}
         {related.length > 0 && (
-            <div className="md:hidden flex items-center gap-2 pt-2 border-t border-gray-100 dark:border-gray-800/50 relative z-20 pointer-events-auto overflow-x-auto no-scrollbar">
-                <span className="text-[10px] text-gray-400 font-normal whitespace-nowrap shrink-0">Preberi na:</span>
-                <div className="flex -space-x-1.5 hover:-space-x-1 transition-all duration-300 px-1">
+            <div className="mt-1 pt-2 border-t border-gray-100 dark:border-gray-800/50 relative z-20">
+                {/* Mobile toggle */}
+                <div className="md:hidden flex justify-between items-center mb-1.5">
+                    <span className="text-[10px] text-gray-400 font-medium">Preberi tudi na ({related.length}):</span>
+                    <button 
+                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowSources(!showSources); }}
+                        className="text-[9px] font-bold text-gray-500 hover:text-brand uppercase tracking-wider px-2 py-1 bg-gray-100 dark:bg-gray-700 rounded transition-colors"
+                    >
+                        {showSources ? 'Skrij' : 'Prikaži vire'}
+                    </button>
+                </div>
+                
+                {/* Desktop naslov */}
+                <div className="hidden md:block text-[10px] text-gray-400 font-medium mb-1.5">
+                    Preberi tudi na:
+                </div>
+
+                <div className={`flex-wrap gap-1.5 ${showSources ? 'flex' : 'hidden md:flex'}`}>
                     {related.map((r, i) => {
                         const logo = getSourceLogoPath(r.source)
                         return (
@@ -341,25 +268,24 @@ export default function TrendingCard({ news, compact = false, rank }: Props) {
                                target="_blank"
                                rel="noopener"
                                title={`${r.source}: ${r.title}`}
-                               className={`
-                                  relative w-6 h-6 rounded-full shrink-0
-                                  bg-white dark:bg-gray-700 
-                                  border border-gray-100 dark:border-gray-600 
-                                  flex items-center justify-center overflow-hidden shadow-sm cursor-pointer
-                                  transition-all duration-300 ease-out
-                                  opacity-80 hover:opacity-100
-                                  hover:scale-125 hover:z-20 hover:border-brand/50
-                               `}
-                               onClick={(e) => {
-                                  e.stopPropagation() 
-                                  logClick('open_related', { parent: news.link, url: r.link })
-                               }}
+                               onClick={(e) => { e.stopPropagation(); logClick('open_related', { parent: news.link, url: r.link }) }}
+                               className="group/rel relative w-6 h-6 rounded-full bg-white dark:bg-gray-700 border border-gray-100 dark:border-gray-600 flex items-center justify-center overflow-hidden shadow-sm transition-all duration-300 hover:border-brand/50"
                             >
-                                 {logo ? (
-                                     <Image src={logo} alt={r.source} width={20} height={20} className="w-full h-full object-cover" />
-                                 ) : (
-                                     <span className="text-[8px] font-bold text-gray-500">{r.source[0]}</span>
-                                 )}
+                                {/* LOGO (zbledi in se zmanjša ob hoverju) */}
+                                <div className="absolute inset-0 flex items-center justify-center transition-all duration-300 group-hover/rel:opacity-0 opacity-80 group-hover/rel:scale-75">
+                                     {logo ? (
+                                         <Image src={logo} alt={r.source} width={20} height={20} className="w-full h-full object-cover" />
+                                     ) : (
+                                         <span className="text-[8px] font-bold text-gray-500">{r.source[0]}</span>
+                                     )}
+                                </div>
+
+                                {/* OKO (prikaže se in se nato poveča ob hoverju) */}
+                                <div className="absolute inset-0 flex items-center justify-center text-brand opacity-0 transition-all duration-300 group-hover/rel:opacity-100 scale-50 group-hover/rel:scale-110">
+                                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5">
+                                        <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12Z" /><circle cx="12" cy="12" r="3" />
+                                    </svg>
+                                </div>
                             </a>
                         )
                     })}
@@ -368,17 +294,12 @@ export default function TrendingCard({ news, compact = false, rank }: Props) {
         )}
       </div>
       
-      {previewUrl && (
-        <ArticlePreview 
-            url={previewUrl} 
-            onClose={() => setPreviewUrl(null)} 
-        />
-      )}
+      {previewUrl && <ArticlePreview url={previewUrl} onClose={() => setPreviewUrl(null)} />}
       </>
     )
   }
 
-  // ================= RENDER: STANDARD (Article Card style for Desktop Grid) =================
+  // ================= RENDER: STANDARD =================
   const [eyeVisible, setEyeVisible] = useState(false)
   const [eyeHover, setEyeHover] = useState(false)
   const showEye = isTouch ? true : eyeVisible
@@ -386,14 +307,7 @@ export default function TrendingCard({ news, compact = false, rank }: Props) {
   return (
     <>
       <a
-        ref={cardRef}
-        href={news.link}
-        target="_blank"
-        rel="noopener"
-        onClick={handleClick}
-        onMouseEnter={() => { setEyeVisible(true); triggerPrefetch() }}
-        onMouseLeave={() => setEyeVisible(false)}
-        onTouchStart={triggerPrefetch}
+        ref={cardRef} href={news.link} target="_blank" rel="noopener" onClick={handleClick} onMouseEnter={() => { setEyeVisible(true); triggerPrefetch() }} onMouseLeave={() => setEyeVisible(false)} onTouchStart={triggerPrefetch}
         className="group block bg-white dark:bg-gray-800 rounded-xl shadow-md overflow-hidden transition-all duration-300 hover:shadow-xl hover:-translate-y-1 dark:border dark:border-gray-700/50"
       >
         <div className="relative w-full aspect-[16/9] overflow-hidden bg-gray-200 dark:bg-gray-700">
