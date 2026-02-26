@@ -3,6 +3,7 @@ import { GetServerSideProps } from 'next'
 import Head from 'next/head'
 import Image from 'next/image' 
 import dynamic from 'next/dynamic'
+import Link from 'next/link'
 import Header from '@/components/Header'
 import Footer from '@/components/Footer'
 import { createClient } from '@supabase/supabase-js'
@@ -116,16 +117,16 @@ function AnalysisCard({ item, setPreviewUrl }: { item: AnalysisItem, setPreviewU
               >
                 <div className="flex items-center gap-2 min-w-0 flex-1">
                   
-                  {/* LOGO -> OKO logika */}
+                  {/* LOGO -> OKO logika. Tukaj (w-4 h-4) lahko povečaš logo */}
                   <div className="relative w-4 h-4 shrink-0 transition-all">
-                    {/* Logo (izgine ob hoverju na vrstico, tokrat v originalnih barvah!) */}
+                    {/* Logo */}
                     <Image 
                         src={getLogoSrc(source.source)} 
                         alt="" 
                         fill 
                         className="object-contain group-hover/source:opacity-0 transition-opacity duration-200" 
                     />
-                    {/* Oko (se prikaže ob hoverju na vrstico, poveča se šele ob hoverju na samo oko/gumb) */}
+                    {/* Oko */}
                     <div className="absolute inset-0 opacity-0 group-hover/source:opacity-100 flex items-center justify-center transition-opacity duration-200">
                         <button 
                             onClick={(e) => { e.preventDefault(); e.stopPropagation(); setPreviewUrl(source.url); }}
@@ -139,7 +140,6 @@ function AnalysisCard({ item, setPreviewUrl }: { item: AnalysisItem, setPreviewU
                     </div>
                   </div>
 
-                  {/* DODAN TITLE ATRIBUT ZA HOVER CELOTNEGA NASLOVA */}
                   <a href={source.url} target="_blank" rel="noopener" title={source.title} className="text-[11.5px] font-medium text-gray-600 dark:text-gray-300 truncate hover:text-brand transition-colors">
                     {source.title}
                   </a>
@@ -181,9 +181,9 @@ export default function AnalizaPage({ analysis, lastUpdated }: Props) {
       <Header activeCategory="vse" activeSource="Vse" />
 
       <main className="min-h-screen bg-[#F9FAFB] dark:bg-gray-900 pb-20">
-        {/* HEADER - POPRAVLJENA PORAVNAVA Z PX-4 V NOTRANJEM DIV-U */}
+        {/* HEADER - Popravljen px-4 za popolno poravnavo */}
         <div className="bg-white dark:bg-gray-800/60 border-b border-gray-200 dark:border-gray-800 py-8">
-            <div className="max-w-6xl mx-auto px-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div className="max-w-6xl mx-auto px-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
                 <div>
                   <h1 className="text-2xl font-serif font-bold text-gray-900 dark:text-white flex items-center gap-2">
                       <span className="text-2xl">⚖️</span> Medijski Monitor
@@ -192,15 +192,22 @@ export default function AnalizaPage({ analysis, lastUpdated }: Props) {
                     Strojna analiza pristopa k poročanju. Zaznavamo vzorce medijev: od iskanja drame in konfliktov do širšega konteksta in iskanja rešitev.
                   </p>
                 </div>
-                {lastUpdated && (
-                    <div className="shrink-0 text-[11px] font-mono text-gray-500 flex items-center gap-2 border border-gray-200 dark:border-gray-700 px-2.5 py-1.5 rounded bg-gray-50 dark:bg-gray-800/50">
-                        <span className="relative flex h-1.5 w-1.5">
-                            <span className="absolute inline-flex h-full w-full rounded-full bg-brand opacity-75 animate-ping"></span>
-                            <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-brand"></span>
-                        </span>
-                        Osveženo: {new Date(lastUpdated).toLocaleTimeString('sl-SI', {hour: '2-digit', minute:'2-digit'})}
-                    </div>
-                )}
+                
+                {/* Desni blok z uro in gumbom */}
+                <div className="shrink-0 flex flex-col items-start md:items-end gap-3 mt-2 md:mt-0">
+                    {lastUpdated && (
+                        <div className="text-[11px] font-mono text-gray-500 flex items-center gap-2 border border-gray-200 dark:border-gray-700 px-2.5 py-1.5 rounded bg-gray-50 dark:bg-gray-800/50">
+                            <span className="relative flex h-1.5 w-1.5">
+                                <span className="absolute inline-flex h-full w-full rounded-full bg-brand opacity-75 animate-ping"></span>
+                                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-brand"></span>
+                            </span>
+                            Osveženo: {new Date(lastUpdated).toLocaleTimeString('sl-SI', {hour: '2-digit', minute:'2-digit'})}
+                        </div>
+                    )}
+                    <Link href="/" className="text-[10px] font-bold uppercase tracking-widest text-gray-400 hover:text-brand flex items-center gap-1.5 transition-colors">
+                        ← Nazaj na naslovnico
+                    </Link>
+                </div>
             </div>
         </div>
 
