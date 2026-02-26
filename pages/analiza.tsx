@@ -61,98 +61,105 @@ function AnalysisCard({ item, setPreviewUrl }: { item: AnalysisItem, setPreviewU
   const [showSources, setShowSources] = useState(false);
 
   return (
-    <article className="group bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700/60 rounded-xl overflow-hidden shadow-sm flex flex-col md:flex-row transition-all duration-300 hover:border-gray-300 dark:hover:border-gray-600 self-start max-w-full">
+    <article className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700/60 rounded-xl overflow-hidden shadow-sm transition-colors hover:border-gray-300 dark:hover:border-gray-600 w-full">
         
-      {/* LEVI BLOK: Strogo fiksna širina na namizju. To prepreči krčenje leve strani in raztezanje slike! */}
-      <div className="w-full md:w-[640px] lg:w-[720px] shrink-0 p-4 sm:p-5 flex flex-col sm:flex-row gap-5">
+      <div className="flex flex-col md:flex-row w-full">
         
-        {/* Slika: self-start in aspect-video zakleneta pravilno razmerje */}
-        {item.main_image && (
-          <div className="w-full sm:w-56 aspect-video bg-gray-100 dark:bg-gray-800 rounded-lg overflow-hidden shrink-0 relative self-start shadow-sm">
-            <img 
-              src={proxiedImage(item.main_image, 400, 225, 1)} 
-              alt=""
-              className="w-full h-full object-cover"
-              loading="lazy"
-              onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-            />
-          </div>
-        )}
-        
-        {/* Vsebina novic in Analiza */}
-        <div className="flex flex-col flex-1 min-w-0">
-          <h2 className="text-[16px] sm:text-[17px] font-serif font-bold text-gray-900 dark:text-white leading-snug mb-2">
-            {item.topic}
-          </h2>
-          <p className="text-[12.5px] sm:text-[13px] text-gray-500 dark:text-gray-400 leading-relaxed mb-4">
-            {item.summary}
-          </p>
+        {/* LEVI BLOK: Novica in Analiza (Zavzame 70% na namizju) */}
+        <div className="w-full md:w-[70%] p-4 sm:p-5 flex flex-col sm:flex-row gap-5 border-b md:border-b-0 md:border-r border-gray-100 dark:border-gray-700/50">
           
-          {/* Citiran okvir - Navadna pisava (brez bold/italic) */}
-          <div className="mt-auto pt-2">
-            <div className="bg-brand/[0.03] dark:bg-brand/[0.05] border-l-2 border-brand/50 p-3.5 sm:p-4 rounded-r-lg">
-              <div className="text-[9px] font-bold uppercase tracking-wider text-brand/80 mb-1.5">Analiza pristopa</div>
-              <p className="text-[13px] text-gray-800 dark:text-gray-200 leading-relaxed font-normal">
-                {item.framing_analysis}
-              </p>
+          {/* Slika: self-start in aspect-video zakleneta pravilno razmerje in preprečita raztezanje */}
+          {item.main_image && (
+            <div className="w-full sm:w-56 aspect-video bg-gray-100 dark:bg-gray-800 rounded-lg overflow-hidden shrink-0 relative self-start shadow-sm">
+              <img 
+                src={proxiedImage(item.main_image, 400, 225, 1)} 
+                alt=""
+                className="w-full h-full object-cover"
+                loading="lazy"
+                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+              />
             </div>
+          )}
+          
+          {/* Vsebina novic in Analiza */}
+          <div className="flex flex-col flex-1 min-w-0">
+            <h2 className="text-[16px] sm:text-[17px] font-serif font-bold text-gray-900 dark:text-white leading-snug mb-2">
+              {item.topic}
+            </h2>
+            <p className="text-[12.5px] sm:text-[13px] text-gray-500 dark:text-gray-400 leading-relaxed mb-4">
+              {item.summary}
+            </p>
+            
+            {/* Citiran okvir - Navadna pisava (brez bold/italic) */}
+            <div className="mt-auto pt-2">
+              <div className="bg-brand/[0.03] dark:bg-brand/[0.05] border-l-2 border-brand/50 p-3.5 sm:p-4 rounded-r-lg">
+                <div className="text-[9px] font-bold uppercase tracking-wider text-brand/80 mb-1.5">Analiza pristopa</div>
+                <p className="text-[13px] text-gray-800 dark:text-gray-200 leading-relaxed font-normal">
+                  {item.framing_analysis}
+                </p>
+              </div>
+            </div>
+
+            <button 
+              onClick={() => setShowSources(!showSources)}
+              className="text-[10px] font-bold uppercase tracking-widest text-gray-400 hover:text-brand flex items-center gap-1.5 mt-4 transition-colors self-start"
+            >
+              {showSources ? '✕ Skrij vire' : `↳ Prikaži vire (${item.sources?.length || 0})`}
+            </button>
           </div>
-
-          <button 
-            onClick={() => setShowSources(!showSources)}
-            className="text-[10px] font-bold uppercase tracking-widest text-gray-400 hover:text-brand flex items-center gap-1.5 mt-4 transition-colors self-start"
-          >
-            {showSources ? '✕ Skrij vire' : `↳ Prikaži vire (${item.sources?.length || 0})`}
-          </button>
         </div>
-      </div>
 
-      {/* DESNI BLOK (VIRI): Prikaže se z razširitvijo kartice v desno */}
-      {showSources && (
-         <div className="w-full md:w-[260px] lg:w-[280px] shrink-0 bg-gray-50/50 dark:bg-gray-800/30 p-4 sm:p-5 flex flex-col gap-3 border-t md:border-t-0 md:border-l border-gray-100 dark:border-gray-700/50 animate-in fade-in md:slide-in-from-left-4 duration-300">
-            <div className="text-[10px] uppercase font-bold text-gray-400 tracking-wider mb-1">
-                Viri poročanja
-            </div>
-            <div className="flex flex-col gap-2">
-                {item.sources?.map((source, sIdx) => {
-                    const toneUI = getToneUI(source.tone);
-                    return (
-                        <div key={sIdx} className="group/source flex flex-col gap-1.5 p-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md shadow-sm hover:border-brand/40 transition-colors w-full">
-                            <div className="flex items-center gap-2.5 min-w-0">
-                                
-                                <div className="relative w-4 h-4 shrink-0 transition-all">
-                                    <Image 
-                                        src={getLogoSrc(source.source)} alt="" fill 
-                                        className="object-contain grayscale opacity-60 group-hover/source:opacity-0 transition-opacity duration-300" 
-                                    />
-                                    <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/source:opacity-100 transition-opacity duration-300">
-                                        <button 
-                                            onClick={(e) => { e.preventDefault(); e.stopPropagation(); setPreviewUrl(source.url); }} 
-                                            title="Predogled članka"
-                                            className="text-brand cursor-pointer hover:scale-[1.3] transition-transform duration-200 transform-gpu bg-transparent border-none p-0 flex items-center justify-center"
-                                        >
-                                            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2.5">
-                                                <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12Z" /><circle cx="12" cy="12" r="3" />
-                                            </svg>
-                                        </button>
+        {/* DESNI BLOK: Viri (Zavzame 30% na namizju). Vsebina se prikaže ob kliku, a prostor vedno obstaja. */}
+        <div className="w-full md:w-[30%] p-4 sm:p-5 flex flex-col bg-gray-50/30 dark:bg-gray-800/10">
+            {showSources && (
+                <div className="flex flex-col gap-3 animate-in fade-in slide-in-from-right-2 duration-300 h-full">
+                    <div className="text-[10px] uppercase font-bold text-gray-400 tracking-wider mb-1">
+                        Viri poročanja
+                    </div>
+                    <div className="flex flex-col gap-2 overflow-y-auto pr-1">
+                        {item.sources?.map((source, sIdx) => {
+                            const toneUI = getToneUI(source.tone);
+                            return (
+                                <div key={sIdx} className="group/source flex flex-col gap-1.5 p-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md shadow-sm hover:border-brand/40 transition-colors w-full">
+                                    <div className="flex items-center gap-2.5 min-w-0">
+                                        
+                                        <div className="relative w-4 h-4 shrink-0 transition-all">
+                                            <Image 
+                                                src={getLogoSrc(source.source)} alt="" fill 
+                                                className="object-contain grayscale opacity-60 group-hover/source:opacity-0 transition-opacity duration-300" 
+                                            />
+                                            {/* Zapakirano v button za TS compatibility in click dogodek */}
+                                            <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/source:opacity-100 transition-opacity duration-300">
+                                                <button 
+                                                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); setPreviewUrl(source.url); }} 
+                                                    title="Predogled članka"
+                                                    className="text-brand cursor-pointer hover:scale-[1.3] transition-transform duration-200 transform-gpu bg-transparent border-none p-0 flex items-center justify-center"
+                                                >
+                                                    <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2.5">
+                                                        <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12Z" /><circle cx="12" cy="12" r="3" />
+                                                    </svg>
+                                                </button>
+                                            </div>
+                                        </div>
+                                        
+                                        <a href={source.url} target="_blank" rel="noopener" className="text-[12px] font-medium text-gray-700 dark:text-gray-300 truncate hover:text-brand transition-colors">
+                                            {source.title}
+                                        </a>
+                                    </div>
+                                    <div className="pl-6">
+                                        <span className={`inline-block text-[8.5px] px-1.5 py-0.5 rounded border font-bold uppercase tracking-wide ${toneUI.style}`}>
+                                            {toneUI.label}
+                                        </span>
                                     </div>
                                 </div>
-                                
-                                <a href={source.url} target="_blank" rel="noopener" className="text-[12px] font-medium text-gray-700 dark:text-gray-300 truncate hover:text-brand transition-colors">
-                                    {source.title}
-                                </a>
-                            </div>
-                            <div className="pl-6">
-                                <span className={`inline-block text-[8.5px] px-1.5 py-0.5 rounded border font-bold uppercase tracking-wide ${toneUI.style}`}>
-                                    {toneUI.label}
-                                </span>
-                            </div>
-                        </div>
-                    )
-                })}
-            </div>
-         </div>
-      )}
+                            )
+                        })}
+                    </div>
+                </div>
+            )}
+        </div>
+
+      </div>
     </article>
   );
 }
@@ -171,7 +178,7 @@ export default function AnalizaPage({ analysis, lastUpdated }: Props) {
 
       <main className="min-h-screen bg-[#F9FAFB] dark:bg-gray-900 pb-20 flex flex-col items-center">
         
-        {/* HEADER SEKCIJA: Širina in padding ujemajoča s spodnjim kontejnerjem */}
+        {/* HEADER SEKCIJA: Širina ujemajoča s spodnjim kontejnerjem */}
         <div className="w-full bg-white dark:bg-gray-800/60 border-b border-gray-200 dark:border-gray-800 flex justify-center">
             <div className="w-full max-w-[1040px] px-4 md:px-8 py-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div>
