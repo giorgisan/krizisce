@@ -277,7 +277,7 @@ export default function Home({ initialNews, initialTrendingWords, initialTrendin
     if (isLoadingMore || !hasMore || cursor == null || cursor <= 0) return
     setIsLoadingMore(true)
     try {
-      const qs = new URLSearchParams()
+      const qs = newSearchParams()
       qs.set('paged', '1'); qs.set('limit', '24'); qs.set('cursor', String(cursor))
       if (selectedSources.length > 0) qs.set('source', selectedSources.join(','))
       if (selectedCategory !== 'vse') qs.set('category', selectedCategory)
@@ -377,36 +377,29 @@ export default function Home({ initialNews, initialTrendingWords, initialTrendin
       <main className="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white pb-12">
         <div className="max-w-[1800px] mx-auto w-full px-4 md:px-8 lg:px-16">
 
-            {/* --- 1. IZBIRA MODA (Mobile Only) --- */}
             {selectedCategory === 'vse' && !isSearchOrTag && (
                 <div className="lg:hidden mt-3 mb-2">
                     <NewsTabs active={mode} onChange={handleTabChange} />
                 </div>
             )}
 
-            {/* --- NASLOV KATEGORIJE --- */}
             {selectedCategory !== 'vse' && !isSearchOrTag && (
                 <div className="lg:hidden mt-4 mb-4">
                     <h1 className="text-2xl font-bold capitalize">{currentCategoryLabel}</h1>
                 </div>
             )}
 
-            {/* --- AI BRIEFING & TRENDING --- */}
+            {/* --- TOP TRENDING BAR --- */}
             {showHeroSection && (
-               <>
-                 <AiBriefing summary={currentAiSummary} time={currentAiTime} />
-                 
-                 <div className="mt-1 mb-1 min-w-0 w-full overflow-hidden">
+                 <div className="mt-2 mb-4 min-w-0 w-full overflow-hidden">
                     <TrendingBar 
                         words={initialTrendingWords} 
                         selectedWord={tagQuery || searchQuery} 
                         onSelectWord={handleTrendingClick} 
                     />
                  </div>
-               </>
             )}
 
-            {/* --- REZULTATI ISKANJA --- */}
             {(searchQuery || tagQuery) && (
                 <div className="mt-4 mb-4 flex items-center gap-2 text-sm">
                     <span>Rezultati za: <b>"{tagQuery || searchQuery}"</b></span>
@@ -419,7 +412,14 @@ export default function Home({ initialNews, initialTrendingWords, initialTrendin
                 {/* --- LEVI STOLPEC (Novice) --- */}
                 <div className={`flex-1 w-full min-w-0 ${mode === 'trending' ? 'hidden lg:block' : 'block'}`}>
                     
-                    {/* MEDIJSKI MONITOR WIDGET (Prikaže se pod trending vrstico) */}
+                    {/* AI BRIEFING (Zdaj lepo stisnjen nad novicami) */}
+                    {showHeroSection && currentAiSummary && (
+                        <div className="mb-4">
+                            <AiBriefing summary={currentAiSummary} time={currentAiTime} />
+                        </div>
+                    )}
+
+                    {/* MEDIJSKI MONITOR WIDGET */}
                     {showHeroSection && (
                         <Link href="/analiza" className="group block mb-6 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700/80 rounded-xl p-4 shadow-sm hover:shadow-md hover:border-brand/30 transition-all overflow-hidden relative">
                             <div className="absolute inset-0 bg-gradient-to-r from-brand/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
