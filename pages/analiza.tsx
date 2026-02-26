@@ -118,7 +118,7 @@ function AnalysisCard({ item, setPreviewUrl }: { item: AnalysisItem, setPreviewU
                 <div className="flex items-center gap-2 min-w-0 flex-1">
                   
                   {/* LOGO -> OKO logika. Tukaj (w-4 h-4) lahko povečaš logo */}
-                  <div className="relative w-4 h-4 shrink-0 transition-all">
+                  <div className="relative w-5 h-5 shrink-0 transition-all">
                     {/* Logo */}
                     <Image 
                         src={getLogoSrc(source.source)} 
