@@ -117,32 +117,28 @@ function AnalysisCard({ item, setPreviewUrl }: { item: AnalysisItem, setPreviewU
               >
                 <div className="flex items-center gap-2 min-w-0 flex-1">
                   
-                {/* LOGO -> OKO logika (OKROGLA OBLIKA) */}
-                <div className="relative w-[18px] h-[18px] shrink-0 transition-all bg-white dark:bg-gray-800 rounded-full border border-gray-200 dark:border-gray-700 overflow-hidden flex items-center justify-center shadow-sm">
-                  
-                  {/* Inset skrbi za majhen notranji odmik, da se logotip ne dotika robov kroga */}
-                  <div className="absolute inset-[2px]">
-                      <Image 
-                          src={getLogoSrc(source.source)} 
-                          alt="" 
-                          fill 
-                          className="object-contain group-hover/source:opacity-0 transition-opacity duration-200" 
-                      />
+                  {/* LOGO -> OKO logika. Tukaj (w-4 h-4) lahko povečaš logo */}
+                  <div className="relative w-[18px] h-[18px] shrink-0 transition-all">
+                    {/* Logo */}
+                    <Image 
+                        src={getLogoSrc(source.source)} 
+                        alt="" 
+                        fill 
+                        className="object-contain group-hover/source:opacity-0 transition-opacity duration-200" 
+                    />
+                    {/* Oko */}
+                    <div className="absolute inset-0 opacity-0 group-hover/source:opacity-100 flex items-center justify-center transition-opacity duration-200">
+                        <button 
+                            onClick={(e) => { e.preventDefault(); e.stopPropagation(); setPreviewUrl(source.url); }}
+                            title="Predogled članka"
+                            className="text-brand flex items-center justify-center p-0 bg-transparent border-none cursor-pointer transition-transform duration-200 hover:scale-[1.3]"
+                        >
+                            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5">
+                                <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12Z" /><circle cx="12" cy="12" r="3" />
+                            </svg>
+                        </button>
+                    </div>
                   </div>
-                  
-                  {/* Oko (se prikaže ob hoverju na vrstico, poveča se šele ob hoverju na samo oko/gumb) */}
-                  <div className="absolute inset-0 opacity-0 group-hover/source:opacity-100 flex items-center justify-center transition-opacity duration-200 bg-white/80 dark:bg-gray-800/80">
-                      <button 
-                          onClick={(e) => { e.preventDefault(); e.stopPropagation(); setPreviewUrl(source.url); }}
-                          title="Predogled članka"
-                          className="text-brand flex items-center justify-center p-0 bg-transparent border-none cursor-pointer transition-transform duration-200 hover:scale-[1.3]"
-                      >
-                          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5">
-                              <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12Z" /><circle cx="12" cy="12" r="3" />
-                          </svg>
-                      </button>
-                  </div>
-                </div>
 
                   <a href={source.url} target="_blank" rel="noopener" title={source.title} className="text-[11.5px] font-medium text-gray-600 dark:text-gray-300 truncate hover:text-brand transition-colors">
                     {source.title}
