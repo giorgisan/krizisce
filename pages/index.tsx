@@ -423,12 +423,13 @@ export default function Home({ initialNews, initialTrendingWords, initialTrendin
                              <div className="absolute inset-0 bg-gradient-to-r from-brand/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                              <div className="flex items-center justify-between gap-4 relative z-10 h-full">
                                  <div className="flex items-center gap-4">
-                                     <div className="w-10 h-10 rounded-full bg-brand/10 text-brand flex items-center justify-center text-lg shrink-0 group-hover:scale-110 transition-transform transform-gpu">
+                                     {/* Ikona je privzeto siva in brez zoom-a. Ob hoverju dobi barvo */}
+                                     <div className="w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-500 group-hover:bg-brand/10 group-hover:text-brand flex items-center justify-center text-lg shrink-0 grayscale opacity-80 group-hover:grayscale-0 group-hover:opacity-100 transition-all duration-300">
                                          ⚖️
                                      </div>
                                      <div>
                                          <h3 className="text-[15px] font-bold text-gray-900 dark:text-white mb-0.5 group-hover:text-brand transition-colors">Medijski Monitor</h3>
-                                         <p className="text-[12px] text-gray-500 dark:text-gray-400">AI analiza uredniškega okvirjanja tem.</p>
+                                         <p className="text-[12px] text-gray-500 dark:text-gray-400">Analiza pristopa k poročanju.</p>
                                      </div>
                                  </div>
                                  <div className="shrink-0 text-brand text-[11px] font-bold uppercase tracking-wider flex items-center gap-1 group-hover:translate-x-1 transition-transform">
