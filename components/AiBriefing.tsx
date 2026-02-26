@@ -45,7 +45,8 @@ export default function AiBriefing({ summary, time }: Props) {
             )}
         </div>
         
-        <p className="text-[13px] sm:text-[14.5px] leading-relaxed text-gray-700 dark:text-gray-300/90 font-normal">
+        {/* Zmanjšan razmik med vrsticami (leading-snug) in prilagojen font */}
+        <p className="text-[13px] sm:text-[14px] leading-snug text-gray-700 dark:text-gray-300/90 font-normal">
             {summary}
         </p>
       </div>
