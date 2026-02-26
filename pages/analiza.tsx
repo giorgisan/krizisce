@@ -140,16 +140,17 @@ function AnalysisCard({ item, setPreviewUrl }: { item: AnalysisItem, setPreviewU
                         className="object-contain grayscale opacity-60 group-hover/source:opacity-0 transition-opacity duration-300" 
                     />
                     
-                    {/* Oko: ob hoverju na celoten vir se prikaže. Ob hoverju na SAMO OKO se še poveča. */}
+                    {/* Oko: ob hoverju na celoten vir se prikaže. Zavit v button za rešitev TS napake in ohranitev hover učinka. */}
                     <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/source:opacity-100 transition-opacity duration-300">
-                        <svg 
+                        <button
                             onClick={(e) => { e.preventDefault(); e.stopPropagation(); setPreviewUrl(source.url); }}
-                            viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5"
-                            className="text-brand cursor-pointer hover:scale-[1.3] transition-transform duration-200 transform-gpu"
                             title="Predogled članka"
+                            className="text-brand cursor-pointer hover:scale-[1.3] transition-transform duration-200 transform-gpu bg-transparent border-none p-0 flex items-center justify-center"
                         >
-                            <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12Z" /><circle cx="12" cy="12" r="3" />
-                        </svg>
+                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5">
+                                <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12Z" /><circle cx="12" cy="12" r="3" />
+                            </svg>
+                        </button>
                     </div>
                   </div>
 
