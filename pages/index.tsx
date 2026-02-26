@@ -6,6 +6,7 @@ import React, {
   useRef,
 } from 'react'
 import { GetServerSideProps } from 'next'
+import Link from 'next/link'
 
 import { NewsItem } from '@/types'
 import Footer from '@/components/Footer'
@@ -345,9 +346,6 @@ export default function Home({ initialNews, initialTrendingWords, initialTrendin
   // --- LOGIKA PRIKAZA HEADERJA ---
   const isSearchOrTag = !!(searchQuery || tagQuery);
   const showHeaderElements = !isSearchOrTag;
-  
-  // POPRAVEK: AI Briefing in Trending Bar kažemo SAMO, če je 'vse' kategorija IN če smo na 'latest' (najnovejše)
-  // Če smo na 'trending' (aktualno), tega ne rabimo, ker imamo spodaj cel seznam.
   const showHeroSection = showHeaderElements && selectedCategory === 'vse' && mode === 'latest';
 
   return (
@@ -360,7 +358,6 @@ export default function Home({ initialNews, initialTrendingWords, initialTrendin
         onSelectCategory={(cat) => {
            startTransition(() => {
              setSelectedCategory(cat)
-             // Ko zamenjaš kategorijo, se vedno vrni na 'latest'
              if (cat !== 'vse' || mode !== 'latest') { setMode('latest'); setHasMore(true); setCursor(null) }
            })
            window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -380,21 +377,21 @@ export default function Home({ initialNews, initialTrendingWords, initialTrendin
       <main className="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white pb-12">
         <div className="max-w-[1800px] mx-auto w-full px-4 md:px-8 lg:px-16">
 
-            {/* --- 1. IZBIRA MODA (Mobile Only) - ČE SMO NA 'VSE' --- */}
+            {/* --- 1. IZBIRA MODA (Mobile Only) --- */}
             {selectedCategory === 'vse' && !isSearchOrTag && (
                 <div className="lg:hidden mt-3 mb-2">
                     <NewsTabs active={mode} onChange={handleTabChange} />
                 </div>
             )}
 
-            {/* --- NASLOV KATEGORIJE (Če ni 'vse') --- */}
+            {/* --- NASLOV KATEGORIJE --- */}
             {selectedCategory !== 'vse' && !isSearchOrTag && (
                 <div className="lg:hidden mt-4 mb-4">
                     <h1 className="text-2xl font-bold capitalize">{currentCategoryLabel}</h1>
                 </div>
             )}
 
-            {/* --- AI BRIEFING & TRENDING (Samo na 'vse' in 'latest') --- */}
+            {/* --- AI BRIEFING & TRENDING --- */}
             {showHeroSection && (
                <>
                  <AiBriefing summary={currentAiSummary} time={currentAiTime} />
@@ -419,9 +416,30 @@ export default function Home({ initialNews, initialTrendingWords, initialTrendin
 
             <div className="flex flex-col lg:flex-row gap-8 items-start">
                 
-                {/* --- LEVI STOLPEC (Novice / Mobile Trending) --- */}
+                {/* --- LEVI STOLPEC (Novice) --- */}
                 <div className={`flex-1 w-full min-w-0 ${mode === 'trending' ? 'hidden lg:block' : 'block'}`}>
                     
+                    {/* MEDIJSKI MONITOR WIDGET (Prikaže se pod trending vrstico) */}
+                    {showHeroSection && (
+                        <Link href="/analiza" className="group block mb-6 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700/80 rounded-xl p-4 shadow-sm hover:shadow-md hover:border-brand/30 transition-all overflow-hidden relative">
+                            <div className="absolute inset-0 bg-gradient-to-r from-brand/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                            <div className="flex items-center justify-between gap-4 relative z-10">
+                                <div className="flex items-center gap-4">
+                                    <div className="w-10 h-10 rounded-full bg-brand/10 text-brand flex items-center justify-center text-lg shrink-0 group-hover:scale-110 transition-transform transform-gpu">
+                                        ⚖️
+                                    </div>
+                                    <div>
+                                        <h3 className="text-[15px] font-bold text-gray-900 dark:text-white mb-0.5 group-hover:text-brand transition-colors">Medijski Monitor</h3>
+                                        <p className="text-[12px] text-gray-500 dark:text-gray-400">AI analiza uredniškega okvirjanja današnjih top tem.</p>
+                                    </div>
+                                </div>
+                                <div className="shrink-0 text-brand text-[11px] font-bold uppercase tracking-wider flex items-center gap-1 group-hover:translate-x-1 transition-transform">
+                                    Preveri <span className="text-lg leading-none">›</span>
+                                </div>
+                            </div>
+                        </Link>
+                    )}
+
                     {isRefreshing && itemsLatest.length === 0 ? (
                         <div className="py-20 text-center opacity-50">Nalagam novice ...</div>
                     ) : itemsLatest.length === 0 ? (
@@ -447,12 +465,11 @@ export default function Home({ initialNews, initialTrendingWords, initialTrendin
                     )}
                 </div>
 
-                {/* --- DESNI STOLPEC (Trending Desktop & Mobile View) --- */}
+                {/* --- DESNI STOLPEC (Trending Sidebar) --- */}
                 <div className={`w-full lg:w-[340px] xl:w-[380px] shrink-0 lg:sticky lg:top-24 transform-gpu 
                     ${mode === 'trending' ? 'block' : 'hidden lg:block'}
                 `}>
                     
-                    {/* MOBILE TRENDING VIEW (Seznam kartic) */}
                     {mode === 'trending' && !isDesktopLogic ? (
                          <div className="flex flex-col gap-4">
                             {itemsTrending.slice(0, 10).map((article, i) => (
@@ -465,7 +482,6 @@ export default function Home({ initialNews, initialTrendingWords, initialTrendin
                             ))}
                          </div>
                     ) : (
-                        /* DESKTOP SIDEBAR (Original) */
                         <div className={`
                             bg-gray-200/70 dark:bg-gray-800/90 rounded-2xl backdrop-blur-md shadow-inner flex flex-col
                             lg:max-h-[calc(100vh-8rem)] lg:overflow-hidden
