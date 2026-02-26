@@ -181,8 +181,8 @@ export default function AnalizaPage({ analysis, lastUpdated }: Props) {
 
       <main className="min-h-screen bg-[#F9FAFB] dark:bg-gray-900 pb-20">
         {/* HEADER */}
-        <div className="bg-white dark:bg-gray-800/60 border-b border-gray-200 dark:border-gray-800 py-8 px-4">
-            <div className="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div className="bg-white dark:bg-gray-800/60 border-b border-gray-200 dark:border-gray-800 py-8">
+            <div className="max-w-6xl mx-auto px-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div>
                   <h1 className="text-2xl font-serif font-bold text-gray-900 dark:text-white flex items-center gap-2">
                       <span className="text-2xl">⚖️</span> Medijski Monitor
