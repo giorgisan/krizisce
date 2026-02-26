@@ -1,8 +1,8 @@
 import { NextApiRequest, NextApiResponse } from 'next'
 import { createClient } from '@supabase/supabase-js'
-import { GoogleGenerativeAI, Schema, Type } from '@google/generative-ai'
+import { GoogleGenerativeAI, SchemaType } from '@google/generative-ai'
 
-// Inicilizacija klientov
+// Inicializacija klientov
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -64,36 +64,36 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       ${promptData}
     `
 
-    // Strict JSON schema definition za Gemini
-    const responseSchema: Schema = {
-      type: Type.ARRAY,
+    // Strict JSON schema definition za Gemini z uporabo SchemaType
+    const responseSchema = {
+      type: SchemaType.ARRAY,
       description: "Seznam analiziranih medijskih zgodb.",
       items: {
-        type: Type.OBJECT,
+        type: SchemaType.OBJECT,
         properties: {
           topic: {
-            type: Type.STRING,
+            type: SchemaType.STRING,
             description: "Nevtralen naslov dogodka (max 5 besed)."
           },
           summary: {
-            type: Type.STRING,
+            type: SchemaType.STRING,
             description: "Bistvo dogodka v enem stavku."
           },
           framing_analysis: {
-            type: Type.STRING,
+            type: SchemaType.STRING,
             description: "Kratek odstavek (2-3 stavki), ki primerja, kateri mediji so uporabili epizodičen/konflikten okvir in kateri tematski/informativen."
           },
           sources: {
-            type: Type.ARRAY,
+            type: SchemaType.ARRAY,
             description: "Seznam virov, ki poročajo o zgodbi.",
             items: {
-              type: Type.OBJECT,
+              type: SchemaType.OBJECT,
               properties: {
-                source: { type: Type.STRING },
-                title: { type: Type.STRING },
-                url: { type: Type.STRING },
+                source: { type: SchemaType.STRING },
+                title: { type: SchemaType.STRING },
+                url: { type: SchemaType.STRING },
                 tone: { 
-                  type: Type.STRING,
+                  type: SchemaType.STRING,
                   description: "Ena od vrednosti: Epizodično, Tematsko, Konfliktno, Ekonomsko, Informativno."
                 }
               },
@@ -129,7 +129,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // 6. Shranjevanje v media_analysis tabelo
     const { error: insertError } = await supabase.from('media_analysis').insert({ 
         data: finalData
-        // created_at se generira samodejno glede na definicijo tabele
     })
 
     if (insertError) throw insertError;
