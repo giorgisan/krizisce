@@ -25,8 +25,8 @@ export default function AiBriefing({ summary, time }: Props) {
   };
 
   return (
-    <div className="w-full">
-      <div className="relative pl-4 pr-3 py-2 border-l-2 border-brand/50 bg-gray-50/50 dark:bg-gray-800/30 rounded-r-md">
+    <div className="w-full h-full">
+      <div className="relative pl-4 pr-3 py-2 border-l-2 border-brand/50 bg-gray-50/50 dark:bg-gray-800/30 rounded-r-md h-full flex flex-col justify-center">
         <div className="flex items-center flex-wrap gap-x-2 gap-y-0.5 mb-1.5">
             <span className="text-[10px] sm:text-[11px] font-black uppercase tracking-widest text-brand/80 dark:text-brand/90">
               NA KRATKO
