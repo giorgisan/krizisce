@@ -61,9 +61,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       Use both the title and the provided snippet to evaluate the media framing and editorial approach.
 
       Categorize the tone/approach of each source using ONLY one of the following exact Slovenian terms:
-      - Faktografsko (dry listing of facts, "who/what/when", neutral, no emotional adjectives)
+      - Nevtralno (dry listing of facts, "who/what/when", neutral, no emotional adjectives)
       - Senzacionalistično (clickbait, emphasizes shock, drama, fear, uses strong emotional adjectives, focuses on extreme aspects)
-      - Analitično (in-depth, explains the "why", consequences, historical context, expert opinions, systemic view)
+      - Poglobljeno (in-depth, explains the "why", consequences, historical context, expert opinions, systemic view)
       - Kritično (focuses on pointing fingers, blaming, highlighting incompetence of actors/government, opinionated tone)
       
       CRITICAL REQUIREMENT: The analysis text and all JSON values MUST be written entirely in the SLOVENIAN language.
@@ -89,7 +89,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           },
           framing_analysis: {
             type: SchemaType.STRING,
-            description: "Kratek odstavek (2-3 stavki), ki primerja, kateri mediji so uporabili epizodičen/konflikten okvir in kateri tematski/informativen."
+            description: "Kratek odstavek (2-3 stavki), ki primerja pristope različnih medijev k tej zgodbi."
           },
           sources: {
             type: SchemaType.ARRAY,
@@ -102,7 +102,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                 url: { type: SchemaType.STRING },
                 tone: { 
                   type: SchemaType.STRING,
-                  description: "Ena od vrednosti: Epizodično, Tematsko, Konfliktno, Ekonomsko, Informativno."
+                  description: "Ena od vrednosti: Nevtralno, Senzacionalistično, Poglobljeno, Kritično."
                 }
               },
               required: ["source", "title", "url", "tone"]
@@ -118,6 +118,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         generationConfig: {
             responseMimeType: "application/json",
             responseSchema: responseSchema,
+            temperature: 0.4, // Malo večja kreativnost za lepše pisanje odstavkov analize
         }
     }); 
 
