@@ -55,17 +55,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
        })
     })
 
-    // 4. Optimiziran prompt z akademskimi "framing" kategorijami
+    // 4. Optimiziran prompt z novimi, praktičnimi kategorijami
     const prompt = `
       You are an expert media analyst. Analyze how Slovenian media is reporting on the following ${topStories.length} events. 
-      Use both the title and the provided snippet to evaluate the media framing.
+      Use both the title and the provided snippet to evaluate the media framing and editorial approach.
 
-      Categorize the tone/frame of each source using ONLY one of the following exact Slovenian terms:
-      - Epizodično (focus on the individual, specific isolated incident, emotions, and drama)
-      - Tematsko (broader societal/systemic context, seeking solutions, statistics)
-      - Konfliktno (focus on dispute, arguments, 'us vs. them', polarization)
-      - Ekonomsko (focus strictly on financial costs and economic impact)
-      - Informativno (dry listing of facts with no added emotional or analytical value)
+      Categorize the tone/approach of each source using ONLY one of the following exact Slovenian terms:
+      - Faktografsko (dry listing of facts, "who/what/when", neutral, no emotional adjectives)
+      - Senzacionalistično (clickbait, emphasizes shock, drama, fear, uses strong emotional adjectives, focuses on extreme aspects)
+      - Analitično (in-depth, explains the "why", consequences, historical context, expert opinions, systemic view)
+      - Kritično (focuses on pointing fingers, blaming, highlighting incompetence of actors/government, opinionated tone)
       
       CRITICAL REQUIREMENT: The analysis text and all JSON values MUST be written entirely in the SLOVENIAN language.
       
