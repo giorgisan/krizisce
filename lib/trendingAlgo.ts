@@ -80,14 +80,13 @@ function jaccardSimilarity(setA: Set<string>, setB: Set<string>): number {
   return intersection.size / union.size;
 }
 
-// --- 4. AI CLUSTERING (Gemini 2.0 Flash - WITH SAFETY) ---
-async function clusterNewsWithAI(articles: Article[]): Promise<Record<string, number[]> | null> {
+// --- 4. AI CLUSTERING (Gemini 2.0 Flash - WITH SAFETY & RETRY) ---
+async function clusterNewsWithAI(articles: Article[], retries = 2): Promise<Record<string, number[]> | null> {
   const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_KEY || "");
+  // Nasvet: Če bo 2.0 še vedno pogosto javljal napake, ga tukaj lahko spremeniš v "models/gemini-1.5-flash", ki ima večje kvote.
   const model = genAI.getGenerativeModel({ model: "models/gemini-2.0-flash" }); 
 
   const articlesList = articles.map((a, index) => {
-    // OPTIMIZACIJA: Skrajšan snippet na max 80 znakov! 
-    // To drastično zmanjša porabo žetonov (TPM) in prepreči Error 429.
     const snippet = a.contentsnippet ? ` | ${a.contentsnippet.substring(0, 80).replace(/\n/g, ' ')}` : '';
     return `ID:${index} [${a.source}] TITLE:"${a.title}"${snippet}`;
   }).join('\n');
@@ -122,18 +121,33 @@ async function clusterNewsWithAI(articles: Article[]): Promise<Record<string, nu
     }
   `;
 
-  try {
-    const result = await model.generateContent({
-      contents: [{ role: "user", parts: [{ text: prompt }] }],
-      generationConfig: { responseMimeType: "application/json" }
-    });
-    
-    const responseText = result.response.text();
-    return JSON.parse(responseText);
-  } catch (error) {
-    console.error("❌ AI Clustering failed:", error);
-    return null; 
+  // RETRY MEHANIZEM: Poskusi večkrat, če dobiš 429
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      const result = await model.generateContent({
+        contents: [{ role: "user", parts: [{ text: prompt }] }],
+        generationConfig: { responseMimeType: "application/json" }
+      });
+      
+      const responseText = result.response.text();
+      return JSON.parse(responseText);
+      
+    } catch (error: any) {
+      // Preverimo, če gre za omejitev prometa in imamo še kakšen poskus na voljo
+      if (error.status === 429 && attempt < retries) {
+         console.warn(`⚠️ API Limit 429 hit. Attempt ${attempt}/${retries}. Waiting ${attempt * 5}s before retry...`);
+         // Počakamo 5 sekund pri prvem poskusu, 10 pri drugem... (Exponential backoff)
+         await new Promise(resolve => setTimeout(resolve, attempt * 5000));
+         continue; // Pojdi v nov krog zanke in poskusi ponovno
+      }
+      
+      // Če napaka ni 429 ali pa so nam zmanjkali poskusi, vrni null (sproži Jaccard fallback)
+      console.error("❌ AI Clustering failed definitively:", error);
+      return null; 
+    }
   }
+  
+  return null;
 }
 
 
