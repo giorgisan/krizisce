@@ -35,28 +35,36 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // 2. Izbor prvih 5 skupin (Top stories)
     const topStories = allGroups.slice(0, 5)
 
-    // 3. Priprava podatkov za AI
+    // 3. Priprava podatkov za AI (DODAN POVZETEK - CONTENTSNIPPET)
     let promptData = ""
     topStories.forEach((group: any, index: number) => {
        promptData += `\nZGODBA ${index + 1}:\n`
-       const mainArticle = { source: group.source, title: group.title, link: group.link };
+       const mainArticle = { 
+           source: group.source, 
+           title: group.title, 
+           link: group.link,
+           snippet: group.contentsnippet || group.contentSnippet || ''
+       };
        const otherArticles = group.storyArticles || [];
        const allInGroup = [mainArticle, ...otherArticles];
        
        allInGroup.slice(0, 8).forEach((item: any) => {
-          promptData += `- Vir: ${item.source}, Naslov: "${item.title}", Link: "${item.link}"\n`
+          // Uporabimo povzetek iz snippetov za globljo analizo tona
+          const snippet = item.snippet || item.contentsnippet || item.contentSnippet || '';
+          promptData += `- Vir: ${item.source}, Naslov: "${item.title}", Povzetek: "${snippet}"\n`
        })
     })
 
     // 4. Optimiziran prompt z akademskimi "framing" kategorijami
     const prompt = `
       Analiziraj, kako slovenski mediji poročajo o spodnjih ${topStories.length} dogodkih. 
+      Za oceno uporabi tako naslov kot priložen povzetek novice.
       Osredotoči se na "medijsko okvirjanje" (framing). Uporabi naslednje kategorije za določanje tona/okvirja posameznega vira:
-      - Epizodično (fokus na posameznika in čustva)
-      - Tematsko (širši družbeni/sistemski kontekst)
-      - Konfliktno (poudarek na sporu in polarizaciji)
-      - Ekonomsko (fokus na stroške in finance)
-      - Informativno (suhoparno nizanje dejstev brez dodane vrednosti)
+      - Epizodično (fokus na posameznika, specifičen incident, čustva in dramo)
+      - Tematsko (širši družbeni/sistemski kontekst, iskanje rešitev, statistika)
+      - Konfliktno (poudarek na sporu, prepiru, 'mi proti njim' in polarizaciji)
+      - Ekonomsko (fokus izključno na stroške in finance)
+      - Informativno (suhoparno nizanje dejstev brez dodane vrednosti in čustev)
       
       ODGOVORI IZKLJUČNO V SLOVENŠČINI.
       
