@@ -89,17 +89,25 @@ async function clusterNewsWithAI(articles: Article[]): Promise<Record<string, nu
     return `ID:${index} [${a.source}] TITLE:"${a.title}"${snippet}`;
   }).join('\n');
 
-  // Optimiziran prompt, ki se sedaj ujema z novo shemo
+  // --- STRICT PROMPT (Bogata logika + stroga shema) ---
   const prompt = `
     You are a professional news editor. Group the following articles into clusters that belong to the EXACT SAME EVENT.
     
     INPUT:
     ${articlesList}
 
-    STRICT RULES FOR GROUPING:
+    STRICT RULES FOR GROUPING (LOGIC):
     1. **SAME MAIN EVENT ONLY**: Group the main report together with direct reactions and analysis of THAT specific event.
-    2. **DO NOT MIX PEOPLE/TOPICS**: Separate different athletes, events, or distinct political topics unless explicitly linked.
-    3. **UNIQUE ASSIGNMENT**: Each article ID should appear in at most ONE cluster. Do not repeat the same ID.
+       - Example: "Domen Prevc wins gold" AND "Coach praises Domen" -> GROUP TOGETHER.
+    
+    2. **CRITICAL: DO NOT MIX PEOPLE**: 
+       - "Nikola Jokić" (Basketball) and "Domen Prevc" (Ski Jumping) are totally different. SEPARATE THEM.
+       - "Nika Prevc" and "Domen Prevc" are different athletes. SEPARATE THEM unless it's a Mixed Team event.
+
+    3. **HANDLING "BRIDGE" HEADLINES**: 
+       - If a headline mentions two people (e.g., "Nika wants to be like Domen"), put it in the Active Subject's group (Nika). Do NOT pull Domen's old articles into it.
+
+    4. **UNIQUE ASSIGNMENT**: Each article ID should appear in at most ONE cluster. Do not repeat the same ID in multiple clusters.
   `;
 
   // STROGA SHEMA: AI fizično ne more zgenerirati več kot točno to strukturo
