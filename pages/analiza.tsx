@@ -117,7 +117,7 @@ function AnalysisCard({ item, setPreviewUrl }: { item: AnalysisItem, setPreviewU
               >
                 <div className="flex items-center gap-2 min-w-0 flex-1">
                   
-                  {/* LOGO -> OKO logika. */}
+                  {/* LOGO -> OKO logika. Tukaj (w-[18px] h-[18px]) lahko povečaš logo */}
                   <div className="relative w-[18px] h-[18px] shrink-0 transition-all">
                     {/* Logo */}
                     <Image 
@@ -194,16 +194,16 @@ export default function AnalizaPage({ analysis, lastUpdated }: Props) {
                       </svg>
                       Medijski Monitor
                   </h1>
-                  {/* SPREMEMBA: Opis sedaj ni več skrit (odstranjen 'hidden'), a je na mobilniku malenkost manjši in bolj stisnjen za ekonomičnost prostora */}
-                  <p className="text-[12px] md:text-[13px] text-gray-500 dark:text-gray-400 mt-1.5 md:mt-2 max-w-2xl leading-relaxed">
+                  {/* Opis se na mobilniku skrije (hidden md:block), da prihrani prostor */}
+                  <p className="hidden md:block text-[13px] text-gray-500 dark:text-gray-400 mt-2 max-w-2xl leading-relaxed">
                     Strojna analiza in pregled uredniških odločitev pri ključnih temah. S pomočjo umetne inteligence prepoznavamo vzorce poročanja, razlike v uokvirjanju informacij in specifične uredniške poudarke.
                   </p>
                 </div>
                 
-                {/* Desni blok - Na mobilniku je v liniji (row), na desktopu je v stolpcu zgoraj-dol */}
-                <div className="w-full md:w-auto flex flex-row md:flex-col items-center md:items-end justify-between md:justify-start gap-3 mt-1 md:mt-0">
+                {/* Desni blok - Na mobilniku je flex-row-reverse (gumb levo, ura desno), na desktopu je v stolpcu (ura zgoraj, gumb spodaj) */}
+                <div className="w-full md:w-auto flex flex-row-reverse md:flex-col items-center md:items-end justify-between md:justify-start gap-3 mt-1 md:mt-0">
                     
-                    {/* Značka "Osveženo" (na mobilcu levo, na desktopu zgoraj) */}
+                    {/* Značka "Osveženo" (na mobilcu desno, na desktopu zgoraj) */}
                     {lastUpdated && (
                         <div className="text-[10px] md:text-[11px] font-mono text-gray-500 flex items-center gap-2 border border-gray-100 md:border-gray-200 dark:border-gray-700 px-2 md:px-2.5 py-1 md:py-1.5 rounded bg-gray-50 dark:bg-gray-800/50 shrink-0">
                             <span className="relative flex h-1.5 w-1.5">
@@ -214,9 +214,12 @@ export default function AnalizaPage({ analysis, lastUpdated }: Props) {
                         </div>
                     )}
 
-                    {/* Gumb za nazaj (na mobilcu desno ob uri, na desktopu pod uro) */}
+                    {/* Gumb za nazaj z ikono hiške (na mobilcu levo, na desktopu pod uro) */}
                     <Link href="/" className="px-3 py-1.5 border border-gray-200 dark:border-gray-700/80 rounded-md shadow-sm text-[10px] font-bold uppercase tracking-widest text-gray-500 hover:text-brand hover:border-brand/30 hover:bg-brand/5 dark:hover:bg-gray-800/50 flex items-center gap-1.5 transition-all">
-                        ← Naslovnica
+                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+                        </svg>
+                        Naslovnica
                     </Link>
 
                 </div>
