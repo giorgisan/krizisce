@@ -57,18 +57,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // 4. Optimiziran prompt z akademskimi "framing" kategorijami
     const prompt = `
-      Analiziraj, kako slovenski mediji poročajo o spodnjih ${topStories.length} dogodkih. 
-      Za oceno uporabi tako naslov kot priložen povzetek novice.
-      Osredotoči se na "medijsko okvirjanje" (framing). Uporabi naslednje kategorije za določanje tona/okvirja posameznega vira:
-      - Epizodično (fokus na posameznika, specifičen incident, čustva in dramo)
-      - Tematsko (širši družbeni/sistemski kontekst, iskanje rešitev, statistika)
-      - Konfliktno (poudarek na sporu, prepiru, 'mi proti njim' in polarizaciji)
-      - Ekonomsko (fokus izključno na stroške in finance)
-      - Informativno (suhoparno nizanje dejstev brez dodane vrednosti in čustev)
+      You are an expert media analyst. Analyze how Slovenian media is reporting on the following ${topStories.length} events. 
+      Use both the title and the provided snippet to evaluate the media framing.
+
+      Categorize the tone/frame of each source using ONLY one of the following exact Slovenian terms:
+      - Epizodično (focus on the individual, specific isolated incident, emotions, and drama)
+      - Tematsko (broader societal/systemic context, seeking solutions, statistics)
+      - Konfliktno (focus on dispute, arguments, 'us vs. them', polarization)
+      - Ekonomsko (focus strictly on financial costs and economic impact)
+      - Informativno (dry listing of facts with no added emotional or analytical value)
       
-      ODGOVORI IZKLJUČNO V SLOVENŠČINI.
+      CRITICAL REQUIREMENT: The analysis text and all JSON values MUST be written entirely in the SLOVENIAN language.
       
-      VHODNI PODATKI:
+      INPUT DATA:
       ${promptData}
     `
 
