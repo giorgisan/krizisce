@@ -86,7 +86,9 @@ async function clusterNewsWithAI(articles: Article[]): Promise<Record<string, nu
   const model = genAI.getGenerativeModel({ model: "models/gemini-2.0-flash" }); 
 
   const articlesList = articles.map((a, index) => {
-    const snippet = a.contentsnippet ? ` | ${a.contentsnippet.substring(0, 150).replace(/\n/g, ' ')}` : '';
+    // OPTIMIZACIJA: Skrajšan snippet na max 80 znakov! 
+    // To drastično zmanjša porabo žetonov (TPM) in prepreči Error 429.
+    const snippet = a.contentsnippet ? ` | ${a.contentsnippet.substring(0, 80).replace(/\n/g, ' ')}` : '';
     return `ID:${index} [${a.source}] TITLE:"${a.title}"${snippet}`;
   }).join('\n');
 

@@ -429,8 +429,10 @@ export default function TrendingCard({ news, compact = false, rank }: Props) {
                       Pokrivajo tudi
                   </span>
                </div>
+               
+               {/* SPREMEMBA: Odstranjen .slice(0, 3) in limit za prikazovanje vseh sorodnih virov */}
                <div className="flex flex-col gap-1">
-                   {related.slice(0, 3).map((item, idx) => {
+                   {related.map((item, idx) => {
                        const logo = getSourceLogoPath(item.source)
                        const relTime = formatRelativeTime(item.publishedAt, now)
                        return (
@@ -462,12 +464,6 @@ export default function TrendingCard({ news, compact = false, rank }: Props) {
                            </button>
                        )
                    })}
-                   
-                   {related.length > 3 && (
-                       <div className="px-1.5 py-1 text-xs text-gray-400 italic">
-                           In še {related.length - 3} drugih virov...
-                       </div>
-                   )}
                </div>
             </div>
           )}
