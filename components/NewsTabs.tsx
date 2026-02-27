@@ -15,6 +15,7 @@ const TABS = [
   { 
     id: 'latest', 
     label: 'Najnovejše',
+    isLink: false,
     icon: (
       <svg className="w-4 h-4 mr-1.5 opacity-70" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
          <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -24,6 +25,7 @@ const TABS = [
   { 
     id: 'trending', 
     label: 'Aktualno',
+    isLink: false,
     icon: (
       <svg className="w-4 h-4 mr-1.5 opacity-70" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 18.657A8 8 0 016.343 7.343S7 9 9 10c0-2 .5-5 2.986-7C14 5 16.09 5.777 17.656 7.343A7.975 7.975 0 0120 13a7.975 7.975 0 01-2.343 5.657z" />
@@ -45,41 +47,27 @@ const TABS = [
 ]
 
 export default function NewsTabs({ active, onChange }: NewsTabsProps) {
+  // Ločimo tabe na tiste, ki menjajo stanje in tiste, ki so povezave
+  const stateTabs = TABS.filter(t => !t.isLink)
+  const linkTabs = TABS.filter(t => t.isLink)
+
   return (
-    <div className="flex justify-start w-full">
-      <div className="relative flex p-1 bg-gray-200/50 dark:bg-gray-800/60 rounded-full backdrop-blur-sm border border-gray-200 dark:border-gray-700/50 overflow-x-auto no-scrollbar">
-        {TABS.map((tab) => {
+    <div className="flex items-center justify-start w-full gap-2 sm:gap-3 overflow-x-auto no-scrollbar pb-1">
+      
+      {/* 1. KAPSULA ZA STANJE (Najnovejše / Aktualno) */}
+      <div className="relative flex p-1 bg-gray-200/50 dark:bg-gray-800/60 rounded-full backdrop-blur-sm border border-gray-200 dark:border-gray-700/50 shrink-0">
+        {stateTabs.map((tab) => {
           const isActive = tab.id === active
           
-          const baseClasses = `relative z-10 flex items-center px-3 sm:px-4 py-1.5 text-[13px] sm:text-sm font-medium transition-colors duration-200 rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand shrink-0
-            ${isActive 
-              ? 'text-gray-900 dark:text-white' 
-              : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
-            }`
-
-          // Če je tab link (Monitor), ga renderiramo kot Next.js Link
-          if (tab.isLink && tab.href) {
-             return (
-                <Link 
-                   key={tab.id} 
-                   href={tab.href} 
-                   className={baseClasses}
-                   style={{ WebkitTapHighlightColor: 'transparent' }}
-                >
-                   <span className="flex items-center relative z-20 group-hover:text-brand transition-colors">
-                      <span>{tab.icon}</span>
-                      {tab.label}
-                   </span>
-                </Link>
-             )
-          }
-
-          // Ostali tabi (Najnovejše, Aktualno) ostanejo gumbi
           return (
             <button
               key={tab.id}
               onClick={() => onChange(tab.id)}
-              className={baseClasses}
+              className={`relative z-10 flex items-center px-3 sm:px-4 py-1.5 text-[13px] sm:text-sm font-medium transition-colors duration-200 rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand shrink-0
+                ${isActive 
+                  ? 'text-gray-900 dark:text-white' 
+                  : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
+                }`}
               style={{ WebkitTapHighlightColor: 'transparent' }}
             >
               <span className={`flex items-center relative z-20 ${isActive && tab.id === 'trending' ? 'text-brand' : ''}`}>
@@ -102,6 +90,22 @@ export default function NewsTabs({ active, onChange }: NewsTabsProps) {
           )
         })}
       </div>
+
+      {/* 2. SAMOSTOJEN GUMB ZA MONITOR (Odcepljen) */}
+      {linkTabs.map((tab) => (
+         <Link 
+            key={tab.id} 
+            href={tab.href!} 
+            className="flex items-center px-3 sm:px-4 py-[7px] text-[13px] sm:text-sm font-medium transition-all duration-200 rounded-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm text-gray-600 dark:text-gray-300 hover:text-brand hover:border-brand/30 hover:bg-gray-50 dark:hover:bg-gray-700 shrink-0"
+            style={{ WebkitTapHighlightColor: 'transparent' }}
+         >
+            <span className="flex items-center group-hover:text-brand transition-colors">
+               <span>{tab.icon}</span>
+               {tab.label}
+            </span>
+         </Link>
+      ))}
+
     </div>
   )
 }
