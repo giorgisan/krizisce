@@ -423,9 +423,11 @@ export default function Home({ initialNews, initialTrendingWords, initialTrendin
                              <div className="absolute inset-0 bg-gradient-to-r from-brand/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                              <div className="flex items-center justify-between gap-4 relative z-10 h-full">
                                  <div className="flex items-center gap-4">
-                                     {/* Ikona je privzeto siva in brez zoom-a. Ob hoverju dobi barvo */}
-                                     <div className="w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-500 group-hover:bg-brand/10 group-hover:text-brand flex items-center justify-center text-lg shrink-0 grayscale opacity-80 group-hover:grayscale-0 group-hover:opacity-100 transition-all duration-300">
-                                         ⚖️
+                                     {/* Nova monokromatska ikona usklajena s stranjo /analiza */}
+                                     <div className="w-10 h-10 rounded-full bg-gray-50 dark:bg-gray-800/50 text-gray-400 group-hover:bg-brand/10 group-hover:text-brand flex items-center justify-center shrink-0 transition-all duration-300 border border-gray-100 dark:border-gray-700/50 group-hover:border-brand/20">
+                                         <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
+                                             <path strokeLinecap="round" strokeLinejoin="round" d="M15.042 21.672 13.684 16.6m0 0-2.51 2.225.569-9.47 5.227 7.917-3.286-.672Zm-7.518-.267A8.25 8.25 0 1 1 20.25 10.5M8.288 14.212A5.25 5.25 0 1 1 17.25 10.5" />
+                                         </svg>
                                      </div>
                                      <div>
                                          <h3 className="text-[15px] font-bold text-gray-900 dark:text-white mb-0.5 group-hover:text-brand transition-colors">Medijski Monitor</h3>
