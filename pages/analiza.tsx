@@ -51,11 +51,11 @@ const getLogoSrc = (sourceName: string) => {
 
 const getToneUI = (tone: string) => {
   const t = tone.toLowerCase();
-  if (t.includes('konfliktno')) return { label: 'Poudarja konflikt', style: 'bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20' };
-  if (t.includes('tematsko')) return { label: 'Širši kontekst', style: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20' };
-  if (t.includes('epizodično')) return { label: 'Fokus na dramo', style: 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20' };
-  if (t.includes('ekonomsko')) return { label: 'Fokus na stroške', style: 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20' };
-  return { label: 'Informativno', style: 'bg-gray-500/10 text-gray-600 dark:text-gray-400 border-gray-500/20' }; 
+  if (t.includes('senzacionalistično')) return { label: 'Senzacionalistično', style: 'bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20' };
+  if (t.includes('analitično')) return { label: 'Poglobljeno', style: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20' };
+  if (t.includes('kritično')) return { label: 'Kritično do akterjev', style: 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20' };
+  // Default je Faktografsko
+  return { label: 'Faktografsko', style: 'bg-slate-500/10 text-slate-600 dark:text-slate-400 border-slate-500/20' }; 
 }
 
 function AnalysisCard({ item, setPreviewUrl }: { item: AnalysisItem, setPreviewUrl: (url: string) => void }) {
