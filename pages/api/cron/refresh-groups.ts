@@ -19,7 +19,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   try {
     const cutoff = Date.now() - (TREND_WINDOW_HOURS * 60 * 60 * 1000)
     
-    // OPTIMIZACIJA: Limit znižan na 250. To zajame najbolj sveže novice
+    // OPTIMIZACIJA: Limit znižan na 200. To zajame najbolj sveže novice
     // zadnjih nekaj ur, kar zmanjša obremenitev AI modela (prepreči Error 429).
     const { data: rows, error } = await supabase
         .from('news')
@@ -27,7 +27,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         .gt('publishedat', cutoff)
         .neq('category', 'oglas')
         .order('publishedat', { ascending: false })
-        .limit(250) 
+        .limit(200) 
 
     if (error) throw error
 
