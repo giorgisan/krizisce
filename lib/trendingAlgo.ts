@@ -80,66 +80,95 @@ function jaccardSimilarity(setA: Set<string>, setB: Set<string>): number {
   return intersection.size / union.size;
 }
 
-// --- 4. AI CLUSTERING (Gemini 2.5 Flash + Flash-Lite Fallback) ---
+// --- 4. AI CLUSTERING (Gemini 2.5 Flash + Flash-Lite s strogo shemo) ---
 async function clusterNewsWithAI(articles: Article[]): Promise<Record<string, number[]> | null> {
   const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_KEY || "");
   
   const articlesList = articles.map((a, index) => {
-    // Snippet naj ostane na max 80 znakov za manjšo porabo žetonov
     const snippet = a.contentsnippet ? ` | ${a.contentsnippet.substring(0, 80).replace(/\n/g, ' ')}` : '';
     return `ID:${index} [${a.source}] TITLE:"${a.title}"${snippet}`;
   }).join('\n');
 
-  // --- STRICT PROMPT ---
+  // Optimiziran prompt, ki se sedaj ujema z novo shemo
   const prompt = `
-    You are a professional news editor. Group articles into clusters that belong to the EXACT SAME EVENT.
+    You are a professional news editor. Group the following articles into clusters that belong to the EXACT SAME EVENT.
     
     INPUT:
     ${articlesList}
 
     STRICT RULES FOR GROUPING:
     1. **SAME MAIN EVENT ONLY**: Group the main report together with direct reactions and analysis of THAT specific event.
-       - "Domen Prevc wins gold" AND "Coach praises Domen" -> GROUP TOGETHER.
-    
-    2. **CRITICAL: DO NOT MIX PEOPLE**: 
-       - "Nikola Jokić" (Basketball) and "Domen Prevc" (Ski Jumping) are totally different. SEPARATE THEM.
-       - "Nika Prevc" and "Domen Prevc" are different athletes. SEPARATE THEM unless it's a Mixed Team event.
-
-    3. **HANDLING "BRIDGE" HEADLINES**: 
-       - If a headline mentions two people (e.g., "Nika wants to be like Domen"), put it in the Active Subject's group (Nika). Do NOT pull Domen's old articles into it.
-
-    4. **UNIQUE ASSIGNMENT**: Each article ID should appear in at most ONE cluster. Do not repeat the same ID in multiple clusters.
-
-    5. **Output format**: JSON only. Keys are short Slovenian topic summaries. Values are arrays of IDs.
-
-    RESPONSE FORMAT (JSON ONLY):
-    {
-      "Zlato za Domna Prevca": [1, 2, 5], 
-      "Jokićev rekord": [8, 9],
-      "Smrt Navalnega": [10, 11, 12]
-    }
+    2. **DO NOT MIX PEOPLE/TOPICS**: Separate different athletes, events, or distinct political topics unless explicitly linked.
+    3. **UNIQUE ASSIGNMENT**: Each article ID should appear in at most ONE cluster. Do not repeat the same ID.
   `;
+
+  // STROGA SHEMA: AI fizično ne more zgenerirati več kot točno to strukturo
+  const responseSchema = {
+    type: SchemaType.ARRAY,
+    description: "List of clustered news events.",
+    items: {
+      type: SchemaType.OBJECT,
+      properties: {
+        topic: {
+          type: SchemaType.STRING,
+          description: "Short, neutral Slovenian title of the event (max 5 words)."
+        },
+        article_ids: {
+          type: SchemaType.ARRAY,
+          description: "Array of integer IDs of the articles belonging to this cluster.",
+          items: {
+            type: SchemaType.INTEGER
+          }
+        }
+      },
+      required: ["topic", "article_ids"]
+    }
+  };
+
+  // Konfiguracija z nizko temperaturo (brez halucinacij)
+  const generationConfig = {
+    responseMimeType: "application/json",
+    responseSchema: responseSchema,
+    temperature: 0.1, // 0.1 pomeni strogo analitično in deterministično, brez "kreativnosti"
+  };
+
+  // Pomožna funkcija za pretvorbo iz striktnega polja nazaj v Record<string, number[]>
+  const mapSchemaToRecord = (parsedArray: any[]) => {
+      const mappedClusters: Record<string, number[]> = {};
+      if (Array.isArray(parsedArray)) {
+          for (const item of parsedArray) {
+              if (item.topic && Array.isArray(item.article_ids)) {
+                  mappedClusters[item.topic] = item.article_ids;
+              }
+          }
+      }
+      return Object.keys(mappedClusters).length > 0 ? mappedClusters : null;
+  };
 
   // 1. POSKUS: Uporabimo najzmogljivejši primarni model (Gemini 2.5 Flash)
   try {
     const modelPrimary = genAI.getGenerativeModel({ model: "gemini-2.5-flash" }); 
     const result = await modelPrimary.generateContent({
       contents: [{ role: "user", parts: [{ text: prompt }] }],
-      generationConfig: { responseMimeType: "application/json" }
+      generationConfig: generationConfig
     });
-    return JSON.parse(result.response.text());
+    
+    const parsed = JSON.parse(result.response.text());
+    return mapSchemaToRecord(parsed);
     
   } catch (errorPrimary: any) {
-    console.warn(`⚠️ Gemini 2.5 Flash failed (${errorPrimary.status}). Falling back to Gemini 2.5 Flash-Lite...`);
+    console.warn(`⚠️ Gemini 2.5 Flash failed. Falling back to Gemini 2.5 Flash-Lite...`);
     
-    // 2. POSKUS (FALLBACK): Uporabimo lažji "Lite" model (Gemini 2.5 Flash-Lite)
+    // 2. POSKUS (FALLBACK): Uporabimo lažji "Lite" model
     try {
       const modelFallback = genAI.getGenerativeModel({ model: "gemini-2.5-flash-lite" }); 
       const resultFallback = await modelFallback.generateContent({
         contents: [{ role: "user", parts: [{ text: prompt }] }],
-        generationConfig: { responseMimeType: "application/json" }
+        generationConfig: generationConfig
       });
-      return JSON.parse(resultFallback.response.text());
+      
+      const parsedFallback = JSON.parse(resultFallback.response.text());
+      return mapSchemaToRecord(parsedFallback);
       
     } catch (errorFallback: any) {
       console.error("❌ Both AI models failed. Proceeding to Jaccard.", errorFallback.message);
