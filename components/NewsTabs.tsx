@@ -6,7 +6,7 @@ import { motion } from 'framer-motion'
 export type NewsTabId = 'latest' | 'trending'
 
 interface NewsTabsProps {
-  active: string // Spremenjeno v string, da sprejme karkoli, a renderiramo le 2
+  active: string 
   onChange: (tab: any) => void
 }
 
@@ -37,24 +37,23 @@ export default function NewsTabs({ active, onChange }: NewsTabsProps) {
     <div className="flex justify-start w-full">
       <div className="relative flex p-1 bg-gray-200/50 dark:bg-gray-800/60 rounded-full backdrop-blur-sm border border-gray-200 dark:border-gray-700/50">
         {TABS.map((tab) => {
-          // Aktivno je le, če je mode 'latest' ali 'trending'. 
-          // Če je izbrana kategorija (npr. 'sport'), ne označimo ničesar ali pa privzeto 'latest'.
           const isActive = tab.id === active
           
           return (
             <button
               key={tab.id}
               onClick={() => onChange(tab.id)}
-              className={`relative z-10 flex items-center px-4 py-1.5 text-sm font-medium transition-colors duration-200 rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500
+              className={`relative z-10 flex items-center px-4 py-1.5 text-sm font-medium transition-colors duration-200 rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand
                 ${isActive 
                   ? 'text-gray-900 dark:text-white' 
                   : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
                 }`}
               style={{ WebkitTapHighlightColor: 'transparent' }}
             >
-              <span className={`flex items-center relative z-20 ${isActive && tab.id === 'trending' ? 'text-orange-500 dark:text-orange-400' : ''}`}>
+              {/* SPREMEMBA: Uporaba text-brand namesto orange-500 za boljšo barvno doslednost */}
+              <span className={`flex items-center relative z-20 ${isActive && tab.id === 'trending' ? 'text-brand' : ''}`}>
                 {tab.id === 'trending' && isActive ? (
-                   <span className="text-orange-500 dark:text-orange-400">{tab.icon}</span>
+                   <span className="text-brand">{tab.icon}</span>
                 ) : (
                    <span>{tab.icon}</span>
                 )}
