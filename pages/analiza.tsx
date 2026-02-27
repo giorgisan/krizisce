@@ -117,7 +117,7 @@ function AnalysisCard({ item, setPreviewUrl }: { item: AnalysisItem, setPreviewU
               >
                 <div className="flex items-center gap-2 min-w-0 flex-1">
                   
-                  {/* LOGO -> OKO logika. Tukaj (w-[18px] h-[18px]) lahko povečaš logo */}
+                  {/* LOGO -> OKO logika. */}
                   <div className="relative w-[18px] h-[18px] shrink-0 transition-all">
                     {/* Logo */}
                     <Image 
@@ -194,8 +194,8 @@ export default function AnalizaPage({ analysis, lastUpdated }: Props) {
                       </svg>
                       Medijski Monitor
                   </h1>
-                  {/* Opis se na mobilniku skrije (hidden md:block), da prihrani prostor */}
-                  <p className="hidden md:block text-[13px] text-gray-500 dark:text-gray-400 mt-2 max-w-2xl leading-relaxed">
+                  {/* SPREMEMBA: Opis sedaj ni več skrit (odstranjen 'hidden'), a je na mobilniku malenkost manjši in bolj stisnjen za ekonomičnost prostora */}
+                  <p className="text-[12px] md:text-[13px] text-gray-500 dark:text-gray-400 mt-1.5 md:mt-2 max-w-2xl leading-relaxed">
                     Strojna analiza in pregled uredniških odločitev pri ključnih temah. S pomočjo umetne inteligence prepoznavamo vzorce poročanja, razlike v uokvirjanju informacij in specifične uredniške poudarke.
                   </p>
                 </div>
