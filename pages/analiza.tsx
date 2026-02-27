@@ -117,7 +117,7 @@ function AnalysisCard({ item, setPreviewUrl }: { item: AnalysisItem, setPreviewU
               >
                 <div className="flex items-center gap-2 min-w-0 flex-1">
                   
-                  {/* LOGO -> OKO logika. */}
+                  {/* LOGO -> OKO logika. Tukaj (w-[18px] h-[18px]) lahko povečaš logo */}
                   <div className="relative w-[18px] h-[18px] shrink-0 transition-all">
                     {/* Logo */}
                     <Image 
@@ -186,19 +186,18 @@ export default function AnalizaPage({ analysis, lastUpdated }: Props) {
             <div className="max-w-6xl mx-auto px-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
                 <div>
                   <h1 className="text-2xl font-serif font-bold text-gray-900 dark:text-white flex items-center gap-3">
-                      {/* SPREMEMBA: Nova ikona */}
                       <svg className="w-7 h-7 text-gray-700 dark:text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
                           <path strokeLinecap="round" strokeLinejoin="round" d="M15.042 21.672 13.684 16.6m0 0-2.51 2.225.569-9.47 5.227 7.917-3.286-.672Zm-7.518-.267A8.25 8.25 0 1 1 20.25 10.5M8.288 14.212A5.25 5.25 0 1 1 17.25 10.5" />
                       </svg>
                       Medijski Monitor
                   </h1>
-                  {/* SPREMEMBA: Nov opis */}
+                  {/* SPREMEMBA BESEDILA */}
                   <p className="text-[13px] text-gray-500 dark:text-gray-400 mt-2 max-w-2xl leading-relaxed">
-                    Strojna analiza in pregled uredniških odločitev pri ključnih temah. S pomočjo umetne inteligence detektiramo vzorce poročanja, razlike v iskanju informacij in prisotnost poudarkov.
+                    Strojna analiza in pregled uredniških odločitev pri ključnih temah. S pomočjo umetne inteligence prepoznavamo vzorce poročanja, razlike v uokvirjanju informacij in specifične uredniške poudarke.
                   </p>
                 </div>
                 
-                {/* Desni blok z uro in gumbom */}
+                {/* Desni blok z uro in stiliziranim gumbom */}
                 <div className="shrink-0 flex flex-col items-start md:items-end mt-2 md:mt-0">
                     {lastUpdated && (
                         <div className="text-[11px] font-mono text-gray-500 flex items-center gap-2 border border-gray-200 dark:border-gray-700 px-2.5 py-1.5 rounded bg-gray-50 dark:bg-gray-800/50">
@@ -209,8 +208,8 @@ export default function AnalizaPage({ analysis, lastUpdated }: Props) {
                             Osveženo: {new Date(lastUpdated).toLocaleTimeString('sl-SI', {hour: '2-digit', minute:'2-digit'})}
                         </div>
                     )}
-                    {/* SPREMEMBA: Dodan mt-3 za večji presledek */}
-                    <Link href="/" className="mt-3 text-[10px] font-bold uppercase tracking-widest text-gray-400 hover:text-brand flex items-center gap-1.5 transition-colors">
+                    {/* SPREMEMBA: Oblikovan gumb (border, background hover, zaobljeni koti) */}
+                    <Link href="/" className="mt-4 px-3 py-1.5 border border-gray-200 dark:border-gray-700/80 rounded-md shadow-sm text-[10px] font-bold uppercase tracking-widest text-gray-500 hover:text-brand hover:border-brand/30 hover:bg-brand/5 dark:hover:bg-gray-800/50 flex items-center gap-1.5 transition-all">
                         ← Nazaj na naslovnico
                     </Link>
                 </div>
