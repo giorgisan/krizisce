@@ -1,5 +1,5 @@
 /* lib/trendingAlgo.ts */
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { GoogleGenerativeAI, SchemaType } from "@google/generative-ai";
 
 // 1. TIPI
 export interface Article {
@@ -85,11 +85,12 @@ async function clusterNewsWithAI(articles: Article[]): Promise<Record<string, nu
   const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_KEY || "");
   
   const articlesList = articles.map((a, index) => {
+    // Snippet naj ostane na max 80 znakov za manjšo porabo žetonov
     const snippet = a.contentsnippet ? ` | ${a.contentsnippet.substring(0, 80).replace(/\n/g, ' ')}` : '';
     return `ID:${index} [${a.source}] TITLE:"${a.title}"${snippet}`;
   }).join('\n');
 
-  // --- STRICT PROMPT (Bogata logika + stroga shema) ---
+  // --- STRICT PROMPT (Bogata logika) ---
   const prompt = `
     You are a professional news editor. Group the following articles into clusters that belong to the EXACT SAME EVENT.
     
@@ -137,10 +138,10 @@ async function clusterNewsWithAI(articles: Article[]): Promise<Record<string, nu
   const generationConfig = {
     responseMimeType: "application/json",
     responseSchema: responseSchema,
-    temperature: 0.1, // 0.1 pomeni strogo analitično in deterministično, brez "kreativnosti"
+    temperature: 0.1, // 0.1 pomeni strogo analitično in deterministično
   };
 
-  // Pomožna funkcija za pretvorbo iz striktnega polja nazaj v Record<string, number[]>
+  // Pomožna funkcija za pretvorbo iz striktnega polja nazaj v format, ki ga rabi algoritem
   const mapSchemaToRecord = (parsedArray: any[]) => {
       const mappedClusters: Record<string, number[]> = {};
       if (Array.isArray(parsedArray)) {
