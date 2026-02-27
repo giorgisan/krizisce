@@ -181,26 +181,31 @@ export default function AnalizaPage({ analysis, lastUpdated }: Props) {
       <Header activeCategory="vse" activeSource="Vse" />
 
       <main className="min-h-screen bg-[#F9FAFB] dark:bg-gray-900 pb-20">
-        {/* HEADER - Popravljen px-4 za popolno poravnavo */}
-        <div className="bg-white dark:bg-gray-800/60 border-b border-gray-200 dark:border-gray-800 py-8">
-            <div className="max-w-6xl mx-auto px-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
-                <div>
-                  <h1 className="text-2xl font-serif font-bold text-gray-900 dark:text-white flex items-center gap-3">
-                      <svg className="w-7 h-7 text-gray-700 dark:text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
+        
+        {/* HEADER - Kompakten na mobilcu, razširjen na desktopu */}
+        <div className="bg-white dark:bg-gray-800/60 border-b border-gray-200 dark:border-gray-800 py-4 md:py-8">
+            <div className="max-w-6xl mx-auto px-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 md:gap-6">
+                
+                {/* Levi blok z naslovom in opisom */}
+                <div className="flex-1 min-w-0">
+                  <h1 className="text-xl md:text-2xl font-serif font-bold text-gray-900 dark:text-white flex items-center gap-2 md:gap-3">
+                      <svg className="w-6 h-6 md:w-7 md:h-7 text-gray-700 dark:text-gray-300 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
                           <path strokeLinecap="round" strokeLinejoin="round" d="M15.042 21.672 13.684 16.6m0 0-2.51 2.225.569-9.47 5.227 7.917-3.286-.672Zm-7.518-.267A8.25 8.25 0 1 1 20.25 10.5M8.288 14.212A5.25 5.25 0 1 1 17.25 10.5" />
                       </svg>
                       Medijski Monitor
                   </h1>
-                  {/* SPREMEMBA BESEDILA */}
-                  <p className="text-[13px] text-gray-500 dark:text-gray-400 mt-2 max-w-2xl leading-relaxed">
+                  {/* Opis se na mobilniku skrije (hidden md:block), da prihrani prostor */}
+                  <p className="hidden md:block text-[13px] text-gray-500 dark:text-gray-400 mt-2 max-w-2xl leading-relaxed">
                     Strojna analiza in pregled uredniških odločitev pri ključnih temah. S pomočjo umetne inteligence prepoznavamo vzorce poročanja, razlike v uokvirjanju informacij in specifične uredniške poudarke.
                   </p>
                 </div>
                 
-                {/* Desni blok z uro in stiliziranim gumbom */}
-                <div className="shrink-0 flex flex-col items-start md:items-end mt-2 md:mt-0">
+                {/* Desni blok - Na mobilniku je v liniji (row), na desktopu je v stolpcu zgoraj-dol */}
+                <div className="w-full md:w-auto flex flex-row md:flex-col items-center md:items-end justify-between md:justify-start gap-3 mt-1 md:mt-0">
+                    
+                    {/* Značka "Osveženo" (na mobilcu levo, na desktopu zgoraj) */}
                     {lastUpdated && (
-                        <div className="text-[11px] font-mono text-gray-500 flex items-center gap-2 border border-gray-200 dark:border-gray-700 px-2.5 py-1.5 rounded bg-gray-50 dark:bg-gray-800/50">
+                        <div className="text-[10px] md:text-[11px] font-mono text-gray-500 flex items-center gap-2 border border-gray-100 md:border-gray-200 dark:border-gray-700 px-2 md:px-2.5 py-1 md:py-1.5 rounded bg-gray-50 dark:bg-gray-800/50 shrink-0">
                             <span className="relative flex h-1.5 w-1.5">
                                 <span className="absolute inline-flex h-full w-full rounded-full bg-brand opacity-75 animate-ping"></span>
                                 <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-brand"></span>
@@ -208,10 +213,12 @@ export default function AnalizaPage({ analysis, lastUpdated }: Props) {
                             Osveženo: {new Date(lastUpdated).toLocaleTimeString('sl-SI', {hour: '2-digit', minute:'2-digit'})}
                         </div>
                     )}
-                    {/* SPREMEMBA: Oblikovan gumb (border, background hover, zaobljeni koti) */}
-                    <Link href="/" className="mt-4 px-3 py-1.5 border border-gray-200 dark:border-gray-700/80 rounded-md shadow-sm text-[10px] font-bold uppercase tracking-widest text-gray-500 hover:text-brand hover:border-brand/30 hover:bg-brand/5 dark:hover:bg-gray-800/50 flex items-center gap-1.5 transition-all">
-                        ← Nazaj na naslovnico
+
+                    {/* Gumb za nazaj (na mobilcu desno ob uri, na desktopu pod uro) */}
+                    <Link href="/" className="px-3 py-1.5 border border-gray-200 dark:border-gray-700/80 rounded-md shadow-sm text-[10px] font-bold uppercase tracking-widest text-gray-500 hover:text-brand hover:border-brand/30 hover:bg-brand/5 dark:hover:bg-gray-800/50 flex items-center gap-1.5 transition-all">
+                        ← Naslovnica
                     </Link>
+
                 </div>
             </div>
         </div>
