@@ -51,7 +51,7 @@ const getLogoSrc = (sourceName: string) => {
 
 const getToneUI = (tone: string) => {
   const t = tone.toLowerCase();
-  if (t.includes('senzacionalistično')) return { label: 'Senzacionalistično', style: 'bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20' };
+  if (t.includes('dramatično')) return { label: 'Dramatično', style: 'bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20' };
   if (t.includes('poglobljeno')) return { label: 'Poglobljeno', style: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20' };
   if (t.includes('kritično')) return { label: 'Kritično', style: 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20' };
   // Vse ostalo (tudi če AI vrne "Faktografsko" iz stare baze) se obarva sivo
