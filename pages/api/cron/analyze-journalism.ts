@@ -35,7 +35,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // 2. Izbor prvih 5 skupin (Top stories)
     const topStories = allGroups.slice(0, 5)
 
-    // 3. Priprava podatkov za AI (DODAN POVZETEK - CONTENTSNIPPET)
+    // 3. Priprava podatkov za AI (DODAN POVZETEK IN URL)
     let promptData = ""
     topStories.forEach((group: any, index: number) => {
        promptData += `\nZGODBA ${index + 1}:\n`
@@ -49,9 +49,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
        const allInGroup = [mainArticle, ...otherArticles];
        
        allInGroup.slice(0, 8).forEach((item: any) => {
-          // Uporabimo povzetek iz snippetov za globljo analizo tona
           const snippet = item.snippet || item.contentsnippet || item.contentSnippet || '';
-          promptData += `- Vir: ${item.source}, Naslov: "${item.title}", Povzetek: "${snippet}"\n`
+          
+          // SPREMEMBA: Tukaj smo AI-ju dodali še URL, da si ga ne bo več izmišljeval!
+          promptData += `- Vir: ${item.source}, Naslov: "${item.title}", URL: "${item.link}", Povzetek: "${snippet}"\n`
        })
     })
 
