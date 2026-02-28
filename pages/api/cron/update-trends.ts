@@ -1,9 +1,8 @@
 /* pages/api/cron/update-trends.ts */
 import { NextApiRequest, NextApiResponse } from 'next'
 import { createClient } from '@supabase/supabase-js'
-import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } from '@google/generative-ai'
+import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold, SchemaType } from '@google/generative-ai'
 
-// Set max duration to 60 seconds to prevent timeouts
 export const maxDuration = 60;
 export const dynamic = 'force-dynamic';
 
@@ -15,14 +14,12 @@ const supabase = createClient(
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_KEY || '')
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  // DEBUG LOG
-  console.log("--- START update-trends (Priority: Gemini 2.5 Pro) ---");
+  // Popravljen log
+  console.log("--- START update-trends (Structured JSON) ---");
 
   if (req.query.key !== process.env.CRON_SECRET) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
-
-  // Nočni premor je odstranjen, saj imaš zdaj 1000 klicev dnevno limita.
 
   let trends: string[] = []
   let summaryText = ''
@@ -46,7 +43,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // 2. PREPARE CONTENT
     const headlines = allNews.map(n => `- ${n.source}: ${n.title} ${n.contentsnippet ? `(${n.contentsnippet.substring(0, 100)}...)` : ''}`).join('\n');
 
-    // 3. TVOJ ORIGINALNI IZBOLJŠAN PROMPT (RESTORED)
+    // 3. PROMPT (Očiščen navodil za formatiranje, ker imamo zdaj Shemo)
     const prompt = `
         Kot izkušen urednik slovenske medijske krajine, analiziraj spodnji seznam naslovov in podnaslovov POMEMBNIH novic (vsaka tema je pokrita z najmanj 2 viroma).
         
@@ -59,13 +56,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
         --- 1. DEL: TRENDI (TAGI) ---
         CILJ: Ustvari 6-10 najbolj vročih in konkretnih tagov.
-        
         STRATEGIJA:
         - Išči preseke: Teme, ki jih pokriva VEČ različnih medijev (več virov).
         - Bodi specifičen: #Pogačar (ne #Kolesarstvo), #Požar na Krasu (ne #Gasilci).
         - Uporabljaj samo samostalnike v imenovalniku (osnovna oblika).
         - Uporabljaj slovenski jezik in presledke (NE CamelCase).
-        
         STROGO PREPOVEDANO PRI TAGIH:
         - Generične besede (#Novice, #Slovenija, #Svet, #Kronika).
         - Dolžina tagov (max 3 besede).
@@ -73,77 +68,66 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
         --- 2. DEL: AI BRIEF (POVZETEK) ---
         CILJ: Napiši "Elevator Pitch" trenutnega dogajanja. Bralec ima 15 sekund.
-        
         PRAVILA PISANJA:
         - DOLŽINA: Maksimalno 400 znakov. Nekaj kratkih stavkov.
         - STRUKTURA: Prvi stavek = Glavna tema dneva (udarno). Drugi stavek = Druga najpomembnejša tema ali zanimivost.
         - SLOG: Objektiven, telegrafski, brez mašil ("V današnjem dnevu...", "Poročajo, da..."). Samo bistvo.
         - VSEBINA: Fokusiraj se na dogodek, ne na medij. Ne omenjaj "RTV", "24ur" itd.
-
-        --- FORMAT IZHODA (JSON) ---
-        Vrni IZKLJUČNO validen JSON objekt (brez markdowna \`\`\`json in brez dodatnega teksta):
-        {
-          "trends": ["#Tag1", "#Tag2", ...],
-          "summary": "Kratek tekst povzetka."
-        }
     `;
     
-    // Generator function with robust parsing
-    const tryGenerate = async (modelName: string) => {
-        const model = genAI.getGenerativeModel({ 
-            model: modelName,
-            safetySettings: [
-                { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
-                { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE },
-                { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_NONE },
-                { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE },
-            ]
-        })
-        const result = await model.generateContent(prompt)
-        const responseText = result.response.text()
-        
-        // JSON Parsing logic (Restored)
-        const jsonStart = responseText.indexOf('{');
-        const jsonEnd = responseText.lastIndexOf('}') + 1;
-        
-        if (jsonStart === -1 || jsonEnd === -1) {
-             const arrStart = responseText.indexOf('[');
-             const arrEnd = responseText.lastIndexOf(']') + 1;
-             if (arrStart !== -1 && arrEnd !== -1) {
-                 const arrJson = responseText.substring(arrStart, arrEnd);
-                 return { trends: JSON.parse(arrJson), summary: '' };
-             }
-             throw new Error("JSON structure not found");
+    // STROGA SHEMA (Ni več ročnega iskanja oklepajev '{')
+    const responseSchema = {
+      type: SchemaType.OBJECT,
+      properties: {
+        trends: {
+          type: SchemaType.ARRAY,
+          description: "Seznam 6-10 najbolj vročih trendov (tagov).",
+          items: { type: SchemaType.STRING }
+        },
+        summary: {
+          type: SchemaType.STRING,
+          description: "Kratek in jedrnat summary dogajanja."
         }
+      },
+      required: ["trends", "summary"]
+    };
 
-        const cleanJson = responseText.substring(jsonStart, jsonEnd);
-        return JSON.parse(cleanJson);
+    const generationConfig = {
+      responseMimeType: "application/json",
+      responseSchema: responseSchema,
+      temperature: 0.3,
+    };
+
+    const safetySettings = [
+        { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
+        { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE },
+        { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_NONE },
+        { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE },
+    ];
+
+    const tryGenerate = async (modelName: string) => {
+        const model = genAI.getGenerativeModel({ model: modelName, safetySettings, generationConfig });
+        const result = await model.generateContent(prompt);
+        return JSON.parse(result.response.text());
     }
 
-    // --- NOVA LOGIKA PRIORITET (Gemini 3 Pro na prvem mestu) ---
+    // --- LOGIKA PRIORITET (Usklajeno s tvojim API ključem) ---
     try {
-        console.log("Poskušam models/gemini-3-pro-preview...");
-        usedModel = "models/gemini-3-pro-preview"; 
+        usedModel = "gemini-2.5-pro"; 
+        console.log(`Poskušam ${usedModel}...`);
         const result = await tryGenerate(usedModel);
         trends = result.trends || [];
         summaryText = result.summary || '';
     } catch (err1: any) {
-        console.warn(`⚠️ Gemini 3 Pro failed, trying 3 Flash...`);
+        console.warn(`⚠️ ${usedModel} failed. Trying gemini-2.5-flash...`);
         try {
-            usedModel = "models/gemini-3-flash-preview";
+            usedModel = "gemini-2.5-flash";
             const result = await tryGenerate(usedModel);
             trends = result.trends || [];
             summaryText = result.summary || '';
         } catch (err2: any) {
-            console.warn(`⚠️ Gemini 3 Flash failed, trying 2.5 Pro...`);
-            try {
-                usedModel = "models/gemini-2.5-pro";
-                const result = await tryGenerate(usedModel);
-                trends = result.trends || [];
-                summaryText = result.summary || '';
-            } catch (err3: any) {
-                return res.status(500).json({ error: 'AI generation failed', details: err3.message });
-            }
+            console.error("❌ Both AI models failed in update-trends.");
+            return res.status(500).json({ error: 'AI generation failed', details: err2.message });
         }
     }
 
@@ -161,11 +145,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         const { error: insertError } = await supabase
           .from('trending_ai')
           .upsert({ 
-              id: 1, // <--- KLJUČNO: Vedno uporabimo isti ID!
+              id: 1,
               words: cleanTrends, 
               summary: summaryText || null, 
               updated_at: new Date().toISOString() 
-          }, { onConflict: 'id' }); // Povemo bazi, da če ID 1 obstaja, ga posodobi
+          }, { onConflict: 'id' }); 
         
         if (insertError) throw insertError
         return res.status(200).json({ success: true, used_model: usedModel, trends: cleanTrends, summary: summaryText })
