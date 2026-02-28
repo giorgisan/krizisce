@@ -62,7 +62,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       Categorize the tone/approach of each source using ONLY one of the following exact Slovenian terms:
       - Nevtralno (dry listing of facts, "who/what/when", neutral, no emotional adjectives)
-      - Senzacionalistično (clickbait, emphasizes shock, drama, fear, uses strong emotional adjectives, focuses on extreme aspects)
+      - Dramatično (clickbait, emphasizes shock, drama, fear, uses strong emotional adjectives, focuses on extreme aspects)
       - Poglobljeno (in-depth, explains the "why", consequences, historical context, expert opinions, systemic view)
       - Kritično (focuses on pointing fingers, blaming, highlighting incompetence of actors/government, opinionated tone)
       
