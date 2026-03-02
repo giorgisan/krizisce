@@ -1,5 +1,5 @@
 import React, { useState, ComponentType } from 'react'
-import { GetServerSideProps } from 'next'
+import { GetStaticProps } from 'next'
 import Head from 'next/head'
 import Image from 'next/image' 
 import dynamic from 'next/dynamic'
@@ -244,12 +244,16 @@ export default function AnalizaPage({ analysis, lastUpdated }: Props) {
   )
 }
 
-export const getServerSideProps: GetServerSideProps = async ({ res }) => {
-  res.setHeader('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=120')
+export const getStaticProps: GetStaticProps = async () => {
   const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
   const { data, error } = await supabase.from('media_analysis').select('data, created_at').order('created_at', { ascending: false }).limit(1).single()
 
-  if (error || !data) return { props: { analysis: null, lastUpdated: null } }
+  if (error || !data) {
+      return { 
+          props: { analysis: null, lastUpdated: null },
+          revalidate: 60 // Poskusi ponovno zgraditi čez 60 sekund
+      } 
+  }
 
   let content = data.data;
   if (typeof content === 'string') { try { content = JSON.parse(content); } catch {} }
@@ -258,6 +262,7 @@ export const getServerSideProps: GetServerSideProps = async ({ res }) => {
     props: { 
         analysis: Array.isArray(content) ? content : (content as any).data || null, 
         lastUpdated: data.created_at 
-    } 
+    },
+    revalidate: 60 // Pove Vercelu, naj služi cache, ampak ga v ozadju osveži, če je starejši od 60 sekund
   }
 }
