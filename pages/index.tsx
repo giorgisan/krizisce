@@ -5,7 +5,7 @@ import React, {
   startTransition,
   useRef,
 } from 'react'
-import { GetServerSideProps } from 'next'
+import { GetStaticProps } from 'next'
 import Link from 'next/link'
 
 import { NewsItem } from '@/types'
@@ -536,8 +536,7 @@ export default function Home({ initialNews, initialTrendingWords, initialTrendin
   )
 }
 
-export const getServerSideProps: GetServerSideProps = async ({ res }) => {
-  res.setHeader('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=300')
+export const getStaticProps: GetStaticProps = async () => {
   const { createClient } = await import('@supabase/supabase-js')
   const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, { auth: { persistSession: false } })
 
@@ -583,5 +582,14 @@ export const getServerSideProps: GetServerSideProps = async ({ res }) => {
 
   const initialTrendingNews = groupsRes.data?.data || []
 
-  return { props: { initialNews, initialTrendingWords: trendsData, initialTrendingNews, aiSummary, aiTime } }
+  return { 
+    props: { 
+      initialNews, 
+      initialTrendingWords: trendsData, 
+      initialTrendingNews, 
+      aiSummary, 
+      aiTime 
+    },
+    revalidate: 60 // <--- To nadomešča tvoj prejšnji res.setHeader Cache-Control
+  }
 }
