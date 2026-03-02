@@ -1,4 +1,3 @@
-/* components/Header.tsx */
 'use client'
 
 import React, { useState, useEffect, useRef } from 'react'
@@ -553,6 +552,17 @@ export default function Header({
                     <div className="space-y-1">
                         <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 pl-1 text-left">Orodja</p>
                         
+                        {/* --- NOVI GUMB MEDIJSKI MONITOR --- */}
+                        <Link href="/analiza" onClick={() => setMobileMenuOpen(false)} className="flex items-center justify-between px-2 py-3 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100/50 dark:hover:bg-gray-900/50 group">
+                            <div className="flex items-center gap-3">
+                                <svg className="w-5 h-5 text-gray-400 group-hover:text-brand transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M15.042 21.672 13.684 16.6m0 0-2.51 2.225.569-9.47 5.227 7.917-3.286-.672Zm-7.518-.267A8.25 8.25 0 1 1 20.25 10.5M8.288 14.212A5.25 5.25 0 1 1 17.25 10.5" />
+                                </svg>
+                                <span className="text-left">Medijski Monitor</span>
+                            </div>
+                            <span className="text-[9px] uppercase tracking-wider font-bold bg-brand text-white px-1.5 py-0.5 rounded-md">Novo</span>
+                        </Link>
+
                         <Link href="/arhiv" onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-3 px-2 py-3 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100/50 dark:hover:bg-gray-900/50">
                             <svg className="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                                 <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
