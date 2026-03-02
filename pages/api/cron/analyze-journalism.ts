@@ -143,10 +143,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     if (insertError) throw insertError;
 
+    // --- 7. TAKOJŠNJA OSVEŽITEV CACHE-A (On-Demand Revalidation) ---
+    try {
+        await res.revalidate('/analiza');
+        console.log("Stran /analiza je bila uspešno osvežena na Vercelu!");
+    } catch (revalidateError) {
+        console.error('Napaka pri revalidaciji:', revalidateError);
+    }
+    // ---------------------------------------------------------------
+
     return res.status(200).json({ success: true, count: finalData.length, data: finalData })
 
   } catch (e: any) {
-      console.error("Monitor AI Error:", e)
-      return res.status(500).json({ error: e.message })
-  }
-}
