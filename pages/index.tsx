@@ -419,7 +419,7 @@ export default function Home({ initialNews, initialTrendingWords, initialTrendin
 
                      {/* Desni stolpec - Medijski Monitor Banner (Prikazan SAMO na desktopu, skrit na mobilcu) */}
                      <div className="hidden lg:block w-full lg:w-[340px] xl:w-[380px] shrink-0">
-                         <Link href="/analiza" className="group block h-full bg-white/60 dark:bg-gray-800/40 backdrop-blur-sm border border-gray-200/50 dark:border-gray-700/50 rounded-xl p-4 hover:shadow-md hover:bg-white dark:hover:bg-gray-800 hover:border-brand/30 transition-all duration-300 overflow-hidden relative">
+                         <Link href="/analiza" prefetch={false} className="group block h-full bg-white/60 dark:bg-gray-800/40 backdrop-blur-sm border border-gray-200/50 dark:border-gray-700/50 rounded-xl p-4 hover:shadow-md hover:bg-white dark:hover:bg-gray-800 hover:border-brand/30 transition-all duration-300 overflow-hidden relative">
                              <div className="absolute inset-0 bg-gradient-to-r from-brand/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                              <div className="flex items-center justify-between gap-4 relative z-10 h-full">
                                  <div className="flex items-center gap-4">
