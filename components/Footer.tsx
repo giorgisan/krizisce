@@ -100,7 +100,7 @@ export default function Footer() {
             <div>
               <h4 className="text-sm font-semibold text-gray-900 dark:text-gray-200 mb-2">Povezave</h4>
               <ul className="space-y-1 text-xs sm:text-sm text-gray-600 dark:text-gray-500">
-                <li><Link href="/analiza" className="hover:text-brand dark:hover:text-brand transition">Medijski Monitor</Link></li>
+                <li><Link href="/analiza" prefetch={false} className="hover:text-brand dark:hover:text-brand transition">Medijski Monitor</Link></li>
                 <li><Link href="/arhiv" className="hover:text-brand dark:hover:text-brand transition">Arhiv novic</Link></li>
                 <li><Link href="/projekt" className="hover:text-brand dark:hover:text-brand transition">O projektu</Link></li>
                 <li><Link href="/pogoji" className="hover:text-brand dark:hover:text-brand transition">Pogoji uporabe</Link></li>
