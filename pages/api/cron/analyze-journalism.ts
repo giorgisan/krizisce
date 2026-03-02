@@ -17,7 +17,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
-    // 1. ZAJEM IZ CACHE TABELE (vzame najnovejšo grupacijo, enako kot naslovnica)
+    // 1. ZAJEM IZ CACHE TABELE
     const { data: cacheData, error: cacheError } = await supabase
       .from('trending_groups_cache')
       .select('data')
@@ -32,7 +32,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.json({ message: "Ni podatkov za analizo." })
     }
 
-    // 2. Izbor prvih 5 skupin (Top stories)
+    // 2. Izbor prvih 5 skupin
     const topStories = allGroups.slice(0, 5)
 
     // 3. Priprava podatkov za AI (DODAN POVZETEK IN URL)
@@ -50,7 +50,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
        
        allInGroup.slice(0, 8).forEach((item: any) => {
           const snippet = item.snippet || item.contentsnippet || item.contentSnippet || '';
-          
           // SPREMEMBA: Tukaj smo AI-ju dodali še URL, da si ga ne bo več izmišljeval!
           promptData += `- Vir: ${item.source}, Naslov: "${item.title}", URL: "${item.link}", Povzetek: "${snippet}"\n`
        })
@@ -103,7 +102,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                 url: { type: SchemaType.STRING },
                 tone: { 
                   type: SchemaType.STRING,
-                  description: "Ena od vrednosti: Nevtralno, Senzacionalistično, Poglobljeno, Kritično."
+                  description: "Ena od vrednosti: Nevtralno, Dramatično, Poglobljeno, Kritično."
                 }
               },
               required: ["source", "title", "url", "tone"]
@@ -119,7 +118,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         generationConfig: {
             responseMimeType: "application/json",
             responseSchema: responseSchema,
-            temperature: 0.4, // Malo večja kreativnost za lepše pisanje odstavkov analize
+            temperature: 0.4,
         }
     }); 
 
@@ -155,3 +154,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(200).json({ success: true, count: finalData.length, data: finalData })
 
   } catch (e: any) {
+      console.error("Monitor AI Error:", e)
+      return res.status(500).json({ error: e.message })
+  }
+}
