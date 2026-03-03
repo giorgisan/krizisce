@@ -19,7 +19,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
-    // 1. ZAJEM ZA ZADNJIH 30 UR (Da zajamemo tudi včerajšnje jutro in današnje sveže napovedi)
+    // 1. ZAJEM PODATKOV ZA ZADNJIH 30 UR
     const timeWindow = new Date(Date.now() - 30 * 60 * 60 * 1000).toISOString()
     const { data: analysisRows, error } = await supabase
       .from('media_analysis')
@@ -29,30 +29,39 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     if (error) throw error
 
-    // 2. ČIŠČENJE IN RAZVRŠČANJE (Matematična določitev glavne novice)
+    // 2. KUMULATIVNO TOČKOVANJE (Reši problem "Smodej vs Iran")
     const topicMap = new Map<string, any>()
     if (analysisRows) {
         analysisRows.forEach(row => {
             const items = Array.isArray(row.data) ? row.data : []
             items.forEach(item => {
-                const existing = topicMap.get(item.topic);
-                const sourceCount = Array.isArray(item.sources) ? item.sources.length : 1;
+                const t = item.topic;
+                const existing = topicMap.get(t);
+                const sCount = Array.isArray(item.sources) ? item.sources.length : 1;
                 
-                if (!existing || sourceCount > existing.sourceCount) {
-                    topicMap.set(item.topic, {
-                        topic: item.topic,
+                if (existing) {
+                    // Če tema že obstaja, ji PRIŠTEJEMO točke! Teme, ki so aktualne cel dan, zmagajo.
+                    existing.score += sCount;
+                    // Če prej nismo imeli slike, jo zdaj dodamo
+                    if (!existing.image_url && item.main_image && item.main_image.startsWith('http')) {
+                        existing.image_url = item.main_image;
+                    }
+                } else {
+                    topicMap.set(t, {
+                        topic: t,
                         summary: item.summary,
                         image_url: item.main_image && item.main_image.startsWith('http') ? item.main_image : null,
-                        sourceCount: sourceCount
+                        score: sCount
                     })
                 }
             })
         })
     }
 
+    // Razvrstimo po točkah in vzamemo TOP 10 najbolj konsistentnih zgodb dneva
     const topStories = Array.from(topicMap.values())
-        .sort((a, b) => b.sourceCount - a.sourceCount)
-        .slice(0, 10); // Top 10 je dovolj za AI
+        .sort((a, b) => b.score - a.score)
+        .slice(0, 10);
 
     if (topStories.length === 0) {
         return res.status(200).json({ message: "Ni podatkov za newsletter." })
@@ -63,20 +72,20 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         promptData += `[STORY #${index + 1}]\n- TOPIC: ${story.topic}\n- SUMMARY: ${story.summary}\n- HAS_IMAGE: ${story.image_url ? story.image_url : 'NO_IMAGE'}\n\n`
     })
 
-    // 3. OSTER, PROFESIONALEN PROMPT (Po Claudovih nasvetih)
+    // 3. AI PROMPT Z ENOSTAVNO SHEMO
     const prompt = `
-      You are the Editor-in-Chief of 'Križišče', Slovenia's sharpest morning news digest.
-      Tone: direct, confident, professional, zero fluff. Like a trusted colleague briefing you before a meeting.
+      You are the expert Editor-in-Chief of 'Križišče', Slovenia's sharpest morning news digest.
+      Tone: direct, confident, engaging, zero fluff. Like a trusted colleague briefing you.
       
-      Top Slovenian stories from the last 30 hours, ORDERED BY IMPORTANCE (Story #1 is the most covered):
+      Top Slovenian stories from the last 30 hours, ORDERED BY IMPORTANCE (Story #1 is objectively the biggest):
       ${promptData}
 
       RULES:
-      - intro: 1-2 punchy sentences welcoming the reader and setting the daily vibe.
-      - featured_story: YOU MUST USE [STORY #1]. It is objectively the most important. Headline max 10 words, summary max 3 sentences. Copy its HAS_IMAGE url exactly.
-      - categories: Group 4-5 OTHER stories into logical sections (e.g. 🌍 Svet, 🇸🇮 Slovenija, ⚽ Šport). Headline max 8 words, 1-2 sentences summary.
-      - today_watch: Extract explicitly mentioned scheduled events/matches/announcements happening TODAY from the data. If nothing concrete is in the data, return an EMPTY ARRAY. DO NOT invent.
-      - closing_line: One punchy sentence. What should the reader keep in mind today?
+      - intro: 2 welcoming, smart sentences setting the daily vibe.
+      - featured_story: YOU MUST USE [STORY #1]. Headline max 10 words, summary max 3 sentences. Copy its HAS_IMAGE url exactly.
+      - other_stories: Select exactly 5 or 6 OTHER important stories. For each, assign a 'category' with an emoji (e.g. "🌍 Svet", "🇸🇮 Slovenija", "⚽ Šport", "💻 Gospodarstvo"). Keep summaries to 1-2 punchy sentences.
+      - today_watch: Provide 2-3 bullet points. If there are no scheduled events, tell the reader what ongoing themes they should keep an eye on today.
+      - closing_line: One punchy sentence.
       - LANGUAGE: Perfect, professional Slovenian.
     `
 
@@ -93,25 +102,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                 },
                 required: ["headline", "summary", "image_url"]
             },
-            categories: {
+            other_stories: {
                 type: SchemaType.ARRAY,
                 items: {
                     type: SchemaType.OBJECT,
                     properties: {
-                        title: { type: SchemaType.STRING },
-                        stories: {
-                            type: SchemaType.ARRAY,
-                            items: {
-                                type: SchemaType.OBJECT,
-                                properties: {
-                                    headline: { type: SchemaType.STRING },
-                                    summary: { type: SchemaType.STRING }
-                                },
-                                required: ["headline", "summary"]
-                            }
-                        }
+                        category: { type: SchemaType.STRING, description: "Kategorija z emojijem, npr. '🌍 Svet'" },
+                        headline: { type: SchemaType.STRING },
+                        summary: { type: SchemaType.STRING }
                     },
-                    required: ["title", "stories"]
+                    required: ["category", "headline", "summary"]
                 }
             },
             today_watch: {
@@ -120,32 +120,65 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             },
             closing_line: { type: SchemaType.STRING }
         },
-        required: ["intro", "featured_story", "categories", "today_watch", "closing_line"]
+        required: ["intro", "featured_story", "other_stories", "today_watch", "closing_line"]
     };
 
     const generationConfig = { 
         responseMimeType: "application/json",
         responseSchema: responseSchema,
-        temperature: 0.2 // Nizka temperatura za stabilnost in poslušnost
+        temperature: 0.4 // Malo svobode, da tekst lepše teče
     };
 
     let aiData;
     try {
-        // Stabilni 2.5-pro je sedaj primarni
         const modelPro = genAI.getGenerativeModel({ model: "gemini-2.5-pro", generationConfig });
         const resultPro = await modelPro.generateContent(prompt);
         aiData = JSON.parse(resultPro.response.text());
     } catch (errPro: any) {
-        console.warn("⚠️ Gemini 2.5 Pro failed, fallback to 2.5-flash...");
+        console.warn("Fallback to 2.5-flash...");
         const modelFlash = genAI.getGenerativeModel({ model: "gemini-2.5-flash", generationConfig });
         const resultFlash = await modelFlash.generateContent(prompt);
         aiData = JSON.parse(resultFlash.response.text());
     }
 
+    // Grupiranje novic po kategorijah v JavaScriptu (da ne mučimo AI-ja s težkimi strukturami)
+    const groupedStories: Record<string, any[]> = {};
+    if (aiData.other_stories && Array.isArray(aiData.other_stories)) {
+        aiData.other_stories.forEach((story: any) => {
+            const cat = story.category || '📰 Ostalo';
+            if (!groupedStories[cat]) groupedStories[cat] = [];
+            groupedStories[cat].push(story);
+        });
+    }
+
     const todayStr = new Intl.DateTimeFormat('sl-SI', { weekday: 'long', day: 'numeric', month: 'long' }).format(new Date())
     const subjectStr = `[PREDOGLED] Križišče Brifing (${todayStr})`
     
-    // 4. E-MAIL SAFE HTML DIZAJN (Brez flexboxa, inline CSS, varni fonti)
+    // 4. SESTAVA HTML-JA (Zanesljivo renderiranje za Gmail in Outlook)
+    let categoriesHtml = '';
+    Object.entries(groupedStories).forEach(([category, stories]) => {
+        categoriesHtml += `
+            <div style="margin-bottom: 25px;">
+              <h3 style="font-size: 14px; color: #111827; text-transform: uppercase; letter-spacing: 0.05em; margin-top: 0; margin-bottom: 12px; font-weight: bold; border-bottom: 2px solid #E5E7EB; padding-bottom: 8px; font-family: -apple-system, Arial, sans-serif;">
+                ${category}
+              </h3>
+              <table width="100%" border="0" cellspacing="0" cellpadding="0">
+                ${stories.map((story: any) => `
+                  <tr>
+                    <td valign="top" style="padding-bottom: 14px; font-family: -apple-system, Arial, sans-serif; font-size: 15px; line-height: 1.5; color: #374151;">
+                      <strong style="color: #111827;">${story.headline}:</strong> ${story.summary}
+                    </td>
+                  </tr>
+                `).join('')}
+              </table>
+            </div>
+        `;
+    });
+
+    const proxyImageUrl = aiData.featured_story.image_url && aiData.featured_story.image_url !== 'NO_IMAGE' 
+        ? `https://images.weserv.nl/?url=${encodeURIComponent(aiData.featured_story.image_url)}&w=600&output=webp` 
+        : null;
+
     const finalEmailHtml = `
       <!DOCTYPE html>
       <html>
@@ -158,7 +191,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #F3F4F6; padding: 20px 0;">
           <tr>
             <td align="center">
-              <table width="100%" max-width="600" border="0" cellspacing="0" cellpadding="0" style="max-width: 600px; background-color: #ffffff; border-radius: 8px; border: 1px solid #E5E7EB; overflow: hidden;">
+              <table width="100%" max-width="600" border="0" cellspacing="0" cellpadding="0" style="max-width: 600px; background-color: #ffffff; border-radius: 8px; border: 1px solid #E5E7EB; overflow: hidden; margin: 0 auto;">
                 
                 <tr>
                   <td align="center" style="padding: 30px 20px; border-bottom: 1px solid #E5E7EB;">
@@ -179,9 +212,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                       ${aiData.intro}
                     </p>
 
-                    ${aiData.featured_story.image_url && aiData.featured_story.image_url !== 'NO_IMAGE' ? `
+                    ${proxyImageUrl ? `
                       <div style="margin-bottom: 16px; border: 1px solid #E5E7EB; border-radius: 6px; overflow: hidden;">
-                         <img src="https://images.weserv.nl/?url=${encodeURIComponent(aiData.featured_story.image_url)}&w=600&output=webp" alt="Glavna novica" style="width: 100%; height: auto; display: block;">
+                         <img src="${proxyImageUrl}" alt="Glavna novica" style="width: 100%; height: auto; display: block;">
                       </div>
                     ` : ''}
                     <h2 style="font-size: 24px; color: #111827; font-weight: bold; margin-top: 0; margin-bottom: 12px; line-height: 1.3; font-family: Georgia, 'Times New Roman', serif;">
@@ -191,22 +224,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                       ${aiData.featured_story.summary}
                     </p>
 
-                    ${aiData.categories.map((cat: any) => `
-                      <div style="margin-bottom: 25px;">
-                        <h3 style="font-size: 14px; color: #111827; text-transform: uppercase; letter-spacing: 0.05em; margin-top: 0; margin-bottom: 12px; font-weight: bold; border-bottom: 2px solid #E5E7EB; padding-bottom: 8px; font-family: -apple-system, Arial, sans-serif;">
-                          ${cat.title}
-                        </h3>
-                        <table width="100%" border="0" cellspacing="0" cellpadding="0">
-                          ${cat.stories.map((story: any) => `
-                            <tr>
-                              <td valign="top" style="padding-bottom: 12px; font-family: -apple-system, Arial, sans-serif; font-size: 15px; line-height: 1.5; color: #374151;">
-                                <strong style="color: #111827;">${story.headline}:</strong> ${story.summary}
-                              </td>
-                            </tr>
-                          `).join('')}
-                        </table>
-                      </div>
-                    `).join('')}
+                    ${categoriesHtml}
 
                     ${aiData.today_watch && aiData.today_watch.length > 0 ? `
                       <div style="background-color: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 6px; padding: 20px; margin-bottom: 30px;">
@@ -265,7 +283,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       </html>
     `;
 
-    // 4. SHRANJEVANJE V BAZO
+    // 5. SHRANJEVANJE V BAZO
     const { data: insertedNewsletter, error: insertError } = await supabase
       .from('newsletters')
       .insert({
@@ -278,7 +296,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     if (insertError) throw insertError;
 
-    // 5. POŠILJANJE PREDOGLEDA
+    // 6. POŠILJANJE PREDOGLEDA
     const { data: emailData, error: emailError } = await resend.emails.send({
       from: 'Križišče <onboarding@resend.dev>',
       to: ['gjkcme@gmail.com'], 
