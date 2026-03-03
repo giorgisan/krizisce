@@ -19,7 +19,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
-    // 1. Zajem podatkov iz media_analysis za zadnjih 24 ur
+    // 1. Zajem podatkov iz media_analysis za strogo zadnjih 24 ur
     const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
     const { data: analysisRows, error } = await supabase
       .from('media_analysis')
@@ -51,34 +51,41 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         promptData += `- TOPIC: ${topic}\n  SUMMARY: ${summary}\n\n`
     })
 
-    // 3. ANGLEŠKI PROMPT S SLOVENSKIM IZHODOM
+    // 3. NOVI AI PROMPT (Strukturiran, po vzoru tvojega News Digesta)
     const prompt = `
-      You are the Editor-in-Chief of a Slovenian morning news briefing called 'Križišče'.
-      Your goal is to write a premium, smooth, and quick daily digest (newsletter) for readers enjoying their morning coffee.
+      You are the Editor-in-Chief of a premium Slovenian morning news briefing called 'Križišče'.
+      Your goal is to write a highly structured, easily scannable, and quick daily digest for readers enjoying their morning coffee.
 
-      Here are the key topics and summaries of yesterday's events in Slovenia and the world:
+      Here is the raw data (topics and summaries) from the last 24 hours:
       ${promptData}
 
       Your task:
-      1. Write 2 to 3 short, engaging paragraphs (Digest) that smoothly summarize the main events. Do NOT use bullet points here. Write it like a short, flowing radio report. The tone should be professional, objective, but pleasant to read.
-      2. Extract or predict events that will obviously happen TODAY (announcements, matches, meetings, strikes) from the provided text, and create a special section called "Kaj nas čaka danes". Use 2-3 short bullet points for this.
+      Organize the most important news into logical sections. Discard minor, duplicate, or irrelevant news.
+      Write in perfect, professional SLOVENIAN language.
+      Format the news as punchy bullet points. Bold the main entity or subject at the start of each bullet point.
 
-      CRITICAL INSTRUCTION: The entire generated text MUST be written in perfect SLOVENIAN language.
+      You MUST categorize the news into the following sections (only use the ones that have relevant news):
+      - 🇸🇮 Slovenija in regija
+      - 🌍 Globalno dogajanje
+      - 💻 Gospodarstvo in Tehnologija
+      - ⚽ Šport
+      - ☕ Kaj nas čaka danes (Extract or predict events happening TODAY from the data)
+
+      RETURN STRICTLY HTML CODE (no markdown \`\`\` tags, no intro text, just raw HTML). 
+      Use exactly this HTML structure for EACH section:
       
-      RETURN STRICTLY HTML CODE (no markdown \`\`\` tags, just raw HTML). Use the following exact structure:
-      <p style="font-size: 16px; line-height: 1.6; color: #374151; margin-bottom: 16px;">[Your first paragraph in Slovenian]</p>
-      <p style="font-size: 16px; line-height: 1.6; color: #374151; margin-bottom: 24px;">[Your second/third paragraph in Slovenian]</p>
-      <h2 style="font-size: 18px; color: #111827; border-bottom: 1px solid #E5E7EB; padding-bottom: 8px; margin-bottom: 16px;">Kaj nas čaka danes ☕</h2>
-      <ul style="font-size: 15px; line-height: 1.6; color: #4B5563; padding-left: 20px;">
-        <li style="margin-bottom: 8px;">[First prediction in Slovenian]</li>
-        <li style="margin-bottom: 8px;">[Second prediction in Slovenian]</li>
+      <h3 style="font-size: 15px; color: #111827; margin-bottom: 12px; margin-top: 24px; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid #E5E7EB; padding-bottom: 6px;">[EMOJI] [SECTION TITLE]</h3>
+      <ul style="font-size: 15px; line-height: 1.6; color: #374151; padding-left: 20px; margin-bottom: 0;">
+        <li style="margin-bottom: 10px;"><strong>[Bold Topic]:</strong> [Short, punchy summary in Slovenian]</li>
       </ul>
     `
 
-    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash", generationConfig: { temperature: 0.6 } })
+    // Uporabimo manjšo temperaturo (0.4), da bo AI bolj faktografski in manj "poetičen"
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash", generationConfig: { temperature: 0.4 } })
     const result = await model.generateContent(prompt)
     let aiHtml = result.response.text()
     
+    // Očistimo morebitne markdown ostanke
     aiHtml = aiHtml.replace(/```html/g, '').replace(/```/g, '').trim()
 
     const todayStr = new Intl.DateTimeFormat('sl-SI', { weekday: 'long', day: 'numeric', month: 'long' }).format(new Date())
@@ -99,7 +106,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             </p>
           </div>
 
-          <div style="padding: 32px 24px;">
+          <div style="padding: 10px 24px 32px 24px;">
             ${aiHtml}
           </div>
 
@@ -135,7 +142,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // 5. POŠILJANJE NA TVOJ MAIL PREKO RESENDA
     const { data: emailData, error: emailError } = await resend.emails.send({
       from: 'Križišče <onboarding@resend.dev>',
-      to: ['gjkcme@gmail.com'], // Tvoj pravi email za Resend
+      to: ['gjkcme@gmail.com'], 
       subject: subjectStr,
       html: finalEmailHtml,
     });
