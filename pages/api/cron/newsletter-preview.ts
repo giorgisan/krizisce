@@ -3,7 +3,7 @@ import { createClient } from '@supabase/supabase-js'
 import { GoogleGenerativeAI } from '@google/generative-ai'
 import { Resend } from 'resend'
 
-export const maxDuration = 60; // Dovolimo do 60 sekund za izvajanje
+export const maxDuration = 60; 
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -14,7 +14,6 @@ const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_KEY || '')
 const resend = new Resend(process.env.RESEND_API_KEY)
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  // Avtorizacija (zaščita cron joba)
   if (req.query.key !== process.env.CRON_SECRET) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
@@ -36,7 +35,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         analysisRows.forEach(row => {
             const items = Array.isArray(row.data) ? row.data : []
             items.forEach(item => {
-                // Če te teme še nimamo, jo dodamo (vzame najnovejšo verzijo povzetka)
                 if (!uniqueTopics.has(item.topic)) {
                     uniqueTopics.set(item.topic, item.summary)
                 }
@@ -48,30 +46,32 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(200).json({ message: "Ni podatkov za newsletter." })
     }
 
-    // Priprava teksta za AI
     let promptData = ""
     uniqueTopics.forEach((summary, topic) => {
-        promptData += `- TEMA: ${topic}\n  POVZETEK: ${summary}\n\n`
+        promptData += `- TOPIC: ${topic}\n  SUMMARY: ${summary}\n\n`
     })
 
-    // 3. AI Uredniški Prompt
+    // 3. ANGLEŠKI PROMPT S SLOVENSKIM IZHODOM
     const prompt = `
-      Ti si glavni urednik jutranjega novičarskega brifinga 'Križišče'. Tvoj cilj je napisati vrhunski, tekoč in hiter pregled dogajanja (newsletter) za bralce, ki pijejo jutranjo kavo.
-      
-      Tukaj so ključne teme in povzetki včerajšnjega dogajanja v Sloveniji in po svetu:
+      You are the Editor-in-Chief of a Slovenian morning news briefing called 'Križišče'.
+      Your goal is to write a premium, smooth, and quick daily digest (newsletter) for readers enjoying their morning coffee.
+
+      Here are the key topics and summaries of yesterday's events in Slovenia and the world:
       ${promptData}
 
-      Tvoja naloga:
-      1. Napiši 2 do 3 kratke, privlačne odstavke (Digest), ki tekoče povzamejo glavno dogajanje. Ne naštevaj po alinejah, ampak napiši kot kratko radijsko poročilo. Tone naj bo profesionalen, objektiven, a prijeten za branje.
-      2. Izlušči ali predvidi dogodke, ki se bodo očitno zgodili DANES (napovedi, tekme, sestanki, stavke), in ustvari posebno sekcijo "Kaj nas čaka danes". Tukaj uporabi 2-3 kratke alineje.
+      Your task:
+      1. Write 2 to 3 short, engaging paragraphs (Digest) that smoothly summarize the main events. Do NOT use bullet points here. Write it like a short, flowing radio report. The tone should be professional, objective, but pleasant to read.
+      2. Extract or predict events that will obviously happen TODAY (announcements, matches, meetings, strikes) from the provided text, and create a special section called "Kaj nas čaka danes". Use 2-3 short bullet points for this.
+
+      CRITICAL INSTRUCTION: The entire generated text MUST be written in perfect SLOVENIAN language.
       
-      VRNI IZKLJUČNO HTML KODO (brez markdown \`\`\` oznak, samo surov HTML). Uporabi naslednjo strukturo:
-      <p style="font-size: 16px; line-height: 1.6; color: #374151; margin-bottom: 16px;">[Tvoj prvi odstavek]</p>
-      <p style="font-size: 16px; line-height: 1.6; color: #374151; margin-bottom: 24px;">[Tvoj drugi/tretji odstavek]</p>
+      RETURN STRICTLY HTML CODE (no markdown \`\`\` tags, just raw HTML). Use the following exact structure:
+      <p style="font-size: 16px; line-height: 1.6; color: #374151; margin-bottom: 16px;">[Your first paragraph in Slovenian]</p>
+      <p style="font-size: 16px; line-height: 1.6; color: #374151; margin-bottom: 24px;">[Your second/third paragraph in Slovenian]</p>
       <h2 style="font-size: 18px; color: #111827; border-bottom: 1px solid #E5E7EB; padding-bottom: 8px; margin-bottom: 16px;">Kaj nas čaka danes ☕</h2>
       <ul style="font-size: 15px; line-height: 1.6; color: #4B5563; padding-left: 20px;">
-        <li style="margin-bottom: 8px;">[Prva napoved]</li>
-        <li style="margin-bottom: 8px;">[Druga napoved]</li>
+        <li style="margin-bottom: 8px;">[First prediction in Slovenian]</li>
+        <li style="margin-bottom: 8px;">[Second prediction in Slovenian]</li>
       </ul>
     `
 
@@ -79,11 +79,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const result = await model.generateContent(prompt)
     let aiHtml = result.response.text()
     
-    // Očistimo morebitne markdown ostanke
     aiHtml = aiHtml.replace(/```html/g, '').replace(/```/g, '').trim()
 
-    // 4. Sestava končnega dizajna elektronskega sporočila
     const todayStr = new Intl.DateTimeFormat('sl-SI', { weekday: 'long', day: 'numeric', month: 'long' }).format(new Date())
+    const subjectStr = `[PREDOGLED] Križišče Brifing (${todayStr})`
     
     const finalEmailHtml = `
       <!DOCTYPE html>
@@ -120,17 +119,34 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       </html>
     `;
 
-    // 5. Pošiljanje preko Resenda na tvoj mail
+    // 4. SHRANJEVANJE V BAZO
+    const { data: insertedNewsletter, error: insertError } = await supabase
+      .from('newsletters')
+      .insert({
+        subject: subjectStr,
+        html_content: finalEmailHtml,
+        status: 'draft'
+      })
+      .select('id')
+      .single();
+
+    if (insertError) throw insertError;
+
+    // 5. POŠILJANJE NA TVOJ MAIL PREKO RESENDA
     const { data: emailData, error: emailError } = await resend.emails.send({
-      from: 'Križišče <onboarding@resend.dev>', // Začasni Resend email za testiranje
-      to: ['gjakac@gmail.com'],
-      subject: `[PREDOGLED] Križišče Brifing (${todayStr})`,
+      from: 'Križišče <onboarding@resend.dev>',
+      to: ['gjkcme@gmail.com'], // Tvoj pravi email za Resend
+      subject: subjectStr,
       html: finalEmailHtml,
     });
 
     if (emailError) throw emailError;
 
-    return res.status(200).json({ success: true, message: "Predogled poslan na gjakac@gmail.com!", id: emailData?.id })
+    return res.status(200).json({ 
+        success: true, 
+        message: "Predogled shranjen in poslan!", 
+        newsletter_id: insertedNewsletter.id 
+    })
 
   } catch (e: any) {
       console.error("Newsletter Error:", e)
