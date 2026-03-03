@@ -19,12 +19,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
-    // 1. Zajem podatkov iz media_analysis za strogo zadnjih 24 ur
-    const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
+    // 1. Zajem podatkov iz media_analysis za zadnjih 30 ur (da imamo dovolj mesa)
+    const timeWindow = new Date(Date.now() - 30 * 60 * 60 * 1000).toISOString()
     const { data: analysisRows, error } = await supabase
       .from('media_analysis')
       .select('data')
-      .gte('created_at', yesterday)
+      .gte('created_at', timeWindow)
       .order('created_at', { ascending: false })
 
     if (error) throw error
@@ -36,14 +36,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             const items = Array.isArray(row.data) ? row.data : []
             items.forEach(item => {
                 const existing = topicMap.get(item.topic);
-                const sourceCount = Array.isArray(item.sources) ? item.sources.length : 0;
+                const sourceCount = Array.isArray(item.sources) ? item.sources.length : 1;
                 
-                // Obdržimo temo, če je še ni, ali pa če ima trenutni zapis več navedenih virov
+                // Obdržimo temo, če je še ni, ali pa če ima trenutni zapis več virov (boljša analiza)
                 if (!existing || sourceCount > existing.sourceCount) {
                     topicMap.set(item.topic, {
                         topic: item.topic,
                         summary: item.summary,
-                        image_url: item.main_image || null,
+                        image_url: item.main_image && item.main_image.startsWith('http') ? item.main_image : null,
                         sourceCount: sourceCount
                     })
                 }
@@ -51,10 +51,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         })
     }
 
-    // Pretvorimo v array, sortiramo padajoče po številu virov in vzamemo SAMO TOP 6 zgodb!
+    // Sortiramo padajoče po številu virov in vzamemo TOP 12 zgodb, da ima AI na voljo celoten presek dneva
     const topStories = Array.from(topicMap.values())
         .sort((a, b) => b.sourceCount - a.sourceCount)
-        .slice(0, 6);
+        .slice(0, 12);
 
     if (topStories.length === 0) {
         return res.status(200).json({ message: "Ni podatkov za newsletter." })
@@ -62,61 +62,82 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     let promptData = ""
     topStories.forEach((story) => {
-        promptData += `- TOPIC: ${story.topic}\n  SUMMARY: ${story.summary}\n  SOURCES_COUNT: ${story.sourceCount}\n  IMAGE: ${story.image_url || 'none'}\n\n`
+        promptData += `- TOPIC: ${story.topic}\n  SUMMARY: ${story.summary}\n  SOURCES_COUNT: ${story.sourceCount}\n  HAS_IMAGE: ${story.image_url ? story.image_url : 'NO_IMAGE'}\n\n`
     })
 
-    // 3. AI PROMPT - Direkten, profesionalen, brez "fluff-a"
+    // 3. VRHUNSKI UREDNIŠKI PROMPT IN JSON SHEMA
     const prompt = `
-      You are the Editor-in-Chief of 'Križišče', Slovenia's sharpest morning news digest.
-      Tone: direct, confident, zero fluff. Like a trusted colleague briefing you before a meeting.
+      You are the expert Editor-in-Chief of 'Križišče', Slovenia's premium morning news digest.
+      Your tone is smart, engaging, informative, and perfectly prepared to brief the reader for the day ahead (similar to Morning Brew or Axios, but in Slovenian).
       
-      Top Slovenian stories from the last 24 hours:
+      Here are the most covered stories in Slovenia from the last 24 hours, sorted by importance:
       ${promptData}
 
-      RULES:
-      - featured_story: the single highest-impact story. headline max 10 words, summary max 2 sentences. Copy the IMAGE url from the data exactly.
-      - other_stories: 4-5 stories. Each: headline max 8 words, one sentence summary.
-      - today_watch: ONLY include if explicitly mentioned in the data above (scheduled events, matches, sessions, deadlines). If nothing concrete — return empty array. DO NOT invent.
-      - closing_line: one punchy sentence. What should the reader keep in mind today?
-      - All text in professional Slovenian. No filler phrases like "V današnjem dnevu..." or "Poročajo, da...".
+      YOUR TASK:
+      1. Write an engaging 'intro': A warm, smart morning greeting that smoothly summarizes the general vibe of today's news in 2-3 sentences.
+      2. Choose the absolute most important story for 'featured_story'. YOU MUST CHOOSE A STORY THAT HAS A VALID URL IN 'HAS_IMAGE'.
+      3. Group 4 to 6 other important stories into 2 or 3 logical 'categories' (e.g., 🌍 Globalno dogajanje, 💻 Gospodarstvo in Tehnologija, 🇸🇮 Slovenija in regija). Use emojis in category titles.
+      4. Create a 'today_watch' section. Extract explicit events happening TODAY. If there are no specific scheduled events, write 2 smart bullet points about what the main ongoing theme/focus of the day will likely be.
+      5. Write a short, punchy 'closing' sentence to sign off.
+
+      CRITICAL: Write EVERYTHING in perfect, professional SLOVENIAN language.
     `
 
     const responseSchema = {
         type: SchemaType.OBJECT,
         properties: {
+            intro: { 
+                type: SchemaType.STRING, 
+                description: "Pameten, tekoč in privlačen uvodni odstavek (2-3 stavki), ki bralca pozdravi in povzame 'vibe' dneva." 
+            },
             featured_story: {
                 type: SchemaType.OBJECT,
                 properties: {
-                    headline: { type: SchemaType.STRING },
-                    summary: { type: SchemaType.STRING },
-                    image_url: { type: SchemaType.STRING, description: "Kopiraj IMAGE url iz vhodnih podatkov za to zgodbo. Če je 'none', vrni prazno." }
+                    headline: { type: SchemaType.STRING, description: "Udaren naslov glavne novice." },
+                    summary: { type: SchemaType.STRING, description: "Tekoč, zanimiv odstavek o glavni zgodbi (cca 3-4 stavki)." },
+                    image_url: { type: SchemaType.STRING, description: "Obvezno prekopiraj URL slike iz HAS_IMAGE za to zgodbo." }
                 },
                 required: ["headline", "summary", "image_url"]
             },
-            other_stories: {
+            categories: {
                 type: SchemaType.ARRAY,
+                description: "Kategorizirane ostale pomembne novice.",
                 items: {
                     type: SchemaType.OBJECT,
                     properties: {
-                        headline: { type: SchemaType.STRING },
-                        summary: { type: SchemaType.STRING }
+                        title: { type: SchemaType.STRING, description: "Ime kategorije z emojijem (npr. '🌍 Svet', '🇸🇮 Slovenija')." },
+                        stories: {
+                            type: SchemaType.ARRAY,
+                            items: {
+                                type: SchemaType.OBJECT,
+                                properties: {
+                                    headline: { type: SchemaType.STRING },
+                                    summary: { type: SchemaType.STRING }
+                                },
+                                required: ["headline", "summary"]
+                            }
+                        }
                     },
-                    required: ["headline", "summary"]
+                    required: ["title", "stories"]
                 }
             },
             today_watch: {
                 type: SchemaType.ARRAY,
+                description: "Seznam 2-3 stvari, ki se bodo zgodile danes ali pa so fokus današnjega dne.",
                 items: { type: SchemaType.STRING }
             },
-            closing_line: { type: SchemaType.STRING }
+            closing: { 
+                type: SchemaType.STRING, 
+                description: "Kratek, optimističen ali pronicljiv zaključek (1 stavek)." 
+            }
         },
-        required: ["featured_story", "other_stories", "today_watch", "closing_line"]
+        required: ["intro", "featured_story", "categories", "today_watch", "closing"]
     };
 
     const generationConfig = { 
         responseMimeType: "application/json",
         responseSchema: responseSchema,
-        temperature: 0.3 // Še malenkost znižana za večjo natančnost in sledenje pravilom
+        temperature: 0.4 
     };
 
     let aiData;
@@ -155,62 +176,77 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; margin-top: 20px; margin-bottom: 20px; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);">
           
           <div style="text-align: center; padding: 30px 20px; border-bottom: 1px solid #E5E7EB; background-color: #ffffff;">
-            <img src="https://krizisce.si/logo.png" alt="Križišče Logo" style="width: 40px; height: 40px; margin-bottom: 10px; display: inline-block;">
-            <h1 style="margin: 0; font-size: 28px; color: #111827; font-family: 'Playfair Display', serif; font-weight: 800; letter-spacing: -0.02em;">
+            <img src="https://krizisce.si/logo.png" alt="Križišče Logo" style="width: 44px; height: 44px; margin-bottom: 12px; display: inline-block;">
+            <h1 style="margin: 0; font-size: 30px; color: #111827; font-family: 'Playfair Display', serif; font-weight: 800; letter-spacing: -0.02em;">
               Križišče <span style="color: #10B981;">Brifing</span>
             </h1>
-            <p style="margin: 8px 0 0 0; font-size: 12px; color: #6B7280; text-transform: uppercase; letter-spacing: 0.1em; font-weight: 600;">
+            <p style="margin: 8px 0 0 0; font-size: 13px; color: #6B7280; text-transform: uppercase; letter-spacing: 0.1em; font-weight: 600;">
               ${todayStr}
             </p>
           </div>
 
-          <div style="padding: 30px 24px;">
+          <div style="padding: 35px 24px;">
 
-            ${aiData.featured_story.image_url && aiData.featured_story.image_url !== 'none' ? `
-              <div style="margin-bottom: 16px; border-radius: 8px; overflow: hidden;">
-                 <img src="${aiData.featured_story.image_url}" alt="Zgodba dneva" style="width: 100%; height: auto; display: block; border-radius: 8px;">
+            <p style="font-size: 16px; line-height: 1.6; color: #374151; margin-top: 0; margin-bottom: 30px;">
+              ${aiData.intro}
+            </p>
+
+            ${aiData.featured_story.image_url && aiData.featured_story.image_url !== 'NO_IMAGE' ? `
+              <div style="margin-bottom: 20px; border-radius: 10px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.05);">
+                 <img src="${aiData.featured_story.image_url}" alt="Glavna zgodba" style="width: 100%; height: auto; display: block;">
               </div>
             ` : ''}
-            <h2 style="font-size: 22px; color: #111827; font-weight: 800; margin-top: 0; margin-bottom: 12px; line-height: 1.3;">
+            <h2 style="font-size: 24px; color: #111827; font-weight: 800; margin-top: 0; margin-bottom: 12px; line-height: 1.3; font-family: 'Playfair Display', serif;">
               ${aiData.featured_story.headline}
             </h2>
-            <p style="font-size: 16px; line-height: 1.6; color: #374151; margin-top: 0; margin-bottom: 32px;">
+            <p style="font-size: 16px; line-height: 1.7; color: #4B5563; margin-top: 0; margin-bottom: 35px;">
               ${aiData.featured_story.summary}
             </p>
 
-            <div style="background-color: #F9FAFB; border: 1px solid #E5E7EB; border-radius: 8px; padding: 20px; margin-bottom: 32px;">
-              <h3 style="font-size: 13px; color: #6B7280; text-transform: uppercase; letter-spacing: 0.05em; margin-top: 0; margin-bottom: 16px; font-weight: 700;">Drugi poudarki</h3>
-              <ul style="margin: 0; padding-left: 20px; color: #374151; font-size: 15px; line-height: 1.6;">
-                ${aiData.other_stories.map((story: any) => `
-                  <li style="margin-bottom: 12px;"><strong>${story.headline}:</strong> ${story.summary}</li>
-                `).join('')}
-              </ul>
-            </div>
+            ${aiData.categories.map((cat: any) => `
+              <div style="margin-bottom: 30px;">
+                <h3 style="font-size: 15px; color: #111827; text-transform: uppercase; letter-spacing: 0.05em; margin-top: 0; margin-bottom: 16px; font-weight: 700; border-bottom: 2px solid #E5E7EB; padding-bottom: 8px;">
+                  ${cat.title}
+                </h3>
+                <ul style="margin: 0; padding-left: 0; list-style-type: none; color: #374151; font-size: 15px; line-height: 1.6;">
+                  ${cat.stories.map((story: any) => `
+                    <li style="margin-bottom: 16px; padding-left: 16px; border-left: 3px solid #10B981;">
+                      <strong style="color: #111827; display: block; margin-bottom: 2px;">${story.headline}</strong> 
+                      <span style="color: #4B5563;">${story.summary}</span>
+                    </li>
+                  `).join('')}
+                </ul>
+              </div>
+            `).join('')}
 
             ${aiData.today_watch && aiData.today_watch.length > 0 ? `
-              <h3 style="font-size: 18px; color: #111827; font-weight: 800; border-bottom: 2px solid #10B981; padding-bottom: 8px; margin-bottom: 16px; display: inline-block;">Kaj nas čaka danes</h3>
-              <ul style="font-size: 15px; line-height: 1.6; color: #4B5563; padding-left: 20px; margin-top: 0; margin-bottom: 32px;">
-                ${aiData.today_watch.map((event: string) => `
-                  <li style="margin-bottom: 8px;">${event}</li>
-                `).join('')}
-              </ul>
+              <div style="background-color: #F8FAFC; border-radius: 10px; padding: 24px; margin-bottom: 30px; border: 1px solid #E2E8F0;">
+                <h3 style="font-size: 16px; color: #0F172A; font-weight: 700; margin-top: 0; margin-bottom: 16px; display: flex; align-items: center; gap: 8px;">
+                  ☕ Kaj nas čaka danes
+                </h3>
+                <ul style="font-size: 15px; line-height: 1.6; color: #475569; padding-left: 20px; margin-top: 0; margin-bottom: 0;">
+                  ${aiData.today_watch.map((event: string) => `
+                    <li style="margin-bottom: 8px;">${event}</li>
+                  `).join('')}
+                </ul>
+              </div>
             ` : ''}
 
             <p style="font-size: 15px; line-height: 1.6; color: #111827; font-weight: 600; margin-top: 0; margin-bottom: 0; text-align: center; font-style: italic;">
-              ${aiData.closing_line}
+              ${aiData.closing}
             </p>
 
           </div>
 
           <div style="text-align: center; padding: 10px 24px 40px 24px;">
-            <a href="https://krizisce.si" style="display: inline-block; background-color: #111827; color: #ffffff; text-decoration: none; padding: 14px 32px; border-radius: 8px; font-weight: 600; font-size: 15px; transition: background-color 0.2s;">
+            <a href="https://krizisce.si" style="display: inline-block; background-color: #111827; color: #ffffff; text-decoration: none; padding: 16px 36px; border-radius: 50px; font-weight: 600; font-size: 15px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
               Preveri dogajanje v živo ↗
             </a>
           </div>
 
-          <div style="background-color: #111827; padding: 20px; text-align: center; font-size: 12px; color: #9CA3AF;">
-            <p style="margin: 0 0 5px 0;"><strong>TO JE TESTNI PREDOGLED ZA UREDNIKA</strong></p>
-            <p style="margin: 0;">V končni verziji bo tukaj gumb "Odobri in pošlji".</p>
+          <div style="background-color: #111827; padding: 24px; text-align: center; font-size: 12px; color: #9CA3AF;">
+            <p style="margin: 0 0 8px 0; color: #ffffff; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">To je testni predogled</p>
+            <p style="margin: 0;">V končni produkcijski verziji bo tukaj tvoj gumb "Odobri in pošlji vsem".</p>
           </div>
 
         </div>
