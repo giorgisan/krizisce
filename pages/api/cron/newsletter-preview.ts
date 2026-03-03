@@ -120,18 +120,36 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         required: ["intro_greeting", "featured_story", "other_stories", "today_events"]
     };
 
-    // Uporaba najboljšega modela
-    const model = genAI.getGenerativeModel({ 
-        model: "models/gemini-3-pro-preview", 
-        generationConfig: { 
-            responseMimeType: "application/json",
-            responseSchema: responseSchema,
-            temperature: 0.4 
-        } 
-    })
-    
-    const result = await model.generateContent(prompt)
-    const aiData = JSON.parse(result.response.text())
+    const generationConfig = { 
+        responseMimeType: "application/json",
+        responseSchema: responseSchema,
+        temperature: 0.4 
+    };
+
+    let aiData;
+    try {
+        // 1. Poskusimo z najboljšim (Gemini 3 Pro)
+        console.log("Poskušam z gemini-3-pro-preview...");
+        const model3 = genAI.getGenerativeModel({ model: "gemini-3-pro-preview", generationConfig });
+        const result3 = await model3.generateContent(prompt);
+        aiData = JSON.parse(result3.response.text());
+    } catch (err3: any) {
+        console.warn("⚠️ Gemini 3 Pro nedosegljiv, uporabljam stabilni gemini-2.5-pro...");
+        
+        try {
+            // 2. Stabilen Fallback (Gemini 2.5 Pro)
+            const model25pro = genAI.getGenerativeModel({ model: "gemini-2.5-pro", generationConfig });
+            const result25pro = await model25pro.generateContent(prompt);
+            aiData = JSON.parse(result25pro.response.text());
+        } catch (err25pro: any) {
+            console.warn("⚠️ Gemini 2.5 Pro nedosegljiv, uporabljam najhitrejši gemini-2.5-flash...");
+            
+            // 3. Zadnji zanesljiv Fallback (Gemini 2.5 Flash)
+            const modelFlash = genAI.getGenerativeModel({ model: "gemini-2.5-flash", generationConfig });
+            const resultFlash = await modelFlash.generateContent(prompt);
+            aiData = JSON.parse(resultFlash.response.text());
+        }
+    }
 
     const todayStr = new Intl.DateTimeFormat('sl-SI', { weekday: 'long', day: 'numeric', month: 'long' }).format(new Date())
     const subjectStr = `[PREDOGLED] Križišče Brifing (${todayStr})`
