@@ -207,7 +207,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                   <td align="center" style="padding: 35px 20px 25px 20px; border-bottom: 1px solid #E5E7EB; background-color: #ffffff;">
                     <img src="https://krizisce.si/logo.png" alt="Križišče Logo" style="width: 48px; height: 48px; margin-bottom: 16px; display: block;">
                     <h1 style="margin: 0; font-size: 32px; color: #111827; font-family: Georgia, 'Times New Roman', serif; font-weight: normal; letter-spacing: -0.02em;">
-                      Križišče <span style="color: ${BRAND_COLOR}; font-weight: bold;">Pregled</span>
+                      Križišče <span style="color: ${BRAND_COLOR}; font-weight: bold;">Jutranji pregled</span>
                     </h1>
                     <p style="margin: 10px 0 0 0; font-size: 13px; color: #6B7280; text-transform: uppercase; letter-spacing: 0.1em; font-family: -apple-system, Arial, sans-serif;">
                       ${todayStr}
