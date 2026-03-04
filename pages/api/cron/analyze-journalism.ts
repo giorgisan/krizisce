@@ -2,6 +2,9 @@ import { NextApiRequest, NextApiResponse } from 'next'
 import { createClient } from '@supabase/supabase-js'
 import { GoogleGenerativeAI, SchemaType } from '@google/generative-ai'
 
+// SPREMEMBA 1: DODAN MAX DURATION ZA VERCEL (prepreči timeout po 15 sekundah)
+export const maxDuration = 60; 
+
 // Inicializacija klientov
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -84,7 +87,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           },
           summary: {
             type: SchemaType.STRING,
-            // SPREMEMBA TUKAJ: Zahtevamo bistveno bolj bogat povzetek!
+            // SPREMEMBA 2: Zahtevamo bistveno bolj bogat povzetek! To bo newsletterju dalo odličen material.
             description: "A detailed, factual 3 to 4 sentence summary of the story based on the provided snippets. Include key names, specific numbers, actions, and locations mentioned in the text. This will be used as primary reference for a morning briefing."
           },
           framing_analysis: {
