@@ -204,6 +204,16 @@ export default function Header({
     }
   }
 
+  const scrollToNewsletter = () => {
+    const isMobile = window.innerWidth < 768;
+    if (isMobile) {
+        setMobileMenuOpen(false); // Zapre meni na telefonu
+        setTimeout(() => window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' }), 300);
+    } else {
+        window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+    }
+  }
+
   const isDark = (theme === 'dark' || resolvedTheme === 'dark')
 
   return (
@@ -364,7 +374,18 @@ export default function Header({
               </button>
             )}
 
-            {/* ARHIV & THEME */}
+            {/* NEWSLETTER BUTTON (NEW) */}
+            <button
+                onClick={scrollToNewsletter}
+                className="p-2 rounded-md transition-colors text-gray-500 hover:text-brand hover:bg-brand/10 dark:text-gray-400 dark:hover:text-brand dark:hover:bg-brand/10"
+                title="Naročite se na Dnevni pregled novic"
+            >
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                </svg>
+            </button>
+
+            {/* ARHIV */}
             <Link
                 href="/arhiv"
                 className={`p-2 rounded-md transition-colors text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800 ${router.pathname === '/arhiv' ? 'text-brand' : ''}`}
@@ -379,6 +400,7 @@ export default function Header({
                 </svg>
             </Link>
 
+            {/* THEME */}
             {mounted && (
                 <button
                     onClick={() => setTheme(isDark ? 'light' : 'dark')}
@@ -504,7 +526,6 @@ export default function Header({
     <AnimatePresence>
       {mobileMenuOpen && (
         <>
-            {/* Backdrop */}
             <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
@@ -512,7 +533,6 @@ export default function Header({
                 onClick={() => setMobileMenuOpen(false)}
                 className="fixed inset-0 z-[90] bg-black/20 dark:bg-black/50 backdrop-blur-sm"
             />
-            {/* Drawer */}
             <motion.div
                 initial={{ x: '100%' }}
                 animate={{ x: 0 }}
@@ -528,7 +548,6 @@ export default function Header({
                 }}
                 className="fixed top-0 right-0 bottom-0 z-[100] w-[85%] max-w-[320px] bg-white/70 dark:bg-gray-950/80 backdrop-blur-xl flex flex-col overflow-hidden shadow-2xl border-l border-gray-200/50 dark:border-gray-800/50 touch-pan-y"
             >
-                {/* Menu Header */}
                 <div className="h-16 flex items-center justify-between px-4 border-b border-gray-100 dark:border-gray-800/50 shrink-0">
                     <div className="flex items-center gap-3">
                         <div className="relative w-8 h-8">
@@ -546,13 +565,11 @@ export default function Header({
                     </button>
                 </div>
 
-                {/* Vsebina menija */}
                 <div className="flex-1 overflow-y-auto p-4 space-y-6">
                     
                     <div className="space-y-1">
                         <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 pl-1 text-left">Orodja</p>
                         
-                        {/* --- NOVI GUMB MEDIJSKI MONITOR --- */}
                          <Link href="/analiza" prefetch={false} onClick={() => setMobileMenuOpen(false)} className="flex items-center justify-between px-2 py-3 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100/50 dark:hover:bg-gray-900/50 group">
                             <div className="flex items-center gap-3">
                                 <svg className="w-5 h-5 text-gray-400 group-hover:text-brand transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -560,7 +577,6 @@ export default function Header({
                                 </svg>
                                 <span className="text-left">Medijski Monitor</span>
                             </div>
-                            <span className="text-[9px] uppercase tracking-wider font-bold bg-brand text-white px-1.5 py-0.5 rounded-md">Novo</span>
                         </Link>
 
                         <Link href="/arhiv" onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-3 px-2 py-3 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100/50 dark:hover:bg-gray-900/50">
@@ -573,6 +589,16 @@ export default function Header({
                             </svg>
                             <span className="text-left">Arhiv novic</span>
                         </Link>
+
+                        {/* MOBILE NEWSLETTER BUTTON */}
+                        <button onClick={scrollToNewsletter} className="w-full flex items-center justify-between px-2 py-3 rounded-lg text-brand hover:bg-brand/10 dark:hover:bg-brand/10 group">
+                            <div className="flex items-center gap-3">
+                                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                                </svg>
+                                <span className="text-left font-semibold">Dnevni pregled</span>
+                            </div>
+                        </button>
                         
                         <button onClick={() => { onOpenFilter(); setMobileMenuOpen(false); }} className="w-full flex items-center gap-3 px-2 py-3 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100/50 dark:hover:bg-gray-900/50">
                             <svg className="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" /></svg>
