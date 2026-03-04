@@ -26,16 +26,33 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
-    // 1. ZAPIŠI V BAZO
-    const { error } = await supabase
+    // 1. PREVERIMO, ALI UPORABNIK ŽE OBSTAJA V BAZI
+    const { data: existingUser, error: checkError } = await supabase
       .from('subscribers')
-      .insert([{ email }]);
+      .select('is_active')
+      .eq('email', email)
+      .single();
 
-    if (error) {
-      if (error.code === '23505') { // Postgres koda za UNIQUE kršitev (email že obstaja)
-        return res.status(200).json({ message: 'Ta email je že prijavljen na naše novice!' });
+    if (existingUser) {
+      if (existingUser.is_active) {
+         // Že prijavljen in aktiven - ni treba ničesar spreminjati
+         return res.status(200).json({ message: 'Ta e-mail naslov je že prijavljen na naše novice!' });
+      } else {
+         // Bil je odjavljen -> PONOVNO GA AKTIVIRAMO
+         const { error: updateErr } = await supabase
+           .from('subscribers')
+           .update({ is_active: true, unsubscribed_at: null })
+           .eq('email', email);
+         
+         if (updateErr) throw updateErr;
       }
-      throw error;
+    } else {
+       // Popolnoma nov uporabnik -> VSTAVIMO NOV ZAPIS
+       const { error: insertErr } = await supabase
+         .from('subscribers')
+         .insert([{ email }]);
+       
+       if (insertErr) throw insertErr;
     }
 
     // 2. ZGRADI LEP POZDRAVNI EMAIL (Welcome Mail)
@@ -64,7 +81,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                 <tr>
                   <td style="padding: 40px 30px; line-height: 1.6; color: #374151; font-size: 16px;">
                     <p style="margin-top: 0;">Pozdravljeni,</p>
-                    <p>uspešno ste se prijavili na naš <strong>Jutranji pregled</strong>. Veseli nas, da ste postali del naše skupnosti bralcev.</p>
+                    <p>uspešno ste se prijavili na naš <strong>Jutranji pregled</strong>. Veseli nas, da ste del naše skupnosti bralcev.</p>
                     <p>Od zdaj naprej boste vsako jutro med prvimi prejeli pameten, strnjen in povsem objektiven pregled najpomembnejših novic iz Slovenije in sveta.</p>
                     <p style="margin-bottom: 35px;">Do takrat pa vas vabimo, da preverite aktualno dogajanje na naši spletni strani.</p>
                     
@@ -83,7 +100,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                 <tr>
                   <td align="center" style="background-color: #F9FAFB; padding: 25px; font-size: 12px; color: #6B7280; border-top: 1px solid #E5E7EB;">
                     <p style="margin: 0;">© ${new Date().getFullYear()} Križišče. Vse pravice pridržane.</p>
-                    <p style="margin: 8px 0 0 0;">Prejeli ste to sporočilo, ker ste se prijavili na e-novice portala krizisce.si.</p>
+                    <p style="margin: 8px 0 0 0;">To sporočilo ste prejeli, ker ste se prijavili na e-novice portala krizisce.si.</p>
                   </td>
                 </tr>
 
@@ -97,7 +114,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // 3. POŠLJI EMAIL PREKO RESENDA
     await resend.emails.send({
-      from: 'Križišče <jutro@krizisce.si>', // Pazi: domena v Resendu mora biti Verified!
+      from: 'Križišče <jutro@krizisce.si>', 
       to: [email],
       subject: 'Dobrodošli! Vaša prijava je potrjena 🎉',
       html: welcomeHtml,
