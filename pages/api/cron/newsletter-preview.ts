@@ -311,11 +311,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       .select('id')
       .single();
 
+    // ... (zgornji del ostane enak)
+
     if (insertError) throw insertError;
 
     const { data: emailData, error: emailError } = await resend.emails.send({
-      from: 'Križišče <onboarding@resend.dev>',
-      to: ['gjkcme@gmail.com'], 
+      from: 'Križišče <jutro@krizisce.si>', // Popravljen format z imenom!
+      reply_to: 'gjkcme@gmail.com',         // Na ta mail boš dobil sporočilo, če nekdo klikne "Odgovori"
+      to: ['gjkcme@gmail.com'],             // Tvoj mail za predogled
       subject: subjectStr,
       html: finalEmailHtml,
     });
