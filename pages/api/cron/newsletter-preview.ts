@@ -13,8 +13,8 @@ const supabase = createClient(
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_KEY || '')
 const resend = new Resend(process.env.RESEND_API_KEY)
 
-// TVOJA PRAVA ORANŽNA BARVA
-const BRAND_COLOR = "#f97316"; 
+// Bolj nežna, profesionalna "terakota" oranžna barva
+const BRAND_COLOR = "#ea580c"; 
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.query.key !== process.env.CRON_SECRET) {
@@ -31,7 +31,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     if (error) throw error
 
-    // Združevanje in točkovanje
     const topicMap = new Map<string, any>()
     if (analysisRows) {
         analysisRows.forEach(row => {
@@ -70,10 +69,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         })
     }
 
-    // Povečamo na TOP 15, da ima AI veliko "mesa" za pisanje bogatih odstavkov
+    // Povečamo na TOP 20, da ima AI res širok spekter novic (od tech do politike)
     const topStories = Array.from(topicMap.values())
         .sort((a, b) => b.score - a.score)
-        .slice(0, 15);
+        .slice(0, 20);
 
     if (topStories.length === 0) {
         return res.status(200).json({ message: "Ni podatkov za newsletter." })
@@ -82,32 +81,30 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     let promptData = ""
     let bestImage = "";
     topStories.forEach((story, index) => {
-        promptData += `[ZGODBA #${index + 1}]\n- TEMA: ${story.topic}\n- POVZETEK: ${story.summary}\n\n`;
-        // Vzamemo sliko od najbolj odmevne zgodbe, ki ima sliko
+        promptData += `[STORY #${index + 1}]\n- TOPIC: ${story.topic}\n- SUMMARY: ${story.summary}\n\n`;
         if (!bestImage && story.image_url) {
             bestImage = story.image_url;
         }
     })
 
-    // NOVI, BOGATI PROMPT
     const prompt = `
-      You are an expert news editor for a premium Slovenian daily digest called 'Križišče'.
-      Your goal is to write a highly engaging, richly formatted newsletter. It should feel like a smart, insightful briefing written by a top journalist.
+      You are an elite news editor for a premium Slovenian daily digest called 'Križišče'.
+      Your goal is to write a highly engaging, analytical, and richly formatted newsletter.
       
-      Here are the most important Slovenian stories from the last 30 hours:
+      Here are the raw Slovenian stories from the last 30 hours:
       ${promptData}
 
       YOUR TASK:
-      Write the digest using the provided JSON schema. 
-      Follow this EXACT style and tone:
-      - 'intro': A warm, welcoming 2-sentence summary of the general daily vibe (e.g. "Tukaj je tvoj jutranji pregled novic za sredo. Svetovno dogajanje narekujejo napetosti, doma pa...").
-      - 'categories': Group the provided stories into 3 distinct categories (e.g., 🇸🇮 Slovenija, 🌍 Svet, 💻 Tech & Business).
-      - 'category.title': Add a smart subtitle after the emoji (e.g. "🇸🇮 Slovenija: Predvolilna mrzlica in športni vrhunci").
-      - 'category.intro_text': 1 sentence summarizing the category.
-      - 'category.items': For each news item, provide a 'theme' (short, punchy title like "Politični potresi") and 'text' (a rich, flowing 2-3 sentence explanation).
-      - 'fun_fact': End with a fascinating, slightly educational trivia fact relevant to today or general science/history, starting with "Ali si vedel, da..."
+      1. 'intro': A warm 2-sentence summary of the general daily vibe. Link the current news to broader global or national contexts.
+      2. 'categories': Create exactly 3 to 4 distinct categories (e.g., "🇸🇮 Slovenija: [Smart Subtitle]", "🌍 Svet: [Smart Subtitle]", "💻 Tech & Gospodarstvo: [Smart Subtitle]", "⚽ Šport: [Smart Subtitle]").
+      3. For each category, write a 1-sentence 'intro_text' that sets the stage.
+      4. For each category, provide 2 to 3 'items'. Each item needs a 'theme' (e.g. "Politični potresi") and a 'text'.
+      5. CRITICAL ENRICHMENT: In the 'text', DO NOT just mechanically summarize the raw data. ENRICH the stories with your broader knowledge of current affairs (e.g. mention upcoming elections, inflation, tech shifts, or historical context) to give the reader deep, analytical value.
+      6. 'fun_fact': End with a fascinating trivia fact starting with "Ali si vedel, da...". 
+      
+      STRICT RULE: DO NOT put the fun fact inside the 'categories' array. It belongs ONLY in the 'fun_fact' field.
 
-      Write EVERYTHING in perfect, engaging Slovenian language. Do not invent Slovenian news, but you can use your general knowledge to enrich the context and the fun fact.
+      Write EVERYTHING in perfect, engaging Slovenian.
     `
 
     const responseSchema = {
@@ -119,7 +116,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                 items: {
                     type: SchemaType.OBJECT,
                     properties: {
-                        title: { type: SchemaType.STRING, description: "Npr. '🇸🇮 Slovenija: Politika in športni vrhunci'" },
+                        title: { type: SchemaType.STRING, description: "Npr. '🇸🇮 Slovenija: Predvolilna mrzlica in športni vrhunci'" },
                         intro_text: { type: SchemaType.STRING, description: "1 stavek uvoda v to kategorijo" },
                         items: {
                             type: SchemaType.ARRAY,
@@ -127,7 +124,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                                 type: SchemaType.OBJECT,
                                 properties: {
                                     theme: { type: SchemaType.STRING, description: "Kratek poudarek (npr. 'Politični potresi')" },
-                                    text: { type: SchemaType.STRING, description: "Bogat odstavek z razlago zgodbe (2-3 stavki)" }
+                                    text: { type: SchemaType.STRING, description: "Bogat odstavek z razlago zgodbe in dodanim širšim kontekstom (2-3 stavki)" }
                                 },
                                 required: ["theme", "text"]
                             }
@@ -136,7 +133,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                     required: ["title", "intro_text", "items"]
                 }
             },
-            fun_fact: { type: SchemaType.STRING, description: "Zanimivost za zaključek maila." }
+            fun_fact: { type: SchemaType.STRING }
         },
         required: ["intro", "categories", "fun_fact"]
     };
@@ -144,7 +141,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const generationConfig = { 
         responseMimeType: "application/json",
         responseSchema: responseSchema,
-        temperature: 0.5 // Malo višja temperatura omogoča bolj naravno, "človeško" pisanje
+        temperature: 0.5 
     };
 
     let aiData;
@@ -162,9 +159,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const todayStr = new Intl.DateTimeFormat('sl-SI', { weekday: 'long', day: 'numeric', month: 'long' }).format(new Date())
     const subjectStr = `[PREDOGLED] Križišče Pregled (${todayStr})`
     
-    // HTML GRADNJA (Po vzoru tvojega News Digesta)
     let categoriesHtml = '';
-    aiData.categories.forEach((cat: any) => {
+    // Včasih AI vseeno zapiše zanimivost v kategorije, tukaj to varno prefiltriramo
+    const safeCategories = aiData.categories.filter((cat: any) => !cat.title.toLowerCase().includes('zanimivost'));
+
+    safeCategories.forEach((cat: any) => {
         let itemsHtml = '';
         cat.items.forEach((item: any) => {
             itemsHtml += `
@@ -187,7 +186,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         `;
     });
 
-    const proxyImageUrl = bestImage ? `https://images.weserv.nl/?url=${encodeURIComponent(bestImage)}&w=600&output=webp` : null;
+    // Popravljen proxy za slike: Odstranjen webp za boljši prikaz v emailih in nastavljena visoka kvaliteta (q=85)
+    const proxyImageUrl = bestImage ? `https://images.weserv.nl/?url=${encodeURIComponent(bestImage)}&w=600&q=85&output=jpg` : null;
 
     const finalEmailHtml = `
       <!DOCTYPE html>
@@ -223,7 +223,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                     </p>
 
                     ${proxyImageUrl ? `
-                      <div style="margin-bottom: 35px; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,0.05);">
+                      <div style="margin-bottom: 35px; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,0.05); border: 1px solid #f3f4f6;">
                          <img src="${proxyImageUrl}" alt="Poudarek dneva" style="width: 100%; height: auto; display: block;">
                       </div>
                     ` : ''}
@@ -248,7 +248,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                       <tr>
                         <td align="center" style="border-radius: 8px;" bgcolor="${BRAND_COLOR}">
                           <a href="https://krizisce.si" target="_blank" style="font-size: 16px; font-family: -apple-system, Arial, sans-serif; color: #ffffff; text-decoration: none; padding: 16px 36px; display: inline-block; border-radius: 8px; font-weight: bold;">
-                            Preberi več na Križišče.si
+                            Spremljaj dogajanje v živo
                           </a>
                         </td>
                       </tr>
