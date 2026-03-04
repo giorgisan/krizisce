@@ -285,10 +285,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                 <tr>
                   <td align="center" style="background-color: #F9FAFB; padding: 24px; border-top: 1px solid #E5E7EB; font-family: -apple-system, Arial, sans-serif; font-size: 12px; color: #6B7280; line-height: 1.5;">
                     <p style="margin: 0 0 16px 0; padding: 12px; background-color: #f3f4f6; border-radius: 6px; font-size: 11px; text-align: left; color: #9ca3af;">
-                      <i>🤖 <strong>Transparentnost:</strong> Ta pregled je samodejno generiran s pomočjo naprednih modelov umetne inteligence na podlagi javno dostopnih novic slovenskih medijev. Kljub nadzoru vas spodbujamo, da za podrobnosti preberete izvirne članke na portalih.</i>
+                      <i>🤖 <strong>Transparentnost:</strong> Ta pregled je generiran s pomočjo naprednih modelov umetne inteligence na podlagi javno dostopnih novic slovenskih medijev. Za podrobnosti obiščite in podrpite slovenske medije na portalih.</i>
                     </p>
                     <p style="margin: 0 0 12px 0;">
-                      Prejeli ste to sporočilo, ker ste prijavljeni na jutranji pregled portala Križišče.si.
+                      To sporočiloe ste prejeli, ker ste se prijavili na jutranji pregled portala Križišče.si.
                     </p>
                     <p style="margin: 0;">
                       <a href="{{unsubscribe_url}}" style="color: ${BRAND_COLOR}; text-decoration: none; font-weight: 500;">Odjava</a>
