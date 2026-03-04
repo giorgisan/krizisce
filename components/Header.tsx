@@ -73,8 +73,8 @@ export default function Header({
   const { theme, setTheme, resolvedTheme } = useTheme()
   const router = useRouter()
 
-  const isHome = router.pathname === '/'
-  const showCategories = isHome 
+  // Prikažemo kategorije na domači strani ALI na podstraneh, kjer želimo ohraniti meni
+  const showCategories = router.pathname === '/' || router.pathname === '/pregled'
 
   useEffect(() => {
     setMounted(true)
@@ -169,6 +169,10 @@ export default function Header({
   }, [])
 
   const refreshNow = () => {
+    if (router.pathname !== '/') {
+      router.push('/');
+      return;
+    }
     window.scrollTo({ top: 0, behavior: 'smooth' })
     setRefreshing(true)
     window.dispatchEvent(new CustomEvent('refresh-news'))
@@ -196,7 +200,7 @@ export default function Header({
   }
 
   const handleLogoClick = (e: React.MouseEvent) => {
-    if (isHome) {
+    if (router.pathname === '/') {
       e.preventDefault()
       setSearchVal('') 
       onReset()        
@@ -207,7 +211,7 @@ export default function Header({
   const scrollToNewsletter = () => {
     const isMobile = window.innerWidth < 768;
     if (isMobile) {
-        setMobileMenuOpen(false); // Zapre meni na telefonu
+        setMobileMenuOpen(false); 
         setTimeout(() => window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' }), 300);
     } else {
         window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
@@ -282,7 +286,7 @@ export default function Header({
 
             {/* SVEŽE NOVICE (DESKTOP) */}
             <AnimatePresence initial={false}>
-                {hasNew && !refreshing && isHome && (
+                {hasNew && !refreshing && router.pathname === '/' && (
                 <motion.button
                     key="fresh-pill"
                     initial={{ opacity: 0, scale: 0.95, y: 5 }}
@@ -326,7 +330,7 @@ export default function Header({
           <div className="hidden md:flex items-center gap-4 shrink-0 ml-auto">
             
             {/* SEARCH INPUT */}
-            {isHome && (
+            {router.pathname === '/' && (
               <div className="w-64 lg:w-80">
                 <form onSubmit={handleSubmit} className="relative group">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -359,7 +363,7 @@ export default function Header({
             )}
 
             {/* FILTER BUTTON */}
-            {isHome && (
+            {router.pathname === '/' && (
               <button 
                 onClick={onOpenFilter}
                 className={`relative p-2 rounded-md transition-colors ${activeSource !== 'Vse' ? 'text-brand bg-brand/10' : 'text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800'}`}
@@ -374,7 +378,7 @@ export default function Header({
               </button>
             )}
 
-            {/* NEWSLETTER BUTTON (NEW) */}
+            {/* NEWSLETTER BUTTON */}
             <button
                 onClick={scrollToNewsletter}
                 className="p-2 rounded-md transition-colors text-gray-500 hover:text-brand hover:bg-brand/10 dark:text-gray-400 dark:hover:text-brand dark:hover:bg-brand/10"
@@ -462,13 +466,19 @@ export default function Header({
           <div className="max-w-[1800px] mx-auto px-4 md:px-8 lg:px-16 flex items-center">
             
             <nav className="flex items-center gap-6 overflow-x-auto no-scrollbar flex-1 relative">
-              <div className="md:sticky md:left-0 z-10 flex items-center md:pr-4">
+              <div className="md:sticky md:left-0 z-10 flex items-center md:pr-4 bg-white dark:bg-gray-900 transition-colors">
                   <button
-                    onClick={() => onSelectCategory('vse')}
+                    onClick={() => {
+                        if(router.pathname !== '/') {
+                            router.push('/');
+                        } else {
+                            onSelectCategory('vse');
+                        }
+                    }}
                     style={{ fontFamily: 'var(--font-inter)' }}
                     className={`
                       relative py-3 text-sm uppercase tracking-wide whitespace-nowrap transition-colors font-bold group
-                      ${activeCategory === 'vse' 
+                      ${activeCategory === 'vse' && router.pathname === '/'
                         ? 'text-brand' 
                         : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'}
                     `}
@@ -477,7 +487,7 @@ export default function Header({
                     Vse novice
                     <span className={`
                       absolute bottom-0 left-0 w-full h-0.5 bg-brand rounded-t-md transition-all duration-200 origin-left
-                      ${activeCategory === 'vse' 
+                      ${activeCategory === 'vse' && router.pathname === '/'
                         ? 'opacity-100 scale-x-100' 
                         : 'opacity-0 scale-x-0 group-hover:opacity-100 group-hover:scale-x-100'}
                     `} />
@@ -485,12 +495,38 @@ export default function Header({
                   <div className="hidden md:block absolute right-0 top-1/2 -translate-y-1/2 h-4 w-px bg-gray-200 dark:bg-gray-700"></div>
               </div>
 
+              {/* DODAN NOV ZAVIHEK ZA DNEVNI PREGLED */}
+              <Link
+                href="/pregled"
+                style={{ fontFamily: 'var(--font-inter)' }}
+                className={`
+                  relative py-3 text-sm uppercase tracking-wide whitespace-nowrap transition-colors font-bold group flex items-center gap-1.5 shrink-0
+                  ${router.pathname === '/pregled' 
+                    ? 'text-brand' 
+                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'}
+                `}
+              >
+                <span className="text-lg leading-none -mt-0.5">☕</span> Dnevni pregled
+                <span className={`
+                  absolute bottom-0 left-0 w-full h-0.5 bg-brand rounded-t-md transition-all duration-200 origin-left
+                  ${router.pathname === '/pregled' 
+                    ? 'opacity-100 scale-x-100' 
+                    : 'opacity-0 scale-x-0 group-hover:opacity-100 group-hover:scale-x-100'}
+                `} />
+              </Link>
+
               {CATEGORIES.map((cat) => {
-                const isActive = activeCategory === cat.id
+                const isActive = activeCategory === cat.id && router.pathname === '/'
                 return (
                   <button
                     key={cat.id}
-                    onClick={() => onSelectCategory(cat.id)}
+                    onClick={() => {
+                        if(router.pathname !== '/') {
+                            router.push('/').then(() => onSelectCategory(cat.id));
+                        } else {
+                            onSelectCategory(cat.id);
+                        }
+                    }}
                     style={{ fontFamily: 'var(--font-inter)' }}
                     className={`
                       relative py-3 text-sm uppercase tracking-wide whitespace-nowrap transition-colors
@@ -600,10 +636,12 @@ export default function Header({
                             </div>
                         </button>
                         
-                        <button onClick={() => { onOpenFilter(); setMobileMenuOpen(false); }} className="w-full flex items-center gap-3 px-2 py-3 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100/50 dark:hover:bg-gray-900/50">
-                            <svg className="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" /></svg>
-                            <span className="text-left">Filtriraj vire</span>
-                        </button>
+                        {router.pathname === '/' && (
+                            <button onClick={() => { onOpenFilter(); setMobileMenuOpen(false); }} className="w-full flex items-center gap-3 px-2 py-3 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100/50 dark:hover:bg-gray-900/50">
+                                <svg className="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" /></svg>
+                                <span className="text-left">Filtriraj vire</span>
+                            </button>
+                        )}
                         
                         {mounted && (
                             <button onClick={() => setTheme(isDark ? 'light' : 'dark')} className="w-full flex items-center gap-3 px-2 py-3 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100/50 dark:hover:bg-gray-900/50">
@@ -658,7 +696,7 @@ export default function Header({
       )}
     </AnimatePresence>
 
-    {activeSource !== 'Vse' && !mobileMenuOpen && (
+    {activeSource !== 'Vse' && !mobileMenuOpen && router.pathname === '/' && (
         <button 
             onClick={onOpenFilter}
             className="md:hidden fixed bottom-6 left-6 z-40 bg-brand text-white p-3 rounded-full shadow-lg border-2 border-white dark:border-gray-900 animate-bounce"
