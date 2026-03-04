@@ -13,9 +13,8 @@ const supabase = createClient(
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_KEY || '')
 const resend = new Resend(process.env.RESEND_API_KEY)
 
-// TVOJE BRAND BARVE
-const BRAND_COLOR = "#e63946"; // Tvoja glavna oranžno-rdeča iz tailwind.config
-const BRAND_DARK = "#d32f2f";
+// PRAVA BRAND ORANŽNA BARVA
+const BRAND_COLOR = "#f97316"; 
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.query.key !== process.env.CRON_SECRET) {
@@ -32,35 +31,53 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     if (error) throw error
 
+    // 1. POPRAVLJENO BRANJE PODATKOV (Varnostni parse za dvojne stringe)
     const topicMap = new Map<string, any>()
     if (analysisRows) {
         analysisRows.forEach(row => {
-            const items = Array.isArray(row.data) ? row.data : []
-            items.forEach(item => {
-                const t = item.topic;
-                const existing = topicMap.get(t);
-                const sCount = Array.isArray(item.sources) ? item.sources.length : 1;
-                
-                if (existing) {
-                    existing.score += sCount;
-                    if (!existing.image_url && item.main_image && item.main_image.startsWith('http')) {
-                        existing.image_url = item.main_image;
+            let items = [];
+            
+            // Varnostno razpakiranje (če je stringificiran JSON)
+            if (typeof row.data === 'string') {
+                try { items = JSON.parse(row.data); } catch (e) {}
+            } else if (Array.isArray(row.data)) {
+                items = row.data;
+            }
+
+            // Če je bil slučajno dvakrat stringificiran
+            if (typeof items === 'string') {
+                try { items = JSON.parse(items); } catch (e) {}
+            }
+
+            if (Array.isArray(items)) {
+                items.forEach(item => {
+                    if (!item.topic) return;
+
+                    const t = item.topic;
+                    const existing = topicMap.get(t);
+                    const sCount = Array.isArray(item.sources) ? item.sources.length : 1;
+                    
+                    if (existing) {
+                        existing.score += sCount;
+                        if (!existing.image_url && item.main_image && item.main_image.startsWith('http')) {
+                            existing.image_url = item.main_image;
+                        }
+                    } else {
+                        topicMap.set(t, {
+                            topic: t,
+                            summary: item.summary,
+                            image_url: item.main_image && item.main_image.startsWith('http') ? item.main_image : null,
+                            score: sCount
+                        })
                     }
-                } else {
-                    topicMap.set(t, {
-                        topic: t,
-                        summary: item.summary,
-                        image_url: item.main_image && item.main_image.startsWith('http') ? item.main_image : null,
-                        score: sCount
-                    })
-                }
-            })
+                })
+            }
         })
     }
 
     const topStories = Array.from(topicMap.values())
         .sort((a, b) => b.score - a.score)
-        .slice(0, 10);
+        .slice(0, 12); // Povečano na 12, da ima AI široko sliko
 
     if (topStories.length === 0) {
         return res.status(200).json({ message: "Ni podatkov za newsletter." })
@@ -71,19 +88,20 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         promptData += `[STORY #${index + 1}]\n- TOPIC: ${story.topic}\n- SUMMARY: ${story.summary}\n- HAS_IMAGE: ${story.image_url ? story.image_url : 'NO_IMAGE'}\n\n`
     })
 
+    // 2. OSTER PROMPT IN POENOSTAVLJENA SHEMA
     const prompt = `
-      You are the Editor-in-Chief of 'Križišče', Slovenia's sharpest morning news digest.
-      Tone: direct, confident, professional, highly objective. 
+      You are the Editor-in-Chief of 'Križišče', Slovenia's premium morning news digest.
+      Tone: direct, confident, objective, highly professional. Zero fluff.
       
       Top Slovenian stories from the last 30 hours, ORDERED BY IMPORTANCE (Story #1 is objectively the biggest):
       ${promptData}
 
       RULES:
-      - intro: 1-2 punchy sentences summarizing the essence of the day. Do not use overly friendly greetings (e.g., skip "Dobro jutro" if you want, just get to the point).
+      - intro: 2 sharp, professional sentences summarizing the daily vibe.
       - featured_story: YOU MUST USE [STORY #1]. Headline max 10 words, summary max 3 sentences. Copy its HAS_IMAGE url exactly.
-      - other_stories: Group 4-5 OTHER stories into logical sections (e.g. 🌍 Svet, 🇸🇮 Slovenija, ⚽ Šport). Headline max 8 words, 1-2 sentences summary.
-      - today_watch: Extract explicitly mentioned scheduled events happening TODAY from the data. If nothing concrete is in the data, return an EMPTY ARRAY.
-      - closing_line: One punchy, highly professional sentence concluding the newsletter. (Example: "Ostanite informirani z nami." or something sharp). DO NOT use colloquialisms like "Se beremo jutri".
+      - other_news: Select exactly 5 or 6 OTHER important stories from the list. For each, assign a 'category' with an emoji (e.g. "🌍 Svet", "🇸🇮 Slovenija", "⚽ Šport"). Headline max 8 words, summary 1-2 punchy sentences.
+      - today_watch: Extract explicitly mentioned scheduled events happening TODAY. If nothing concrete is in the data, write 2 smart bullet points about what the main ongoing theme of the day will be.
+      - closing_line: One punchy, highly professional concluding sentence (e.g. "Ostanite na tekočem z razvojem dogodkov."). No casual goodbyes.
       - LANGUAGE: Perfect, formal Slovenian.
     `
 
@@ -100,25 +118,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                 },
                 required: ["headline", "summary", "image_url"]
             },
-            categories: {
+            other_news: {
                 type: SchemaType.ARRAY,
                 items: {
                     type: SchemaType.OBJECT,
                     properties: {
-                        title: { type: SchemaType.STRING },
-                        stories: {
-                            type: SchemaType.ARRAY,
-                            items: {
-                                type: SchemaType.OBJECT,
-                                properties: {
-                                    headline: { type: SchemaType.STRING },
-                                    summary: { type: SchemaType.STRING }
-                                },
-                                required: ["headline", "summary"]
-                            }
-                        }
+                        category: { type: SchemaType.STRING, description: "Kategorija z emojijem, npr. '🌍 Svet'" },
+                        headline: { type: SchemaType.STRING },
+                        summary: { type: SchemaType.STRING }
                     },
-                    required: ["title", "stories"]
+                    required: ["category", "headline", "summary"]
                 }
             },
             today_watch: {
@@ -127,7 +136,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             },
             closing_line: { type: SchemaType.STRING }
         },
-        required: ["intro", "featured_story", "categories", "today_watch", "closing_line"]
+        required: ["intro", "featured_story", "other_news", "today_watch", "closing_line"]
     };
 
     const generationConfig = { 
@@ -148,10 +157,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         aiData = JSON.parse(resultFlash.response.text());
     }
 
+    // 3. GRUPIRANJE V JAVASCRIPTU (varno in 100% zanesljivo)
     const groupedStories: Record<string, any[]> = {};
-    if (aiData.other_stories && Array.isArray(aiData.other_stories)) {
-        aiData.other_stories.forEach((story: any) => {
-            const cat = story.category || '📰 Ostalo';
+    if (aiData.other_news && Array.isArray(aiData.other_news)) {
+        aiData.other_news.forEach((story: any) => {
+            const cat = story.category || '📌 Ostalo';
             if (!groupedStories[cat]) groupedStories[cat] = [];
             groupedStories[cat].push(story);
         });
@@ -160,6 +170,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const todayStr = new Intl.DateTimeFormat('sl-SI', { weekday: 'long', day: 'numeric', month: 'long' }).format(new Date())
     const subjectStr = `[PREDOGLED] Križišče Pregled (${todayStr})`
     
+    // 4. HTML SESTAVLJANJE
     let categoriesHtml = '';
     Object.entries(groupedStories).forEach(([category, stories]) => {
         categoriesHtml += `
@@ -257,7 +268,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                       <tr>
                         <td align="center" style="border-radius: 6px;" bgcolor="${BRAND_COLOR}">
                           <a href="https://krizisce.si" target="_blank" style="font-size: 15px; font-family: -apple-system, Arial, sans-serif; color: #ffffff; text-decoration: none; padding: 14px 30px; display: inline-block; border-radius: 6px; font-weight: bold;">
-                            Preveri novice v živo
+                            Preberi več na Križišče.si
                           </a>
                         </td>
                       </tr>
