@@ -104,7 +104,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       - THE TEXT MUST SUMMARIZE ONLY THE PROVIDED DATA.
       - DO NOT make up, invent, or predict outcomes.
       - If a news story says an event is "ongoing" or "planned" (like an evacuation, a trial, or a sports match), DO NOT state that it has successfully concluded. You must accurately reflect that it is still ongoing or yet to happen.
-      - NEVER use external knowledge to add names, places, or events that are NOT explicitly mentioned in the provided raw stories.
+      - NEVER use external knowledge to add titles (like "former president" or "current prime minister"), names, places, or historical events that are NOT explicitly mentioned in the provided raw stories. Stick strictly to the names and roles provided.
       
       FORMATTING RULES: 
       - ALWAYS put the '🇸🇮 Slovenija' category FIRST in the array!
@@ -172,7 +172,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     const todayStr = new Intl.DateTimeFormat('sl-SI', { weekday: 'long', day: 'numeric', month: 'long' }).format(new Date())
-    const subjectStr = `Jutranji pregled: ${todayStr}`
+    const subjectStr = `Križišče Pregled: ${todayStr}`
     
     let categoriesHtml = '';
     const safeCategories = aiData.categories.filter((cat: any) => !cat.title.toLowerCase().includes('zanimivost'));
@@ -286,12 +286,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                     
                     <div style="background-color: #f3f4f6; border: 1px solid #e5e7eb; border-radius: 6px; padding: 14px; margin-bottom: 24px; text-align: center;">
                       <p style="margin: 0; font-size: 11px; color: #9ca3af;">
-                        🤖 <strong>Transparentnost:</strong> Ta pregled je generiran s pomočjo naprednih modelov umetne inteligence na podlagi javno dostopnih novic slovenskih medijev. Za podrobnosti obiščite in podprite slovenske medije.
+                        <strong>Transparentnost:</strong> Ta pregled je ustvarjen s pomočjo naprednih modelov umetne inteligence na podlagi javno dostopnih novic slovenskih medijev. Za podrobnosti obiščite in podprite slovenske medije.
                       </p>
                     </div>
 
                     <p style="margin: 0 0 10px 0; font-size: 11px;">
-                      To sporočilo ste prejeli, ker ste se prijavili na brezplačni jutranji pregled novic portala krizisce.si. Če teh obvestil ne želite več prejemati, se lahko odjavite s klikom na spodnjo povezavo.
+                      To sporočilo ste prejeli, ker ste se prijavili na brezplačni pregled novic. Če naših obvestil ne želite več prejemati, se lahko odjavite s klikom na spodnjo povezavo.
                     </p>
                     
                     <p style="margin: 0 0 25px 0;">
