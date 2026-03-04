@@ -159,7 +159,8 @@ export default function Footer() {
                   <p className="text-sm text-gray-600 dark:text-gray-500 leading-relaxed mb-3">
                     Začnite dan informirani. Prijavite se na brezplačen pametni pregled najpomembnejših novic, ki ga naš algoritem za vas zbere vsako jutro.
                   </p>
-                  <Link href="/pregled" className="inline-flex items-center text-[13px] font-medium text-brand hover:opacity-80 transition-opacity group">
+                  {/* POPRAVLJEN LINK (Svetlejša barva, brez rdečega hoverja) */}
+                  <Link href="/pregled" className="inline-flex items-center text-[13px] font-medium text-brand hover:opacity-75 transition-opacity group">
                     <span>Preverite, kako izgleda današnji pregled</span>
                     <span className="ml-1 transition-transform group-hover:translate-x-1">→</span>
                   </Link>
@@ -186,7 +187,7 @@ export default function Footer() {
                         <button
                           type="submit"
                           disabled={status === 'loading' || !agreed || !email}
-                          className="w-full sm:w-auto whitespace-nowrap rounded-xl bg-brand hover:bg-[#d32f2f] px-6 py-3 text-sm font-bold text-white shadow-sm transition disabled:opacity-50 disabled:cursor-not-allowed"
+                          className="w-full sm:w-auto whitespace-nowrap rounded-xl bg-brand hover:opacity-90 px-6 py-3 text-sm font-bold text-white shadow-sm transition disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           {status === 'loading' ? 'Prijava...' : 'Prijavi se'}
                         </button>
@@ -262,6 +263,7 @@ export default function Footer() {
 
           <div className="border-t border-gray-200 dark:border-white/5 mt-8 pt-6 text-center text-xs text-gray-500 dark:text-gray-600 pb-[calc(env(safe-area-inset-bottom,0px))]">
             <p className="italic mb-1 opacity-80 font-sans">Informacija ni znanje. Edino razumevanje šteje.</p>
+            {/* POPRAVLJENA DINAMIČNA LETNICA */}
             <p className="opacity-80 font-medium">© {year > 2025 ? `2025-${year}` : '2025'} Križišče – Vse pravice pridržane.</p>
           </div>
         </div>
