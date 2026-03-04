@@ -70,7 +70,8 @@ export default function Header({
   const { theme, setTheme, resolvedTheme } = useTheme()
   const router = useRouter()
 
-  const showCategories = router.pathname === '/' || router.pathname === '/pregled'
+  // POPRAVEK: Kategorije in filtri bodo sedaj vidni SAMO na naslovnici (vse ostale podstrani imajo samo čisto glavo)
+  const showCategories = router.pathname === '/'
 
   useEffect(() => {
     setMounted(true)
