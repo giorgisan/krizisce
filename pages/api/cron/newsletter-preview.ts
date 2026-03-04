@@ -146,7 +146,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     };
 
     let aiData;
-    // TROJNI FALLBACK Z NAJNOVEJŠIMI MODELI
     try {
         console.log("🚀 Poskušam gemini-3.1-pro-preview...");
         const model31 = genAI.getGenerativeModel({ model: "gemini-3.1-pro-preview", generationConfig });
@@ -311,14 +310,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       .select('id')
       .single();
 
-    // ... (zgornji del ostane enak)
-
     if (insertError) throw insertError;
 
     const { data: emailData, error: emailError } = await resend.emails.send({
-      from: 'Križišče <jutro@krizisce.si>', // Popravljen format z imenom!
-      reply_to: 'gjkcme@gmail.com',         // Na ta mail boš dobil sporočilo, če nekdo klikne "Odgovori"
-      to: ['gjkcme@gmail.com'],             // Tvoj mail za predogled
+      from: 'Križišče <jutro@krizisce.si>', // PREVERI ZA PRODUKCIJO - ko bo verified!
+      replyTo: 'gjkcme@gmail.com',         // TUKAJ JE POPRAVLJENA NAPAKA!
+      to: ['gjkcme@gmail.com'], 
       subject: subjectStr,
       html: finalEmailHtml,
     });
