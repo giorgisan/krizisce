@@ -159,7 +159,7 @@ export default function Footer() {
                   <p className="text-sm text-gray-600 dark:text-gray-500 leading-relaxed mb-3">
                     Začnite dan informirani. Prijavite se na brezplačen pametni pregled najpomembnejših novic, ki ga naš algoritem za vas zbere vsako jutro.
                   </p>
-                  <Link href="/pregled" className="inline-flex items-center text-sm font-semibold text-brand hover:text-[#d32f2f] transition-colors group">
+                  <Link href="/pregled" className="inline-flex items-center text-[13px] font-medium text-brand hover:opacity-80 transition-opacity group">
                     <span>Preverite, kako izgleda današnji pregled</span>
                     <span className="ml-1 transition-transform group-hover:translate-x-1">→</span>
                   </Link>
@@ -262,7 +262,7 @@ export default function Footer() {
 
           <div className="border-t border-gray-200 dark:border-white/5 mt-8 pt-6 text-center text-xs text-gray-500 dark:text-gray-600 pb-[calc(env(safe-area-inset-bottom,0px))]">
             <p className="italic mb-1 opacity-80 font-sans">Informacija ni znanje. Edino razumevanje šteje.</p>
-            <p className="opacity-80 font-medium">© {year} Križišče – Vse pravice pridržane.</p>
+            <p className="opacity-80 font-medium">© {year > 2025 ? `2025-${year}` : '2025'} Križišče – Vse pravice pridržane.</p>
           </div>
         </div>
       </div>
