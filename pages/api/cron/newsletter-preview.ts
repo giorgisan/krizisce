@@ -146,7 +146,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     };
 
     let aiData;
-    let aiData;
     // TROJNI FALLBACK Z NAJNOVEJŠIMI MODELI
     try {
         console.log("🚀 Poskušam gemini-3.1-pro-preview...");
@@ -199,10 +198,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         `;
     });
 
-    // FIX ZA KVALITETO SLIK (Zamenjava majhnih sličic z velikimi)
     let finalImageUrl = bestImage;
     if (finalImageUrl) {
-        // Če medij pošilja majhen thumbnail (npr. 24ur 213xX), ga zamenjamo z 1200xX
         finalImageUrl = finalImageUrl.replace('/213xX/', '/1200xX/');
         finalImageUrl = finalImageUrl.replace('/600xX/', '/1200xX/');
     }
@@ -223,25 +220,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
               <table width="100%" max-width="600" border="0" cellspacing="0" cellpadding="0" style="max-width: 600px; background-color: #ffffff; border-radius: 8px; border: 1px solid #E5E7EB; overflow: hidden; margin: 0 auto;">
                 
                 <tr>
-                  <td style="padding: 30px 24px 25px 24px; border-bottom: 1px solid #E5E7EB; background-color: #ffffff;">
-                    <table width="100%" border="0" cellspacing="0" cellpadding="0">
-                      <tr>
-                        <td width="55" valign="middle">
-                          <img src="https://krizisce.si/logo.png" alt="Križišče Logo" style="width: 48px; height: 48px; display: block;">
-                        </td>
-                        <td valign="middle">
-                          <h1 style="margin: 0; font-size: 28px; color: #111827; font-family: Georgia, 'Times New Roman', serif; font-weight: bold; letter-spacing: -0.02em; line-height: 1;">
-                            Križišče
-                          </h1>
-                          <p style="margin: 4px 0 0 0; font-size: 13px; color: ${BRAND_COLOR}; text-transform: uppercase; letter-spacing: 0.1em; font-family: -apple-system, Arial, sans-serif; font-weight: bold;">
-                            Jutranji pregled
-                          </p>
-                        </td>
-                        <td align="right" valign="bottom" style="font-size: 12px; color: #6B7280; font-family: -apple-system, Arial, sans-serif;">
-                          ${todayStr}
-                        </td>
-                      </tr>
-                    </table>
+                  <td align="center" style="padding: 35px 20px 25px 20px; border-bottom: 1px solid #E5E7EB; background-color: #ffffff;">
+                    <img src="https://krizisce.si/logo.png" alt="Križišče Logo" style="width: 52px; height: 52px; margin-bottom: 12px; display: block; margin-left: auto; margin-right: auto;">
+                    <h1 style="margin: 0 0 6px 0; font-size: 32px; color: #111827; font-family: Georgia, 'Times New Roman', serif; font-weight: bold; letter-spacing: -0.02em; line-height: 1; text-align: center;">
+                      Križišče
+                    </h1>
+                    <p style="margin: 0 0 10px 0; font-size: 14px; color: ${BRAND_COLOR}; text-transform: uppercase; letter-spacing: 0.15em; font-family: -apple-system, Arial, sans-serif; font-weight: bold; text-align: center;">
+                      Jutranji pregled
+                    </p>
+                    <p style="margin: 0; font-size: 13px; color: #6B7280; font-family: -apple-system, Arial, sans-serif; text-align: center;">
+                      ${todayStr}
+                    </p>
                   </td>
                 </tr>
 
