@@ -13,7 +13,7 @@ const supabase = createClient(
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_KEY || '')
 const resend = new Resend(process.env.RESEND_API_KEY)
 
-// PRAVA BRAND ORANŽNA BARVA
+// TVOJA PRAVA ORANŽNA BARVA
 const BRAND_COLOR = "#f97316"; 
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -31,20 +31,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     if (error) throw error
 
-    // 1. POPRAVLJENO BRANJE PODATKOV (Varnostni parse za dvojne stringe)
+    // Združevanje in točkovanje
     const topicMap = new Map<string, any>()
     if (analysisRows) {
         analysisRows.forEach(row => {
             let items = [];
-            
-            // Varnostno razpakiranje (če je stringificiran JSON)
             if (typeof row.data === 'string') {
                 try { items = JSON.parse(row.data); } catch (e) {}
             } else if (Array.isArray(row.data)) {
                 items = row.data;
             }
-
-            // Če je bil slučajno dvakrat stringificiran
             if (typeof items === 'string') {
                 try { items = JSON.parse(items); } catch (e) {}
             }
@@ -52,7 +48,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             if (Array.isArray(items)) {
                 items.forEach(item => {
                     if (!item.topic) return;
-
                     const t = item.topic;
                     const existing = topicMap.get(t);
                     const sCount = Array.isArray(item.sources) ? item.sources.length : 1;
@@ -75,74 +70,81 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         })
     }
 
+    // Povečamo na TOP 15, da ima AI veliko "mesa" za pisanje bogatih odstavkov
     const topStories = Array.from(topicMap.values())
         .sort((a, b) => b.score - a.score)
-        .slice(0, 12); // Povečano na 12, da ima AI široko sliko
+        .slice(0, 15);
 
     if (topStories.length === 0) {
         return res.status(200).json({ message: "Ni podatkov za newsletter." })
     }
 
     let promptData = ""
+    let bestImage = "";
     topStories.forEach((story, index) => {
-        promptData += `[STORY #${index + 1}]\n- TOPIC: ${story.topic}\n- SUMMARY: ${story.summary}\n- HAS_IMAGE: ${story.image_url ? story.image_url : 'NO_IMAGE'}\n\n`
+        promptData += `[ZGODBA #${index + 1}]\n- TEMA: ${story.topic}\n- POVZETEK: ${story.summary}\n\n`;
+        // Vzamemo sliko od najbolj odmevne zgodbe, ki ima sliko
+        if (!bestImage && story.image_url) {
+            bestImage = story.image_url;
+        }
     })
 
-    // 2. OSTER PROMPT IN POENOSTAVLJENA SHEMA
+    // NOVI, BOGATI PROMPT
     const prompt = `
-      You are the Editor-in-Chief of 'Križišče', Slovenia's premium morning news digest.
-      Tone: direct, confident, objective, highly professional. Zero fluff.
+      You are an expert news editor for a premium Slovenian daily digest called 'Križišče'.
+      Your goal is to write a highly engaging, richly formatted newsletter. It should feel like a smart, insightful briefing written by a top journalist.
       
-      Top Slovenian stories from the last 30 hours, ORDERED BY IMPORTANCE (Story #1 is objectively the biggest):
+      Here are the most important Slovenian stories from the last 30 hours:
       ${promptData}
 
-      RULES:
-      - intro: 2 sharp, professional sentences summarizing the daily vibe.
-      - featured_story: YOU MUST USE [STORY #1]. Headline max 10 words, summary max 3 sentences. Copy its HAS_IMAGE url exactly.
-      - other_news: Select exactly 5 or 6 OTHER important stories from the list. For each, assign a 'category' with an emoji (e.g. "🌍 Svet", "🇸🇮 Slovenija", "⚽ Šport"). Headline max 8 words, summary 1-2 punchy sentences.
-      - today_watch: Extract explicitly mentioned scheduled events happening TODAY. If nothing concrete is in the data, write 2 smart bullet points about what the main ongoing theme of the day will be.
-      - closing_line: One punchy, highly professional concluding sentence (e.g. "Ostanite na tekočem z razvojem dogodkov."). No casual goodbyes.
-      - LANGUAGE: Perfect, formal Slovenian.
+      YOUR TASK:
+      Write the digest using the provided JSON schema. 
+      Follow this EXACT style and tone:
+      - 'intro': A warm, welcoming 2-sentence summary of the general daily vibe (e.g. "Tukaj je tvoj jutranji pregled novic za sredo. Svetovno dogajanje narekujejo napetosti, doma pa...").
+      - 'categories': Group the provided stories into 3 distinct categories (e.g., 🇸🇮 Slovenija, 🌍 Svet, 💻 Tech & Business).
+      - 'category.title': Add a smart subtitle after the emoji (e.g. "🇸🇮 Slovenija: Predvolilna mrzlica in športni vrhunci").
+      - 'category.intro_text': 1 sentence summarizing the category.
+      - 'category.items': For each news item, provide a 'theme' (short, punchy title like "Politični potresi") and 'text' (a rich, flowing 2-3 sentence explanation).
+      - 'fun_fact': End with a fascinating, slightly educational trivia fact relevant to today or general science/history, starting with "Ali si vedel, da..."
+
+      Write EVERYTHING in perfect, engaging Slovenian language. Do not invent Slovenian news, but you can use your general knowledge to enrich the context and the fun fact.
     `
 
     const responseSchema = {
         type: SchemaType.OBJECT,
         properties: {
             intro: { type: SchemaType.STRING },
-            featured_story: {
-                type: SchemaType.OBJECT,
-                properties: {
-                    headline: { type: SchemaType.STRING },
-                    summary: { type: SchemaType.STRING },
-                    image_url: { type: SchemaType.STRING }
-                },
-                required: ["headline", "summary", "image_url"]
-            },
-            other_news: {
+            categories: {
                 type: SchemaType.ARRAY,
                 items: {
                     type: SchemaType.OBJECT,
                     properties: {
-                        category: { type: SchemaType.STRING, description: "Kategorija z emojijem, npr. '🌍 Svet'" },
-                        headline: { type: SchemaType.STRING },
-                        summary: { type: SchemaType.STRING }
+                        title: { type: SchemaType.STRING, description: "Npr. '🇸🇮 Slovenija: Politika in športni vrhunci'" },
+                        intro_text: { type: SchemaType.STRING, description: "1 stavek uvoda v to kategorijo" },
+                        items: {
+                            type: SchemaType.ARRAY,
+                            items: {
+                                type: SchemaType.OBJECT,
+                                properties: {
+                                    theme: { type: SchemaType.STRING, description: "Kratek poudarek (npr. 'Politični potresi')" },
+                                    text: { type: SchemaType.STRING, description: "Bogat odstavek z razlago zgodbe (2-3 stavki)" }
+                                },
+                                required: ["theme", "text"]
+                            }
+                        }
                     },
-                    required: ["category", "headline", "summary"]
+                    required: ["title", "intro_text", "items"]
                 }
             },
-            today_watch: {
-                type: SchemaType.ARRAY,
-                items: { type: SchemaType.STRING }
-            },
-            closing_line: { type: SchemaType.STRING }
+            fun_fact: { type: SchemaType.STRING, description: "Zanimivost za zaključek maila." }
         },
-        required: ["intro", "featured_story", "other_news", "today_watch", "closing_line"]
+        required: ["intro", "categories", "fun_fact"]
     };
 
     const generationConfig = { 
         responseMimeType: "application/json",
         responseSchema: responseSchema,
-        temperature: 0.2
+        temperature: 0.5 // Malo višja temperatura omogoča bolj naravno, "človeško" pisanje
     };
 
     let aiData;
@@ -157,43 +159,35 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         aiData = JSON.parse(resultFlash.response.text());
     }
 
-    // 3. GRUPIRANJE V JAVASCRIPTU (varno in 100% zanesljivo)
-    const groupedStories: Record<string, any[]> = {};
-    if (aiData.other_news && Array.isArray(aiData.other_news)) {
-        aiData.other_news.forEach((story: any) => {
-            const cat = story.category || '📌 Ostalo';
-            if (!groupedStories[cat]) groupedStories[cat] = [];
-            groupedStories[cat].push(story);
-        });
-    }
-
     const todayStr = new Intl.DateTimeFormat('sl-SI', { weekday: 'long', day: 'numeric', month: 'long' }).format(new Date())
     const subjectStr = `[PREDOGLED] Križišče Pregled (${todayStr})`
     
-    // 4. HTML SESTAVLJANJE
+    // HTML GRADNJA (Po vzoru tvojega News Digesta)
     let categoriesHtml = '';
-    Object.entries(groupedStories).forEach(([category, stories]) => {
+    aiData.categories.forEach((cat: any) => {
+        let itemsHtml = '';
+        cat.items.forEach((item: any) => {
+            itemsHtml += `
+              <p style="font-size: 15px; line-height: 1.6; color: #374151; margin-top: 0; margin-bottom: 16px; font-family: -apple-system, Arial, sans-serif;">
+                <strong style="color: #111827;">${item.theme}:</strong> ${item.text}
+              </p>
+            `;
+        });
+
         categoriesHtml += `
-            <div style="margin-bottom: 25px;">
-              <h3 style="font-size: 14px; color: ${BRAND_COLOR}; text-transform: uppercase; letter-spacing: 0.05em; margin-top: 0; margin-bottom: 12px; font-weight: bold; border-bottom: 2px solid #E5E7EB; padding-bottom: 8px; font-family: -apple-system, Arial, sans-serif;">
-                ${category}
-              </h3>
-              <table width="100%" border="0" cellspacing="0" cellpadding="0">
-                ${stories.map((story: any) => `
-                  <tr>
-                    <td valign="top" style="padding-bottom: 14px; font-family: -apple-system, Arial, sans-serif; font-size: 15px; line-height: 1.5; color: #374151;">
-                      <strong style="color: #111827;">${story.headline}:</strong> ${story.summary}
-                    </td>
-                  </tr>
-                `).join('')}
-              </table>
+            <div style="margin-bottom: 35px;">
+              <h2 style="font-size: 20px; color: ${BRAND_COLOR}; margin-top: 0; margin-bottom: 8px; font-weight: bold; font-family: Georgia, 'Times New Roman', serif;">
+                ${cat.title}
+              </h2>
+              <p style="font-size: 15px; line-height: 1.5; color: #4B5563; margin-top: 0; margin-bottom: 20px; font-style: italic; font-family: -apple-system, Arial, sans-serif;">
+                ${cat.intro_text}
+              </p>
+              ${itemsHtml}
             </div>
         `;
     });
 
-    const proxyImageUrl = aiData.featured_story.image_url && aiData.featured_story.image_url !== 'NO_IMAGE' 
-        ? `https://images.weserv.nl/?url=${encodeURIComponent(aiData.featured_story.image_url)}&w=600&output=webp` 
-        : null;
+    const proxyImageUrl = bestImage ? `https://images.weserv.nl/?url=${encodeURIComponent(bestImage)}&w=600&output=webp` : null;
 
     const finalEmailHtml = `
       <!DOCTYPE html>
@@ -210,64 +204,50 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
               <table width="100%" max-width="600" border="0" cellspacing="0" cellpadding="0" style="max-width: 600px; background-color: #ffffff; border-radius: 8px; border: 1px solid #E5E7EB; overflow: hidden; margin: 0 auto;">
                 
                 <tr>
-                  <td align="center" style="padding: 30px 20px; border-bottom: 1px solid #E5E7EB;">
-                    <img src="https://krizisce.si/logo.png" alt="Križišče Logo" style="width: 44px; height: 44px; margin-bottom: 12px; display: block;">
-                    <h1 style="margin: 0; font-size: 28px; color: #111827; font-family: Georgia, 'Times New Roman', serif; font-weight: normal; letter-spacing: -0.02em;">
+                  <td align="center" style="padding: 35px 20px 25px 20px; border-bottom: 1px solid #E5E7EB; background-color: #ffffff;">
+                    <img src="https://krizisce.si/logo.png" alt="Križišče Logo" style="width: 48px; height: 48px; margin-bottom: 16px; display: block;">
+                    <h1 style="margin: 0; font-size: 32px; color: #111827; font-family: Georgia, 'Times New Roman', serif; font-weight: normal; letter-spacing: -0.02em;">
                       Križišče <span style="color: ${BRAND_COLOR}; font-weight: bold;">Pregled</span>
                     </h1>
-                    <p style="margin: 8px 0 0 0; font-size: 12px; color: #6B7280; text-transform: uppercase; letter-spacing: 0.1em; font-family: -apple-system, Arial, sans-serif;">
+                    <p style="margin: 10px 0 0 0; font-size: 13px; color: #6B7280; text-transform: uppercase; letter-spacing: 0.1em; font-family: -apple-system, Arial, sans-serif;">
                       ${todayStr}
                     </p>
                   </td>
                 </tr>
 
                 <tr>
-                  <td style="padding: 35px 24px;">
+                  <td style="padding: 40px 24px;">
 
-                    <p style="font-size: 16px; line-height: 1.6; color: #374151; margin-top: 0; margin-bottom: 30px; font-family: -apple-system, Arial, sans-serif;">
+                    <p style="font-size: 17px; line-height: 1.6; color: #111827; margin-top: 0; margin-bottom: 35px; font-family: -apple-system, Arial, sans-serif;">
                       ${aiData.intro}
                     </p>
 
                     ${proxyImageUrl ? `
-                      <div style="margin-bottom: 16px; border: 1px solid #E5E7EB; border-radius: 6px; overflow: hidden;">
-                         <img src="${proxyImageUrl}" alt="Glavna novica" style="width: 100%; height: auto; display: block;">
+                      <div style="margin-bottom: 35px; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,0.05);">
+                         <img src="${proxyImageUrl}" alt="Poudarek dneva" style="width: 100%; height: auto; display: block;">
                       </div>
                     ` : ''}
-                    <h2 style="font-size: 24px; color: #111827; font-weight: bold; margin-top: 0; margin-bottom: 12px; line-height: 1.3; font-family: Georgia, 'Times New Roman', serif;">
-                      ${aiData.featured_story.headline}
-                    </h2>
-                    <p style="font-size: 16px; line-height: 1.6; color: #4B5563; margin-top: 0; margin-bottom: 35px; font-family: -apple-system, Arial, sans-serif;">
-                      ${aiData.featured_story.summary}
-                    </p>
 
                     ${categoriesHtml}
 
-                    ${aiData.today_watch && aiData.today_watch.length > 0 ? `
-                      <div style="background-color: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 6px; padding: 20px; margin-bottom: 30px;">
-                        <h3 style="font-size: 16px; color: #0F172A; font-weight: bold; margin-top: 0; margin-bottom: 12px; font-family: -apple-system, Arial, sans-serif;">
-                          ☕ Kaj nas čaka danes
-                        </h3>
-                        <ul style="font-size: 15px; line-height: 1.5; color: #475569; padding-left: 20px; margin-top: 0; margin-bottom: 0; font-family: -apple-system, Arial, sans-serif;">
-                          ${aiData.today_watch.map((event: string) => `
-                            <li style="margin-bottom: 6px;">${event}</li>
-                          `).join('')}
-                        </ul>
-                      </div>
-                    ` : ''}
-
-                    <p style="font-size: 15px; line-height: 1.6; color: #111827; font-weight: bold; margin-top: 0; margin-bottom: 0; text-align: center; font-style: italic; font-family: Georgia, 'Times New Roman', serif;">
-                      ${aiData.closing_line}
-                    </p>
+                    <div style="background-color: #FFF7ED; border-left: 4px solid ${BRAND_COLOR}; padding: 20px; margin-bottom: 30px;">
+                      <h3 style="font-size: 15px; color: #9A3412; font-weight: bold; margin-top: 0; margin-bottom: 8px; font-family: -apple-system, Arial, sans-serif; text-transform: uppercase; letter-spacing: 0.05em;">
+                        🔭 Zanimivost dneva
+                      </h3>
+                      <p style="font-size: 15px; line-height: 1.6; color: #431407; margin: 0; font-family: -apple-system, Arial, sans-serif;">
+                        ${aiData.fun_fact}
+                      </p>
+                    </div>
 
                   </td>
                 </tr>
 
                 <tr>
-                  <td align="center" style="padding: 0 24px 40px 24px;">
+                  <td align="center" style="padding: 0 24px 45px 24px;">
                     <table border="0" cellspacing="0" cellpadding="0">
                       <tr>
-                        <td align="center" style="border-radius: 6px;" bgcolor="${BRAND_COLOR}">
-                          <a href="https://krizisce.si" target="_blank" style="font-size: 15px; font-family: -apple-system, Arial, sans-serif; color: #ffffff; text-decoration: none; padding: 14px 30px; display: inline-block; border-radius: 6px; font-weight: bold;">
+                        <td align="center" style="border-radius: 8px;" bgcolor="${BRAND_COLOR}">
+                          <a href="https://krizisce.si" target="_blank" style="font-size: 16px; font-family: -apple-system, Arial, sans-serif; color: #ffffff; text-decoration: none; padding: 16px 36px; display: inline-block; border-radius: 8px; font-weight: bold;">
                             Preberi več na Križišče.si
                           </a>
                         </td>
@@ -277,7 +257,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                 </tr>
 
                 <tr>
-                  <td align="center" style="background-color: #F9FAFB; padding: 24px; border-top: 1px solid #E5E7EB; font-family: -apple-system, Arial, sans-serif; font-size: 12px; color: #6B7280; line-height: 1.5;">
+                  <td align="center" style="background-color: #F9FAFB; padding: 30px 24px; border-top: 1px solid #E5E7EB; font-family: -apple-system, Arial, sans-serif; font-size: 12px; color: #6B7280; line-height: 1.6;">
                     <p style="margin: 0 0 12px 0;">
                       <strong>[PREDOGLED]</strong> To je testni mail. Gumb "Odobri in pošlji" pride v produkciji.
                     </p>
