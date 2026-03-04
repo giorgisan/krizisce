@@ -288,10 +288,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                       <i>🤖 <strong>Transparentnost:</strong> Ta pregled je generiran s pomočjo naprednih modelov umetne inteligence na podlagi javno dostopnih novic slovenskih medijev. Za podrobnosti obiščite in podrpite slovenske medije na portalih.</i>
                     </p>
                     <p style="margin: 0 0 12px 0;">
-                      To sporočiloe ste prejeli, ker ste se prijavili na jutranji pregled portala Križišče.si.
+                      To sporočilo ste prejeli, ker ste se prijavili na jutranji pregled portala Križišče.si.
                     </p>
                     <p style="margin: 0;">
-                      <a href="{{unsubscribe_url}}" style="color: ${BRAND_COLOR}; text-decoration: none; font-weight: 500;">Odjava</a>
+                      <a href="https://krizisce.si/api/unsubscribe?email={{USER_EMAIL}}" style="color: ${BRAND_COLOR}; text-decoration: none; font-weight: 500;">Odjava</a>
                       &nbsp;&nbsp;|&nbsp;&nbsp;
                       <a href="mailto:gjkcme@gmail.com" style="color: ${BRAND_COLOR}; text-decoration: none; font-weight: 500;">Kontakt</a>
                     </p>
@@ -322,13 +322,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // GENERIRAMO ADMIN PASICO SAMO ZA TEBE
     const adminUrl = `https://krizisce.si/api/cron/send-newsletter?id=${insertedNewsletter.id}&key=${process.env.CRON_SECRET}`;
     
+    // Za Tvoj osebni predogled zamenjamo string s tvojim mailom (sicer bi prišlo do napake ob kliku na 'odjavo')
+    const adminPreviewHtml = finalEmailHtml.replace('{{USER_EMAIL}}', 'gjkcme@gmail.com');
+
     const adminEmailHtml = `
       <div style="background-color: #fef08a; padding: 25px; text-align: center; border-bottom: 4px solid #eab308; font-family: sans-serif;">
         <h2 style="margin-top: 0; color: #854d0e;">👋 Hej, tole je današnji predogled!</h2>
         <p style="color: #a16207; margin-bottom: 20px; font-size: 15px;">Preberi si mail. Če si zadovoljen, pritisni spodnji gumb in sistem bo mail poslal vsem naročnikom na Križišče.</p>
         <a href="${adminUrl}" style="background-color: #ea580c; color: #ffffff; padding: 14px 28px; text-decoration: none; font-weight: bold; border-radius: 8px; display: inline-block;">Odobri in pošlji vsem</a>
       </div>
-      ${finalEmailHtml}
+      ${adminPreviewHtml}
     `;
 
     // POŠLJEMO SAMO TEBI NA GMAIL
