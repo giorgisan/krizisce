@@ -13,13 +13,16 @@ const supabase = createClient(
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_KEY || '')
 const resend = new Resend(process.env.RESEND_API_KEY)
 
+// TVOJE BRAND BARVE
+const BRAND_COLOR = "#e63946"; // Tvoja glavna oranžno-rdeča iz tailwind.config
+const BRAND_DARK = "#d32f2f";
+
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.query.key !== process.env.CRON_SECRET) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
   try {
-    // 1. ZAJEM PODATKOV ZA ZADNJIH 30 UR
     const timeWindow = new Date(Date.now() - 30 * 60 * 60 * 1000).toISOString()
     const { data: analysisRows, error } = await supabase
       .from('media_analysis')
@@ -29,7 +32,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     if (error) throw error
 
-    // 2. KUMULATIVNO TOČKOVANJE (Reši problem "Smodej vs Iran")
     const topicMap = new Map<string, any>()
     if (analysisRows) {
         analysisRows.forEach(row => {
@@ -40,9 +42,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                 const sCount = Array.isArray(item.sources) ? item.sources.length : 1;
                 
                 if (existing) {
-                    // Če tema že obstaja, ji PRIŠTEJEMO točke! Teme, ki so aktualne cel dan, zmagajo.
                     existing.score += sCount;
-                    // Če prej nismo imeli slike, jo zdaj dodamo
                     if (!existing.image_url && item.main_image && item.main_image.startsWith('http')) {
                         existing.image_url = item.main_image;
                     }
@@ -58,7 +58,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         })
     }
 
-    // Razvrstimo po točkah in vzamemo TOP 10 najbolj konsistentnih zgodb dneva
     const topStories = Array.from(topicMap.values())
         .sort((a, b) => b.score - a.score)
         .slice(0, 10);
@@ -72,21 +71,20 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         promptData += `[STORY #${index + 1}]\n- TOPIC: ${story.topic}\n- SUMMARY: ${story.summary}\n- HAS_IMAGE: ${story.image_url ? story.image_url : 'NO_IMAGE'}\n\n`
     })
 
-    // 3. AI PROMPT Z ENOSTAVNO SHEMO
     const prompt = `
-      You are the expert Editor-in-Chief of 'Križišče', Slovenia's sharpest morning news digest.
-      Tone: direct, confident, engaging, zero fluff. Like a trusted colleague briefing you.
+      You are the Editor-in-Chief of 'Križišče', Slovenia's sharpest morning news digest.
+      Tone: direct, confident, professional, highly objective. 
       
       Top Slovenian stories from the last 30 hours, ORDERED BY IMPORTANCE (Story #1 is objectively the biggest):
       ${promptData}
 
       RULES:
-      - intro: 2 welcoming, smart sentences setting the daily vibe.
+      - intro: 1-2 punchy sentences summarizing the essence of the day. Do not use overly friendly greetings (e.g., skip "Dobro jutro" if you want, just get to the point).
       - featured_story: YOU MUST USE [STORY #1]. Headline max 10 words, summary max 3 sentences. Copy its HAS_IMAGE url exactly.
-      - other_stories: Select exactly 5 or 6 OTHER important stories. For each, assign a 'category' with an emoji (e.g. "🌍 Svet", "🇸🇮 Slovenija", "⚽ Šport", "💻 Gospodarstvo"). Keep summaries to 1-2 punchy sentences.
-      - today_watch: Provide 2-3 bullet points. If there are no scheduled events, tell the reader what ongoing themes they should keep an eye on today.
-      - closing_line: One punchy sentence.
-      - LANGUAGE: Perfect, professional Slovenian.
+      - other_stories: Group 4-5 OTHER stories into logical sections (e.g. 🌍 Svet, 🇸🇮 Slovenija, ⚽ Šport). Headline max 8 words, 1-2 sentences summary.
+      - today_watch: Extract explicitly mentioned scheduled events happening TODAY from the data. If nothing concrete is in the data, return an EMPTY ARRAY.
+      - closing_line: One punchy, highly professional sentence concluding the newsletter. (Example: "Ostanite informirani z nami." or something sharp). DO NOT use colloquialisms like "Se beremo jutri".
+      - LANGUAGE: Perfect, formal Slovenian.
     `
 
     const responseSchema = {
@@ -102,16 +100,25 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                 },
                 required: ["headline", "summary", "image_url"]
             },
-            other_stories: {
+            categories: {
                 type: SchemaType.ARRAY,
                 items: {
                     type: SchemaType.OBJECT,
                     properties: {
-                        category: { type: SchemaType.STRING, description: "Kategorija z emojijem, npr. '🌍 Svet'" },
-                        headline: { type: SchemaType.STRING },
-                        summary: { type: SchemaType.STRING }
+                        title: { type: SchemaType.STRING },
+                        stories: {
+                            type: SchemaType.ARRAY,
+                            items: {
+                                type: SchemaType.OBJECT,
+                                properties: {
+                                    headline: { type: SchemaType.STRING },
+                                    summary: { type: SchemaType.STRING }
+                                },
+                                required: ["headline", "summary"]
+                            }
+                        }
                     },
-                    required: ["category", "headline", "summary"]
+                    required: ["title", "stories"]
                 }
             },
             today_watch: {
@@ -120,13 +127,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             },
             closing_line: { type: SchemaType.STRING }
         },
-        required: ["intro", "featured_story", "other_stories", "today_watch", "closing_line"]
+        required: ["intro", "featured_story", "categories", "today_watch", "closing_line"]
     };
 
     const generationConfig = { 
         responseMimeType: "application/json",
         responseSchema: responseSchema,
-        temperature: 0.4 // Malo svobode, da tekst lepše teče
+        temperature: 0.2
     };
 
     let aiData;
@@ -141,7 +148,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         aiData = JSON.parse(resultFlash.response.text());
     }
 
-    // Grupiranje novic po kategorijah v JavaScriptu (da ne mučimo AI-ja s težkimi strukturami)
     const groupedStories: Record<string, any[]> = {};
     if (aiData.other_stories && Array.isArray(aiData.other_stories)) {
         aiData.other_stories.forEach((story: any) => {
@@ -152,14 +158,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     const todayStr = new Intl.DateTimeFormat('sl-SI', { weekday: 'long', day: 'numeric', month: 'long' }).format(new Date())
-    const subjectStr = `[PREDOGLED] Križišče Brifing (${todayStr})`
+    const subjectStr = `[PREDOGLED] Križišče Pregled (${todayStr})`
     
-    // 4. SESTAVA HTML-JA (Zanesljivo renderiranje za Gmail in Outlook)
     let categoriesHtml = '';
     Object.entries(groupedStories).forEach(([category, stories]) => {
         categoriesHtml += `
             <div style="margin-bottom: 25px;">
-              <h3 style="font-size: 14px; color: #111827; text-transform: uppercase; letter-spacing: 0.05em; margin-top: 0; margin-bottom: 12px; font-weight: bold; border-bottom: 2px solid #E5E7EB; padding-bottom: 8px; font-family: -apple-system, Arial, sans-serif;">
+              <h3 style="font-size: 14px; color: ${BRAND_COLOR}; text-transform: uppercase; letter-spacing: 0.05em; margin-top: 0; margin-bottom: 12px; font-weight: bold; border-bottom: 2px solid #E5E7EB; padding-bottom: 8px; font-family: -apple-system, Arial, sans-serif;">
                 ${category}
               </h3>
               <table width="100%" border="0" cellspacing="0" cellpadding="0">
@@ -197,7 +202,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                   <td align="center" style="padding: 30px 20px; border-bottom: 1px solid #E5E7EB;">
                     <img src="https://krizisce.si/logo.png" alt="Križišče Logo" style="width: 44px; height: 44px; margin-bottom: 12px; display: block;">
                     <h1 style="margin: 0; font-size: 28px; color: #111827; font-family: Georgia, 'Times New Roman', serif; font-weight: normal; letter-spacing: -0.02em;">
-                      Križišče <span style="color: #10B981; font-weight: bold;">Brifing</span>
+                      Križišče <span style="color: ${BRAND_COLOR}; font-weight: bold;">Pregled</span>
                     </h1>
                     <p style="margin: 8px 0 0 0; font-size: 12px; color: #6B7280; text-transform: uppercase; letter-spacing: 0.1em; font-family: -apple-system, Arial, sans-serif;">
                       ${todayStr}
@@ -250,9 +255,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                   <td align="center" style="padding: 0 24px 40px 24px;">
                     <table border="0" cellspacing="0" cellpadding="0">
                       <tr>
-                        <td align="center" style="border-radius: 6px;" bgcolor="#111827">
-                          <a href="https://krizisce.si" target="_blank" style="font-size: 15px; font-family: -apple-system, Arial, sans-serif; color: #ffffff; text-decoration: none; padding: 14px 30px; border: 1px solid #111827; display: inline-block; border-radius: 6px; font-weight: bold;">
-                            Preberi več na Križišče.si
+                        <td align="center" style="border-radius: 6px;" bgcolor="${BRAND_COLOR}">
+                          <a href="https://krizisce.si" target="_blank" style="font-size: 15px; font-family: -apple-system, Arial, sans-serif; color: #ffffff; text-decoration: none; padding: 14px 30px; display: inline-block; border-radius: 6px; font-weight: bold;">
+                            Preveri novice v živo
                           </a>
                         </td>
                       </tr>
@@ -266,11 +271,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                       <strong>[PREDOGLED]</strong> To je testni mail. Gumb "Odobri in pošlji" pride v produkciji.
                     </p>
                     <p style="margin: 0 0 12px 0;">
-                      Prejeli ste to sporočilo, ker ste prijavljeni na jutranji brifing portala Križišče.si.
+                      Prejeli ste to sporočilo, ker ste prijavljeni na jutranji pregled portala Križišče.si.
                     </p>
                     <p style="margin: 0;">
-                      <a href="#" style="color: #6B7280; text-decoration: underline;">Odjava od obvestil</a> | 
-                      <a href="mailto:gjkcme@gmail.com" style="color: #6B7280; text-decoration: underline;">Kontakt</a>
+                      <a href="#" style="color: ${BRAND_COLOR}; text-decoration: underline;">Odjava od obvestil</a> | 
+                      <a href="mailto:gjkcme@gmail.com" style="color: ${BRAND_COLOR}; text-decoration: underline;">Kontakt</a>
                     </p>
                   </td>
                 </tr>
@@ -283,7 +288,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       </html>
     `;
 
-    // 5. SHRANJEVANJE V BAZO
     const { data: insertedNewsletter, error: insertError } = await supabase
       .from('newsletters')
       .insert({
@@ -296,7 +300,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     if (insertError) throw insertError;
 
-    // 6. POŠILJANJE PREDOGLEDA
     const { data: emailData, error: emailError } = await resend.emails.send({
       from: 'Križišče <onboarding@resend.dev>',
       to: ['gjkcme@gmail.com'], 
