@@ -146,22 +146,27 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     };
 
     let aiData;
+    let aiData;
     // TROJNI FALLBACK Z NAJNOVEJŠIMI MODELI
     try {
+        console.log("🚀 Poskušam gemini-3.1-pro-preview...");
         const model31 = genAI.getGenerativeModel({ model: "gemini-3.1-pro-preview", generationConfig });
         const result31 = await model31.generateContent(prompt);
         aiData = JSON.parse(result31.response.text());
+        console.log("✅ Uspešno uporabljen model: gemini-3.1-pro-preview");
     } catch (err31: any) {
-        console.warn("Fallback to 3.0-pro...");
+        console.warn("⚠️ 3.1-pro ni na voljo. Fallback to 3.0-pro...");
         try {
             const model3 = genAI.getGenerativeModel({ model: "gemini-3-pro-preview", generationConfig });
             const result3 = await model3.generateContent(prompt);
             aiData = JSON.parse(result3.response.text());
+            console.log("✅ Uspešno uporabljen model: gemini-3-pro-preview");
         } catch (err3: any) {
-            console.warn("Fallback to 2.5-pro...");
+            console.warn("⚠️ 3.0-pro ni na voljo. Fallback to 2.5-pro...");
             const model25 = genAI.getGenerativeModel({ model: "gemini-2.5-pro", generationConfig });
             const result25 = await model25.generateContent(prompt);
             aiData = JSON.parse(result25.response.text());
+            console.log("✅ Uspešno uporabljen model: gemini-2.5-pro");
         }
     }
 
