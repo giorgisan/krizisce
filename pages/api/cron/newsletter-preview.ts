@@ -295,7 +295,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                     </p>
                     
                     <p style="margin: 0 0 25px 0;">
-                      <a href="https://krizisce.si/api/unsubscribe?email={{USER_EMAIL}}" style="color: #9ca3af; text-decoration: underline; font-size: 11px;">Odjavi me od e-novic</a>
+                      <a href="https://krizisce.si/api/unsubscribe?id={{USER_ID}}" style="color: #9ca3af; text-decoration: underline; font-size: 11px;">Odjavi me od e-novic</a>
                     </p>
 
                     <p style="margin: 0; font-size: 11px; color: #d1d5db; font-weight: 500;">
