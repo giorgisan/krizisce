@@ -34,9 +34,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(400).send('Ta newsletter je bil že poslan!');
     }
 
+    // Tukaj je SPREMEMBA: Sedaj poleg emaila naberemo tudi 'id' (UUID)
     const { data: subscribers, error: subError } = await supabase
       .from('subscribers')
-      .select('email')
+      .select('id, email')
       .eq('is_active', true);
 
     if (subError) throw subError;
@@ -45,13 +46,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(200).send('Ni aktivnih naročnikov za pošiljanje.');
     }
 
-    // POPRAVEK: Tukaj zgradimo unikatne maile za vsakega prejemnika
+    // Tukaj zgradimo unikatne maile, kjer se {{USER_EMAIL}} zamenja s skritim {{USER_ID}}
     const emailsPayload = subscribers.map(sub => ({
       from: 'Križišče <jutro@krizisce.si>', 
       to: [sub.email],
       subject: newsletter.subject,
-      // Zamenjamo placeholder z dejanskim mailom naročnika
-      html: newsletter.html_content.replace(/{{USER_EMAIL}}/g, encodeURIComponent(sub.email)),
+      // Ker smo v preview kodi pomotoma pustili oznako {{USER_EMAIL}}, jo bomo sedaj
+      // enostavno prepisali z UUID-jem! Zato je varnost zagotovljena.
+      html: newsletter.html_content.replace(/{{USER_EMAIL}}/g, sub.id),
     }));
 
     const chunkSize = 100;
