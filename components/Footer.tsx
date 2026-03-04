@@ -150,15 +150,19 @@ export default function Footer() {
             <div className="bg-white dark:bg-[#151a25]/50 border border-gray-200 dark:border-white/5 rounded-2xl p-6 sm:p-8 shadow-sm">
               <div className="flex flex-col md:flex-row md:items-center gap-6 lg:gap-10">
                 
-                {/* Leva stran: Opis */}
+                {/* Leva stran: Opis in CTA */}
                 <div className="flex-1">
                   <div className="flex items-center gap-3 mb-3">
                     <span className="text-brand text-2xl leading-none">☕</span>
                     <h4 className="text-lg font-bold text-gray-900 dark:text-gray-200">Dnevni pregled</h4>
                   </div>
-                  <p className="text-sm text-gray-600 dark:text-gray-500 leading-relaxed">
+                  <p className="text-sm text-gray-600 dark:text-gray-500 leading-relaxed mb-3">
                     Začnite dan informirani. Prijavite se na brezplačen pametni pregled najpomembnejših novic, ki ga naš algoritem za vas zbere vsako jutro.
                   </p>
+                  <Link href="/pregled" className="inline-flex items-center text-sm font-semibold text-brand hover:text-[#d32f2f] transition-colors group">
+                    <span>Preverite, kako izgleda današnji pregled</span>
+                    <span className="ml-1 transition-transform group-hover:translate-x-1">→</span>
+                  </Link>
                 </div>
 
                 {/* Desna stran: Obrazec */}
@@ -196,7 +200,7 @@ export default function Footer() {
                           onChange={(e) => setAgreed(e.target.checked)}
                           required
                           disabled={status === 'loading'}
-                          className="mt-0.5 h-4 w-4 rounded border-gray-300 text-brand focus:ring-brand disabled:opacity-50 cursor-pointer"
+                          className="mt-0.5 h-4 w-4 rounded border-gray-300 text-brand focus:ring-brand disabled:opacity-50 cursor-pointer shrink-0"
                         />
                         <label htmlFor="gdpr-consent" className="text-xs text-gray-500 dark:text-gray-400 leading-snug cursor-pointer select-none">
                           Strinjam se in dovoljujem pošiljanje e-pošte s pregledom aktualnega dogajanja.
