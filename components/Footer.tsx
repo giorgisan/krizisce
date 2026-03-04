@@ -112,13 +112,11 @@ export default function Footer() {
 
       <div className="w-full h-px bg-gradient-to-r from-transparent via-brand/30 dark:via-brand/30 to-transparent opacity-80"></div>
 
-      <div className="bg-gray-50/80 dark:bg-[#0b101b] pt-10 pb-8 transition-colors">
+      <div className="bg-gray-50/80 dark:bg-[#0b101b] pt-10 pb-8 transition-colors" id="naročnina">
         <div className="mx-auto max-w-6xl px-4 md:px-8 lg:px-16 text-gray-800 dark:text-gray-400">
           
-          {/* Prilagojen GRID z vključenim obrazcem */}
           <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-4 items-start">
             
-            {/* Prvi stolpec: Logo in Opis */}
             <div className="lg:col-span-1">
               <div className="flex items-center mb-3">
                 <Image src="/logo.png" alt="Križišče" width={32} height={32} className="w-6 h-6 rounded-md mr-2" />
@@ -130,75 +128,80 @@ export default function Footer() {
               </p>
             </div>
 
-            {/* Drugi stolpec: Povezave in Kontakt */}
             <div className="lg:col-span-1">
-              <h4 className="text-sm font-semibold text-gray-900 dark:text-gray-200 mb-3">Povezave & Kontakt</h4>
+              <h4 className="text-sm font-semibold text-gray-900 dark:text-gray-200 mb-3">Povezave</h4>
               <ul className="space-y-1.5 text-xs sm:text-sm text-gray-600 dark:text-gray-500">
-                <li><Link href="/analiza" prefetch={false} className="hover:text-brand dark:hover:text-brand transition">Medijski Monitor</Link></li>
-                <li><Link href="/arhiv" className="hover:text-brand dark:hover:text-brand transition">Arhiv novic</Link></li>
-                <li><Link href="/projekt" className="hover:text-brand dark:hover:text-brand transition">O projektu</Link></li>
-                <li><Link href="/pogoji" className="hover:text-brand dark:hover:text-brand transition">Pogoji uporabe</Link></li>
-                <li><Link href="/zasebnost" className="hover:text-brand dark:hover:text-brand transition">Politika zasebnosti</Link></li>
-                <li className="pt-2">
-                  <a href="mailto:gjkcme@gmail.com" className="font-medium hover:text-brand dark:hover:text-brand transition">
-                    Pošljite nam sporočilo
-                  </a>
-                </li>
+                <li><Link href="/analiza" prefetch={false} className="hover:text-brand transition">Medijski Monitor</Link></li>
+                <li><Link href="/arhiv" className="hover:text-brand transition">Arhiv novic</Link></li>
+                <li><Link href="/projekt" className="hover:text-brand transition">O projektu</Link></li>
+                <li><Link href="/pogoji" className="hover:text-brand transition">Pogoji uporabe</Link></li>
+                <li><Link href="/zasebnost" className="hover:text-brand transition">Politika zasebnosti</Link></li>
               </ul>
             </div>
 
-            {/* Tretji in četrti stolpec: Prijava na E-novice */}
-            <div className="md:col-span-2 lg:col-span-2 bg-white dark:bg-[#151a25]/50 border border-gray-200 dark:border-white/5 rounded-xl p-5 shadow-sm">
-              <div className="flex items-center gap-2 mb-2">
-                <span className="text-brand text-lg">☕</span>
-                <h4 className="text-sm font-semibold text-gray-900 dark:text-gray-200">Jutranji pregled</h4>
-              </div>
-              <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-500 mb-4">
-                Prijavite se na brezplačen pametni pregled najpomembnejših novic, ki ga za vas vsako jutro pripravimo ob kavi.
-              </p>
-              
-              {status === 'success' ? (
-                <div className="text-sm text-green-700 dark:text-green-400 font-medium bg-green-50 dark:bg-green-900/20 px-4 py-3 rounded-lg border border-green-200 dark:border-green-800/30">
-                  {msg}
-                </div>
-              ) : (
-                <form onSubmit={handleSubscribe} className="space-y-3">
-                  <div className="flex flex-col sm:flex-row gap-2">
-                    <input
-                      type="email"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      placeholder="Vaš e-poštni naslov"
-                      required
-                      disabled={status === 'loading'}
-                      className="w-full sm:flex-1 rounded-md border border-gray-300 dark:border-white/10 bg-gray-50 dark:bg-[#0b101b] px-3 py-2 text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand transition disabled:opacity-50"
-                    />
-                    <button
-                      type="submit"
-                      disabled={status === 'loading' || !agreed || !email}
-                      className="w-full sm:w-auto whitespace-nowrap rounded-md bg-brand px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-[#d32f2f] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand transition disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {status === 'loading' ? 'Prijava...' : 'Prijavi se'}
-                    </button>
-                  </div>
+            {/* Nova sekcija Komunikacije z Newsletterjem */}
+            <div className="md:col-span-2 lg:col-span-2">
+              <h4 className="text-sm font-semibold text-gray-900 dark:text-gray-200 mb-3">Komunikacije</h4>
+              <div className="space-y-5">
+                  <a href="mailto:gjkcme@gmail.com" className="text-xs sm:text-sm text-gray-600 dark:text-gray-500 hover:text-brand transition flex items-center gap-2">
+                    <svg className="w-4 h-4 opacity-70" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
+                    Pošljite nam sporočilo
+                  </a>
 
-                  <div className="flex items-start gap-2 pt-1">
-                    <input
-                      type="checkbox"
-                      id="gdpr-consent"
-                      checked={agreed}
-                      onChange={(e) => setAgreed(e.target.checked)}
-                      required
-                      disabled={status === 'loading'}
-                      className="mt-0.5 h-3.5 w-3.5 rounded border-gray-300 text-brand focus:ring-brand disabled:opacity-50 cursor-pointer"
-                    />
-                    <label htmlFor="gdpr-consent" className="text-[11px] text-gray-500 dark:text-gray-400 leading-tight cursor-pointer select-none">
-                      Strinjam se s <Link href="/pogoji" className="underline hover:text-brand transition">pogoji</Link> in <Link href="/zasebnost" className="underline hover:text-brand transition">politiko zasebnosti</Link> ter dovoljujem pošiljanje e-novic.
-                    </label>
+                  {/* E-novice okvirček */}
+                  <div className="bg-white dark:bg-[#151a25]/50 border border-gray-200 dark:border-white/5 rounded-xl p-5 shadow-sm mt-2">
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="text-brand text-lg leading-none">☕</span>
+                      <h4 className="text-sm font-semibold text-gray-900 dark:text-gray-200">Dnevni pregled</h4>
+                    </div>
+                    <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-500 mb-4">
+                      Prijavite se na brezplačen pametni pregled najpomembnejših novic, ki ga za vas vsako jutro pripravimo ob kavi.
+                    </p>
+                    
+                    {status === 'success' ? (
+                      <div className="text-sm text-green-700 dark:text-green-400 font-medium bg-green-50 dark:bg-green-900/20 px-4 py-3 rounded-lg border border-green-200 dark:border-green-800/30">
+                        {msg}
+                      </div>
+                    ) : (
+                      <form onSubmit={handleSubscribe} className="space-y-3">
+                        <div className="flex flex-col sm:flex-row gap-2">
+                          <input
+                            type="email"
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
+                            placeholder="Vaš e-poštni naslov"
+                            required
+                            disabled={status === 'loading'}
+                            className="w-full sm:flex-1 rounded-md border border-gray-300 dark:border-white/10 bg-gray-50 dark:bg-[#0b101b] px-3 py-2 text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand transition disabled:opacity-50"
+                          />
+                          <button
+                            type="submit"
+                            disabled={status === 'loading' || !agreed || !email}
+                            className="w-full sm:w-auto whitespace-nowrap rounded-md bg-brand hover:bg-[#d32f2f] px-4 py-2 text-sm font-semibold text-white shadow-sm transition disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            {status === 'loading' ? 'Prijava...' : 'Prijavi se'}
+                          </button>
+                        </div>
+
+                        <div className="flex items-start gap-2 pt-1">
+                          <input
+                            type="checkbox"
+                            id="gdpr-consent"
+                            checked={agreed}
+                            onChange={(e) => setAgreed(e.target.checked)}
+                            required
+                            disabled={status === 'loading'}
+                            className="mt-0.5 h-3.5 w-3.5 rounded border-gray-300 text-brand focus:ring-brand disabled:opacity-50 cursor-pointer"
+                          />
+                          <label htmlFor="gdpr-consent" className="text-[11px] text-gray-500 dark:text-gray-400 leading-tight cursor-pointer select-none">
+                            Strinjam se s <Link href="/pogoji" className="underline hover:text-brand transition">pogoji</Link> in <Link href="/zasebnost" className="underline hover:text-brand transition">politiko zasebnosti</Link> ter dovoljujem pošiljanje dnevnega pregleda.
+                          </label>
+                        </div>
+                        {status === 'error' && <p className="text-xs text-red-500 mt-1">{msg}</p>}
+                      </form>
+                    )}
                   </div>
-                  {status === 'error' && <p className="text-xs text-red-500 mt-1">{msg}</p>}
-                </form>
-              )}
+              </div>
             </div>
 
           </div>
