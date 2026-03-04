@@ -35,7 +35,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // 2. Izbor prvih 5 skupin
     const topStories = allGroups.slice(0, 5)
 
-    // 3. Priprava podatkov za AI (DODAN POVZETEK IN URL)
+    // 3. Priprava podatkov za AI
     let promptData = ""
     topStories.forEach((group: any, index: number) => {
        promptData += `\nZGODBA ${index + 1}:\n`
@@ -50,12 +50,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
        
        allInGroup.slice(0, 8).forEach((item: any) => {
           const snippet = item.snippet || item.contentsnippet || item.contentSnippet || '';
-          // SPREMEMBA: Tukaj smo AI-ju dodali še URL, da si ga ne bo več izmišljeval!
           promptData += `- Vir: ${item.source}, Naslov: "${item.title}", URL: "${item.link}", Povzetek: "${snippet}"\n`
        })
     })
 
-    // 4. Optimiziran prompt z novimi, praktičnimi kategorijami
+    // 4. Optimiziran prompt
     const prompt = `
       You are an expert media analyst. Analyze how Slovenian media is reporting on the following ${topStories.length} events. 
       Use both the title and the provided snippet to evaluate the media framing and editorial approach.
@@ -72,7 +71,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       ${promptData}
     `
 
-    // Strict JSON schema definition za Gemini z uporabo SchemaType
+    // Strict JSON schema definition za Gemini
     const responseSchema = {
       type: SchemaType.ARRAY,
       description: "Seznam analiziranih medijskih zgodb.",
@@ -85,7 +84,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           },
           summary: {
             type: SchemaType.STRING,
-            description: "Bistvo dogodka v enem stavku."
+            // SPREMEMBA TUKAJ: Zahtevamo bistveno bolj bogat povzetek!
+            description: "A detailed, factual 3 to 4 sentence summary of the story based on the provided snippets. Include key names, specific numbers, actions, and locations mentioned in the text. This will be used as primary reference for a morning briefing."
           },
           framing_analysis: {
             type: SchemaType.STRING,
