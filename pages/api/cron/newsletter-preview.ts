@@ -69,7 +69,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         })
     }
 
-    // Povečamo na TOP 20, da ima AI res širok spekter novic (od tech do politike)
     const topStories = Array.from(topicMap.values())
         .sort((a, b) => b.score - a.score)
         .slice(0, 20);
@@ -160,7 +159,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const subjectStr = `[PREDOGLED] Križišče Pregled (${todayStr})`
     
     let categoriesHtml = '';
-    // Včasih AI vseeno zapiše zanimivost v kategorije, tukaj to varno prefiltriramo
     const safeCategories = aiData.categories.filter((cat: any) => !cat.title.toLowerCase().includes('zanimivost'));
 
     safeCategories.forEach((cat: any) => {
@@ -186,9 +184,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         `;
     });
 
-    // Popravljen proxy za slike: Odstranjen webp za boljši prikaz v emailih in nastavljena visoka kvaliteta (q=85)
-    const proxyImageUrl = bestImage ? `https://images.weserv.nl/?url=${encodeURIComponent(bestImage)}&w=600&q=85&output=jpg` : null;
+    // Odstranjen &output=webp za ohranitev originalne kvalitete slike (zmanjšamo samo resolucijo na 600px za email)
+    const proxyImageUrl = bestImage ? `https://images.weserv.nl/?url=${encodeURIComponent(bestImage)}&w=600` : null;
 
+    // 4. HTML DIZAJN S POPRAVLJENO GLAVO IN NOGO
     const finalEmailHtml = `
       <!DOCTYPE html>
       <html>
@@ -204,14 +203,25 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
               <table width="100%" max-width="600" border="0" cellspacing="0" cellpadding="0" style="max-width: 600px; background-color: #ffffff; border-radius: 8px; border: 1px solid #E5E7EB; overflow: hidden; margin: 0 auto;">
                 
                 <tr>
-                  <td align="center" style="padding: 35px 20px 25px 20px; border-bottom: 1px solid #E5E7EB; background-color: #ffffff;">
-                    <img src="https://krizisce.si/logo.png" alt="Križišče Logo" style="width: 48px; height: 48px; margin-bottom: 16px; display: block;">
-                    <h1 style="margin: 0; font-size: 32px; color: #111827; font-family: Georgia, 'Times New Roman', serif; font-weight: normal; letter-spacing: -0.02em;">
-                      Križišče <span style="color: ${BRAND_COLOR}; font-weight: bold;">Jutranji pregled</span>
-                    </h1>
-                    <p style="margin: 10px 0 0 0; font-size: 13px; color: #6B7280; text-transform: uppercase; letter-spacing: 0.1em; font-family: -apple-system, Arial, sans-serif;">
-                      ${todayStr}
-                    </p>
+                  <td style="padding: 30px 24px 25px 24px; border-bottom: 1px solid #E5E7EB; background-color: #ffffff;">
+                    <table width="100%" border="0" cellspacing="0" cellpadding="0">
+                      <tr>
+                        <td width="55" valign="middle">
+                          <img src="https://krizisce.si/logo.png" alt="Križišče Logo" style="width: 48px; height: 48px; display: block;">
+                        </td>
+                        <td valign="middle">
+                          <h1 style="margin: 0; font-size: 28px; color: #111827; font-family: Georgia, 'Times New Roman', serif; font-weight: bold; letter-spacing: -0.02em; line-height: 1;">
+                            Križišče
+                          </h1>
+                          <p style="margin: 4px 0 0 0; font-size: 13px; color: ${BRAND_COLOR}; text-transform: uppercase; letter-spacing: 0.1em; font-family: -apple-system, Arial, sans-serif; font-weight: bold;">
+                            Jutranji pregled
+                          </p>
+                        </td>
+                        <td align="right" valign="bottom" style="font-size: 12px; color: #6B7280; font-family: -apple-system, Arial, sans-serif;">
+                          ${todayStr}
+                        </td>
+                      </tr>
+                    </table>
                   </td>
                 </tr>
 
@@ -230,7 +240,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
                     ${categoriesHtml}
 
-                    <div style="background-color: #FFF7ED; border-left: 4px solid ${BRAND_COLOR}; padding: 20px; margin-bottom: 30px;">
+                    <div style="background-color: #FFF7ED; border-left: 4px solid ${BRAND_COLOR}; padding: 20px; margin-bottom: 40px;">
                       <h3 style="font-size: 15px; color: #9A3412; font-weight: bold; margin-top: 0; margin-bottom: 8px; font-family: -apple-system, Arial, sans-serif; text-transform: uppercase; letter-spacing: 0.05em;">
                         🔭 Zanimivost dneva
                       </h3>
@@ -238,6 +248,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                         ${aiData.fun_fact}
                       </p>
                     </div>
+
+                    <p style="font-size: 16px; line-height: 1.6; color: #374151; font-style: italic; text-align: center; margin-top: 0; margin-bottom: 25px; font-family: Georgia, 'Times New Roman', serif;">
+                      Za vse ključne informacije dneva ostanite z nami in obiščite krizisce.si.
+                    </p>
 
                   </td>
                 </tr>
@@ -258,6 +272,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
                 <tr>
                   <td align="center" style="background-color: #F9FAFB; padding: 30px 24px; border-top: 1px solid #E5E7EB; font-family: -apple-system, Arial, sans-serif; font-size: 12px; color: #6B7280; line-height: 1.6;">
+                    <p style="margin: 0 0 12px 0; color: #374151; font-size: 14px; font-weight: bold;">
+                      Hvala, ker nas berete.
+                    </p>
                     <p style="margin: 0 0 12px 0;">
                       <strong>[PREDOGLED]</strong> To je testni mail. Gumb "Odobri in pošlji" pride v produkciji.
                     </p>
