@@ -115,7 +115,6 @@ export default function Footer() {
       <div className="bg-gray-50/80 dark:bg-[#0b101b] pt-10 pb-8 transition-colors">
         <div className="mx-auto max-w-6xl px-4 md:px-8 lg:px-16 text-gray-800 dark:text-gray-400">
           
-          {/* OSNOVNI MENI (3 Stolpci) */}
           <div className="grid gap-6 sm:grid-cols-3 items-start">
             <div>
               <div className="flex items-center mb-2">
@@ -145,12 +144,10 @@ export default function Footer() {
             </div>
           </div>
 
-          {/* ŠIROK NEWSLETTER OKVIR (Pod menijem) */}
           <div className="mt-12 max-w-4xl mx-auto" id="narocnina">
             <div className="bg-white dark:bg-[#151a25]/50 border border-gray-200 dark:border-white/5 rounded-2xl p-6 sm:p-8 shadow-sm">
               <div className="flex flex-col md:flex-row md:items-center gap-6 lg:gap-10">
                 
-                {/* Leva stran: Opis in CTA */}
                 <div className="flex-1">
                   <div className="flex items-center gap-3 mb-3">
                     <span className="text-brand text-2xl leading-none">☕</span>
@@ -159,14 +156,13 @@ export default function Footer() {
                   <p className="text-sm text-gray-600 dark:text-gray-500 leading-relaxed mb-3">
                     Začnite dan informirani. Prijavite se na brezplačen pametni pregled najpomembnejših novic, ki ga naš algoritem za vas zbere vsako jutro.
                   </p>
-                  {/* POPRAVLJEN LINK (Svetlejša barva, brez rdečega hoverja) */}
-                  <Link href="/pregled" className="inline-flex items-center text-[13px] font-medium text-brand hover:opacity-75 transition-opacity group">
+                  {/* TUKAJ JE POPRAVEK: text-brand barva, hover samo posvetli (opacity-70), brez podčrtavanja */}
+                  <Link href="/pregled" className="inline-flex items-center text-[13px] font-medium text-brand hover:opacity-70 transition-opacity group">
                     <span>Preverite, kako izgleda današnji pregled</span>
                     <span className="ml-1 transition-transform group-hover:translate-x-1">→</span>
                   </Link>
                 </div>
 
-                {/* Desna stran: Obrazec */}
                 <div className="flex-1 w-full max-w-md md:max-w-none mx-auto">
                   {status === 'success' ? (
                     <div className="text-sm text-green-700 dark:text-green-400 font-medium bg-green-50 dark:bg-green-900/20 px-4 py-4 rounded-xl border border-green-200 dark:border-green-800/30 text-center h-full flex items-center justify-center">
@@ -216,7 +212,6 @@ export default function Footer() {
             </div>
           </div>
 
-          {/* VIRI */}
           <div className="mt-12 flex justify-center">
             <div className="relative">
               <button
@@ -263,7 +258,6 @@ export default function Footer() {
 
           <div className="border-t border-gray-200 dark:border-white/5 mt-8 pt-6 text-center text-xs text-gray-500 dark:text-gray-600 pb-[calc(env(safe-area-inset-bottom,0px))]">
             <p className="italic mb-1 opacity-80 font-sans">Informacija ni znanje. Edino razumevanje šteje.</p>
-            {/* POPRAVLJENA DINAMIČNA LETNICA */}
             <p className="opacity-80 font-medium">© {year > 2025 ? `2025-${year}` : '2025'} Križišče – Vse pravice pridržane.</p>
           </div>
         </div>
