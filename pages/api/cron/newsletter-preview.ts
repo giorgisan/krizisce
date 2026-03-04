@@ -147,19 +147,27 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     let aiData;
     try {
-        // UPORABIMO STABILEN IN HITER MODEL (prepreči Vercel Timeout 60s)
         console.log("🚀 Poskušam stabilen model: gemini-2.5-pro...");
         const model = genAI.getGenerativeModel({ model: "gemini-2.5-pro", generationConfig });
         const result = await model.generateContent(prompt);
         aiData = JSON.parse(result.response.text());
         console.log("✅ Uspešno uporabljen model: gemini-2.5-pro");
     } catch (err: any) {
-        console.error("⚠️ AI napaka:", err);
-        throw new Error("Napaka pri AI generaciji: " + err.message);
+        console.warn("⚠️ 2.5-pro ni uspel. Fallback na gemini-1.5-pro...");
+        try {
+            // VARNOSTNI FALLBACK
+            const fallbackModel = genAI.getGenerativeModel({ model: "gemini-1.5-pro", generationConfig });
+            const fallbackResult = await fallbackModel.generateContent(prompt);
+            aiData = JSON.parse(fallbackResult.response.text());
+            console.log("✅ Uspešno uporabljen model: gemini-1.5-pro");
+        } catch (fallbackErr: any) {
+            console.error("⚠️ AI napaka:", fallbackErr);
+            throw new Error("Napaka pri AI generaciji: " + fallbackErr.message);
+        }
     }
 
     const todayStr = new Intl.DateTimeFormat('sl-SI', { weekday: 'long', day: 'numeric', month: 'long' }).format(new Date())
-    const subjectStr = `[PREDOGLED] Križišče Pregled (${todayStr})`
+    const subjectStr = `Križišče Pregled: ${todayStr}`
     
     let categoriesHtml = '';
     const safeCategories = aiData.categories.filter((cat: any) => !cat.title.toLowerCase().includes('zanimivost'));
@@ -194,6 +202,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
     const proxyImageUrl = finalImageUrl ? `https://images.weserv.nl/?url=${encodeURIComponent(finalImageUrl)}&w=800&q=100&output=jpg` : null;
 
+    // TO JE ČISTI HTML (ZA NAROČNIKE IN BAZO)
     const finalEmailHtml = `
       <!DOCTYPE html>
       <html>
@@ -269,20 +278,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
                 <tr>
                   <td align="center" style="background-color: #F9FAFB; padding: 24px; border-top: 1px solid #E5E7EB; font-family: -apple-system, Arial, sans-serif; font-size: 12px; color: #6B7280; line-height: 1.5;">
-                    <p style="margin: 0 0 12px 0;">
-                      <strong>[PREDOGLED]</strong> To je testni mail. Gumb "Odobri in pošlji" pride v produkciji.
-                    </p>
-                    
                     <p style="margin: 0 0 16px 0; padding: 12px; background-color: #f3f4f6; border-radius: 6px; font-size: 11px; text-align: left; color: #9ca3af;">
                       <i>🤖 <strong>Transparentnost:</strong> Ta pregled je samodejno generiran s pomočjo naprednih modelov umetne inteligence na podlagi javno dostopnih novic slovenskih medijev. Kljub nadzoru vas spodbujamo, da za podrobnosti preberete izvirne članke na portalih.</i>
                     </p>
-
                     <p style="margin: 0 0 12px 0;">
                       Prejeli ste to sporočilo, ker ste prijavljeni na jutranji pregled portala Križišče.si.
                     </p>
                     <p style="margin: 0;">
-                      <a href="#" style="color: ${BRAND_COLOR}; text-decoration: underline;">Odjava od obvestil</a> | 
-                      <a href="mailto:gjkcme@gmail.com" style="color: ${BRAND_COLOR}; text-decoration: underline;">Kontakt</a>
+                      <a href="{{unsubscribe_url}}" style="color: ${BRAND_COLOR}; text-decoration: none; font-weight: 500;">Odjava</a>
+                      &nbsp;&nbsp;|&nbsp;&nbsp;
+                      <a href="mailto:gjkcme@gmail.com" style="color: ${BRAND_COLOR}; text-decoration: none; font-weight: 500;">Kontakt</a>
                     </p>
                   </td>
                 </tr>
@@ -295,31 +300,45 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       </html>
     `;
 
+    // 1. ZAPIŠEMO ČISTI HTML V BAZO
     const { data: insertedNewsletter, error: insertError } = await supabase
       .from('newsletters')
       .insert({
         subject: subjectStr,
         html_content: finalEmailHtml,
-        status: 'draft'
+        status: 'draft' // status je še vedno osnutek
       })
       .select('id')
       .single();
 
     if (insertError) throw insertError;
 
+    // 2. USTVARIMO ADMIN PASICO SAMO ZA TVOJ PREDOGLED
+    const adminUrl = `https://krizisce.si/api/cron/send-newsletter?id=${insertedNewsletter.id}&key=${process.env.CRON_SECRET}`;
+    
+    const adminEmailHtml = `
+      <div style="background-color: #fef08a; padding: 25px; text-align: center; border-bottom: 4px solid #eab308; font-family: sans-serif;">
+        <h2 style="margin-top: 0; color: #854d0e;">👋 Hej, tole je današnji predogled!</h2>
+        <p style="color: #a16207; margin-bottom: 20px; font-size: 15px;">Preberi si mail. Če si zadovoljen, pritisni spodnji gumb in sistem bo mail poslal vsem naročnikom na Križišče.</p>
+        <a href="${adminUrl}" style="background-color: #ea580c; color: #ffffff; padding: 14px 28px; text-decoration: none; font-weight: bold; border-radius: 8px; display: inline-block;">Odobri in pošlji vsem</a>
+      </div>
+      ${finalEmailHtml}
+    `;
+
+    // 3. POŠLJEMO TEBI
     const { data: emailData, error: emailError } = await resend.emails.send({
       from: 'Križišče <jutro@krizisce.si>', 
       replyTo: 'gjkcme@gmail.com',         
       to: ['gjkcme@gmail.com'], 
-      subject: subjectStr,
-      html: finalEmailHtml,
+      subject: `[PREDOGLED] ${subjectStr}`,
+      html: adminEmailHtml, // Pošljemo verzijo z rumeno pasico!
     });
 
     if (emailError) throw emailError;
 
     return res.status(200).json({ 
         success: true, 
-        message: "Predogled shranjen in poslan!", 
+        message: "Predogled shranjen in poslan tebi v potrditev!", 
         newsletter_id: insertedNewsletter.id 
     })
 
