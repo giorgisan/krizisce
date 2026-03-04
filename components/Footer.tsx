@@ -199,7 +199,7 @@ export default function Footer() {
                           className="mt-0.5 h-4 w-4 rounded border-gray-300 text-brand focus:ring-brand disabled:opacity-50 cursor-pointer"
                         />
                         <label htmlFor="gdpr-consent" className="text-xs text-gray-500 dark:text-gray-400 leading-snug cursor-pointer select-none">
-                          Strinjam se in dovoljujem pošiljanje e-pošte s pregledom aktualnega dogajanja.
+                          Potrjujem prejemanje e-pošte s pregledom aktualnega dogajanja.
                         </label>
                       </div>
                       {status === 'error' && <p className="text-sm text-red-500 mt-1 font-medium">{msg}</p>}
