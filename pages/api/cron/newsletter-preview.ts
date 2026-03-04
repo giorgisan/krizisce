@@ -13,7 +13,6 @@ const supabase = createClient(
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_KEY || '')
 const resend = new Resend(process.env.RESEND_API_KEY)
 
-// Bolj nežna, profesionalna "terakota" oranžna barva
 const BRAND_COLOR = "#ea580c"; 
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -94,14 +93,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       ${promptData}
 
       YOUR TASK:
-      1. 'intro': A warm 2-sentence summary of the general daily vibe. Link the current news to broader global or national contexts.
-      2. 'categories': Create exactly 3 to 4 distinct categories (e.g., "🇸🇮 Slovenija: [Smart Subtitle]", "🌍 Svet: [Smart Subtitle]", "💻 Tech & Gospodarstvo: [Smart Subtitle]", "⚽ Šport: [Smart Subtitle]").
-      3. For each category, write a 1-sentence 'intro_text' that sets the stage.
-      4. For each category, provide 2 to 3 'items'. Each item needs a 'theme' (e.g. "Politični potresi") and a 'text'.
-      5. CRITICAL ENRICHMENT: In the 'text', DO NOT just mechanically summarize the raw data. ENRICH the stories with your broader knowledge of current affairs (e.g. mention upcoming elections, inflation, tech shifts, or historical context) to give the reader deep, analytical value.
-      6. 'fun_fact': End with a fascinating trivia fact starting with "Ali si vedel, da...". 
+      1. 'intro': A warm 1-2 sentence summary of the general daily vibe. (Do NOT include "Dobro jutro", just start the summary).
+      2. 'categories': Create 3 to 4 distinct categories based on the news (e.g., "🇸🇮 Slovenija: [Subtitle]", "🌍 Svet: [Subtitle]", "💻 Tech: [Subtitle]", etc.).
+      3. For each category, write a 1-sentence 'intro_text'.
+      4. For each category, provide 2 to 3 'items'. Each item needs a 'theme' (e.g. "Politični potresi") and a 'text' (2-3 sentences).
+      5. CRITICAL ENRICHMENT: In the 'text', ENRICH the stories with your broader knowledge of current affairs (elections, inflation, context) to give analytical value.
+      6. 'fun_fact': End with a fascinating trivia fact starting with "Ali ste vedeli, da...". 
       
-      STRICT RULE: DO NOT put the fun fact inside the 'categories' array. It belongs ONLY in the 'fun_fact' field.
+      STRICT RULES: 
+      - CRITICAL: ALWAYS put the '🇸🇮 Slovenija' category FIRST in the array!
+      - DO NOT put the fun fact inside the 'categories' array. It belongs ONLY in the 'fun_fact' field.
+      - The entire text MUST use the formal Slovenian plural 'vikanje' (e.g. 'Ali ste vedeli, da...', 'bodite pozorni'). Never use 'ti' or 'si'.
 
       Write EVERYTHING in perfect, engaging Slovenian.
     `
@@ -115,15 +117,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                 items: {
                     type: SchemaType.OBJECT,
                     properties: {
-                        title: { type: SchemaType.STRING, description: "Npr. '🇸🇮 Slovenija: Predvolilna mrzlica in športni vrhunci'" },
-                        intro_text: { type: SchemaType.STRING, description: "1 stavek uvoda v to kategorijo" },
+                        title: { type: SchemaType.STRING },
+                        intro_text: { type: SchemaType.STRING },
                         items: {
                             type: SchemaType.ARRAY,
                             items: {
                                 type: SchemaType.OBJECT,
                                 properties: {
-                                    theme: { type: SchemaType.STRING, description: "Kratek poudarek (npr. 'Politični potresi')" },
-                                    text: { type: SchemaType.STRING, description: "Bogat odstavek z razlago zgodbe in dodanim širšim kontekstom (2-3 stavki)" }
+                                    theme: { type: SchemaType.STRING },
+                                    text: { type: SchemaType.STRING }
                                 },
                                 required: ["theme", "text"]
                             }
@@ -144,15 +146,23 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     };
 
     let aiData;
+    // TROJNI FALLBACK Z NAJNOVEJŠIMI MODELI
     try {
-        const modelPro = genAI.getGenerativeModel({ model: "gemini-2.5-pro", generationConfig });
-        const resultPro = await modelPro.generateContent(prompt);
-        aiData = JSON.parse(resultPro.response.text());
-    } catch (errPro: any) {
-        console.warn("Fallback to 2.5-flash...");
-        const modelFlash = genAI.getGenerativeModel({ model: "gemini-2.5-flash", generationConfig });
-        const resultFlash = await modelFlash.generateContent(prompt);
-        aiData = JSON.parse(resultFlash.response.text());
+        const model31 = genAI.getGenerativeModel({ model: "gemini-3.1-pro-preview", generationConfig });
+        const result31 = await model31.generateContent(prompt);
+        aiData = JSON.parse(result31.response.text());
+    } catch (err31: any) {
+        console.warn("Fallback to 3.0-pro...");
+        try {
+            const model3 = genAI.getGenerativeModel({ model: "gemini-3-pro-preview", generationConfig });
+            const result3 = await model3.generateContent(prompt);
+            aiData = JSON.parse(result3.response.text());
+        } catch (err3: any) {
+            console.warn("Fallback to 2.5-pro...");
+            const model25 = genAI.getGenerativeModel({ model: "gemini-2.5-pro", generationConfig });
+            const result25 = await model25.generateContent(prompt);
+            aiData = JSON.parse(result25.response.text());
+        }
     }
 
     const todayStr = new Intl.DateTimeFormat('sl-SI', { weekday: 'long', day: 'numeric', month: 'long' }).format(new Date())
@@ -184,10 +194,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         `;
     });
 
-    // Odstranjen &output=webp za ohranitev originalne kvalitete slike (zmanjšamo samo resolucijo na 600px za email)
-    const proxyImageUrl = bestImage ? `https://images.weserv.nl/?url=${encodeURIComponent(bestImage)}&w=600` : null;
+    // FIX ZA KVALITETO SLIK (Zamenjava majhnih sličic z velikimi)
+    let finalImageUrl = bestImage;
+    if (finalImageUrl) {
+        // Če medij pošilja majhen thumbnail (npr. 24ur 213xX), ga zamenjamo z 1200xX
+        finalImageUrl = finalImageUrl.replace('/213xX/', '/1200xX/');
+        finalImageUrl = finalImageUrl.replace('/600xX/', '/1200xX/');
+    }
+    const proxyImageUrl = finalImageUrl ? `https://images.weserv.nl/?url=${encodeURIComponent(finalImageUrl)}&w=800&q=100&output=jpg` : null;
 
-    // 4. HTML DIZAJN S POPRAVLJENO GLAVO IN NOGO
     const finalEmailHtml = `
       <!DOCTYPE html>
       <html>
@@ -228,6 +243,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                 <tr>
                   <td style="padding: 40px 24px;">
 
+                    <p style="font-size: 18px; line-height: 1.6; color: #111827; margin-top: 0; margin-bottom: 10px; font-family: -apple-system, Arial, sans-serif; font-weight: bold;">
+                      Dobro jutro! ☕
+                    </p>
                     <p style="font-size: 17px; line-height: 1.6; color: #111827; margin-top: 0; margin-bottom: 35px; font-family: -apple-system, Arial, sans-serif;">
                       ${aiData.intro}
                     </p>
@@ -250,31 +268,24 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                     </div>
 
                     <p style="font-size: 16px; line-height: 1.6; color: #374151; font-style: italic; text-align: center; margin-top: 0; margin-bottom: 25px; font-family: Georgia, 'Times New Roman', serif;">
-                      Za vse ključne informacije dneva ostanite z nami in obiščite krizisce.si.
+                      Hvala, ker nas berete.
                     </p>
 
-                  </td>
-                </tr>
-
-                <tr>
-                  <td align="center" style="padding: 0 24px 45px 24px;">
-                    <table border="0" cellspacing="0" cellpadding="0">
+                    <table border="0" cellspacing="0" cellpadding="0" style="margin: 0 auto;">
                       <tr>
                         <td align="center" style="border-radius: 8px;" bgcolor="${BRAND_COLOR}">
                           <a href="https://krizisce.si" target="_blank" style="font-size: 16px; font-family: -apple-system, Arial, sans-serif; color: #ffffff; text-decoration: none; padding: 16px 36px; display: inline-block; border-radius: 8px; font-weight: bold;">
-                            Spremljaj dogajanje v živo
+                            Obiščite krizisce.si
                           </a>
                         </td>
                       </tr>
                     </table>
+
                   </td>
                 </tr>
 
                 <tr>
                   <td align="center" style="background-color: #F9FAFB; padding: 30px 24px; border-top: 1px solid #E5E7EB; font-family: -apple-system, Arial, sans-serif; font-size: 12px; color: #6B7280; line-height: 1.6;">
-                    <p style="margin: 0 0 12px 0; color: #374151; font-size: 14px; font-weight: bold;">
-                      Hvala, ker nas berete.
-                    </p>
                     <p style="margin: 0 0 12px 0;">
                       <strong>[PREDOGLED]</strong> To je testni mail. Gumb "Odobri in pošlji" pride v produkciji.
                     </p>
