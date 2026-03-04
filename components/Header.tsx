@@ -8,7 +8,6 @@ import { useRouter } from 'next/router'
 import { CATEGORIES, CategoryId } from '../lib/categories'
 import { motion, AnimatePresence } from 'framer-motion'
 
-// --- HELPER ZA BARVE ---
 const getCategoryColor = (colorClass: string) => {
   if (colorClass.includes('emerald')) return '#10b981'
   if (colorClass.includes('blue')) return '#3b82f6'
@@ -21,7 +20,6 @@ const getCategoryColor = (colorClass: string) => {
   return '#6366f1'
 }
 
-// --- HELPER ZA VREME ---
 const getWeatherIcon = (code: number, isDay: number) => {
   if (code === 0) return isDay ? '☀️' : '🌙'
   if (code >= 1 && code <= 3) return isDay ? '⛅' : '☁️'
@@ -63,7 +61,6 @@ export default function Header({
   const [hasNew, setHasNew] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
   
-  // Mobile states
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false)
   
@@ -73,7 +70,6 @@ export default function Header({
   const { theme, setTheme, resolvedTheme } = useTheme()
   const router = useRouter()
 
-  // Prikažemo kategorije na domači strani ALI na podstraneh, kjer želimo ohraniti meni
   const showCategories = router.pathname === '/' || router.pathname === '/pregled'
 
   useEffect(() => {
@@ -99,7 +95,6 @@ export default function Header({
     }
   }, [mobileSearchOpen])
 
-  // --- VREME ---
   useEffect(() => {
     const CACHE_KEY = 'krizisce-weather-v1'
     const CACHE_DURATION = 1000 * 60 * 15 
@@ -131,7 +126,6 @@ export default function Header({
         }))
 
       } catch (err) {
-        // Silent fail
       }
     }
 
@@ -149,7 +143,6 @@ export default function Header({
     setTimeout(fetchWeather, 500)
   }, [])
 
-  // --- NOVE NOVICE ---
   useEffect(() => {
     const onHasNew = (e: Event) => {
         const has = (e as CustomEvent).detail === true;
@@ -178,7 +171,6 @@ export default function Header({
     window.dispatchEvent(new CustomEvent('refresh-news'))
   }
 
-  // --- SCROLL ---
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 10)
     window.addEventListener('scroll', onScroll)
@@ -235,7 +227,6 @@ export default function Header({
       <div className="w-full relative z-50 border-b border-gray-100 dark:border-gray-800/60">
         <div className="max-w-[1800px] mx-auto px-4 md:px-8 lg:px-16 h-16 flex items-center justify-between gap-4 relative">
           
-          {/* --- 1. LEVO (MOBILE): LUPA / SEARCH --- */}
           <div className="flex md:hidden shrink-0 z-10 w-10">
              <button 
                 onClick={() => setMobileSearchOpen(!mobileSearchOpen)}
@@ -247,11 +238,8 @@ export default function Header({
              </button>
           </div>
 
-          {/* --- 2. SREDINA & LEVO (LOGO LOGIKA) --- */}
           <div className="absolute left-1/2 -translate-x-1/2 md:static md:translate-x-0 md:flex md:items-center md:gap-4 md:mr-auto z-0">
             <Link href="/" onClick={handleLogoClick} className="group">
-                
-                {/* A) MOBILE POGLED */}
                 <div className="flex flex-col items-center justify-center md:hidden">
                     <div className="flex items-center gap-1.5">
                         <div className="relative w-8 h-8 shrink-0 transition-transform group-hover:scale-105 duration-300">
@@ -261,13 +249,11 @@ export default function Header({
                             Križišče
                         </span>
                     </div>
-                    {/* Slogan tesno spodaj (-mt-0.5) */}
                     <span className="text-[11px] font-serif text-gray-500 dark:text-gray-400 leading-none mt-0 opacity-90 whitespace-nowrap">
                         Zadnje novice slovenskih medijev
                     </span>
                 </div>
 
-                {/* B) DESKTOP POGLED */}
                 <div className="hidden md:flex items-center gap-3">
                     <div className="relative w-11 h-11 shrink-0 transition-transform group-hover:scale-105 duration-300">
                         <Image src="/logo.png" alt="Logo" fill className="object-contain" />
@@ -281,10 +267,8 @@ export default function Header({
                         </span>
                     </div>
                 </div>
-
             </Link>
 
-            {/* SVEŽE NOVICE (DESKTOP) */}
             <AnimatePresence initial={false}>
                 {hasNew && !refreshing && router.pathname === '/' && (
                 <motion.button
@@ -314,7 +298,6 @@ export default function Header({
             </AnimatePresence>
           </div>
 
-          {/* --- 3. DESNO (MOBILE): HAMBURGER --- */}
           <div className="flex md:hidden shrink-0 z-10 w-10 justify-end">
              <button 
                 onClick={() => setMobileMenuOpen(true)}
@@ -326,10 +309,7 @@ export default function Header({
              </button>
           </div>
 
-          {/* --- 4. DESNO (DESKTOP): CLASSIC LAYOUT --- */}
           <div className="hidden md:flex items-center gap-4 shrink-0 ml-auto">
-            
-            {/* SEARCH INPUT */}
             {router.pathname === '/' && (
               <div className="w-64 lg:w-80">
                 <form onSubmit={handleSubmit} className="relative group">
@@ -353,7 +333,6 @@ export default function Header({
 
             <div className="h-6 w-px bg-gray-200 dark:bg-gray-700"></div>
             
-            {/* VREME */}
             {weather && (
               <div className="flex items-center text-xs font-semibold text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-800/50 px-2.5 py-1 rounded-full border border-gray-200/50 dark:border-gray-700/50" title={`${weather.city}: ${weather.temp}°C`}>
                   <span className="mr-1.5">{weather.city}</span>
@@ -362,7 +341,6 @@ export default function Header({
               </div>
             )}
 
-            {/* FILTER BUTTON */}
             {router.pathname === '/' && (
               <button 
                 onClick={onOpenFilter}
@@ -378,7 +356,6 @@ export default function Header({
               </button>
             )}
 
-            {/* NEWSLETTER BUTTON */}
             <button
                 onClick={scrollToNewsletter}
                 className="p-2 rounded-md transition-colors text-gray-500 hover:text-brand hover:bg-brand/10 dark:text-gray-400 dark:hover:text-brand dark:hover:bg-brand/10"
@@ -389,7 +366,6 @@ export default function Header({
                 </svg>
             </button>
 
-            {/* ARHIV */}
             <Link
                 href="/arhiv"
                 className={`p-2 rounded-md transition-colors text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800 ${router.pathname === '/arhiv' ? 'text-brand' : ''}`}
@@ -404,7 +380,6 @@ export default function Header({
                 </svg>
             </Link>
 
-            {/* THEME */}
             {mounted && (
                 <button
                     onClick={() => setTheme(isDark ? 'light' : 'dark')}
@@ -425,7 +400,6 @@ export default function Header({
         </div>
       </div>
 
-      {/* --- MOBILE SEARCH BAR (Slide Down) --- */}
       <AnimatePresence>
         {mobileSearchOpen && (
             <motion.div 
@@ -460,7 +434,6 @@ export default function Header({
         )}
       </AnimatePresence>
 
-      {/* --- KATEGORIJE (NAVIGACIJA) --- */}
       {showCategories && (
         <div className="w-full bg-transparent">
           <div className="max-w-[1800px] mx-auto px-4 md:px-8 lg:px-16 flex items-center">
@@ -494,26 +467,6 @@ export default function Header({
                   </button>
                   <div className="hidden md:block absolute right-0 top-1/2 -translate-y-1/2 h-4 w-px bg-gray-200 dark:bg-gray-700"></div>
               </div>
-
-              {/* DODAN NOV ZAVIHEK ZA DNEVNI PREGLED */}
-              <Link
-                href="/pregled"
-                style={{ fontFamily: 'var(--font-inter)' }}
-                className={`
-                  relative py-3 text-sm uppercase tracking-wide whitespace-nowrap transition-colors font-bold group flex items-center gap-1.5 shrink-0
-                  ${router.pathname === '/pregled' 
-                    ? 'text-brand' 
-                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'}
-                `}
-              >
-                <span className="text-lg leading-none -mt-0.5">☕</span> Dnevni pregled
-                <span className={`
-                  absolute bottom-0 left-0 w-full h-0.5 bg-brand rounded-t-md transition-all duration-200 origin-left
-                  ${router.pathname === '/pregled' 
-                    ? 'opacity-100 scale-x-100' 
-                    : 'opacity-0 scale-x-0 group-hover:opacity-100 group-hover:scale-x-100'}
-                `} />
-              </Link>
 
               {CATEGORIES.map((cat) => {
                 const isActive = activeCategory === cat.id && router.pathname === '/'
@@ -558,7 +511,6 @@ export default function Header({
       )}
     </header>
 
-    {/* --- MOBILE FULLSCREEN MENU (SIDE DRAWER) --- */}
     <AnimatePresence>
       {mobileMenuOpen && (
         <>
@@ -626,15 +578,21 @@ export default function Header({
                             <span className="text-left">Arhiv novic</span>
                         </Link>
 
-                        {/* MOBILE NEWSLETTER BUTTON */}
                         <button onClick={scrollToNewsletter} className="w-full flex items-center justify-between px-2 py-3 rounded-lg text-brand hover:bg-brand/10 dark:hover:bg-brand/10 group">
                             <div className="flex items-center gap-3">
                                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                                     <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                                 </svg>
-                                <span className="text-left font-semibold">Dnevni pregled</span>
+                                <span className="text-left font-semibold">Naročnina na novice</span>
                             </div>
                         </button>
+                        
+                        <Link href="/pregled" onClick={() => setMobileMenuOpen(false)} className="flex items-center justify-between px-2 py-3 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100/50 dark:hover:bg-gray-900/50 group">
+                            <div className="flex items-center gap-3">
+                                <span className="text-lg leading-none -ml-0.5 opacity-70 group-hover:opacity-100 transition-opacity">☕</span>
+                                <span className="text-left">Zadnji Dnevni pregled</span>
+                            </div>
+                        </Link>
                         
                         {router.pathname === '/' && (
                             <button onClick={() => { onOpenFilter(); setMobileMenuOpen(false); }} className="w-full flex items-center gap-3 px-2 py-3 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100/50 dark:hover:bg-gray-900/50">
