@@ -21,10 +21,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
-    // V bazi posodobimo stolpec 'is_active' na false
+  
+    // V bazi posodobimo 'is_active' na false IN zapišemo datum odjave
     const { error } = await supabase
       .from('subscribers')
-      .update({ is_active: false })
+      .update({ 
+        is_active: false,
+        unsubscribed_at: new Date().toISOString() 
+      })
       .eq('email', email);
 
     if (error) throw error;
