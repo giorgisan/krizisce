@@ -278,16 +278,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                 </tr>
 
                 <tr>
-                  <td align="center" style="background-color: #F9FAFB; padding: 30px 24px; border-top: 1px solid #E5E7EB; font-family: -apple-system, Arial, sans-serif; font-size: 12px; color: #6B7280; line-height: 1.6;">
-                    <p style="margin: 0 0 12px 0;">
-                      <strong>[PREDOGLED]</strong> To je testni mail. Gumb "Odobri in pošlji" pride v produkciji.
-                    </p>
-                    <p style="margin: 0 0 12px 0;">
-                      Prejeli ste to sporočilo, ker ste prijavljeni na jutranji pregled portala Križišče.si.
+                  <td align="center" style="background-color: #F9FAFB; padding: 24px; border-top: 1px solid #E5E7EB; font-family: -apple-system, Arial, sans-serif; font-size: 12px; color: #6B7280; line-height: 1.5;">
+                    <p style="margin: 0 0 8px 0; color: #9ca3af; font-size: 11px;">
+                     Ta pregled je generiran s pomočjo naprednih modelov umetne inteligence na podlagi javno dostopnih novic slovenskih medijev. Kljub nadzoru vas spodbujamo, da za podrobnosti preberete izvirne članke na portalih. <a href="https://krizisce.si/projekt" style="color: #9ca3af; text-decoration: underline;">Več o tem</a>.
                     </p>
                     <p style="margin: 0;">
-                      <a href="#" style="color: ${BRAND_COLOR}; text-decoration: underline;">Odjava od obvestil</a> | 
-                      <a href="mailto:gjkcme@gmail.com" style="color: ${BRAND_COLOR}; text-decoration: underline;">Kontakt</a>
+                      <a href="{{unsubscribe_url}}" style="color: ${BRAND_COLOR}; text-decoration: none; font-weight: 500;">Odjava</a>
+                      &nbsp;&nbsp;|&nbsp;&nbsp;
+                      <a href="mailto:gjkcme@gmail.com" style="color: ${BRAND_COLOR}; text-decoration: none; font-weight: 500;">Kontakt</a>
                     </p>
                   </td>
                 </tr>
@@ -313,8 +311,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (insertError) throw insertError;
 
     const { data: emailData, error: emailError } = await resend.emails.send({
-      from: 'Križišče <jutro@krizisce.si>', // PREVERI ZA PRODUKCIJO - ko bo verified!
-      replyTo: 'gjkcme@gmail.com',         // TUKAJ JE POPRAVLJENA NAPAKA!
+      from: 'Križišče <jutro@krizisce.si>', 
+      replyTo: 'gjkcme@gmail.com',         
       to: ['gjkcme@gmail.com'], 
       subject: subjectStr,
       html: finalEmailHtml,
