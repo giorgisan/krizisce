@@ -153,13 +153,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         aiData = JSON.parse(result.response.text());
         console.log("✅ Uspešno uporabljen model: gemini-2.5-pro");
     } catch (err: any) {
-        console.warn("⚠️ 2.5-pro ni uspel. Fallback na gemini-1.5-pro...");
+        console.warn("⚠️ 2.5-pro ni uspel. Fallback na gemini-2.0-flash...");
         try {
-            // VARNOSTNI FALLBACK
-            const fallbackModel = genAI.getGenerativeModel({ model: "gemini-1.5-pro", generationConfig });
+            // VARNOSTNI FALLBACK NA EKSTREMNO HITER MODEL, DA PREPREČIMO TIMEOUT
+            const fallbackModel = genAI.getGenerativeModel({ model: "gemini-2.0-flash", generationConfig });
             const fallbackResult = await fallbackModel.generateContent(prompt);
             aiData = JSON.parse(fallbackResult.response.text());
-            console.log("✅ Uspešno uporabljen model: gemini-1.5-pro");
+            console.log("✅ Uspešno uporabljen model: gemini-2.0-flash");
         } catch (fallbackErr: any) {
             console.error("⚠️ AI napaka:", fallbackErr);
             throw new Error("Napaka pri AI generaciji: " + fallbackErr.message);
@@ -202,7 +202,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
     const proxyImageUrl = finalImageUrl ? `https://images.weserv.nl/?url=${encodeURIComponent(finalImageUrl)}&w=800&q=100&output=jpg` : null;
 
-    // TO JE ČISTI HTML (ZA NAROČNIKE IN BAZO)
+    // TO JE ČISTI HTML (ZA BAZO IN NAROČNIKE - brez admin pasice)
     const finalEmailHtml = `
       <!DOCTYPE html>
       <html>
@@ -300,20 +300,20 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       </html>
     `;
 
-    // 1. ZAPIŠEMO ČISTI HTML V BAZO
+    // Zapišemo čisti HTML v bazo s statusom 'draft'
     const { data: insertedNewsletter, error: insertError } = await supabase
       .from('newsletters')
       .insert({
         subject: subjectStr,
         html_content: finalEmailHtml,
-        status: 'draft' // status je še vedno osnutek
+        status: 'draft' 
       })
       .select('id')
       .single();
 
     if (insertError) throw insertError;
 
-    // 2. USTVARIMO ADMIN PASICO SAMO ZA TVOJ PREDOGLED
+    // GENERIRAMO ADMIN PASICO SAMO ZA TEBE
     const adminUrl = `https://krizisce.si/api/cron/send-newsletter?id=${insertedNewsletter.id}&key=${process.env.CRON_SECRET}`;
     
     const adminEmailHtml = `
@@ -325,13 +325,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       ${finalEmailHtml}
     `;
 
-    // 3. POŠLJEMO TEBI
+    // POŠLJEMO SAMO TEBI NA GMAIL
     const { data: emailData, error: emailError } = await resend.emails.send({
       from: 'Križišče <jutro@krizisce.si>', 
       replyTo: 'gjkcme@gmail.com',         
       to: ['gjkcme@gmail.com'], 
       subject: `[PREDOGLED] ${subjectStr}`,
-      html: adminEmailHtml, // Pošljemo verzijo z rumeno pasico!
+      html: adminEmailHtml, 
     });
 
     if (emailError) throw emailError;
