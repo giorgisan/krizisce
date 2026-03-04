@@ -161,7 +161,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     } catch (err: any) {
         console.warn("⚠️ 2.5-pro ni uspel. Fallback na gemini-2.0-flash...");
         try {
-            // VARNOSTNI FALLBACK NA EKSTREMNO HITER MODEL, DA PREPREČIMO TIMEOUT
             const fallbackModel = genAI.getGenerativeModel({ model: "gemini-2.0-flash", generationConfig });
             const fallbackResult = await fallbackModel.generateContent(prompt);
             aiData = JSON.parse(fallbackResult.response.text());
@@ -208,7 +207,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
     const proxyImageUrl = finalImageUrl ? `https://images.weserv.nl/?url=${encodeURIComponent(finalImageUrl)}&w=800&q=100&output=jpg` : null;
 
-    // TO JE ČISTI HTML (ZA BAZO IN NAROČNIKE - brez admin pasice)
+    // TO JE ČISTI HTML (ZA BAZO IN NAROČNIKE)
     const finalEmailHtml = `
       <!DOCTYPE html>
       <html>
@@ -283,17 +282,24 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                 </tr>
 
                 <tr>
-                  <td align="center" style="background-color: #F9FAFB; padding: 24px; border-top: 1px solid #E5E7EB; font-family: -apple-system, Arial, sans-serif; font-size: 12px; color: #6B7280; line-height: 1.5;">
-                    <p style="margin: 0 0 16px 0; padding: 12px; background-color: #f3f4f6; border-radius: 6px; font-size: 11px; text-align: left; color: #9ca3af;">
-                      <i>🤖 <strong>Transparentnost:</strong> Ta pregled je generiran s pomočjo naprednih modelov umetne inteligence na podlagi javno dostopnih novic slovenskih medijev. Za podrobnosti obiščite in podrpite slovenske medije na portalih.</i>
+                  <td align="center" style="background-color: #F9FAFB; padding: 35px 24px; border-top: 1px solid #E5E7EB; font-family: -apple-system, Arial, sans-serif; font-size: 12px; color: #6B7280; line-height: 1.6;">
+                    
+                    <div style="background-color: #f3f4f6; border: 1px solid #e5e7eb; border-radius: 6px; padding: 14px; margin-bottom: 24px; text-align: center;">
+                      <p style="margin: 0; font-size: 11px; color: #9ca3af;">
+                        🤖 <strong>Transparentnost:</strong> Ta pregled je generiran s pomočjo naprednih modelov umetne inteligence na podlagi javno dostopnih novic slovenskih medijev. Za podrobnosti obiščite in podprite slovenske medije.
+                      </p>
+                    </div>
+
+                    <p style="margin: 0 0 10px 0; font-size: 11px;">
+                      To sporočilo ste prejeli, ker ste se prijavili na brezplačni jutranji pregled novic portala krizisce.si. Če teh obvestil ne želite več prejemati, se lahko odjavite s klikom na spodnjo povezavo.
                     </p>
-                    <p style="margin: 0 0 12px 0;">
-                      To sporočilo ste prejeli, ker ste se prijavili na jutranji pregled portala Križišče.si.
+                    
+                    <p style="margin: 0 0 25px 0;">
+                      <a href="https://krizisce.si/api/unsubscribe?email={{USER_EMAIL}}" style="color: #9ca3af; text-decoration: underline; font-size: 11px;">Odjavi me od e-novic</a>
                     </p>
-                    <p style="margin: 0;">
-                      <a href="https://krizisce.si/api/unsubscribe?email={{USER_EMAIL}}" style="color: ${BRAND_COLOR}; text-decoration: none; font-weight: 500;">Odjava</a>
-                      &nbsp;&nbsp;|&nbsp;&nbsp;
-                      <a href="mailto:gjkcme@gmail.com" style="color: ${BRAND_COLOR}; text-decoration: none; font-weight: 500;">Kontakt</a>
+
+                    <p style="margin: 0; font-size: 11px; color: #d1d5db; font-weight: 500;">
+                      &copy; 2026 Križišče – Vse pravice pridržane.
                     </p>
                   </td>
                 </tr>
@@ -306,7 +312,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       </html>
     `;
 
-    // Zapišemo čisti HTML v bazo s statusom 'draft'
     const { data: insertedNewsletter, error: insertError } = await supabase
       .from('newsletters')
       .insert({
@@ -319,10 +324,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     if (insertError) throw insertError;
 
-    // GENERIRAMO ADMIN PASICO SAMO ZA TEBE
     const adminUrl = `https://krizisce.si/api/cron/send-newsletter?id=${insertedNewsletter.id}&key=${process.env.CRON_SECRET}`;
     
-    // Za Tvoj osebni predogled zamenjamo string s tvojim mailom (sicer bi prišlo do napake ob kliku na 'odjavo')
+    // Za Tvoj osebni predogled zamenjamo string s tvojim mailom
     const adminPreviewHtml = finalEmailHtml.replace('{{USER_EMAIL}}', 'gjkcme@gmail.com');
 
     const adminEmailHtml = `
@@ -334,7 +338,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       ${adminPreviewHtml}
     `;
 
-    // POŠLJEMO SAMO TEBI NA GMAIL
     const { data: emailData, error: emailError } = await resend.emails.send({
       from: 'Križišče <jutro@krizisce.si>', 
       replyTo: 'gjkcme@gmail.com',         
