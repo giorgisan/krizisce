@@ -263,9 +263,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                     </div>
 
                     <div style="text-align: center; margin-top: 30px; margin-bottom: 20px;">
-                      <a href="https://krizisce.si" target="_blank" style="font-size: 16px; font-family: -apple-system, Arial, sans-serif; color: ${BRAND_COLOR}; text-decoration: underline; font-weight: bold; text-transform: uppercase; letter-spacing: 0.05em;">
-                        Preberite več na krizisce.si
-                      </a>
+                      <table border="0" cellspacing="0" cellpadding="0" style="margin: 30px auto 20px auto;">
+                        <tr>
+                          <td align="center" style="border-radius: 8px;" bgcolor="${BRAND_COLOR}">
+                            <a href="https://krizisce.si" target="_blank" style="font-size: 16px; font-family: -apple-system, Arial, sans-serif; color: #ffffff; text-decoration: none; padding: 16px 36px; display: inline-block; border-radius: 8px; font-weight: bold;">
+                              Obiščite krizisce.si
+                            </a>
+                          </td>
+                        </tr>
+                      </table>
                     </div>
 
                   </td>
