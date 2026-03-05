@@ -15,6 +15,37 @@ const resend = new Resend(process.env.RESEND_API_KEY)
 
 const BRAND_COLOR = "#ea580c"; 
 
+// --- SCHEMA DEFINICIJA (PREMAKNJENA NA VRH) ---
+const newsletterSchema = {
+    type: SchemaType.OBJECT,
+    properties: {
+        intro: { type: SchemaType.STRING },
+        categories: {
+            type: SchemaType.ARRAY,
+            items: {
+                type: SchemaType.OBJECT,
+                properties: {
+                    title: { type: SchemaType.STRING },
+                    items: {
+                        type: SchemaType.ARRAY,
+                        items: {
+                            type: SchemaType.OBJECT,
+                            properties: {
+                                theme: { type: SchemaType.STRING },
+                                text: { type: SchemaType.STRING }
+                            },
+                            required: ["theme", "text"]
+                        }
+                    }
+                },
+                required: ["title", "items"] 
+            }
+        },
+        closing_line: { type: SchemaType.STRING }
+    },
+    required: ["intro", "categories", "closing_line"]
+};
+
 // --- NOVA FUNKCIJA: AI VALIDATOR ---
 async function validateOutput(aiData: any, promptData: string): Promise<any> {
     const validationPrompt = `
@@ -36,9 +67,10 @@ Return the corrected OUTPUT as valid JSON matching the exact original structure.
 `;
 
     const model = genAI.getGenerativeModel({ 
-        model: "gemini-2.5-flash", // Flash je super in hiter za to
+        model: "gemini-2.5-flash", 
         generationConfig: { 
             responseMimeType: "application/json",
+            responseSchema: newsletterSchema, // <-- TUKAJ JE FIX (uporabi isto shemo!)
             temperature: 0 
         }
     });
@@ -141,39 +173,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       OUTPUT LANGUAGE: Formal Slovenian, vikanje.
       `
 
-    const responseSchema = {
-        type: SchemaType.OBJECT,
-        properties: {
-            intro: { type: SchemaType.STRING },
-            categories: {
-                type: SchemaType.ARRAY,
-                items: {
-                    type: SchemaType.OBJECT,
-                    properties: {
-                        title: { type: SchemaType.STRING },
-                        items: {
-                            type: SchemaType.ARRAY,
-                            items: {
-                                type: SchemaType.OBJECT,
-                                properties: {
-                                    theme: { type: SchemaType.STRING },
-                                    text: { type: SchemaType.STRING }
-                                },
-                                required: ["theme", "text"]
-                            }
-                        }
-                    },
-                    required: ["title", "items"] 
-                }
-            },
-            closing_line: { type: SchemaType.STRING }
-        },
-        required: ["intro", "categories", "closing_line"]
-    };
-
     const generationConfig = { 
         responseMimeType: "application/json",
-        responseSchema: responseSchema,
+        responseSchema: newsletterSchema, // Uporablja definirano shemo
         temperature: 0.1 
     };
 
@@ -204,7 +206,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         console.log("✅ AI validacija uspešno zaključena.");
     } catch (validationErr) {
         console.error("⚠️ Napaka pri AI validaciji, nadaljujem z osnovnimi podatki:", validationErr);
-        // Če validator slučajno odpove, se sistem ne bo zrušil, ampak bo uporabil prvotni rezultat.
+        // Če validator slučajno odpove (timeout ipd.), se sistem ne bo zrušil, ampak bo uporabil prvotni rezultat.
     }
     // -----------------------------------
 
