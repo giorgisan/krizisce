@@ -85,37 +85,25 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         }
     })
 
-    // SPREMEMBA: Prehod na zelo strog TL;DR (Executive Newsdigest) format. 
-    // Popolna odstranitev navodil za "pisanje zgodb".
+    // SPREMEMBA: Oklesten prompt. Nov uvodni stil. Zamenjan fun_fact s closing_line.
     const prompt = `
-      You are an elite, highly rigorous data-compiler for a premium Slovenian executive news digest called 'Križišče'.
-      Your goal is to provide a highly condensed, bullet-point style, facts-only daily briefing.
+      You are an elite compiler for a premium Slovenian executive news digest called 'Križišče'.
+      Format: Highly condensed, bullet-point style, facts-only.
       
-      Here are the raw Slovenian news summaries from the last 30 hours:
+      RAW NEWS (last 30h):
       ${promptData}
 
       YOUR TASK:
-      1. 'intro': A very short, 1-2 sentence TL;DR overview of the day's main themes (e.g. "Danes v ospredju: Evakuacije z Bližnjega vzhoda in visoka rast delnic na borzi."). Do not say "Dobro jutro".
-      2. 'categories': Create 3 to 4 distinct categories based on the news (e.g., "🇸🇮 Slovenija", "🌍 Globalno", "💻 Tehnologija & Posel", "📈 Gospodarstvo", "🏆 Šport").
-      3. For each category, provide 2 to 3 'items'. 
-      4. For each 'item', provide a punchy, 2-to-4 word 'theme' (e.g. "Drastičen dvig plač").
-      5. For each 'item', the 'text' MUST BE 1 to 2 short sentences containing ONLY hard facts, numbers, and direct actions. NO fluff, NO poetic language, NO storytelling.
-
-      6. 'fun_fact': End with a fascinating trivia fact starting with "Ali ste vedeli, da...". Pick an obscure fact, distinct from the usual space or history trivia.
+      1. 'intro': 1 sentence max. Telegraphic style. Format: "Danes: [tema 1], [tema 2], [tema 3]." No full sentences.
+      2. 'categories': Create 3-4 categories (e.g., "🇸🇮 Slovenija", "🌍 Globalno", "📈 Gospodarstvo"). Provide 2-3 items per category.
+      3. For each 'item':
+         - 'theme': 2-4 words punchy title.
+         - 'text': 1-2 short sentences. Hard facts, numbers, direct actions ONLY. No fluff.
+      4. 'closing_line': One punchy sentence summarizing what matters most today. Draw from the news above ONLY. No made-up trivia.
       
-      CRITICAL RULES FOR FACTUAL ACCURACY AND NAMING (ZERO-INFERENCE FACT GROUNDING):
-      - DO NOT make up, invent, or predict outcomes.
-      - Treat every proper noun (name of a person, organization, country) exactly as an immutable, literal string as it appears in the provided SUMMARY text.
-      - ABSOLUTE PROHIBITION: You must NOT prepend any title, status, temporal adjective (such as "nekdanji", "bivši", "trenutni"), or professional designation (such as "predsednik", "premier", "minister") to a person's name UNLESS that exact word is present in the raw text for that specific person.
-      - If the source text says "Donald Trump", you must output exactly "Donald Trump" without any prefix or suffix.
-      - Do not infer a person's status from your internal knowledge. Only output what is provided in the text.
-      
-      FORMATTING RULES: 
-      - ALWAYS put the '🇸🇮 Slovenija' category FIRST in the array!
-      - DO NOT put the fun fact inside the 'categories' array. It belongs ONLY in the 'fun_fact' field.
-      - The entire text MUST use the formal Slovenian plural 'vikanje'.
-
-      Write EVERYTHING in perfect, engaging Slovenian.
+      STRICT RULES:
+      - ZERO INFERENCE: Treat names as immutable strings. NEVER add titles (nekdanji, trenutni, predsednik) unless explicitly in the text.
+      - Use formal Slovenian plural ('vikanje').
     `
 
     const responseSchema = {
@@ -140,29 +128,30 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                             }
                         }
                     },
-                    required: ["title", "items"] // Odstranil sem 'intro_text' za bolj čist digest videz
+                    required: ["title", "items"] 
                 }
             },
-            fun_fact: { type: SchemaType.STRING }
+            closing_line: { type: SchemaType.STRING }
         },
-        required: ["intro", "categories", "fun_fact"]
+        required: ["intro", "categories", "closing_line"]
     };
 
     const generationConfig = { 
         responseMimeType: "application/json",
         responseSchema: responseSchema,
-        temperature: 0.1 // Zelo, zelo nizko. Želimo robota, ne pisatelja.
+        temperature: 0.1 
     };
 
     let aiData;
     try {
-        console.log("🚀 Poskušam stabilen model: gemini-2.5-pro...");
-        const model = genAI.getGenerativeModel({ model: "gemini-2.5-pro", generationConfig });
+        console.log("🚀 Poskušam hiter model: gemini-2.5-flash...");
+        // SPREMEMBA MODELA NA 2.5 FLASH (Hitrejši, odličen za JSON strukturiranje)
+        const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash", generationConfig });
         const result = await model.generateContent(prompt);
         aiData = JSON.parse(result.response.text());
-        console.log("✅ Uspešno uporabljen model: gemini-2.5-pro");
+        console.log("✅ Uspešno uporabljen model: gemini-2.5-flash");
     } catch (err: any) {
-        console.warn("⚠️ 2.5-pro ni uspel. Fallback na gemini-2.0-flash...");
+        console.warn("⚠️ 2.5-flash ni uspel. Fallback na gemini-2.0-flash...");
         try {
             const fallbackModel = genAI.getGenerativeModel({ model: "gemini-2.0-flash", generationConfig });
             const fallbackResult = await fallbackModel.generateContent(prompt);
@@ -183,7 +172,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     safeCategories.forEach((cat: any) => {
         let itemsHtml = '';
         cat.items.forEach((item: any) => {
-            // SPREMEMBA OBLIKE: Bolj čisto, manj odmikov, direktno.
             itemsHtml += `
               <p style="font-size: 15px; line-height: 1.6; color: #374151; margin-top: 0; margin-bottom: 12px; font-family: -apple-system, Arial, sans-serif;">
                 <strong style="color: #111827;">${item.theme}:</strong> ${item.text}
@@ -255,24 +243,22 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
                     <div style="background-color: #FFF7ED; border-left: 4px solid ${BRAND_COLOR}; padding: 20px; margin-top: 40px; margin-bottom: 40px;">
                       <h3 style="font-size: 15px; color: #9A3412; font-weight: bold; margin-top: 0; margin-bottom: 8px; font-family: -apple-system, Arial, sans-serif; text-transform: uppercase; letter-spacing: 0.05em;">
-                        🔭 Zanimivost dneva
+                        💡 Misel dneva
                       </h3>
                       <p style="font-size: 15px; line-height: 1.6; color: #431407; margin: 0; font-family: -apple-system, Arial, sans-serif;">
-                        ${aiData.fun_fact}
+                        ${aiData.closing_line}
                       </p>
                     </div>
 
-                    <div style="text-align: center; margin-top: 30px; margin-bottom: 20px;">
-                      <table border="0" cellspacing="0" cellpadding="0" style="margin: 30px auto 20px auto;">
-                        <tr>
-                          <td align="center" style="border-radius: 8px;" bgcolor="${BRAND_COLOR}">
-                            <a href="https://krizisce.si" target="_blank" style="font-size: 16px; font-family: -apple-system, Arial, sans-serif; color: #ffffff; text-decoration: none; padding: 16px 36px; display: inline-block; border-radius: 8px; font-weight: bold;">
-                              Obiščite krizisce.si
-                            </a>
-                          </td>
-                        </tr>
-                      </table>
-                    </div>
+                    <table border="0" cellspacing="0" cellpadding="0" align="center" style="margin: 30px auto 20px auto;">
+                      <tr>
+                        <td align="center" style="border-radius: 8px;" bgcolor="${BRAND_COLOR}">
+                          <a href="https://krizisce.si" target="_blank" style="font-size: 16px; font-family: -apple-system, Arial, sans-serif; color: #ffffff; text-decoration: none; padding: 16px 36px; display: inline-block; border-radius: 8px; font-weight: bold;">
+                            Obiščite krizisce.si
+                          </a>
+                        </td>
+                      </tr>
+                    </table>
 
                   </td>
                 </tr>
