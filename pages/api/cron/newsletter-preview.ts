@@ -175,7 +175,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     const todayStr = new Intl.DateTimeFormat('sl-SI', { weekday: 'long', day: 'numeric', month: 'long' }).format(new Date())
-    const subjectStr = `Križišče Pregled: ${todayStr}`
+    const subjectStr = `Jutranji pregled: ${todayStr}`
     
     let categoriesHtml = '';
     const safeCategories = aiData.categories.filter((cat: any) => !cat.title.toLowerCase().includes('zanimivost'));
