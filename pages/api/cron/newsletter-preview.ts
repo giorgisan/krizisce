@@ -101,11 +101,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       5. MORNING BRIEFING TONE: Frame the stories for today's context. If the provided data mentions an ongoing event or something scheduled for today, highlight it as an upcoming/ongoing event.
       6. 'fun_fact': End with a fascinating trivia fact starting with "Ali ste vedeli, da...". 
       
-      CRITICAL RULES FOR FACTUAL ACCURACY (ZERO HALLUCINATION & STRICT TITLES):
+     CRITICAL RULES FOR FACTUAL ACCURACY AND NAMING (ZERO-INFERENCE FACT GROUNDING):
       - DO NOT make up, invent, or predict outcomes.
-      - RULE OF EXACT NAMES: You are strictly forbidden from adding historical, political, or professional titles to people if those titles are not explicitly present in the provided summary.
-      - EXAMPLES OF VIOLATION: Adding words like "nekdanji" (former), "bivši" (ex), "trenutni" (current), "predsednik" (president), or "premier" in front of a name if it wasn't in the raw text. 
-      - Treat names as immutable strings. If the text says "Donald Trump", you MUST write exactly "Donald Trump". If it says "Aleksandar Boričić", you write "Aleksandar Boričić". 
+      - Treat every proper noun (name of a person, organization, country) exactly as an immutable, literal string as it appears in the provided SUMMARY text.
+      - ABSOLUTE PROHIBITION: You must NOT prepend any title, status, temporal adjective (such as "nekdanji", "bivši", "trenutni"), or professional designation (such as "predsednik", "premier", "minister") to a person's name UNLESS that exact word is present in the raw text for that specific person.
+      - If the source text says "Donald Trump", you must output exactly "Donald Trump" without any prefix or suffix.
+      - Do not infer a person's status from your internal knowledge. Only output what is provided in the text.
       
       FORMATTING RULES: 
       - ALWAYS put the '🇸🇮 Slovenija' category FIRST in the array!
