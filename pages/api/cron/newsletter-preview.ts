@@ -15,6 +15,39 @@ const resend = new Resend(process.env.RESEND_API_KEY)
 
 const BRAND_COLOR = "#ea580c"; 
 
+// --- NOVA FUNKCIJA: AI VALIDATOR ---
+async function validateOutput(aiData: any, promptData: string): Promise<any> {
+    const validationPrompt = `
+You are a fact-checker. Compare OUTPUT against SOURCE.
+
+SOURCE:
+${promptData}
+
+OUTPUT:
+${JSON.stringify(aiData)}
+
+TASK: Find every proper noun (person's name) in OUTPUT.
+For each name, check: does the OUTPUT add any title, role, or adjective 
+(like "nekdanji", "predsednik", "premier", "minister", "general"...) 
+that does NOT appear next to that name in SOURCE?
+
+If yes: remove the addition, keep only the name as it appears in SOURCE.
+Return the corrected OUTPUT as valid JSON matching the exact original structure. If nothing to fix, return OUTPUT unchanged.
+`;
+
+    const model = genAI.getGenerativeModel({ 
+        model: "gemini-2.5-flash", // Flash je super in hiter za to
+        generationConfig: { 
+            responseMimeType: "application/json",
+            temperature: 0 
+        }
+    });
+    
+    const result = await model.generateContent(validationPrompt);
+    return JSON.parse(result.response.text());
+}
+// -----------------------------------
+
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.query.key !== process.env.CRON_SECRET) {
     return res.status(401).json({ error: 'Unauthorized' });
@@ -85,7 +118,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         }
     })
 
-    // SPREMEMBA: Izredno močno strukturiran prompt, ki targetira problem modelovega notranjega "spomina".
     const prompt = `
       You are a strict data-parser. Your ONLY job is to compress the RAW NEWS below into a structured digest.
       You have NO other knowledge. If it is not in the RAW NEWS, it does not exist.
@@ -164,6 +196,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             throw new Error("Napaka pri AI generaciji: " + fallbackErr.message);
         }
     }
+
+    // --- IZVEDBA AI VALIDACIJE ---
+    try {
+        console.log("🔍 Začenjam AI validacijo imen...");
+        aiData = await validateOutput(aiData, promptData);
+        console.log("✅ AI validacija uspešno zaključena.");
+    } catch (validationErr) {
+        console.error("⚠️ Napaka pri AI validaciji, nadaljujem z osnovnimi podatki:", validationErr);
+        // Če validator slučajno odpove, se sistem ne bo zrušil, ampak bo uporabil prvotni rezultat.
+    }
+    // -----------------------------------
 
     const todayStr = new Intl.DateTimeFormat('sl-SI', { weekday: 'long', day: 'numeric', month: 'long' }).format(new Date())
     const subjectStr = `Jutranji pregled: ${todayStr} - krizisce.si`
