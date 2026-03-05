@@ -85,25 +85,30 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         }
     })
 
-    // SPREMEMBA: Oklesten prompt. Nov uvodni stil. Zamenjan fun_fact s closing_line.
+    // SPREMEMBA: Izredno močno strukturiran prompt, ki targetira problem modelovega notranjega "spomina".
     const prompt = `
-      You are an elite compiler for a premium Slovenian executive news digest called 'Križišče'.
-      Format: Highly condensed, bullet-point style, facts-only.
+      You are a highly rigorous data-parser for a premium Slovenian executive news digest called 'Križišče'.
+      Format: Highly condensed, bullet-point style, facts-only daily briefing.
       
-      RAW NEWS (last 30h):
+      RAW NEWS SUMMARIES:
       ${promptData}
 
       YOUR TASK:
-      1. 'intro': 1 sentence max. Telegraphic style. Format: "Danes: [tema 1], [tema 2], [tema 3]." No full sentences.
-      2. 'categories': Create 3-4 categories (e.g., "🇸🇮 Slovenija", "🌍 Globalno", "📈 Gospodarstvo"). Provide 2-3 items per category.
-      3. For each 'item':
-         - 'theme': 2-4 words punchy title.
-         - 'text': 1-2 short sentences. Hard facts, numbers, direct actions ONLY. No fluff.
-      4. 'closing_line': One punchy sentence summarizing what matters most today. Draw from the news above ONLY. No made-up trivia.
+      1. 'intro': 1 sentence max. Telegraphic style. Format: "Danes: [tema 1], [tema 2], [tema 3]." No full sentences. Do NOT include "Dobro jutro".
+      2. 'categories': Create 3 to 4 distinct categories (e.g., "🇸🇮 Slovenija", "🌍 Globalno", "💻 Tehnologija & Posel", "📈 Gospodarstvo", "🏆 Šport"). Provide 2 to 3 'items' per category.
+      3. For each 'item', provide a punchy, 2-to-4 word 'theme'.
+      4. For each 'item', the 'text' MUST BE 1 to 2 short sentences containing ONLY hard facts, numbers, and direct actions. NO fluff, NO poetic language, NO storytelling.
+      5. 'closing_line': One punchy sentence summarizing what matters most today. Draw from the news above ONLY. No made-up trivia.
+
+      CRITICAL RULE - ZERO INFERENCE FOR NAMES & TITLES:
+      Your internal training data is outdated. You must NOT rely on your internal knowledge for people's titles or roles. 
+      - You MUST copy names EXACTLY as they appear in the RAW NEWS.
+      - NEVER prepend words like "nekdanji", "bivši", "aktualni", "predsednik", "premier" or any other title UNLESS that exact word is explicitly written in the RAW NEWS snippet for that specific story.
+      - Example of violation: The text says "Donald Trump", but you write "nekdanji predsednik Donald Trump". This is strictly forbidden.
       
-      STRICT RULES:
-      - ZERO INFERENCE: Treat names as immutable strings. NEVER add titles (nekdanji, trenutni, predsednik) unless explicitly in the text.
-      - Use formal Slovenian plural ('vikanje').
+      FORMATTING RULES: 
+      - ALWAYS put the '🇸🇮 Slovenija' category FIRST in the array!
+      - The entire text MUST use the formal Slovenian plural 'vikanje'.
     `
 
     const responseSchema = {
@@ -145,7 +150,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     let aiData;
     try {
         console.log("🚀 Poskušam hiter model: gemini-2.5-flash...");
-        // SPREMEMBA MODELA NA 2.5 FLASH (Hitrejši, odličen za JSON strukturiranje)
         const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash", generationConfig });
         const result = await model.generateContent(prompt);
         aiData = JSON.parse(result.response.text());
@@ -164,12 +168,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     const todayStr = new Intl.DateTimeFormat('sl-SI', { weekday: 'long', day: 'numeric', month: 'long' }).format(new Date())
-    const subjectStr = `Jutranji pregled: ${todayStr}`
+    const subjectStr = `Jutranji pregled: ${todayStr} - krizisce.si`
     
     let categoriesHtml = '';
-    const safeCategories = aiData.categories.filter((cat: any) => !cat.title.toLowerCase().includes('zanimivost'));
 
-    safeCategories.forEach((cat: any) => {
+    aiData.categories.forEach((cat: any) => {
         let itemsHtml = '';
         cat.items.forEach((item: any) => {
             itemsHtml += `
@@ -229,6 +232,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                 <tr>
                   <td style="padding: 40px 24px;">
 
+                    <p style="font-size: 18px; line-height: 1.6; color: #111827; margin-top: 0; margin-bottom: 10px; font-family: -apple-system, Arial, sans-serif; font-weight: bold;">
+                      Dobro jutro! ☕
+                    </p>
                     <p style="font-size: 16px; line-height: 1.6; color: #111827; margin-top: 0; margin-bottom: 30px; font-family: -apple-system, Arial, sans-serif;">
                       ${aiData.intro}
                     </p>
@@ -243,7 +249,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
                     <div style="background-color: #FFF7ED; border-left: 4px solid ${BRAND_COLOR}; padding: 20px; margin-top: 40px; margin-bottom: 40px;">
                       <h3 style="font-size: 15px; color: #9A3412; font-weight: bold; margin-top: 0; margin-bottom: 8px; font-family: -apple-system, Arial, sans-serif; text-transform: uppercase; letter-spacing: 0.05em;">
-                        💡 Misel dneva
+                        📌 Zaključek
                       </h3>
                       <p style="font-size: 15px; line-height: 1.6; color: #431407; margin: 0; font-family: -apple-system, Arial, sans-serif;">
                         ${aiData.closing_line}
