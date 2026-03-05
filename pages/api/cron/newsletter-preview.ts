@@ -87,29 +87,27 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // SPREMEMBA: Izredno močno strukturiran prompt, ki targetira problem modelovega notranjega "spomina".
     const prompt = `
-      You are a highly rigorous data-parser for a premium Slovenian executive news digest called 'Križišče'.
-      Format: Highly condensed, bullet-point style, facts-only daily briefing.
+      You are a strict data-parser. Your ONLY job is to compress the RAW NEWS below into a structured digest.
+      You have NO other knowledge. If it is not in the RAW NEWS, it does not exist.
       
       RAW NEWS SUMMARIES:
       ${promptData}
-
-      YOUR TASK:
-      1. 'intro': 1 sentence max. Telegraphic style. Format: "Danes: [tema 1], [tema 2], [tema 3]." No full sentences. Do NOT include "Dobro jutro".
-      2. 'categories': Create 3 to 4 distinct categories (e.g., "🇸🇮 Slovenija", "🌍 Globalno", "💻 Tehnologija & Posel", "📈 Gospodarstvo", "🏆 Šport"). Provide 2 to 3 'items' per category.
-      3. For each 'item', provide a punchy, 2-to-4 word 'theme'.
-      4. For each 'item', the 'text' MUST BE 1 to 2 short sentences containing ONLY hard facts, numbers, and direct actions. NO fluff, NO poetic language, NO storytelling.
-      5. 'closing_line': One punchy sentence summarizing what matters most today. Draw from the news above ONLY. No made-up trivia.
-
-      CRITICAL RULE - ZERO INFERENCE FOR NAMES & TITLES:
-      Your internal training data is outdated. You must NOT rely on your internal knowledge for people's titles or roles. 
-      - You MUST copy names EXACTLY as they appear in the RAW NEWS.
-      - NEVER prepend words like "nekdanji", "bivši", "aktualni", "predsednik", "premier" or any other title UNLESS that exact word is explicitly written in the RAW NEWS snippet for that specific story.
-      - Example of violation: The text says "Donald Trump", but you write "nekdanji predsednik Donald Trump". This is strictly forbidden.
       
-      FORMATTING RULES: 
-      - ALWAYS put the '🇸🇮 Slovenija' category FIRST in the array!
-      - The entire text MUST use the formal Slovenian plural 'vikanje'.
-    `
+      YOUR TASK:
+      1. 'intro': Telegraphic, max 15-25 words. Format: "Danes: [tema], [tema], [tema]."
+      2. 'categories': 3-4 categories (always include "🇸🇮 Slovenija" FIRST). 2-3 items each.
+      3. Each 'item.theme': 2-4 word label.
+      4. Each 'item.text': 1-2 sentences. ONLY facts and numbers that appear verbatim in RAW NEWS.
+      5. 'closing_line': 1 sentence. Must reference a specific fact from RAW NEWS.
+      
+      HARD RULES — ANY VIOLATION MAKES THE OUTPUT INVALID:
+      - NUMBERS & STATS: Never write a specific number, percentage, or sequence (e.g. "tretja zaporedna") unless it appears word-for-word in the RAW NEWS for that exact story.
+      - NAMES & TITLES: Copy names exactly as written. Never add titles, roles, or adjectives (nekdanji, aktualni, predsednik...) unless in the source text.
+      - NO SYNTHESIS: Never combine facts from two different stories into one sentence.
+      - NO PADDING: Never write redundant phrases like "Washington in ZDA". One source attribution per fact.
+      
+      OUTPUT LANGUAGE: Formal Slovenian, vikanje.
+      `
 
     const responseSchema = {
         type: SchemaType.OBJECT,
