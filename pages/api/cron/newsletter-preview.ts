@@ -309,7 +309,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                       <tr>
                         <td align="center" style="border-radius: 8px;" bgcolor="${BRAND_COLOR}">
                           <a href="https://krizisce.si" target="_blank" style="font-size: 16px; font-family: -apple-system, Arial, sans-serif; color: #ffffff; text-decoration: none; padding: 16px 36px; display: inline-block; border-radius: 8px; font-weight: bold;">
-                            Obiščite krizisce.si
+                            Preberite več na krizisce.si
                           </a>
                         </td>
                       </tr>
