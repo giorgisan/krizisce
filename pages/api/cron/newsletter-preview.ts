@@ -85,23 +85,25 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         }
     })
 
-    // SPREMEMBA: Bistveno izboljšan in robusten prompt za 'Imena' brez hardkodiranja
+    // SPREMEMBA: Prehod na zelo strog TL;DR (Executive Newsdigest) format. 
+    // Popolna odstranitev navodil za "pisanje zgodb".
     const prompt = `
-      You are an elite, highly rigorous news editor for a premium Slovenian daily morning digest called 'Križišče'.
-      Your goal is to write a highly engaging, analytical, and richly formatted morning newsletter.
+      You are an elite, highly rigorous data-compiler for a premium Slovenian executive news digest called 'Križišče'.
+      Your goal is to provide a highly condensed, bullet-point style, facts-only daily briefing.
       
-      Here are the raw Slovenian stories from the last 30 hours:
+      Here are the raw Slovenian news summaries from the last 30 hours:
       ${promptData}
 
       YOUR TASK:
-      1. 'intro': A warm 1-2 sentence morning summary setting the vibe for TODAY. (Do NOT include "Dobro jutro", just start the summary).
-      2. 'categories': Create 3 to 4 distinct categories based on the news (e.g., "🇸🇮 Slovenija: [Subtitle]", "🌍 Svet: [Subtitle]", "💻 Tech: [Subtitle]", etc.).
-      3. For each category, write a 1-sentence 'intro_text'.
-      4. For each category, provide 2 to 3 'items'. Each item needs a 'theme' (e.g. "Politični potresi") and a 'text' (2-3 sentences).
-      5. MORNING BRIEFING TONE: Frame the stories for today's context. If the provided data mentions an ongoing event or something scheduled for today, highlight it as an upcoming/ongoing event.
-      6. 'fun_fact': End with a fascinating trivia fact starting with "Ali ste vedeli, da...". 
+      1. 'intro': A very short, 1-2 sentence TL;DR overview of the day's main themes (e.g. "Danes v ospredju: Evakuacije z Bližnjega vzhoda in visoka rast delnic na borzi."). Do not say "Dobro jutro".
+      2. 'categories': Create 3 to 4 distinct categories based on the news (e.g., "🇸🇮 Slovenija", "🌍 Globalno", "💻 Tehnologija & Posel", "📈 Gospodarstvo", "🏆 Šport").
+      3. For each category, provide 2 to 3 'items'. 
+      4. For each 'item', provide a punchy, 2-to-4 word 'theme' (e.g. "Drastičen dvig plač").
+      5. For each 'item', the 'text' MUST BE 1 to 2 short sentences containing ONLY hard facts, numbers, and direct actions. NO fluff, NO poetic language, NO storytelling.
+
+      6. 'fun_fact': End with a fascinating trivia fact starting with "Ali ste vedeli, da...". Pick an obscure fact, distinct from the usual space or history trivia.
       
-     CRITICAL RULES FOR FACTUAL ACCURACY AND NAMING (ZERO-INFERENCE FACT GROUNDING):
+      CRITICAL RULES FOR FACTUAL ACCURACY AND NAMING (ZERO-INFERENCE FACT GROUNDING):
       - DO NOT make up, invent, or predict outcomes.
       - Treat every proper noun (name of a person, organization, country) exactly as an immutable, literal string as it appears in the provided SUMMARY text.
       - ABSOLUTE PROHIBITION: You must NOT prepend any title, status, temporal adjective (such as "nekdanji", "bivši", "trenutni"), or professional designation (such as "predsednik", "premier", "minister") to a person's name UNLESS that exact word is present in the raw text for that specific person.
@@ -126,7 +128,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                     type: SchemaType.OBJECT,
                     properties: {
                         title: { type: SchemaType.STRING },
-                        intro_text: { type: SchemaType.STRING },
                         items: {
                             type: SchemaType.ARRAY,
                             items: {
@@ -139,7 +140,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                             }
                         }
                     },
-                    required: ["title", "intro_text", "items"]
+                    required: ["title", "items"] // Odstranil sem 'intro_text' za bolj čist digest videz
                 }
             },
             fun_fact: { type: SchemaType.STRING }
@@ -150,7 +151,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const generationConfig = { 
         responseMimeType: "application/json",
         responseSchema: responseSchema,
-        temperature: 0.4 
+        temperature: 0.1 // Zelo, zelo nizko. Želimo robota, ne pisatelja.
     };
 
     let aiData;
@@ -182,21 +183,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     safeCategories.forEach((cat: any) => {
         let itemsHtml = '';
         cat.items.forEach((item: any) => {
+            // SPREMEMBA OBLIKE: Bolj čisto, manj odmikov, direktno.
             itemsHtml += `
-              <p style="font-size: 15px; line-height: 1.6; color: #374151; margin-top: 0; margin-bottom: 16px; font-family: -apple-system, Arial, sans-serif;">
+              <p style="font-size: 15px; line-height: 1.6; color: #374151; margin-top: 0; margin-bottom: 12px; font-family: -apple-system, Arial, sans-serif;">
                 <strong style="color: #111827;">${item.theme}:</strong> ${item.text}
               </p>
             `;
         });
 
         categoriesHtml += `
-            <div style="margin-bottom: 35px;">
-              <h2 style="font-size: 20px; color: ${BRAND_COLOR}; margin-top: 0; margin-bottom: 8px; font-weight: bold; font-family: Georgia, 'Times New Roman', serif;">
+            <div style="margin-bottom: 30px;">
+              <h2 style="font-size: 18px; color: ${BRAND_COLOR}; margin-top: 0; margin-bottom: 12px; font-weight: bold; font-family: Georgia, 'Times New Roman', serif;">
                 ${cat.title}
               </h2>
-              <p style="font-size: 15px; line-height: 1.5; color: #4B5563; margin-top: 0; margin-bottom: 20px; font-style: italic; font-family: -apple-system, Arial, sans-serif;">
-                ${cat.intro_text}
-              </p>
               ${itemsHtml}
             </div>
         `;
@@ -209,7 +208,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
     const proxyImageUrl = finalImageUrl ? `https://images.weserv.nl/?url=${encodeURIComponent(finalImageUrl)}&w=800&q=100&output=jpg` : null;
 
-    // SPREMEMBA: Dodani "Ghost Tables" in DPI fix za OUTLOOK
     const finalEmailHtml = `
       <!DOCTYPE html>
       <html lang="sl">
@@ -243,10 +241,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                 <tr>
                   <td style="padding: 40px 24px;">
 
-                    <p style="font-size: 18px; line-height: 1.6; color: #111827; margin-top: 0; margin-bottom: 10px; font-family: -apple-system, Arial, sans-serif; font-weight: bold;">
-                      Dobro jutro! ☕
-                    </p>
-                    <p style="font-size: 17px; line-height: 1.6; color: #111827; margin-top: 0; margin-bottom: 35px; font-family: -apple-system, Arial, sans-serif;">
+                    <p style="font-size: 16px; line-height: 1.6; color: #111827; margin-top: 0; margin-bottom: 30px; font-family: -apple-system, Arial, sans-serif;">
                       ${aiData.intro}
                     </p>
 
@@ -258,7 +253,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
                     ${categoriesHtml}
 
-                    <div style="background-color: #FFF7ED; border-left: 4px solid ${BRAND_COLOR}; padding: 20px; margin-bottom: 40px;">
+                    <div style="background-color: #FFF7ED; border-left: 4px solid ${BRAND_COLOR}; padding: 20px; margin-top: 40px; margin-bottom: 40px;">
                       <h3 style="font-size: 15px; color: #9A3412; font-weight: bold; margin-top: 0; margin-bottom: 8px; font-family: -apple-system, Arial, sans-serif; text-transform: uppercase; letter-spacing: 0.05em;">
                         🔭 Zanimivost dneva
                       </h3>
@@ -267,19 +262,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                       </p>
                     </div>
 
-                    <p style="font-size: 16px; line-height: 1.6; color: #374151; font-style: italic; text-align: center; margin-top: 0; margin-bottom: 25px; font-family: Georgia, 'Times New Roman', serif;">
-                      Hvala, ker nas berete.
-                    </p>
-
-                    <table border="0" cellspacing="0" cellpadding="0" style="margin: 0 auto;">
-                      <tr>
-                        <td align="center" style="border-radius: 8px;" bgcolor="${BRAND_COLOR}">
-                          <a href="https://krizisce.si" target="_blank" style="font-size: 16px; font-family: -apple-system, Arial, sans-serif; color: #ffffff; text-decoration: none; padding: 16px 36px; display: inline-block; border-radius: 8px; font-weight: bold;">
-                            Obiščite krizisce.si
-                          </a>
-                        </td>
-                      </tr>
-                    </table>
+                    <div style="text-align: center; margin-top: 30px; margin-bottom: 20px;">
+                      <a href="https://krizisce.si" target="_blank" style="font-size: 16px; font-family: -apple-system, Arial, sans-serif; color: ${BRAND_COLOR}; text-decoration: underline; font-weight: bold; text-transform: uppercase; letter-spacing: 0.05em;">
+                        Preberite več na krizisce.si
+                      </a>
+                    </div>
 
                   </td>
                 </tr>
@@ -330,7 +317,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const adminUrl = `https://krizisce.si/api/cron/send-newsletter?id=${insertedNewsletter.id}&key=${process.env.CRON_SECRET}`;
     
-    // Za Tvoj osebni predogled zamenjamo string s tvojim mailom (varno odjavljanje deluje!)
     const adminPreviewHtml = finalEmailHtml.replace('{{USER_ID}}', 'test_admin_id');
 
     const adminEmailHtml = `
