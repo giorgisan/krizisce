@@ -328,7 +328,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const adminUrl = `https://krizisce.si/api/cron/send-newsletter?id=${insertedNewsletter.id}&key=${process.env.CRON_SECRET}`;
     
     // Za Tvoj osebni predogled zamenjamo string s tvojim mailom
-    const adminPreviewHtml = finalEmailHtml.replace('{{USER_EMAIL}}', 'gjkcme@gmail.com');
+    const adminPreviewHtml = finalEmailHtml.replace('{{USER_ID}}', 'test_admin_id');
 
     const adminEmailHtml = `
       <div style="background-color: #fef08a; padding: 25px; text-align: center; border-bottom: 4px solid #eab308; font-family: sans-serif;">
