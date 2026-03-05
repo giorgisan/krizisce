@@ -100,12 +100,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       5. MORNING BRIEFING TONE: Frame the stories for today's context. If the provided data mentions an ongoing event or something scheduled for today, highlight it as an upcoming/ongoing event (e.g., "Danes se nadaljuje...", "Pričakujemo...").
       6. 'fun_fact': End with a fascinating trivia fact starting with "Ali ste vedeli, da...". 
       
-      CRITICAL RULES FOR FACTUAL ACCURACY (ZERO HALLUCINATION):
+      CRITICAL RULES FOR FACTUAL ACCURACY (ZERO HALLUCINATION & STRICT NAMING):
       - THE TEXT MUST SUMMARIZE ONLY THE PROVIDED DATA.
       - DO NOT make up, invent, or predict outcomes.
       - If a news story says an event is "ongoing" or "planned" (like an evacuation, a trial, or a sports match), DO NOT state that it has successfully concluded. You must accurately reflect that it is still ongoing or yet to happen.
-      - NEVER use external knowledge to add titles (like "former president" or "current prime minister"), names, places, or historical events that are NOT explicitly mentioned in the provided raw stories. Stick strictly to the names and roles provided.
-      
+      - STRICT NAMING POLICY: When mentioning names of people (like politicians, athletes, public figures), YOU MUST USE EXACTLY THE SAME NAME OR TITLE PROVIDED IN THE SUMMARY. 
+      - ABSOLUTELY PROHIBITED: Do not add titles like "nekdanji" (former), "trenutni" (current), "predsednik" (president), or "premier" (prime minister) unless those EXACT words are already present in the raw summary provided to you. If the raw text says "Donald Trump", you must write "Donald Trump".
+
       FORMATTING RULES: 
       - ALWAYS put the '🇸🇮 Slovenija' category FIRST in the array!
       - DO NOT put the fun fact inside the 'categories' array. It belongs ONLY in the 'fun_fact' field.
