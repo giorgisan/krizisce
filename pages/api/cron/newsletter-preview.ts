@@ -70,7 +70,7 @@ Return the corrected OUTPUT as valid JSON matching the exact original structure.
         model: "gemini-2.5-flash", 
         generationConfig: { 
             responseMimeType: "application/json",
-            responseSchema: newsletterSchema, // <-- TUKAJ JE FIX (uporabi isto shemo!)
+            responseSchema: newsletterSchema, // <-- UPORABLJA ISTO SHEMO
             temperature: 0 
         }
     });
