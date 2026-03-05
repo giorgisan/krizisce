@@ -150,33 +150,40 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         }
     })
 
+    // SPREMEMBA: Dinamične kategorije, stroge ikone, uredniški "kava" uvod.
     const prompt = `
-      You are a strict data-parser. Your ONLY job is to compress the RAW NEWS below into a structured digest.
+      You are an elite editor for a premium Slovenian morning news digest called 'Križišče'.
+      Your job is to compress the RAW NEWS below into a highly readable, structured daily briefing.
       You have NO other knowledge. If it is not in the RAW NEWS, it does not exist.
       
       RAW NEWS SUMMARIES:
       ${promptData}
       
       YOUR TASK:
-      1. 'intro': Telegraphic, max 15-25 words. Format: "Danes: [tema], [tema], [tema]."
-      2. 'categories': 3-4 categories (always include "🇸🇮 Slovenija" FIRST). 2-3 items each.
-      3. Each 'item.theme': 2-4 word label.
-      4. Each 'item.text': 1-2 sentences. ONLY facts and numbers that appear verbatim in RAW NEWS.
-      5. 'closing_line': 1 sentence. Must reference a specific fact from RAW NEWS.
+      1. 'intro': 2-3 sentences. Conversational, warm but informed "journalist having morning coffee" tone. Highlight the most surprising or important story with one editorial observation. NOT a dry list. Example style: "Danes zjutraj dominira Iran — a zgodba o Matavžu pove več o nas kot o vojni." Do NOT start with "Dobro jutro" or "Danes:".
+      2. 'categories': Select 3 to 4 dynamic categories based on the day's news. 
+         CATEGORIES RULES:
+         - ALWAYS include "🇸🇮 Slovenija" FIRST.
+         - NEVER create two categories with "Slovenija" — merge all domestic news into one.
+         - Use EXACTLY these icons for other categories if applicable: 🌍 for Svet/Mednarodno, 💰 for Gospodarstvo/Posel, ⚖️ for Kronika, 🏆 for Šport.
+         - Provide 2-3 items per category.
+      3. Each 'item.theme': 2-4 word punchy label.
+      4. Each 'item.text': 1-2 short sentences. ONLY facts and numbers that appear verbatim in RAW NEWS.
+      5. 'closing_line': 1 sentence highlighting a specific positive, interesting, or notable fact from the RAW NEWS to leave the reader with a final thought.
       
       HARD RULES — ANY VIOLATION MAKES THE OUTPUT INVALID:
-      - NUMBERS & STATS: Never write a specific number, percentage, or sequence (e.g. "tretja zaporedna") unless it appears word-for-word in the RAW NEWS for that exact story.
-      - NAMES & TITLES: Copy names exactly as written. Never add titles, roles, or adjectives (nekdanji, aktualni, predsednik...) unless in the source text.
+      - NUMBERS & STATS: Never write a specific number, percentage, or sequence unless it appears word-for-word in the RAW NEWS.
+      - NAMES & TITLES: Copy names exactly as written in the RAW NEWS. Never add titles, roles, or adjectives (nekdanji, aktualni, predsednik...) unless they explicitly exist in the source text.
       - NO SYNTHESIS: Never combine facts from two different stories into one sentence.
-      - NO PADDING: Never write redundant phrases like "Washington in ZDA". One source attribution per fact.
+      - NO PADDING: Never write redundant phrases.
       
       OUTPUT LANGUAGE: Formal Slovenian, vikanje.
       `
 
     const generationConfig = { 
         responseMimeType: "application/json",
-        responseSchema: newsletterSchema, // Uporablja definirano shemo
-        temperature: 0.1 
+        responseSchema: newsletterSchema, 
+        temperature: 0.3 // Malenkost višja temperatura za boljšo kreativnost pri uvodu (editorial tone)
     };
 
     let aiData;
@@ -206,7 +213,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         console.log("✅ AI validacija uspešno zaključena.");
     } catch (validationErr) {
         console.error("⚠️ Napaka pri AI validaciji, nadaljujem z osnovnimi podatki:", validationErr);
-        // Če validator slučajno odpove (timeout ipd.), se sistem ne bo zrušil, ampak bo uporabil prvotni rezultat.
     }
     // -----------------------------------
 
@@ -292,7 +298,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
                     <div style="background-color: #FFF7ED; border-left: 4px solid ${BRAND_COLOR}; padding: 20px; margin-top: 40px; margin-bottom: 40px;">
                       <h3 style="font-size: 15px; color: #9A3412; font-weight: bold; margin-top: 0; margin-bottom: 8px; font-family: -apple-system, Arial, sans-serif; text-transform: uppercase; letter-spacing: 0.05em;">
-                        📌 Zaključek
+                        💡 Za konec
                       </h3>
                       <p style="font-size: 15px; line-height: 1.6; color: #431407; margin: 0; font-family: -apple-system, Arial, sans-serif;">
                         ${aiData.closing_line}
