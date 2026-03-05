@@ -85,6 +85,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         }
     })
 
+    // SPREMEMBA: Bistveno izboljšan in robusten prompt za 'Imena' brez hardkodiranja
     const prompt = `
       You are an elite, highly rigorous news editor for a premium Slovenian daily morning digest called 'Križišče'.
       Your goal is to write a highly engaging, analytical, and richly formatted morning newsletter.
@@ -97,20 +98,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       2. 'categories': Create 3 to 4 distinct categories based on the news (e.g., "🇸🇮 Slovenija: [Subtitle]", "🌍 Svet: [Subtitle]", "💻 Tech: [Subtitle]", etc.).
       3. For each category, write a 1-sentence 'intro_text'.
       4. For each category, provide 2 to 3 'items'. Each item needs a 'theme' (e.g. "Politični potresi") and a 'text' (2-3 sentences).
-      5. MORNING BRIEFING TONE: Frame the stories for today's context. If the provided data mentions an ongoing event or something scheduled for today, highlight it as an upcoming/ongoing event (e.g., "Danes se nadaljuje...", "Pričakujemo...").
+      5. MORNING BRIEFING TONE: Frame the stories for today's context. If the provided data mentions an ongoing event or something scheduled for today, highlight it as an upcoming/ongoing event.
       6. 'fun_fact': End with a fascinating trivia fact starting with "Ali ste vedeli, da...". 
       
-      CRITICAL RULES FOR FACTUAL ACCURACY (ZERO HALLUCINATION & STRICT NAMING):
-      - THE TEXT MUST SUMMARIZE ONLY THE PROVIDED DATA.
+      CRITICAL RULES FOR FACTUAL ACCURACY (ZERO HALLUCINATION & STRICT TITLES):
       - DO NOT make up, invent, or predict outcomes.
-      - If a news story says an event is "ongoing" or "planned" (like an evacuation, a trial, or a sports match), DO NOT state that it has successfully concluded. You must accurately reflect that it is still ongoing or yet to happen.
-      - STRICT NAMING POLICY: When mentioning names of people (like politicians, athletes, public figures), YOU MUST USE EXACTLY THE SAME NAME OR TITLE PROVIDED IN THE SUMMARY. 
-      - ABSOLUTELY PROHIBITED: Do not add titles like "nekdanji" (former), "trenutni" (current), "predsednik" (president), or "premier" (prime minister) unless those EXACT words are already present in the raw summary provided to you. If the raw text says "Donald Trump", you must write "Donald Trump".
-
+      - RULE OF EXACT NAMES: You are strictly forbidden from adding historical, political, or professional titles to people if those titles are not explicitly present in the provided summary.
+      - EXAMPLES OF VIOLATION: Adding words like "nekdanji" (former), "bivši" (ex), "trenutni" (current), "predsednik" (president), or "premier" in front of a name if it wasn't in the raw text. 
+      - Treat names as immutable strings. If the text says "Donald Trump", you MUST write exactly "Donald Trump". If it says "Aleksandar Boričić", you write "Aleksandar Boričić". 
+      
       FORMATTING RULES: 
       - ALWAYS put the '🇸🇮 Slovenija' category FIRST in the array!
       - DO NOT put the fun fact inside the 'categories' array. It belongs ONLY in the 'fun_fact' field.
-      - The entire text MUST use the formal Slovenian plural 'vikanje' (e.g. 'Ali ste vedeli, da...', 'bodite pozorni'). Never use 'ti' or 'si'.
+      - The entire text MUST use the formal Slovenian plural 'vikanje'.
 
       Write EVERYTHING in perfect, engaging Slovenian.
     `
@@ -149,7 +149,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const generationConfig = { 
         responseMimeType: "application/json",
         responseSchema: responseSchema,
-        temperature: 0.5 
+        temperature: 0.4 
     };
 
     let aiData;
@@ -208,24 +208,25 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
     const proxyImageUrl = finalImageUrl ? `https://images.weserv.nl/?url=${encodeURIComponent(finalImageUrl)}&w=800&q=100&output=jpg` : null;
 
-    // TO JE ČISTI HTML (ZA BAZO IN NAROČNIKE)
+    // SPREMEMBA: Dodani "Ghost Tables" in DPI fix za OUTLOOK
     const finalEmailHtml = `
       <!DOCTYPE html>
-      <html>
+      <html lang="sl">
       <head>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      </head>
+        </head>
       <body style="margin: 0; padding: 0; background-color: #F3F4F6; font-family: -apple-system, BlinkMacSystemFont, Arial, sans-serif; -webkit-font-smoothing: antialiased;">
         
-        <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #F3F4F6; padding: 20px 0;">
+        <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #F3F4F6;">
           <tr>
-            <td align="center">
-              <table width="100%" max-width="600" border="0" cellspacing="0" cellpadding="0" style="max-width: 600px; background-color: #ffffff; border-radius: 8px; border: 1px solid #E5E7EB; overflow: hidden; margin: 0 auto;">
+            <td align="center" style="padding: 20px 10px;">
+              
+              <table width="100%" border="0" cellspacing="0" cellpadding="0" style="max-width: 600px; width: 100%; background-color: #ffffff; border-radius: 8px; border: 1px solid #E5E7EB; margin: 0 auto;">
                 
                 <tr>
-                  <td align="center" style="padding: 35px 20px 25px 20px; border-bottom: 1px solid #E5E7EB; background-color: #ffffff;">
-                    <img src="https://krizisce.si/logo.png" alt="Križišče Logo" style="width: 52px; height: 52px; margin-bottom: 12px; display: block; margin-left: auto; margin-right: auto;">
+                  <td align="center" style="padding: 35px 20px 25px 20px; border-bottom: 1px solid #E5E7EB; background-color: #ffffff; border-radius: 8px 8px 0 0;">
+                    <img src="https://krizisce.si/logo.png" alt="Križišče Logo" width="52" style="width: 52px; height: auto; margin-bottom: 12px; display: block; margin-left: auto; margin-right: auto;">
                     <h1 style="margin: 0 0 6px 0; font-size: 32px; color: #111827; font-family: Georgia, 'Times New Roman', serif; font-weight: bold; letter-spacing: -0.02em; line-height: 1; text-align: center;">
                       Križišče
                     </h1>
@@ -249,8 +250,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                     </p>
 
                     ${proxyImageUrl ? `
-                      <div style="margin-bottom: 35px; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,0.05); border: 1px solid #f3f4f6;">
-                         <img src="${proxyImageUrl}" alt="Poudarek dneva" style="width: 100%; height: auto; display: block;">
+                      <div style="margin-bottom: 35px; text-align: center;">
+                         <img src="${proxyImageUrl}" alt="Poudarek dneva" width="550" style="width: 100%; max-width: 550px; height: auto; display: block; margin: 0 auto; border-radius: 8px; border: 1px solid #f3f4f6;">
                       </div>
                     ` : ''}
 
@@ -283,7 +284,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                 </tr>
 
                 <tr>
-                  <td align="center" style="background-color: #F9FAFB; padding: 35px 24px; border-top: 1px solid #E5E7EB; font-family: -apple-system, Arial, sans-serif; font-size: 12px; color: #6B7280; line-height: 1.6;">
+                  <td align="center" style="background-color: #F9FAFB; padding: 35px 24px; border-top: 1px solid #E5E7EB; border-radius: 0 0 8px 8px; font-family: -apple-system, Arial, sans-serif; font-size: 12px; color: #6B7280; line-height: 1.6;">
                     
                     <div style="background-color: #f3f4f6; border: 1px solid #e5e7eb; border-radius: 6px; padding: 14px; margin-bottom: 24px; text-align: center;">
                       <p style="margin: 0; font-size: 11px; color: #9ca3af;">
@@ -306,7 +307,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                 </tr>
 
               </table>
-            </td>
+
+              </td>
           </tr>
         </table>
       </body>
@@ -327,7 +329,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const adminUrl = `https://krizisce.si/api/cron/send-newsletter?id=${insertedNewsletter.id}&key=${process.env.CRON_SECRET}`;
     
-    // Za Tvoj osebni predogled zamenjamo string s tvojim mailom
+    // Za Tvoj osebni predogled zamenjamo string s tvojim mailom (varno odjavljanje deluje!)
     const adminPreviewHtml = finalEmailHtml.replace('{{USER_ID}}', 'test_admin_id');
 
     const adminEmailHtml = `
