@@ -59,7 +59,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const currentDate = new Intl.DateTimeFormat('sl-SI', { day: 'numeric', month: 'long', year: 'numeric' }).format(new Date());
 
-    // 4. Optimiziran prompt (Eksplicitna pravila po Claudu)
+    // 4. Optimiziran prompt z generičnim, future-proof pravilom
     const prompt = `
       You are an expert media analyst. Analyze how Slovenian media is reporting on the following ${topStories.length} events. 
       Use both the title and the provided snippet to evaluate the media framing and editorial approach.
@@ -73,7 +73,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       CRITICAL FACT-CHECKING RULE (TEMPORAL AWARENESS):
       Today's date is ${currentDate}. You must KEEP valid political and professional titles to provide good context, BUT you must be accurate.
       - NEVER add "nekdanji" or "bivši" to a title unless it explicitly appears in the source snippet AND is still true today.
-      - EXAMPLE OF CORRECT BEHAVIOR: Donald Trump is the ACTIVE US President as of 2025. If a source snippet mistakenly says "nekdanji predsednik Donald Trump", you MUST correct it to "predsednik Donald Trump" or just "Donald Trump". Do not blindly copy factual errors about people's active roles.
+      - EXAMPLE OF CORRECT BEHAVIOR: If a source snippet uses "nekdanji" or "bivši" for someone who currently holds that office as of ${currentDate}, correct it to their active title. Do not blindly copy factual errors about people's current roles from source snippets.
       
       CRITICAL REQUIREMENT: The analysis text and all JSON values MUST be written entirely in the SLOVENIAN language.
       
