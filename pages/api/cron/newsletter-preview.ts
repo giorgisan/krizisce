@@ -163,7 +163,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       1. 'intro': 2-3 sentences. Conversational, warm but informed "journalist having morning coffee" tone. Highlight the most surprising or important story with one editorial observation. NOT a dry list. Example style: "Danes zjutraj dominira Iran — a zgodba o Matavžu pove več o nas kot o vojni." Do NOT start with "Dobro jutro" or "Danes:".
       2. 'categories': Select 3 to 4 dynamic categories based on the day's news. 
          CATEGORIES RULES:
-         - ALWAYS include "🇸🇮 Slovenija" FIRST.
+         - ALWAYS include "🏔️ Slovenija" FIRST.
          - NEVER create two categories with "Slovenija" — merge all domestic news into one.
          - Use EXACTLY these icons for other categories if applicable: 🌍 for Svet/Mednarodno, 💰 for Gospodarstvo/Posel, ⚖️ for Kronika, 🏆 for Šport.
          - Provide 2-3 items per category.
