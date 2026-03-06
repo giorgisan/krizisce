@@ -62,9 +62,7 @@ export default function Footer() {
   const popRef = useRef<HTMLDivElement | null>(null)
   const btnRef = useRef<HTMLButtonElement | null>(null)
 
-  // Newsletter States
   const [email, setEmail] = useState('')
-  const [agreed, setAgreed] = useState(false)
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle')
   const [msg, setMsg] = useState('')
 
@@ -82,20 +80,19 @@ export default function Footer() {
 
   const handleSubscribe = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!email || !agreed) return
+    if (!email) return
     setStatus('loading')
     try {
       const res = await fetch('/api/subscribe', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, agreed })
+        body: JSON.stringify({ email }) // AGREED JE ODSTRANJEN IZ PAYLOADA
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Prišlo je do napake.')
       setStatus('success')
       setMsg(data.message)
       setEmail('')
-      setAgreed(false)
     } catch (err: any) {
       setStatus('error')
       setMsg(err.message)
@@ -156,7 +153,8 @@ export default function Footer() {
                   <p className="text-sm text-gray-600 dark:text-gray-500 leading-relaxed mb-3">
                     Začnite dan obveščeni. Prijavite se na brezplačni pregled najpomembnejših novic vsako jutro
                   </p>
-                  {/* TUKAJ JE POPRAVEK: text-brand barva, hover samo posvetli (opacity-70), brez podčrtavanja */}
+                  
+                  {/* TUKAJ JE POPRAVEK: text-brand z hover:text-orange-400 (ki je svetlejša) ali hover:opacity-70 */}
                   <Link href="/pregled" className="inline-flex items-center text-[13px] font-medium text-brand hover:opacity-70 transition-opacity group">
                     <span>Preverite, kako izgleda današnji pregled</span>
                     <span className="ml-1 transition-transform group-hover:translate-x-1">→</span>
@@ -169,7 +167,7 @@ export default function Footer() {
                       {msg}
                     </div>
                   ) : (
-                    <form onSubmit={handleSubscribe} className="space-y-4">
+                    <form onSubmit={handleSubscribe} className="space-y-3">
                       <div className="flex flex-col sm:flex-row gap-3">
                         <input
                           type="email"
@@ -182,27 +180,18 @@ export default function Footer() {
                         />
                         <button
                           type="submit"
-                          disabled={status === 'loading' || !agreed || !email}
+                          disabled={status === 'loading' || !email}
                           className="w-full sm:w-auto whitespace-nowrap rounded-xl bg-brand hover:opacity-90 px-6 py-3 text-sm font-bold text-white shadow-sm transition disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           {status === 'loading' ? 'Prijava...' : 'Prijavi se'}
                         </button>
                       </div>
 
-                      <div className="flex items-start gap-2.5">
-                        <input
-                          type="checkbox"
-                          id="gdpr-consent"
-                          checked={agreed}
-                          onChange={(e) => setAgreed(e.target.checked)}
-                          required
-                          disabled={status === 'loading'}
-                          className="mt-0.5 h-4 w-4 rounded border-gray-300 text-brand focus:ring-brand disabled:opacity-50 cursor-pointer shrink-0"
-                        />
-                        <label htmlFor="gdpr-consent" className="text-xs text-gray-500 dark:text-gray-400 leading-snug cursor-pointer select-none">
-                          Strinjam se in dovoljujem pošiljanje e-pošte s pregledom aktualnega dogajanja.
-                        </label>
-                      </div>
+                      {/* NOVO: Samo nežen disclaimer namesto checkboxa */}
+                      <p className="text-[11px] text-gray-400 dark:text-gray-500 leading-snug">
+                        S klikom na gumb se strinjate s prejemanjem dnevnega pregleda novic. Odjavite se lahko kadarkoli.
+                      </p>
+                      
                       {status === 'error' && <p className="text-sm text-red-500 mt-1 font-medium">{msg}</p>}
                     </form>
                   )}
