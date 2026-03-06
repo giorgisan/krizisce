@@ -282,17 +282,24 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             `;
         });
 
-        // Poenostavljen in Outlook-friendly način za naslove z emotikoni
-        // Dodamo malce word-spacinga za lepši razmak med ikono in prvo besedo
+        // Zanesljiv Outlook-friendly razmak med emotikonom in tekstom (brez CSS flex/gap)
+        let displayTitle = cat.title;
+        
+        // Regex ujame emotikon na začetku (vse kar ni črka/številka) in loči od besedila
+        const titleMatch = displayTitle.match(/^([^\p{L}\p{N}]+)\s*(.*)$/u);
+        if (titleMatch) {
+            // Vsilimo neprelomni presledek (&nbsp;) in navaden presledek za lep, 100% fiksen razmak
+            displayTitle = `${titleMatch[1].trim()}&nbsp; ${titleMatch[2].trim()}`;
+        }
+
         categoriesHtml += `
             <div style="margin-bottom: 30px;">
-              <h2 style="font-size: 18px; color: ${BRAND_COLOR}; margin-top: 0; margin-bottom: 14px; font-weight: bold; font-family: Georgia, 'Times New Roman', serif; line-height: 1.3; display: flex; align-items: center; gap: 6px;">
-                ${cat.title}
+              <h2 style="font-size: 18px; color: ${BRAND_COLOR}; margin-top: 0; margin-bottom: 14px; font-weight: bold; font-family: Georgia, 'Times New Roman', serif; line-height: 1.3;">
+                ${displayTitle}
               </h2>
               ${itemsHtml}
             </div>
         `;
-    });
 
     let finalImageUrl = bestImage;
     if (finalImageUrl) {
