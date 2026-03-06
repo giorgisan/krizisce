@@ -153,7 +153,7 @@ export default function NewsletterToast() {
                 </div>
                 
                 <p className="text-[9px] text-gray-400 dark:text-gray-500 leading-tight">
-                  Vašega e-naslova ne bomo nikoli tržili ali delili. Odjavite se lahko kadarkoli.
+                  Zasebnost jemljemo resno. Brez vsiljene pošte in deljenja podatkov. Odjava je z enim klikom.
                   {status === 'error' && <span className="block text-red-500 mt-1 font-medium">{msg}</span>}
                 </p>
               </form>
