@@ -378,13 +378,21 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const adminUrl = `https://krizisce.si/api/cron/send-newsletter?id=${insertedNewsletter.id}&key=${process.env.CRON_SECRET}`;
     
+    // NOVO: URL, ki ponovno sproži TO ISTO skripto za nov predogled
+    const regenerateUrl = `https://krizisce.si/api/cron/newsletter-preview?key=${process.env.CRON_SECRET}`;
+    
     const adminPreviewHtml = finalEmailHtml.replace('{{USER_ID}}', 'test_admin_id');
 
     const adminEmailHtml = `
       <div style="background-color: #fef08a; padding: 25px; text-align: center; border-bottom: 4px solid #eab308; font-family: sans-serif;">
         <h2 style="margin-top: 0; color: #854d0e;">👋 Hej, tole je današnji predogled!</h2>
-        <p style="color: #a16207; margin-bottom: 20px; font-size: 15px;">Preberi si mail. Če si zadovoljen, pritisni spodnji gumb in sistem bo mail poslal vsem naročnikom na Križišče.</p>
-        <a href="${adminUrl}" style="background-color: #ea580c; color: #ffffff; padding: 14px 28px; text-decoration: none; font-weight: bold; border-radius: 8px; display: inline-block;">Odobri in pošlji vsem</a>
+        <p style="color: #a16207; margin-bottom: 20px; font-size: 15px;">Preberi si mail. Če si zadovoljen, pritisni spodnji gumb. Če ti izbor novic ali uvod ni všeč, klikni ponovno generiraj.</p>
+        
+        <div style="margin-top: 20px;">
+          <a href="${adminUrl}" style="background-color: #ea580c; color: #ffffff; padding: 14px 28px; text-decoration: none; font-weight: bold; border-radius: 8px; display: inline-block; margin: 5px;">Odobri in pošlji vsem</a>
+          
+          <a href="${regenerateUrl}" style="background-color: transparent; color: #ea580c; border: 2px solid #ea580c; padding: 12px 24px; text-decoration: none; font-weight: bold; border-radius: 8px; display: inline-block; margin: 5px;">Ponovno generiraj ⟳</a>
+        </div>
       </div>
       ${adminPreviewHtml}
     `;
