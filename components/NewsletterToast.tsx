@@ -1,0 +1,182 @@
+import { useState, useEffect, FormEvent } from 'react';
+import Link from 'next/link';
+
+export default function NewsletterToast() {
+  const [isVisible, setIsVisible] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false); 
+  const [hasMounted, setHasMounted] = useState(false);
+
+  const [email, setEmail] = useState('');
+  const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+  const [msg, setMsg] = useState('');
+
+  useEffect(() => {
+    setHasMounted(true);
+    const isDismissed = localStorage.getItem('newsletter_dismissed');
+    
+    if (!isDismissed) {
+      const timer = setTimeout(() => {
+        setIsVisible(true);
+      }, 4000); 
+      return () => clearTimeout(timer);
+    }
+  }, []);
+
+  const closePermanent = () => {
+    setIsVisible(false);
+    try {
+      localStorage.setItem('newsletter_dismissed', 'true');
+    } catch (e) {
+      // Tiho ignoriramo napako, če je uporabnik v strogem Incognito načinu
+    }
+  };
+
+  const handleSubscribe = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!email) return;
+    setStatus('loading');
+    
+    try {
+      const res = await fetch('/api/subscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email })
+      });
+      const data = await res.json();
+      
+      if (!res.ok) throw new Error(data.error || 'Prišlo je do napake.');
+      
+      setStatus('success');
+      setMsg(data.message);
+      setEmail('');
+      
+      setTimeout(() => {
+        closePermanent();
+      }, 3000);
+
+    } catch (err: any) {
+      setStatus('error');
+      setMsg(err.message);
+    }
+  };
+
+  if (!hasMounted) return null;
+
+  return (
+    <div
+      // POPRAVEK: duration-1000 ease-out ustvari zelo dolgo, mehko in prijetno animacijo prihoda
+      className={`fixed bottom-4 left-4 sm:bottom-6 sm:left-6 z-50 transform transition-all duration-1000 ease-out ${
+        isVisible ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0 pointer-events-none'
+      }`}
+    >
+      {/* GLAVNI OVOJ, KI SE ANIMIRA/RAZTEGUJE */}
+      <div 
+        // POPRAVEK: bg-white/85 ustvari pravi "Glass" efekt (večja transparentnost, a še vedno berljivo)
+        className={`relative bg-white/85 dark:bg-[#151a25]/85 backdrop-blur-xl shadow-2xl border border-gray-200/50 dark:border-gray-800/60 transition-all duration-500 overflow-hidden ${
+          isExpanded 
+            ? 'w-[calc(100vw-2rem)] sm:w-[380px] rounded-2xl p-5' 
+            : 'w-auto rounded-full cursor-pointer hover:scale-[1.02] hover:border-brand/40 dark:hover:border-brand/40 group'
+        }`}
+        onClick={() => !isExpanded && setIsExpanded(true)}
+      >
+        
+        {/* =========================================
+            STANJE 1: ZAPRTA TABLETKA (PILL) 
+            ========================================= */}
+        {!isExpanded && (
+          <div className="flex items-center gap-3 p-1.5 pr-5">
+            {/* Ikona v krogu */}
+            <div className="w-10 h-10 flex-shrink-0 bg-brand/10 dark:bg-brand/20 rounded-full flex items-center justify-center text-brand transition-transform duration-300 group-hover:scale-110">
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+              </svg>
+            </div>
+            {/* Besedilo znotraj tabletke */}
+            <span className="font-bold text-gray-800 dark:text-gray-200 text-[13.5px] whitespace-nowrap select-none">
+              Naročite 'Jutranji pregled' <span className="inline-block ml-0.5 text-base">☕</span>
+            </span>
+          </div>
+        )}
+
+        {/* =========================================
+            STANJE 2: RAZTEGNJENO PRIJAVNO OKNO 
+            ========================================= */}
+        {isExpanded && (
+          <div className="animate-in fade-in duration-500">
+            {/* ORANŽEN KRIŽEC, FIKSIRAN V DESNI KOT */}
+            <button
+              onClick={(e) => { e.stopPropagation(); closePermanent(); }}
+              className="absolute top-2.5 right-2.5 sm:top-3 sm:right-3 w-7 h-7 flex items-center justify-center bg-brand hover:bg-orange-600 text-white transition-transform hover:scale-105 rounded-full shadow-md z-50"
+              aria-label="Zapri"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+
+            <div className="flex items-start gap-3 mb-3 pr-10">
+              <div className="flex-shrink-0 bg-brand/10 dark:bg-brand/20 p-2 rounded-full text-brand">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                </svg>
+              </div>
+              <div>
+                <h3 className="font-bold text-gray-900 dark:text-white text-[14px] leading-tight mb-0.5">
+                  Jutranji pregled ☕
+                </h3>
+                <p className="text-gray-500 dark:text-gray-400 text-[11px] leading-snug">
+                  Zbudite se z najodmevnejšimi novicami. Prijavite se na brezplačni pregled vsako jutro.
+                </p>
+              </div>
+            </div>
+
+            {status === 'success' ? (
+              <div className="text-xs text-green-700 dark:text-green-400 font-medium bg-green-50 dark:bg-green-900/20 px-3 py-3 rounded-lg border border-green-200 dark:border-green-800/30 text-center animate-pulse">
+                {msg}
+              </div>
+            ) : (
+              <form onSubmit={handleSubscribe} className="flex flex-col gap-2.5 mt-1">
+                <div className="flex gap-2">
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="Vnesite vaš e-naslov ..."
+                    required
+                    disabled={status === 'loading'}
+                    // Polje za vnos naj ostane nekoliko bolj neprosojno zaradi kontrasta
+                    className="flex-1 min-w-0 rounded-lg border border-gray-300 dark:border-gray-700 bg-white/90 dark:bg-gray-900/90 px-3 py-2 text-xs text-gray-900 dark:text-white placeholder-gray-400 focus:border-brand focus:ring-1 focus:ring-brand outline-none transition disabled:opacity-50"
+                  />
+                  <button
+                    type="submit"
+                    disabled={status === 'loading' || !email}
+                    className="shrink-0 rounded-lg bg-brand hover:brightness-110 px-4 py-2 text-xs font-bold text-white transition disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {status === 'loading' ? '...' : 'Prijavi se'}
+                  </button>
+                </div>
+                
+                <p className="text-[9px] text-gray-400 dark:text-gray-500 leading-tight">
+                  Zasebnost jemljemo resno. Brez vsiljene pošte in deljenja podatkov. Odjava je z enim klikom.
+                  {status === 'error' && <span className="block text-red-500 mt-1 font-medium">{msg}</span>}
+                </p>
+              </form>
+            )}
+
+            {status !== 'success' && (
+              <div className="mt-2.5 pt-2.5 border-t border-gray-200/50 dark:border-gray-800/50 text-center">
+                <Link 
+                  href="/pregled" 
+                  onClick={closePermanent}
+                  className="inline-flex items-center justify-center text-[10.5px] font-medium text-gray-500 dark:text-gray-400 hover:text-brand dark:hover:text-brand transition-colors group"
+                >
+                  Preverite, kako izgleda današnji 'Jutranji pregled' <span className="ml-1 inline-block transition-transform group-hover:translate-x-1">→</span>
+                </Link>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}

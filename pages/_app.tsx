@@ -11,6 +11,9 @@ import { useEffect } from 'react'
 // 1. UVOZ FONTOV
 import { Inter, Playfair_Display } from 'next/font/google'
 
+// ---> NOVO: Uvoz naše nove Toast komponente <---
+import NewsletterToast from '@/components/NewsletterToast'
+
 const inter = Inter({
   subsets: ['latin', 'latin-ext'],
   variable: '--font-inter',
@@ -84,8 +87,11 @@ function App({ Component, pageProps }: AppProps) {
       {/* VERCEL ANALYTICS */}
       <Analytics />
       
-      {/* 2. DODANA KOMPONENTA TUKAJ */}
+      {/* SPEED INSIGHTS */}
       <SpeedInsights />
+
+      {/* ---> NOVO: Subtilno animirano obvestilo za newsletter <--- */}
+      <NewsletterToast />
     </>
   )
 }

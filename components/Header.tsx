@@ -8,7 +8,6 @@ import { useRouter } from 'next/router'
 import { CATEGORIES, CategoryId } from '../lib/categories'
 import { motion, AnimatePresence } from 'framer-motion'
 
-// --- HELPER ZA BARVE ---
 const getCategoryColor = (colorClass: string) => {
   if (colorClass.includes('emerald')) return '#10b981'
   if (colorClass.includes('blue')) return '#3b82f6'
@@ -21,7 +20,6 @@ const getCategoryColor = (colorClass: string) => {
   return '#6366f1'
 }
 
-// --- HELPER ZA VREME ---
 const getWeatherIcon = (code: number, isDay: number) => {
   if (code === 0) return isDay ? '☀️' : '🌙'
   if (code >= 1 && code <= 3) return isDay ? '⛅' : '☁️'
@@ -63,7 +61,6 @@ export default function Header({
   const [hasNew, setHasNew] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
   
-  // Mobile states
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false)
   
@@ -73,8 +70,7 @@ export default function Header({
   const { theme, setTheme, resolvedTheme } = useTheme()
   const router = useRouter()
 
-  const isHome = router.pathname === '/'
-  const showCategories = isHome 
+  const showCategories = router.pathname === '/'
 
   useEffect(() => {
     setMounted(true)
@@ -99,7 +95,6 @@ export default function Header({
     }
   }, [mobileSearchOpen])
 
-  // --- VREME ---
   useEffect(() => {
     const CACHE_KEY = 'krizisce-weather-v1'
     const CACHE_DURATION = 1000 * 60 * 15 
@@ -131,7 +126,6 @@ export default function Header({
         }))
 
       } catch (err) {
-        // Silent fail
       }
     }
 
@@ -149,7 +143,6 @@ export default function Header({
     setTimeout(fetchWeather, 500)
   }, [])
 
-  // --- NOVE NOVICE ---
   useEffect(() => {
     const onHasNew = (e: Event) => {
         const has = (e as CustomEvent).detail === true;
@@ -169,12 +162,15 @@ export default function Header({
   }, [])
 
   const refreshNow = () => {
+    if (router.pathname !== '/') {
+      router.push('/');
+      return;
+    }
     window.scrollTo({ top: 0, behavior: 'smooth' })
     setRefreshing(true)
     window.dispatchEvent(new CustomEvent('refresh-news'))
   }
 
-  // --- SCROLL ---
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 10)
     window.addEventListener('scroll', onScroll)
@@ -196,7 +192,7 @@ export default function Header({
   }
 
   const handleLogoClick = (e: React.MouseEvent) => {
-    if (isHome) {
+    if (router.pathname === '/') {
       e.preventDefault()
       setSearchVal('') 
       onReset()        
@@ -221,7 +217,6 @@ export default function Header({
       <div className="w-full relative z-50 border-b border-gray-100 dark:border-gray-800/60">
         <div className="max-w-[1800px] mx-auto px-4 md:px-8 lg:px-16 h-16 flex items-center justify-between gap-4 relative">
           
-          {/* --- 1. LEVO (MOBILE): LUPA / SEARCH --- */}
           <div className="flex md:hidden shrink-0 z-10 w-10">
              <button 
                 onClick={() => setMobileSearchOpen(!mobileSearchOpen)}
@@ -233,11 +228,8 @@ export default function Header({
              </button>
           </div>
 
-          {/* --- 2. SREDINA & LEVO (LOGO LOGIKA) --- */}
           <div className="absolute left-1/2 -translate-x-1/2 md:static md:translate-x-0 md:flex md:items-center md:gap-4 md:mr-auto z-0">
             <Link href="/" onClick={handleLogoClick} className="group">
-                
-                {/* A) MOBILE POGLED */}
                 <div className="flex flex-col items-center justify-center md:hidden">
                     <div className="flex items-center gap-1.5">
                         <div className="relative w-8 h-8 shrink-0 transition-transform group-hover:scale-105 duration-300">
@@ -247,13 +239,11 @@ export default function Header({
                             Križišče
                         </span>
                     </div>
-                    {/* Slogan tesno spodaj (-mt-0.5) */}
                     <span className="text-[11px] font-serif text-gray-500 dark:text-gray-400 leading-none mt-0 opacity-90 whitespace-nowrap">
                         Zadnje novice slovenskih medijev
                     </span>
                 </div>
 
-                {/* B) DESKTOP POGLED */}
                 <div className="hidden md:flex items-center gap-3">
                     <div className="relative w-11 h-11 shrink-0 transition-transform group-hover:scale-105 duration-300">
                         <Image src="/logo.png" alt="Logo" fill className="object-contain" />
@@ -267,12 +257,10 @@ export default function Header({
                         </span>
                     </div>
                 </div>
-
             </Link>
 
-            {/* SVEŽE NOVICE (DESKTOP) */}
             <AnimatePresence initial={false}>
-                {hasNew && !refreshing && isHome && (
+                {hasNew && !refreshing && router.pathname === '/' && (
                 <motion.button
                     key="fresh-pill"
                     initial={{ opacity: 0, scale: 0.95, y: 5 }}
@@ -300,7 +288,6 @@ export default function Header({
             </AnimatePresence>
           </div>
 
-          {/* --- 3. DESNO (MOBILE): HAMBURGER --- */}
           <div className="flex md:hidden shrink-0 z-10 w-10 justify-end">
              <button 
                 onClick={() => setMobileMenuOpen(true)}
@@ -312,11 +299,8 @@ export default function Header({
              </button>
           </div>
 
-          {/* --- 4. DESNO (DESKTOP): CLASSIC LAYOUT --- */}
           <div className="hidden md:flex items-center gap-4 shrink-0 ml-auto">
-            
-            {/* SEARCH INPUT */}
-            {isHome && (
+            {router.pathname === '/' && (
               <div className="w-64 lg:w-80">
                 <form onSubmit={handleSubmit} className="relative group">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -339,7 +323,6 @@ export default function Header({
 
             <div className="h-6 w-px bg-gray-200 dark:bg-gray-700"></div>
             
-            {/* VREME */}
             {weather && (
               <div className="flex items-center text-xs font-semibold text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-800/50 px-2.5 py-1 rounded-full border border-gray-200/50 dark:border-gray-700/50" title={`${weather.city}: ${weather.temp}°C`}>
                   <span className="mr-1.5">{weather.city}</span>
@@ -348,8 +331,7 @@ export default function Header({
               </div>
             )}
 
-            {/* FILTER BUTTON */}
-            {isHome && (
+            {router.pathname === '/' && (
               <button 
                 onClick={onOpenFilter}
                 className={`relative p-2 rounded-md transition-colors ${activeSource !== 'Vse' ? 'text-brand bg-brand/10' : 'text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800'}`}
@@ -364,7 +346,6 @@ export default function Header({
               </button>
             )}
 
-            {/* ARHIV & THEME */}
             <Link
                 href="/arhiv"
                 className={`p-2 rounded-md transition-colors text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800 ${router.pathname === '/arhiv' ? 'text-brand' : ''}`}
@@ -399,7 +380,6 @@ export default function Header({
         </div>
       </div>
 
-      {/* --- MOBILE SEARCH BAR (Slide Down) --- */}
       <AnimatePresence>
         {mobileSearchOpen && (
             <motion.div 
@@ -434,19 +414,24 @@ export default function Header({
         )}
       </AnimatePresence>
 
-      {/* --- KATEGORIJE (NAVIGACIJA) --- */}
       {showCategories && (
         <div className="w-full bg-transparent">
           <div className="max-w-[1800px] mx-auto px-4 md:px-8 lg:px-16 flex items-center">
             
             <nav className="flex items-center gap-6 overflow-x-auto no-scrollbar flex-1 relative">
-              <div className="md:sticky md:left-0 z-10 flex items-center md:pr-4">
+              <div className="md:sticky md:left-0 z-10 flex items-center md:pr-4 bg-white dark:bg-gray-900 transition-colors">
                   <button
-                    onClick={() => onSelectCategory('vse')}
+                    onClick={() => {
+                        if(router.pathname !== '/') {
+                            router.push('/');
+                        } else {
+                            onSelectCategory('vse');
+                        }
+                    }}
                     style={{ fontFamily: 'var(--font-inter)' }}
                     className={`
                       relative py-3 text-sm uppercase tracking-wide whitespace-nowrap transition-colors font-bold group
-                      ${activeCategory === 'vse' 
+                      ${activeCategory === 'vse' && router.pathname === '/'
                         ? 'text-brand' 
                         : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'}
                     `}
@@ -455,7 +440,7 @@ export default function Header({
                     Vse novice
                     <span className={`
                       absolute bottom-0 left-0 w-full h-0.5 bg-brand rounded-t-md transition-all duration-200 origin-left
-                      ${activeCategory === 'vse' 
+                      ${activeCategory === 'vse' && router.pathname === '/'
                         ? 'opacity-100 scale-x-100' 
                         : 'opacity-0 scale-x-0 group-hover:opacity-100 group-hover:scale-x-100'}
                     `} />
@@ -464,11 +449,17 @@ export default function Header({
               </div>
 
               {CATEGORIES.map((cat) => {
-                const isActive = activeCategory === cat.id
+                const isActive = activeCategory === cat.id && router.pathname === '/'
                 return (
                   <button
                     key={cat.id}
-                    onClick={() => onSelectCategory(cat.id)}
+                    onClick={() => {
+                        if(router.pathname !== '/') {
+                            router.push('/').then(() => onSelectCategory(cat.id));
+                        } else {
+                            onSelectCategory(cat.id);
+                        }
+                    }}
                     style={{ fontFamily: 'var(--font-inter)' }}
                     className={`
                       relative py-3 text-sm uppercase tracking-wide whitespace-nowrap transition-colors
@@ -500,11 +491,9 @@ export default function Header({
       )}
     </header>
 
-    {/* --- MOBILE FULLSCREEN MENU (SIDE DRAWER) --- */}
     <AnimatePresence>
       {mobileMenuOpen && (
         <>
-            {/* Backdrop */}
             <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
@@ -512,7 +501,6 @@ export default function Header({
                 onClick={() => setMobileMenuOpen(false)}
                 className="fixed inset-0 z-[90] bg-black/20 dark:bg-black/50 backdrop-blur-sm"
             />
-            {/* Drawer */}
             <motion.div
                 initial={{ x: '100%' }}
                 animate={{ x: 0 }}
@@ -528,7 +516,6 @@ export default function Header({
                 }}
                 className="fixed top-0 right-0 bottom-0 z-[100] w-[85%] max-w-[320px] bg-white/70 dark:bg-gray-950/80 backdrop-blur-xl flex flex-col overflow-hidden shadow-2xl border-l border-gray-200/50 dark:border-gray-800/50 touch-pan-y"
             >
-                {/* Menu Header */}
                 <div className="h-16 flex items-center justify-between px-4 border-b border-gray-100 dark:border-gray-800/50 shrink-0">
                     <div className="flex items-center gap-3">
                         <div className="relative w-8 h-8">
@@ -546,13 +533,20 @@ export default function Header({
                     </button>
                 </div>
 
-                {/* Vsebina menija */}
                 <div className="flex-1 overflow-y-auto p-4 space-y-6">
                     
                     <div className="space-y-1">
                         <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 pl-1 text-left">Orodja</p>
                         
-                        {/* --- NOVI GUMB MEDIJSKI MONITOR --- */}
+                        {/* 1. FILTRIRAJ VIRE (Prikaže se samo na naslovnici) */}
+                        {router.pathname === '/' && (
+                            <button onClick={() => { onOpenFilter(); setMobileMenuOpen(false); }} className="w-full flex items-center gap-3 px-2 py-3 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100/50 dark:hover:bg-gray-900/50">
+                                <svg className="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" /></svg>
+                                <span className="text-left">Filtriraj vire</span>
+                            </button>
+                        )}
+
+                        {/* 2. MEDIJSKI MONITOR */}
                          <Link href="/analiza" prefetch={false} onClick={() => setMobileMenuOpen(false)} className="flex items-center justify-between px-2 py-3 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100/50 dark:hover:bg-gray-900/50 group">
                             <div className="flex items-center gap-3">
                                 <svg className="w-5 h-5 text-gray-400 group-hover:text-brand transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -560,9 +554,9 @@ export default function Header({
                                 </svg>
                                 <span className="text-left">Medijski Monitor</span>
                             </div>
-                            <span className="text-[9px] uppercase tracking-wider font-bold bg-brand text-white px-1.5 py-0.5 rounded-md">Novo</span>
                         </Link>
 
+                        {/* 3. ARHIV NOVIC */}
                         <Link href="/arhiv" onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-3 px-2 py-3 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100/50 dark:hover:bg-gray-900/50">
                             <svg className="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                                 <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
@@ -573,12 +567,16 @@ export default function Header({
                             </svg>
                             <span className="text-left">Arhiv novic</span>
                         </Link>
+
+                        {/* 4. JUTRANJI PREGLED */}
+                        <Link href="/pregled" onClick={() => setMobileMenuOpen(false)} className="flex items-center justify-between px-2 py-3 rounded-lg text-brand hover:bg-brand/10 dark:hover:bg-brand/10 transition-colors group">
+                            <div className="flex items-center gap-3">
+                                <span className="text-lg leading-none -ml-0.5">☕</span>
+                                <span className="text-left font-semibold">Jutranji pregled</span>
+                            </div>
+                        </Link>
                         
-                        <button onClick={() => { onOpenFilter(); setMobileMenuOpen(false); }} className="w-full flex items-center gap-3 px-2 py-3 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100/50 dark:hover:bg-gray-900/50">
-                            <svg className="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" /></svg>
-                            <span className="text-left">Filtriraj vire</span>
-                        </button>
-                        
+                        {/* 5. TEMA */}
                         {mounted && (
                             <button onClick={() => setTheme(isDark ? 'light' : 'dark')} className="w-full flex items-center gap-3 px-2 py-3 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100/50 dark:hover:bg-gray-900/50">
                                 <span className="text-lg leading-none">{isDark ? '🌙' : '☀️'}</span>
@@ -632,7 +630,7 @@ export default function Header({
       )}
     </AnimatePresence>
 
-    {activeSource !== 'Vse' && !mobileMenuOpen && (
+    {activeSource !== 'Vse' && !mobileMenuOpen && router.pathname === '/' && (
         <button 
             onClick={onOpenFilter}
             className="md:hidden fixed bottom-6 left-6 z-40 bg-brand text-white p-3 rounded-full shadow-lg border-2 border-white dark:border-gray-900 animate-bounce"
