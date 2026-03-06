@@ -4,8 +4,8 @@ import Head from 'next/head'
 import Link from 'next/link'
 import Header from '../components/Header'
 import Footer from '../components/Footer'
+import { useRef } from 'react'
 
-// Uporabimo SERVICE_ROLE_KEY, da varno zaobidemo RLS varnost v bazi in preberemo zadnji mail
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -20,7 +20,8 @@ type Props = {
 }
 
 export default function PregledPage({ newsletter }: Props) {
-  // Funkcija za lep slovenski izpis časa
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return new Intl.DateTimeFormat('sl-SI', {
@@ -33,11 +34,28 @@ export default function PregledPage({ newsletter }: Props) {
     }).format(date);
   }
 
+  // NOVA UX REŠITEV: Avtomatsko prilagajanje višine iframe-a, da preprečimo dvojni scroll
+  const handleIframeLoad = () => {
+    if (iframeRef.current && iframeRef.current.contentWindow) {
+      try {
+        const doc = iframeRef.current.contentWindow.document;
+        // Majhen zamik, da se naložijo slike znotraj iframe-a
+        setTimeout(() => {
+            const height = doc.documentElement.scrollHeight;
+            iframeRef.current!.style.height = `${height + 30}px`;
+        }, 300);
+      } catch (e) {
+        console.error("Ne morem prebrati višine iframe-a", e);
+      }
+    }
+  };
+
   return (
     <div className="min-h-screen flex flex-col bg-gray-50 dark:bg-[#0b101b]">
       <Head>
         <title>Dnevni pregled | Križišče</title>
         <meta name="description" content="Preberite najnovejši jutranji pregled ključnih novic portala Križišče." />
+        <style>{`html { scroll-behavior: smooth; }`}</style>
       </Head>
 
       <Header />
@@ -59,27 +77,39 @@ export default function PregledPage({ newsletter }: Props) {
 
         {newsletter ? (
           <>
-            {/* OVOJ IFRAME-a: Na mobilcu pustimo, da overflowa in se da skrolat njegovo notranjost, ampak omejimo max-višino */}
-            <div className="flex-1 w-full bg-white dark:bg-white rounded-2xl shadow-2xl overflow-hidden border border-gray-200">
-               {/* Uporabimo iframe za varen in natančen prikaz HTML-ja znotraj spletne strani */}
+            {/* OVOJ BREZ OVERFLOWA, DA SE LAHKO RAZTEGNE */}
+            <div className="flex-1 w-full bg-white dark:bg-white rounded-2xl shadow-xl border border-gray-200 transition-all duration-500">
               <iframe 
+                ref={iframeRef}
                 srcDoc={newsletter.html_content} 
-                className="w-full h-[70vh] md:h-[800px] border-none"
+                className="w-full border-none"
+                style={{ minHeight: '60vh' }}
                 title={newsletter.subject}
-                scrolling="yes"
+                scrolling="no" // SKRITO DRSENJE - drsi se celotna stran!
+                onLoad={handleIframeLoad}
               />
             </div>
             
-            {/* NOVO: Gumb Nazaj na naslovnico na dnu */}
-            <div className="mt-8 flex justify-center">
+            {/* Akcijski gumbi - Prikazani takoj po koncu branja */}
+            <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
+              <Link 
+                href="#narocnina" 
+                className="inline-flex items-center justify-center w-full sm:w-auto px-8 py-3.5 shadow-lg shadow-brand/20 text-base font-bold rounded-xl text-white bg-brand hover:opacity-80 transition-opacity"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                </svg>
+                Naročite se brezplačno
+              </Link>
+              
               <Link 
                 href="/" 
-                className="inline-flex items-center justify-center px-6 py-3 border border-gray-300 dark:border-gray-700 shadow-sm text-base font-medium rounded-xl text-gray-700 dark:text-gray-300 bg-white dark:bg-[#151a25] hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                className="inline-flex items-center justify-center w-full sm:w-auto px-6 py-3.5 border border-gray-300 dark:border-gray-700 shadow-sm text-base font-medium rounded-xl text-gray-700 dark:text-gray-300 bg-white dark:bg-[#151a25] hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 -ml-1 text-gray-500 dark:text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 text-gray-500 dark:text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
                 </svg>
-                Nazaj na naslovnico
+                Nazaj na novice
               </Link>
             </div>
           </>
@@ -90,24 +120,18 @@ export default function PregledPage({ newsletter }: Props) {
         )}
 
       </main>
-
       <Footer />
     </div>
   )
 }
 
 export const getServerSideProps: GetServerSideProps = async () => {
-  // Pridobimo absolutno zadnji vnos iz baze
   const { data, error } = await supabase
     .from('newsletters')
     .select('subject, html_content, created_at')
     .order('created_at', { ascending: false })
     .limit(1)
     .single()
-
-  if (error) {
-    console.error("Napaka pri pridobivanju newsletterja:", error)
-  }
 
   return {
     props: {
