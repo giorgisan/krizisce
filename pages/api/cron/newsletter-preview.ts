@@ -50,7 +50,7 @@ const newsletterSchema = {
 // --- AI VALIDATOR ---
 async function validateOutput(aiData: any, promptData: string): Promise<any> {
     const validationPrompt = `
-You are a fact-checker. Compare OUTPUT against SOURCE.
+You are a strict fact-checker. Compare OUTPUT against SOURCE.
 
 SOURCE:
 ${promptData}
@@ -58,13 +58,12 @@ ${promptData}
 OUTPUT:
 ${JSON.stringify(aiData)}
 
-TASK: Find every proper noun (person's name) in OUTPUT.
-For each name, check: does the OUTPUT add any title, role, or adjective 
-(like "nekdanji", "predsednik", "premier", "minister", "general"...) 
-that does NOT appear next to that name in SOURCE?
-
-If yes: remove the addition, keep only the name as it appears in SOURCE.
-Return the corrected OUTPUT as valid JSON matching the exact original structure. If nothing to fix, return OUTPUT unchanged.
+TASK:
+1. Verify that EVERY fact, number, name, and title in the OUTPUT exists explicitly in the SOURCE.
+2. Check for "hallucinations": Did the OUTPUT add any titles (like "nekdanji", "predsednik", "minister"), adjectives, specific dates, or statistics that are NOT in the SOURCE?
+3. If you find any hallucinated or altered details, remove them or correct them to match the SOURCE exactly.
+4. Do NOT rewrite the text for style, only fix factual additions.
+5. Return the corrected OUTPUT as valid JSON matching the exact original structure. If nothing to fix, return OUTPUT unchanged.
 `;
 
     const model = genAI.getGenerativeModel({ 
