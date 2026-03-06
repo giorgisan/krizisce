@@ -282,45 +282,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             `;
         });
 
-        // POPRAVEK 1: Bulletproof "table" struktura za popolno vertikalno poravnavo ikone in teksta
-        let iconHtml = '';
-        let textHtml = cat.title;
-        
-        const match = cat.title.match(/^(\p{Emoji}\s*)(.*)$/u);
-        if (match) {
-            iconHtml = match[1].trim();
-            textHtml = match[2].trim();
-        }
-
-        let titleHtml = '';
-        if (iconHtml) {
-            // Tabela bo prisilila e-mail bralnike, da ikono in naslov dajo v točno sredino vrstice
-            titleHtml = `
-              <table border="0" cellpadding="0" cellspacing="0" role="presentation" style="margin-bottom: 14px;">
-                <tr>
-                  <td valign="middle" style="padding-right: 8px; font-size: 20px; line-height: 1;">
-                    ${iconHtml}
-                  </td>
-                  <td valign="middle">
-                    <h2 style="font-size: 18px; color: ${BRAND_COLOR}; margin: 0; font-weight: bold; font-family: Georgia, 'Times New Roman', serif; line-height: 1.2;">
-                      ${textHtml}
-                    </h2>
-                  </td>
-                </tr>
-              </table>
-            `;
-        } else {
-            // Če slučajno ni ikone (fallback)
-            titleHtml = `
-              <h2 style="font-size: 18px; color: ${BRAND_COLOR}; margin-top: 0; margin-bottom: 14px; font-weight: bold; font-family: Georgia, 'Times New Roman', serif; line-height: 1.2;">
-                ${textHtml}
-              </h2>
-            `;
-        }
-
+        // Poenostavljen in Outlook-friendly način za naslove z emotikoni
+        // Dodamo malce word-spacinga za lepši razmak med ikono in prvo besedo
         categoriesHtml += `
             <div style="margin-bottom: 30px;">
-              ${titleHtml}
+              <h2 style="font-size: 18px; color: ${BRAND_COLOR}; margin-top: 0; margin-bottom: 14px; font-weight: bold; font-family: Georgia, 'Times New Roman', serif; line-height: 1.3; display: flex; align-items: center; gap: 6px;">
+                ${cat.title}
+              </h2>
               ${itemsHtml}
             </div>
         `;
