@@ -191,7 +191,7 @@ export default function Footer() {
                     <div className="flex flex-col gap-1.5 mt-1">
                       {/* TUKAJ JE DODANO ZAGOTOVILO O ZASEBNOSTI */}
                       <p className="text-[11px] text-gray-400 dark:text-gray-500 leading-tight m-0">
-                        S prijavo se strinjate s prejemanjem e-novic. <span className="font-medium text-gray-500 dark:text-gray-400">Vaših podatkov ne bomo nikoli tržili ali delili.</span>
+                        S prijavo se strinjate s prejemanjem e-novic. Odjavite se lahko kadarkoli.<span className="font-medium text-gray-500 dark:text-gray-400">Vaše e-pošte ne bomo nikoli tržili ali delili.</span>
                       </p>
                       <Link href="/pregled" className="text-[12px] font-semibold text-brand hover:text-orange-400 transition-colors inline-flex items-center group self-start">
                         Preverite, kako izgleda današnji 'Jutranji pregled' <span className="ml-1 inline-block transition-transform group-hover:translate-x-1">→</span>
