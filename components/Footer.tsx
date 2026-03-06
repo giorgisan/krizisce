@@ -122,8 +122,7 @@ export default function Footer() {
                   <h4 className="text-lg font-bold text-gray-900 dark:text-gray-200">Križišče</h4>
                 </div>
                 <p className="text-sm leading-relaxed text-gray-600 dark:text-gray-500 max-w-[280px]">
-                  Agregator najnovejših novic slovenskih medijev. <br />
-                  Članki so last izvornih portalov.
+                  Agregator najnovejših novic slovenskih medijev. Članki so last izvornih portalov.
                 </p>
               </div>
 
