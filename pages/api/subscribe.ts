@@ -73,18 +73,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                   <td align="center" style="padding: 40px 20px 30px 20px; border-bottom: 1px solid #E5E7EB;">
                     <img src="https://krizisce.si/logo.png" alt="Križišče" style="width: 56px; height: 56px; display: block; margin-bottom: 16px;">
                     <h1 style="margin: 0; font-size: 26px; color: #111827; font-family: Georgia, 'Times New Roman', serif; font-weight: bold;">
-                      Dobrodošli v Križišču!
+                      Dobrodošli na Križišču!
                     </h1>
                   </td>
                 </tr>
                 
                 <tr>
                   <td style="padding: 40px 30px; line-height: 1.6; color: #374151; font-size: 16px;">
-                    <p style="margin-top: 0;">Pozdravljeni,</p>
+                    <p style="margin-top: 0;">Spoštovani,</p>
                     <p>uspešno ste se prijavili na naš <strong>Jutranji pregled</strong>. Veseli nas, da ste del naše skupnosti bralcev.</p>
                     <p>Od zdaj naprej boste vsako jutro med prvimi prejeli pameten, strnjen in povsem objektiven pregled najpomembnejših novic iz Slovenije in sveta.</p>
                     <p style="margin-bottom: 35px;">Do takrat pa vas vabimo, da preverite aktualno dogajanje na naši spletni strani.</p>
-                    
+                    <p style="margin-bottom: 35px;">Vse dobro!</p>
                     <table border="0" cellspacing="0" cellpadding="0" style="margin: 0 auto;">
                       <tr>
                         <td align="center" style="border-radius: 8px;" bgcolor="${BRAND_COLOR}">
