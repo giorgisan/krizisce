@@ -125,13 +125,13 @@ export default function NewsletterToast() {
       )}
 
       {status !== 'success' && (
-        <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-800/60 text-center">
+        <div className="mt-1 pt-1 border-t border-gray-100 dark:border-gray-800/60 text-center">
           <Link 
             href="/pregled" 
             onClick={() => setIsVisible(false)}
             className="text-[11px] font-medium text-gray-400 hover:text-brand transition-colors"
           >
-            Samo rad bi videl zadnji primer →
+            Preverite, kako izgleda današnji pregled →
           </Link>
         </div>
       )}
