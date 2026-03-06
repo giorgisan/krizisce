@@ -51,9 +51,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       from: 'Križišče <jutro@krizisce.si>', 
       to: [sub.email],
       subject: newsletter.subject,
-      // Ker smo v preview kodi pomotoma pustili oznako {{USER_EMAIL}}, jo bomo sedaj
-      // enostavno prepisali z UUID-jem! Zato je varnost zagotovljena.
-      html: newsletter.html_content.replace(/{{USER_EMAIL}}/g, sub.id),
+      // POPRAVEK: Zamenjaj USER_ID, da se ujema s tvojim HTML-jem
+      html: newsletter.html_content.replace(/{{USER_ID}}/g, sub.id),
     }));
 
     const chunkSize = 100;
