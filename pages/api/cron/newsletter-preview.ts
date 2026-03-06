@@ -228,11 +228,27 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             `;
         });
 
-        // POPRAVEK: TUKAJ SEM ODSTRANIL HACK ZA "🇸🇮". Ker imamo zdaj goro (🏔️), lahko damo naslov direktno.
+        // POPRAVEK: Da poravnamo emotikon in besedilo v naslovu,
+        // naslov ločimo, če se začne z emotikonom in dodamo vertikalno poravnavo.
+        
+        let iconHtml = '';
+        let textHtml = cat.title;
+        
+        // Preverimo, ali niz vsebuje emotikon na začetku (iskanje prvih nekaj znakov)
+        const match = cat.title.match(/^(\p{Emoji}\s*)(.*)$/u);
+        
+        if (match) {
+            iconHtml = `<span style="vertical-align: middle; display: inline-block; margin-right: 4px;">${match[1].trim()}</span>`;
+            textHtml = `<span style="vertical-align: middle; display: inline-block;">${match[2].trim()}</span>`;
+        } else {
+            textHtml = `<span style="vertical-align: middle; display: inline-block;">${cat.title}</span>`;
+        }
+
+
         categoriesHtml += `
             <div style="margin-bottom: 30px;">
-              <h2 style="font-size: 18px; color: ${BRAND_COLOR}; margin-top: 0; margin-bottom: 12px; font-weight: bold; font-family: Georgia, 'Times New Roman', serif;">
-                ${cat.title}
+              <h2 style="font-size: 18px; color: ${BRAND_COLOR}; margin-top: 0; margin-bottom: 12px; font-weight: bold; font-family: Georgia, 'Times New Roman', serif; line-height: 1.2;">
+                ${iconHtml}${textHtml}
               </h2>
               ${itemsHtml}
             </div>
