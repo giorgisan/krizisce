@@ -70,7 +70,6 @@ export default function Header({
   const { theme, setTheme, resolvedTheme } = useTheme()
   const router = useRouter()
 
-  // POPRAVEK: Kategorije in filtri bodo sedaj vidni SAMO na naslovnici (vse ostale podstrani imajo samo čisto glavo)
   const showCategories = router.pathname === '/'
 
   useEffect(() => {
@@ -198,16 +197,6 @@ export default function Header({
       setSearchVal('') 
       onReset()        
       window.scrollTo({ top: 0, behavior: 'smooth' })
-    }
-  }
-
-  const scrollToNewsletter = () => {
-    const isMobile = window.innerWidth < 768;
-    if (isMobile) {
-        setMobileMenuOpen(false); 
-        setTimeout(() => window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' }), 300);
-    } else {
-        window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
     }
   }
 
@@ -356,16 +345,6 @@ export default function Header({
                 )}
               </button>
             )}
-
-            <button
-                onClick={scrollToNewsletter}
-                className="p-2 rounded-md transition-colors text-gray-500 hover:text-brand hover:bg-brand/10 dark:text-gray-400 dark:hover:text-brand dark:hover:bg-brand/10"
-                title="Naročite se na Dnevni pregled novic"
-            >
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                </svg>
-            </button>
 
             <Link
                 href="/arhiv"
@@ -579,19 +558,11 @@ export default function Header({
                             <span className="text-left">Arhiv novic</span>
                         </Link>
 
-                        <button onClick={scrollToNewsletter} className="w-full flex items-center justify-between px-2 py-3 rounded-lg text-brand hover:bg-brand/10 dark:hover:bg-brand/10 group">
+                        {/* NOVO: Izpostavljen Jutranji pregled */}
+                        <Link href="/pregled" onClick={() => setMobileMenuOpen(false)} className="flex items-center justify-between px-2 py-3 rounded-lg text-brand hover:bg-brand/10 dark:hover:bg-brand/10 transition-colors group">
                             <div className="flex items-center gap-3">
-                                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                                </svg>
-                                <span className="text-left font-semibold">Naročnina na novice</span>
-                            </div>
-                        </button>
-                        
-                        <Link href="/pregled" onClick={() => setMobileMenuOpen(false)} className="flex items-center justify-between px-2 py-3 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100/50 dark:hover:bg-gray-900/50 group">
-                            <div className="flex items-center gap-3">
-                                <span className="text-lg leading-none -ml-0.5 opacity-70 group-hover:opacity-100 transition-opacity">☕</span>
-                                <span className="text-left">Zadnji Dnevni pregled</span>
+                                <span className="text-lg leading-none -ml-0.5">☕</span>
+                                <span className="text-left font-semibold">Jutranji pregled</span>
                             </div>
                         </Link>
                         
