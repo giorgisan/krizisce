@@ -70,7 +70,7 @@ Return the corrected OUTPUT as valid JSON matching the exact original structure.
         model: "gemini-2.5-flash", 
         generationConfig: { 
             responseMimeType: "application/json",
-            responseSchema: newsletterSchema, // <-- UPORABLJA ISTO SHEMO
+            responseSchema: newsletterSchema, 
             temperature: 0 
         }
     });
@@ -150,7 +150,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         }
     })
 
-    // SPREMEMBA: Dinamične kategorije, stroge ikone, uredniški "kava" uvod.
     const prompt = `
       You are an elite editor for a premium Slovenian morning news digest called 'Križišče'.
       Your job is to compress the RAW NEWS below into a highly readable, structured daily briefing.
@@ -183,7 +182,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const generationConfig = { 
         responseMimeType: "application/json",
         responseSchema: newsletterSchema, 
-        temperature: 0.3 // Malenkost višja temperatura za boljšo kreativnost pri uvodu (editorial tone)
+        temperature: 0.3 
     };
 
     let aiData;
@@ -206,7 +205,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         }
     }
 
-    // --- IZVEDBA AI VALIDACIJE ---
     try {
         console.log("🔍 Začenjam AI validacijo imen...");
         aiData = await validateOutput(aiData, promptData);
@@ -214,7 +212,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     } catch (validationErr) {
         console.error("⚠️ Napaka pri AI validaciji, nadaljujem z osnovnimi podatki:", validationErr);
     }
-    // -----------------------------------
 
     const todayStr = new Intl.DateTimeFormat('sl-SI', { weekday: 'long', day: 'numeric', month: 'long' }).format(new Date())
     const subjectStr = `Jutranji pregled: ${todayStr} - krizisce.si`
@@ -231,16 +228,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             `;
         });
 
-        // NOVO: Trik za Outlook. Če naslov vsebuje 🇸🇮, ga zavijemo v "skrij pred Outlookom" kodo.
-        let displayTitle = cat.title;
-        if (displayTitle.includes('🇸🇮')) {
-            displayTitle = displayTitle.replace('🇸🇮', '🇸🇮');
-        }
-
+        // POPRAVEK: TUKAJ SEM ODSTRANIL HACK ZA "🇸🇮". Ker imamo zdaj goro (🏔️), lahko damo naslov direktno.
         categoriesHtml += `
             <div style="margin-bottom: 30px;">
               <h2 style="font-size: 18px; color: ${BRAND_COLOR}; margin-top: 0; margin-bottom: 12px; font-weight: bold; font-family: Georgia, 'Times New Roman', serif;">
-                ${displayTitle}
+                ${cat.title}
               </h2>
               ${itemsHtml}
             </div>
