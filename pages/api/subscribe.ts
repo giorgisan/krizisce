@@ -23,7 +23,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   
   //if (!agreed) {
   //  return res.status(400).json({ error: 'Za prijavo se morate strinjati in dovoliti pošiljanje.' });
- // }
+  // }
 
   try {
     // 1. PREVERIMO, ALI UPORABNIK ŽE OBSTAJA V BAZI
@@ -38,10 +38,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
          // Že prijavljen in aktiven - ni treba ničesar spreminjati
          return res.status(200).json({ message: 'Ta e-mail naslov je že prijavljen na naše novice!' });
       } else {
-         // Bil je odjavljen -> PONOVNO GA AKTIVIRAMO
+         // Bil je odjavljen -> PONOVNO GA AKTIVIRAMO IN POSODOBIMO DATUM PRIJAVE
          const { error: updateErr } = await supabase
            .from('subscribers')
-           .update({ is_active: true, unsubscribed_at: null })
+           .update({ 
+             is_active: true, 
+             unsubscribed_at: null,
+             created_at: new Date().toISOString() // <-- TUKAJ SVA DODALA NOV DATUM
+           })
            .eq('email', email);
          
          if (updateErr) throw updateErr;
