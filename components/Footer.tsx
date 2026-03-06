@@ -149,7 +149,7 @@ export default function Footer() {
 
             {/* DESNI DEL: Newsletter Box - KOMPAKTNA VERZIJA */}
             <div className="lg:col-span-5 w-full max-w-[420px]" id="narocnina">
-              <div className="bg-white dark:bg-[#151a25]/60 border border-gray-200 dark:border-white/5 rounded-2xl p-5 md:p-6 shadow-sm">
+              <div className="bg-white dark:bg-[#151a25]/60 border border-gray-200 dark:border-white/5 rounded-2xl p-5 md:p-6 shadow-sm flex flex-col h-full">
                 
                 <div className="mb-4">
                   <div className="flex items-center gap-2 mb-1.5">
@@ -162,11 +162,11 @@ export default function Footer() {
                 </div>
 
                 {status === 'success' ? (
-                  <div className="text-sm text-green-700 dark:text-green-400 font-medium bg-green-50 dark:bg-green-900/20 px-4 py-4 rounded-xl border border-green-200 dark:border-green-800/30 text-center animate-pulse">
+                  <div className="mt-auto text-sm text-green-700 dark:text-green-400 font-medium bg-green-50 dark:bg-green-900/20 px-4 py-4 rounded-xl border border-green-200 dark:border-green-800/30 text-center animate-pulse">
                     {msg}
                   </div>
                 ) : (
-                  <form onSubmit={handleSubscribe} className="flex flex-col gap-3">
+                  <form onSubmit={handleSubscribe} className="mt-auto flex flex-col gap-3">
                     <div className="flex flex-col sm:flex-row gap-2">
                       <input
                         type="email"
@@ -189,11 +189,12 @@ export default function Footer() {
                     {status === 'error' && <p className="text-sm text-red-500 mt-1 font-medium">{msg}</p>}
                     
                     <div className="flex flex-col gap-1.5 mt-1">
+                      {/* TUKAJ JE DODANO ZAGOTOVILO O ZASEBNOSTI */}
                       <p className="text-[11px] text-gray-400 dark:text-gray-500 leading-tight m-0">
-                        S prijavo se strinjate s prejemanjem e-novic.
+                        S prijavo se strinjate s prejemanjem e-novic. <span className="font-medium text-gray-500 dark:text-gray-400">Vaših podatkov ne bomo nikoli tržili ali delili.</span>
                       </p>
                       <Link href="/pregled" className="text-[12px] font-semibold text-brand hover:text-orange-400 transition-colors inline-flex items-center group self-start">
-                        Preverite, kako izgleda današnji jutranji pregled <span className="ml-1 inline-block transition-transform group-hover:translate-x-1">→</span>
+                        Preverite, kako izgleda današnji 'Jutranji pregled' <span className="ml-1 inline-block transition-transform group-hover:translate-x-1">→</span>
                       </Link>
                     </div>
                   </form>
