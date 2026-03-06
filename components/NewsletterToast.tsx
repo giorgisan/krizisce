@@ -5,9 +5,7 @@ export default function NewsletterToast() {
   const [isVisible, setIsVisible] = useState(false);
   const [hasMounted, setHasMounted] = useState(false);
 
-  // Stanja za formo
   const [email, setEmail] = useState('');
-  const [agreed, setAgreed] = useState(false);
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [msg, setMsg] = useState('');
 
@@ -30,14 +28,14 @@ export default function NewsletterToast() {
 
   const handleSubscribe = async (e: FormEvent) => {
     e.preventDefault();
-    if (!email || !agreed) return;
+    if (!email) return;
     setStatus('loading');
     
     try {
       const res = await fetch('/api/subscribe', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, agreed })
+        body: JSON.stringify({ email }) // AGREED JE ODSTRANJEN
       });
       const data = await res.json();
       
@@ -46,9 +44,7 @@ export default function NewsletterToast() {
       setStatus('success');
       setMsg(data.message);
       setEmail('');
-      setAgreed(false);
       
-      // Po uspešni prijavi samodejno skrijemo toast čez 3 sekunde
       setTimeout(() => {
         handleDismiss();
       }, 3000);
@@ -101,7 +97,7 @@ export default function NewsletterToast() {
           {msg}
         </div>
       ) : (
-        <form onSubmit={handleSubscribe} className="space-y-3">
+        <form onSubmit={handleSubscribe} className="space-y-2">
           <div className="flex gap-2">
             <input
               type="email"
@@ -114,34 +110,22 @@ export default function NewsletterToast() {
             />
             <button
               type="submit"
-              disabled={status === 'loading' || !agreed || !email}
+              disabled={status === 'loading' || !email}
               className="shrink-0 rounded-lg bg-brand hover:opacity-85 px-4 py-2 text-xs font-bold text-white transition disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {status === 'loading' ? '...' : 'Prijavi se'}
             </button>
           </div>
-
-          <div className="flex items-start gap-2">
-            <input
-              type="checkbox"
-              id="toast-consent"
-              checked={agreed}
-              onChange={(e) => setAgreed(e.target.checked)}
-              required
-              disabled={status === 'loading'}
-              className="mt-0.5 h-3 w-3 rounded border-gray-300 text-brand focus:ring-brand cursor-pointer shrink-0"
-            />
-            <label htmlFor="toast-consent" className="text-[10px] text-gray-500 dark:text-gray-400 leading-tight cursor-pointer select-none">
-              Strinjam se s prejemanjem e-novic. 
-              {status === 'error' && <span className="block text-red-500 mt-1 font-medium">{msg}</span>}
-            </label>
-          </div>
+          
+          <p className="text-[9px] text-gray-400 dark:text-gray-500">
+            S klikom na gumb se strinjate s prejemanjem e-novic.
+            {status === 'error' && <span className="block text-red-500 mt-1 font-medium text-[11px]">{msg}</span>}
+          </p>
         </form>
       )}
 
-      {/* Sekundarna akcija - ogled primera */}
       {status !== 'success' && (
-        <div className="mt-3.5 pt-3 border-t border-gray-100 dark:border-gray-800/60 text-center">
+        <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-800/60 text-center">
           <Link 
             href="/pregled" 
             onClick={() => setIsVisible(false)}
