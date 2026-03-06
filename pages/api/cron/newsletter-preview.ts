@@ -15,7 +15,7 @@ const resend = new Resend(process.env.RESEND_API_KEY)
 
 const BRAND_COLOR = "#ea580c"; 
 
-// --- SCHEMA DEFINICIJA (PREMAKNJENA NA VRH) ---
+// --- SCHEMA DEFINICIJA (PREMAKNJENA NA VRH IN DODAN STORY_ID) ---
 const newsletterSchema = {
     type: SchemaType.OBJECT,
     properties: {
@@ -32,9 +32,10 @@ const newsletterSchema = {
                             type: SchemaType.OBJECT,
                             properties: {
                                 theme: { type: SchemaType.STRING },
-                                text: { type: SchemaType.STRING }
+                                text: { type: SchemaType.STRING },
+                                story_id: { type: SchemaType.NUMBER } // NOVO: Za zanesljivo povezovanje URL-jev
                             },
-                            required: ["theme", "text"]
+                            required: ["theme", "text", "story_id"]
                         }
                     }
                 },
@@ -46,7 +47,7 @@ const newsletterSchema = {
     required: ["intro", "categories", "closing_line"]
 };
 
-// --- NOVA FUNKCIJA: AI VALIDATOR ---
+// --- AI VALIDATOR ---
 async function validateOutput(aiData: any, promptData: string): Promise<any> {
     const validationPrompt = `
 You are a fact-checker. Compare OUTPUT against SOURCE.
@@ -117,6 +118,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                     
                     if (existing) {
                         existing.score += sCount;
+                        // NOVO: Dodajanje vseh izvornih URL-jev za kasnejši prikaz
+                        if (Array.isArray(item.sources)) {
+                            existing.sources = [...existing.sources, ...item.sources];
+                        }
                         if (!existing.image_url && item.main_image && item.main_image.startsWith('http')) {
                             existing.image_url = item.main_image;
                         }
@@ -125,7 +130,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                             topic: t,
                             summary: item.summary,
                             image_url: item.main_image && item.main_image.startsWith('http') ? item.main_image : null,
-                            score: sCount
+                            score: sCount,
+                            sources: Array.isArray(item.sources) ? [...item.sources] : [] // Shranimo vire!
                         })
                     }
                 })
@@ -144,7 +150,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     let promptData = ""
     let bestImage = "";
     topStories.forEach((story, index) => {
-        promptData += `[STORY #${index + 1}]\n- TOPIC: ${story.topic}\n- SUMMARY: ${story.summary}\n\n`;
+        // NOVO: Predamo tudi [STORY ID] za AI ujemanje
+        promptData += `[STORY ID: ${index}]\n- TOPIC: ${story.topic}\n- SUMMARY: ${story.summary}\n\n`;
         if (!bestImage && story.image_url) {
             bestImage = story.image_url;
         }
@@ -168,13 +175,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
          - Provide 2-3 items per category.
       3. Each 'item.theme': 2-4 word punchy label.
       4. Each 'item.text': 1-2 short sentences. ONLY facts and numbers that appear verbatim in RAW NEWS.
-      5. 'closing_line': 1 sentence highlighting a specific positive, interesting, or notable fact from the RAW NEWS to leave the reader with a final thought.
+      5. Each 'item.story_id': EXACTLY the number from the [STORY ID: X] tag that corresponds to this news item!
+      6. 'closing_line': 1 sentence highlighting a specific positive, interesting, or notable fact from the RAW NEWS to leave the reader with a final thought.
       
       HARD RULES — ANY VIOLATION MAKES THE OUTPUT INVALID:
       - NUMBERS & STATS: Never write a specific number, percentage, or sequence unless it appears word-for-word in the RAW NEWS.
       - NAMES & TITLES: Copy names exactly as written in the RAW NEWS. Never add titles, roles, or adjectives (nekdanji, aktualni, predsednik...) unless they explicitly exist in the source text.
       - NO SYNTHESIS: Never combine facts from two different stories into one sentence.
-      - NO PADDING: Never write redundant phrases.
       
       OUTPUT LANGUAGE: Formal Slovenian, vikanje.
       `
@@ -220,23 +227,65 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     aiData.categories.forEach((cat: any) => {
         let itemsHtml = '';
+        
         cat.items.forEach((item: any) => {
+            let sourceLinksHtml = '';
+            
+            // NOVO: Pretvorba zanesljivega ID-ja v originalne URL-je medijev
+            if (item.story_id !== undefined && topStories[item.story_id]) {
+                const story = topStories[item.story_id];
+                if (story && Array.isArray(story.sources)) {
+                    const linkMap = new Map<string, string>(); 
+                    
+                    story.sources.forEach((s: any) => {
+                        const url = typeof s === 'string' ? s : s.url;
+                        if (!url) return;
+                        
+                        try {
+                            const hostname = new URL(url).hostname.replace('www.', '');
+                            let name = hostname.split('.')[0];
+                            name = name.charAt(0).toUpperCase() + name.slice(1);
+                            
+                            // Lepi nazivi za glavne portale
+                            if (hostname.includes('rtvslo')) name = 'RTV SLO';
+                            if (hostname.includes('24ur')) name = '24ur';
+                            if (hostname.includes('siol')) name = 'Siol';
+                            if (hostname.includes('slovenskenovice')) name = 'Slov. novice';
+                            if (hostname.includes('delo')) name = 'Delo';
+                            if (hostname.includes('dnevnik')) name = 'Dnevnik';
+                            if (hostname.includes('zurnal24')) name = 'Žurnal24';
+                            if (hostname.includes('n1info')) name = 'N1';
+                            if (hostname.includes('svet24')) name = 'Svet24';
+
+                            // Shrani v mapo, da prepreči duplikate (če imamo 2 članka z 24ur, damo samo en link)
+                            if (!linkMap.has(name)) {
+                                linkMap.set(name, `<a href="${url}" style="color: ${BRAND_COLOR}; text-decoration: none; font-weight: 500;">[${name}]</a>`);
+                            }
+                        } catch(e) {}
+                    });
+
+                    if (linkMap.size > 0) {
+                        const linksArray = Array.from(linkMap.values());
+                        // Majhen tekst za vire
+                        sourceLinksHtml = `<div style="margin-top: 4px; font-size: 13px; color: #6B7280; font-family: -apple-system, Arial, sans-serif;">⮑ Beri na: ${linksArray.join(' ')}</div>`;
+                    }
+                }
+            }
+
             itemsHtml += `
-              <p style="font-size: 15px; line-height: 1.6; color: #374151; margin-top: 0; margin-bottom: 12px; font-family: -apple-system, Arial, sans-serif;">
-                <strong style="color: #111827;">${item.theme}:</strong> ${item.text}
-              </p>
+              <div style="margin-bottom: 18px;">
+                <p style="font-size: 15px; line-height: 1.6; color: #374151; margin-top: 0; margin-bottom: 0; font-family: -apple-system, Arial, sans-serif;">
+                  <strong style="color: #111827;">${item.theme}:</strong> ${item.text}
+                </p>
+                ${sourceLinksHtml}
+              </div>
             `;
         });
 
-        // POPRAVEK: Da poravnamo emotikon in besedilo v naslovu,
-        // naslov ločimo, če se začne z emotikonom in dodamo vertikalno poravnavo.
-        
         let iconHtml = '';
         let textHtml = cat.title;
         
-        // Preverimo, ali niz vsebuje emotikon na začetku (iskanje prvih nekaj znakov)
         const match = cat.title.match(/^(\p{Emoji}\s*)(.*)$/u);
-        
         if (match) {
             iconHtml = `<span style="vertical-align: middle; display: inline-block; margin-right: 4px;">${match[1].trim()}</span>`;
             textHtml = `<span style="vertical-align: middle; display: inline-block;">${match[2].trim()}</span>`;
@@ -244,10 +293,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             textHtml = `<span style="vertical-align: middle; display: inline-block;">${cat.title}</span>`;
         }
 
-
         categoriesHtml += `
             <div style="margin-bottom: 30px;">
-              <h2 style="font-size: 18px; color: ${BRAND_COLOR}; margin-top: 0; margin-bottom: 12px; font-weight: bold; font-family: Georgia, 'Times New Roman', serif; line-height: 1.2;">
+              <h2 style="font-size: 18px; color: ${BRAND_COLOR}; margin-top: 0; margin-bottom: 14px; font-weight: bold; font-family: Georgia, 'Times New Roman', serif; line-height: 1.2;">
                 ${iconHtml}${textHtml}
               </h2>
               ${itemsHtml}
