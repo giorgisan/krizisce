@@ -163,7 +163,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       2. 'categories': Select 3 to 4 dynamic categories based on the day's news. 
          CATEGORIES RULES:
          - ALWAYS include "🏔️ Slovenija" FIRST.
-         - NEVER create two categories with "Slovenija" — merge all domestic news into one.
+         - NEVER create two categories with "Slovenija".
          - Use EXACTLY these icons for other categories if applicable: 🌍 for Svet/Mednarodno, 💰 for Gospodarstvo/Posel, ⚖️ for Kronika, 🏆 for Šport.
          - Provide 2-3 items per category.
       3. Each 'item.theme': 2-4 word punchy label.
