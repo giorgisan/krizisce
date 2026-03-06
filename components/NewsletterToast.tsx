@@ -60,13 +60,15 @@ export default function NewsletterToast() {
 
   return (
     <div
-      className={`fixed bottom-4 left-4 sm:bottom-6 sm:left-6 z-50 transform transition-all duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] ${
-        isVisible ? 'translate-y-0 opacity-100' : 'translate-y-12 opacity-0 pointer-events-none'
+      // POPRAVEK: duration-1000 ease-out ustvari zelo dolgo, mehko in prijetno animacijo prihoda
+      className={`fixed bottom-4 left-4 sm:bottom-6 sm:left-6 z-50 transform transition-all duration-1000 ease-out ${
+        isVisible ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0 pointer-events-none'
       }`}
     >
-      {/* GLAVNI OVOJ, KI SE ANIMIRA/RAZTEGUJE (Vedno ima glass izgled) */}
+      {/* GLAVNI OVOJ, KI SE ANIMIRA/RAZTEGUJE */}
       <div 
-        className={`relative bg-white/95 dark:bg-[#151a25]/95 backdrop-blur-xl shadow-2xl border border-gray-200/60 dark:border-gray-800/80 transition-all duration-500 overflow-hidden ${
+        // POPRAVEK: bg-white/85 ustvari pravi "Glass" efekt (večja transparentnost, a še vedno berljivo)
+        className={`relative bg-white/85 dark:bg-[#151a25]/85 backdrop-blur-xl shadow-2xl border border-gray-200/50 dark:border-gray-800/60 transition-all duration-500 overflow-hidden ${
           isExpanded 
             ? 'w-[calc(100vw-2rem)] sm:w-[380px] rounded-2xl p-5' 
             : 'w-auto rounded-full cursor-pointer hover:scale-[1.02] hover:border-brand/40 dark:hover:border-brand/40 group'
@@ -138,7 +140,8 @@ export default function NewsletterToast() {
                     placeholder="Vnesite vaš e-naslov ..."
                     required
                     disabled={status === 'loading'}
-                    className="flex-1 min-w-0 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-xs text-gray-900 dark:text-white placeholder-gray-400 focus:border-brand focus:ring-1 focus:ring-brand outline-none transition disabled:opacity-50"
+                    // Polje za vnos naj ostane nekoliko bolj neprosojno zaradi kontrasta
+                    className="flex-1 min-w-0 rounded-lg border border-gray-300 dark:border-gray-700 bg-white/90 dark:bg-gray-900/90 px-3 py-2 text-xs text-gray-900 dark:text-white placeholder-gray-400 focus:border-brand focus:ring-1 focus:ring-brand outline-none transition disabled:opacity-50"
                   />
                   <button
                     type="submit"
@@ -150,18 +153,18 @@ export default function NewsletterToast() {
                 </div>
                 
                 <p className="text-[9px] text-gray-400 dark:text-gray-500 leading-tight">
-                  S prijavo se strinjate s prejemanjem e-novic. Odjavite se lahko kadarkoli. Vaše e-pošte ne bomo nikoli tržili ali delili.
+                  Vaše e-pošte ne bomo nikoli tržili ali delili. Odjavite se lahko kadarkoli.
                   {status === 'error' && <span className="block text-red-500 mt-1 font-medium">{msg}</span>}
                 </p>
               </form>
             )}
 
             {status !== 'success' && (
-              <div className="mt-2.5 pt-2.5 border-t border-gray-100 dark:border-gray-800/60 text-center">
+              <div className="mt-2.5 pt-2.5 border-t border-gray-200/50 dark:border-gray-800/50 text-center">
                 <Link 
                   href="/pregled" 
                   onClick={closePermanent}
-                  className="inline-flex items-center justify-center text-[10.5px] font-medium text-gray-400 hover:text-brand transition-colors group"
+                  className="inline-flex items-center justify-center text-[10.5px] font-medium text-gray-500 dark:text-gray-400 hover:text-brand transition-colors group"
                 >
                   Preverite, kako izgleda današnji 'Jutranji pregled' <span className="ml-1 inline-block transition-transform group-hover:translate-x-1">→</span>
                 </Link>
