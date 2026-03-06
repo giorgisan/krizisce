@@ -146,7 +146,7 @@ export default function NewsletterToast() {
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder="Vaš e-naslov..."
+                    placeholder="Vpišite vaš e-naslov ..."
                     required
                     disabled={status === 'loading'}
                     className="flex-1 min-w-0 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-xs text-gray-900 dark:text-white placeholder-gray-400 focus:border-brand focus:ring-1 focus:ring-brand outline-none transition disabled:opacity-50"
