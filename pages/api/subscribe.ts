@@ -21,9 +21,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(400).json({ error: 'Prosimo, vnesite veljaven email naslov.' });
   }
   
-  if (!agreed) {
-    return res.status(400).json({ error: 'Za prijavo se morate strinjati in dovoliti pošiljanje.' });
-  }
+  //if (!agreed) {
+  //  return res.status(400).json({ error: 'Za prijavo se morate strinjati in dovoliti pošiljanje.' });
+ // }
 
   try {
     // 1. PREVERIMO, ALI UPORABNIK ŽE OBSTAJA V BAZI
