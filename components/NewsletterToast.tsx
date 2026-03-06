@@ -1,39 +1,71 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, FormEvent } from 'react';
 import Link from 'next/link';
 
 export default function NewsletterToast() {
   const [isVisible, setIsVisible] = useState(false);
   const [hasMounted, setHasMounted] = useState(false);
 
+  // Stanja za formo
+  const [email, setEmail] = useState('');
+  const [agreed, setAgreed] = useState(false);
+  const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+  const [msg, setMsg] = useState('');
+
   useEffect(() => {
     setHasMounted(true);
-    // Preverimo, če je uporabnik to obvestilo že kdaj zaprl
     const isDismissed = localStorage.getItem('newsletter_dismissed');
     
     if (!isDismissed) {
-      // Prikažemo šele po 5 sekundah, da ne presenetimo uporabnika takoj ob nalaganju
       const timer = setTimeout(() => {
         setIsVisible(true);
       }, 5000); 
-
       return () => clearTimeout(timer);
     }
   }, []);
 
   const handleDismiss = () => {
     setIsVisible(false);
-    // Zapišemo v brskalnik, da ga ne prikažemo nikoli več
     localStorage.setItem('newsletter_dismissed', 'true');
   };
 
-  // Preprečimo "hydration mismatch" pri Next.js
+  const handleSubscribe = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!email || !agreed) return;
+    setStatus('loading');
+    
+    try {
+      const res = await fetch('/api/subscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, agreed })
+      });
+      const data = await res.json();
+      
+      if (!res.ok) throw new Error(data.error || 'Prišlo je do napake.');
+      
+      setStatus('success');
+      setMsg(data.message);
+      setEmail('');
+      setAgreed(false);
+      
+      // Po uspešni prijavi samodejno skrijemo toast čez 3 sekunde
+      setTimeout(() => {
+        handleDismiss();
+      }, 3000);
+
+    } catch (err: any) {
+      setStatus('error');
+      setMsg(err.message);
+    }
+  };
+
   if (!hasMounted) return null;
 
   return (
     <div
       className={`fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-50 max-w-[calc(100vw-2rem)] sm:max-w-sm w-full 
-      bg-white/95 dark:bg-[#151a25]/90 backdrop-blur-md 
-      rounded-2xl shadow-2xl border border-gray-200/50 dark:border-gray-800/50 p-5 
+      bg-white/95 dark:bg-[#151a25]/95 backdrop-blur-xl 
+      rounded-2xl shadow-2xl border border-gray-200/50 dark:border-gray-800/80 p-5 
       transform transition-all duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] ${
         isVisible ? 'translate-y-0 opacity-100' : 'translate-y-12 opacity-0 pointer-events-none'
       }`}
@@ -48,38 +80,77 @@ export default function NewsletterToast() {
         </svg>
       </button>
 
-      <div className="flex items-start gap-4">
-        <div className="flex-shrink-0 bg-orange-100 dark:bg-orange-900/30 p-2.5 rounded-full text-brand">
-          <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <div className="flex items-start gap-3 mb-3">
+        <div className="flex-shrink-0 bg-brand/10 dark:bg-brand/20 p-2 rounded-full text-brand">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
           </svg>
         </div>
-        
         <div>
-          <h3 className="font-bold text-gray-900 dark:text-gray-100 text-sm mb-1">
-            Novost: Jutranji pregled ☕
+          <h3 className="font-bold text-gray-900 dark:text-white text-[15px] leading-tight">
+            Jutranji pregled ☕
           </h3>
-          <p className="text-gray-600 dark:text-gray-400 text-xs leading-relaxed mb-3 pr-2">
-            Zbudite se z najodmevnejšimi novicami naravnost v vaš nabiralnik.
+          <p className="text-gray-500 dark:text-gray-400 text-[11px] leading-snug mt-0.5 pr-4">
+            Zbudite se z najodmevnejšimi novicami v vašem nabiralniku.
           </p>
-          
-          <div className="flex items-center gap-3">
-            <Link 
-              href="/pregled" 
-              onClick={() => setIsVisible(false)} // Skrijemo, če klikne na povezavo
-              className="text-xs font-semibold text-white bg-brand hover:bg-orange-700 px-4 py-2 rounded-lg transition-colors"
-            >
-              Poglej zadnje e-novice 
-            </Link>
-            <button 
-              onClick={handleDismiss}
-              className="text-xs font-medium text-gray-500 dark:text-gray-500 hover:text-gray-800 dark:hover:text-gray-300 transition-colors px-2"
-            >
-              Ne, hvala
-            </button>
-          </div>
         </div>
       </div>
+
+      {status === 'success' ? (
+        <div className="text-xs text-green-700 dark:text-green-400 font-medium bg-green-50 dark:bg-green-900/20 px-3 py-3 rounded-lg border border-green-200 dark:border-green-800/30 text-center animate-pulse">
+          {msg}
+        </div>
+      ) : (
+        <form onSubmit={handleSubscribe} className="space-y-3">
+          <div className="flex gap-2">
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="Vaš e-naslov..."
+              required
+              disabled={status === 'loading'}
+              className="flex-1 min-w-0 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-xs text-gray-900 dark:text-white placeholder-gray-400 focus:border-brand focus:ring-1 focus:ring-brand outline-none transition disabled:opacity-50"
+            />
+            <button
+              type="submit"
+              disabled={status === 'loading' || !agreed || !email}
+              className="shrink-0 rounded-lg bg-brand hover:opacity-85 px-4 py-2 text-xs font-bold text-white transition disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {status === 'loading' ? '...' : 'Prijavi se'}
+            </button>
+          </div>
+
+          <div className="flex items-start gap-2">
+            <input
+              type="checkbox"
+              id="toast-consent"
+              checked={agreed}
+              onChange={(e) => setAgreed(e.target.checked)}
+              required
+              disabled={status === 'loading'}
+              className="mt-0.5 h-3 w-3 rounded border-gray-300 text-brand focus:ring-brand cursor-pointer shrink-0"
+            />
+            <label htmlFor="toast-consent" className="text-[10px] text-gray-500 dark:text-gray-400 leading-tight cursor-pointer select-none">
+              Strinjam se s prejemanjem e-novic. 
+              {status === 'error' && <span className="block text-red-500 mt-1 font-medium">{msg}</span>}
+            </label>
+          </div>
+        </form>
+      )}
+
+      {/* Sekundarna akcija - ogled primera */}
+      {status !== 'success' && (
+        <div className="mt-3.5 pt-3 border-t border-gray-100 dark:border-gray-800/60 text-center">
+          <Link 
+            href="/pregled" 
+            onClick={() => setIsVisible(false)}
+            className="text-[11px] font-medium text-gray-400 hover:text-brand transition-colors"
+          >
+            Samo rad bi videl zadnji primer →
+          </Link>
+        </div>
+      )}
     </div>
   );
 }
