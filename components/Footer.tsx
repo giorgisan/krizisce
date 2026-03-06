@@ -192,7 +192,7 @@ export default function Footer() {
                       <p className="text-[11px] text-gray-400 dark:text-gray-500 leading-tight m-0">
                         Zasebnost jemljemo resno. Brez vsiljene pošte in deljenja podatkov. Odjava je z enim klikom. 
                       </p>
-                      <Link href="/pregled" className="text-[12px] font-semibold text-brand hover:text-orange-400 transition-colors inline-flex items-center group self-start">
+                      <Link href="/pregled" className="text-[12px] font-medium text-gray-500 dark:text-gray-400 hover:text-brand dark:hover:text-brand transition-colors inline-flex items-center group self-start">
                         Preverite, kako izgleda današnji 'Jutranji pregled' <span className="ml-1 inline-block transition-transform group-hover:translate-x-1">→</span>
                       </Link>
                     </div>
