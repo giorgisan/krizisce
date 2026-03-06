@@ -257,17 +257,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                             if (hostname.includes('n1info')) name = 'N1';
                             if (hostname.includes('svet24')) name = 'Svet24';
 
-                            // Shrani v mapo, da prepreči duplikate (če imamo 2 članka z 24ur, damo samo en link)
+                            // POPRAVEK 2: Odstranjeni oglati oklepaji, dodan hover underline za boljšo UX
                             if (!linkMap.has(name)) {
-                                linkMap.set(name, `<a href="${url}" style="color: ${BRAND_COLOR}; text-decoration: none; font-weight: 500;">[${name}]</a>`);
+                                linkMap.set(name, `<a href="${url}" style="color: ${BRAND_COLOR}; text-decoration: none; font-weight: 500;">${name}</a>`);
                             }
                         } catch(e) {}
                     });
 
                     if (linkMap.size > 0) {
                         const linksArray = Array.from(linkMap.values());
-                        // Majhen tekst za vire
-                        sourceLinksHtml = `<div style="margin-top: 4px; font-size: 13px; color: #6B7280; font-family: -apple-system, Arial, sans-serif;">⮑ Beri na: ${linksArray.join(' ')}</div>`;
+                        // POPRAVEK 2: Združevanje elementov z vejico namesto s presledkom
+                        sourceLinksHtml = `<div style="margin-top: 4px; font-size: 13px; color: #6B7280; font-family: -apple-system, Arial, sans-serif;">⮑ Beri na: ${linksArray.join(', ')}</div>`;
                     }
                 }
             }
@@ -282,22 +282,45 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             `;
         });
 
+        // POPRAVEK 1: Bulletproof "table" struktura za popolno vertikalno poravnavo ikone in teksta
         let iconHtml = '';
         let textHtml = cat.title;
         
         const match = cat.title.match(/^(\p{Emoji}\s*)(.*)$/u);
         if (match) {
-            iconHtml = `<span style="vertical-align: middle; display: inline-block; margin-right: 4px;">${match[1].trim()}</span>`;
-            textHtml = `<span style="vertical-align: middle; display: inline-block;">${match[2].trim()}</span>`;
+            iconHtml = match[1].trim();
+            textHtml = match[2].trim();
+        }
+
+        let titleHtml = '';
+        if (iconHtml) {
+            // Tabela bo prisilila e-mail bralnike, da ikono in naslov dajo v točno sredino vrstice
+            titleHtml = `
+              <table border="0" cellpadding="0" cellspacing="0" role="presentation" style="margin-bottom: 14px;">
+                <tr>
+                  <td valign="middle" style="padding-right: 8px; font-size: 20px; line-height: 1;">
+                    ${iconHtml}
+                  </td>
+                  <td valign="middle">
+                    <h2 style="font-size: 18px; color: ${BRAND_COLOR}; margin: 0; font-weight: bold; font-family: Georgia, 'Times New Roman', serif; line-height: 1.2;">
+                      ${textHtml}
+                    </h2>
+                  </td>
+                </tr>
+              </table>
+            `;
         } else {
-            textHtml = `<span style="vertical-align: middle; display: inline-block;">${cat.title}</span>`;
+            // Če slučajno ni ikone (fallback)
+            titleHtml = `
+              <h2 style="font-size: 18px; color: ${BRAND_COLOR}; margin-top: 0; margin-bottom: 14px; font-weight: bold; font-family: Georgia, 'Times New Roman', serif; line-height: 1.2;">
+                ${textHtml}
+              </h2>
+            `;
         }
 
         categoriesHtml += `
             <div style="margin-bottom: 30px;">
-              <h2 style="font-size: 18px; color: ${BRAND_COLOR}; margin-top: 0; margin-bottom: 14px; font-weight: bold; font-family: Georgia, 'Times New Roman', serif; line-height: 1.2;">
-                ${iconHtml}${textHtml}
-              </h2>
+              ${titleHtml}
               ${itemsHtml}
             </div>
         `;
