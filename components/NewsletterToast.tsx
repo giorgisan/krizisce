@@ -24,7 +24,11 @@ export default function NewsletterToast() {
 
   const closePermanent = () => {
     setIsVisible(false);
-    localStorage.setItem('newsletter_dismissed', 'true');
+    try {
+      localStorage.setItem('newsletter_dismissed', 'true');
+    } catch (e) {
+      // Tiho ignoriramo napako, če je uporabnik v strogem Incognito načinu
+    }
   };
 
   const handleSubscribe = async (e: FormEvent) => {
