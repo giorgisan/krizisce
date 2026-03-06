@@ -131,7 +131,7 @@ export default function NewsletterToast() {
             onClick={() => setIsVisible(false)}
             className="text-[11px] font-medium text-gray-400 hover:text-brand transition-colors"
           >
-            Preverite, kako izgleda današnji newsletter  →
+            Preverite, kako izgleda današnji 'Jutranji pregled'  →
           </Link>
         </div>
       )}
