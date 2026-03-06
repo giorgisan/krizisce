@@ -231,10 +231,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             `;
         });
 
+        // NOVO: Trik za Outlook. Če naslov vsebuje 🇸🇮, ga zavijemo v "skrij pred Outlookom" kodo.
+        let displayTitle = cat.title;
+        if (displayTitle.includes('🇸🇮')) {
+            displayTitle = displayTitle.replace('🇸🇮', '🇸🇮');
+        }
+
         categoriesHtml += `
             <div style="margin-bottom: 30px;">
               <h2 style="font-size: 18px; color: ${BRAND_COLOR}; margin-top: 0; margin-bottom: 12px; font-weight: bold; font-family: Georgia, 'Times New Roman', serif;">
-                ${cat.title}
+                ${displayTitle}
               </h2>
               ${itemsHtml}
             </div>
