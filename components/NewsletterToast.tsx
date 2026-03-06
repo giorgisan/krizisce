@@ -35,7 +35,7 @@ export default function NewsletterToast() {
       const res = await fetch('/api/subscribe', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }) // AGREED JE ODSTRANJEN
+        body: JSON.stringify({ email })
       });
       const data = await res.json();
       
@@ -61,7 +61,7 @@ export default function NewsletterToast() {
     <div
       className={`fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-50 max-w-[calc(100vw-2rem)] sm:max-w-sm w-full 
       bg-white/95 dark:bg-[#151a25]/95 backdrop-blur-xl 
-      rounded-2xl shadow-2xl border border-gray-200/50 dark:border-gray-800/80 p-5 
+      rounded-2xl shadow-2xl border border-gray-200/50 dark:border-gray-800/80 p-4 sm:p-5 
       transform transition-all duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] ${
         isVisible ? 'translate-y-0 opacity-100' : 'translate-y-12 opacity-0 pointer-events-none'
       }`}
@@ -76,17 +76,17 @@ export default function NewsletterToast() {
         </svg>
       </button>
 
-      <div className="flex items-start gap-3 mb-3">
+      <div className="flex items-start gap-3 mb-2.5">
         <div className="flex-shrink-0 bg-brand/10 dark:bg-brand/20 p-2 rounded-full text-brand">
-          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
           </svg>
         </div>
         <div>
-          <h3 className="font-bold text-gray-900 dark:text-white text-[15px] leading-tight">
+          <h3 className="font-bold text-gray-900 dark:text-white text-[14px] leading-tight mb-0.5">
             Jutranji pregled ☕
           </h3>
-          <p className="text-gray-500 dark:text-gray-400 text-[11px] leading-snug mt-0.5 pr-4">
+          <p className="text-gray-500 dark:text-gray-400 text-[11px] leading-snug pr-4">
             Zbudite se z najodmevnejšimi novicami v vašem nabiralniku.
           </p>
         </div>
@@ -97,7 +97,7 @@ export default function NewsletterToast() {
           {msg}
         </div>
       ) : (
-        <form onSubmit={handleSubscribe} className="space-y-2">
+        <form onSubmit={handleSubscribe} className="flex flex-col gap-2.5">
           <div className="flex gap-2">
             <input
               type="email"
@@ -117,21 +117,21 @@ export default function NewsletterToast() {
             </button>
           </div>
           
-          <p className="text-[9px] text-gray-400 dark:text-gray-500">
-            S klikom na gumb se strinjate s prejemanjem e-novic.
-            {status === 'error' && <span className="block text-red-500 mt-1 font-medium text-[11px]">{msg}</span>}
+          <p className="text-[9px] text-gray-400 dark:text-gray-500 leading-tight">
+            S prijavo se strinjate s prejemanjem e-novic. Vaše e-pošte ne bomo nikoli tržili ali delili.
+            {status === 'error' && <span className="block text-red-500 mt-1 font-medium">{msg}</span>}
           </p>
         </form>
       )}
 
       {status !== 'success' && (
-        <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-800/60 text-center">
+        <div className="mt-2.5 pt-2.5 border-t border-gray-100 dark:border-gray-800/60 text-center">
           <Link 
             href="/pregled" 
             onClick={() => setIsVisible(false)}
-            className="text-[11px] font-medium text-gray-400 hover:text-brand transition-colors"
+            className="inline-flex items-center justify-center text-[10.5px] font-medium text-gray-400 hover:text-brand transition-colors group"
           >
-            Preverite, kako izgleda današnji 'Jutranji pregled'  →
+            Preverite, kako izgleda današnji 'Jutranji pregled' <span className="ml-1 inline-block transition-transform group-hover:translate-x-1">→</span>
           </Link>
         </div>
       )}
