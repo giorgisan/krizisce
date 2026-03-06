@@ -86,7 +86,7 @@ export default function Footer() {
       const res = await fetch('/api/subscribe', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }) // AGREED JE ODSTRANJEN IZ PAYLOADA
+        body: JSON.stringify({ email }) 
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Prišlo je do napake.')
@@ -109,99 +109,105 @@ export default function Footer() {
 
       <div className="w-full h-px bg-gradient-to-r from-transparent via-brand/30 dark:via-brand/30 to-transparent opacity-80"></div>
 
-      <div className="bg-gray-50/80 dark:bg-[#0b101b] pt-10 pb-8 transition-colors">
-        <div className="mx-auto max-w-6xl px-4 md:px-8 lg:px-16 text-gray-800 dark:text-gray-400">
+      <div className="bg-gray-50/80 dark:bg-[#0b101b] pt-12 pb-8 transition-colors">
+        <div className="mx-auto max-w-[1200px] px-4 md:px-8 lg:px-12 text-gray-800 dark:text-gray-400">
           
-          <div className="grid gap-6 sm:grid-cols-3 items-start">
-            <div>
-              <div className="flex items-center mb-2">
-                <Image src="/logo.png" alt="Križišče" width={32} height={32} className="w-6 h-6 rounded-md mr-2" />
-                <h4 className="text-base font-semibold text-gray-900 dark:text-gray-200">Križišče</h4>
+          {/* NOVA MREŽA: 12 stolpcev 
+            - 4 stolpci (Križišče + Kontakt)
+            - 3 stolpci (Povezave)
+            - 5 stolpcev (Newsletter forma)
+          */}
+          <div className="grid gap-10 md:grid-cols-2 lg:grid-cols-12 items-start">
+            
+            {/* LEVI DEL: Opis in Kontakt */}
+            <div className="lg:col-span-4 flex flex-col gap-8">
+              <div>
+                <div className="flex items-center mb-3">
+                  <Image src="/logo.png" alt="Križišče" width={32} height={32} className="w-7 h-7 rounded-md mr-2.5" />
+                  <h4 className="text-lg font-bold text-gray-900 dark:text-gray-200">Križišče</h4>
+                </div>
+                <p className="text-sm leading-relaxed text-gray-600 dark:text-gray-500 max-w-[280px]">
+                  Agregator najnovejših novic slovenskih medijev. <br />
+                  Članki so last izvornih portalov.
+                </p>
               </div>
-              <p className="text-xs sm:text-sm leading-relaxed text-gray-600 dark:text-gray-500">
-                Agregator najnovejših novic slovenskih medijev. <br />
-                Članki so last izvornih portalov.
-              </p>
+
+              <div>
+                <h4 className="text-sm font-semibold text-gray-900 dark:text-gray-200 mb-2">Kontakt</h4>
+                <a href="mailto:gjkcme@gmail.com" className="text-sm text-gray-600 dark:text-gray-500 hover:text-brand transition-colors">
+                  Pošljite nam sporočilo
+                </a>
+              </div>
             </div>
-            <div>
-              <h4 className="text-sm font-semibold text-gray-900 dark:text-gray-200 mb-2">Povezave</h4>
-              <ul className="space-y-1 text-xs sm:text-sm text-gray-600 dark:text-gray-500">
-                <li><Link href="/analiza" prefetch={false} className="hover:text-brand transition">Medijski Monitor</Link></li>
-                <li><Link href="/arhiv" className="hover:text-brand transition">Arhiv novic</Link></li>
-                <li><Link href="/projekt" className="hover:text-brand transition">O projektu</Link></li>
-                <li><Link href="/pogoji" className="hover:text-brand transition">Pogoji uporabe</Link></li>
-                <li><Link href="/zasebnost" className="hover:text-brand transition">Politika zasebnosti</Link></li>
+
+            {/* SREDINA: Povezave */}
+            <div className="lg:col-span-3">
+              <h4 className="text-sm font-semibold text-gray-900 dark:text-gray-200 mb-4">Povezave</h4>
+              <ul className="space-y-2.5 text-sm text-gray-600 dark:text-gray-500">
+                <li><Link href="/analiza" prefetch={false} className="hover:text-brand transition-colors">Medijski Monitor</Link></li>
+                <li><Link href="/arhiv" className="hover:text-brand transition-colors">Arhiv novic</Link></li>
+                <li><Link href="/projekt" className="hover:text-brand transition-colors">O projektu</Link></li>
+                <li><Link href="/pogoji" className="hover:text-brand transition-colors">Pogoji uporabe</Link></li>
+                <li><Link href="/zasebnost" className="hover:text-brand transition-colors">Politika zasebnosti</Link></li>
               </ul>
             </div>
-            <div>
-              <h4 className="text-sm font-semibold text-gray-900 dark:text-gray-200 mb-2">Kontakt</h4>
-              <a href="mailto:gjkcme@gmail.com" className="text-xs sm:text-sm text-gray-600 dark:text-gray-500 hover:text-brand transition">
-                Pošljite nam sporočilo
-              </a>
-            </div>
-          </div>
 
-          <div className="mt-12 max-w-4xl mx-auto" id="narocnina">
-            <div className="bg-white dark:bg-[#151a25]/50 border border-gray-200 dark:border-white/5 rounded-2xl p-6 sm:p-8 shadow-sm">
-              <div className="flex flex-col md:flex-row md:items-center gap-6 lg:gap-10">
-                
-                <div className="flex-1">
-                  <div className="flex items-center gap-3 mb-3">
-                    <span className="text-brand text-2xl leading-none">☕</span>
-                    <h4 className="text-lg font-bold text-gray-900 dark:text-gray-200">Dnevni pregled</h4>
-                  </div>
-                  <p className="text-sm text-gray-600 dark:text-gray-500 leading-relaxed mb-3">
-                    Začnite dan obveščeni. Prijavite se na brezplačni pregled najpomembnejših novic vsako jutro
-                  </p>
-                  
-                  {/* TUKAJ JE POPRAVEK: text-brand z hover:text-orange-400 (ki je svetlejša) ali hover:opacity-70 */}
-                  <Link href="/pregled" className="inline-flex items-center text-[13px] font-medium text-brand hover:opacity-70 transition-opacity group">
-                    <span>Preverite, kako izgleda današnji pregled</span>
-                    <span className="ml-1 transition-transform group-hover:translate-x-1">→</span>
-                  </Link>
+            {/* DESNI DEL: Newsletter Box */}
+            <div className="lg:col-span-5 w-full" id="narocnina">
+              <div className="bg-white dark:bg-[#151a25]/60 border border-gray-200 dark:border-white/5 rounded-2xl p-6 md:p-7 shadow-sm flex flex-col h-full">
+                <div className="flex items-center gap-3 mb-2">
+                  <span className="text-brand text-xl leading-none">☕</span>
+                  <h4 className="text-base font-bold text-gray-900 dark:text-gray-200">Dnevni pregled</h4>
                 </div>
+                <p className="text-[13px] text-gray-600 dark:text-gray-400 leading-relaxed mb-5">
+                  Začnite dan obveščeni. Prijavite se na brezplačni pregled najpomembnejših novic vsako jutro.
+                </p>
 
-                <div className="flex-1 w-full max-w-md md:max-w-none mx-auto">
-                  {status === 'success' ? (
-                    <div className="text-sm text-green-700 dark:text-green-400 font-medium bg-green-50 dark:bg-green-900/20 px-4 py-4 rounded-xl border border-green-200 dark:border-green-800/30 text-center h-full flex items-center justify-center">
-                      {msg}
+                {status === 'success' ? (
+                  <div className="mt-auto text-sm text-green-700 dark:text-green-400 font-medium bg-green-50 dark:bg-green-900/20 px-4 py-4 rounded-xl border border-green-200 dark:border-green-800/30 text-center">
+                    {msg}
+                  </div>
+                ) : (
+                  <form onSubmit={handleSubscribe} className="mt-auto space-y-4">
+                    <div className="flex flex-col sm:flex-row gap-2.5">
+                      <input
+                        type="email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        placeholder="Vaš e-poštni naslov"
+                        required
+                        disabled={status === 'loading'}
+                        className="w-full flex-1 rounded-xl border border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-[#0b101b] px-4 py-2.5 text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand transition-colors disabled:opacity-50"
+                      />
+                      <button
+                        type="submit"
+                        disabled={status === 'loading' || !email}
+                        // POPRAVEK: hover:brightness-110 zagotovi, da zasveti (namesto da postane temen/prosojen)
+                        className="w-full sm:w-auto shrink-0 rounded-xl bg-brand hover:brightness-110 px-6 py-2.5 text-sm font-bold text-white shadow-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {status === 'loading' ? 'Prijava...' : 'Prijavi se'}
+                      </button>
                     </div>
-                  ) : (
-                    <form onSubmit={handleSubscribe} className="space-y-3">
-                      <div className="flex flex-col sm:flex-row gap-3">
-                        <input
-                          type="email"
-                          value={email}
-                          onChange={(e) => setEmail(e.target.value)}
-                          placeholder="Vaš e-poštni naslov"
-                          required
-                          disabled={status === 'loading'}
-                          className="w-full sm:flex-1 rounded-xl border border-gray-300 dark:border-white/10 bg-gray-50 dark:bg-[#0b101b] px-4 py-3 text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand transition disabled:opacity-50"
-                        />
-                        <button
-                          type="submit"
-                          disabled={status === 'loading' || !email}
-                          className="w-full sm:w-auto whitespace-nowrap rounded-xl bg-brand hover:opacity-90 px-6 py-3 text-sm font-bold text-white shadow-sm transition disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          {status === 'loading' ? 'Prijava...' : 'Prijavi se'}
-                        </button>
-                      </div>
 
-                      {/* NOVO: Samo nežen disclaimer namesto checkboxa */}
-                      <p className="text-[11px] text-gray-400 dark:text-gray-500 leading-snug">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
+                      <p className="text-[11px] text-gray-400 dark:text-gray-500 leading-tight m-0">
                         S klikom na gumb se strinjate s prejemanjem dnevnega pregleda novic. Odjavite se lahko kadarkoli.
                       </p>
-                      
-                      {status === 'error' && <p className="text-sm text-red-500 mt-1 font-medium">{msg}</p>}
-                    </form>
-                  )}
-                </div>
-
+                      {/* POPRAVEK: text-brand (Osnovna barva) in hover:text-orange-400 (Svetlejša barva ob prehodu) */}
+                      <Link href="/pregled" className="text-[12px] font-semibold text-brand hover:text-orange-400 transition-colors whitespace-nowrap group m-0">
+                        Poglej primer <span className="inline-block transition-transform group-hover:translate-x-1">→</span>
+                      </Link>
+                    </div>
+                    {status === 'error' && <p className="text-sm text-red-500 mt-1 font-medium">{msg}</p>}
+                  </form>
+                )}
               </div>
             </div>
+
           </div>
 
-          <div className="mt-12 flex justify-center">
+          {/* SPODNJI DEL: Gumb za vire in Copywright */}
+          <div className="mt-14 flex justify-center">
             <div className="relative">
               <button
                 ref={btnRef}
