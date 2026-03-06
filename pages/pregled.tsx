@@ -53,7 +53,7 @@ export default function PregledPage({ newsletter }: Props) {
   return (
     <div className="min-h-screen flex flex-col bg-gray-50 dark:bg-[#0b101b]">
       <Head>
-        <title>Dnevni pregled | Križišče</title>
+        <title>Jutranji pregled | Križišče</title>
         <meta name="description" content="Preberite najnovejši jutranji pregled ključnih novic portala Križišče." />
         <style>{`html { scroll-behavior: smooth; }`}</style>
       </Head>
@@ -64,7 +64,7 @@ export default function PregledPage({ newsletter }: Props) {
         
         <div className="mb-8 text-center">
           <h1 className="text-3xl md:text-4xl font-serif font-bold text-gray-900 dark:text-white mb-3">
-            Dnevni pregled ☕
+            Jutranji pregled ☕
           </h1>
           {newsletter ? (
             <p className="text-sm md:text-base text-gray-500 dark:text-gray-400">
