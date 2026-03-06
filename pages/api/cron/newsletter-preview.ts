@@ -300,6 +300,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
               ${itemsHtml}
             </div>
         `;
+    }); // <-- TUKAJ JE MANJKAL ZAKLJUČEK ZANKE
 
     let finalImageUrl = bestImage;
     if (finalImageUrl) {
