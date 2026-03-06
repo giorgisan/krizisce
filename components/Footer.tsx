@@ -112,11 +112,6 @@ export default function Footer() {
       <div className="bg-gray-50/80 dark:bg-[#0b101b] pt-12 pb-8 transition-colors">
         <div className="mx-auto max-w-[1200px] px-4 md:px-8 lg:px-12 text-gray-800 dark:text-gray-400">
           
-          {/* NOVA MREŽA: 12 stolpcev 
-            - 4 stolpci (Križišče + Kontakt)
-            - 3 stolpci (Povezave)
-            - 5 stolpcev (Newsletter forma)
-          */}
           <div className="grid gap-10 md:grid-cols-2 lg:grid-cols-12 items-start">
             
             {/* LEVI DEL: Opis in Kontakt */}
@@ -152,29 +147,32 @@ export default function Footer() {
               </ul>
             </div>
 
-            {/* DESNI DEL: Newsletter Box */}
-            <div className="lg:col-span-5 w-full" id="narocnina">
-              <div className="bg-white dark:bg-[#151a25]/60 border border-gray-200 dark:border-white/5 rounded-2xl p-6 md:p-7 shadow-sm flex flex-col h-full">
-                <div className="flex items-center gap-3 mb-2">
-                  <span className="text-brand text-xl leading-none">☕</span>
-                  <h4 className="text-base font-bold text-gray-900 dark:text-gray-200">Dnevni pregled</h4>
+            {/* DESNI DEL: Newsletter Box - KOMPAKTNA VERZIJA */}
+            <div className="lg:col-span-5 w-full max-w-[420px]" id="narocnina">
+              <div className="bg-white dark:bg-[#151a25]/60 border border-gray-200 dark:border-white/5 rounded-2xl p-5 md:p-6 shadow-sm">
+                
+                <div className="mb-4">
+                  <div className="flex items-center gap-2 mb-1.5">
+                    <span className="text-brand text-xl leading-none">☕</span>
+                    <h4 className="text-base font-bold text-gray-900 dark:text-gray-200">Jutranji pregled</h4>
+                  </div>
+                  <p className="text-[13px] text-gray-600 dark:text-gray-400 leading-snug">
+                    Začnite dan obveščeni. Prijavite se na brezplačni pregled najpomembnejših novic.
+                  </p>
                 </div>
-                <p className="text-[13px] text-gray-600 dark:text-gray-400 leading-relaxed mb-5">
-                  Začnite dan obveščeni. Prijavite se na brezplačni pregled najpomembnejših novic vsako jutro.
-                </p>
 
                 {status === 'success' ? (
-                  <div className="mt-auto text-sm text-green-700 dark:text-green-400 font-medium bg-green-50 dark:bg-green-900/20 px-4 py-4 rounded-xl border border-green-200 dark:border-green-800/30 text-center">
+                  <div className="text-sm text-green-700 dark:text-green-400 font-medium bg-green-50 dark:bg-green-900/20 px-4 py-4 rounded-xl border border-green-200 dark:border-green-800/30 text-center animate-pulse">
                     {msg}
                   </div>
                 ) : (
-                  <form onSubmit={handleSubscribe} className="mt-auto space-y-4">
-                    <div className="flex flex-col sm:flex-row gap-2.5">
+                  <form onSubmit={handleSubscribe} className="flex flex-col gap-3">
+                    <div className="flex flex-col sm:flex-row gap-2">
                       <input
                         type="email"
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
-                        placeholder="Vaš e-poštni naslov"
+                        placeholder="Vaš e-poštni naslov..."
                         required
                         disabled={status === 'loading'}
                         className="w-full flex-1 rounded-xl border border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-[#0b101b] px-4 py-2.5 text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand transition-colors disabled:opacity-50"
@@ -182,23 +180,22 @@ export default function Footer() {
                       <button
                         type="submit"
                         disabled={status === 'loading' || !email}
-                        // POPRAVEK: hover:brightness-110 zagotovi, da zasveti (namesto da postane temen/prosojen)
                         className="w-full sm:w-auto shrink-0 rounded-xl bg-brand hover:brightness-110 px-6 py-2.5 text-sm font-bold text-white shadow-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         {status === 'loading' ? 'Prijava...' : 'Prijavi se'}
                       </button>
                     </div>
 
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
+                    {status === 'error' && <p className="text-sm text-red-500 mt-1 font-medium">{msg}</p>}
+                    
+                    <div className="flex flex-col gap-1.5 mt-1">
                       <p className="text-[11px] text-gray-400 dark:text-gray-500 leading-tight m-0">
-                        S klikom na gumb se strinjate s prejemanjem dnevnega pregleda novic. Odjavite se lahko kadarkoli.
+                        S klikom se strinjate s prejemanjem e-novic.
                       </p>
-                      {/* POPRAVEK: text-brand (Osnovna barva) in hover:text-orange-400 (Svetlejša barva ob prehodu) */}
-                      <Link href="/pregled" className="text-[12px] font-semibold text-brand hover:text-orange-400 transition-colors whitespace-nowrap group m-0">
-                        Poglej primer <span className="inline-block transition-transform group-hover:translate-x-1">→</span>
+                      <Link href="/pregled" className="text-[12px] font-semibold text-brand hover:text-orange-400 transition-colors inline-flex items-center group self-start">
+                        Samo rad bi videl zadnji primer <span className="ml-1 inline-block transition-transform group-hover:translate-x-1">→</span>
                       </Link>
                     </div>
-                    {status === 'error' && <p className="text-sm text-red-500 mt-1 font-medium">{msg}</p>}
                   </form>
                 )}
               </div>
