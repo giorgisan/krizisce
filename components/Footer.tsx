@@ -157,7 +157,7 @@ export default function Footer() {
                     <h4 className="text-base font-bold text-gray-900 dark:text-gray-200">Jutranji pregled</h4>
                   </div>
                   <p className="text-[13px] text-gray-600 dark:text-gray-400 leading-snug">
-                    Začnite dan obveščeni. Prijavite se na brezplačni pregled najpomembnejših novic vsako jutro.
+                    Zbudite se z najodmevnejšimi novicami v vašem nabiralniku. Prijavite se na brezplačni pregled najpomembnejših novic vsako jutro.
                   </p>
                 </div>
 
