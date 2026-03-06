@@ -157,7 +157,7 @@ export default function Footer() {
                     <h4 className="text-base font-bold text-gray-900 dark:text-gray-200">Jutranji pregled</h4>
                   </div>
                   <p className="text-[13px] text-gray-600 dark:text-gray-400 leading-snug">
-                    Začnite dan obveščeni. Prijavite se na brezplačni pregled najpomembnejših novic.
+                    Začnite dan obveščeni. Prijavite se na brezplačni pregled najpomembnejših novic vsako jutro.
                   </p>
                 </div>
 
@@ -190,10 +190,10 @@ export default function Footer() {
                     
                     <div className="flex flex-col gap-1.5 mt-1">
                       <p className="text-[11px] text-gray-400 dark:text-gray-500 leading-tight m-0">
-                        S klikom se strinjate s prejemanjem e-novic.
+                        S prijavo se strinjate s prejemanjem e-novic.
                       </p>
                       <Link href="/pregled" className="text-[12px] font-semibold text-brand hover:text-orange-400 transition-colors inline-flex items-center group self-start">
-                        Samo rad bi videl zadnji primer <span className="ml-1 inline-block transition-transform group-hover:translate-x-1">→</span>
+                        Preverite, kako izgleda današnji jutranji pregled <span className="ml-1 inline-block transition-transform group-hover:translate-x-1">→</span>
                       </Link>
                     </div>
                   </form>
