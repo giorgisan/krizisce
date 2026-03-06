@@ -164,7 +164,7 @@ export default function NewsletterToast() {
                 <Link 
                   href="/pregled" 
                   onClick={closePermanent}
-                  className="inline-flex items-center justify-center text-[10.5px] font-medium text-gray-500 dark:text-gray-400 hover:text-brand transition-colors group"
+                  className="inline-flex items-center justify-center text-[10.5px] font-medium text-gray-500 dark:text-gray-400 hover:text-brand dark:hover:text-brand transition-colors group"
                 >
                   Preverite, kako izgleda današnji 'Jutranji pregled' <span className="ml-1 inline-block transition-transform group-hover:translate-x-1">→</span>
                 </Link>
