@@ -538,6 +538,15 @@ export default function Header({
                     <div className="space-y-1">
                         <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 pl-1 text-left">Orodja</p>
                         
+                        {/* 1. FILTRIRAJ VIRE (Prikaže se samo na naslovnici) */}
+                        {router.pathname === '/' && (
+                            <button onClick={() => { onOpenFilter(); setMobileMenuOpen(false); }} className="w-full flex items-center gap-3 px-2 py-3 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100/50 dark:hover:bg-gray-900/50">
+                                <svg className="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" /></svg>
+                                <span className="text-left">Filtriraj vire</span>
+                            </button>
+                        )}
+
+                        {/* 2. MEDIJSKI MONITOR */}
                          <Link href="/analiza" prefetch={false} onClick={() => setMobileMenuOpen(false)} className="flex items-center justify-between px-2 py-3 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100/50 dark:hover:bg-gray-900/50 group">
                             <div className="flex items-center gap-3">
                                 <svg className="w-5 h-5 text-gray-400 group-hover:text-brand transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -547,6 +556,7 @@ export default function Header({
                             </div>
                         </Link>
 
+                        {/* 3. ARHIV NOVIC */}
                         <Link href="/arhiv" onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-3 px-2 py-3 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100/50 dark:hover:bg-gray-900/50">
                             <svg className="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                                 <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
@@ -558,7 +568,7 @@ export default function Header({
                             <span className="text-left">Arhiv novic</span>
                         </Link>
 
-                        {/* NOVO: Izpostavljen Jutranji pregled */}
+                        {/* 4. JUTRANJI PREGLED */}
                         <Link href="/pregled" onClick={() => setMobileMenuOpen(false)} className="flex items-center justify-between px-2 py-3 rounded-lg text-brand hover:bg-brand/10 dark:hover:bg-brand/10 transition-colors group">
                             <div className="flex items-center gap-3">
                                 <span className="text-lg leading-none -ml-0.5">☕</span>
@@ -566,13 +576,7 @@ export default function Header({
                             </div>
                         </Link>
                         
-                        {router.pathname === '/' && (
-                            <button onClick={() => { onOpenFilter(); setMobileMenuOpen(false); }} className="w-full flex items-center gap-3 px-2 py-3 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100/50 dark:hover:bg-gray-900/50">
-                                <svg className="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" /></svg>
-                                <span className="text-left">Filtriraj vire</span>
-                            </button>
-                        )}
-                        
+                        {/* 5. TEMA */}
                         {mounted && (
                             <button onClick={() => setTheme(isDark ? 'light' : 'dark')} className="w-full flex items-center gap-3 px-2 py-3 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100/50 dark:hover:bg-gray-900/50">
                                 <span className="text-lg leading-none">{isDark ? '🌙' : '☀️'}</span>
