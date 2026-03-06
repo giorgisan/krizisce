@@ -50,7 +50,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         <div style="max-width: 500px; margin: 0 auto; background-color: #ffffff; border: 1px solid #E5E7EB; border-radius: 12px; padding: 40px 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.05);">
           <h1 style="color: #111827; font-size: 24px; margin-bottom: 10px;">Uspešno ste odjavljeni</h1>
           <p style="color: #4B5563; font-size: 16px; line-height: 1.5; margin-bottom: 30px;">
-            Vaš e-mail naslov (<strong>${user.email}</strong>) je bil uspešno odstranjen z našega seznama. Dnevnega pregleda ne boste več prejemali.
+            Vaš e-mail naslov (<strong>${user.email}</strong>) je bil uspešno odstranjen z našega seznama. Jutranjega pregleda ne boste več prejemali. Zahvaljujemo se vam, ker ste nam dali priložnost. Srečno!
           </p>
           <a href="https://krizisce.si" style="display: inline-block; padding: 12px 24px; background-color: #ea580c; color: #ffffff; text-decoration: none; border-radius: 8px; font-weight: bold; transition: opacity 0.2s;">
             Nazaj na Križišče
