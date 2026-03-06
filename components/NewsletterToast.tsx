@@ -60,40 +60,29 @@ export default function NewsletterToast() {
 
   return (
     <div
-      className={`fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-50 flex flex-col items-end transform transition-all duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+      // POPRAVEK 2: Prestavljeno na levo (left-4) in poravnano na levo (items-start)
+      className={`fixed bottom-4 left-4 sm:bottom-6 sm:left-6 z-50 flex flex-col items-start transform transition-all duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] ${
         isVisible ? 'translate-y-0 opacity-100' : 'translate-y-12 opacity-0 pointer-events-none'
       }`}
     >
       {/* GLAVNI OVOJ, KI SE ANIMIRA/RAZTEGUJE */}
       <div 
-        className={`relative bg-white/95 dark:bg-[#151a25]/95 backdrop-blur-xl shadow-2xl border transition-all duration-500 overflow-hidden ${
+        className={`relative bg-white/95 dark:bg-[#151a25]/95 backdrop-blur-xl border transition-all duration-500 overflow-hidden ${
           isExpanded 
-            ? 'w-[calc(100vw-2rem)] sm:w-[380px] rounded-2xl p-5 border-gray-200/60 dark:border-gray-800/80' 
-            : 'w-14 h-14 rounded-full border-brand/20 dark:border-brand/30 cursor-pointer hover:scale-110 flex items-center justify-center bg-brand/10 dark:bg-brand/20 group'
+            ? 'w-[calc(100vw-2rem)] sm:w-[380px] rounded-2xl p-5 border-gray-200/60 dark:border-gray-800/80 shadow-2xl' 
+            : 'w-14 h-14 rounded-full border-brand/20 dark:border-brand/30 cursor-pointer hover:scale-110 flex items-center justify-center bg-brand/10 dark:bg-brand/20 shadow-lg'
         }`}
         onClick={() => !isExpanded && setIsExpanded(true)}
       >
         
         {/* =========================================
-            STANJE 1: ZAPRTA IKONA (FAB) 
+            STANJE 1: ZAPRTA IKONA (Samo kava) 
             ========================================= */}
         {!isExpanded && (
-          <>
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} className="text-brand">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-            </svg>
-            
-            {/* Majhen X, ki se prikaže samo ob hoverju znotraj okrogle ikone */}
-            <button
-              onClick={(e) => { e.stopPropagation(); closePermanent(); }}
-              className="absolute inset-0 m-auto w-6 h-6 bg-gray-900/60 dark:bg-black/60 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-              aria-label="Zapri"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="white" strokeWidth={3}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          </>
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} className="text-brand">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+          </svg>
+          /* POPRAVEK 1a: X je v tem stanju sedaj v celoti izbrisan! */
         )}
 
         {/* =========================================
@@ -101,18 +90,18 @@ export default function NewsletterToast() {
             ========================================= */}
         {isExpanded && (
           <div className="animate-in fade-in duration-500">
-            {/* Popravljen Križec na velikem oknu (večji odmik od robov) */}
+            {/* POPRAVEK 1b: Jasen ORANŽEN KRIŽEC v zgornjem desnem kotu */}
             <button
               onClick={(e) => { e.stopPropagation(); closePermanent(); }}
-              className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors p-1"
+              className="absolute top-4 right-4 bg-brand hover:bg-orange-600 text-white transition-transform hover:scale-105 p-1.5 rounded-full shadow-md z-10"
               aria-label="Zapri"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>
 
-            <div className="flex items-start gap-3 mb-2.5">
+            <div className="flex items-start gap-3 mb-3 pr-8">
               <div className="flex-shrink-0 bg-brand/10 dark:bg-brand/20 p-2 rounded-full text-brand">
                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
@@ -122,8 +111,8 @@ export default function NewsletterToast() {
                 <h3 className="font-bold text-gray-900 dark:text-white text-[14px] leading-tight mb-0.5">
                   Jutranji pregled ☕
                 </h3>
-                <p className="text-gray-500 dark:text-gray-400 text-[11px] leading-snug pr-4">
-                  Zbudite se z najodmevnejšimi novicami v vašem nabiralniku.
+                <p className="text-gray-500 dark:text-gray-400 text-[11px] leading-snug">
+                  Zbudite se z najodmevnejšimi novicami. Prijavite se na brezplačni pregled vsako jutro.
                 </p>
               </div>
             </div>
@@ -175,10 +164,10 @@ export default function NewsletterToast() {
         )}
       </div>
 
-      {/* ZUNANJI TEKST (Prikaže se pod ikono, ko je okno zaprto) */}
+      {/* ZUNANJI TEKST (Prikaže se pod ikono na levi, ko je okno zaprto) */}
       {!isExpanded && (
-        <div className="mt-2 mr-1 text-[10px] font-semibold text-gray-500 dark:text-gray-400 opacity-80 animate-in fade-in duration-500">
-          Naročite Jutranji pregled
+        <div className="mt-2 ml-1 text-[10px] font-semibold text-gray-500 dark:text-gray-400 opacity-80 animate-in fade-in duration-500 text-left leading-tight">
+          Naročite<br/>Jutranji pregled
         </div>
       )}
       
