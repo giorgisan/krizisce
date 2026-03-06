@@ -154,7 +154,7 @@ export default function Footer() {
                     <h4 className="text-lg font-bold text-gray-900 dark:text-gray-200">Dnevni pregled</h4>
                   </div>
                   <p className="text-sm text-gray-600 dark:text-gray-500 leading-relaxed mb-3">
-                    Začnite dan informirani. Prijavite se na brezplačen pametni pregled najpomembnejših novic, ki ga naš algoritem za vas zbere vsako jutro.
+                    Začnite dan obveščeni. Prijavite se na brezplačni pregled najpomembnejših novic vsako jutro
                   </p>
                   {/* TUKAJ JE POPRAVEK: text-brand barva, hover samo posvetli (opacity-70), brez podčrtavanja */}
                   <Link href="/pregled" className="inline-flex items-center text-[13px] font-medium text-brand hover:opacity-70 transition-opacity group">
