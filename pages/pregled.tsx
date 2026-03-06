@@ -59,12 +59,14 @@ export default function PregledPage({ newsletter }: Props) {
 
         {newsletter ? (
           <>
-            <div className="flex-1 w-full bg-white dark:bg-white rounded-2xl shadow-2xl overflow-hidden border border-gray-200" style={{ minHeight: '800px' }}>
+            {/* OVOJ IFRAME-a: Na mobilcu pustimo, da overflowa in se da skrolat njegovo notranjost, ampak omejimo max-višino */}
+            <div className="flex-1 w-full bg-white dark:bg-white rounded-2xl shadow-2xl overflow-hidden border border-gray-200">
                {/* Uporabimo iframe za varen in natančen prikaz HTML-ja znotraj spletne strani */}
               <iframe 
                 srcDoc={newsletter.html_content} 
-                className="w-full h-full min-h-[800px] border-none"
+                className="w-full h-[70vh] md:h-[800px] border-none"
                 title={newsletter.subject}
+                scrolling="yes"
               />
             </div>
             
