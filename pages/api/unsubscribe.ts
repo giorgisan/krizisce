@@ -7,9 +7,8 @@ const supabase = createClient(
 );
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  // Ker smo v send-newsletter.ts zamenjali {{USER_EMAIL}} z UUID, 
-  // parameter ?email= zdaj dejansko nosi UUID uporabnika. To je najbolj varno!
-  const userId = req.query.email as string;
+  // POPRAVEK: Beremo 'id', ker je v URL-ju ?id=UUID
+  const userId = req.query.id as string;
 
   if (!userId) {
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
