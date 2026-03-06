@@ -87,7 +87,7 @@ export default function NewsletterToast() {
             Jutranji pregled ☕
           </h3>
           <p className="text-gray-500 dark:text-gray-400 text-[11px] leading-snug pr-4">
-            Zbudite se z najodmevnejšimi novicami v vašem nabiralniku.
+            Zbudite se z najodmevnejšimi novicami v vašem nabiralniku. Prijavite se na brezplačni pregled najpomembnejših novic vsako jutro.
           </p>
         </div>
       </div>
