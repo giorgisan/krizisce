@@ -94,7 +94,7 @@ export default function PregledPage({ newsletter }: Props) {
             <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
               <Link 
                 href="#narocnina" 
-                className="inline-flex items-center justify-center w-full sm:w-auto px-8 py-3.5 shadow-lg shadow-brand/20 text-base font-bold rounded-xl text-white bg-brand hover:opacity-80 transition-opacity"
+                className="inline-flex items-center justify-center w-full sm:w-auto px-8 py-3.5 shadow-lg shadow-brand/20 text-base font-bold rounded-xl text-white bg-orange-700 hover:bg-brand transition-colors"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
