@@ -200,7 +200,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       3. Each 'item.theme': 2-4 word punchy label.
       4. Each 'item.text': 1-2 short sentences. Write in an active, present-tense, forward-looking tone (e.g., use phrases like "Danes odmeva", "V ospredju je", "Čaka nas"). Make it feel like a fresh morning briefing, NOT a historical recap of yesterday. ONLY use facts and numbers that appear verbatim in RAW NEWS.
       5. Each 'item.story_id': EXACTLY the number from the [STORY ID: X] tag that corresponds to this news item!
-      6. 'whats_ahead': Scan the RAW NEWS explicitly for upcoming events, schedules, or announcements (e.g., sports matches happening today/tomorrow, political sessions, price changes). If found, write a 1-2 sentence summary. CRITICAL RULE: If there are ZERO upcoming events mentioned in the RAW NEWS, DO NOT invent any. In that case, return an EXACTLY empty string "".
+      6. 'whats_ahead': Scan the RAW NEWS explicitly for ALL upcoming events, schedules, or announcements (e.g., sports matches happening today/tomorrow, political sessions, price changes). If found, combine EVERY upcoming event you find into a cohesive 2-4 sentence paragraph so the reader is fully prepared for the day. CRITICAL RULE: If there are ZERO upcoming events mentioned in the RAW NEWS, DO NOT invent any. In that case, return an EXACTLY empty string "".
       7. 'closing_line': 1 sentence highlighting a specific positive, interesting, or notable fact from the RAW NEWS to leave the reader with a final thought.
       
       HARD RULES — ANY VIOLATION MAKES THE OUTPUT INVALID:
