@@ -62,7 +62,7 @@ ${JSON.stringify(aiData)}
 TASK:
 1. Verify that EVERY fact, number, name, and title in the OUTPUT exists explicitly in the SOURCE.
 2. Check for "hallucinations": Did the OUTPUT add any titles (like "nekdanji", "predsednik", "minister"), adjectives, specific dates, or statistics that are NOT in the SOURCE? 
-   -> EXCEPTION: Words like "danes", "jutri", or "ta konec tedna" are ALLOWED in the 'whats_ahead' and 'intro' sections.
+   -> EXCEPTION: Temporal words like "danes", "jutri", or "ta konec tedna" are strictly ALLOWED in the 'whats_ahead' section.
 3. If you find any hallucinated or altered details, remove them or correct them to match the SOURCE exactly.
 4. Do NOT rewrite the text for style, only fix factual additions. Do NOT delete the 'whats_ahead' section unless the event itself is a complete hallucination.
 5. Return the corrected OUTPUT as valid JSON matching the exact original structure. If nothing to fix, return OUTPUT unchanged.
@@ -167,7 +167,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       ${promptData}
       
       YOUR TASK:
-      1. 'intro': 2-3 sentences. Conversational, warm "morning anchor" tone. Frame the news around what it means for TODAY, even if events happened yesterday. Highlight the most important story. NOT a dry list. Example style: "Pred nami je pester dan, saj po sinočnjih dogodkih v ospredje stopa..." Do NOT start with "Dobro jutro" or "Danes:".
+      1. 'intro': 2-3 sentences. Conversational, warm but informed "journalist having morning coffee" tone. Highlight the most surprising or important story with one editorial observation. NOT a dry list. Example style: "Danes zjutraj dominira Iran — a zgodba o Matavžu pove več o nas kot o vojni." Do NOT start with "Dobro jutro" or "Danes:".
       2. 'categories': Select 3 to 4 dynamic categories based on the day's news. 
          CATEGORIES RULES:
          - ALWAYS include "🏔️ Slovenija" FIRST.
