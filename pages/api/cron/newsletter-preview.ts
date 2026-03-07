@@ -42,10 +42,10 @@ const newsletterSchema = {
                 required: ["title", "items"] 
             }
         },
-        whats_ahead: { type: SchemaType.STRING }, // NOVO POLJE
+        whats_ahead: { type: SchemaType.STRING },
         closing_line: { type: SchemaType.STRING }
     },
-    required: ["intro", "categories", "whats_ahead", "closing_line"] // DODANO TUKAJ
+    required: ["intro", "categories", "whats_ahead", "closing_line"]
 };
 
 // --- AI VALIDATOR ---
@@ -98,6 +98,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (error) throw error
 
     const topicMap = new Map<string, any>()
+    
     if (analysisRows) {
         analysisRows.forEach(row => {
             let items = [];
@@ -115,24 +116,47 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                     if (!item.topic) return;
                     const t = item.topic;
                     const existing = topicMap.get(t);
-                    const sCount = Array.isArray(item.sources) ? item.sources.length : 1;
                     
                     if (existing) {
-                        existing.score += sCount;
-                        // NOVO: Dodajanje vseh izvornih URL-jev za kasnejši prikaz
+                        // NOVO: Filtriranje podvojenih virov s pomočjo obstoječega Seta 'uniqueUrls'
                         if (Array.isArray(item.sources)) {
-                            existing.sources = [...existing.sources, ...item.sources];
+                            item.sources.forEach((s: any) => {
+                                const url = typeof s === 'string' ? s : s.url;
+                                if (url && !existing.uniqueUrls.has(url)) {
+                                    existing.uniqueUrls.add(url);
+                                    existing.sources.push(s);
+                                }
+                            });
                         }
+                        
+                        // Score je sedaj realno število unikatnih virov!
+                        existing.score = existing.sources.length || 1;
+
                         if (!existing.image_url && item.main_image && item.main_image.startsWith('http')) {
                             existing.image_url = item.main_image;
                         }
                     } else {
+                        // Prvič vidimo to temo, nastavimo Set za deduplikacijo
+                        const uniqueUrls = new Set<string>();
+                        const cleanSources: any[] = [];
+                        
+                        if (Array.isArray(item.sources)) {
+                            item.sources.forEach((s: any) => {
+                                const url = typeof s === 'string' ? s : s.url;
+                                if (url && !uniqueUrls.has(url)) {
+                                    uniqueUrls.add(url);
+                                    cleanSources.push(s);
+                                }
+                            });
+                        }
+
                         topicMap.set(t, {
                             topic: t,
                             summary: item.summary,
                             image_url: item.main_image && item.main_image.startsWith('http') ? item.main_image : null,
-                            score: sCount,
-                            sources: Array.isArray(item.sources) ? [...item.sources] : [] // Shranimo vire!
+                            sources: cleanSources,
+                            uniqueUrls: uniqueUrls, // Shranimo set za kasnejše preverjanje
+                            score: cleanSources.length || 1
                         })
                     }
                 })
@@ -151,7 +175,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     let promptData = ""
     let bestImage = "";
     topStories.forEach((story, index) => {
-        // NOVO: Predamo tudi [STORY ID] za AI ujemanje
         promptData += `[STORY ID: ${index}]\n- TOPIC: ${story.topic}\n- SUMMARY: ${story.summary}\n\n`;
         if (!bestImage && story.image_url) {
             bestImage = story.image_url;
@@ -167,7 +190,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       ${promptData}
       
       YOUR TASK:
-      1. 'intro': 2-3 sentences. Conversational, warm but informed "journalist having morning coffee" tone. Highlight the most surprising or important story with one editorial observation. NOT a dry list. Example style: "Danes zjutraj dominira Iran — a zgodba o Matavžu pove več o nas kot o vojni." Do NOT start with "Dobro jutro" or "Danes:".
+      1. 'intro': 2-3 sentences. Conversational, warm "morning anchor" tone. Highlight the most important or surprising story with an insightful editorial observation. DO NOT use cliché temporal phrases like "včerajšnji dogodki", "pretekli dan", "današnji dan prinaša" or "odmeva". Jump straight into the narrative. Example style: "Pojasnila policije o dogajanju v Fužinah odpirajo nova vprašanja, medtem ko se na mednarodnem parketu..." Do NOT start with "Dobro jutro", "Danes:" or "Jutro prinaša".
       2. 'categories': Select 3 to 4 dynamic categories based on the day's news. 
          CATEGORIES RULES:
          - ALWAYS include "🏔️ Slovenija" FIRST.
@@ -233,7 +256,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         cat.items.forEach((item: any) => {
             let sourceLinksHtml = '';
             
-            // NOVO: Pretvorba zanesljivega ID-ja v originalne URL-je medijev
             if (item.story_id !== undefined && topStories[item.story_id]) {
                 const story = topStories[item.story_id];
                 if (story && Array.isArray(story.sources)) {
@@ -248,7 +270,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                             let name = hostname.split('.')[0];
                             name = name.charAt(0).toUpperCase() + name.slice(1);
                             
-                            // Lepi nazivi za glavne portale
                             if (hostname.includes('rtvslo')) name = 'RTV SLO';
                             if (hostname.includes('24ur')) name = '24ur';
                             if (hostname.includes('siol')) name = 'Siol';
@@ -259,7 +280,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                             if (hostname.includes('n1info')) name = 'N1';
                             if (hostname.includes('svet24')) name = 'Svet24';
 
-                            // POPRAVEK 2: Odstranjeni oglati oklepaji, dodan hover underline za boljšo UX
                             if (!linkMap.has(name)) {
                                 linkMap.set(name, `<a href="${url}" style="color: ${BRAND_COLOR}; text-decoration: none; font-weight: 500;">${name}</a>`);
                             }
@@ -268,7 +288,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
                     if (linkMap.size > 0) {
                         const linksArray = Array.from(linkMap.values());
-                        // POPRAVEK 2: Združevanje elementov z vejico namesto s presledkom
                         sourceLinksHtml = `<div style="margin-top: 4px; font-size: 13px; color: #6B7280; font-family: -apple-system, Arial, sans-serif;">⮑ Beri na: ${linksArray.join(', ')}</div>`;
                     }
                 }
@@ -284,13 +303,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             `;
         });
 
-        // Zanesljiv Outlook-friendly razmak med emotikonom in tekstom (brez CSS flex/gap)
         let displayTitle = cat.title;
-        
-        // Regex ujame emotikon na začetku (vse kar ni črka/številka) in loči od besedila
         const titleMatch = displayTitle.match(/^([^\p{L}\p{N}]+)\s*(.*)$/u);
         if (titleMatch) {
-            // Vsilimo neprelomni presledek (&nbsp;) in navaden presledek za lep, 100% fiksen razmak
             displayTitle = `${titleMatch[1].trim()}&nbsp; ${titleMatch[2].trim()}`;
         }
 
@@ -302,7 +317,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
               ${itemsHtml}
             </div>
         `;
-    }); // <-- TUKAJ JE MANJKAL ZAKLJUČEK ZANKE
+    }); 
 
     let finalImageUrl = bestImage;
     if (finalImageUrl) {
@@ -445,8 +460,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const adminEmailHtml = `
       <div style="background-color: #fef08a; padding: 25px; text-align: center; border-bottom: 4px solid #eab308; font-family: sans-serif;">
-        <h2 style="margin-top: 0; color: #854d0e;">👋 Hej, tole je današnji predogled!</h2>
-        <p style="color: #a16207; margin-bottom: 20px; font-size: 15px;">Preberi si mail. Če si zadovoljen, pritisni spodnji gumb. Če ti izbor novic ali uvod ni všeč, klikni ponovno generiraj.</p>
+        <h2 style="margin: 0; color: #854d0e;">👋 Hej, tole je današnji predogled!</h2>
+        <p style="color: #a16207; margin-bottom: 20px; font-size: 15px; margin-top: 10px;">Preberi si mail. Če si zadovoljen, pritisni spodnji gumb. Če ti izbor novic ali uvod ni všeč, klikni ponovno generiraj.</p>
         
         <div style="margin-top: 20px;">
           <a href="${adminUrl}" style="background-color: #ea580c; color: #ffffff; padding: 14px 28px; text-decoration: none; font-weight: bold; border-radius: 8px; display: inline-block; margin: 5px;">Odobri in pošlji vsem</a>
