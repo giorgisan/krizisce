@@ -173,7 +173,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
          - Use EXACTLY these icons for other categories if applicable: 🌍 for Svet/Mednarodno, 💰 for Gospodarstvo/Posel, ⚖️ for Kronika, 🏆 for Šport.
          - Provide 2-3 items per category.
       3. Each 'item.theme': 2-4 word punchy label.
-      4. Each 'item.text': 1-2 short sentences. ONLY facts and numbers that appear verbatim in RAW NEWS.
+      4. Each 'item.text': 1-2 short sentences. Write in an active, present-tense, forward-looking tone (e.g., use phrases like "Danes odmeva", "V ospredju je", "Čaka nas"). Make it feel like a fresh morning briefing, NOT a historical recap of yesterday. ONLY use facts and numbers that appear verbatim in RAW NEWS.
       5. Each 'item.story_id': EXACTLY the number from the [STORY ID: X] tag that corresponds to this news item!
       6. 'closing_line': 1 sentence highlighting a specific positive, interesting, or notable fact from the RAW NEWS to leave the reader with a final thought.
       
