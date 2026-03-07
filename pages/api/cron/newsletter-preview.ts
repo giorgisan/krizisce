@@ -61,9 +61,10 @@ ${JSON.stringify(aiData)}
 
 TASK:
 1. Verify that EVERY fact, number, name, and title in the OUTPUT exists explicitly in the SOURCE.
-2. Check for "hallucinations": Did the OUTPUT add any titles (like "nekdanji", "predsednik", "minister"), adjectives, specific dates, or statistics that are NOT in the SOURCE?
+2. Check for "hallucinations": Did the OUTPUT add any titles (like "nekdanji", "predsednik", "minister"), adjectives, specific dates, or statistics that are NOT in the SOURCE? 
+   -> EXCEPTION: Words like "danes", "jutri", or "ta konec tedna" are ALLOWED in the 'whats_ahead' and 'intro' sections.
 3. If you find any hallucinated or altered details, remove them or correct them to match the SOURCE exactly.
-4. Do NOT rewrite the text for style, only fix factual additions.
+4. Do NOT rewrite the text for style, only fix factual additions. Do NOT delete the 'whats_ahead' section unless the event itself is a complete hallucination.
 5. Return the corrected OUTPUT as valid JSON matching the exact original structure. If nothing to fix, return OUTPUT unchanged.
 `;
 
@@ -358,8 +359,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
                     ${categoriesHtml}
                     
-                    ${categoriesHtml}
-
                     ${aiData.whats_ahead ? `
                     <div style="background-color: #EFF6FF; border-left: 4px solid #3B82F6; padding: 20px; margin-top: 40px; margin-bottom: 20px;">
                       <h3 style="font-size: 15px; color: #1E3A8A; font-weight: bold; margin-top: 0; margin-bottom: 8px; font-family: -apple-system, Arial, sans-serif; text-transform: uppercase; letter-spacing: 0.05em;">
