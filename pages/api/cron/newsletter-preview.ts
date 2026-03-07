@@ -33,7 +33,7 @@ const newsletterSchema = {
                             properties: {
                                 theme: { type: SchemaType.STRING },
                                 text: { type: SchemaType.STRING },
-                                story_id: { type: SchemaType.NUMBER } // NOVO: Za zanesljivo povezovanje URL-jev
+                                story_id: { type: SchemaType.NUMBER }
                             },
                             required: ["theme", "text", "story_id"]
                         }
@@ -42,9 +42,10 @@ const newsletterSchema = {
                 required: ["title", "items"] 
             }
         },
+        whats_ahead: { type: SchemaType.STRING }, // NOVO POLJE
         closing_line: { type: SchemaType.STRING }
     },
-    required: ["intro", "categories", "closing_line"]
+    required: ["intro", "categories", "whats_ahead", "closing_line"] // DODANO TUKAJ
 };
 
 // --- AI VALIDATOR ---
@@ -165,7 +166,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       ${promptData}
       
       YOUR TASK:
-      1. 'intro': 2-3 sentences. Conversational, warm but informed "journalist having morning coffee" tone. Highlight the most surprising or important story with one editorial observation. NOT a dry list. Example style: "Danes zjutraj dominira Iran — a zgodba o Matavžu pove več o nas kot o vojni." Do NOT start with "Dobro jutro" or "Danes:".
+      1. 'intro': 2-3 sentences. Conversational, warm "morning anchor" tone. Frame the news around what it means for TODAY, even if events happened yesterday. Highlight the most important story. NOT a dry list. Example style: "Pred nami je pester dan, saj po sinočnjih dogodkih v ospredje stopa..." Do NOT start with "Dobro jutro" or "Danes:".
       2. 'categories': Select 3 to 4 dynamic categories based on the day's news. 
          CATEGORIES RULES:
          - ALWAYS include "🏔️ Slovenija" FIRST.
@@ -175,7 +176,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       3. Each 'item.theme': 2-4 word punchy label.
       4. Each 'item.text': 1-2 short sentences. Write in an active, present-tense, forward-looking tone (e.g., use phrases like "Danes odmeva", "V ospredju je", "Čaka nas"). Make it feel like a fresh morning briefing, NOT a historical recap of yesterday. ONLY use facts and numbers that appear verbatim in RAW NEWS.
       5. Each 'item.story_id': EXACTLY the number from the [STORY ID: X] tag that corresponds to this news item!
-      6. 'closing_line': 1 sentence highlighting a specific positive, interesting, or notable fact from the RAW NEWS to leave the reader with a final thought.
+      6. 'whats_ahead': Scan the RAW NEWS explicitly for upcoming events, schedules, or announcements (e.g., sports matches happening today/tomorrow, political sessions, price changes). If found, write a 1-2 sentence summary. CRITICAL RULE: If there are ZERO upcoming events mentioned in the RAW NEWS, DO NOT invent any. In that case, return an EXACTLY empty string "".
+      7. 'closing_line': 1 sentence highlighting a specific positive, interesting, or notable fact from the RAW NEWS to leave the reader with a final thought.
       
       HARD RULES — ANY VIOLATION MAKES THE OUTPUT INVALID:
       - NUMBERS & STATS: Never write a specific number, percentage, or sequence unless it appears word-for-word in the RAW NEWS.
@@ -355,8 +357,21 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                     ` : ''}
 
                     ${categoriesHtml}
+                    
+                    ${categoriesHtml}
 
-                    <div style="background-color: #FFF7ED; border-left: 4px solid ${BRAND_COLOR}; padding: 20px; margin-top: 40px; margin-bottom: 40px;">
+                    ${aiData.whats_ahead ? `
+                    <div style="background-color: #EFF6FF; border-left: 4px solid #3B82F6; padding: 20px; margin-top: 40px; margin-bottom: 20px;">
+                      <h3 style="font-size: 15px; color: #1E3A8A; font-weight: bold; margin-top: 0; margin-bottom: 8px; font-family: -apple-system, Arial, sans-serif; text-transform: uppercase; letter-spacing: 0.05em;">
+                        📅 Kaj nas čaka
+                      </h3>
+                      <p style="font-size: 15px; line-height: 1.6; color: #1E3A8A; margin: 0; font-family: -apple-system, Arial, sans-serif;">
+                        ${aiData.whats_ahead}
+                      </p>
+                    </div>
+                    ` : ''}
+
+                    <div style="background-color: #FFF7ED; border-left: 4px solid ${BRAND_COLOR}; padding: 20px; margin-top: ${aiData.whats_ahead ? '20px' : '40px'}; margin-bottom: 40px;">
                       <h3 style="font-size: 15px; color: #9A3412; font-weight: bold; margin-top: 0; margin-bottom: 8px; font-family: -apple-system, Arial, sans-serif; text-transform: uppercase; letter-spacing: 0.05em;">
                         💡 Za konec
                       </h3>
