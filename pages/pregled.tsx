@@ -129,6 +129,7 @@ export const getServerSideProps: GetServerSideProps = async () => {
   const { data, error } = await supabase
     .from('newsletters')
     .select('subject, html_content, created_at')
+    .eq('status', 'sent') // <-- TUKAJ JE DODAN FILTER
     .order('created_at', { ascending: false })
     .limit(1)
     .single()
