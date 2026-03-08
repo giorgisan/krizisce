@@ -61,16 +61,16 @@ ${JSON.stringify(aiData)}
 
 TASK:
 1. Verify that EVERY fact, number, name, and title in the OUTPUT exists explicitly in the SOURCE.
-2. Check for "hallucinations": Did the OUTPUT add any titles (like "nekdanji", "predsednik", "minister"), adjectives, specific dates, or statistics that are NOT in the SOURCE? 
+2. Check for "hallucinations": Did the OUTPUT add any titles, adjectives, specific dates, or statistics that are NOT in the SOURCE? 
    -> EXCEPTION: Temporal words like "danes", "jutri", or "ta konec tedna" are strictly ALLOWED in the 'whats_ahead' section.
 3. If you find any hallucinated or altered details, remove them or correct them to match the SOURCE exactly.
 4. Do NOT rewrite the text for style, only fix factual additions. Do NOT delete the 'whats_ahead' section unless the event itself is a complete hallucination.
 5. Return the corrected OUTPUT as valid JSON matching the exact original structure. If nothing to fix, return OUTPUT unchanged.
 `;
 
-    // UPORABA NAJNOVEJŠEGA MODELA ZA VALIDACIJO
+    // OPTIMIZACIJA: Validator uporablja 2.5-flash za maksimalno hitrost (preprečitev 4-minutnega izvajanja in timeouta)
     const model = genAI.getGenerativeModel({ 
-        model: "gemini-3-flash-preview", // <-- POPRAVLJENO TUKAJ
+        model: "gemini-2.5-flash", 
         generationConfig: { 
             responseMimeType: "application/json",
             responseSchema: newsletterSchema, 
@@ -162,7 +162,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         })
     }
 
-    // TOP 45 NOVIC ZA VEČJI DOSEG NAPOVEDNIKA
     const topStories = Array.from(topicMap.values())
         .sort((a, b) => b.score - a.score)
         .slice(0, 45);
@@ -171,7 +170,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(200).json({ message: "Ni podatkov za newsletter." })
     }
 
-    // Fizična ločitev promptData
     let promptData = "=== TOP NOVICE (Obvezno uporabi za 'intro' in 'categories') ===\n\n";
     let bestImage = "";
     
@@ -195,7 +193,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       ${promptData}
       
       YOUR TASK:
-      1. 'intro': 2-3 sentences. Conversational, warm "morning anchor" tone. Highlight the most important or surprising story FROM THE TOP NOVICE SECTION with an insightful editorial observation. DO NOT use cliché temporal phrases like "včerajšnji dogodki", "pretekli dan", "današnji dan prinaša" or "odmeva". Jump straight into the narrative. Example style: "Pojasnila policije o dogajanju v Fužinah odpirajo nova vprašanja, medtem ko se na mednarodnem parketu..." Do NOT start with "Dobro jutro", "Danes:" or "Jutro prinaša".
+      1. 'intro': 2-3 sentences. Conversational, warm "morning anchor" tone. Highlight the most important or surprising story FROM THE TOP NOVICE SECTION. DO NOT use cliché temporal phrases like "včerajšnji dogodki", "pretekli dan" or "odmeva". Jump straight into the narrative. Do NOT start with "Dobro jutro" or "Danes:".
       2. 'categories': Select 3 to 4 dynamic categories. 
          CATEGORIES RULES:
          - ONLY use stories from the '=== TOP NOVICE ===' section (IDs 0 to 14) for these categories. Do not include 'OSTALE NOVICE' here.
@@ -204,19 +202,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
          - Use EXACTLY these icons for other categories if applicable: 🌍 for Svet/Mednarodno, 💰 for Gospodarstvo/Posel, ⚖️ for Kronika, 🏆 for Šport.
          - Provide 2-3 items per category.
       3. Each 'item.theme': 2-4 word punchy label.
-      4. Each 'item.text': 1-2 short sentences. Write in an active, present-tense, forward-looking tone (e.g., use phrases like "V ospredju je"). Make it feel like a fresh morning briefing, NOT a historical recap of yesterday. ONLY use facts and numbers that appear verbatim in RAW NEWS.
-      5. Each 'item.story_id': EXACTLY the number from the [STORY ID: X] tag that corresponds to this news item!
-      6. 'whats_ahead': Scan ALL stories (both TOP NOVICE and OSTALE NOVICE) explicitly for ALL upcoming events, schedules, or announcements (e.g., sports matches happening today/tomorrow, political sessions, price changes). If found, combine EVERY upcoming event you find into a cohesive 2-4 sentence paragraph so the reader is fully prepared for the day. 
-         CRITICAL RULE 1: If there are ZERO upcoming events mentioned in ANY section, DO NOT invent any. Return an EXACTLY empty string "".
-         CRITICAL RULE 2: DO NOT DUPLICATE. If an upcoming event is already featured as a standalone news item in the 'categories' section above, DO NOT mention it again in 'whats_ahead'. 'whats_ahead' must only contain events that are NOT already covered in the main news.
-      7. 'closing_line': 1 sentence highlighting a specific positive, interesting, or notable fact from ANY of the provided stories (TOP or OSTALE) to leave the reader with a final thought.
+      4. Each 'item.text': 1-2 short sentences. Write in an active, present-tense tone.
+      5. Each 'item.story_id': EXACTLY the number from the [STORY ID: X] tag!
+      6. 'whats_ahead': Scan ALL stories explicitly for ALL upcoming events, schedules, or announcements. If found, combine them into a cohesive 2-4 sentence paragraph. 
+         CRITICAL RULE 1: If ZERO upcoming events are mentioned, return an EXACTLY empty string "".
+         CRITICAL RULE 2: DO NOT DUPLICATE. If an event is in the 'categories' section, DO NOT mention it here.
+         CRITICAL RULE 3: TEMPORAL CONSISTENCY. Cross-check events! If a story states an event (e.g., an evacuation, a match, a meeting) is already "concluded", "finished", or "landed", DO NOT list it as an upcoming event. Avoid logical contradictions.
+      7. 'closing_line': 1 sentence highlighting a specific positive, interesting, or notable fact from ANY story to leave the reader with a final thought.
       
-      HARD RULES — ANY VIOLATION MAKES THE OUTPUT INVALID:
-      - NUMBERS & STATS: Never write a specific number, percentage, or sequence unless it appears word-for-word in the RAW NEWS.
-      - NAMES & TITLES: Copy names exactly as written in the RAW NEWS. Never add titles, roles, or adjectives (nekdanji, aktualni, predsednik...) unless they explicitly exist in the source text.
-      - NO SYNTHESIS: Never combine facts from two different stories into one sentence.
-      
-      OUTPUT LANGUAGE: Formal Slovenian, vikanje.
+      HARD RULES: Never invent facts, numbers, or names. Do not combine facts from two different stories into one sentence. Output in Formal Slovenian.
       `
 
     const generationConfig = { 
@@ -227,9 +221,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     let aiData;
     try {
-        // UPORABA NAJNOVEJŠEGA MODELA
+        // Glavni AI je pametna Trojka
         console.log("🚀 Poskušam najnovejši model: gemini-3-flash-preview...");
-        const model = genAI.getGenerativeModel({ model: "gemini-3-flash-preview", generationConfig }); // <-- POPRAVLJENO TUKAJ
+        const model = genAI.getGenerativeModel({ model: "gemini-3-flash-preview", generationConfig });
         const result = await model.generateContent(prompt);
         aiData = JSON.parse(result.response.text());
         console.log("✅ Uspešno uporabljen model: gemini-3-flash-preview");
@@ -247,7 +241,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     try {
-        console.log("🔍 Začenjam AI validacijo imen...");
+        console.log("🔍 Začenjam hitro AI validacijo...");
         aiData = await validateOutput(aiData, promptData);
         console.log("✅ AI validacija uspešno zaključena.");
     } catch (validationErr) {
