@@ -162,9 +162,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         })
     }
 
+    // ZMANJŠANO NA 30 NOVIC (Optimalno za hitrost in globino)
     const topStories = Array.from(topicMap.values())
         .sort((a, b) => b.score - a.score)
-        .slice(0, 45);
+        .slice(0, 30);
 
     if (topStories.length === 0) {
         return res.status(200).json({ message: "Ni podatkov za newsletter." })
@@ -201,7 +202,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
          - STRICT THEMATIC SORTING: Sports news MUST go under '🏆 Šport'. Crime, accidents, or police news MUST go under '⚖️ Kronika'. Do not mix them.
          - NO DUPLICATES: Never place the same news item in two different categories.
          - Use EXACTLY these icons for other categories if applicable: 🌍 for Svet/Mednarodno, 💰 for Gospodarstvo/Posel, ⚖️ for Kronika, 🏆 for Šport.
-         - Provide 2-3 items per category.   
+         - Provide 2-3 items per category.
       3. Each 'item.theme': 2-4 word punchy label.
       4. Each 'item.text': 1-2 short sentences. Write in an active, present-tense tone.
       5. Each 'item.story_id': EXACTLY the number from the [STORY ID: X] tag!
@@ -222,19 +223,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     let aiData;
     try {
-        // Glavni AI je pametna Trojka
-        console.log("🚀 Poskušam najnovejši model: gemini-3-flash-preview...");
-        const model = genAI.getGenerativeModel({ model: "gemini-3-flash-preview", generationConfig });
+        // VRNITEV NA HITRI 2.5-FLASH
+        console.log("🚀 Poskušam hiter in stabilen model: gemini-2.5-flash...");
+        const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash", generationConfig });
         const result = await model.generateContent(prompt);
         aiData = JSON.parse(result.response.text());
-        console.log("✅ Uspešno uporabljen model: gemini-3-flash-preview");
+        console.log("✅ Uspešno uporabljen model: gemini-2.5-flash");
     } catch (err: any) {
-        console.warn("⚠️ 3-flash-preview ni uspel. Fallback na gemini-2.5-flash...");
+        console.warn("⚠️ 2.5-flash ni uspel. Fallback na gemini-2.0-flash...");
         try {
-            const fallbackModel = genAI.getGenerativeModel({ model: "gemini-2.5-flash", generationConfig });
+            const fallbackModel = genAI.getGenerativeModel({ model: "gemini-2.0-flash", generationConfig });
             const fallbackResult = await fallbackModel.generateContent(prompt);
             aiData = JSON.parse(fallbackResult.response.text());
-            console.log("✅ Uspešno uporabljen model: gemini-2.5-flash");
+            console.log("✅ Uspešno uporabljen model: gemini-2.0-flash");
         } catch (fallbackErr: any) {
             console.error("⚠️ AI napaka:", fallbackErr);
             throw new Error("Napaka pri AI generaciji: " + fallbackErr.message);
