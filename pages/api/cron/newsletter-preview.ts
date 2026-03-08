@@ -195,13 +195,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       
       YOUR TASK:
       1. 'intro': 2-3 sentences. Conversational, warm "morning anchor" tone. Highlight the most important or surprising story FROM THE TOP NOVICE SECTION. DO NOT use cliché temporal phrases like "včerajšnji dogodki", "pretekli dan" or "odmeva". Jump straight into the narrative. Do NOT start with "Dobro jutro" or "Danes:".
-      2. 'categories': Select 3 to 4 dynamic categories. 
+      2. 'categories': Create between 3 and 5 categories based strictly on the available news. 
          CATEGORIES RULES:
-         - ONLY use stories from the '=== TOP NOVICE ===' section (IDs 0 to 14) for these categories. Do not include 'OSTALE NOVICE' here.
-         - ALWAYS include "🏔️ Slovenija" FIRST.
-         - STRICT THEMATIC SORTING: Sports news MUST go under '🏆 Šport'. Crime, accidents, or police news MUST go under '⚖️ Kronika'. Do not mix them.
+         - ONLY use stories from the '=== TOP NOVICE ===' section.
+         - You MUST ONLY use category titles from this exact list: "🏔️ Slovenija", "🌍 Svet", "💰 Gospodarstvo", "⚖️ Kronika", "🏆 Šport".
+         - ONLY create a category if you have at least 2 highly relevant stories for it. Do NOT force 5 categories if the news does not strongly support them.
+         - DO NOT invent new categories. DO NOT combine them (e.g., never write "Svet in Kronika").
+         - ALWAYS make "🏔️ Slovenija" the FIRST category.
+         - STRICT THEMATIC SORTING: Sports news MUST go into "🏆 Šport". Crime, accidents, or police news MUST go into "⚖️ Kronika".
          - NO DUPLICATES: Never place the same news item in two different categories.
-         - Use EXACTLY these icons for other categories if applicable: 🌍 for Svet/Mednarodno, 💰 for Gospodarstvo/Posel, ⚖️ for Kronika, 🏆 for Šport.
          - Provide 2-3 items per category.
       3. Each 'item.theme': 2-4 word punchy label.
       4. Each 'item.text': 1-2 short sentences. Write in an active, present-tense tone.
