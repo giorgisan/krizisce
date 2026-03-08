@@ -68,8 +68,9 @@ TASK:
 5. Return the corrected OUTPUT as valid JSON matching the exact original structure. If nothing to fix, return OUTPUT unchanged.
 `;
 
+    // UPORABA NAJNOVEJŠEGA MODELA ZA VALIDACIJO
     const model = genAI.getGenerativeModel({ 
-        model: "gemini-2.5-flash", 
+        model: "gemini-3-flash", 
         generationConfig: { 
             responseMimeType: "application/json",
             responseSchema: newsletterSchema, 
@@ -88,7 +89,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
-    // POPRAVEK 1: Časovno okno zmanjšano na 24 ur!
     const timeWindow = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
     const { data: analysisRows, error } = await supabase
       .from('media_analysis')
@@ -162,19 +162,26 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         })
     }
 
+    // TOP 45 NOVIC ZA VEČJI DOSEG NAPOVEDNIKA
     const topStories = Array.from(topicMap.values())
         .sort((a, b) => b.score - a.score)
-        .slice(0, 20);
+        .slice(0, 45);
 
     if (topStories.length === 0) {
         return res.status(200).json({ message: "Ni podatkov za newsletter." })
     }
 
-    let promptData = ""
+    // Fizična ločitev promptData
+    let promptData = "=== TOP NOVICE (Obvezno uporabi za 'intro' in 'categories') ===\n\n";
     let bestImage = "";
+    
     topStories.forEach((story, index) => {
+        if (index === 15) {
+            promptData += "=== OSTALE NOVICE (Skeniraj SAMO za 'whats_ahead' in 'closing_line') ===\n\n";
+        }
         promptData += `[STORY ID: ${index}]\n- TOPIC: ${story.topic}\n- SUMMARY: ${story.summary}\n\n`;
-        if (!bestImage && story.image_url) {
+        
+        if (!bestImage && story.image_url && index < 15) {
             bestImage = story.image_url;
         }
     })
@@ -188,20 +195,21 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       ${promptData}
       
       YOUR TASK:
-      1. 'intro': 2-3 sentences. Conversational, warm "morning anchor" tone. Highlight the most important or surprising story with an insightful editorial observation. DO NOT use cliché temporal phrases like "včerajšnji dogodki", "pretekli dan", "današnji dan prinaša" or "odmeva". Jump straight into the narrative. Example style: "Pojasnila policije o dogajanju v Fužinah odpirajo nova vprašanja, medtem ko se na mednarodnem parketu..." Do NOT start with "Dobro jutro", "Danes:" or "Jutro prinaša".
-      2. 'categories': Select 3 to 4 dynamic categories based on the day's news. 
+      1. 'intro': 2-3 sentences. Conversational, warm "morning anchor" tone. Highlight the most important or surprising story FROM THE TOP NOVICE SECTION with an insightful editorial observation. DO NOT use cliché temporal phrases like "včerajšnji dogodki", "pretekli dan", "današnji dan prinaša" or "odmeva". Jump straight into the narrative. Example style: "Pojasnila policije o dogajanju v Fužinah odpirajo nova vprašanja, medtem ko se na mednarodnem parketu..." Do NOT start with "Dobro jutro", "Danes:" or "Jutro prinaša".
+      2. 'categories': Select 3 to 4 dynamic categories. 
          CATEGORIES RULES:
+         - ONLY use stories from the '=== TOP NOVICE ===' section (IDs 0 to 14) for these categories. Do not include 'OSTALE NOVICE' here.
          - ALWAYS include "🏔️ Slovenija" FIRST.
          - NEVER create two categories with "Slovenija".
          - Use EXACTLY these icons for other categories if applicable: 🌍 for Svet/Mednarodno, 💰 for Gospodarstvo/Posel, ⚖️ for Kronika, 🏆 for Šport.
          - Provide 2-3 items per category.
       3. Each 'item.theme': 2-4 word punchy label.
-      4. Each 'item.text': 1-2 short sentences. Write in an active, present-tense, forward-looking tone (e.g., use phrases like "Danes odmeva", "V ospredju je", "Čaka nas"). Make it feel like a fresh morning briefing, NOT a historical recap of yesterday. ONLY use facts and numbers that appear verbatim in RAW NEWS.
+      4. Each 'item.text': 1-2 short sentences. Write in an active, present-tense, forward-looking tone (e.g., use phrases like "V ospredju je"). Make it feel like a fresh morning briefing, NOT a historical recap of yesterday. ONLY use facts and numbers that appear verbatim in RAW NEWS.
       5. Each 'item.story_id': EXACTLY the number from the [STORY ID: X] tag that corresponds to this news item!
-      6. 'whats_ahead': Scan the RAW NEWS explicitly for ALL upcoming events, schedules, or announcements (e.g., sports matches happening today/tomorrow, political sessions, price changes). If found, combine EVERY upcoming event you find into a cohesive 2-4 sentence paragraph so the reader is fully prepared for the day. 
-         CRITICAL RULE 1: If there are ZERO upcoming events mentioned in the RAW NEWS, DO NOT invent any. Return an EXACTLY empty string "".
+      6. 'whats_ahead': Scan ALL stories (both TOP NOVICE and OSTALE NOVICE) explicitly for ALL upcoming events, schedules, or announcements (e.g., sports matches happening today/tomorrow, political sessions, price changes). If found, combine EVERY upcoming event you find into a cohesive 2-4 sentence paragraph so the reader is fully prepared for the day. 
+         CRITICAL RULE 1: If there are ZERO upcoming events mentioned in ANY section, DO NOT invent any. Return an EXACTLY empty string "".
          CRITICAL RULE 2: DO NOT DUPLICATE. If an upcoming event is already featured as a standalone news item in the 'categories' section above, DO NOT mention it again in 'whats_ahead'. 'whats_ahead' must only contain events that are NOT already covered in the main news.
-      7. 'closing_line': 1 sentence highlighting a specific positive, interesting, or notable fact from the RAW NEWS to leave the reader with a final thought.
+      7. 'closing_line': 1 sentence highlighting a specific positive, interesting, or notable fact from ANY of the provided stories (TOP or OSTALE) to leave the reader with a final thought.
       
       HARD RULES — ANY VIOLATION MAKES THE OUTPUT INVALID:
       - NUMBERS & STATS: Never write a specific number, percentage, or sequence unless it appears word-for-word in the RAW NEWS.
@@ -219,18 +227,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     let aiData;
     try {
-        console.log("🚀 Poskušam hiter model: gemini-2.5-flash...");
-        const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash", generationConfig });
+        // UPORABA NAJNOVEJŠEGA MODELA
+        console.log("🚀 Poskušam najnovejši model: gemini-3-flash...");
+        const model = genAI.getGenerativeModel({ model: "gemini-3-flash", generationConfig });
         const result = await model.generateContent(prompt);
         aiData = JSON.parse(result.response.text());
-        console.log("✅ Uspešno uporabljen model: gemini-2.5-flash");
+        console.log("✅ Uspešno uporabljen model: gemini-3-flash");
     } catch (err: any) {
-        console.warn("⚠️ 2.5-flash ni uspel. Fallback na gemini-2.0-flash...");
+        console.warn("⚠️ 3-flash ni uspel. Fallback na gemini-2.5-flash...");
         try {
-            const fallbackModel = genAI.getGenerativeModel({ model: "gemini-2.0-flash", generationConfig });
+            const fallbackModel = genAI.getGenerativeModel({ model: "gemini-2.5-flash", generationConfig });
             const fallbackResult = await fallbackModel.generateContent(prompt);
             aiData = JSON.parse(fallbackResult.response.text());
-            console.log("✅ Uspešno uporabljen model: gemini-2.0-flash");
+            console.log("✅ Uspešno uporabljen model: gemini-2.5-flash");
         } catch (fallbackErr: any) {
             console.error("⚠️ AI napaka:", fallbackErr);
             throw new Error("Napaka pri AI generaciji: " + fallbackErr.message);
