@@ -198,9 +198,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
          CATEGORIES RULES:
          - ONLY use stories from the '=== TOP NOVICE ===' section (IDs 0 to 14) for these categories. Do not include 'OSTALE NOVICE' here.
          - ALWAYS include "🏔️ Slovenija" FIRST.
-         - NEVER create two categories with "Slovenija".
+         - STRICT THEMATIC SORTING: Sports news MUST go under '🏆 Šport'. Crime, accidents, or police news MUST go under '⚖️ Kronika'. Do not mix them.
+         - NO DUPLICATES: Never place the same news item in two different categories.
          - Use EXACTLY these icons for other categories if applicable: 🌍 for Svet/Mednarodno, 💰 for Gospodarstvo/Posel, ⚖️ for Kronika, 🏆 for Šport.
-         - Provide 2-3 items per category.
+         - Provide 2-3 items per category.   
       3. Each 'item.theme': 2-4 word punchy label.
       4. Each 'item.text': 1-2 short sentences. Write in an active, present-tense tone.
       5. Each 'item.story_id': EXACTLY the number from the [STORY ID: X] tag!
