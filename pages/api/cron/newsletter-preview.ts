@@ -70,7 +70,7 @@ TASK:
 
     // UPORABA NAJNOVEJŠEGA MODELA ZA VALIDACIJO
     const model = genAI.getGenerativeModel({ 
-        model: "gemini-3-flash", 
+        model: "gemini-3-flash-preview", // <-- POPRAVLJENO TUKAJ
         generationConfig: { 
             responseMimeType: "application/json",
             responseSchema: newsletterSchema, 
@@ -228,13 +228,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     let aiData;
     try {
         // UPORABA NAJNOVEJŠEGA MODELA
-        console.log("🚀 Poskušam najnovejši model: gemini-3-flash...");
-        const model = genAI.getGenerativeModel({ model: "gemini-3-flash", generationConfig });
+        console.log("🚀 Poskušam najnovejši model: gemini-3-flash-preview...");
+        const model = genAI.getGenerativeModel({ model: "gemini-3-flash-preview", generationConfig }); // <-- POPRAVLJENO TUKAJ
         const result = await model.generateContent(prompt);
         aiData = JSON.parse(result.response.text());
-        console.log("✅ Uspešno uporabljen model: gemini-3-flash");
+        console.log("✅ Uspešno uporabljen model: gemini-3-flash-preview");
     } catch (err: any) {
-        console.warn("⚠️ 3-flash ni uspel. Fallback na gemini-2.5-flash...");
+        console.warn("⚠️ 3-flash-preview ni uspel. Fallback na gemini-2.5-flash...");
         try {
             const fallbackModel = genAI.getGenerativeModel({ model: "gemini-2.5-flash", generationConfig });
             const fallbackResult = await fallbackModel.generateContent(prompt);
