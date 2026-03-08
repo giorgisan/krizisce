@@ -15,7 +15,7 @@ const resend = new Resend(process.env.RESEND_API_KEY)
 
 const BRAND_COLOR = "#ea580c"; 
 
-// --- SCHEMA DEFINICIJA (PREMAKNJENA NA VRH IN DODAN STORY_ID) ---
+// --- SCHEMA DEFINICIJA ---
 const newsletterSchema = {
     type: SchemaType.OBJECT,
     properties: {
@@ -88,7 +88,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
-    const timeWindow = new Date(Date.now() - 30 * 60 * 60 * 1000).toISOString()
+    // POPRAVEK 1: Časovno okno zmanjšano na 24 ur!
+    const timeWindow = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
     const { data: analysisRows, error } = await supabase
       .from('media_analysis')
       .select('data')
@@ -118,7 +119,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                     const existing = topicMap.get(t);
                     
                     if (existing) {
-                        // NOVO: Filtriranje podvojenih virov s pomočjo obstoječega Seta 'uniqueUrls'
                         if (Array.isArray(item.sources)) {
                             item.sources.forEach((s: any) => {
                                 const url = typeof s === 'string' ? s : s.url;
@@ -129,14 +129,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                             });
                         }
                         
-                        // Score je sedaj realno število unikatnih virov!
                         existing.score = existing.sources.length || 1;
 
                         if (!existing.image_url && item.main_image && item.main_image.startsWith('http')) {
                             existing.image_url = item.main_image;
                         }
                     } else {
-                        // Prvič vidimo to temo, nastavimo Set za deduplikacijo
                         const uniqueUrls = new Set<string>();
                         const cleanSources: any[] = [];
                         
@@ -155,7 +153,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                             summary: item.summary,
                             image_url: item.main_image && item.main_image.startsWith('http') ? item.main_image : null,
                             sources: cleanSources,
-                            uniqueUrls: uniqueUrls, // Shranimo set za kasnejše preverjanje
+                            uniqueUrls: uniqueUrls, 
                             score: cleanSources.length || 1
                         })
                     }
@@ -200,7 +198,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       3. Each 'item.theme': 2-4 word punchy label.
       4. Each 'item.text': 1-2 short sentences. Write in an active, present-tense, forward-looking tone (e.g., use phrases like "Danes odmeva", "V ospredju je", "Čaka nas"). Make it feel like a fresh morning briefing, NOT a historical recap of yesterday. ONLY use facts and numbers that appear verbatim in RAW NEWS.
       5. Each 'item.story_id': EXACTLY the number from the [STORY ID: X] tag that corresponds to this news item!
-      6. 'whats_ahead': Scan the RAW NEWS explicitly for ALL upcoming events, schedules, or announcements (e.g., sports matches happening today/tomorrow, political sessions, price changes). If found, combine EVERY upcoming event you find into a cohesive 2-4 sentence paragraph so the reader is fully prepared for the day. CRITICAL RULE: If there are ZERO upcoming events mentioned in the RAW NEWS, DO NOT invent any. In that case, return an EXACTLY empty string "".
+      6. 'whats_ahead': Scan the RAW NEWS explicitly for ALL upcoming events, schedules, or announcements (e.g., sports matches happening today/tomorrow, political sessions, price changes). If found, combine EVERY upcoming event you find into a cohesive 2-4 sentence paragraph so the reader is fully prepared for the day. 
+         CRITICAL RULE 1: If there are ZERO upcoming events mentioned in the RAW NEWS, DO NOT invent any. Return an EXACTLY empty string "".
+         CRITICAL RULE 2: DO NOT DUPLICATE. If an upcoming event is already featured as a standalone news item in the 'categories' section above, DO NOT mention it again in 'whats_ahead'. 'whats_ahead' must only contain events that are NOT already covered in the main news.
       7. 'closing_line': 1 sentence highlighting a specific positive, interesting, or notable fact from the RAW NEWS to leave the reader with a final thought.
       
       HARD RULES — ANY VIOLATION MAKES THE OUTPUT INVALID:
@@ -453,7 +453,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const adminUrl = `https://krizisce.si/api/cron/send-newsletter?id=${insertedNewsletter.id}&key=${process.env.CRON_SECRET}`;
     
-    // NOVO: URL, ki ponovno sproži TO ISTO skripto za nov predogled
     const regenerateUrl = `https://krizisce.si/api/cron/newsletter-preview?key=${process.env.CRON_SECRET}`;
     
     const adminPreviewHtml = finalEmailHtml.replace('{{USER_ID}}', 'test_admin_id');
