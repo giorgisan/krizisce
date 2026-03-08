@@ -200,10 +200,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
          - ONLY use stories from the '=== TOP NOVICE ===' section.
          - You MUST ONLY use category titles from this exact list: "🏔️ Slovenija", "🌍 Svet", "💰 Gospodarstvo", "⚖️ Kronika", "🏆 Šport".
          - ONLY create a category if you have at least 2 highly relevant stories for it. Do NOT force 5 categories if the news does not strongly support them.
-         - DO NOT invent new categories. DO NOT combine them (e.g., never write "Svet in Kronika").
          - ALWAYS make "🏔️ Slovenija" the FIRST category.
          - STRICT THEMATIC SORTING: Sports news MUST go into "🏆 Šport". Crime, accidents, or police news MUST go into "⚖️ Kronika".
-         - NO DUPLICATES: Never place the same news item in two different categories.
+         - NO CATEGORY DUPLICATES: Never place the same news item in two different categories.
+         - SEMANTIC DEDUPLICATION (CRITICAL): The RAW NEWS might contain the exact same story twice under different IDs/topics (e.g., two stories about the Prime Minister resigning, or two stories about the same war). YOU MUST RECOGNIZE THIS. If two stories are fundamentally about the same event, MERGE them into a SINGLE item in your output. NEVER write about the same event twice within the same category or across different categories.
          - Provide 2-3 items per category.
       3. Each 'item.theme': 2-4 word punchy label.
       4. Each 'item.text': 1-2 short sentences. Write in an active, present-tense tone.
