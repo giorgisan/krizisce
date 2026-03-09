@@ -193,7 +193,7 @@ function AnalysisCard({ item, setPreviewUrl }: { item: AnalysisItem, setPreviewU
               const cleanTitle = source.title.replace(/^["']|["']$/g, '');
 
               return (
-              <div key={sIdx} className="group/source flex flex-col p-3 -mx-3 hover:bg-gray-50 dark:hover:bg-gray-800/50 rounded-lg transition-colors border border-transparent hover:border-gray-100 dark:hover:border-gray-700/50">
+              <div key={sIdx} className="group/source flex flex-col p-3 -mx-3 hover:bg-brand/5 dark:hover:bg-brand/10 rounded-lg transition-all border-l-4 border-transparent hover:border-brand">
                 
                 <div className="flex items-start gap-3">
                   <div className="relative w-5 h-5 shrink-0 mt-0.5">
