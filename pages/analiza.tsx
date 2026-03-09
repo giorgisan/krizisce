@@ -76,12 +76,12 @@ function SourceLogoPin({ source, value, setPreviewUrl }: { source: SourceItem, v
                 onClick={(e) => { e.preventDefault(); e.stopPropagation(); setPreviewUrl(source.url); }}
                 className="w-6 h-6 md:w-7 md:h-7 bg-white rounded shadow-sm border-[0.5px] border-gray-300 dark:border-gray-600 flex items-center justify-center cursor-pointer transform group-hover/pin:scale-125 transition-transform overflow-hidden relative"
             >
-                {/* Fiksno monokromatski (grayscale) logo */}
+                {/* LOGOTIPI SO SPET BARVNI (brez grayscale) */}
                 <Image 
                     src={getLogoSrc(source.source)} 
                     alt={source.source} 
                     fill 
-                    className="object-contain p-[1.5px] grayscale" 
+                    className="object-contain p-[1.5px]" 
                     unoptimized 
                 />
                 <div className="absolute inset-0 opacity-0 group-hover/pin:opacity-100 bg-white/90 flex items-center justify-center transition-opacity duration-200">
@@ -160,14 +160,13 @@ function AnalysisCard({ item, idx, setPreviewUrl }: { item: AnalysisItem, idx: n
   return (
     <article id={newsId} className={`relative mb-6 md:mb-8 group/card transition-all duration-500 ${isFocused ? 'ring-2 ring-brand shadow-xl scale-[1.005]' : ''}`}>
       
-      {/* EDITORIAL ŠTEVILKA (Premium, čista, brez oranžnega ozadja) */}
+      {/* EDITORIAL ŠTEVILKA */}
       <div className="absolute -top-3 -left-3 w-7 h-7 md:w-8 md:h-8 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 rounded shadow z-20 flex items-center justify-center font-serif font-bold text-sm border border-gray-200 dark:border-gray-600">
         {idx + 1}
       </div>
 
       <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700/60 rounded-xl shadow-sm flex flex-col relative overflow-visible">
         
-        {/* ZGORNJI DEL: Kompakten Signal */}
         <div className="p-4 md:p-6 flex flex-col pl-7 md:pl-10">
           
           <h2 className="text-[18px] md:text-[20px] font-serif font-bold text-gray-900 dark:text-white leading-snug mb-3 mt-0.5">
@@ -202,7 +201,6 @@ function AnalysisCard({ item, idx, setPreviewUrl }: { item: AnalysisItem, idx: n
           </div>
         </div>
 
-        {/* SPODNJI DEL: Šum in Radar */}
         <div className="px-5 md:px-7 py-4 md:py-5 border-t border-gray-100 dark:border-gray-700/50 bg-gray-50/50 dark:bg-[#1e293b]/20 rounded-b-xl flex flex-col">
             
             <SpectrumLine 
@@ -251,25 +249,26 @@ export default function AnalizaPage({ analysis, lastUpdated }: Props) {
       <Header activeCategory="vse" activeSource="Vse" />
       <main className="min-h-screen bg-[#F9FAFB] dark:bg-gray-900 pb-20">
         
-        {/* HEADER */}
-        <div className="bg-white dark:bg-gray-800/60 border-b border-gray-200 dark:border-gray-800 py-5 md:py-6">
-            <div className="max-w-[800px] mx-auto px-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
+        {/* HEADER: Z umirjeno, monokromatsko ikono in malce večjim naslovom */}
+        <div className="bg-white dark:bg-gray-800/60 border-b border-gray-200 dark:border-gray-800 py-6 md:py-8">
+            <div className="max-w-[800px] mx-auto px-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 
                 <div className="flex-1 min-w-0">
-                  <h1 className="text-xl md:text-2xl font-serif font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                      <svg className="w-5 h-5 text-brand shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                  <h1 className="text-2xl md:text-3xl font-serif font-bold text-gray-900 dark:text-white flex items-center gap-3">
+                      {/* MONOKROMATSKA IKONA */}
+                      <svg className="w-6 h-6 text-gray-400 dark:text-gray-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
                           <path strokeLinecap="round" strokeLinejoin="round" d="M15.042 21.672 13.684 16.6m0 0-2.51 2.225.569-9.47 5.227 7.917-3.286-.672Zm-7.518-.267A8.25 8.25 0 1 1 20.25 10.5M8.288 14.212A5.25 5.25 0 1 1 17.25 10.5" />
                       </svg>
                       Medijski Spekter
                   </h1>
-                  <p className="text-[12px] text-gray-500 dark:text-gray-400 mt-1 max-w-xl leading-snug">
+                  <p className="text-[12.5px] md:text-[13px] text-gray-500 dark:text-gray-400 mt-2 max-w-xl leading-relaxed">
                     Ena novica. Več naslovov. Kdo pretirava? Destiliramo dejstva in razkrivamo šum.
                   </p>
                 </div>
                 
-                <div className="w-full md:w-auto flex flex-row-reverse md:flex-col items-center md:items-end justify-between md:justify-start gap-2 mt-1 md:mt-0">
+                <div className="w-full md:w-auto flex flex-row-reverse md:flex-col items-center md:items-end justify-between md:justify-start gap-3 mt-2 md:mt-0">
                     {lastUpdated && (
-                        <div className="text-[9.5px] md:text-[10px] font-mono text-gray-500 flex items-center gap-1.5 border border-gray-100 dark:border-gray-700 px-2 py-1.5 rounded bg-gray-50 dark:bg-gray-800/50 shrink-0">
+                        <div className="text-[9.5px] md:text-[10px] font-mono text-gray-500 flex items-center gap-1.5 border border-gray-100 dark:border-gray-700 px-2.5 py-1.5 rounded bg-gray-50 dark:bg-gray-800/50 shrink-0">
                             <span className="relative flex h-1.5 w-1.5">
                                 <span className="absolute inline-flex h-full w-full rounded-full bg-brand opacity-75 animate-ping"></span>
                                 <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-brand"></span>
@@ -277,15 +276,15 @@ export default function AnalizaPage({ analysis, lastUpdated }: Props) {
                             Osveženo: {new Date(lastUpdated).toLocaleTimeString('sl-SI', {hour: '2-digit', minute:'2-digit'})}
                         </div>
                     )}
-                    <Link href="/" className="px-2 py-1 border border-transparent rounded-md text-[9.5px] font-bold uppercase tracking-widest text-gray-400 hover:text-brand transition-all flex items-center gap-1">
-                        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" /></svg>
+                    <Link href="/" className="px-3 py-1.5 border border-transparent rounded-md text-[10px] md:text-[11px] font-bold uppercase tracking-widest text-gray-400 hover:text-brand transition-all flex items-center gap-1.5">
+                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" /></svg>
                         Nazaj
                     </Link>
                 </div>
             </div>
         </div>
 
-        <div className="max-w-[800px] mx-auto px-4 mt-6 md:mt-8">
+        <div className="max-w-[800px] mx-auto px-4 mt-8 md:mt-10">
           {validAnalysis.length === 0 ? (
             <div className="text-center py-20 text-gray-400 font-mono text-sm italic">Pridobivam najnovejše analize...</div>
           ) : (
