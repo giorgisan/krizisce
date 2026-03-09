@@ -63,7 +63,7 @@ const getLogoSrc = (sourceName: string) => {
   return '/logo.png';
 }
 
-// 1. KOMPONENTA: Animiran Kupček Logotipov (Z dvigom in Z-index Fixom)
+// 1. KOMPONENTA: Animiran Kupček Logotipov
 function ClusterGroup({ cluster, setPreviewUrl }: { cluster: { value: number, sources: SourceItem[] }, setPreviewUrl: (url: string) => void }) {
     const [isHovered, setIsHovered] = useState(false);
     const N = cluster.sources.length;
@@ -73,13 +73,11 @@ function ClusterGroup({ cluster, setPreviewUrl }: { cluster: { value: number, so
 
     return (
         <div 
-            // KLJUČEN POPRAVEK: Ko je isHovered = true, dobi z-[100] in preskoči vse sosednje logotipe!
             className={`absolute top-1/2 left-0 -translate-y-1/2 -translate-x-1/2 w-8 h-8 cursor-pointer ${isHovered ? 'z-[100]' : 'z-10'}`}
             style={{ left: `${cluster.value}%` }}
             onMouseEnter={() => setIsHovered(true)}
             onMouseLeave={() => setIsHovered(false)}
         >
-            {/* Hitbox - Nevidno polje, ki je zdaj malce višje, da pokrije dvignjene logotipe in prepreči utripanje */}
             {isHovered && N > 1 && (
                 <div 
                     className="absolute top-1/2 -translate-y-1/2"
@@ -88,7 +86,7 @@ function ClusterGroup({ cluster, setPreviewUrl }: { cluster: { value: number, so
                         width: `${N * 36 + 16}px`, 
                         left: direction === 1 ? '-8px' : 'auto',
                         right: direction === -1 ? '-8px' : 'auto',
-                        marginTop: '-12px' // Pomik navzgor
+                        marginTop: '-12px' 
                     }}
                 />
             )}
@@ -96,19 +94,14 @@ function ClusterGroup({ cluster, setPreviewUrl }: { cluster: { value: number, so
             {cluster.sources.map((source, idx) => {
                 const cleanTitle = source.title.replace(/^["']|["']$/g, '');
                 
-                // Horizontalni odmik v odstotkih širine ikone
                 const xOffsetPercent = N > 1 ? idx * 115 * direction : 0;
-                
-                // DVIG (Lift): Če gremo čez miško in je več virov, logotipe dvignemo za 14px v zrak!
                 const yLift = (isHovered && N > 1) ? '-14px' : '0px';
                 
                 return (
                     <div 
                         key={idx}
-                        // Dodan hover:!z-[110] zagotavlja, da je tisti logo, nad katerim si specifično z miško, čisto spredaj
                         className="absolute top-1/2 left-1/2 transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] group/pin hover:!z-[110]"
                         style={{
-                            // Prej se je premikal samo levo/desno. Zdaj dodajamo še yLift!
                             transform: isHovered 
                                 ? `translate(calc(-50% + ${xOffsetPercent}%), calc(-50% + ${yLift}))` 
                                 : `translate(calc(-50% + ${idx * 2}px), calc(-50% - ${idx * 2}px))`,
@@ -133,7 +126,6 @@ function ClusterGroup({ cluster, setPreviewUrl }: { cluster: { value: number, so
                             </div>
                         </div>
                         
-                        {/* Tooltip */}
                         <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-56 md:w-60 p-2.5 md:p-3 bg-gray-900 text-white text-[11px] leading-snug rounded-xl opacity-0 group-hover/pin:opacity-100 pointer-events-none group-hover/pin:pointer-events-auto transition-opacity shadow-2xl flex flex-col gap-1.5">
                             <div className="font-bold text-brand uppercase tracking-wider text-[8.5px]">{source.source}</div>
                             <div className="text-gray-100 font-medium text-[11px] md:text-[11.5px]">"{cleanTitle}"</div>
@@ -153,7 +145,6 @@ function ClusterGroup({ cluster, setPreviewUrl }: { cluster: { value: number, so
                 )
             })}
             
-            {/* Če je v kupčku več virov in NE hoveramo, prikažemo majhno številko */}
             {!isHovered && N > 1 && (
                 <div className="absolute -top-1 -right-1 md:-right-2 bg-brand text-white text-[8px] font-bold w-3.5 h-3.5 flex items-center justify-center rounded-full shadow-sm z-50">
                     {N}
@@ -163,7 +154,7 @@ function ClusterGroup({ cluster, setPreviewUrl }: { cluster: { value: number, so
     )
 }
 
-// 2. KOMPONENTA: Kontinuirana premica v Spektru
+// 2. KOMPONENTA: Kontinuirana premica v Spektru (Izboljšan "Zračni" dizajn)
 function SpectrumLine({ title, leftLabel, rightLabel, propKey, gradient, sources, setPreviewUrl }: any) {
     const clusters: { value: number, sources: SourceItem[] }[] = [];
     
@@ -180,17 +171,14 @@ function SpectrumLine({ title, leftLabel, rightLabel, propKey, gradient, sources
     });
 
     return (
-        <div className="mb-5 last:mb-0">
-            <div className="flex items-center justify-between mb-1.5">
-                <span className="text-[10px] font-bold text-gray-800 dark:text-gray-200 uppercase tracking-widest">{title}</span>
+        <div className="mb-7 md:mb-9 last:mb-0">
+            {/* 1. NASLOV (ZGORAJ) z večjim prostorom (mb-3.5) */}
+            <div className="mb-3.5">
+                <span className="text-[10px] md:text-[11px] font-black text-gray-800 dark:text-gray-200 uppercase tracking-widest">{title}</span>
             </div>
             
+            {/* 2. PREMICA IN IKONE (V SREDINI) */}
             <div className="relative w-full px-2">
-                <div className="flex justify-between text-[8.5px] md:text-[9px] font-bold uppercase tracking-wider text-gray-400 mb-1.5">
-                    <span className="w-1/3 text-left">{leftLabel}</span>
-                    <span className="w-1/3 text-right">{rightLabel}</span>
-                </div>
-                
                 <div className={`h-1.5 w-full rounded-full ${gradient} relative shadow-inner`}>
                     <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[1.5px] h-3 bg-gray-900/20 dark:bg-white/20 rounded-full"></div>
                     
@@ -201,6 +189,12 @@ function SpectrumLine({ title, leftLabel, rightLabel, propKey, gradient, sources
                             setPreviewUrl={setPreviewUrl} 
                         />
                     ))}
+                </div>
+                
+                {/* 3. LABELE (SPODAJ) z razmikom od črte (mt-3) */}
+                <div className="flex justify-between text-[8px] md:text-[9px] font-semibold text-gray-400 dark:text-gray-500 mt-3 px-0.5 uppercase tracking-wider">
+                    <span className="w-1/2 text-left">{leftLabel}</span>
+                    <span className="w-1/2 text-right">{rightLabel}</span>
                 </div>
             </div>
         </div>
@@ -265,7 +259,7 @@ function AnalysisCard({ item, idx, setPreviewUrl }: { item: AnalysisItem, idx: n
           </div>
         </div>
 
-        <div className="px-6 md:px-10 py-5 md:py-7 border-t border-gray-100 dark:border-gray-700/50 bg-gray-50/50 dark:bg-[#1e293b]/20 rounded-b-xl flex flex-col">
+        <div className="px-6 md:px-10 py-6 md:py-8 border-t border-gray-100 dark:border-gray-700/50 bg-gray-50/50 dark:bg-[#1e293b]/20 rounded-b-xl flex flex-col">
             
             <SpectrumLine 
                 title="Informacija" 
