@@ -108,14 +108,11 @@ function AnalysisCard({ item, idx, setPreviewUrl }: { item: AnalysisItem, idx: n
 
   return (
     <article id={newsId} className={`relative mb-10 group/card transition-all duration-500 ${isFocused ? 'ring-2 ring-brand shadow-2xl' : ''}`}>
-      {/* 1. EDITORIAL ŠTEVILKA (Premium look) */}
       <div className="absolute -top-3 -left-3 w-9 h-9 bg-brand text-white rounded shadow-xl z-20 flex items-center justify-center font-serif font-black text-sm border-2 border-[#F9FAFB] dark:border-gray-900">
         {idx + 1}
       </div>
 
       <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700/60 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow flex flex-col xl:flex-row relative">
-        
-        {/* LEVI BLOK */}
         <div className="p-6 md:p-8 flex-1 border-b xl:border-b-0 xl:border-r border-gray-100 dark:border-gray-700/50 flex flex-col bg-slate-50/30 dark:bg-slate-900/20 pl-10 md:pl-12">
           
           <div className="flex items-center justify-between mb-4">
@@ -123,12 +120,11 @@ function AnalysisCard({ item, idx, setPreviewUrl }: { item: AnalysisItem, idx: n
                 <span className="w-1.5 h-1.5 rounded-full bg-brand animate-pulse"></span>
                 <span className="text-[10px] font-bold uppercase tracking-widest text-brand">Bistvo zgodbe</span>
               </div>
-
               <button 
                 onClick={handleShare}
                 className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-gray-400 hover:text-brand transition-all border border-gray-200 dark:border-gray-700 px-3 py-1.5 rounded-full bg-white dark:bg-gray-800 shadow-sm"
               >
-                {copied ? 'Povezava kopirana!' : 'Deli novico'}
+                {copied ? 'Kopirano!' : 'Deli novico'}
               </button>
           </div>
           
@@ -142,7 +138,6 @@ function AnalysisCard({ item, idx, setPreviewUrl }: { item: AnalysisItem, idx: n
                     <img src={proxiedImage(item.main_image, 400, 300, 1)} alt="" className="w-full h-full object-cover" />
                 </div>
               )}
-              
               <div className="flex-1">
                   <div className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-3">Ključna dejstva</div>
                   <ul className="space-y-2">
@@ -155,29 +150,30 @@ function AnalysisCard({ item, idx, setPreviewUrl }: { item: AnalysisItem, idx: n
                   </ul>
               </div>
           </div>
-          
-          <div className="mt-auto bg-white/60 dark:bg-gray-800/60 rounded-lg border border-gray-100 dark:border-gray-700/50 p-4">
-              <p className="text-[12px] text-gray-600 dark:text-gray-400 leading-relaxed italic">
-                  <span className="font-bold text-gray-400 not-italic uppercase text-[10px] mr-2">Kontekst:</span>
-                  {item.framing_analysis}
-              </p>
+          <div className="mt-auto bg-white/60 dark:bg-gray-800/60 rounded-lg border border-gray-100 dark:border-gray-700/50 p-4 italic text-[12px] text-gray-600 dark:text-gray-400">
+              <span className="font-bold text-gray-400 not-italic uppercase text-[10px] mr-2">Kontekst:</span>
+              {item.framing_analysis}
           </div>
         </div>
 
-        {/* DESNI BLOK: Radar */}
         <div className="w-full xl:w-[420px] p-6 md:p-8 bg-white dark:bg-gray-800 shrink-0 flex flex-col">
           <div className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-4 border-b border-gray-100 dark:border-gray-800 pb-2">
               Medijski Radar ({item.sources?.length || 0})
           </div>
-          
           <div className="flex flex-col gap-4">
             {visibleSources?.map((source, sIdx) => {
                 const cleanTitle = source.title.replace(/^["']|["']$/g, '');
                 return (
                 <div key={sIdx} className="group/source flex flex-col p-3 -mx-3 hover:bg-brand/5 dark:hover:bg-brand/10 rounded-lg transition-all border-l-4 border-transparent hover:border-brand">
                   <div className="flex items-start gap-3">
-                    <div className="relative w-5 h-5 shrink-0 mt-0.5">
-                      <Image src={getLogoSrc(source.source)} alt="" fill className="object-contain grayscale group-hover/source:grayscale-0 transition-all" unoptimized />
+                    {/* VRNJENA LOGIKA OKO + POVEČAVA */}
+                    <div className="relative w-5 h-5 shrink-0 mt-0.5 transition-transform duration-200 group-hover/source:scale-125">
+                      <Image src={getLogoSrc(source.source)} alt="" fill className="object-contain grayscale group-hover/source:grayscale-0 group-hover/source:opacity-0 transition-all" unoptimized />
+                      <div className="absolute inset-0 opacity-0 group-hover/source:opacity-100 flex items-center justify-center transition-opacity">
+                        <button onClick={() => setPreviewUrl(source.url)} className="text-brand">
+                          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="3"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12Z" /><circle cx="12" cy="12" r="3" /></svg>
+                        </button>
+                      </div>
                     </div>
                     <div className="flex-1 min-w-0">
                       <a href={source.url} target="_blank" rel="noopener" className="text-[13.5px] font-medium text-gray-800 dark:text-gray-200 leading-snug hover:text-brand transition-colors block mb-2">
@@ -189,7 +185,6 @@ function AnalysisCard({ item, idx, setPreviewUrl }: { item: AnalysisItem, idx: n
                 </div>
               )})}
           </div>
-
           {hasMore && (
              <button onClick={() => setShowAllSources(!showAllSources)} className="mt-6 text-[10px] font-bold uppercase tracking-widest text-brand hover:underline self-center bg-brand/5 px-4 py-2 rounded-full">
                 {showAllSources ? 'Zapri' : `Poglej še ${(item.sources?.length || 0) - 4} vire`}
@@ -210,8 +205,6 @@ export default function AnalizaPage({ analysis, lastUpdated }: Props) {
       <Head><title>Medijski Radar | Križišče</title></Head>
       <Header activeCategory="vse" activeSource="Vse" />
       <main className="min-h-screen bg-[#F9FAFB] dark:bg-gray-900 pb-20">
-        
-        {/* HEADER: Vrnjena premium estetika */}
         <div className="bg-white dark:bg-gray-800/60 border-b border-gray-200 dark:border-gray-800 py-10 md:py-14">
             <div className="max-w-[1200px] mx-auto px-4">
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
@@ -221,17 +214,13 @@ export default function AnalizaPage({ analysis, lastUpdated }: Props) {
                             Neodvisna analiza informacijskega šuma. Destiliramo <strong>Bistvo zgodbe</strong> in razkrivamo <strong>Medijski DNK</strong> vsakega vira.
                         </p>
                     </div>
-                    
-                    <div className="flex flex-col sm:flex-row items-center gap-4 w-full md:w-auto">
-                        {/* Gumb NAZAJ */}
-                        <Link href="/" className="w-full sm:w-auto px-6 py-2.5 border border-gray-200 dark:border-gray-700 rounded-full shadow-sm text-[11px] font-bold uppercase tracking-widest text-gray-600 dark:text-gray-300 hover:text-brand hover:border-brand transition-all flex items-center justify-center gap-2 bg-white dark:bg-gray-800">
+                    <div className="flex flex-col sm:flex-row items-center gap-4">
+                        <Link href="/" className="px-6 py-2.5 border border-gray-200 dark:border-gray-700 rounded-full shadow-sm text-[11px] font-bold uppercase tracking-widest text-gray-600 dark:text-gray-300 hover:text-brand transition-all flex items-center gap-2 bg-white dark:bg-gray-800">
                             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" /></svg>
                             Domov
                         </Link>
-
-                        {/* OSVEŽENO: Ponovno tukaj */}
                         {lastUpdated && (
-                            <div className="w-full sm:w-auto text-[11px] font-mono text-gray-500 border border-gray-200 dark:border-gray-700 px-4 py-2.5 rounded-full bg-white dark:bg-gray-800 shadow-sm flex items-center justify-center gap-2">
+                            <div className="text-[11px] font-mono text-gray-500 border border-gray-200 dark:border-gray-700 px-4 py-2.5 rounded-full bg-white dark:bg-gray-800 shadow-sm flex items-center gap-2">
                                 <span className="relative flex h-2 w-2">
                                     <span className="absolute inline-flex h-full w-full rounded-full bg-brand opacity-75 animate-ping"></span>
                                     <span className="relative inline-flex rounded-full h-2 w-2 bg-brand"></span>
@@ -243,18 +232,12 @@ export default function AnalizaPage({ analysis, lastUpdated }: Props) {
                 </div>
             </div>
         </div>
-
         <div className="max-w-[1200px] mx-auto px-4 mt-12">
-          {validAnalysis.length === 0 ? (
-            <div className="text-center py-20 text-gray-400 font-mono text-sm italic">Pridobivam najnovejše analize...</div>
-          ) : (
-            validAnalysis.map((item, idx) => (
-              <AnalysisCard key={idx} item={item} idx={idx} setPreviewUrl={setPreviewUrl} />
-            ))
-          )}
+          {validAnalysis.map((item, idx) => (
+            <AnalysisCard key={idx} item={item} idx={idx} setPreviewUrl={setPreviewUrl} />
+          ))}
         </div>
       </main>
-
       {previewUrl && <ArticlePreview url={previewUrl} onClose={() => setPreviewUrl(null)} />}
       <Footer />
     </>
@@ -267,11 +250,5 @@ export const getStaticProps: GetStaticProps = async () => {
   if (error || !data) return { props: { analysis: null, lastUpdated: null }, revalidate: 60 }
   let content = data.data;
   if (typeof content === 'string') { try { content = JSON.parse(content); } catch {} }
-  return { 
-    props: { 
-        analysis: Array.isArray(content) ? content : (content as any).data || null, 
-        lastUpdated: data.created_at 
-    }, 
-    revalidate: 60 
-  }
+  return { props: { analysis: Array.isArray(content) ? content : (content as any).data || null, lastUpdated: data.created_at }, revalidate: 60 }
 }
