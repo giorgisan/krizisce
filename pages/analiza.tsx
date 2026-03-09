@@ -97,6 +97,8 @@ function AnalysisCard({ item, idx, setPreviewUrl }: { item: AnalysisItem, idx: n
   const newsId = `novica-${idx + 1}`;
   const isFocused = router.asPath.includes(`#${newsId}`);
   
+  // TOLE JE MANJKALO:
+  const hasMore = (item.sources?.length || 0) > 4;
   const visibleSources = showAllSources ? item.sources : item.sources?.slice(0, 4);
   const bullets = item.summary.split('. ').filter(s => s.length > 5).map(s => s.trim() + (s.endsWith('.') ? '' : '.'));
 
