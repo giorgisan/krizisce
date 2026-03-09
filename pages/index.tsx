@@ -419,11 +419,23 @@ export default function Home({ initialNews, initialTrendingWords, initialTrendin
 
                      {/* Desni stolpec - Medijski presek Banner (Prikazan SAMO na desktopu, skrit na mobilcu) */}
                      <div className="hidden lg:block w-full lg:w-[340px] xl:w-[380px] shrink-0">
-                         <Link href="/analiza" prefetch={false} className="group block h-full bg-white/60 dark:bg-gray-800/40 backdrop-blur-sm border border-gray-200/50 dark:border-gray-700/50 rounded-xl p-4 hover:shadow-md hover:bg-white dark:hover:bg-gray-800 hover:border-brand/30 transition-all duration-300 overflow-hidden relative">
-                             <div className="absolute inset-0 bg-gradient-to-r from-brand/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                             <div className="flex items-center justify-between gap-4 relative z-10 h-full">
-                                 <div className="flex items-center gap-4">
-                                     <div className="w-10 h-10 rounded-full bg-white/80 dark:bg-gray-800/50 text-gray-400 group-hover:bg-brand/10 group-hover:text-brand flex items-center justify-center shrink-0 transition-all duration-300 border border-gray-100/50 dark:border-gray-700/50 group-hover:border-brand/20 shadow-sm group-hover:shadow-none">
+                         <Link 
+                            href="/analiza" 
+                            prefetch={false} 
+                            // P-[1px] ustvari prostor za rob, overflow-hidden odreže zunanji del vrtečega kroga
+                            className="group block h-full relative p-[1px] rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow duration-300"
+                         >
+                             {/* Animiran obroč v ozadju (vrteči "komet" preliv) */}
+                             <div className="absolute top-1/2 left-1/2 w-[250%] h-[250%] -translate-x-1/2 -translate-y-1/2 animate-[spin_4s_linear_infinite] bg-[conic-gradient(from_0deg,transparent_0%,transparent_75%,currentColor_100%)] text-brand opacity-40 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"></div>
+                             
+                             {/* Notranja kartica (prekrije sredino, pusti vidno le 1px animirane obrobe) */}
+                             <div className="relative z-10 h-full bg-white/95 dark:bg-gray-800/95 backdrop-blur-md rounded-[11px] p-4 flex items-center justify-between gap-4 transition-colors">
+                                 
+                                 {/* Nežen hover sijaj znotraj same kartice */}
+                                 <div className="absolute inset-0 bg-gradient-to-r from-brand/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-[11px] pointer-events-none" />
+                                 
+                                 <div className="flex items-center gap-4 relative z-10">
+                                     <div className="w-10 h-10 rounded-full bg-white dark:bg-gray-700/50 text-gray-400 group-hover:bg-brand/10 group-hover:text-brand flex items-center justify-center shrink-0 transition-all duration-300 border border-gray-100/50 dark:border-gray-600/50 group-hover:border-brand/20 shadow-sm group-hover:shadow-none">
                                          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
                                              <path strokeLinecap="round" strokeLinejoin="round" d="M15.042 21.672 13.684 16.6m0 0-2.51 2.225.569-9.47 5.227 7.917-3.286-.672Zm-7.518-.267A8.25 8.25 0 1 1 20.25 10.5M8.288 14.212A5.25 5.25 0 1 1 17.25 10.5" />
                                          </svg>
@@ -433,13 +445,13 @@ export default function Home({ initialNews, initialTrendingWords, initialTrendin
                                          <p className="text-[12px] text-gray-500/80 dark:text-gray-400/80 transition-colors group-hover:text-gray-500 dark:group-hover:text-gray-400">Ena novica. Več naslovov. Kdo pretirava?</p>
                                      </div>
                                  </div>
-                                 <div className="shrink-0 text-brand text-[11px] font-bold uppercase tracking-wider flex items-center gap-1 group-hover:translate-x-1 transition-all opacity-70 group-hover:opacity-100">
+                                 
+                                 <div className="shrink-0 text-brand text-[11px] font-bold uppercase tracking-wider flex items-center gap-1 group-hover:translate-x-1 transition-all opacity-70 group-hover:opacity-100 relative z-10">
                                      Preveri <span className="text-lg leading-none">›</span>
                                  </div>
                              </div>
                          </Link>
                      </div>
-                 </div>
             )}
 
             {/* --- GLAVNA GRID SEKCIJA --- */}
