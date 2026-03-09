@@ -68,7 +68,7 @@ TASK:
 5. Return the corrected OUTPUT as valid JSON matching the exact original structure. If nothing to fix, return OUTPUT unchanged.
 `;
 
-    // OPTIMIZACIJA: Validator uporablja 2.5-flash za maksimalno hitrost (preprečitev 4-minutnega izvajanja in timeouta)
+    // OPTIMIZACIJA: Validator uporablja 2.5-flash za maksimalno hitrost
     const model = genAI.getGenerativeModel({ 
         model: "gemini-2.5-flash", 
         generationConfig: { 
@@ -98,8 +98,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     if (error) throw error
 
-    const topicMap = new Map<string, any>()
-    
+    // NOVA LOGIKA ZDRUŽEVANJA PO URL-jih in KLJUČNIH BESEDAH
+    const mergedTopics: any[] = [];
+    const urlToTopicIndex = new Map<string, number>();
+
     if (analysisRows) {
         analysisRows.forEach(row => {
             let items = [];
@@ -114,48 +116,86 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
             if (Array.isArray(items)) {
                 items.forEach(item => {
-                    if (!item.topic) return;
-                    const t = item.topic;
-                    const existing = topicMap.get(t);
+                    if (!item.topic || !Array.isArray(item.sources)) return;
+
+                    const currentSources = item.sources.filter((s: any) => {
+                        const u = typeof s === 'string' ? s : s.url;
+                        return !!u;
+                    });
                     
-                    if (existing) {
-                        if (Array.isArray(item.sources)) {
-                            item.sources.forEach((s: any) => {
-                                const url = typeof s === 'string' ? s : s.url;
-                                if (url && !existing.uniqueUrls.has(url)) {
-                                    existing.uniqueUrls.add(url);
-                                    existing.sources.push(s);
-                                }
-                            });
+                    if (currentSources.length === 0) return;
+
+                    let targetIndex = -1;
+                    
+                    // 1. Združevanje po točnem ujemanju URL-jev
+                    for (const s of currentSources) {
+                        const url = typeof s === 'string' ? s : s.url;
+                        if (urlToTopicIndex.has(url)) {
+                            targetIndex = urlToTopicIndex.get(url)!;
+                            break;
                         }
+                    }
+
+                    // 2. Če ni točnega ujemanja URL-jev, poskusimo semantično združevanje po besedah v naslovu teme (Fuzzy matching)
+                    if (targetIndex === -1) {
+                        const currentWords = item.topic.toLowerCase().split(/\s+/).filter((w: string) => w.length > 3);
                         
-                        existing.score = existing.sources.length || 1;
+                        for (let i = 0; i < mergedTopics.length; i++) {
+                            const existingWords = mergedTopics[i].topic.toLowerCase().split(/\s+/).filter((w: string) => w.length > 3);
+                            
+                            // Poiščemo presek ključnih besed
+                            const intersection = currentWords.filter((w: string) => existingWords.includes(w));
+                            
+                            // Če se ujemata vsaj dve pomembni besedi (npr. "izrael", "iran", "napadi"), ju združimo
+                            if (intersection.length >= 2 || (currentWords.length === 1 && intersection.length === 1)) {
+                                targetIndex = i;
+                                break;
+                            }
+                        }
+                    }
+
+                    if (targetIndex !== -1) {
+                        const existing = mergedTopics[targetIndex];
+                        currentSources.forEach((s: any) => {
+                            const url = typeof s === 'string' ? s : s.url;
+                            if (!existing.uniqueUrls.has(url)) {
+                                existing.uniqueUrls.add(url);
+                                existing.sources.push(s);
+                                urlToTopicIndex.set(url, targetIndex); 
+                            }
+                        });
+                        existing.score = existing.sources.length;
+
+                        // Obdržimo najdaljši in najbolj opisen summary pri združevanju
+                        if (item.summary.length > existing.summary.length) {
+                             existing.summary = item.summary;
+                        }
 
                         if (!existing.image_url && item.main_image && item.main_image.startsWith('http')) {
                             existing.image_url = item.main_image;
                         }
                     } else {
+                        const newIndex = mergedTopics.length;
                         const uniqueUrls = new Set<string>();
                         const cleanSources: any[] = [];
                         
-                        if (Array.isArray(item.sources)) {
-                            item.sources.forEach((s: any) => {
-                                const url = typeof s === 'string' ? s : s.url;
-                                if (url && !uniqueUrls.has(url)) {
-                                    uniqueUrls.add(url);
-                                    cleanSources.push(s);
-                                }
-                            });
-                        }
+                        currentSources.forEach((s: any) => {
+                            const url = typeof s === 'string' ? s : s.url;
+                            if (!uniqueUrls.has(url)) {
+                                uniqueUrls.add(url);
+                                cleanSources.push(s);
+                                urlToTopicIndex.set(url, newIndex); 
+                            }
+                        });
 
-                        topicMap.set(t, {
-                            topic: t,
+                        mergedTopics.push({
+                            topic: item.topic,
                             summary: item.summary,
                             image_url: item.main_image && item.main_image.startsWith('http') ? item.main_image : null,
                             sources: cleanSources,
                             uniqueUrls: uniqueUrls, 
-                            score: cleanSources.length || 1
-                        })
+                            score: cleanSources.length
+                        });
                     }
                 })
             }
@@ -163,7 +203,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     // ZMANJŠANO NA 30 NOVIC (Optimalno za hitrost in globino)
-    const topStories = Array.from(topicMap.values())
+    const topStories = mergedTopics
         .sort((a, b) => b.score - a.score)
         .slice(0, 30);
 
