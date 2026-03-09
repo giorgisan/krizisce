@@ -217,7 +217,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         }
         
         // Izluščimo originalne naslove virov (Ground Truth)
-        const uniqueTitles = Array.from(new Set(story.sources.map((s: any) => s.title || ''))).filter(t => t.length > 0);
+        const uniqueTitles = Array.from(new Set(story.sources.map((s: any) => s.title || ''))).filter((t: any) => t.length > 0);
         const titlesString = uniqueTitles.length > 0 ? uniqueTitles.join(' | ') : 'Ni na voljo';
 
         promptData += `[STORY ID: ${index}]\n- TOPIC: ${story.topic}\n- ORIGINAL TITLES: ${titlesString}\n- SUMMARY: ${story.summary}\n\n`;
