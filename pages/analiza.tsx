@@ -63,12 +63,13 @@ const getLogoSrc = (sourceName: string) => {
   return '/logo.png';
 }
 
-// 1. KOMPONENTA: Animiran Kupček Logotipov (Z dvigom in Z-index Fixom)
+// 1. KOMPONENTA: Animiran Kupček Logotipov (Z zatemnitvijo sosedov - Spotlight efekt)
 function ClusterGroup({ cluster, setPreviewUrl }: { cluster: { value: number, sources: SourceItem[] }, setPreviewUrl: (url: string) => void }) {
     const [isHovered, setIsHovered] = useState(false);
-    const N = cluster.sources.length;
+    // Dodali smo state, ki točno ve, KATERI logotip v grupi je trenutno pod miško
+    const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
     
-    // Če je kupček na desni polovici (nad 70%), naj se razpre V LEVO, da ne uide ven.
+    const N = cluster.sources.length;
     const direction = cluster.value > 70 ? -1 : 1; 
 
     return (
@@ -76,7 +77,7 @@ function ClusterGroup({ cluster, setPreviewUrl }: { cluster: { value: number, so
             className={`absolute top-1/2 left-0 -translate-y-1/2 -translate-x-1/2 w-8 h-8 cursor-pointer ${isHovered ? 'z-[100]' : 'z-10'}`}
             style={{ left: `${cluster.value}%` }}
             onMouseEnter={() => setIsHovered(true)}
-            onMouseLeave={() => setIsHovered(false)}
+            onMouseLeave={() => { setIsHovered(false); setHoveredIdx(null); }}
         >
             {isHovered && N > 1 && (
                 <div 
@@ -93,19 +94,27 @@ function ClusterGroup({ cluster, setPreviewUrl }: { cluster: { value: number, so
 
             {cluster.sources.map((source, idx) => {
                 const cleanTitle = source.title.replace(/^["']|["']$/g, '');
-                
                 const xOffsetPercent = N > 1 ? idx * 115 * direction : 0;
                 const yLift = (isHovered && N > 1) ? '-14px' : '0px';
+                
+                // Ali je ta specifičen logotip pod miško?
+                const isThisHovered = hoveredIdx === idx;
+                // Ali je pod miško nek DRUG logotip iz iste grupe?
+                const isSiblingHovered = hoveredIdx !== null && !isThisHovered;
                 
                 return (
                     <div 
                         key={idx}
-                        className="absolute top-1/2 left-1/2 transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] group/pin hover:!z-[110]"
+                        onMouseEnter={() => setHoveredIdx(idx)}
+                        onMouseLeave={() => setHoveredIdx(null)}
+                        // Tvoja ideja: Če je izbran sosed, ta logotip postane prosojen (opacity-20) in se malo pomanjša!
+                        className={`absolute top-1/2 left-1/2 transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] group/pin ${isSiblingHovered ? 'opacity-20 scale-95' : 'opacity-100 scale-100'}`}
                         style={{
                             transform: isHovered 
                                 ? `translate(calc(-50% + ${xOffsetPercent}%), calc(-50% + ${yLift}))` 
                                 : `translate(calc(-50% + ${idx * 2}px), calc(-50% - ${idx * 2}px))`,
-                            zIndex: isHovered ? 50 + idx : 20 - idx
+                            // Tisti logotip, ki ga gledamo, dobi zIndex 999, da prekrije čisto vse ostale!
+                            zIndex: isThisHovered ? 999 : (isHovered ? 50 + idx : 20 - idx)
                         }}
                     >
                         <div 
@@ -154,7 +163,7 @@ function ClusterGroup({ cluster, setPreviewUrl }: { cluster: { value: number, so
     )
 }
 
-// 2. KOMPONENTA: Kontinuirana premica v Spektru (Vrnitev na gosti dizajn)
+// 2. KOMPONENTA: Kontinuirana premica v Spektru
 function SpectrumLine({ title, leftLabel, rightLabel, propKey, gradient, sources, setPreviewUrl }: any) {
     const clusters: { value: number, sources: SourceItem[] }[] = [];
     
@@ -172,19 +181,16 @@ function SpectrumLine({ title, leftLabel, rightLabel, propKey, gradient, sources
 
     return (
         <div className="mb-6 last:mb-0">
-            {/* Naslov dimenzije */}
             <div className="flex items-center justify-between mb-1">
                 <span className="text-[10px] font-bold text-gray-800 dark:text-gray-200 uppercase tracking-widest">{title}</span>
             </div>
             
             <div className="relative w-full px-2">
-                {/* Labele (z dodanim mb-3.5, da ikona ne udari vanje) */}
                 <div className="flex justify-between text-[8px] md:text-[8.5px] font-bold uppercase tracking-wider text-gray-400 mb-3.5">
                     <span className="w-1/3 text-left">{leftLabel}</span>
                     <span className="w-1/3 text-right">{rightLabel}</span>
                 </div>
                 
-                {/* Premica in ikone */}
                 <div className={`h-1.5 w-full rounded-full ${gradient} relative shadow-inner`}>
                     <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[1.5px] h-3 bg-gray-900/20 dark:bg-white/20 rounded-full"></div>
                     
