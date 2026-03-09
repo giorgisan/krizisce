@@ -61,14 +61,18 @@ const getLogoSrc = (sourceName: string) => {
 // VIZUALNI DNA BAR (Kockice)
 function DNABar({ dna }: { dna: MediaDNA }) {
   if (!dna) return null;
+  
   const senzLevels: Record<string, number> = { 'visok': 3, 'srednji': 2, 'nizek': 1 };
   const densLevels: Record<string, number> = { 'visoka': 3, 'srednja': 2, 'nizka': 1 };
+  
   const senzLevel = senzLevels[dna.sensationalism] || 1;
   const densLevel = densLevels[dna.info_density] || 1;
+  
   const senzColor = senzLevel === 3 ? 'bg-red-500' : senzLevel === 2 ? 'bg-amber-400' : 'bg-emerald-400';
 
   return (
     <div className="flex flex-col gap-1.5 mt-2">
+      {/* 1. Senzacionalizem */}
       <div className="flex items-center justify-between">
         <span className="text-[10px] text-gray-500 dark:text-gray-400 uppercase tracking-wider font-semibold">Senzacionalizem</span>
         <div className="flex gap-0.5">
@@ -77,6 +81,8 @@ function DNABar({ dna }: { dna: MediaDNA }) {
           ))}
         </div>
       </div>
+
+      {/* 2. Informativnost */}
       <div className="flex items-center justify-between">
         <span className="text-[10px] text-gray-500 dark:text-gray-400 uppercase tracking-wider font-semibold">Informativnost</span>
         <div className="flex gap-0.5">
@@ -84,6 +90,16 @@ function DNABar({ dna }: { dna: MediaDNA }) {
             <div key={l} className={`h-1.5 w-4 rounded-sm ${densLevel >= l ? 'bg-blue-400' : 'bg-gray-200 dark:bg-gray-700'}`} />
           ))}
         </div>
+      </div>
+
+      {/* 3. Clickbait Vaba (Tole je manjkalo!) */}
+      <div className="flex items-center justify-between">
+         <span className="text-[10px] text-gray-500 dark:text-gray-400 uppercase tracking-wider font-semibold">Clickbait Vaba</span>
+         {dna.info_gap === 'da' ? (
+           <span className="text-[10px] font-bold text-orange-500 uppercase">Da</span>
+         ) : (
+           <span className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase">Ne</span>
+         )}
       </div>
     </div>
   );
