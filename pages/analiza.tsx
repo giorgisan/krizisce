@@ -63,29 +63,32 @@ const getLogoSrc = (sourceName: string) => {
   return '/logo.png';
 }
 
-// 1. KOMPONENTA: Animiran Kupček Logotipov (Horizontalni "Fan-out")
+// 1. KOMPONENTA: Animiran Kupček Logotipov (Z dvigom in Z-index Fixom)
 function ClusterGroup({ cluster, setPreviewUrl }: { cluster: { value: number, sources: SourceItem[] }, setPreviewUrl: (url: string) => void }) {
     const [isHovered, setIsHovered] = useState(false);
     const N = cluster.sources.length;
     
-    // Če je kupček na desni polovici (nad 70%), naj se razpre V LEVO, da ne uide ven. Sicer v desno.
+    // Če je kupček na desni polovici (nad 70%), naj se razpre V LEVO, da ne uide ven.
     const direction = cluster.value > 70 ? -1 : 1; 
 
     return (
         <div 
-            className="absolute top-1/2 left-0 -translate-y-1/2 -translate-x-1/2 z-10 w-8 h-8 cursor-pointer"
+            // KLJUČEN POPRAVEK: Ko je isHovered = true, dobi z-[100] in preskoči vse sosednje logotipe!
+            className={`absolute top-1/2 left-0 -translate-y-1/2 -translate-x-1/2 w-8 h-8 cursor-pointer ${isHovered ? 'z-[100]' : 'z-10'}`}
             style={{ left: `${cluster.value}%` }}
             onMouseEnter={() => setIsHovered(true)}
             onMouseLeave={() => setIsHovered(false)}
         >
-            {/* Široko nevidno polje (hitbox), ki prepreči, da bi se karte zložile nazaj, ko se premikamo med njimi */}
+            {/* Hitbox - Nevidno polje, ki je zdaj malce višje, da pokrije dvignjene logotipe in prepreči utripanje */}
             {isHovered && N > 1 && (
                 <div 
-                    className="absolute top-1/2 -translate-y-1/2 h-16"
+                    className="absolute top-1/2 -translate-y-1/2"
                     style={{ 
-                        width: `${N * 40}px`, 
-                        left: direction === 1 ? '16px' : 'auto',
-                        right: direction === -1 ? '16px' : 'auto',
+                        height: '56px', 
+                        width: `${N * 36 + 16}px`, 
+                        left: direction === 1 ? '-8px' : 'auto',
+                        right: direction === -1 ? '-8px' : 'auto',
+                        marginTop: '-12px' // Pomik navzgor
                     }}
                 />
             )}
@@ -93,25 +96,28 @@ function ClusterGroup({ cluster, setPreviewUrl }: { cluster: { value: number, so
             {cluster.sources.map((source, idx) => {
                 const cleanTitle = source.title.replace(/^["']|["']$/g, '');
                 
-                // Horizontalni odmik: logotipi se razporedijo en zraven drugega (115% svoje širine)
+                // Horizontalni odmik v odstotkih širine ikone
                 const xOffsetPercent = N > 1 ? idx * 115 * direction : 0;
+                
+                // DVIG (Lift): Če gremo čez miško in je več virov, logotipe dvignemo za 14px v zrak!
+                const yLift = (isHovered && N > 1) ? '-14px' : '0px';
                 
                 return (
                     <div 
                         key={idx}
-                        // Dodan hover:!z-[100], da logotip in njegov oblaček ob prehodu z miško skočita na sam vrh
-                        className="absolute top-1/2 left-1/2 transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] group/pin hover:!z-[100]"
+                        // Dodan hover:!z-[110] zagotavlja, da je tisti logo, nad katerim si specifično z miško, čisto spredaj
+                        className="absolute top-1/2 left-1/2 transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] group/pin hover:!z-[110]"
                         style={{
-                            // Če hoveramo, se razprejo LEVO ali DESNO. Če ne, se zložijo kot karte s par piksli zamika.
+                            // Prej se je premikal samo levo/desno. Zdaj dodajamo še yLift!
                             transform: isHovered 
-                                ? `translate(calc(-50% + ${xOffsetPercent}%), -50%)` 
+                                ? `translate(calc(-50% + ${xOffsetPercent}%), calc(-50% + ${yLift}))` 
                                 : `translate(calc(-50% + ${idx * 2}px), calc(-50% - ${idx * 2}px))`,
                             zIndex: isHovered ? 50 + idx : 20 - idx
                         }}
                     >
                         <div 
                             onClick={(e) => { e.preventDefault(); e.stopPropagation(); setPreviewUrl(source.url); }}
-                            className="w-6 h-6 md:w-7 md:h-7 bg-white rounded shadow border-[0.5px] border-gray-300 dark:border-gray-600 flex items-center justify-center cursor-pointer transform group-hover/pin:scale-125 transition-transform overflow-hidden relative"
+                            className="w-6 h-6 md:w-7 md:h-7 bg-white rounded shadow-md border-[0.5px] border-gray-300 dark:border-gray-600 flex items-center justify-center cursor-pointer transform group-hover/pin:scale-125 transition-transform overflow-hidden relative"
                         >
                             <Image 
                                 src={getLogoSrc(source.source)} 
@@ -159,7 +165,6 @@ function ClusterGroup({ cluster, setPreviewUrl }: { cluster: { value: number, so
 
 // 2. KOMPONENTA: Kontinuirana premica v Spektru
 function SpectrumLine({ title, leftLabel, rightLabel, propKey, gradient, sources, setPreviewUrl }: any) {
-    // Združimo logotipe, ki si delijo (skoraj) isto mesto
     const clusters: { value: number, sources: SourceItem[] }[] = [];
     
     sources?.forEach((s: any) => {
