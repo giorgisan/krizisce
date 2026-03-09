@@ -136,7 +136,7 @@ function AnalysisCard({ item, setPreviewUrl }: { item: AnalysisItem, setPreviewU
         
         <div className="flex items-center gap-2 mb-3">
            <span className="w-2 h-2 rounded-full bg-brand animate-pulse"></span>
-           <span className="text-[10px] font-bold uppercase tracking-widest text-brand">Konsenzni naslov</span>
+           <span className="text-[10px] font-bold uppercase tracking-widest text-brand">Nevtralni povzetek</span>
         </div>
         
         <h2 className="text-xl md:text-2xl font-serif font-bold text-gray-900 dark:text-white leading-tight mb-5">
