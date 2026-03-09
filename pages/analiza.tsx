@@ -63,7 +63,7 @@ const getLogoSrc = (sourceName: string) => {
   return '/logo.png';
 }
 
-// 1. KOMPONENTA: Animiran Kupček Logotipov
+// 1. KOMPONENTA: Animiran Kupček Logotipov (Z dvigom in Z-index Fixom)
 function ClusterGroup({ cluster, setPreviewUrl }: { cluster: { value: number, sources: SourceItem[] }, setPreviewUrl: (url: string) => void }) {
     const [isHovered, setIsHovered] = useState(false);
     const N = cluster.sources.length;
@@ -154,7 +154,7 @@ function ClusterGroup({ cluster, setPreviewUrl }: { cluster: { value: number, so
     )
 }
 
-// 2. KOMPONENTA: Kontinuirana premica v Spektru (Izboljšan "Zračni" dizajn)
+// 2. KOMPONENTA: Kontinuirana premica v Spektru (Vrnitev na gosti dizajn)
 function SpectrumLine({ title, leftLabel, rightLabel, propKey, gradient, sources, setPreviewUrl }: any) {
     const clusters: { value: number, sources: SourceItem[] }[] = [];
     
@@ -171,14 +171,20 @@ function SpectrumLine({ title, leftLabel, rightLabel, propKey, gradient, sources
     });
 
     return (
-        <div className="mb-7 md:mb-9 last:mb-0">
-            {/* 1. NASLOV (ZGORAJ) z večjim prostorom (mb-3.5) */}
-            <div className="mb-3.5">
-                <span className="text-[10px] md:text-[11px] font-black text-gray-800 dark:text-gray-200 uppercase tracking-widest">{title}</span>
+        <div className="mb-6 last:mb-0">
+            {/* Naslov dimenzije */}
+            <div className="flex items-center justify-between mb-1">
+                <span className="text-[10px] font-bold text-gray-800 dark:text-gray-200 uppercase tracking-widest">{title}</span>
             </div>
             
-            {/* 2. PREMICA IN IKONE (V SREDINI) */}
             <div className="relative w-full px-2">
+                {/* Labele (z dodanim mb-3.5, da ikona ne udari vanje) */}
+                <div className="flex justify-between text-[8px] md:text-[8.5px] font-bold uppercase tracking-wider text-gray-400 mb-3.5">
+                    <span className="w-1/3 text-left">{leftLabel}</span>
+                    <span className="w-1/3 text-right">{rightLabel}</span>
+                </div>
+                
+                {/* Premica in ikone */}
                 <div className={`h-1.5 w-full rounded-full ${gradient} relative shadow-inner`}>
                     <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[1.5px] h-3 bg-gray-900/20 dark:bg-white/20 rounded-full"></div>
                     
@@ -189,12 +195,6 @@ function SpectrumLine({ title, leftLabel, rightLabel, propKey, gradient, sources
                             setPreviewUrl={setPreviewUrl} 
                         />
                     ))}
-                </div>
-                
-                {/* 3. LABELE (SPODAJ) z razmikom od črte (mt-3) */}
-                <div className="flex justify-between text-[8px] md:text-[9px] font-semibold text-gray-400 dark:text-gray-500 mt-3 px-0.5 uppercase tracking-wider">
-                    <span className="w-1/2 text-left">{leftLabel}</span>
-                    <span className="w-1/2 text-right">{rightLabel}</span>
                 </div>
             </div>
         </div>
@@ -259,7 +259,7 @@ function AnalysisCard({ item, idx, setPreviewUrl }: { item: AnalysisItem, idx: n
           </div>
         </div>
 
-        <div className="px-6 md:px-10 py-6 md:py-8 border-t border-gray-100 dark:border-gray-700/50 bg-gray-50/50 dark:bg-[#1e293b]/20 rounded-b-xl flex flex-col">
+        <div className="px-6 md:px-10 py-5 md:py-7 border-t border-gray-100 dark:border-gray-700/50 bg-gray-50/50 dark:bg-[#1e293b]/20 rounded-b-xl flex flex-col">
             
             <SpectrumLine 
                 title="Informacija" 
