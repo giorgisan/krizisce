@@ -63,11 +63,14 @@ const getLogoSrc = (sourceName: string) => {
   return '/logo.png';
 }
 
-// 1. KOMPONENTA: Animiran Kupček Logotipov (Cluster Group)
+// 1. KOMPONENTA: Animiran Kupček Logotipov (Horizontalni "Fan-out")
 function ClusterGroup({ cluster, setPreviewUrl }: { cluster: { value: number, sources: SourceItem[] }, setPreviewUrl: (url: string) => void }) {
     const [isHovered, setIsHovered] = useState(false);
     const N = cluster.sources.length;
     
+    // Če je kupček na desni polovici (nad 70%), naj se razpre V LEVO, da ne uide ven. Sicer v desno.
+    const direction = cluster.value > 70 ? -1 : 1; 
+
     return (
         <div 
             className="absolute top-1/2 left-0 -translate-y-1/2 -translate-x-1/2 z-10 w-8 h-8 cursor-pointer"
@@ -75,29 +78,35 @@ function ClusterGroup({ cluster, setPreviewUrl }: { cluster: { value: number, so
             onMouseEnter={() => setIsHovered(true)}
             onMouseLeave={() => setIsHovered(false)}
         >
-            {/* Nevidno "hitbox" polje, ki prepreči, da bi se kupček zložil, ko premikamo miško med razprtimi logotipi */}
+            {/* Široko nevidno polje (hitbox), ki prepreči, da bi se karte zložile nazaj, ko se premikamo med njimi */}
             {isHovered && N > 1 && (
                 <div 
-                    className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-20"
-                    style={{ height: `${N * 120}%` }}
+                    className="absolute top-1/2 -translate-y-1/2 h-16"
+                    style={{ 
+                        width: `${N * 40}px`, 
+                        left: direction === 1 ? '16px' : 'auto',
+                        right: direction === -1 ? '16px' : 'auto',
+                    }}
                 />
             )}
 
             {cluster.sources.map((source, idx) => {
                 const cleanTitle = source.title.replace(/^["']|["']$/g, '');
-                // Matematika za razpiranje: prvi zgoraj, sredinski na sredini, zadnji spodaj
-                const yOffsetPercent = N > 1 ? (idx - (N - 1) / 2) * 115 : 0;
+                
+                // Horizontalni odmik: logotipi se razporedijo en zraven drugega (115% svoje širine)
+                const xOffsetPercent = N > 1 ? idx * 115 * direction : 0;
                 
                 return (
                     <div 
                         key={idx}
-                        className="absolute top-1/2 left-1/2 transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] group/pin"
+                        // Dodan hover:!z-[100], da logotip in njegov oblaček ob prehodu z miško skočita na sam vrh
+                        className="absolute top-1/2 left-1/2 transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] group/pin hover:!z-[100]"
                         style={{
-                            // Če hoveramo, se razprejo. Če ne, se zložijo kot karte s par piksli zamika.
+                            // Če hoveramo, se razprejo LEVO ali DESNO. Če ne, se zložijo kot karte s par piksli zamika.
                             transform: isHovered 
-                                ? `translate(-50%, calc(-50% + ${yOffsetPercent}%))` 
+                                ? `translate(calc(-50% + ${xOffsetPercent}%), -50%)` 
                                 : `translate(calc(-50% + ${idx * 2}px), calc(-50% - ${idx * 2}px))`,
-                            zIndex: isHovered ? 50 : 20 - idx // Vrhnja karta je vedno najbolj vidna
+                            zIndex: isHovered ? 50 + idx : 20 - idx
                         }}
                     >
                         <div 
@@ -118,7 +127,7 @@ function ClusterGroup({ cluster, setPreviewUrl }: { cluster: { value: number, so
                             </div>
                         </div>
                         
-                        {/* Tooltip za posamezen logotip */}
+                        {/* Tooltip */}
                         <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-56 md:w-60 p-2.5 md:p-3 bg-gray-900 text-white text-[11px] leading-snug rounded-xl opacity-0 group-hover/pin:opacity-100 pointer-events-none group-hover/pin:pointer-events-auto transition-opacity shadow-2xl flex flex-col gap-1.5">
                             <div className="font-bold text-brand uppercase tracking-wider text-[8.5px]">{source.source}</div>
                             <div className="text-gray-100 font-medium text-[11px] md:text-[11.5px]">"{cleanTitle}"</div>
@@ -148,9 +157,9 @@ function ClusterGroup({ cluster, setPreviewUrl }: { cluster: { value: number, so
     )
 }
 
-// 2. KOMPONENTA: Kontinuirana premica v Spektru (Z Grupiranjem)
+// 2. KOMPONENTA: Kontinuirana premica v Spektru
 function SpectrumLine({ title, leftLabel, rightLabel, propKey, gradient, sources, setPreviewUrl }: any) {
-    // 1. Združimo logotipe, ki si delijo (skoraj) isto mesto
+    // Združimo logotipe, ki si delijo (skoraj) isto mesto
     const clusters: { value: number, sources: SourceItem[] }[] = [];
     
     sources?.forEach((s: any) => {
@@ -180,7 +189,6 @@ function SpectrumLine({ title, leftLabel, rightLabel, propKey, gradient, sources
                 <div className={`h-1.5 w-full rounded-full ${gradient} relative shadow-inner`}>
                     <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[1.5px] h-3 bg-gray-900/20 dark:bg-white/20 rounded-full"></div>
                     
-                    {/* Namesto posameznih logotipov sedaj renderiramo kupčke (grozdje) */}
                     {clusters.map((cluster, idx) => (
                         <ClusterGroup 
                             key={`${propKey}-cluster-${idx}`} 
@@ -298,7 +306,6 @@ export default function AnalizaPage({ analysis, lastUpdated }: Props) {
     <>
       <Head><title>Medijski presek | Križišče</title></Head>
       <Header activeCategory="vse" activeSource="Vse" />
-      {/* Dodan overflow-x-hidden zaklene širino na mobilnih napravah in prepreči skakanje zaslona zaradi nevidnih tooltipov */}
       <main className="min-h-screen bg-[#F9FAFB] dark:bg-gray-900 pb-20 overflow-x-hidden">
         
         <div className="bg-white dark:bg-gray-800/60 border-b border-gray-200 dark:border-gray-800 py-6 md:py-10">
