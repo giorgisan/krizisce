@@ -1,6 +1,7 @@
 import { NextApiRequest, NextApiResponse } from 'next'
 import { createClient } from '@supabase/supabase-js'
 import { GoogleGenerativeAI, SchemaType } from '@google/generative-ai'
+import crypto from 'crypto' // Dodan crypto modul za timing attack defense
 
 export const maxDuration = 60; 
 
@@ -12,9 +13,25 @@ const supabase = createClient(
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_KEY || '')
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  if (req.query.key !== process.env.CRON_SECRET) {
+  // --- VARNOSTNI POPRAVEK: Preprečevanje Timing Attacka ---
+  const expectedKey = process.env.CRON_SECRET || 'fallback_secret';
+  const providedKey = (req.query.key as string) || '';
+
+  // 1. Zavarujemo dolžino: vedno ustvarimo 32-bajtni buffer (hash), da preprečimo "length-based" timing attack
+  const a = Buffer.alloc(32);
+  const b = Buffer.alloc(32);
+  
+  // 2. Varno kopiramo vrednosti, do maksimalno 32 bajtov
+  Buffer.from(expectedKey).copy(a);
+  Buffer.from(providedKey).copy(b);
+
+  // 3. Preverimo tako kriptografsko enakost kot tudi izvirno dolžino
+  const isMatch = crypto.timingSafeEqual(a, b) && expectedKey.length === providedKey.length;
+
+  if (!isMatch) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
+  // --------------------------------------------------------
 
   try {
     const { data: cacheData, error: cacheError } = await supabase
