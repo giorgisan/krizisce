@@ -53,7 +53,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const currentDate = new Intl.DateTimeFormat('sl-SI', { day: 'numeric', month: 'long', year: 'numeric' }).format(new Date());
 
-    // POSODOBLJEN PROMPT ZA MEDIJSKI DNK IN KONSENZNI NASLOV
+    // POSODOBLJEN PROMPT ZA 0-100 SPEKTER
     const prompt = `
       You are an expert media analyst and fact-checker. Analyze how Slovenian media is reporting on the following ${topStories.length} events. 
       Use both the title and the provided snippet to evaluate the media framing.
@@ -63,13 +63,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       NEVER use the [source_url] path or slug to determine the topic, location, subject, or any factual detail.
 
       CRITICAL FACT-CHECKING RULE:
-      Today's date is ${currentDate}. Keep valid political/professional titles, but correct outdated ones (e.g., do not write "bivši" if they currently hold the office).
+      Today's date is ${currentDate}. Keep valid political/professional titles, but correct outdated ones.
 
-      NEW TASK: MEDIA DNA & CONSENSUS HEADLINE
-      Instead of just analyzing tone, you must now deconstruct the "Media DNA" of every single source based on its TITLE and snippet:
-      1. Sensationalism: Does the title use dramatic, hyperbolic words or fear-mongering? (nizek / srednji / visok)
-      2. Info Gap: Does the title intentionally hide a key fact to force a click (e.g. "To so posledice...", "Ne boste verjeli...")? (da / ne)
-      3. Info Density: How much actual, concrete information does the title provide without needing to click? (nizka / srednja / visoka)
+      NEW TASK: MEDIA DNA ON A 0-100 SPECTRUM
+      Evaluate the "Media DNA" of every single source based on its TITLE and snippet using a scale from 0 to 100 for three dimensions:
+      1. informativnost: 0 = "Clickbait vaba / Skrivanje dejstev", 100 = "Polna slika / Vsa dejstva prisotna".
+      2. custveni_naboj: 0 = "Suho / Klinično / Dolgočasno", 100 = "Dramatizacija / Šok / Klicaji".
+      3. pristranskost: 0 = "Samo nevtralna dejstva", 100 = "Uredniški spin / Vsiljevanje mnenja / Pristranskost".
 
       Additionally, for the overall event, you must write a 'consensus_headline'. This is a single, ultra-neutral, distilled headline created by combining the facts from all sources. It must answer Who, What, Where, and Consequence.
 
@@ -79,29 +79,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       ${promptData}
     `
 
-    // POSODOBLJENA SHEMA ZA VRAČANJE MEDIJSKEGA DNK
+    // POSODOBLJENA SHEMA ZA INTEGER 0-100
     const responseSchema = {
       type: SchemaType.ARRAY,
       description: "Seznam analiziranih medijskih zgodb.",
       items: {
         type: SchemaType.OBJECT,
         properties: {
-          topic: {
-            type: SchemaType.STRING,
-            description: "Nevtralen naslov dogodka (max 5 besed). Izpeljan IZKLJUČNO iz naslovov in povzetkov."
-          },
-          consensus_headline: {
-            type: SchemaType.STRING,
-            description: "A neutral, distilled headline combining facts from all sources (Who, What, Where, Consequence). Act as an impartial wire service."
-          },
-          summary: {
-            type: SchemaType.STRING,
-            description: "A detailed, factual 3 to 4 sentence summary of the story based STRICTLY on titles and snippets."
-          },
-          framing_analysis: {
-            type: SchemaType.STRING,
-            description: "Kratek odstavek (2-3 stavki), ki primerja pristope različnih medijev k tej zgodbi."
-          },
+          topic: { type: SchemaType.STRING, description: "Nevtralen naslov dogodka (max 5 besed)." },
+          consensus_headline: { type: SchemaType.STRING, description: "A neutral, distilled headline combining facts from all sources." },
+          summary: { type: SchemaType.STRING, description: "A detailed, factual 3 to 4 sentence summary of the story based STRICTLY on titles and snippets." },
+          framing_analysis: { type: SchemaType.STRING, description: "Kratek odstavek (2-3 stavki), ki primerja pristope različnih medijev k tej zgodbi." },
           sources: {
             type: SchemaType.ARRAY,
             description: "Seznam virov in njihov Medijski DNK.",
@@ -113,13 +101,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                 url: { type: SchemaType.STRING },
                 media_dna: {
                     type: SchemaType.OBJECT,
-                    description: "Analiza treh ključnih signalov naslova (Medijski DNK).",
+                    description: "Analiza treh ključnih signalov na lestvici 0-100.",
                     properties: {
-                        sensationalism: { type: SchemaType.STRING, description: "Stopnja senzacionalizma: 'nizek', 'srednji' ali 'visok'." },
-                        info_gap: { type: SchemaType.STRING, description: "Ali skriva informacije (clickbait)? 'da' ali 'ne'." },
-                        info_density: { type: SchemaType.STRING, description: "Količina dejstev v naslovu: 'nizka', 'srednja' ali 'visoka'." }
+                        informativnost: { type: SchemaType.INTEGER, description: "Od 0 (Clickbait vaba) do 100 (Polna slika)." },
+                        custveni_naboj: { type: SchemaType.INTEGER, description: "Od 0 (Suho/Klinično) do 100 (Dramatizacija)." },
+                        pristranskost: { type: SchemaType.INTEGER, description: "Od 0 (Samo dejstva) do 100 (Uredniški spin)." }
                     },
-                    required: ["sensationalism", "info_gap", "info_density"]
+                    required: ["informativnost", "custveni_naboj", "pristranskost"]
                 }
               },
               required: ["source", "title", "url", "media_dna"]
@@ -159,7 +147,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     try {
         await res.revalidate('/analiza');
-        console.log("Stran /analiza je bila uspešno osvežena na Vercelu!");
     } catch (revalidateError) {
         console.error('Napaka pri revalidaciji:', revalidateError);
     }
