@@ -118,7 +118,7 @@ function SourceLogoPin({ source, value, setPreviewUrl }: { source: SourceItem, v
     )
 }
 
-// 2. KOMPONENTA: Kontinuirana premica v Radarju (Zmanjšani razmiki)
+// 2. KOMPONENTA: Kontinuirana premica v Radarju
 function SpectrumLine({ title, leftLabel, rightLabel, propKey, gradient, sources, setPreviewUrl }: any) {
     return (
         <div className="mb-4 last:mb-0">
@@ -149,7 +149,7 @@ const splitSummaryIntoBullets = (summary: string) => {
     return summary.split('. ').filter(s => s.length > 5).map(s => s.trim() + (s.endsWith('.') ? '' : '.'));
 }
 
-// 3. GLAVNA KARTICA NOVICE (Kompaktnejša struktura)
+// 3. GLAVNA KARTICA NOVICE
 function AnalysisCard({ item, idx, setPreviewUrl }: { item: AnalysisItem, idx: number, setPreviewUrl: (url: string) => void }) {
   const router = useRouter();
   const newsId = `novica-${idx + 1}`;
@@ -159,14 +159,15 @@ function AnalysisCard({ item, idx, setPreviewUrl }: { item: AnalysisItem, idx: n
   return (
     <article id={newsId} className={`relative mb-6 md:mb-8 group/card transition-all duration-500 ${isFocused ? 'ring-2 ring-brand shadow-xl scale-[1.005]' : ''}`}>
       
-      <div className="absolute -top-3 -left-3 w-7 h-7 md:w-8 md:h-8 bg-brand text-white rounded-lg shadow-md z-20 flex items-center justify-center font-serif font-black text-sm border border-brand/20">
+      {/* EDITORIAL ŠTEVILKA (Premium, čista, brez oranžnega ozadja) */}
+      <div className="absolute -top-3 -left-3 w-7 h-7 md:w-8 md:h-8 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 rounded shadow z-20 flex items-center justify-center font-serif font-bold text-sm border border-gray-200 dark:border-gray-600">
         {idx + 1}
       </div>
 
       <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700/60 rounded-xl shadow-sm flex flex-col relative overflow-visible">
         
         {/* ZGORNJI DEL: Kompakten Signal */}
-        <div className="p-4 md:p-5 flex flex-col pl-7 md:pl-9">
+        <div className="p-4 md:p-6 flex flex-col pl-7 md:pl-10">
           
           <h2 className="text-[18px] md:text-[20px] font-serif font-bold text-gray-900 dark:text-white leading-snug mb-3 mt-0.5">
             {item.consensus_headline || item.topic}
@@ -191,15 +192,16 @@ function AnalysisCard({ item, idx, setPreviewUrl }: { item: AnalysisItem, idx: n
               </div>
           </div>
           
-          <div className="bg-gray-50/50 dark:bg-gray-800/30 rounded-lg p-2.5">
-              <p className="text-[11px] md:text-[11.5px] text-gray-500 dark:text-gray-400 leading-snug">
-                  <strong className="text-gray-400 uppercase text-[8.5px] mr-1.5 tracking-wider font-bold">Kontekst:</strong>
+          {/* KONTEKST (Povečan, z večjim razmikom in jasno ločitvijo) */}
+          <div className="bg-gray-50/80 dark:bg-[#1e293b]/30 rounded-lg border border-gray-100 dark:border-gray-700/50 p-3 md:p-4 mt-1">
+              <p className="text-[12px] md:text-[13px] text-gray-600 dark:text-gray-300 leading-relaxed">
+                  <span className="font-bold text-gray-400 dark:text-gray-500 uppercase text-[9px] md:text-[10px] mr-2 tracking-wider">Kontekst:</span>
                   {item.framing_analysis}
               </p>
           </div>
         </div>
 
-        {/* SPODNJI DEL: Šum in Radar (Kompakten) */}
+        {/* SPODNJI DEL: Šum in Radar */}
         <div className="px-5 md:px-7 py-4 md:py-5 border-t border-gray-100 dark:border-gray-700/50 bg-gray-50/50 dark:bg-[#1e293b]/20 rounded-b-xl flex flex-col">
             
             <SpectrumLine 
@@ -248,7 +250,7 @@ export default function AnalizaPage({ analysis, lastUpdated }: Props) {
       <Header activeCategory="vse" activeSource="Vse" />
       <main className="min-h-screen bg-[#F9FAFB] dark:bg-gray-900 pb-20">
         
-        {/* HEADER: Še malce bolj kompakten */}
+        {/* HEADER */}
         <div className="bg-white dark:bg-gray-800/60 border-b border-gray-200 dark:border-gray-800 py-5 md:py-6">
             <div className="max-w-[800px] mx-auto px-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
                 
