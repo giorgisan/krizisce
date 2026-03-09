@@ -422,16 +422,15 @@ export default function Home({ initialNews, initialTrendingWords, initialTrendin
                          <Link 
                             href="/analiza" 
                             prefetch={false} 
-                            // P-[1px] ustvari prostor za rob, overflow-hidden odreže zunanji del vrtečega kroga
                             className="group block h-full relative p-[1px] rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow duration-300"
                          >
-                             {/* Animiran obroč v ozadju (vrteči "komet" preliv) */}
+                             {/* Animiran obroč v ozadju */}
                              <div className="absolute top-1/2 left-1/2 w-[250%] h-[250%] -translate-x-1/2 -translate-y-1/2 animate-[spin_4s_linear_infinite] bg-[conic-gradient(from_0deg,transparent_0%,transparent_75%,currentColor_100%)] text-brand opacity-40 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"></div>
                              
-                             {/* Notranja kartica (prekrije sredino, pusti vidno le 1px animirane obrobe) */}
+                             {/* Notranja kartica */}
                              <div className="relative z-10 h-full bg-white/95 dark:bg-gray-800/95 backdrop-blur-md rounded-[11px] p-4 flex items-center justify-between gap-4 transition-colors">
                                  
-                                 {/* Nežen hover sijaj znotraj same kartice */}
+                                 {/* Nežen hover sijaj */}
                                  <div className="absolute inset-0 bg-gradient-to-r from-brand/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-[11px] pointer-events-none" />
                                  
                                  <div className="flex items-center gap-4 relative z-10">
@@ -452,6 +451,7 @@ export default function Home({ initialNews, initialTrendingWords, initialTrendin
                              </div>
                          </Link>
                      </div>
+                 </div>
             )}
 
             {/* --- GLAVNA GRID SEKCIJA --- */}
@@ -602,6 +602,6 @@ export const getStaticProps: GetStaticProps = async () => {
       aiSummary, 
       aiTime 
     },
-    revalidate: 60 // <--- To nadomešča tvoj prejšnji res.setHeader Cache-Control
+    revalidate: 60 
   }
 }
