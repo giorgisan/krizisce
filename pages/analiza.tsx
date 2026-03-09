@@ -76,7 +76,6 @@ function SourceLogoPin({ source, value, setPreviewUrl }: { source: SourceItem, v
                 onClick={(e) => { e.preventDefault(); e.stopPropagation(); setPreviewUrl(source.url); }}
                 className="w-6 h-6 md:w-7 md:h-7 bg-white rounded shadow-sm border-[0.5px] border-gray-300 dark:border-gray-600 flex items-center justify-center cursor-pointer transform group-hover/pin:scale-125 transition-transform overflow-hidden relative"
             >
-                {/* LOGOTIPI SO SPET BARVNI (brez grayscale) */}
                 <Image 
                     src={getLogoSrc(source.source)} 
                     alt={source.source} 
@@ -167,6 +166,7 @@ function AnalysisCard({ item, idx, setPreviewUrl }: { item: AnalysisItem, idx: n
 
       <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700/60 rounded-xl shadow-sm flex flex-col relative overflow-visible">
         
+        {/* ZGORNJI DEL: Kompakten Signal */}
         <div className="p-4 md:p-6 flex flex-col pl-7 md:pl-10">
           
           <h2 className="text-[18px] md:text-[20px] font-serif font-bold text-gray-900 dark:text-white leading-snug mb-3 mt-0.5">
@@ -201,6 +201,7 @@ function AnalysisCard({ item, idx, setPreviewUrl }: { item: AnalysisItem, idx: n
           </div>
         </div>
 
+        {/* SPODNJI DEL: Šum in Radar */}
         <div className="px-5 md:px-7 py-4 md:py-5 border-t border-gray-100 dark:border-gray-700/50 bg-gray-50/50 dark:bg-[#1e293b]/20 rounded-b-xl flex flex-col">
             
             <SpectrumLine 
@@ -249,24 +250,24 @@ export default function AnalizaPage({ analysis, lastUpdated }: Props) {
       <Header activeCategory="vse" activeSource="Vse" />
       <main className="min-h-screen bg-[#F9FAFB] dark:bg-gray-900 pb-20">
         
-        {/* HEADER: Z umirjeno, monokromatsko ikono in malce večjim naslovom */}
+        {/* HEADER */}
         <div className="bg-white dark:bg-gray-800/60 border-b border-gray-200 dark:border-gray-800 py-6 md:py-8">
             <div className="max-w-[800px] mx-auto px-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 
                 <div className="flex-1 min-w-0">
                   <h1 className="text-2xl md:text-3xl font-serif font-bold text-gray-900 dark:text-white flex items-center gap-3">
-                      {/* MONOKROMATSKA IKONA */}
-                      <svg className="w-6 h-6 text-gray-400 dark:text-gray-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                      {/* Večja in bolj izrazita ikona (text-gray-900 namesto prosojne sive) */}
+                      <svg className="w-7 h-7 md:w-8 md:h-8 text-gray-900 dark:text-white shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
                           <path strokeLinecap="round" strokeLinejoin="round" d="M15.042 21.672 13.684 16.6m0 0-2.51 2.225.569-9.47 5.227 7.917-3.286-.672Zm-7.518-.267A8.25 8.25 0 1 1 20.25 10.5M8.288 14.212A5.25 5.25 0 1 1 17.25 10.5" />
                       </svg>
                       Medijski Spekter
                   </h1>
-                  <p className="text-[12.5px] md:text-[13px] text-gray-500 dark:text-gray-400 mt-2 max-w-xl leading-relaxed">
-                    Ena novica. Več naslovov. Kdo pretirava? Destiliramo dejstva in razkrivamo šum.
+                  <p className="text-[12.5px] md:text-[13px] text-gray-500 dark:text-gray-400 mt-2 max-w-2xl leading-relaxed">
+                    <strong className="text-gray-700 dark:text-gray-300">Ena novica. Več naslovov. Kdo pretirava?</strong> Strojna analiza in pregled uredniških odločitev pri ključnih temah. S pomočjo umetne inteligence prepoznavamo vzorce poročanja, destiliramo gola dejstva in na vizualnem spektru razkrivamo informacijski šum, čustveni naboj ter novinarsko pristranskost.
                   </p>
                 </div>
                 
-                <div className="w-full md:w-auto flex flex-row-reverse md:flex-col items-center md:items-end justify-between md:justify-start gap-3 mt-2 md:mt-0">
+                <div className="w-full md:w-auto flex flex-row-reverse md:flex-col items-center md:items-end justify-between md:justify-start gap-3 mt-3 md:mt-0">
                     {lastUpdated && (
                         <div className="text-[9.5px] md:text-[10px] font-mono text-gray-500 flex items-center gap-1.5 border border-gray-100 dark:border-gray-700 px-2.5 py-1.5 rounded bg-gray-50 dark:bg-gray-800/50 shrink-0">
                             <span className="relative flex h-1.5 w-1.5">
