@@ -63,7 +63,7 @@ const getLogoSrc = (sourceName: string) => {
   return '/logo.png';
 }
 
-// 1. KOMPONENTA: Logotip (Pin) z Oblačkom in dinamičnim Očesom
+// 1. KOMPONENTA: Logotip (Pin)
 function SourceLogoPin({ source, value, setPreviewUrl }: { source: SourceItem, value: number, setPreviewUrl: (url: string) => void }) {
     const cleanTitle = source.title.replace(/^["']|["']$/g, '');
     
@@ -98,9 +98,9 @@ function SourceLogoPin({ source, value, setPreviewUrl }: { source: SourceItem, v
                 </div>
             </div>
             
-            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-56 p-2.5 bg-gray-900 text-white text-[11px] leading-snug rounded-xl opacity-0 group-hover/pin:opacity-100 pointer-events-none group-hover/pin:pointer-events-auto transition-opacity shadow-2xl flex flex-col gap-1.5">
+            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-60 p-3 bg-gray-900 text-white text-[11px] leading-snug rounded-xl opacity-0 group-hover/pin:opacity-100 pointer-events-none group-hover/pin:pointer-events-auto transition-opacity shadow-2xl flex flex-col gap-1.5">
                 <div className="font-bold text-brand uppercase tracking-wider text-[8.5px]">{source.source}</div>
-                <div className="text-gray-100 font-medium">"{cleanTitle}"</div>
+                <div className="text-gray-100 font-medium text-[11.5px]">"{cleanTitle}"</div>
                 
                 <a 
                     href={source.url} 
@@ -118,22 +118,22 @@ function SourceLogoPin({ source, value, setPreviewUrl }: { source: SourceItem, v
     )
 }
 
-// 2. KOMPONENTA: Kontinuirana premica v Radarju
+// 2. KOMPONENTA: Kontinuirana premica v Spektru
 function SpectrumLine({ title, leftLabel, rightLabel, propKey, gradient, sources, setPreviewUrl }: any) {
     return (
-        <div className="mb-4 last:mb-0">
+        <div className="mb-5 last:mb-0">
             <div className="flex items-center justify-between mb-1.5">
-                <span className="text-[9.5px] font-bold text-gray-800 dark:text-gray-200 uppercase tracking-widest">{title}</span>
+                <span className="text-[10px] font-bold text-gray-800 dark:text-gray-200 uppercase tracking-widest">{title}</span>
             </div>
             
             <div className="relative w-full px-2">
-                <div className="flex justify-between text-[8px] md:text-[8.5px] font-bold uppercase tracking-wider text-gray-400 mb-1">
+                <div className="flex justify-between text-[8.5px] md:text-[9px] font-bold uppercase tracking-wider text-gray-400 mb-1.5">
                     <span className="w-1/3 text-left">{leftLabel}</span>
                     <span className="w-1/3 text-right">{rightLabel}</span>
                 </div>
                 
-                <div className={`h-1 w-full rounded-full ${gradient} relative shadow-inner`}>
-                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[1.5px] h-2.5 bg-gray-900/20 dark:bg-white/20 rounded-full"></div>
+                <div className={`h-1.5 w-full rounded-full ${gradient} relative shadow-inner`}>
+                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[1.5px] h-3 bg-gray-900/20 dark:bg-white/20 rounded-full"></div>
                     
                     {sources?.map((s: any, idx: number) => {
                         const val = s.media_dna?.[propKey] ?? 50; 
@@ -157,33 +157,32 @@ function AnalysisCard({ item, idx, setPreviewUrl }: { item: AnalysisItem, idx: n
   const bullets = splitSummaryIntoBullets(item.summary);
 
   return (
-    <article id={newsId} className={`relative mb-6 md:mb-8 group/card transition-all duration-500 ${isFocused ? 'ring-2 ring-brand shadow-xl scale-[1.005]' : ''}`}>
+    <article id={newsId} className={`relative mb-8 md:mb-12 group/card transition-all duration-500 ${isFocused ? 'ring-2 ring-brand shadow-xl scale-[1.005]' : ''}`}>
       
-      {/* EDITORIAL ŠTEVILKA */}
-      <div className="absolute -top-3 -left-3 w-7 h-7 md:w-8 md:h-8 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 rounded shadow z-20 flex items-center justify-center font-serif font-bold text-sm border border-gray-200 dark:border-gray-600">
+      <div className="absolute -top-3 -left-3 w-8 h-8 md:w-9 md:h-9 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 rounded shadow z-20 flex items-center justify-center font-serif font-bold text-sm border border-gray-200 dark:border-gray-600">
         {idx + 1}
       </div>
 
       <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700/60 rounded-xl shadow-sm flex flex-col relative overflow-visible">
         
-        {/* ZGORNJI DEL: Kompakten Signal */}
-        <div className="p-4 md:p-6 flex flex-col pl-7 md:pl-10">
+        {/* ZGORNJI DEL: Kompakten Signal (Razširjeno) */}
+        <div className="p-5 md:p-8 flex flex-col pl-8 md:pl-12">
           
-          <h2 className="text-[18px] md:text-[20px] font-serif font-bold text-gray-900 dark:text-white leading-snug mb-3 mt-0.5">
+          <h2 className="text-[20px] md:text-[24px] font-serif font-bold text-gray-900 dark:text-white leading-snug mb-4 mt-0.5">
             {item.consensus_headline || item.topic}
           </h2>
           
-          <div className="flex flex-col sm:flex-row gap-4 mb-3">
+          <div className="flex flex-col sm:flex-row gap-5 md:gap-6 mb-4">
               {item.main_image && (
-                <div className="w-full sm:w-32 md:w-36 aspect-video sm:aspect-[4/3] rounded-lg overflow-hidden relative border border-gray-100 dark:border-gray-700 shrink-0">
-                    <img src={proxiedImage(item.main_image, 300, 300, 1)} alt="" className="w-full h-full object-cover" />
+                <div className="w-full sm:w-36 md:w-44 lg:w-48 aspect-video sm:aspect-[4/3] rounded-lg overflow-hidden relative border border-gray-100 dark:border-gray-700 shrink-0">
+                    <img src={proxiedImage(item.main_image, 400, 300, 1)} alt="" className="w-full h-full object-cover" />
                 </div>
               )}
               <div className="flex-1">
-                  <div className="text-[8.5px] font-bold uppercase tracking-wider text-gray-400 mb-1.5">Ključna dejstva</div>
-                  <ul className="space-y-1 md:space-y-1.5">
+                  <div className="text-[9px] font-bold uppercase tracking-wider text-gray-400 mb-2">Ključna dejstva</div>
+                  <ul className="space-y-1.5 md:space-y-2">
                       {bullets.map((bullet, bIdx) => (
-                          <li key={bIdx} className="text-[12px] md:text-[13px] text-gray-700 dark:text-gray-300 leading-snug flex items-start gap-2">
+                          <li key={bIdx} className="text-[13px] md:text-[14px] text-gray-700 dark:text-gray-300 leading-snug flex items-start gap-2.5">
                               <span className="text-brand mt-1.5 w-1 h-1 rounded-full shrink-0 bg-brand"></span>
                               <span>{bullet}</span>
                           </li>
@@ -193,16 +192,16 @@ function AnalysisCard({ item, idx, setPreviewUrl }: { item: AnalysisItem, idx: n
           </div>
           
           {/* KONTEKST */}
-          <div className="bg-gray-50/80 dark:bg-[#1e293b]/30 rounded-lg border border-gray-100 dark:border-gray-700/50 p-3 md:p-4 mt-1">
-              <p className="text-[12px] md:text-[13px] text-gray-600 dark:text-gray-300 leading-relaxed">
-                  <span className="font-bold text-gray-400 dark:text-gray-500 uppercase text-[9px] md:text-[10px] mr-2 tracking-wider">Kontekst:</span>
+          <div className="bg-gray-50/80 dark:bg-[#1e293b]/30 rounded-lg border border-gray-100 dark:border-gray-700/50 p-3.5 md:p-4 mt-2">
+              <p className="text-[12.5px] md:text-[13.5px] text-gray-600 dark:text-gray-300 leading-relaxed">
+                  <span className="font-bold text-gray-400 dark:text-gray-500 uppercase text-[9.5px] md:text-[10px] mr-2 tracking-wider">Kontekst:</span>
                   {item.framing_analysis}
               </p>
           </div>
         </div>
 
-        {/* SPODNJI DEL: Šum in Radar */}
-        <div className="px-5 md:px-7 py-4 md:py-5 border-t border-gray-100 dark:border-gray-700/50 bg-gray-50/50 dark:bg-[#1e293b]/20 rounded-b-xl flex flex-col">
+        {/* SPODNJI DEL: Šum in Spekter */}
+        <div className="px-6 md:px-10 py-5 md:py-7 border-t border-gray-100 dark:border-gray-700/50 bg-gray-50/50 dark:bg-[#1e293b]/20 rounded-b-xl flex flex-col">
             
             <SpectrumLine 
                 title="Informacija" 
@@ -250,26 +249,25 @@ export default function AnalizaPage({ analysis, lastUpdated }: Props) {
       <Header activeCategory="vse" activeSource="Vse" />
       <main className="min-h-screen bg-[#F9FAFB] dark:bg-gray-900 pb-20">
         
-        {/* HEADER */}
-        <div className="bg-white dark:bg-gray-800/60 border-b border-gray-200 dark:border-gray-800 py-6 md:py-8">
-            <div className="max-w-[800px] mx-auto px-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        {/* HEADER: Širina povečana na 1000px */}
+        <div className="bg-white dark:bg-gray-800/60 border-b border-gray-200 dark:border-gray-800 py-6 md:py-10">
+            <div className="max-w-[1000px] mx-auto px-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-5">
                 
                 <div className="flex-1 min-w-0">
-                  <h1 className="text-2xl md:text-3xl font-serif font-bold text-gray-900 dark:text-white flex items-center gap-3">
-                      {/* Večja in bolj izrazita ikona (text-gray-900 namesto prosojne sive) */}
-                      <svg className="w-7 h-7 md:w-8 md:h-8 text-gray-900 dark:text-white shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                  <h1 className="text-2xl md:text-3xl lg:text-4xl font-serif font-bold text-gray-900 dark:text-white flex items-center gap-3">
+                      <svg className="w-7 h-7 md:w-8 md:h-8 lg:w-9 lg:h-9 text-gray-900 dark:text-white shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
                           <path strokeLinecap="round" strokeLinejoin="round" d="M15.042 21.672 13.684 16.6m0 0-2.51 2.225.569-9.47 5.227 7.917-3.286-.672Zm-7.518-.267A8.25 8.25 0 1 1 20.25 10.5M8.288 14.212A5.25 5.25 0 1 1 17.25 10.5" />
                       </svg>
                       Medijski Spekter
                   </h1>
-                  <p className="text-[12.5px] md:text-[13px] text-gray-500 dark:text-gray-400 mt-2 max-w-2xl leading-relaxed">
+                  <p className="text-[13px] md:text-[14px] text-gray-500 dark:text-gray-400 mt-2.5 max-w-2xl leading-relaxed">
                     <strong className="text-gray-700 dark:text-gray-300">Ena novica. Več naslovov. Kdo pretirava?</strong> Strojna analiza in pregled uredniških odločitev pri ključnih temah. S pomočjo umetne inteligence prepoznavamo vzorce poročanja, destiliramo gola dejstva in na vizualnem spektru razkrivamo informacijski šum, čustveni naboj ter novinarsko pristranskost.
                   </p>
                 </div>
                 
                 <div className="w-full md:w-auto flex flex-row-reverse md:flex-col items-center md:items-end justify-between md:justify-start gap-3 mt-3 md:mt-0">
                     {lastUpdated && (
-                        <div className="text-[9.5px] md:text-[10px] font-mono text-gray-500 flex items-center gap-1.5 border border-gray-100 dark:border-gray-700 px-2.5 py-1.5 rounded bg-gray-50 dark:bg-gray-800/50 shrink-0">
+                        <div className="text-[10px] md:text-[11px] font-mono text-gray-500 flex items-center gap-1.5 border border-gray-100 dark:border-gray-700 px-3 py-2 rounded bg-gray-50 dark:bg-gray-800/50 shrink-0">
                             <span className="relative flex h-1.5 w-1.5">
                                 <span className="absolute inline-flex h-full w-full rounded-full bg-brand opacity-75 animate-ping"></span>
                                 <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-brand"></span>
@@ -278,14 +276,15 @@ export default function AnalizaPage({ analysis, lastUpdated }: Props) {
                         </div>
                     )}
                     <Link href="/" className="px-3 py-1.5 border border-transparent rounded-md text-[10px] md:text-[11px] font-bold uppercase tracking-widest text-gray-400 hover:text-brand transition-all flex items-center gap-1.5">
-                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" /></svg>
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" /></svg>
                         Nazaj
                     </Link>
                 </div>
             </div>
         </div>
 
-        <div className="max-w-[800px] mx-auto px-4 mt-8 md:mt-10">
+        {/* GLAVNA KARTICA: Širina povečana na 1000px */}
+        <div className="max-w-[1000px] mx-auto px-4 mt-8 md:mt-12">
           {validAnalysis.length === 0 ? (
             <div className="text-center py-20 text-gray-400 font-mono text-sm italic">Pridobivam najnovejše analize...</div>
           ) : (
