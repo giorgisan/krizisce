@@ -157,14 +157,23 @@ function SpectrumLine({ title, leftLabel, rightLabel, propKey, gradient, sources
 }
 
 const splitSummaryIntoBullets = (summary: string) => {
-    return summary.split('. ').filter(s => s.length > 5).map(s => s.trim() + (s.endsWith('.') ? '' : '.'));
+    if (!summary) return [];
+    // Pametnejši razrez, ki ignorira dr., mag., prof., št., itd.
+    return summary
+        .replace(/(?<!\b(?:dr|mag|prof|št|oz|tj|itd|npr|dipl|doc|inž))\.\s+(?=[A-ZČŠŽ])/g, '.|SPLIT|')
+        .split('.|SPLIT|')
+        .filter(s => s.length > 5)
+        .map(s => s.trim() + (s.endsWith('.') ? '' : '.'));
 }
 
 // 3. GLAVNA KARTICA NOVICE
 function AnalysisCard({ item, idx, setPreviewUrl }: { item: AnalysisItem, idx: number, setPreviewUrl: (url: string) => void }) {
   const router = useRouter();
   const newsId = `novica-${idx + 1}`;
-  const isFocused = router.asPath.includes(`#${newsId}`);
+  
+  // Bolj natančen isFocused
+  const isFocused = router.asPath.endsWith(`#${newsId}`);
+  
   const bullets = splitSummaryIntoBullets(item.summary);
 
   return (
@@ -260,7 +269,7 @@ export default function AnalizaPage({ analysis, lastUpdated }: Props) {
       <Header activeCategory="vse" activeSource="Vse" />
       <main className="min-h-screen bg-[#F9FAFB] dark:bg-gray-900 pb-20">
         
-        {/* HEADER: Širina 1000px */}
+        {/* HEADER */}
         <div className="bg-white dark:bg-gray-800/60 border-b border-gray-200 dark:border-gray-800 py-6 md:py-10">
             <div className="max-w-[1000px] mx-auto px-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-5">
                 
@@ -294,7 +303,6 @@ export default function AnalizaPage({ analysis, lastUpdated }: Props) {
             </div>
         </div>
 
-        {/* GLAVNA KARTICA: Širina 1000px */}
         <div className="max-w-[1000px] mx-auto px-4 mt-8 md:mt-12">
           {validAnalysis.length === 0 ? (
             <div className="text-center py-20 text-gray-400 font-mono text-sm italic">Pridobivam najnovejše analize...</div>
@@ -315,8 +323,18 @@ export default function AnalizaPage({ analysis, lastUpdated }: Props) {
 export const getStaticProps: GetStaticProps = async () => {
   const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
   const { data, error } = await supabase.from('media_analysis').select('data, created_at').order('created_at', { ascending: false }).limit(1).single()
+  
   if (error || !data) return { props: { analysis: null, lastUpdated: null }, revalidate: 60 }
+  
   let content = data.data;
-  if (typeof content === 'string') { try { content = JSON.parse(content); } catch {} }
-  return { props: { analysis: Array.isArray(content) ? content : (content as any).data || null, lastUpdated: data.created_at }, revalidate: 60 }
+  if (typeof content === 'string') { 
+      try { 
+          content = JSON.parse(content); 
+      } catch (e) {
+          console.error("Napaka pri parsiranju JSON analize v bazi:", e);
+          content = null;
+      } 
+  }
+  
+  return { props: { analysis: Array.isArray(content) ? content : (content as any)?.data || null, lastUpdated: data.created_at }, revalidate: 60 }
 }
