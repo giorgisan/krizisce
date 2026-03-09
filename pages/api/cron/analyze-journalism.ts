@@ -17,7 +17,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
-    // 1. ZAJEM IZ CACHE TABELE
     const { data: cacheData, error: cacheError } = await supabase
       .from('trending_groups_cache')
       .select('data')
@@ -32,12 +31,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.json({ message: "Ni podatkov za analizo." })
     }
 
-    // 2. Izbor prvih 5 skupin
     const topStories = allGroups.slice(0, 5)
 
-    // 3. Priprava podatkov za AI
-    // FIX: URL je označen kot [source_url] da AI jasno ve, da je to samo referenčni identifier,
-    // ne vsebinska informacija za določanje teme ali lokacije.
     let promptData = ""
     topStories.forEach((group: any, index: number) => {
        promptData += `\nZGODBA ${index + 1}:\n`
@@ -58,27 +53,25 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const currentDate = new Intl.DateTimeFormat('sl-SI', { day: 'numeric', month: 'long', year: 'numeric' }).format(new Date());
 
-    // 4. Prompt
+    // POSODOBLJEN PROMPT ZA MEDIJSKI DNK IN KONSENZNI NASLOV
     const prompt = `
-      You are an expert media analyst. Analyze how Slovenian media is reporting on the following ${topStories.length} events. 
-      Use both the title and the provided snippet to evaluate the media framing and editorial approach.
-
-      Categorize the tone/approach of each source using ONLY one of the following exact Slovenian terms:
-      - Nevtralno (dry listing of facts, "who/what/when", neutral, no emotional adjectives)
-      - Dramatično (clickbait, emphasizes shock, drama, fear, uses strong emotional adjectives, focuses on extreme aspects)
-      - Poglobljeno (in-depth, explains the "why", consequences, historical context, expert opinions, systemic view)
-      - Kritično (focuses on pointing fingers, blaming, highlighting incompetence of actors/government, opinionated tone)
+      You are an expert media analyst and fact-checker. Analyze how Slovenian media is reporting on the following ${topStories.length} events. 
+      Use both the title and the provided snippet to evaluate the media framing.
 
       CRITICAL - TOPIC AND SUMMARY NAMING RULE:
       The 'topic' and 'summary' fields MUST be derived EXCLUSIVELY from article TITLES and snippet CONTENT.
       NEVER use the [source_url] path or slug to determine the topic, location, subject, or any factual detail.
-      URLs are routing artifacts and frequently contain outdated, misleading, or completely unrelated keywords.
-      If a title says "Oslo" and the [source_url] contains "bagdad", the location is Oslo. The URL is wrong, not the title.
 
-      CRITICAL FACT-CHECKING RULE (TEMPORAL AWARENESS):
-      Today's date is ${currentDate}. You must KEEP valid political and professional titles to provide good context, BUT you must be accurate.
-      - NEVER add "nekdanji" or "bivši" to a title unless it explicitly appears in the source snippet AND is still true today.
-      - EXAMPLE OF CORRECT BEHAVIOR: If a source snippet uses "nekdanji" or "bivši" for someone who currently holds that office as of ${currentDate}, correct it to their active title. Do not blindly copy factual errors about people's current roles from source snippets.
+      CRITICAL FACT-CHECKING RULE:
+      Today's date is ${currentDate}. Keep valid political/professional titles, but correct outdated ones (e.g., do not write "bivši" if they currently hold the office).
+
+      NEW TASK: MEDIA DNA & CONSENSUS HEADLINE
+      Instead of just analyzing tone, you must now deconstruct the "Media DNA" of every single source based on its TITLE and snippet:
+      1. Sensationalism: Does the title use dramatic, hyperbolic words or fear-mongering? (nizek / srednji / visok)
+      2. Info Gap: Does the title intentionally hide a key fact to force a click (e.g. "To so posledice...", "Ne boste verjeli...")? (da / ne)
+      3. Info Density: How much actual, concrete information does the title provide without needing to click? (nizka / srednja / visoka)
+
+      Additionally, for the overall event, you must write a 'consensus_headline'. This is a single, ultra-neutral, distilled headline created by combining the facts from all sources. It must answer Who, What, Where, and Consequence.
 
       CRITICAL REQUIREMENT: The analysis text and all JSON values MUST be written entirely in the SLOVENIAN language.
 
@@ -86,7 +79,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       ${promptData}
     `
 
-    // 5. Strict JSON schema definition za Gemini
+    // POSODOBLJENA SHEMA ZA VRAČANJE MEDIJSKEGA DNK
     const responseSchema = {
       type: SchemaType.ARRAY,
       description: "Seznam analiziranih medijskih zgodb.",
@@ -95,11 +88,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         properties: {
           topic: {
             type: SchemaType.STRING,
-            description: "Nevtralen naslov dogodka (max 5 besed). Izpeljan IZKLJUČNO iz naslovov in povzetkov, nikoli iz URL-jev."
+            description: "Nevtralen naslov dogodka (max 5 besed). Izpeljan IZKLJUČNO iz naslovov in povzetkov."
+          },
+          consensus_headline: {
+            type: SchemaType.STRING,
+            description: "A neutral, distilled headline combining facts from all sources (Who, What, Where, Consequence). Act as an impartial wire service."
           },
           summary: {
             type: SchemaType.STRING,
-            description: "A detailed, factual 3 to 4 sentence summary of the story based STRICTLY on article titles and snippets. Include key names, specific numbers, actions, and locations mentioned in the text — never from the URL. This will be used as primary reference for a morning briefing."
+            description: "A detailed, factual 3 to 4 sentence summary of the story based STRICTLY on titles and snippets."
           },
           framing_analysis: {
             type: SchemaType.STRING,
@@ -107,23 +104,29 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           },
           sources: {
             type: SchemaType.ARRAY,
-            description: "Seznam virov, ki poročajo o zgodbi.",
+            description: "Seznam virov in njihov Medijski DNK.",
             items: {
               type: SchemaType.OBJECT,
               properties: {
                 source: { type: SchemaType.STRING },
                 title: { type: SchemaType.STRING },
                 url: { type: SchemaType.STRING },
-                tone: { 
-                  type: SchemaType.STRING,
-                  description: "Ena od vrednosti: Nevtralno, Dramatično, Poglobljeno, Kritično."
+                media_dna: {
+                    type: SchemaType.OBJECT,
+                    description: "Analiza treh ključnih signalov naslova (Medijski DNK).",
+                    properties: {
+                        sensationalism: { type: SchemaType.STRING, description: "Stopnja senzacionalizma: 'nizek', 'srednji' ali 'visok'." },
+                        info_gap: { type: SchemaType.STRING, description: "Ali skriva informacije (clickbait)? 'da' ali 'ne'." },
+                        info_density: { type: SchemaType.STRING, description: "Količina dejstev v naslovu: 'nizka', 'srednja' ali 'visoka'." }
+                    },
+                    required: ["sensationalism", "info_gap", "info_density"]
                 }
               },
-              required: ["source", "title", "url", "tone"]
+              required: ["source", "title", "url", "media_dna"]
             }
           }
         },
-        required: ["topic", "summary", "framing_analysis", "sources"]
+        required: ["topic", "consensus_headline", "summary", "framing_analysis", "sources"]
       }
     };
 
@@ -132,7 +135,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         generationConfig: {
             responseMimeType: "application/json",
             responseSchema: responseSchema,
-            temperature: 0.2,
+            temperature: 0.2, 
         }
     }); 
 
@@ -140,7 +143,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const analysisText = result.response.text();
     let analysisData = JSON.parse(analysisText);
 
-    // 6. Pripis slik iz originalnih skupin nazaj v AI JSON
     const finalData = analysisData.map((aiItem: any, index: number) => {
         const originalGroup = topStories[index];
         if (originalGroup) {
@@ -149,14 +151,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return aiItem;
     });
 
-    // 7. Shranjevanje v media_analysis tabelo
     const { error: insertError } = await supabase.from('media_analysis').insert({ 
         data: finalData
     })
 
     if (insertError) throw insertError;
 
-    // 8. TAKOJŠNJA OSVEŽITEV CACHE-A (On-Demand Revalidation)
     try {
         await res.revalidate('/analiza');
         console.log("Stran /analiza je bila uspešno osvežena na Vercelu!");
