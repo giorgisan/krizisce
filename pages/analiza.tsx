@@ -118,7 +118,7 @@ function SourceLogoPin({ source, value, setPreviewUrl }: { source: SourceItem, v
     )
 }
 
-// 2. KOMPONENTA: Kontinuirana premica v Radarju
+// 2. KOMPONENTA: Kontinuirana premica v Spektru
 function SpectrumLine({ title, leftLabel, rightLabel, propKey, gradient, sources, setPreviewUrl }: any) {
     return (
         <div className="mb-4 last:mb-0">
@@ -201,7 +201,7 @@ function AnalysisCard({ item, idx, setPreviewUrl }: { item: AnalysisItem, idx: n
           </div>
         </div>
 
-        {/* SPODNJI DEL: Šum in Radar */}
+        {/* SPODNJI DEL: Šum in Spekter */}
         <div className="px-5 md:px-7 py-4 md:py-5 border-t border-gray-100 dark:border-gray-700/50 bg-gray-50/50 dark:bg-[#1e293b]/20 rounded-b-xl flex flex-col">
             
             <SpectrumLine 
@@ -250,7 +250,7 @@ export default function AnalizaPage({ analysis, lastUpdated }: Props) {
       <Header activeCategory="vse" activeSource="Vse" />
       <main className="min-h-screen bg-[#F9FAFB] dark:bg-gray-900 pb-20">
         
-        {/* HEADER */}
+        {/* HEADER: Z novim imenom in podnaslovom */}
         <div className="bg-white dark:bg-gray-800/60 border-b border-gray-200 dark:border-gray-800 py-5 md:py-6">
             <div className="max-w-[800px] mx-auto px-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
                 
@@ -261,8 +261,9 @@ export default function AnalizaPage({ analysis, lastUpdated }: Props) {
                       </svg>
                       Medijski Spekter
                   </h1>
-                  <p className="text-[12px] text-gray-500 dark:text-gray-400 mt-1 max-w-xl leading-snug">
-                    Ena novica. Več naslovov. Kdo pretirava? Destiliramo dejstva in razkrivamo šum.
+                  <div className="text-[10px] font-bold uppercase tracking-widest text-brand mt-1 mb-0.5">Indeks šuma</div>
+                  <p className="text-[12px] text-gray-500 dark:text-gray-400 max-w-xl leading-snug">
+                    Ena novica. Deset naslovov. Kdo pretirava? Destiliramo dejstva in razkrivamo šum.
                   </p>
                 </div>
                 
