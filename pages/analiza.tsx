@@ -246,7 +246,7 @@ export default function AnalizaPage({ analysis, lastUpdated }: Props) {
 
   return (
     <>
-      <Head><title>Medijski Radar | Križišče</title></Head>
+      <Head><title>Medijski Spekter | Križišče</title></Head>
       <Header activeCategory="vse" activeSource="Vse" />
       <main className="min-h-screen bg-[#F9FAFB] dark:bg-gray-900 pb-20">
         
@@ -259,10 +259,10 @@ export default function AnalizaPage({ analysis, lastUpdated }: Props) {
                       <svg className="w-5 h-5 text-brand shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
                           <path strokeLinecap="round" strokeLinejoin="round" d="M15.042 21.672 13.684 16.6m0 0-2.51 2.225.569-9.47 5.227 7.917-3.286-.672Zm-7.518-.267A8.25 8.25 0 1 1 20.25 10.5M8.288 14.212A5.25 5.25 0 1 1 17.25 10.5" />
                       </svg>
-                      Medijski Radar
+                      Medijski Spekter
                   </h1>
                   <p className="text-[12px] text-gray-500 dark:text-gray-400 mt-1 max-w-xl leading-snug">
-                    Ena novica. Deset naslovov. Kdo pretirava? Destiliramo dejstva in razkrivamo šum.
+                    Ena novica. Več naslovov. Kdo pretirava? Destiliramo dejstva in razkrivamo šum.
                   </p>
                 </div>
                 
