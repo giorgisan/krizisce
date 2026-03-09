@@ -58,19 +58,39 @@ const getLogoSrc = (sourceName: string) => {
   return '/logo.png';
 }
 
-// KOMPAKTNE IN ELEGANTNE ZNAČKE
+// NOVE, MINIMALISTIČNE ZNAČKE Z IKONAMI
 function DNABadges({ dna }: { dna: MediaDNA }) {
   if (!dna) return null;
 
-  const sColor = dna.sensationalism === 'visok' ? 'text-red-700 bg-red-50 dark:bg-red-500/10 dark:text-red-400' : dna.sensationalism === 'srednji' ? 'text-amber-700 bg-amber-50 dark:bg-amber-500/10 dark:text-amber-400' : 'text-emerald-700 bg-emerald-50 dark:bg-emerald-500/10 dark:text-emerald-400';
-  const gColor = dna.info_gap === 'da' ? 'text-orange-700 bg-orange-50 dark:bg-orange-500/10 dark:text-orange-400' : 'text-gray-600 bg-gray-100 dark:bg-gray-700/50 dark:text-gray-400';
-  const dColor = dna.info_density === 'nizka' ? 'text-rose-700 bg-rose-50 dark:bg-rose-500/10 dark:text-rose-400' : dna.info_density === 'srednja' ? 'text-blue-700 bg-blue-50 dark:bg-blue-500/10 dark:text-blue-400' : 'text-indigo-700 bg-indigo-50 dark:bg-indigo-500/10 dark:text-indigo-400';
+  // Barvne logike (zdaj bolj subtilne za ikone)
+  const getSenzColor = (val: string) => {
+      if (val === 'visok') return 'text-red-600 bg-red-50 dark:bg-red-500/10 dark:text-red-400 border-red-200 dark:border-red-500/20';
+      if (val === 'srednji') return 'text-amber-600 bg-amber-50 dark:bg-amber-500/10 dark:text-amber-400 border-amber-200 dark:border-amber-500/20';
+      return 'text-emerald-600 bg-emerald-50 dark:bg-emerald-500/10 dark:text-emerald-400 border-emerald-200 dark:border-emerald-500/20';
+  };
+
+  const getGapColor = (val: string) => {
+      return val === 'da' ? 'text-orange-600 bg-orange-50 dark:bg-orange-500/10 dark:text-orange-400 border-orange-200 dark:border-orange-500/20' 
+                          : 'text-gray-500 bg-gray-100 dark:bg-gray-800 dark:text-gray-400 border-gray-200 dark:border-gray-700';
+  };
+
+  const getDensColor = (val: string) => {
+      if (val === 'nizka') return 'text-rose-600 bg-rose-50 dark:bg-rose-500/10 dark:text-rose-400 border-rose-200 dark:border-rose-500/20';
+      if (val === 'srednja') return 'text-blue-600 bg-blue-50 dark:bg-blue-500/10 dark:text-blue-400 border-blue-200 dark:border-blue-500/20';
+      return 'text-indigo-600 bg-indigo-50 dark:bg-indigo-500/10 dark:text-indigo-400 border-indigo-200 dark:border-indigo-500/20';
+  };
 
   return (
       <div className="flex flex-wrap gap-1.5 mt-1.5">
-          <span className={`text-[8.5px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ${sColor}`}>Senzacionalnost: {dna.sensationalism}</span>
-          <span className={`text-[8.5px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ${gColor}`}>Vrzel: {dna.info_gap}</span>
-          <span className={`text-[8.5px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ${dColor}`}>Gostota: {dna.info_density}</span>
+          <span title={`Senzacionalizem: ${dna.sensationalism}`} className={`flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded border ${getSenzColor(dna.sensationalism)}`}>
+              <span>🔥</span> {dna.sensationalism}
+          </span>
+          <span title={`Vaba (Clickbait): ${dna.info_gap}`} className={`flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded border ${getGapColor(dna.info_gap)}`}>
+              <span>🎣</span> {dna.info_gap}
+          </span>
+          <span title={`Informativnost: ${dna.info_density}`} className={`flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded border ${getDensColor(dna.info_density)}`}>
+              <span>🧠</span> {dna.info_density}
+          </span>
       </div>
   );
 }
@@ -83,7 +103,7 @@ function AnalysisCard({ item, setPreviewUrl }: { item: AnalysisItem, setPreviewU
   return (
     <article className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700/60 rounded-xl overflow-hidden shadow-sm hover:shadow transition-shadow flex flex-col md:flex-row">
         
-      {/* LEVI BLOK: Novica + Sinteza (Zasede preostali prostor) */}
+      {/* LEVI BLOK: Novica + Sinteza */}
       <div className="p-4 md:p-5 flex-1 border-b md:border-b-0 md:border-r border-gray-100 dark:border-gray-700/50 flex flex-col">
         
         <div className="text-[9px] font-bold uppercase tracking-wider text-brand mb-1.5">
@@ -94,7 +114,6 @@ function AnalysisCard({ item, setPreviewUrl }: { item: AnalysisItem, setPreviewU
           {item.consensus_headline || item.topic}
         </h2>
         
-        {/* COMPACT LAYOUT: Slika zraven teksta */}
         <div className="flex gap-3 mb-4">
             {item.main_image && (
             <div className="w-20 md:w-28 shrink-0">
@@ -114,7 +133,6 @@ function AnalysisCard({ item, setPreviewUrl }: { item: AnalysisItem, setPreviewU
             </p>
         </div>
         
-        {/* Medijski okvir fiksno spodaj */}
         <div className="mt-auto bg-gray-50 dark:bg-gray-800/80 rounded-md border border-gray-100 dark:border-gray-700/50 p-2.5">
             <div className="text-[9px] font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-1 flex items-center gap-1.5">
                 <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
@@ -128,7 +146,7 @@ function AnalysisCard({ item, setPreviewUrl }: { item: AnalysisItem, setPreviewU
         </div>
       </div>
 
-      {/* DESNI BLOK: Viri (Fiksna max-širina preprečuje raztegovanje) */}
+      {/* DESNI BLOK: Viri */}
       <div className="p-4 md:p-5 w-full md:w-[340px] lg:w-[400px] bg-gray-50/50 dark:bg-[#1e293b]/30 shrink-0 flex flex-col">
         <div className="text-[9px] font-bold uppercase tracking-wider text-gray-400 mb-3">
             Interpretacije medijev ({item.sources?.length || 0})
@@ -163,7 +181,7 @@ function AnalysisCard({ item, setPreviewUrl }: { item: AnalysisItem, setPreviewU
         {hasMore && (
            <button 
               onClick={() => setShowAllSources(!showAllSources)}
-              className="mt-4 text-[9px] font-bold uppercase tracking-widest text-brand hover:text-brand/70 transition-colors self-start flex items-center gap-1 bg-brand/5 px-2 py-1 rounded"
+              className="mt-4 text-[9px] font-bold uppercase tracking-widest text-brand hover:text-brand/70 transition-colors self-start flex items-center gap-1 bg-brand/5 px-2 py-1 rounded border border-brand/20"
            >
               {showAllSources ? '✕ Pomanjšaj seznam' : `Pokaži še ${(item.sources?.length || 0) - 4} vire`}
            </button>
@@ -188,43 +206,71 @@ export default function AnalizaPage({ analysis, lastUpdated }: Props) {
 
       <main className="min-h-screen bg-[#F9FAFB] dark:bg-gray-900 pb-20">
         
-        {/* HEADER */}
+        {/* HEADER IN LEGENDA */}
         <div className="bg-white dark:bg-gray-800/60 border-b border-gray-200 dark:border-gray-800 py-6 md:py-8">
-            <div className="max-w-[1100px] mx-auto px-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+            <div className="max-w-[1100px] mx-auto px-4">
                 
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-3 mb-1.5">
-                      <div className="bg-brand/10 p-2 rounded-lg text-brand hidden sm:block">
-                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M15.042 21.672 13.684 16.6m0 0-2.51 2.225.569-9.47 5.227 7.917-3.286-.672Zm-7.518-.267A8.25 8.25 0 1 1 20.25 10.5M8.288 14.212A5.25 5.25 0 1 1 17.25 10.5" />
-                        </svg>
-                      </div>
-                      <h1 className="text-2xl font-serif font-bold text-gray-900 dark:text-white tracking-tight">
-                          Medijski Monitor & DNK
-                      </h1>
-                  </div>
-                  <p className="text-[13px] text-gray-500 dark:text-gray-400 max-w-2xl leading-relaxed sm:ml-12">
-                    Sistem destilira novice v nevtralen <strong>Konsenzni naslov</strong> in analizira <strong>Medijski DNK</strong> virov. Prepoznajte senzacionalizem in hitro ločite dejstva od "clickbait" šuma.
-                  </p>
-                </div>
-                
-                <div className="w-full md:w-auto flex flex-row-reverse md:flex-col items-center md:items-end justify-between md:justify-start gap-3 mt-2 md:mt-0 shrink-0">
-                    {lastUpdated && (
-                        <div className="text-[10px] font-mono text-gray-500 flex items-center gap-2 border border-gray-200 dark:border-gray-700 px-2 py-1 rounded bg-gray-50 dark:bg-gray-800/50 shadow-sm">
-                            <span className="relative flex h-1.5 w-1.5">
-                                <span className="absolute inline-flex h-full w-full rounded-full bg-brand opacity-75 animate-ping"></span>
-                                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-brand"></span>
-                            </span>
-                            {new Date(lastUpdated).toLocaleTimeString('sl-SI', {hour: '2-digit', minute:'2-digit'})}
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                    <div className="flex items-center gap-3">
+                        <div className="bg-brand/10 p-2 rounded-lg text-brand hidden sm:block">
+                            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M15.042 21.672 13.684 16.6m0 0-2.51 2.225.569-9.47 5.227 7.917-3.286-.672Zm-7.518-.267A8.25 8.25 0 1 1 20.25 10.5M8.288 14.212A5.25 5.25 0 1 1 17.25 10.5" />
+                            </svg>
                         </div>
-                    )}
-                    <Link href="/" className="px-3 py-1.5 border border-gray-200 dark:border-gray-700 rounded shadow-sm text-[10px] font-bold uppercase tracking-widest text-gray-600 dark:text-gray-300 hover:text-brand transition-all flex items-center gap-1.5">
-                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-                        </svg>
-                        Nazaj
-                    </Link>
+                        <h1 className="text-2xl font-serif font-bold text-gray-900 dark:text-white tracking-tight">
+                            Medijski Monitor & DNK
+                        </h1>
+                    </div>
+                    
+                    <div className="flex items-center gap-3 w-full md:w-auto justify-between md:justify-end">
+                        {lastUpdated && (
+                            <div className="text-[10px] font-mono text-gray-500 flex items-center gap-2 border border-gray-200 dark:border-gray-700 px-2 py-1 rounded bg-gray-50 dark:bg-gray-800/50 shadow-sm">
+                                <span className="relative flex h-1.5 w-1.5">
+                                    <span className="absolute inline-flex h-full w-full rounded-full bg-brand opacity-75 animate-ping"></span>
+                                    <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-brand"></span>
+                                </span>
+                                {new Date(lastUpdated).toLocaleTimeString('sl-SI', {hour: '2-digit', minute:'2-digit'})}
+                            </div>
+                        )}
+                        <Link href="/" className="px-3 py-1.5 border border-gray-200 dark:border-gray-700 rounded shadow-sm text-[10px] font-bold uppercase tracking-widest text-gray-600 dark:text-gray-300 hover:text-brand transition-all flex items-center gap-1.5 bg-white dark:bg-gray-800">
+                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+                            </svg>
+                            Nazaj
+                        </Link>
+                    </div>
                 </div>
+
+                {/* LEGENDA (Pojasnilo DNK) */}
+                <div className="mt-6 p-4 bg-gray-50 dark:bg-gray-800/40 border border-gray-200 dark:border-gray-700/50 rounded-lg max-w-3xl">
+                    <p className="text-[12px] text-gray-600 dark:text-gray-300 mb-3">
+                        Sistem destilira novice v nevtralen <strong>Konsenzni naslov</strong> in analizira <strong>Medijski DNK</strong> virov. Kaj pomenijo posamezne ikone ob naslovih medijev?
+                    </p>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div className="flex items-start gap-2">
+                            <span className="text-lg leading-none">🔥</span>
+                            <div>
+                                <div className="text-[11px] font-bold text-gray-800 dark:text-gray-200">Senzacionalizem</div>
+                                <div className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5 leading-snug">Mera čustvenega naboja in dramatičnega izrazoslovja.</div>
+                            </div>
+                        </div>
+                        <div className="flex items-start gap-2">
+                            <span className="text-lg leading-none">🎣</span>
+                            <div>
+                                <div className="text-[11px] font-bold text-gray-800 dark:text-gray-200">Clickbait vaba</div>
+                                <div className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5 leading-snug">Ali naslov namerno skriva ključno dejstvo, da bi pridobil klik?</div>
+                            </div>
+                        </div>
+                        <div className="flex items-start gap-2">
+                            <span className="text-lg leading-none">🧠</span>
+                            <div>
+                                <div className="text-[11px] font-bold text-gray-800 dark:text-gray-200">Informativnost</div>
+                                <div className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5 leading-snug">Koliko konkretnih dejstev izveste že iz samega naslova.</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
             </div>
         </div>
 
