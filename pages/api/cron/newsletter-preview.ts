@@ -15,7 +15,7 @@ const resend = new Resend(process.env.RESEND_API_KEY)
 
 const BRAND_COLOR = "#ea580c"; 
 
-// --- SCHEMA DEFINICIJA ---
+// --- SCHEMA DEFINICIJA (SPREMENJENA v story_ids: ARRAY) ---
 const newsletterSchema = {
     type: SchemaType.OBJECT,
     properties: {
@@ -33,9 +33,12 @@ const newsletterSchema = {
                             properties: {
                                 theme: { type: SchemaType.STRING },
                                 text: { type: SchemaType.STRING },
-                                story_id: { type: SchemaType.NUMBER }
+                                story_ids: { 
+                                    type: SchemaType.ARRAY,
+                                    items: { type: SchemaType.NUMBER }
+                                }
                             },
-                            required: ["theme", "text", "story_id"]
+                            required: ["theme", "text", "story_ids"]
                         }
                     }
                 },
@@ -60,15 +63,15 @@ OUTPUT:
 ${JSON.stringify(aiData)}
 
 TASK:
-1. Verify that EVERY fact, number, name, and title in the OUTPUT exists explicitly in the SOURCE.
-2. Check for "hallucinations": Did the OUTPUT add any titles, adjectives, specific dates, or statistics that are NOT in the SOURCE? 
+1. Verify that EVERY fact, number, name, location, and title in the OUTPUT exists explicitly in the SOURCE.
+2. PAY SPECIAL ATTENTION TO 'ORIGINAL TITLES' in the source. If the 'SUMMARY' claims the location is 'Bagdad', but the 'ORIGINAL TITLES' say 'Oslo' or 'Norveška', the summary is WRONG. You must correct the OUTPUT to match the ORIGINAL TITLES. The ORIGINAL TITLES are the ultimate ground truth.
+3. Check for "hallucinations": Did the OUTPUT add any titles, adjectives, specific dates, or statistics that are NOT in the SOURCE? 
    -> EXCEPTION: Temporal words like "danes", "jutri", or "ta konec tedna" are strictly ALLOWED in the 'whats_ahead' section.
-3. If you find any hallucinated or altered details, remove them or correct them to match the SOURCE exactly.
-4. Do NOT rewrite the text for style, only fix factual additions. Do NOT delete the 'whats_ahead' section unless the event itself is a complete hallucination.
+4. If you find any hallucinated or altered details (like wrong locations), remove them or correct them to match the SOURCE exactly.
 5. Return the corrected OUTPUT as valid JSON matching the exact original structure. If nothing to fix, return OUTPUT unchanged.
 `;
 
-    // OPTIMIZACIJA: Validator uporablja 2.5-flash za maksimalno hitrost
+    // Uporaba 2.5-flash za maksimalno hitrost
     const model = genAI.getGenerativeModel({ 
         model: "gemini-2.5-flash", 
         generationConfig: { 
@@ -98,9 +101,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     if (error) throw error
 
-    // NOVA LOGIKA ZDRUŽEVANJA PO URL-jih in KLJUČNIH BESEDAH
     const mergedTopics: any[] = [];
     const urlToTopicIndex = new Map<string, number>();
+
+    // Inteligentno čiščenje URL-jev (odstrani tracking, www. in trailing slashes)
+    const normalizeUrl = (u: string) => {
+        if (!u) return '';
+        try {
+            const parsed = new URL(u);
+            return parsed.hostname.replace('www.', '') + parsed.pathname.replace(/\/$/, '');
+        } catch(e) {
+            return u.split('?')[0].replace(/\/$/, '');
+        }
+    };
 
     if (analysisRows) {
         analysisRows.forEach(row => {
@@ -127,46 +140,30 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
                     let targetIndex = -1;
                     
-                    // 1. Združevanje po točnem ujemanju URL-jev
+                    // Združevanje SAMO po normaliziranih URL-jih (brez nevarnega fuzzy matchinga)
                     for (const s of currentSources) {
-                        const url = typeof s === 'string' ? s : s.url;
+                        const rawUrl = typeof s === 'string' ? s : s.url;
+                        const url = normalizeUrl(rawUrl);
                         if (urlToTopicIndex.has(url)) {
                             targetIndex = urlToTopicIndex.get(url)!;
                             break;
                         }
                     }
 
-                    // 2. Če ni točnega ujemanja URL-jev, poskusimo semantično združevanje po besedah v naslovu teme (Fuzzy matching)
-                    if (targetIndex === -1) {
-                        const currentWords = item.topic.toLowerCase().split(/\s+/).filter((w: string) => w.length > 3);
-                        
-                        for (let i = 0; i < mergedTopics.length; i++) {
-                            const existingWords = mergedTopics[i].topic.toLowerCase().split(/\s+/).filter((w: string) => w.length > 3);
-                            
-                            // Poiščemo presek ključnih besed
-                            const intersection = currentWords.filter((w: string) => existingWords.includes(w));
-                            
-                            // Če se ujemata vsaj dve pomembni besedi (npr. "izrael", "iran", "napadi"), ju združimo
-                            if (intersection.length >= 2 || (currentWords.length === 1 && intersection.length === 1)) {
-                                targetIndex = i;
-                                break;
-                            }
-                        }
-                    }
-
                     if (targetIndex !== -1) {
                         const existing = mergedTopics[targetIndex];
                         currentSources.forEach((s: any) => {
-                            const url = typeof s === 'string' ? s : s.url;
+                            const rawUrl = typeof s === 'string' ? s : s.url;
+                            const url = normalizeUrl(rawUrl);
                             if (!existing.uniqueUrls.has(url)) {
                                 existing.uniqueUrls.add(url);
-                                existing.sources.push(s);
+                                existing.sources.push(s); 
                                 urlToTopicIndex.set(url, targetIndex); 
                             }
                         });
                         existing.score = existing.sources.length;
 
-                        // Obdržimo najdaljši in najbolj opisen summary pri združevanju
+                        // Obdržimo najdaljši povzetek
                         if (item.summary.length > existing.summary.length) {
                              existing.summary = item.summary;
                         }
@@ -180,7 +177,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                         const cleanSources: any[] = [];
                         
                         currentSources.forEach((s: any) => {
-                            const url = typeof s === 'string' ? s : s.url;
+                            const rawUrl = typeof s === 'string' ? s : s.url;
+                            const url = normalizeUrl(rawUrl);
                             if (!uniqueUrls.has(url)) {
                                 uniqueUrls.add(url);
                                 cleanSources.push(s);
@@ -202,7 +200,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         })
     }
 
-    // ZMANJŠANO NA 30 NOVIC (Optimalno za hitrost in globino)
     const topStories = mergedTopics
         .sort((a, b) => b.score - a.score)
         .slice(0, 30);
@@ -218,7 +215,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         if (index === 15) {
             promptData += "=== OSTALE NOVICE (Skeniraj SAMO za 'whats_ahead' in 'closing_line') ===\n\n";
         }
-        promptData += `[STORY ID: ${index}]\n- TOPIC: ${story.topic}\n- SUMMARY: ${story.summary}\n\n`;
+        
+        // Izluščimo originalne naslove virov (Ground Truth)
+        const uniqueTitles = Array.from(new Set(story.sources.map((s: any) => s.title || ''))).filter(t => t.length > 0);
+        const titlesString = uniqueTitles.length > 0 ? uniqueTitles.join(' | ') : 'Ni na voljo';
+
+        promptData += `[STORY ID: ${index}]\n- TOPIC: ${story.topic}\n- ORIGINAL TITLES: ${titlesString}\n- SUMMARY: ${story.summary}\n\n`;
         
         if (!bestImage && story.image_url && index < 15) {
             bestImage = story.image_url;
@@ -243,18 +245,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
          - ALWAYS make "🏔️ Slovenija" the FIRST category.
          - STRICT THEMATIC SORTING: Sports news MUST go into "🏆 Šport". Crime, accidents, or police news MUST go into "⚖️ Kronika".
          - NO CATEGORY DUPLICATES: Never place the same news item in two different categories.
-         - SEMANTIC DEDUPLICATION (CRITICAL): The RAW NEWS might contain the exact same story twice under different IDs/topics (e.g., two stories about the Prime Minister resigning, or two stories about the same war). YOU MUST RECOGNIZE THIS. If two stories are fundamentally about the same event, MERGE them into a SINGLE item in your output. NEVER write about the same event twice within the same category or across different categories.
+         - SEMANTIC DEDUPLICATION (CRITICAL): The RAW NEWS often contains multiple stories about the exact same overarching event (e.g., "Trump threats to Iran" and "Israeli strikes on Tehran"). YOU MUST COMBINE THEM into ONE single comprehensive news item. Write ONE summary text and use BOTH story IDs in the 'story_ids' array. NEVER create two separate items for the same conflict/event.
          - Provide 2-3 items per category.
       3. Each 'item.theme': 2-4 word punchy label.
       4. Each 'item.text': 1-2 short sentences. Write in an active, present-tense tone.
-      5. Each 'item.story_id': EXACTLY the number from the [STORY ID: X] tag!
+      5. Each 'item.story_ids': An ARRAY of numbers corresponding to the [STORY ID: X] tags. If you merged multiple stories (e.g. ID 2 and ID 5) into one item, write [2, 5]. If it's one story, write [2].
       6. 'whats_ahead': Scan ALL stories explicitly for ALL upcoming events, schedules, or announcements. If found, combine them into a cohesive 2-4 sentence paragraph. 
          CRITICAL RULE 1: If ZERO upcoming events are mentioned, return an EXACTLY empty string "".
          CRITICAL RULE 2: DO NOT DUPLICATE. If an event is in the 'categories' section, DO NOT mention it here.
          CRITICAL RULE 3: TEMPORAL CONSISTENCY. Cross-check events! If a story states an event (e.g., an evacuation, a match, a meeting) is already "concluded", "finished", or "landed", DO NOT list it as an upcoming event. Avoid logical contradictions.
       7. 'closing_line': 1 sentence highlighting a specific positive, interesting, or notable fact from ANY story to leave the reader with a final thought.
       
-      HARD RULES: Never invent facts, numbers, or names. Do not combine facts from two different stories into one sentence. Output in Formal Slovenian.
+      HARD RULES: Never invent facts, numbers, or names. Do not combine facts from two different stories into one sentence unless they are about the exact same event. Output in Formal Slovenian.
       `
 
     const generationConfig = { 
@@ -265,7 +267,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     let aiData;
     try {
-        // VRNITEV NA HITRI 2.5-FLASH
         console.log("🚀 Poskušam hiter in stabilen model: gemini-2.5-flash...");
         const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash", generationConfig });
         const result = await model.generateContent(prompt);
@@ -302,12 +303,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         
         cat.items.forEach((item: any) => {
             let sourceLinksHtml = '';
+            const linkMap = new Map<string, string>(); 
             
-            if (item.story_id !== undefined && topStories[item.story_id]) {
-                const story = topStories[item.story_id];
+            // Iteracija čez vse ID-je za združevanje virov
+            const ids = Array.isArray(item.story_ids) ? item.story_ids : (item.story_id !== undefined ? [item.story_id] : []);
+            
+            ids.forEach((id: number) => {
+                const story = topStories[id];
                 if (story && Array.isArray(story.sources)) {
-                    const linkMap = new Map<string, string>(); 
-                    
                     story.sources.forEach((s: any) => {
                         const url = typeof s === 'string' ? s : s.url;
                         if (!url) return;
@@ -332,12 +335,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                             }
                         } catch(e) {}
                     });
-
-                    if (linkMap.size > 0) {
-                        const linksArray = Array.from(linkMap.values());
-                        sourceLinksHtml = `<div style="margin-top: 4px; font-size: 13px; color: #6B7280; font-family: -apple-system, Arial, sans-serif;">⮑ Beri na: ${linksArray.join(', ')}</div>`;
-                    }
                 }
+            });
+
+            if (linkMap.size > 0) {
+                const linksArray = Array.from(linkMap.values());
+                sourceLinksHtml = `<div style="margin-top: 4px; font-size: 13px; color: #6B7280; font-family: -apple-system, Arial, sans-serif;">⮑ Beri na: ${linksArray.join(', ')}</div>`;
             }
 
             itemsHtml += `
