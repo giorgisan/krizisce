@@ -63,9 +63,11 @@ const getLogoSrc = (sourceName: string) => {
   return '/logo.png';
 }
 
+// 1. KOMPONENTA: Animiran Kupček Logotipov (Glassy Spotlight & Horizontal Fan-out)
 function ClusterGroup({ cluster, setPreviewUrl }: { cluster: { value: number, sources: SourceItem[] }, setPreviewUrl: (url: string) => void }) {
     const [isHovered, setIsHovered] = useState(false);
     const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
+    
     const N = cluster.sources.length;
     const direction = cluster.value > 70 ? -1 : 1; 
 
@@ -110,7 +112,6 @@ function ClusterGroup({ cluster, setPreviewUrl }: { cluster: { value: number, so
                             zIndex: isThisHovered ? 999 : (isHovered ? 50 + idx : 20 - idx)
                         }}
                     >
-                        {/* Pomanjšana ikona: w-5.5 na mobilcih, w-6 na desktopu */}
                         <div 
                             onClick={(e) => { e.preventDefault(); e.stopPropagation(); setPreviewUrl(source.url); }}
                             className="w-5.5 h-5.5 md:w-6 md:h-6 bg-white rounded shadow-sm border-[0.5px] border-gray-300 dark:border-gray-600 flex items-center justify-center cursor-pointer transform group-hover/pin:scale-125 transition-all overflow-hidden relative"
@@ -156,13 +157,13 @@ function ClusterGroup({ cluster, setPreviewUrl }: { cluster: { value: number, so
     )
 }
 
+// 2. KOMPONENTA: Kontinuirana premica
 function SpectrumLine({ title, leftLabel, rightLabel, propKey, gradient, sources, setPreviewUrl }: any) {
     const clusters: { value: number, sources: SourceItem[] }[] = [];
     
     sources?.forEach((s: any) => {
         const raw = s.media_dna?.[propKey] ?? 50; 
         const val = Math.max(0, Math.min(100, raw));
-        
         const existing = clusters.find(c => Math.abs(c.value - val) < 3);
         if (existing) {
             existing.sources.push(s);
@@ -176,22 +177,15 @@ function SpectrumLine({ title, leftLabel, rightLabel, propKey, gradient, sources
             <div className="flex items-center justify-between mb-1">
                 <span className="text-[10px] font-bold text-gray-800 dark:text-gray-200 uppercase tracking-widest">{title}</span>
             </div>
-            
             <div className="relative w-full px-2">
                 <div className="flex justify-between text-[8px] md:text-[8.5px] font-bold uppercase tracking-wider text-gray-400 mb-3.5">
                     <span className="w-1/3 text-left">{leftLabel}</span>
                     <span className="w-1/3 text-right">{rightLabel}</span>
                 </div>
-                
                 <div className={`h-1.5 w-full rounded-full ${gradient} relative shadow-inner`}>
                     <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[1.5px] h-3 bg-gray-900/20 dark:bg-white/20 rounded-full"></div>
-                    
                     {clusters.map((cluster, idx) => (
-                        <ClusterGroup 
-                            key={`${propKey}-cluster-${idx}`} 
-                            cluster={cluster} 
-                            setPreviewUrl={setPreviewUrl} 
-                        />
+                        <ClusterGroup key={`${propKey}-cluster-${idx}`} cluster={cluster} setPreviewUrl={setPreviewUrl} />
                     ))}
                 </div>
             </div>
@@ -199,9 +193,17 @@ function SpectrumLine({ title, leftLabel, rightLabel, propKey, gradient, sources
     )
 }
 
-// Ostali deli datoteke (AnalysisCard, AnalizaPage, getStaticProps) ostajajo popolnoma enaki kot v tvojem zadnjem sporočilu.
-// Da bo odgovor kratek in pregleden, sem izpustil ponavljanje teh delov, jih pa preprosto uporabi iz svoje kode.
+// POMOŽNA FUNKCIJA (ki je manjkala!)
+const splitSummaryIntoBullets = (summary: string) => {
+    if (!summary) return [];
+    return summary
+        .replace(/(?<!\b(?:dr|mag|prof|št|oz|tj|itd|npr|dipl|doc|inž))\.\s+(?=[A-ZČŠŽ])/g, '.|SPLIT|')
+        .split('.|SPLIT|')
+        .filter(s => s.length > 5)
+        .map(s => s.trim() + (s.endsWith('.') ? '' : '.'));
+}
 
+// 3. GLAVNA KARTICA NOVICE
 function AnalysisCard({ item, idx, setPreviewUrl }: { item: AnalysisItem, idx: number, setPreviewUrl: (url: string) => void }) {
   const router = useRouter();
   const newsId = `novica-${idx + 1}`;
@@ -254,6 +256,7 @@ function AnalysisCard({ item, idx, setPreviewUrl }: { item: AnalysisItem, idx: n
 export default function AnalizaPage({ analysis, lastUpdated }: Props) {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const validAnalysis = Array.isArray(analysis) ? analysis : [];
+
   return (
     <>
       <Head><title>Medijski presek | Križišče</title></Head>
@@ -308,6 +311,6 @@ export const getStaticProps: GetStaticProps = async () => {
   const { data, error } = await supabase.from('media_analysis').select('data, created_at').order('created_at', { ascending: false }).limit(1).single()
   if (error || !data) return { props: { analysis: null, lastUpdated: null }, revalidate: 60 }
   let content = data.data;
-  if (typeof content === 'string') { try { content = JSON.parse(content); } catch (e) { console.error("Napaka pri parsiranju JSON analize v bazi:", e); content = null; } }
+  if (typeof content === 'string') { try { content = JSON.parse(content); } catch { console.error("JSON parse error"); } }
   return { props: { analysis: Array.isArray(content) ? content : (content as any)?.data || null, lastUpdated: data.created_at }, revalidate: 60 }
 }
