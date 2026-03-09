@@ -1,4 +1,4 @@
-import React, { useState, ComponentType } from 'react'
+import React, { useState, ComponentType, useRef } from 'react'
 import { GetStaticProps } from 'next'
 import Head from 'next/head'
 import Image from 'next/image' 
@@ -8,6 +8,7 @@ import Header from '@/components/Header'
 import Footer from '@/components/Footer'
 import { createClient } from '@supabase/supabase-js'
 import { proxiedImage } from '@/lib/img'
+import { toPng } from 'html-to-image' // Uporabimo tvojo obstoječo knjižnico
 
 type PreviewProps = { url: string; onClose: () => void }
 const ArticlePreview = dynamic(() => import('@/components/ArticlePreview'), {
@@ -16,9 +17,9 @@ const ArticlePreview = dynamic(() => import('@/components/ArticlePreview'), {
 
 // INTERFACES
 interface MediaDNA {
-  sensationalism: string; // nizek, srednji, visok
-  info_gap: string;       // da, ne
-  info_density: string;   // nizka, srednja, visoka
+  sensationalism: string; 
+  info_gap: string;       
+  info_density: string;   
 }
 
 interface SourceItem {
@@ -58,10 +59,8 @@ const getLogoSrc = (sourceName: string) => {
   return '/logo.png';
 }
 
-// VIZUALNI DNA BAR
 function DNABar({ dna }: { dna: MediaDNA }) {
   if (!dna) return null;
-
   const getSenzLevel = (val: string) => {
     if (val === 'visok') return 3;
     if (val === 'srednji') return 2;
@@ -69,7 +68,6 @@ function DNABar({ dna }: { dna: MediaDNA }) {
   };
   const senzLevel = getSenzLevel(dna.sensationalism);
   const senzColor = senzLevel === 3 ? 'bg-red-500' : senzLevel === 2 ? 'bg-amber-400' : 'bg-emerald-400';
-
   const getDensLevel = (val: string) => {
     if (val === 'visoka') return 3;
     if (val === 'srednja') return 2;
@@ -88,7 +86,6 @@ function DNABar({ dna }: { dna: MediaDNA }) {
           <div className={`h-1.5 w-4 rounded-sm ${senzLevel >= 3 ? senzColor : 'bg-gray-200 dark:bg-gray-700'}`}></div>
         </div>
       </div>
-
       <div className="flex items-center justify-between group/dna relative">
         <span className="text-[10px] text-gray-500 dark:text-gray-400 uppercase tracking-wider font-semibold">Informativnost</span>
         <div className="flex gap-0.5">
@@ -97,7 +94,6 @@ function DNABar({ dna }: { dna: MediaDNA }) {
           <div className={`h-1.5 w-4 rounded-sm ${densLevel >= 3 ? densColor : 'bg-gray-200 dark:bg-gray-700'}`}></div>
         </div>
       </div>
-
       <div className="flex items-center justify-between">
          <span className="text-[10px] text-gray-500 dark:text-gray-400 uppercase tracking-wider font-semibold">Clickbait Vaba</span>
          {dna.info_gap === 'da' ? (
@@ -116,55 +112,90 @@ const splitSummaryIntoBullets = (summary: string) => {
 
 function AnalysisCard({ item, idx, setPreviewUrl }: { item: AnalysisItem, idx: number, setPreviewUrl: (url: string) => void }) {
   const [showAllSources, setShowAllSources] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+  const cardRef = useRef<HTMLDivElement>(null);
+  
   const hasMore = (item.sources?.length || 0) > 4;
   const visibleSources = showAllSources ? item.sources : item.sources?.slice(0, 4);
-
   const bullets = splitSummaryIntoBullets(item.summary);
   const rank = idx + 1;
 
+  const handleExportCard = async () => {
+    if (!cardRef.current) return;
+    setIsExporting(true);
+    
+    // Optimizacija za html-to-image (skrijemo gumbe pred slikanjem)
+    const filter = (node: HTMLElement) => {
+        return !node.hasAttribute?.('data-export-hide');
+    };
+
+    try {
+        const dataUrl = await toPng(cardRef.current, { 
+            cacheBust: true,
+            filter: filter,
+            pixelRatio: 2, // Retina kvaliteta
+            backgroundColor: '#ffffff' // Lepše ozadje za sliko
+        });
+        const link = document.createElement('a');
+        link.download = `kontrast-krizisce-${rank}.png`;
+        link.href = dataUrl;
+        link.click();
+    } catch (err) {
+        console.error('Export failed', err);
+    } finally {
+        setIsExporting(false);
+    }
+  };
+
   return (
-    // POSODOBLJENO: `<article>` je zdaj 'relative' (za absolutno pozicijo značke) in NIMA 'overflow-hidden'
-    <article className="relative mb-10 group/card">
-        
-      {/* 1. ZNAČKA, KI ŠTRLI IZVEN OKVIRJA (Top-Left) */}
-      <div className="absolute -top-3.5 -left-3.5 w-9 h-9 bg-brand text-white rounded-full flex items-center justify-center font-black text-[13px] shadow-lg z-20 border-2 border-[#F9FAFB] dark:border-gray-900 transition-transform duration-300 group-hover/card:scale-110">
-          {rank}
+    <div className="relative mb-10 group/card">
+      {/* Editorial številka */}
+      <div className="absolute -top-3 -left-3 w-8 h-8 bg-brand text-white rounded shadow-lg z-20 flex items-center justify-center font-serif font-black text-sm border-2 border-white dark:border-gray-900 transition-transform group-hover/card:scale-110">
+        {rank}
       </div>
 
-      {/* 2. GLAVNA VSEBINA KARTICE */}
-      <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700/60 rounded-xl overflow-hidden shadow-sm hover:shadow transition-shadow flex flex-col xl:flex-row h-full">
+      <article ref={cardRef} className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700/60 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow flex flex-col xl:flex-row relative">
         
-        {/* LEVI BLOK: Konsenz in Točke */}
-        <div className="p-5 md:p-7 flex-1 border-b xl:border-b-0 xl:border-r border-gray-100 dark:border-gray-700/50 flex flex-col bg-slate-50/30 dark:bg-slate-900/20 pl-8 md:pl-10 xl:pl-8">
+        {/* LEVI BLOK */}
+        <div className="p-6 md:p-8 flex-1 border-b xl:border-b-0 xl:border-r border-gray-100 dark:border-gray-700/50 flex flex-col bg-slate-50/40 dark:bg-slate-900/20">
           
-          <div className="flex items-center gap-2 mb-3">
-             <span className="w-2 h-2 rounded-full bg-brand animate-pulse"></span>
-             <span className="text-[10px] font-bold uppercase tracking-widest text-brand">Bistvo zgodbe</span>
+          <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-brand animate-pulse"></span>
+                <span className="text-[10px] font-bold uppercase tracking-widest text-brand">Bistvo zgodbe</span>
+              </div>
+
+              <button 
+                data-export-hide="true"
+                onClick={handleExportCard}
+                disabled={isExporting}
+                className="flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-widest text-gray-400 hover:text-brand transition-all border border-gray-200 dark:border-gray-700 px-2 py-1 rounded bg-white dark:bg-gray-800 shadow-sm"
+              >
+                {isExporting ? '...' : 'Prenesi kartico'}
+              </button>
           </div>
           
-          <h2 className="text-xl md:text-2xl font-serif font-bold text-gray-900 dark:text-white leading-tight mb-5">
+          <h2 className="text-xl md:text-2xl font-serif font-bold text-gray-900 dark:text-white leading-tight mb-6">
             {item.consensus_headline || item.topic}
           </h2>
           
-          <div className="flex flex-col sm:flex-row gap-5 mb-5">
+          <div className="flex flex-col sm:flex-row gap-6 mb-6">
               {item.main_image && (
-              <div className="w-full sm:w-1/3 aspect-[4/3] rounded-lg overflow-hidden relative bg-gray-100 dark:bg-gray-900 border border-gray-100 dark:border-gray-700/50 shrink-0">
-                  <img 
-                      src={proxiedImage(item.main_image, 400, 300, 1)} 
-                      alt=""
-                      className="w-full h-full object-cover"
-                      loading="lazy"
-                      onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                  />
-              </div>
+                <div className="w-full sm:w-1/3 aspect-[4/3] rounded-lg overflow-hidden relative border border-gray-200 dark:border-gray-700 shrink-0">
+                    <img 
+                        src={proxiedImage(item.main_image, 400, 300, 1)} 
+                        alt=""
+                        className="w-full h-full object-cover"
+                    />
+                </div>
               )}
               
               <div className="flex-1">
-                  <div className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-2">Ključna dejstva</div>
-                  <ul className="space-y-2">
-                      {bullets.map((bullet, bulletIdx) => (
-                          <li key={bulletIdx} className="text-[13px] text-gray-700 dark:text-gray-300 leading-relaxed flex items-start gap-2">
-                              <span className="text-brand mt-1 text-[8px]">●</span>
+                  <div className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-3">Ključni poudarki</div>
+                  <ul className="space-y-2.5">
+                      {bullets.map((bullet, bIdx) => (
+                          <li key={bIdx} className="text-[13px] text-gray-700 dark:text-gray-300 leading-relaxed flex items-start gap-2.5">
+                              <span className="text-brand mt-1.5 w-1 h-1 rounded-full shrink-0 bg-brand"></span>
                               <span>{bullet}</span>
                           </li>
                       ))}
@@ -172,56 +203,40 @@ function AnalysisCard({ item, idx, setPreviewUrl }: { item: AnalysisItem, idx: n
               </div>
           </div>
           
-          <div className="mt-auto bg-white dark:bg-gray-800 rounded-lg border border-gray-100 dark:border-gray-700/50 p-4">
+          <div className="mt-auto bg-white/60 dark:bg-gray-800/60 rounded-lg border border-gray-100 dark:border-gray-700/50 p-4">
               <div className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-2 flex items-center gap-1.5">
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 18v-5.25m0 0a6.01 6.01 0 0 0 1.5-.189m-1.5.189a6.01 6.01 0 0 1-1.5-.189m3.75 7.478a12.06 12.06 0 0 1-4.5 0m3.75 2.383a14.406 14.406 0 0 1-3 0M14.25 18v-.192c0-.983.658-1.823 1.508-2.316a7.5 7.5 0 1 0-7.516 0c.85.493 1.509 1.333 1.509 2.316V18" />
-                  </svg>
-                  Medijski okvir (Kako poročajo)
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 18v-5.25m0 0a6.01 6.01 0 0 0 1.5-.189m-1.5.189a6.01 6.01 0 0 1-1.5-.189m3.75 7.478a12.06 12.06 0 0 1-4.5 0m3.75 2.383a14.406 14.406 0 0 1-3 0M14.25 18v-.192c0-.983.658-1.823 1.508-2.316a7.5 7.5 0 1 0-7.516 0c.85.493 1.509 1.333 1.509 2.316V18" /></svg>
+                Kontekst poročanja
               </div>
-              <p className="text-[12px] text-gray-600 dark:text-gray-400 leading-snug m-0">
+              <p className="text-[12px] text-gray-600 dark:text-gray-400 leading-relaxed">
                   {item.framing_analysis}
               </p>
           </div>
         </div>
 
-        {/* DESNI BLOK: Radar Medijev */}
-        <div className="w-full xl:w-[420px] p-5 md:p-7 bg-white dark:bg-[#1e293b]/10 shrink-0 flex flex-col">
-          <div className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-4 border-b border-gray-100 dark:border-gray-800 pb-2">
+        {/* DESNI BLOK */}
+        <div className="w-full xl:w-[400px] p-6 md:p-8 bg-white dark:bg-gray-800 shrink-0 flex flex-col">
+          <div className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-5 border-b border-gray-100 dark:border-gray-700 pb-2">
               Medijski Radar ({item.sources?.length || 0})
           </div>
           
-          <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-5">
             {visibleSources?.map((source, sIdx) => {
                 const cleanTitle = source.title.replace(/^["']|["']$/g, '');
-
                 return (
-                <div key={sIdx} className="group/source flex flex-col p-3 -mx-3 hover:bg-brand/5 dark:hover:bg-brand/10 rounded-lg transition-all duration-200 border-l-4 border-transparent hover:border-brand">
-                  
+                <div key={sIdx} className="group/source flex flex-col p-3 -mx-3 hover:bg-brand/[0.03] dark:hover:bg-brand/[0.05] rounded-lg transition-all border-l-4 border-transparent hover:border-brand">
                   <div className="flex items-start gap-3">
-                    <div className="relative w-5 h-5 shrink-0 mt-0.5">
-                      <Image src={getLogoSrc(source.source)} alt="" fill className="object-contain" />
-                      <div className="absolute inset-0 opacity-0 group-hover/source:opacity-100 flex items-center justify-center bg-white/80 dark:bg-gray-800/80 transition-opacity duration-200 rounded">
-                          <button 
-                              onClick={(e) => { e.preventDefault(); e.stopPropagation(); setPreviewUrl(source.url); }}
-                              title="Beri članek"
-                              className="text-brand flex items-center justify-center p-0"
-                          >
-                              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12Z" /><circle cx="12" cy="12" r="3" /></svg>
-                          </button>
+                    <div className="relative w-4 h-4 shrink-0 mt-0.5">
+                      <Image src={getLogoSrc(source.source)} alt="" fill className="object-contain" unoptimized />
+                      <div data-export-hide="true" className="absolute inset-0 opacity-0 group-hover/source:opacity-100 flex items-center justify-center bg-white/90 dark:bg-gray-800/90 transition-opacity rounded">
+                        <button onClick={() => setPreviewUrl(source.url)} className="text-brand"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="3"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12Z" /><circle cx="12" cy="12" r="3" /></svg></button>
                       </div>
                     </div>
-                    
                     <div className="flex-1 min-w-0">
-                      <a href={source.url} target="_blank" rel="noopener" className="text-[13px] font-medium text-gray-800 dark:text-gray-200 leading-snug hover:text-brand transition-colors block mb-2">
+                      <a href={source.url} target="_blank" rel="noopener" className="text-[12.5px] font-medium text-gray-800 dark:text-gray-200 leading-snug hover:text-brand transition-colors block mb-2.5">
                           "{cleanTitle}"
                       </a>
-                      
-                      {source.media_dna && (
-                          <div className="pt-2 border-t border-gray-100 dark:border-gray-700/50">
-                              <DNABar dna={source.media_dna} />
-                          </div>
-                      )}
+                      {source.media_dna && <DNABar dna={source.media_dna} />}
                     </div>
                   </div>
                 </div>
@@ -229,16 +244,13 @@ function AnalysisCard({ item, idx, setPreviewUrl }: { item: AnalysisItem, idx: n
           </div>
 
           {hasMore && (
-             <button 
-                onClick={() => setShowAllSources(!showAllSources)}
-                className="mt-4 text-[10px] font-bold uppercase tracking-widest text-brand hover:text-brand/70 transition-colors self-center flex items-center gap-1 bg-brand/5 px-4 py-2 rounded-full"
-             >
-                {showAllSources ? 'Pomanjšaj' : `Pokaži še ${(item.sources?.length || 0) - 4} medijev`}
+             <button data-export-hide="true" onClick={() => setShowAllSources(!showAllSources)} className="mt-6 text-[9px] font-bold uppercase tracking-widest text-brand hover:underline self-center">
+                {showAllSources ? 'Pomanjšaj' : `+ še ${(item.sources?.length || 0) - 4} medijev`}
              </button>
           )}
         </div>
-      </div>
-    </article>
+      </article>
+    </div>
   )
 }
 
@@ -248,41 +260,26 @@ export default function AnalizaPage({ analysis, lastUpdated }: Props) {
 
   return (
     <>
-      <Head>
-        <title>Medijski Radar | Križišče</title>
-      </Head>
-
+      <Head><title>Medijski Radar | Križišče</title></Head>
       <Header activeCategory="vse" activeSource="Vse" />
-
       <main className="min-h-screen bg-[#F9FAFB] dark:bg-gray-900 pb-20">
-        
-        {/* HEADER IN LEGENDA */}
         <div className="bg-white dark:bg-gray-800/60 border-b border-gray-200 dark:border-gray-800 py-8">
-            <div className="max-w-[1200px] mx-auto px-4">
-                <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
+            <div className="max-w-[1100px] mx-auto px-4">
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
                     <div className="max-w-2xl">
-                        <h1 className="text-3xl font-serif font-bold text-gray-900 dark:text-white tracking-tight mb-2">
-                            Medijski Radar
-                        </h1>
-                        <p className="text-[14px] text-gray-500 dark:text-gray-400 leading-relaxed">
-                            Odkrijte manipulacije v naslovih. Sistem destilira novice in prikaže <strong>Bistvo zgodbe</strong>, hkrati pa vizualizira <strong>Medijski DNK</strong> vsakega vira.
+                        <h1 className="text-3xl font-serif font-bold text-gray-900 dark:text-white tracking-tight mb-2">Medijski Radar</h1>
+                        <p className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">
+                            Analiza medijskega DNK. Destiliramo novice v <strong>Bistvo zgodbe</strong> in razkrivamo stopnjo senzacionalizma ter clickbaita v naslovih.
                         </p>
                     </div>
-                    
-                    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
-                        <Link href="/" className="px-4 py-2 border border-gray-200 dark:border-gray-700 rounded-md shadow-sm text-[11px] font-bold uppercase tracking-widest text-gray-600 dark:text-gray-300 hover:text-brand hover:border-brand/30 hover:bg-brand/5 dark:hover:bg-gray-800 flex items-center gap-2 transition-all">
-                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-                            </svg>
+                    <div className="flex flex-col sm:flex-row gap-3 shrink-0">
+                        <Link href="/" className="px-4 py-2 border border-gray-200 dark:border-gray-700 rounded shadow-sm text-[10px] font-bold uppercase tracking-widest text-gray-600 dark:text-gray-300 hover:text-brand bg-white dark:bg-gray-800 flex items-center gap-2">
+                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" /></svg>
                             Nazaj
                         </Link>
-
                         {lastUpdated && (
-                            <div className="text-[11px] font-mono text-gray-500 flex items-center gap-2 border border-gray-200 dark:border-gray-700 px-3 py-1.5 rounded-md bg-gray-50 dark:bg-gray-800/50 shadow-sm">
-                                <span className="relative flex h-2 w-2">
-                                    <span className="absolute inline-flex h-full w-full rounded-full bg-brand opacity-75 animate-ping"></span>
-                                    <span className="relative inline-flex rounded-full h-2 w-2 bg-brand"></span>
-                                </span>
+                            <div className="text-[10px] font-mono text-gray-400 border border-gray-200 dark:border-gray-700 px-3 py-2 rounded bg-gray-50 dark:bg-gray-900/50 flex items-center gap-2">
+                                <span className="w-1.5 h-1.5 rounded-full bg-brand"></span>
                                 Osveženo: {new Date(lastUpdated).toLocaleTimeString('sl-SI', {hour: '2-digit', minute:'2-digit'})}
                             </div>
                         )}
@@ -290,19 +287,16 @@ export default function AnalizaPage({ analysis, lastUpdated }: Props) {
                 </div>
             </div>
         </div>
-
-        {/* LIST */}
-        <div className="max-w-[1200px] mx-auto px-4 mt-8">
-          {validAnalysis.length === 0 && (
-            <div className="text-center py-20 text-gray-500 font-mono text-sm">Pridobivam najnovejše analize...</div>
+        <div className="max-w-[1100px] mx-auto px-4 mt-10">
+          {validAnalysis.length === 0 ? (
+            <div className="text-center py-20 text-gray-400 font-mono text-sm italic">Pridobivam najnovejše analize...</div>
+          ) : (
+            validAnalysis.map((item, idx) => (
+              <AnalysisCard key={idx} item={item} idx={idx} setPreviewUrl={setPreviewUrl} />
+            ))
           )}
-
-          {validAnalysis.map((item, idx) => (
-            <AnalysisCard key={idx} item={item} idx={idx} setPreviewUrl={setPreviewUrl} />
-          ))}
         </div>
       </main>
-
       {previewUrl && <ArticlePreview url={previewUrl} onClose={() => setPreviewUrl(null)} />}
       <Footer />
     </>
@@ -312,17 +306,9 @@ export default function AnalizaPage({ analysis, lastUpdated }: Props) {
 export const getStaticProps: GetStaticProps = async () => {
   const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
   const { data, error } = await supabase.from('media_analysis').select('data, created_at').order('created_at', { ascending: false }).limit(1).single()
-
-  if (error || !data) {
-      return { 
-          props: { analysis: null, lastUpdated: null },
-          revalidate: 60 
-      } 
-  }
-
+  if (error || !data) return { props: { analysis: null, lastUpdated: null }, revalidate: 60 }
   let content = data.data;
   if (typeof content === 'string') { try { content = JSON.parse(content); } catch {} }
-
   return { 
     props: { 
         analysis: Array.isArray(content) ? content : (content as any).data || null, 
