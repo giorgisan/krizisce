@@ -42,7 +42,6 @@ interface Props {
   lastUpdated: string | null;
 }
 
-// Čistejša arhitektura za logotipe
 const LOGOS: Record<string, string> = {
   'rtvslo': '/logos/rtvslo.png',
   '24ur': '/logos/24ur.png',
@@ -64,7 +63,7 @@ const getLogoSrc = (sourceName: string) => {
   return '/logo.png';
 }
 
-// 1. KOMPONENTA: Logotip (Pin) z Oblačkom in Očesom
+// 1. KOMPONENTA: Logotip (Pin) z Oblačkom in dinamičnim Očesom
 function SourceLogoPin({ source, value, setPreviewUrl }: { source: SourceItem, value: number, setPreviewUrl: (url: string) => void }) {
     const cleanTitle = source.title.replace(/^["']|["']$/g, '');
     
@@ -73,26 +72,38 @@ function SourceLogoPin({ source, value, setPreviewUrl }: { source: SourceItem, v
             className="absolute top-1/2 left-0 -translate-x-1/2 -translate-y-1/2 group/pin z-10 hover:z-50 transition-all duration-300 ease-out"
             style={{ left: `${value}%` }}
         >
-            {/* OBLIKA IKONE: Kvadrat z zaobljenimi robovi (App Icon style) namesto kroga */}
+            {/* Tanjši okvir in pop-up animacija očesa */}
             <div 
                 onClick={(e) => { e.preventDefault(); e.stopPropagation(); setPreviewUrl(source.url); }}
-                className="w-7 h-7 bg-white rounded shadow-md border border-gray-200/80 dark:border-gray-600 flex items-center justify-center cursor-pointer transform hover:scale-125 transition-transform overflow-hidden relative"
+                className="w-6 h-6 md:w-7 md:h-7 bg-white rounded shadow-sm border-[0.5px] border-gray-300 dark:border-gray-600 flex items-center justify-center cursor-pointer transform group-hover/pin:scale-125 transition-transform overflow-hidden relative"
             >
                 <Image 
                     src={getLogoSrc(source.source)} 
                     alt={source.source} 
                     fill 
-                    className="object-contain p-0.5" 
+                    className="object-contain p-[1.5px]" 
                     unoptimized 
                 />
+                <div className="absolute inset-0 opacity-0 group-hover/pin:opacity-100 bg-white/90 flex items-center justify-center transition-opacity duration-200">
+                    <svg 
+                        viewBox="0 0 24 24" 
+                        width="14" 
+                        height="14" 
+                        fill="none" 
+                        stroke="currentColor" 
+                        strokeWidth="2.5" 
+                        className="text-brand transform scale-50 group-hover/pin:scale-110 transition-transform duration-300 ease-out"
+                    >
+                        <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12Z" /><circle cx="12" cy="12" r="3" />
+                    </svg>
+                </div>
             </div>
             
-            {/* TOOLTIP z naslovom in linkom */}
-            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 w-56 p-3.5 bg-gray-900 text-white text-[12px] leading-snug rounded-xl opacity-0 group-hover/pin:opacity-100 pointer-events-none group-hover/pin:pointer-events-auto transition-opacity shadow-2xl flex flex-col gap-2">
+            {/* TOOLTIP */}
+            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 w-56 p-3 bg-gray-900 text-white text-[12px] leading-snug rounded-xl opacity-0 group-hover/pin:opacity-100 pointer-events-none group-hover/pin:pointer-events-auto transition-opacity shadow-2xl flex flex-col gap-1.5">
                 <div className="font-bold text-brand uppercase tracking-wider text-[9px]">{source.source}</div>
                 <div className="text-gray-100 font-medium">"{cleanTitle}"</div>
                 
-                {/* Gumb za originalni članek */}
                 <a 
                     href={source.url} 
                     target="_blank" 
@@ -112,19 +123,19 @@ function SourceLogoPin({ source, value, setPreviewUrl }: { source: SourceItem, v
 // 2. KOMPONENTA: Kontinuirana premica v Radarju
 function SpectrumLine({ title, leftLabel, rightLabel, propKey, gradient, sources, setPreviewUrl }: any) {
     return (
-        <div className="mb-7 last:mb-0">
-            <div className="flex items-center justify-between mb-2">
+        <div className="mb-6 last:mb-0">
+            <div className="flex items-center justify-between mb-1.5">
                 <span className="text-[10px] font-bold text-gray-800 dark:text-gray-200 uppercase tracking-widest">{title}</span>
             </div>
             
-            <div className="relative w-full px-3">
-                <div className="flex justify-between text-[9px] font-bold uppercase tracking-wider text-gray-400 mb-1.5">
+            <div className="relative w-full px-2.5">
+                <div className="flex justify-between text-[8px] md:text-[9px] font-bold uppercase tracking-wider text-gray-400 mb-1.5">
                     <span className="w-1/3 text-left">{leftLabel}</span>
                     <span className="w-1/3 text-right">{rightLabel}</span>
                 </div>
                 
                 <div className={`h-1.5 w-full rounded-full ${gradient} relative shadow-inner`}>
-                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-0.5 h-3 bg-gray-900/20 dark:bg-white/20 rounded-full"></div>
+                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-0.5 h-2.5 bg-gray-900/20 dark:bg-white/20 rounded-full"></div>
                     
                     {sources?.map((s: any, idx: number) => {
                         const val = s.media_dna?.[propKey] ?? 50; 
@@ -140,63 +151,41 @@ const splitSummaryIntoBullets = (summary: string) => {
     return summary.split('. ').filter(s => s.length > 5).map(s => s.trim() + (s.endsWith('.') ? '' : '.'));
 }
 
-// 3. GLAVNA KARTICA NOVICE
+// 3. GLAVNA KARTICA NOVICE (Izjemno kompaktna)
 function AnalysisCard({ item, idx, setPreviewUrl }: { item: AnalysisItem, idx: number, setPreviewUrl: (url: string) => void }) {
-  const [copied, setCopied] = useState(false);
   const router = useRouter();
   const newsId = `novica-${idx + 1}`;
   const isFocused = router.asPath.includes(`#${newsId}`);
   const bullets = splitSummaryIntoBullets(item.summary);
 
-  // Iskanje "Zmagovalcev" (ekstremov) za gamifikacijo
-  const getWinner = (prop: keyof MediaDNA) => {
-      if (!item.sources || item.sources.length === 0) return null;
-      return [...item.sources].sort((a, b) => (b.media_dna?.[prop] || 0) - (a.media_dna?.[prop] || 0))[0];
-  }
-  const maxInfo = getWinner('informativnost');
-  const maxEmo = getWinner('custveni_naboj');
-  const maxInt = getWinner('pristranskost');
-
-  const handleShare = async () => {
-    const url = `${window.location.origin}${window.location.pathname}#${newsId}`;
-    const shareText = `Medijski Radar: ${item.consensus_headline || item.topic} | via krizisce.si`;
-
-    if (navigator.share) {
-        try { await navigator.share({ title: 'Križišče | Medijski Radar', text: shareText, url }); return; } 
-        catch (err) {}
-    }
-    navigator.clipboard.writeText(url);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
   return (
-    <article id={newsId} className={`relative mb-10 group/card transition-all duration-500 ${isFocused ? 'ring-2 ring-brand shadow-xl scale-[1.01]' : ''}`}>
+    <article id={newsId} className={`relative mb-8 md:mb-10 group/card transition-all duration-500 ${isFocused ? 'ring-2 ring-brand shadow-xl scale-[1.005]' : ''}`}>
       
       {/* EDITORIAL ŠTEVILKA */}
-      <div className="absolute -top-3 -left-3 w-8 h-8 bg-brand text-white rounded-lg shadow-lg z-20 flex items-center justify-center font-serif font-black text-sm border border-brand/20">
+      <div className="absolute -top-3 -left-3 w-7 h-7 md:w-8 md:h-8 bg-brand text-white rounded-lg shadow-md z-20 flex items-center justify-center font-serif font-black text-sm border border-brand/20">
         {idx + 1}
       </div>
 
       <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700/60 rounded-xl shadow-sm flex flex-col relative overflow-visible">
         
-        {/* ZGORNJI DEL: Kompakten Signal (Brez headerja "Bistvo zgodbe") */}
-        <div className="p-5 md:p-7 flex flex-col pl-8 md:pl-10">
+        {/* ZGORNJI DEL: Kompakten Signal */}
+        <div className="p-4 md:p-6 flex flex-col pl-7 md:pl-10">
           
-          <h2 className="text-xl md:text-2xl font-serif font-bold text-gray-900 dark:text-white leading-tight mb-5 mt-1">
+          <h2 className="text-[19px] md:text-[22px] font-serif font-bold text-gray-900 dark:text-white leading-tight mb-4 mt-0.5">
             {item.consensus_headline || item.topic}
           </h2>
           
-          <div className="flex flex-col sm:flex-row gap-5 mb-5">
+          <div className="flex flex-col sm:flex-row gap-4 mb-4">
               {item.main_image && (
-                <div className="w-full sm:w-40 aspect-video sm:aspect-square rounded-lg overflow-hidden relative border border-gray-100 dark:border-gray-700 shrink-0">
+                <div className="w-full sm:w-36 md:w-40 aspect-video sm:aspect-square rounded-lg overflow-hidden relative border border-gray-100 dark:border-gray-700 shrink-0">
                     <img src={proxiedImage(item.main_image, 300, 300, 1)} alt="" className="w-full h-full object-cover" />
                 </div>
               )}
               <div className="flex-1">
-                  <ul className="space-y-2">
+                  <div className="text-[9px] font-bold uppercase tracking-wider text-gray-400 mb-2.5">Ključna dejstva</div>
+                  <ul className="space-y-1.5 md:space-y-2">
                       {bullets.map((bullet, bIdx) => (
-                          <li key={bIdx} className="text-[13px] text-gray-700 dark:text-gray-300 leading-snug flex items-start gap-2.5">
+                          <li key={bIdx} className="text-[12.5px] md:text-[13px] text-gray-700 dark:text-gray-300 leading-snug flex items-start gap-2.5">
                               <span className="text-brand mt-1.5 w-1 h-1 rounded-full shrink-0 bg-brand"></span>
                               <span>{bullet}</span>
                           </li>
@@ -205,45 +194,17 @@ function AnalysisCard({ item, idx, setPreviewUrl }: { item: AnalysisItem, idx: n
               </div>
           </div>
           
-          <div className="bg-slate-50 dark:bg-gray-800/40 rounded-lg border border-gray-100 dark:border-gray-700/50 p-3.5">
-              <p className="text-[12px] text-gray-600 dark:text-gray-400 leading-snug">
-                  <strong className="text-gray-400 uppercase text-[9.5px] mr-2 tracking-wider font-bold">Kontekst:</strong>
+          {/* KONTEKST (Kompakten, a ohranjen) */}
+          <div className="bg-gray-50/50 dark:bg-gray-800/30 rounded-lg p-3">
+              <p className="text-[11.5px] md:text-[12px] text-gray-500 dark:text-gray-400 leading-snug">
+                  <strong className="text-gray-400 uppercase text-[9px] mr-1.5 tracking-wider font-bold">Kontekst:</strong>
                   {item.framing_analysis}
               </p>
           </div>
         </div>
 
         {/* SPODNJI DEL: Šum in Radar */}
-        <div className="px-5 md:px-7 py-6 border-t border-gray-100 dark:border-gray-700/50 bg-gray-50/50 dark:bg-[#1e293b]/20 rounded-b-xl flex flex-col">
-            
-            {/* Zmagovalci (Gamifikacija) in Gumb Deli */}
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4 mb-6">
-                <div className="flex items-center gap-3 md:gap-5 text-[9px] font-bold uppercase tracking-widest text-gray-400">
-                    {maxInfo && (
-                        <div className="flex items-center gap-1.5" title="Največja gostota dejstev v naslovu">
-                            <span className="w-4 h-4 relative rounded overflow-hidden bg-white shadow-sm border border-gray-200 dark:border-gray-600 shrink-0"><Image src={getLogoSrc(maxInfo.source)} alt="" fill className="object-contain p-0.5" unoptimized/></span>
-                            Največ informacij
-                        </div>
-                    )}
-                    {maxEmo && (
-                        <div className="flex items-center gap-1.5" title="Največ uporabe čustev in dramatizacije">
-                            <span className="w-4 h-4 relative rounded overflow-hidden bg-white shadow-sm border border-gray-200 dark:border-gray-600 shrink-0"><Image src={getLogoSrc(maxEmo.source)} alt="" fill className="object-contain p-0.5" unoptimized/></span>
-                            Najbolj dramatično
-                        </div>
-                    )}
-                    {maxInt && (
-                        <div className="flex items-center gap-1.5" title="Najbolj izrazito vsiljevanje mnenja">
-                            <span className="w-4 h-4 relative rounded overflow-hidden bg-white shadow-sm border border-gray-200 dark:border-gray-600 shrink-0"><Image src={getLogoSrc(maxInt.source)} alt="" fill className="object-contain p-0.5" unoptimized/></span>
-                            Najbolj pristransko
-                        </div>
-                    )}
-                </div>
-
-                <button onClick={handleShare} className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-brand hover:text-brand/70 transition-colors">
-                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M7.217 10.907a2.25 2.25 0 100 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186l9.566-5.345m-9.566 7.53l9.566 5.345m0-10.704a2.25 2.25 0 113.108-1.35 2.25 2.25 0 01-3.108 1.35zm0 10.704a2.25 2.25 0 113.108 1.35 2.25 2.25 0 01-3.108-1.35z" /></svg>
-                    {copied ? 'Kopirano!' : 'Deli Radar'}
-                </button>
-            </div>
+        <div className="px-5 md:px-8 py-5 md:py-6 border-t border-gray-100 dark:border-gray-700/50 bg-gray-50/50 dark:bg-[#1e293b]/20 rounded-b-xl flex flex-col">
             
             <SpectrumLine 
                 title="Informacija" 
@@ -291,9 +252,9 @@ export default function AnalizaPage({ analysis, lastUpdated }: Props) {
       <Header activeCategory="vse" activeSource="Vse" />
       <main className="min-h-screen bg-[#F9FAFB] dark:bg-gray-900 pb-20">
         
-        {/* HEADER: Povratek k staremu, bolj kompaktnemu dizajnu */}
+        {/* HEADER */}
         <div className="bg-white dark:bg-gray-800/60 border-b border-gray-200 dark:border-gray-800 py-6 md:py-8">
-            <div className="max-w-[900px] mx-auto px-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div className="max-w-[800px] mx-auto px-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 
                 <div className="flex-1 min-w-0">
                   <h1 className="text-2xl md:text-3xl font-serif font-bold text-gray-900 dark:text-white flex items-center gap-2">
