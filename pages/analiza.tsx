@@ -15,10 +15,11 @@ const ArticlePreview = dynamic(() => import('@/components/ArticlePreview'), {
   ssr: false,
 }) as ComponentType<PreviewProps>
 
+// POSODOBLJENI INTERFACES ZA 0-100 LESTVICO
 interface MediaDNA {
-  sensationalism: string; 
-  info_gap: string;       
-  info_density: string;   
+  informativnost: number; 
+  custveni_naboj: number;       
+  pristranskost: number;   
 }
 
 interface SourceItem {
@@ -57,33 +58,42 @@ const getLogoSrc = (sourceName: string) => {
   return '/logo.png';
 }
 
-// 1. KOMPONENTA: Posamezen logotip v radarju s Tooltipom in Očesom
-function SourceLogo({ source, setPreviewUrl }: { source: SourceItem, setPreviewUrl: (url: string) => void }) {
+// 1. KOMPONENTA: Logotip (Pin) z Oblačkom in Očesom
+function SourceLogoPin({ source, value, index, setPreviewUrl }: { source: SourceItem, value: number, index: number, setPreviewUrl: (url: string) => void }) {
     const cleanTitle = source.title.replace(/^["']|["']$/g, '');
+    
+    // Če imata dva medija isto vrednost, ju rahlo zamaknemo po višini, da se vidita oba
+    const verticalOffset = index % 2 === 0 ? '-translate-y-[60%]' : '-translate-y-[40%]';
+
     return (
-        <div className="relative group/logo z-10 hover:z-50">
-            <div className="w-8 h-8 relative rounded-full overflow-hidden border border-gray-200 dark:border-gray-600 shadow-sm cursor-pointer transition-transform hover:scale-110 bg-white">
+        <div 
+            className={`absolute top-1/2 left-0 -translate-x-1/2 ${verticalOffset} group/pin z-10 hover:z-50 transition-all duration-300 ease-out`}
+            style={{ left: `${value}%` }}
+        >
+            <div className="w-7 h-7 relative rounded-full overflow-hidden bg-white shadow-[0_2px_8px_rgba(0,0,0,0.15)] ring-2 ring-white cursor-pointer transform hover:scale-125 transition-transform">
+                {/* POLN BARVNI LOGO */}
                 <Image 
                     src={getLogoSrc(source.source)} 
                     alt={source.source} 
                     fill 
-                    className="object-contain p-1.5 grayscale group-hover/logo:grayscale-0 transition-all" 
+                    className="object-contain p-1" 
                     unoptimized 
                 />
+                {/* OKO ZA PREDOGLED */}
                 <div 
                     onClick={(e) => { e.preventDefault(); e.stopPropagation(); setPreviewUrl(source.url); }}
-                    className="absolute inset-0 opacity-0 group-hover/logo:opacity-100 bg-white/90 flex items-center justify-center transition-all"
+                    className="absolute inset-0 opacity-0 group-hover/pin:opacity-100 bg-white/90 flex items-center justify-center transition-all"
                     title="Beri članek"
                 >
-                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" className="text-brand">
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" className="text-brand">
                         <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12Z" /><circle cx="12" cy="12" r="3" />
                     </svg>
                 </div>
             </div>
             
-            {/* TOOLTIP z dejanskim naslovom članka */}
-            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-56 p-3 bg-gray-900 text-white text-[12px] leading-snug rounded-lg opacity-0 group-hover/logo:opacity-100 pointer-events-none transition-opacity shadow-2xl">
-                <div className="font-bold text-brand uppercase tracking-wider text-[9px] mb-1.5">{source.source}</div>
+            {/* OBLAČEK Z NASLOVOM NOVICE */}
+            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2.5 w-52 p-3 bg-gray-900 text-white text-[11px] leading-snug rounded-lg opacity-0 group-hover/pin:opacity-100 pointer-events-none transition-opacity shadow-2xl">
+                <div className="font-bold text-brand uppercase tracking-wider text-[8px] mb-1.5">{source.source}</div>
                 "{cleanTitle}"
                 <div className="absolute top-full left-1/2 -translate-x-1/2 border-[5px] border-transparent border-t-gray-900"></div>
             </div>
@@ -91,51 +101,38 @@ function SourceLogo({ source, setPreviewUrl }: { source: SourceItem, setPreviewU
     )
 }
 
-// 2. KOMPONENTA: Posamezna vrstica (lane) v spektru
-function SpectrumRow({ title, propKey, options, sources, setPreviewUrl }: any) {
+// 2. KOMPONENTA: Kontinuirana premica v Radarju
+function SpectrumLine({ title, leftLabel, rightLabel, propKey, gradient, sources, setPreviewUrl }: any) {
     return (
-        <div className="flex flex-col sm:flex-row sm:items-stretch gap-2 sm:gap-4 py-2.5 border-b border-gray-100 dark:border-gray-800/50 last:border-0">
-            <div className="w-32 flex items-center text-[10px] font-bold uppercase tracking-wider text-gray-400 shrink-0">
-                {title}
+        <div className="mb-8 last:mb-2">
+            <div className="flex items-center justify-between mb-3">
+                <span className="text-[11px] font-bold text-gray-900 dark:text-gray-100 uppercase tracking-widest">{title}</span>
             </div>
-            <div className="flex-1 grid gap-2" style={{ gridTemplateColumns: `repeat(${options.length}, minmax(0, 1fr))` }}>
-                {options.map((opt: any) => {
-                    const matchingSources = sources.filter((s: any) => s.media_dna?.[propKey] === opt.value);
-                    return (
-                        <div key={opt.value} className={`flex flex-col items-center justify-center py-2 px-1 rounded-lg border ${opt.bg}`}>
-                            <div className="text-[9px] font-bold uppercase tracking-widest mb-2 opacity-80">{opt.label}</div>
-                            <div className="flex flex-wrap justify-center gap-1.5 min-h-[32px]">
-                                {matchingSources.length > 0 ? (
-                                    matchingSources.map((s: any, idx: number) => (
-                                        <SourceLogo key={idx} source={s} setPreviewUrl={setPreviewUrl} />
-                                    ))
-                                ) : (
-                                    <span className="text-[10px] text-gray-300 dark:text-gray-600 font-medium self-center">-</span>
-                                )}
-                            </div>
-                        </div>
-                    )
-                })}
+            
+            <div className="relative w-full px-3">
+                {/* Oznake nad/pod črto */}
+                <div className="flex justify-between text-[9px] font-bold uppercase tracking-wider text-gray-400 mb-2">
+                    <span className="w-1/3 text-left">{leftLabel}</span>
+                    <span className="w-1/3 text-right">{rightLabel}</span>
+                </div>
+                
+                {/* Zvezni barvni spekter (Gradient črta) */}
+                <div className={`h-1.5 w-full rounded-full ${gradient} relative`}>
+                    {/* Sredinska črtica za orientacijo (50%) */}
+                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-0.5 h-3 bg-gray-300 dark:bg-gray-600 rounded-full opacity-50"></div>
+                    
+                    {/* Logotipi virov */}
+                    {sources?.map((s: any, idx: number) => {
+                        const val = s.media_dna?.[propKey] ?? 50; // Fallback na sredino, če manjka
+                        return (
+                            <SourceLogoPin key={idx} source={s} value={val} index={idx} setPreviewUrl={setPreviewUrl} />
+                        )
+                    })}
+                </div>
             </div>
         </div>
     )
 }
-
-// DEFINICIJE KATEGORIJ ZA SPEKTER
-const senzOptions = [
-  { value: 'nizek', label: 'Nizek', bg: 'bg-emerald-50/50 dark:bg-emerald-900/10 border-emerald-100 dark:border-emerald-800/50 text-emerald-700 dark:text-emerald-400' },
-  { value: 'srednji', label: 'Srednji', bg: 'bg-amber-50/50 dark:bg-amber-900/10 border-amber-100 dark:border-amber-800/50 text-amber-700 dark:text-amber-400' },
-  { value: 'visok', label: 'Visok', bg: 'bg-red-50/50 dark:bg-red-900/10 border-red-100 dark:border-red-800/50 text-red-700 dark:text-red-400' }
-];
-const densOptions = [
-  { value: 'nizka', label: 'Nizka', bg: 'bg-rose-50/50 dark:bg-rose-900/10 border-rose-100 dark:border-rose-800/50 text-rose-700 dark:text-rose-400' },
-  { value: 'srednja', label: 'Srednja', bg: 'bg-blue-50/50 dark:bg-blue-900/10 border-blue-100 dark:border-blue-800/50 text-blue-700 dark:text-blue-400' },
-  { value: 'visoka', label: 'Visoka', bg: 'bg-indigo-50/50 dark:bg-indigo-900/10 border-indigo-100 dark:border-indigo-800/50 text-indigo-700 dark:text-indigo-400' }
-];
-const gapOptions = [
-  { value: 'ne', label: 'Ne (Brez vrzeli)', bg: 'bg-gray-50/50 dark:bg-gray-800/30 border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400' },
-  { value: 'da', label: 'Da (Clickbait)', bg: 'bg-orange-50/50 dark:bg-orange-900/10 border-orange-200 dark:border-orange-800/50 text-orange-700 dark:text-orange-400' }
-];
 
 const splitSummaryIntoBullets = (summary: string) => {
     return summary.split('. ').filter(s => s.length > 5).map(s => s.trim() + (s.endsWith('.') ? '' : '.'));
@@ -148,7 +145,6 @@ function AnalysisCard({ item, idx, setPreviewUrl }: { item: AnalysisItem, idx: n
   
   const newsId = `novica-${idx + 1}`;
   const isFocused = router.asPath.includes(`#${newsId}`);
-  
   const bullets = splitSummaryIntoBullets(item.summary);
 
   const handleShare = async () => {
@@ -167,18 +163,17 @@ function AnalysisCard({ item, idx, setPreviewUrl }: { item: AnalysisItem, idx: n
   };
 
   return (
-    <article id={newsId} className={`relative mb-12 group/card transition-all duration-500 ${isFocused ? 'ring-2 ring-brand shadow-2xl' : ''}`}>
+    <article id={newsId} className={`relative mb-14 group/card transition-all duration-500 ${isFocused ? 'ring-2 ring-brand shadow-2xl scale-[1.01]' : ''}`}>
       
       {/* EDITORIAL ŠTEVILKA */}
       <div className="absolute -top-3 -left-3 w-9 h-9 bg-white dark:bg-gray-800 text-gray-900 dark:text-white rounded shadow-xl z-20 flex items-center justify-center font-serif font-black text-sm border-2 border-brand/20">
         {idx + 1}
       </div>
 
-      {/* ENOTEN BLOK KARTICE (Namesto leve in desne) */}
-      <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700/60 rounded-xl shadow-sm flex flex-col relative">
+      <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700/60 rounded-2xl shadow-sm flex flex-col relative overflow-visible">
         
-        {/* ZGORNJI DEL: Vsebina novice */}
-        <div className="p-6 md:p-8 pb-5 flex flex-col pl-10 md:pl-12">
+        {/* ZGORNJI DEL: Signal (AI Povzetek) */}
+        <div className="p-6 md:p-8 pb-6 flex flex-col pl-10 md:pl-12">
           
           <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
@@ -193,22 +188,22 @@ function AnalysisCard({ item, idx, setPreviewUrl }: { item: AnalysisItem, idx: n
               </button>
           </div>
           
-          <h2 className="text-xl md:text-2xl font-serif font-bold text-gray-900 dark:text-white leading-tight mb-6">
+          <h2 className="text-2xl md:text-3xl font-serif font-bold text-gray-900 dark:text-white leading-tight mb-6">
             {item.consensus_headline || item.topic}
           </h2>
           
           <div className="flex flex-col sm:flex-row gap-6 mb-6">
               {item.main_image && (
-                <div className="w-full sm:w-40 aspect-[4/3] rounded-lg overflow-hidden relative border border-gray-200 dark:border-gray-700 shrink-0">
+                <div className="w-full sm:w-48 aspect-video sm:aspect-[4/3] rounded-xl overflow-hidden relative border border-gray-200 dark:border-gray-700 shrink-0">
                     <img src={proxiedImage(item.main_image, 400, 300, 1)} alt="" className="w-full h-full object-cover" />
                 </div>
               )}
               <div className="flex-1">
-                  <div className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-3">Ključna dejstva</div>
+                  <div className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-3 border-b border-gray-100 dark:border-gray-700/50 pb-1">Ključna dejstva</div>
                   <ul className="space-y-2">
                       {bullets.map((bullet, bIdx) => (
-                          <li key={bIdx} className="text-[13px] text-gray-700 dark:text-gray-300 leading-relaxed flex items-start gap-2.5">
-                              <span className="text-brand mt-1.5 w-1 h-1 rounded-full shrink-0 bg-brand"></span>
+                          <li key={bIdx} className="text-[13px] md:text-[14px] text-gray-700 dark:text-gray-300 leading-relaxed flex items-start gap-3">
+                              <span className="text-brand mt-1.5 w-1.5 h-1.5 rounded-full shrink-0 bg-brand/80"></span>
                               <span>{bullet}</span>
                           </li>
                       ))}
@@ -216,26 +211,48 @@ function AnalysisCard({ item, idx, setPreviewUrl }: { item: AnalysisItem, idx: n
               </div>
           </div>
           
-          <div className="bg-gray-50/80 dark:bg-gray-800/40 rounded-lg border border-gray-100 dark:border-gray-700/50 p-4 italic text-[12px] text-gray-600 dark:text-gray-400">
-              <span className="font-bold text-gray-400 not-italic uppercase text-[10px] mr-2">Kontekst:</span>
-              {item.framing_analysis}
+          <div className="bg-gray-50/80 dark:bg-gray-800/40 rounded-xl border border-gray-100 dark:border-gray-700/50 p-4">
+              <p className="text-[13px] text-gray-600 dark:text-gray-400 leading-relaxed italic">
+                  <span className="font-bold text-gray-400 not-italic uppercase text-[10px] mr-2">Kontekst:</span>
+                  {item.framing_analysis}
+              </p>
           </div>
         </div>
 
-        {/* SPODNJI DEL: Medijski Spekter (Novi Radar) */}
-        <div className="px-6 md:px-8 pb-6 md:pb-8 pt-4 border-t border-gray-100 dark:border-gray-700/50 bg-slate-50/30 dark:bg-[#1e293b]/10 rounded-b-xl">
-            <div className="flex items-center gap-2 mb-4">
-                <svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M10.5 6a7.5 7.5 0 107.5 7.5h-7.5V6z" /><path strokeLinecap="round" strokeLinejoin="round" d="M13.5 10.5H21A7.5 7.5 0 0013.5 3v7.5z" /></svg>
-                <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-gray-400">Spekter Poročanja</span>
-            </div>
+        {/* SPODNJI DEL: Šum (Novi Radar Spekter) */}
+        <div className="px-6 md:px-12 py-8 border-t border-gray-100 dark:border-gray-700/50 bg-slate-50/50 dark:bg-[#1e293b]/20 rounded-b-2xl">
             
-            <div className="flex flex-col">
-                <SpectrumRow title="Senzacionalizem" propKey="sensationalism" options={senzOptions} sources={item.sources} setPreviewUrl={setPreviewUrl} />
-                <SpectrumRow title="Informativnost" propKey="info_density" options={densOptions} sources={item.sources} setPreviewUrl={setPreviewUrl} />
-                <SpectrumRow title="Clickbait vaba" propKey="info_gap" options={gapOptions} sources={item.sources} setPreviewUrl={setPreviewUrl} />
-            </div>
-        </div>
+            <SpectrumLine 
+                title="Informativnost" 
+                propKey="informativnost" 
+                leftLabel="Clickbait Vaba" 
+                rightLabel="Polna slika" 
+                gradient="bg-gradient-to-r from-rose-400 via-amber-300 to-emerald-400"
+                sources={item.sources} 
+                setPreviewUrl={setPreviewUrl} 
+            />
 
+            <SpectrumLine 
+                title="Čustveni naboj" 
+                propKey="custveni_naboj" 
+                leftLabel="Suho / Klinično" 
+                rightLabel="Dramatizacija" 
+                gradient="bg-gradient-to-r from-blue-400 via-purple-400 to-rose-500"
+                sources={item.sources} 
+                setPreviewUrl={setPreviewUrl} 
+            />
+
+            <SpectrumLine 
+                title="Pristranskost" 
+                propKey="pristranskost" 
+                leftLabel="Samo dejstva" 
+                rightLabel="Uredniški spin" 
+                gradient="bg-gradient-to-r from-emerald-400 via-amber-400 to-red-500"
+                sources={item.sources} 
+                setPreviewUrl={setPreviewUrl} 
+            />
+            
+        </div>
       </div>
     </article>
   )
@@ -258,7 +275,7 @@ export default function AnalizaPage({ analysis, lastUpdated }: Props) {
                     <div className="max-w-xl">
                         <h1 className="text-4xl md:text-5xl font-serif font-bold text-gray-900 dark:text-white tracking-tight mb-4 italic">Medijski Radar</h1>
                         <p className="text-base text-gray-500 dark:text-gray-400 leading-relaxed font-light">
-                            Neodvisna analiza informacijskega šuma. Destiliramo <strong>Bistvo zgodbe</strong> in razkrivamo <strong>Medijski DNK</strong> vsakega vira na vizualnem spektru.
+                            Odkrijte manipulacije v naslovih. Destiliramo <strong>Bistvo zgodbe (Signal)</strong> in na vizualnem spektru razkrivamo <strong>Medijski DNK (Šum)</strong>.
                         </p>
                     </div>
                     
