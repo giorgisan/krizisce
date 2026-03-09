@@ -121,12 +121,14 @@ const splitSummaryIntoBullets = (summary: string) => {
     return summary.split('. ').filter(s => s.length > 5).map(s => s.trim() + (s.endsWith('.') ? '' : '.'));
 }
 
-function AnalysisCard({ item, setPreviewUrl }: { item: AnalysisItem, setPreviewUrl: (url: string) => void }) {
+// POSODOBLJENO: Komponenta zdaj sprejme prop 'idx' za prikaz številke
+function AnalysisCard({ item, idx, setPreviewUrl }: { item: AnalysisItem, idx: number, setPreviewUrl: (url: string) => void }) {
   const [showAllSources, setShowAllSources] = useState(false);
   const hasMore = (item.sources?.length || 0) > 4;
   const visibleSources = showAllSources ? item.sources : item.sources?.slice(0, 4);
 
   const bullets = splitSummaryIntoBullets(item.summary);
+  const rank = idx + 1; // Zaporedna številka novice
 
   return (
     <article className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700/60 rounded-xl overflow-hidden shadow-sm hover:shadow transition-shadow flex flex-col xl:flex-row mb-8">
@@ -136,7 +138,7 @@ function AnalysisCard({ item, setPreviewUrl }: { item: AnalysisItem, setPreviewU
         
         <div className="flex items-center gap-2 mb-3">
            <span className="w-2 h-2 rounded-full bg-brand animate-pulse"></span>
-           <span className="text-[10px] font-bold uppercase tracking-widest text-brand">Nevtralni povzetek</span>
+           <span className="text-[10px] font-bold uppercase tracking-widest text-brand">Bistvo zgodbe</span>
         </div>
         
         <h2 className="text-xl md:text-2xl font-serif font-bold text-gray-900 dark:text-white leading-tight mb-5">
@@ -146,6 +148,14 @@ function AnalysisCard({ item, setPreviewUrl }: { item: AnalysisItem, setPreviewU
         <div className="flex flex-col sm:flex-row gap-5 mb-5">
             {item.main_image && (
             <div className="w-full sm:w-1/3 aspect-[4/3] rounded-lg overflow-hidden relative bg-gray-100 dark:bg-gray-900 border border-gray-100 dark:border-gray-700/50 shrink-0">
+                {/* Oznaka s številko (Glass effect) - NOVO */}
+                <div className="absolute top-0 left-0 w-8 h-8 flex items-center justify-center z-20 pointer-events-none">
+                    <div className="absolute inset-0 bg-black/40 backdrop-blur-sm rounded-br-xl border-b border-r border-white/10 shadow-sm" />
+                    <span className="relative text-xs font-black text-white/90 font-sans drop-shadow-sm leading-none">
+                        {rank}
+                    </span>
+                </div>
+
                 <img 
                     src={proxiedImage(item.main_image, 400, 300, 1)} 
                     alt=""
@@ -159,8 +169,8 @@ function AnalysisCard({ item, setPreviewUrl }: { item: AnalysisItem, setPreviewU
             <div className="flex-1">
                 <div className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-2">Ključna dejstva</div>
                 <ul className="space-y-2">
-                    {bullets.map((bullet, idx) => (
-                        <li key={idx} className="text-[13px] text-gray-700 dark:text-gray-300 leading-relaxed flex items-start gap-2">
+                    {bullets.map((bullet, bulletIdx) => (
+                        <li key={bulletIdx} className="text-[13px] text-gray-700 dark:text-gray-300 leading-relaxed flex items-start gap-2">
                             <span className="text-brand mt-1 text-[8px]">●</span>
                             <span>{bullet}</span>
                         </li>
@@ -193,7 +203,8 @@ function AnalysisCard({ item, setPreviewUrl }: { item: AnalysisItem, setPreviewU
               const cleanTitle = source.title.replace(/^["']|["']$/g, '');
 
               return (
-              <div key={sIdx} className="group/source flex flex-col p-3 -mx-3 hover:bg-brand/5 dark:hover:bg-brand/10 rounded-lg transition-all border-l-4 border-transparent hover:border-brand">
+              // POSODOBLJENO: Hover efekt za oranžen (brand) border na levi
+              <div key={sIdx} className="group/source flex flex-col p-3 -mx-3 hover:bg-brand/5 dark:hover:bg-brand/10 rounded-lg transition-all duration-200 border-l-4 border-transparent hover:border-brand">
                 
                 <div className="flex items-start gap-3">
                   <div className="relative w-5 h-5 shrink-0 mt-0.5">
@@ -276,14 +287,14 @@ export default function AnalizaPage({ analysis, lastUpdated }: Props) {
                             Nazaj
                         </Link>
 
-                        {/* OSVEŽENO */}
+                        {/* OSVEŽENO - POSODOBLJENO Z "Osveženo: " */}
                         {lastUpdated && (
                             <div className="text-[11px] font-mono text-gray-500 flex items-center gap-2 border border-gray-200 dark:border-gray-700 px-3 py-1.5 rounded-md bg-gray-50 dark:bg-gray-800/50 shadow-sm">
                                 <span className="relative flex h-2 w-2">
                                     <span className="absolute inline-flex h-full w-full rounded-full bg-brand opacity-75 animate-ping"></span>
                                     <span className="relative inline-flex rounded-full h-2 w-2 bg-brand"></span>
                                 </span>
-                                {new Date(lastUpdated).toLocaleTimeString('sl-SI', {hour: '2-digit', minute:'2-digit'})}
+                                Osveženo: {new Date(lastUpdated).toLocaleTimeString('sl-SI', {hour: '2-digit', minute:'2-digit'})}
                             </div>
                         )}
                     </div>
@@ -297,8 +308,9 @@ export default function AnalizaPage({ analysis, lastUpdated }: Props) {
             <div className="text-center py-20 text-gray-500 font-mono text-sm">Pridobivam najnovejše analize...</div>
           )}
 
+          {/* POSODOBLJENO: Dodan 'idx' prop pri klicu AnalysisCard */}
           {validAnalysis.map((item, idx) => (
-            <AnalysisCard key={idx} item={item} setPreviewUrl={setPreviewUrl} />
+            <AnalysisCard key={idx} item={item} idx={idx} setPreviewUrl={setPreviewUrl} />
           ))}
         </div>
       </main>
