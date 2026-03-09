@@ -57,7 +57,8 @@ const LOGOS: Record<string, string> = {
 
 const getLogoSrc = (sourceName: string) => {
   const s = sourceName.toLowerCase().replace(/\s/g, '').replace(/\./g, '');
-  for (const key in LOGOS) {
+  // Varna zanka skozi objekte
+  for (const key of Object.keys(LOGOS)) {
       if (s.includes(key)) return LOGOS[key];
   }
   return '/logo.png';
@@ -136,8 +137,18 @@ function SpectrumLine({ title, leftLabel, rightLabel, propKey, gradient, sources
                     <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[1.5px] h-3 bg-gray-900/20 dark:bg-white/20 rounded-full"></div>
                     
                     {sources?.map((s: any, idx: number) => {
-                        const val = s.media_dna?.[propKey] ?? 50; 
-                        return <SourceLogoPin key={idx} source={s} value={val} setPreviewUrl={setPreviewUrl} />
+                        // Clamp varovalka: če AI vrne negativno številko ali več kot 100
+                        const raw = s.media_dna?.[propKey] ?? 50; 
+                        const val = Math.max(0, Math.min(100, raw));
+                        
+                        return (
+                            <SourceLogoPin 
+                                key={`${s.source}-${propKey}-${idx}`} 
+                                source={s} 
+                                value={val} 
+                                setPreviewUrl={setPreviewUrl} 
+                            />
+                        );
                     })}
                 </div>
             </div>
@@ -165,7 +176,7 @@ function AnalysisCard({ item, idx, setPreviewUrl }: { item: AnalysisItem, idx: n
 
       <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700/60 rounded-xl shadow-sm flex flex-col relative overflow-visible">
         
-        {/* ZGORNJI DEL: Kompakten Signal (Razširjeno) */}
+        {/* ZGORNJI DEL: Kompakten Signal */}
         <div className="p-5 md:p-8 flex flex-col pl-8 md:pl-12">
           
           <h2 className="text-[20px] md:text-[24px] font-serif font-bold text-gray-900 dark:text-white leading-snug mb-4 mt-0.5">
@@ -249,7 +260,7 @@ export default function AnalizaPage({ analysis, lastUpdated }: Props) {
       <Header activeCategory="vse" activeSource="Vse" />
       <main className="min-h-screen bg-[#F9FAFB] dark:bg-gray-900 pb-20">
         
-        {/* HEADER: Širina povečana na 1000px */}
+        {/* HEADER: Širina 1000px */}
         <div className="bg-white dark:bg-gray-800/60 border-b border-gray-200 dark:border-gray-800 py-6 md:py-10">
             <div className="max-w-[1000px] mx-auto px-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-5">
                 
@@ -261,7 +272,7 @@ export default function AnalizaPage({ analysis, lastUpdated }: Props) {
                       Medijski Spekter
                   </h1>
                   <p className="text-[13px] md:text-[14px] text-gray-500 dark:text-gray-400 mt-2.5 max-w-2xl leading-relaxed">
-                    <strong className="text-gray-700 dark:text-gray-300">Ena novica. Več naslovov. Kdo pretirava?</strong> Strojna analiza in pregled uredniških odločitev pri ključnih temah. S pomočjo umetne inteligence prepoznavamo vzorce poročanja, destiliramo gola dejstva in na vizualnem spektru razkrivamo informacijski šum, čustveni naboj ter novinarsko pristranskost.
+                    <strong className="text-gray-700 dark:text-gray-300">Ena novica. Več naslovov. <span className="text-gray-900 dark:text-white">Kdo pretirava?</span></strong> Strojna analiza in pregled uredniških odločitev pri ključnih temah. S pomočjo umetne inteligence prepoznavamo vzorce poročanja, destiliramo gola dejstva in na vizualnem spektru razkrivamo informacijski šum, čustveni naboj ter novinarsko pristranskost.
                   </p>
                 </div>
                 
@@ -283,7 +294,7 @@ export default function AnalizaPage({ analysis, lastUpdated }: Props) {
             </div>
         </div>
 
-        {/* GLAVNA KARTICA: Širina povečana na 1000px */}
+        {/* GLAVNA KARTICA: Širina 1000px */}
         <div className="max-w-[1000px] mx-auto px-4 mt-8 md:mt-12">
           {validAnalysis.length === 0 ? (
             <div className="text-center py-20 text-gray-400 font-mono text-sm italic">Pridobivam najnovejše analize...</div>
