@@ -220,7 +220,7 @@ function AnalysisCard({ item, idx, setPreviewUrl }: { item: AnalysisItem, idx: n
           </div>
         </div>
 
-        {/* SPODNJI DEL: Šum in Spekter */}
+        {/* SPODNJI DEL: Šum in presek */}
         <div className="px-6 md:px-10 py-5 md:py-7 border-t border-gray-100 dark:border-gray-700/50 bg-gray-50/50 dark:bg-[#1e293b]/20 rounded-b-xl flex flex-col">
             
             <SpectrumLine 
@@ -265,7 +265,7 @@ export default function AnalizaPage({ analysis, lastUpdated }: Props) {
 
   return (
     <>
-      <Head><title>Medijski Spekter | Križišče</title></Head>
+      <Head><title>Medijski presek | Križišče</title></Head>
       <Header activeCategory="vse" activeSource="Vse" />
       <main className="min-h-screen bg-[#F9FAFB] dark:bg-gray-900 pb-20">
         
@@ -278,7 +278,7 @@ export default function AnalizaPage({ analysis, lastUpdated }: Props) {
                       <svg className="w-7 h-7 md:w-8 md:h-8 lg:w-9 lg:h-9 text-gray-900 dark:text-white shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
                           <path strokeLinecap="round" strokeLinejoin="round" d="M15.042 21.672 13.684 16.6m0 0-2.51 2.225.569-9.47 5.227 7.917-3.286-.672Zm-7.518-.267A8.25 8.25 0 1 1 20.25 10.5M8.288 14.212A5.25 5.25 0 1 1 17.25 10.5" />
                       </svg>
-                      Medijski Spekter
+                      Medijski presek
                   </h1>
                   <p className="text-[13px] md:text-[14px] text-gray-500 dark:text-gray-400 mt-2.5 max-w-2xl leading-relaxed">
                     <strong className="text-gray-700 dark:text-gray-300">Ena novica. Več naslovov. <span className="text-gray-900 dark:text-white">Kdo pretirava?</span></strong> Strojna analiza in pregled uredniških odločitev pri ključnih temah. S pomočjo umetne inteligence prepoznavamo vzorce poročanja, destiliramo gola dejstva in na vizualnem spektru razkrivamo informacijski šum, čustveni naboj ter novinarsko pristranskost.
