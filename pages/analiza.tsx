@@ -57,70 +57,114 @@ const LOGOS: Record<string, string> = {
 
 const getLogoSrc = (sourceName: string) => {
   const s = sourceName.toLowerCase().replace(/\s/g, '').replace(/\./g, '');
-  // Varna zanka skozi objekte
   for (const key of Object.keys(LOGOS)) {
       if (s.includes(key)) return LOGOS[key];
   }
   return '/logo.png';
 }
 
-// 1. KOMPONENTA: Logotip (Pin)
-function SourceLogoPin({ source, value, setPreviewUrl }: { source: SourceItem, value: number, setPreviewUrl: (url: string) => void }) {
-    const cleanTitle = source.title.replace(/^["']|["']$/g, '');
+// 1. KOMPONENTA: Animiran Kupček Logotipov (Cluster Group)
+function ClusterGroup({ cluster, setPreviewUrl }: { cluster: { value: number, sources: SourceItem[] }, setPreviewUrl: (url: string) => void }) {
+    const [isHovered, setIsHovered] = useState(false);
+    const N = cluster.sources.length;
     
     return (
         <div 
-            className="absolute top-1/2 left-0 -translate-x-1/2 -translate-y-1/2 group/pin z-10 hover:z-50 transition-all duration-300 ease-out"
-            style={{ left: `${value}%` }}
+            className="absolute top-1/2 left-0 -translate-y-1/2 -translate-x-1/2 z-10 w-8 h-8 cursor-pointer"
+            style={{ left: `${cluster.value}%` }}
+            onMouseEnter={() => setIsHovered(true)}
+            onMouseLeave={() => setIsHovered(false)}
         >
-            <div 
-                onClick={(e) => { e.preventDefault(); e.stopPropagation(); setPreviewUrl(source.url); }}
-                className="w-6 h-6 md:w-7 md:h-7 bg-white rounded shadow-sm border-[0.5px] border-gray-300 dark:border-gray-600 flex items-center justify-center cursor-pointer transform group-hover/pin:scale-125 transition-transform overflow-hidden relative"
-            >
-                <Image 
-                    src={getLogoSrc(source.source)} 
-                    alt={source.source} 
-                    fill 
-                    className="object-contain p-[1.5px]" 
-                    unoptimized 
+            {/* Nevidno "hitbox" polje, ki prepreči, da bi se kupček zložil, ko premikamo miško med razprtimi logotipi */}
+            {isHovered && N > 1 && (
+                <div 
+                    className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-20"
+                    style={{ height: `${N * 120}%` }}
                 />
-                <div className="absolute inset-0 opacity-0 group-hover/pin:opacity-100 bg-white/90 flex items-center justify-center transition-opacity duration-200">
-                    <svg 
-                        viewBox="0 0 24 24" 
-                        width="14" 
-                        height="14" 
-                        fill="none" 
-                        stroke="currentColor" 
-                        strokeWidth="2.5" 
-                        className="text-brand transform scale-50 group-hover/pin:scale-110 transition-transform duration-300 ease-out"
+            )}
+
+            {cluster.sources.map((source, idx) => {
+                const cleanTitle = source.title.replace(/^["']|["']$/g, '');
+                // Matematika za razpiranje: prvi zgoraj, sredinski na sredini, zadnji spodaj
+                const yOffsetPercent = N > 1 ? (idx - (N - 1) / 2) * 115 : 0;
+                
+                return (
+                    <div 
+                        key={idx}
+                        className="absolute top-1/2 left-1/2 transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] group/pin"
+                        style={{
+                            // Če hoveramo, se razprejo. Če ne, se zložijo kot karte s par piksli zamika.
+                            transform: isHovered 
+                                ? `translate(-50%, calc(-50% + ${yOffsetPercent}%))` 
+                                : `translate(calc(-50% + ${idx * 2}px), calc(-50% - ${idx * 2}px))`,
+                            zIndex: isHovered ? 50 : 20 - idx // Vrhnja karta je vedno najbolj vidna
+                        }}
                     >
-                        <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12Z" /><circle cx="12" cy="12" r="3" />
-                    </svg>
-                </div>
-            </div>
+                        <div 
+                            onClick={(e) => { e.preventDefault(); e.stopPropagation(); setPreviewUrl(source.url); }}
+                            className="w-6 h-6 md:w-7 md:h-7 bg-white rounded shadow border-[0.5px] border-gray-300 dark:border-gray-600 flex items-center justify-center cursor-pointer transform group-hover/pin:scale-125 transition-transform overflow-hidden relative"
+                        >
+                            <Image 
+                                src={getLogoSrc(source.source)} 
+                                alt={source.source} 
+                                fill 
+                                className="object-contain p-[1.5px]" 
+                                unoptimized 
+                            />
+                            <div className="absolute inset-0 opacity-0 group-hover/pin:opacity-100 bg-white/90 flex items-center justify-center transition-opacity duration-200">
+                                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" className="text-brand transform scale-50 group-hover/pin:scale-110 transition-transform duration-300 ease-out">
+                                    <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12Z" /><circle cx="12" cy="12" r="3" />
+                                </svg>
+                            </div>
+                        </div>
+                        
+                        {/* Tooltip za posamezen logotip */}
+                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-56 md:w-60 p-2.5 md:p-3 bg-gray-900 text-white text-[11px] leading-snug rounded-xl opacity-0 group-hover/pin:opacity-100 pointer-events-none group-hover/pin:pointer-events-auto transition-opacity shadow-2xl flex flex-col gap-1.5">
+                            <div className="font-bold text-brand uppercase tracking-wider text-[8.5px]">{source.source}</div>
+                            <div className="text-gray-100 font-medium text-[11px] md:text-[11.5px]">"{cleanTitle}"</div>
+                            
+                            <a 
+                                href={source.url} 
+                                target="_blank" 
+                                rel="noopener noreferrer" 
+                                className="mt-0.5 self-start flex items-center gap-1 text-[9.5px] font-bold text-gray-400 hover:text-white transition-colors"
+                            >
+                                Preberi izvirnik
+                                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 0 0 3 8.25v10.5A2.25 2.25 0 0 0 5.25 21h10.5A2.25 2.25 0 0 0 18 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" /></svg>
+                            </a>
+                            <div className="absolute top-full left-1/2 -translate-x-1/2 border-[5px] border-transparent border-t-gray-900"></div>
+                        </div>
+                    </div>
+                )
+            })}
             
-            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-60 p-3 bg-gray-900 text-white text-[11px] leading-snug rounded-xl opacity-0 group-hover/pin:opacity-100 pointer-events-none group-hover/pin:pointer-events-auto transition-opacity shadow-2xl flex flex-col gap-1.5">
-                <div className="font-bold text-brand uppercase tracking-wider text-[8.5px]">{source.source}</div>
-                <div className="text-gray-100 font-medium text-[11.5px]">"{cleanTitle}"</div>
-                
-                <a 
-                    href={source.url} 
-                    target="_blank" 
-                    rel="noopener noreferrer" 
-                    className="mt-0.5 self-start flex items-center gap-1 text-[9.5px] font-bold text-gray-400 hover:text-white transition-colors"
-                >
-                    Preberi izvirnik
-                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 0 0 3 8.25v10.5A2.25 2.25 0 0 0 5.25 21h10.5A2.25 2.25 0 0 0 18 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" /></svg>
-                </a>
-                
-                <div className="absolute top-full left-1/2 -translate-x-1/2 border-[5px] border-transparent border-t-gray-900"></div>
-            </div>
+            {/* Če je v kupčku več virov in NE hoveramo, prikažemo majhno številko */}
+            {!isHovered && N > 1 && (
+                <div className="absolute -top-1 -right-1 md:-right-2 bg-brand text-white text-[8px] font-bold w-3.5 h-3.5 flex items-center justify-center rounded-full shadow-sm z-50">
+                    {N}
+                </div>
+            )}
         </div>
     )
 }
 
-// 2. KOMPONENTA: Kontinuirana premica v Spektru
+// 2. KOMPONENTA: Kontinuirana premica v Spektru (Z Grupiranjem)
 function SpectrumLine({ title, leftLabel, rightLabel, propKey, gradient, sources, setPreviewUrl }: any) {
+    // 1. Združimo logotipe, ki si delijo (skoraj) isto mesto
+    const clusters: { value: number, sources: SourceItem[] }[] = [];
+    
+    sources?.forEach((s: any) => {
+        const raw = s.media_dna?.[propKey] ?? 50; 
+        const val = Math.max(0, Math.min(100, raw));
+        
+        const existing = clusters.find(c => Math.abs(c.value - val) < 3);
+        if (existing) {
+            existing.sources.push(s);
+        } else {
+            clusters.push({ value: val, sources: [s] });
+        }
+    });
+
     return (
         <div className="mb-5 last:mb-0">
             <div className="flex items-center justify-between mb-1.5">
@@ -136,20 +180,14 @@ function SpectrumLine({ title, leftLabel, rightLabel, propKey, gradient, sources
                 <div className={`h-1.5 w-full rounded-full ${gradient} relative shadow-inner`}>
                     <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[1.5px] h-3 bg-gray-900/20 dark:bg-white/20 rounded-full"></div>
                     
-                    {sources?.map((s: any, idx: number) => {
-                        // Clamp varovalka: če AI vrne negativno številko ali več kot 100
-                        const raw = s.media_dna?.[propKey] ?? 50; 
-                        const val = Math.max(0, Math.min(100, raw));
-                        
-                        return (
-                            <SourceLogoPin 
-                                key={`${s.source}-${propKey}-${idx}`} 
-                                source={s} 
-                                value={val} 
-                                setPreviewUrl={setPreviewUrl} 
-                            />
-                        );
-                    })}
+                    {/* Namesto posameznih logotipov sedaj renderiramo kupčke (grozdje) */}
+                    {clusters.map((cluster, idx) => (
+                        <ClusterGroup 
+                            key={`${propKey}-cluster-${idx}`} 
+                            cluster={cluster} 
+                            setPreviewUrl={setPreviewUrl} 
+                        />
+                    ))}
                 </div>
             </div>
         </div>
@@ -158,7 +196,6 @@ function SpectrumLine({ title, leftLabel, rightLabel, propKey, gradient, sources
 
 const splitSummaryIntoBullets = (summary: string) => {
     if (!summary) return [];
-    // Pametnejši razrez, ki ignorira dr., mag., prof., št., itd.
     return summary
         .replace(/(?<!\b(?:dr|mag|prof|št|oz|tj|itd|npr|dipl|doc|inž))\.\s+(?=[A-ZČŠŽ])/g, '.|SPLIT|')
         .split('.|SPLIT|')
@@ -170,10 +207,7 @@ const splitSummaryIntoBullets = (summary: string) => {
 function AnalysisCard({ item, idx, setPreviewUrl }: { item: AnalysisItem, idx: number, setPreviewUrl: (url: string) => void }) {
   const router = useRouter();
   const newsId = `novica-${idx + 1}`;
-  
-  // Bolj natančen isFocused
   const isFocused = router.asPath.endsWith(`#${newsId}`);
-  
   const bullets = splitSummaryIntoBullets(item.summary);
 
   return (
@@ -185,7 +219,6 @@ function AnalysisCard({ item, idx, setPreviewUrl }: { item: AnalysisItem, idx: n
 
       <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700/60 rounded-xl shadow-sm flex flex-col relative overflow-visible">
         
-        {/* ZGORNJI DEL: Kompakten Signal */}
         <div className="p-5 md:p-8 flex flex-col pl-8 md:pl-12">
           
           <h2 className="text-[20px] md:text-[24px] font-serif font-bold text-gray-900 dark:text-white leading-snug mb-4 mt-0.5">
@@ -211,7 +244,6 @@ function AnalysisCard({ item, idx, setPreviewUrl }: { item: AnalysisItem, idx: n
               </div>
           </div>
           
-          {/* KONTEKST */}
           <div className="bg-gray-50/80 dark:bg-[#1e293b]/30 rounded-lg border border-gray-100 dark:border-gray-700/50 p-3.5 md:p-4 mt-2">
               <p className="text-[12.5px] md:text-[13.5px] text-gray-600 dark:text-gray-300 leading-relaxed">
                   <span className="font-bold text-gray-400 dark:text-gray-500 uppercase text-[9.5px] md:text-[10px] mr-2 tracking-wider">Kontekst:</span>
@@ -220,7 +252,6 @@ function AnalysisCard({ item, idx, setPreviewUrl }: { item: AnalysisItem, idx: n
           </div>
         </div>
 
-        {/* SPODNJI DEL: Šum in presek */}
         <div className="px-6 md:px-10 py-5 md:py-7 border-t border-gray-100 dark:border-gray-700/50 bg-gray-50/50 dark:bg-[#1e293b]/20 rounded-b-xl flex flex-col">
             
             <SpectrumLine 
@@ -267,9 +298,9 @@ export default function AnalizaPage({ analysis, lastUpdated }: Props) {
     <>
       <Head><title>Medijski presek | Križišče</title></Head>
       <Header activeCategory="vse" activeSource="Vse" />
-      <main className="min-h-screen bg-[#F9FAFB] dark:bg-gray-900 pb-20">
+      {/* Dodan overflow-x-hidden zaklene širino na mobilnih napravah in prepreči skakanje zaslona zaradi nevidnih tooltipov */}
+      <main className="min-h-screen bg-[#F9FAFB] dark:bg-gray-900 pb-20 overflow-x-hidden">
         
-        {/* HEADER */}
         <div className="bg-white dark:bg-gray-800/60 border-b border-gray-200 dark:border-gray-800 py-6 md:py-10">
             <div className="max-w-[1000px] mx-auto px-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-5">
                 
