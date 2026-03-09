@@ -76,11 +76,12 @@ function SourceLogoPin({ source, value, setPreviewUrl }: { source: SourceItem, v
                 onClick={(e) => { e.preventDefault(); e.stopPropagation(); setPreviewUrl(source.url); }}
                 className="w-6 h-6 md:w-7 md:h-7 bg-white rounded shadow-sm border-[0.5px] border-gray-300 dark:border-gray-600 flex items-center justify-center cursor-pointer transform group-hover/pin:scale-125 transition-transform overflow-hidden relative"
             >
+                {/* Fiksno monokromatski (grayscale) logo */}
                 <Image 
                     src={getLogoSrc(source.source)} 
                     alt={source.source} 
                     fill 
-                    className="object-contain p-[1.5px]" 
+                    className="object-contain p-[1.5px] grayscale" 
                     unoptimized 
                 />
                 <div className="absolute inset-0 opacity-0 group-hover/pin:opacity-100 bg-white/90 flex items-center justify-center transition-opacity duration-200">
@@ -118,7 +119,7 @@ function SourceLogoPin({ source, value, setPreviewUrl }: { source: SourceItem, v
     )
 }
 
-// 2. KOMPONENTA: Kontinuirana premica v Spektru
+// 2. KOMPONENTA: Kontinuirana premica v Radarju
 function SpectrumLine({ title, leftLabel, rightLabel, propKey, gradient, sources, setPreviewUrl }: any) {
     return (
         <div className="mb-4 last:mb-0">
@@ -192,7 +193,7 @@ function AnalysisCard({ item, idx, setPreviewUrl }: { item: AnalysisItem, idx: n
               </div>
           </div>
           
-          {/* KONTEKST (Povečan, z večjim razmikom in jasno ločitvijo) */}
+          {/* KONTEKST */}
           <div className="bg-gray-50/80 dark:bg-[#1e293b]/30 rounded-lg border border-gray-100 dark:border-gray-700/50 p-3 md:p-4 mt-1">
               <p className="text-[12px] md:text-[13px] text-gray-600 dark:text-gray-300 leading-relaxed">
                   <span className="font-bold text-gray-400 dark:text-gray-500 uppercase text-[9px] md:text-[10px] mr-2 tracking-wider">Kontekst:</span>
@@ -201,7 +202,7 @@ function AnalysisCard({ item, idx, setPreviewUrl }: { item: AnalysisItem, idx: n
           </div>
         </div>
 
-        {/* SPODNJI DEL: Šum in Spekter */}
+        {/* SPODNJI DEL: Šum in Radar */}
         <div className="px-5 md:px-7 py-4 md:py-5 border-t border-gray-100 dark:border-gray-700/50 bg-gray-50/50 dark:bg-[#1e293b]/20 rounded-b-xl flex flex-col">
             
             <SpectrumLine 
@@ -250,7 +251,7 @@ export default function AnalizaPage({ analysis, lastUpdated }: Props) {
       <Header activeCategory="vse" activeSource="Vse" />
       <main className="min-h-screen bg-[#F9FAFB] dark:bg-gray-900 pb-20">
         
-        {/* HEADER: Z novim imenom in podnaslovom */}
+        {/* HEADER */}
         <div className="bg-white dark:bg-gray-800/60 border-b border-gray-200 dark:border-gray-800 py-5 md:py-6">
             <div className="max-w-[800px] mx-auto px-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
                 
@@ -261,9 +262,8 @@ export default function AnalizaPage({ analysis, lastUpdated }: Props) {
                       </svg>
                       Medijski Spekter
                   </h1>
-                  <div className="text-[10px] font-bold uppercase tracking-widest text-brand mt-1 mb-0.5">Indeks šuma</div>
-                  <p className="text-[12px] text-gray-500 dark:text-gray-400 max-w-xl leading-snug">
-                    Ena novica. Deset naslovov. Kdo pretirava? Destiliramo dejstva in razkrivamo šum.
+                  <p className="text-[12px] text-gray-500 dark:text-gray-400 mt-1 max-w-xl leading-snug">
+                    Ena novica. Več naslovov. Kdo pretirava? Destiliramo dejstva in razkrivamo šum.
                   </p>
                 </div>
                 
