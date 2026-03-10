@@ -225,40 +225,52 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         }
     })
 
+    
+    // Določimo točen datum in danes v tednu
     const currentDateStr = new Intl.DateTimeFormat('sl-SI', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).format(new Date());
 
     const prompt = `
       You are an elite editor for a premium Slovenian morning news digest called 'Križišče'.
       Your job is to compress the RAW NEWS below into a highly readable, structured daily briefing.
+      You have NO other knowledge. If it is not in the RAW NEWS, it does not exist.
       
       CRITICAL TEMPORAL CONTEXT & RELEVANCE FILTER:
       TODAY IS: ${currentDateStr} (Morning).
-      1. RELATIVE TIME: If a source mentions an event happening on the current day of the week, you MUST write "danes" (today). If it happens tomorrow, write "jutri". NEVER write "v torek" if today is "torek".
-      2. FILTER OUT STALE NEWS (CRITICAL): You are writing a morning briefing. Readers do NOT care about temporary disruptions from yesterday (e.g., traffic jams, closed roads, queues at gas stations before midnight). 
+      1. RELATIVE TIME: If a news source mentions an event happening on the current day of the week, you MUST write "danes" (today). If it happens tomorrow, write "jutri". NEVER write "v torek" if today is "torek".
+      2. FILTER OUT TRIVIAL STALE NEWS: You are writing a morning briefing. Readers do NOT care about minor temporary disruptions from yesterday (e.g., ordinary traffic jams, cleared queues at gas stations). 
          - WRONG: "Zaradi napovedane podražitve so na črpalkah dolge kolone." (That was yesterday).
          - RIGHT: "Danes so začele veljati nove, višje cene goriv."
-         - If a story is entirely about a resolved temporary issue (like a cleared car crash or a traffic jam), IGNORE IT COMPLETELY. It is better to skip it than to include outdated news.
-      
+         - If a story is ONLY about a minor resolved traffic jam or a broken down vehicle with no major consequences, IGNORE IT.
+         - EXCEPTION FOR MAJOR EVENTS: If a story involves a SEVERE accident (fatalities, massive damage), KEEP IT, but focus on the event and consequences, NOT the past traffic state (e.g., "Včerajšnja huda nesreča pri Postojni je zahtevala...").
+
       RAW NEWS SUMMARIES:
       ${promptData}
       
       YOUR TASK:
-      1. 'intro': 2-3 sentences. Conversational, warm "morning anchor" tone. Highlight the most important or surprising story FROM THE TOP NOVICE SECTION. DO NOT use cliché temporal phrases like "včerajšnji dogodki". Jump straight into the narrative. Do NOT start with "Dobro jutro" or "Danes:".
+      1. 'intro': 2-3 sentences. Write in a conversational, warm, and engaging "morning anchor" tone. Highlight the most important or surprising story FROM THE TOP NOVICE SECTION. 
+         CRITICAL: DO NOT start with "Dobro jutro", "Danes:", or any greeting. The HTML already has a greeting. START IMMEDIATELY WITH THE NARRATIVE. DO NOT use cliché temporal phrases like "včerajšnji dogodki".
       2. 'categories': Create between 3 and 5 categories based strictly on the available news. 
          CATEGORIES RULES:
          - ONLY use stories from the '=== TOP NOVICE ===' section.
          - You MUST ONLY use category titles from this exact list: "🏔️ Slovenija", "🌍 Svet", "💰 Gospodarstvo", "⚖️ Kronika", "🏆 Šport".
          - ONLY create a category if you have at least 2 highly relevant stories for it.
          - ALWAYS make "🏔️ Slovenija" the FIRST category.
-         - STRICT THEMATIC SORTING: Sports news MUST go into "🏆 Šport". Crime, accidents, or police news MUST go into "⚖️ Kronika".
+         - STRICT THEMATIC SORTING: 
+             - Sports news MUST go into "🏆 Šport". 
+             - Crime, accidents, police investigations, or natural disasters (domestic OR international) MUST go into "⚖️ Kronika". 
+             - Entertainment, celebrities, or international politics MUST go into "🌍 Svet".
+             - Business, companies, and inflation MUST go into "💰 Gospodarstvo".
          - NO CATEGORY DUPLICATES: Never place the same news item in two different categories.
-         - SEMANTIC DEDUPLICATION (CRITICAL): COMBINE stories about the exact same overarching event into ONE single item. Write ONE summary text and use BOTH story IDs in the 'story_ids' array.
+         - SEMANTIC DEDUPLICATION: COMBINE stories about the exact same overarching event into ONE single item. Write ONE summary text and use BOTH story IDs in the 'story_ids' array.
+         - Provide 2 to 4 items per category. Choose the most important ones.
       3. Each 'item.theme': 2-4 word punchy label.
       4. Each 'item.text': 1-2 short sentences. Write in an active, present-tense tone.
       5. Each 'item.story_ids': An ARRAY of numbers corresponding to the [STORY ID: X] tags.
       6. 'whats_ahead': Scan ALL stories explicitly for ALL upcoming events, schedules, or announcements. If found, combine them into a cohesive paragraph. If ZERO upcoming events, return "".
       7. 'closing_line': 1 sentence highlighting a specific positive, interesting, or notable fact from ANY story to leave the reader with a final thought.
-      `
+      
+      HARD RULES: Never invent facts, numbers, or names. Do not combine facts from two different stories into one sentence unless they are about the exact same event. Output in Formal Slovenian.
+      `;
 
     const generationConfig = { 
         responseMimeType: "application/json",
