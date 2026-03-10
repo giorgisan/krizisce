@@ -14,7 +14,6 @@ function VisitorData() {
   })
 
   useEffect(() => {
-    // 1. Podatki iz brskalnika (User Agent)
     const ua = window.navigator.userAgent
     let os = 'Neznano'
     if (ua.indexOf('Win') !== -1) os = 'Windows'
@@ -29,13 +28,9 @@ function VisitorData() {
     if (ua.indexOf('Firefox') !== -1) browser = 'Firefox'
     if (ua.indexOf('Edg') !== -1) browser = 'Edge'
 
-    // 2. Ločljivost
     const screenRes = `${window.screen.width} x ${window.screen.height}`
-
     setInfo(prev => ({ ...prev, os, browser, screen: screenRes }))
 
-    // 3. Lokacija (IP API)
-    // Uporabljamo brezplačen API za demo. V realnosti to vidi vsak strežnik.
     fetch('https://ipapi.co/json/')
       .then(res => res.json())
       .then(data => {
@@ -52,17 +47,13 @@ function VisitorData() {
 
   return (
     <div className="my-8 overflow-hidden rounded-xl border border-brand/20 bg-brand/5 dark:bg-brand/10 shadow-sm">
-      {/* HEADER KARTICE */}
       <div className="bg-brand/10 px-4 py-3 border-b border-brand/20 flex justify-between items-center">
         <span className="text-xs font-bold uppercase tracking-wider text-brand-dark dark:text-brand flex items-center gap-2">
-           {/* Ikona prstnega odtisa */}
            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 11c0 3.517-1.009 6.799-2.753 9.571m-3.44-2.04l.054-.09A13.916 13.916 0 008 11a4 4 0 118 0c0 1.017-.07 2.019-.203 3m-2.118 6.844A21.88 21.88 0 0015.171 17m3.839 1.132c.645-2.266.99-4.659.99-7.132A8 8 0 008 4.07M3 15.364c.64-1.319 1-2.8 1-4.364 0-1.457.39-2.823 1.07-4" />
            </svg>
            Vaš digitalni odtis
         </span>
-        
-        {/* Oznaka "Prikaz v živo" z utripajočo piko */}
         <div className="flex items-center gap-1.5 px-2 py-0.5 bg-white/50 dark:bg-black/20 rounded-full border border-brand/10">
             <span className="relative flex h-2 w-2">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
@@ -73,36 +64,24 @@ function VisitorData() {
             </span>
         </div>
       </div>
-
-      {/* VSEBINA */}
       <div className="p-5 grid grid-cols-1 sm:grid-cols-2 gap-6 text-sm">
         <div>
           <div className="text-xs text-gray-500 dark:text-gray-400 mb-1 uppercase tracking-wide font-semibold">Vaša lokacija (IP)</div>
-          <div className="font-mono font-medium text-lg text-gray-900 dark:text-white truncate" title={info.location}>
-             {info.location}
-          </div>
+          <div className="font-mono font-medium text-lg text-gray-900 dark:text-white truncate" title={info.location}>{info.location}</div>
         </div>
         <div>
           <div className="text-xs text-gray-500 dark:text-gray-400 mb-1 uppercase tracking-wide font-semibold">Vaša naprava</div>
-          <div className="font-mono font-medium text-lg text-gray-900 dark:text-white truncate">
-             {info.os}
-          </div>
+          <div className="font-mono font-medium text-lg text-gray-900 dark:text-white truncate">{info.os}</div>
         </div>
         <div>
           <div className="text-xs text-gray-500 dark:text-gray-400 mb-1 uppercase tracking-wide font-semibold">Brskalnik</div>
-          <div className="font-mono font-medium text-lg text-gray-900 dark:text-white truncate">
-             {info.browser}
-          </div>
+          <div className="font-mono font-medium text-lg text-gray-900 dark:text-white truncate">{info.browser}</div>
         </div>
         <div>
           <div className="text-xs text-gray-500 dark:text-gray-400 mb-1 uppercase tracking-wide font-semibold">Zaslon</div>
-          <div className="font-mono font-medium text-lg text-gray-900 dark:text-white truncate">
-             {info.screen}
-          </div>
+          <div className="font-mono font-medium text-lg text-gray-900 dark:text-white truncate">{info.screen}</div>
         </div>
       </div>
-
-      {/* FOOTER KARTICE */}
       <div className="px-4 py-3 bg-white/60 dark:bg-black/20 text-xs text-center text-gray-600 dark:text-gray-400 italic border-t border-brand/10">
         Teh podatkov <strong>ne shranjujemo</strong>. Prikazujemo jih le zato, da vidite, kaj vaš brskalnik samodejno sporoča spletnim stranem.
       </div>
@@ -114,27 +93,21 @@ function VisitorData() {
 export default function Zasebnost() {
   return (
     <div className="flex flex-col min-h-screen bg-white dark:bg-gray-900 transition-colors duration-300">
-      
       <Header />
-
       <main className="flex-grow w-full max-w-[1800px] mx-auto px-4 md:px-8 lg:px-16 py-12 text-gray-900 dark:text-white">
-        
         <div className="max-w-2xl mx-auto">
             <h1 className="text-3xl md:text-4xl font-bold mb-8">Vaša zasebnost je zagotovljena</h1>
 
             <div className="text-lg leading-relaxed text-gray-600 dark:text-gray-300 space-y-6">
-                
                 <p>
                   Pri portalu <strong>Križišče</strong> verjamemo, da mora biti branje novic sproščeno in varno. Zato smo stran zgradili tako, da spoštuje vašo anonimnost. 
                 </p>
                 <p>
-                  Ne zahtevamo registracije, ne zbiramo vaših osebnih podatkov in vas ne zasledujemo z oglasi.
+                  Ne zahtevamo registracije in vas ne zasledujemo z oglasnimi piškotki. 
                 </p>
 
-                {/* --- VSTAVLJEN DEMO POGLED --- */}
                 <VisitorData />
 
-                {/* GLAVNO POLJE O ZASEBNOSTI */}
                 <div className="bg-gray-50 dark:bg-gray-800 p-6 md:p-8 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm mt-8">
                   <h2 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white flex items-center gap-2">
                     <span className="text-2xl">🛡️</span> Brez piškotkov, brez skrbi
@@ -147,18 +120,23 @@ export default function Zasebnost() {
                     <li className="flex gap-3 items-start">
                       <div className="shrink-0 w-6 h-6 flex items-center justify-center rounded-full bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 font-bold text-sm">✓</div>
                       <div className="text-base">
-                        <strong>Prijazna statistika:</strong> uporabljamo orodje <em>Umami Analytics</em>, ki je zasnovano za zasebnost. Beležimo le splošne številke (npr. "danes smo imeli 15.000 obiskovalcev"), ne pa, kdo ti obiskovalci so.
+                        <strong>E-Novičnik (Newsletter):</strong> Edini osebni podatek, ki ga hranimo, je vaš e-mail naslov, <em>če se sami odločite</em> za prijavo na naš novičnik. Uporabljamo ga izključno za pošiljanje pregleda novic. Odjavite se lahko kadarkoli, s čimer se vaš naslov trajno izbriše.
                       </div>
                     </li>
                     <li className="flex gap-3 items-start">
                       <div className="shrink-0 w-6 h-6 flex items-center justify-center rounded-full bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 font-bold text-sm">✓</div>
                       <div className="text-base">
-                        <strong>Samo nujno:</strong> v vašem brskalniku si zapomnimo le vašo izbiro teme (svetlo ali temno ozadje), da vam je ni treba nastavljati ob vsakem obisku. To ostane na vaši napravi.
+                        <strong>Umetna inteligenca (AI):</strong> Umetno inteligenco uporabljamo izključno za obdelavo javno dostopnih novic (kategorizacija, povzetki). Vaši osebni podatki se modelom umetne inteligence <strong>nikoli</strong> ne posredujejo.
+                      </div>
+                    </li>
+                    <li className="flex gap-3 items-start">
+                      <div className="shrink-0 w-6 h-6 flex items-center justify-center rounded-full bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 font-bold text-sm">✓</div>
+                      <div className="text-base">
+                        <strong>Prijazna statistika:</strong> Uporabljamo orodje <em>Umami Analytics</em>, ki je zasnovano za zasebnost. Beležimo le splošne številke (npr. število obiskovalcev), ne pa, kdo ti obiskovalci so.
                       </div>
                     </li>
                   </ul>
 
-                  {/* INTEGRIRANA OPOMBA "DOBRO JE VEDETI" */}
                   <div className="flex gap-3 p-4 rounded-lg bg-gray-200/30 dark:bg-gray-700/30 items-start text-sm text-gray-700 dark:text-gray-300">
                       <div className="shrink-0 text-gray-500 dark:text-gray-400 pt-0.5">
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5">
@@ -179,7 +157,6 @@ export default function Zasebnost() {
             </div>
         </div>
       </main>
-
       <Footer />
     </div>
   )
