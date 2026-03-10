@@ -24,8 +24,8 @@ const categorySchema = {
                     id: { type: SchemaType.NUMBER },
                     category: { 
                         type: SchemaType.STRING,
-                        // Tukaj so natančno definirane dovoljene kategorije, ki ustrezajo tvojemu sistemu
-                        enum: ['slovenija', 'svet', 'kronika', 'sport', 'magazin', 'lifestyle', 'posel-tech', 'moto', 'kultura'] 
+                        // DODANO: 'oglas' je zdaj veljavna kategorija, ki jo AI lahko potrdi ali spremeni
+                        enum: ['slovenija', 'svet', 'kronika', 'sport', 'magazin', 'lifestyle', 'posel-tech', 'moto', 'kultura', 'oglas'] 
                     }
                 },
                 required: ["id", "category"]
@@ -42,60 +42,66 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     try {
-        console.log("🚀 Začenjam AI kategorizacijo...");
+        console.log("🚀 Začenjam AI kategorizacijo in čiščenje oglasov...");
 
-        // 2. Potegnemo novice, ki še niso bile preverjene z AI, in niso oglasi
-        // Limit je 40, da ne presežemo omejitev tokenov v enem klicu
+        // 2. Potegnemo novice, ki še niso bile preverjene z AI.
+        // Odstranili smo filter .neq('category', 'oglas'), da AI preveri tudi morebitne napačne oglase.
         const { data: newsItems, error: fetchError } = await supabase
             .from('news')
-            .select('id, title, contentsnippet, category')
+            .select('id, title, contentsnippet, category, link') // Dodan 'link', da AI vidi URL
             .eq('ai_categorized', false)
-            .neq('category', 'oglas')
             .order('publishedat', { ascending: false })
             .limit(40);
 
         if (fetchError) throw fetchError;
 
         if (!newsItems || newsItems.length === 0) {
-            return res.status(200).json({ message: "Vse novice so že kategorizirane." });
+            return res.status(200).json({ message: "Vse novice so že obdelane." });
         }
 
         console.log(`Pripravljam ${newsItems.length} novic za AI analizo.`);
 
-        // 3. Priprava podatkov za AI prompt
-        let promptData = "Poveži vsak ID z najbolj primerno kategorijo. Bodi zelo natančen.\n\n";
+        // 3. Priprava podatkov za AI prompt (vključno z URL-jem za detekcijo oglasov)
+        let promptData = "";
         newsItems.forEach(item => {
             const cleanTitle = item.title ? item.title.replace(/"/g, "'") : '';
             const cleanSnippet = item.contentsnippet ? item.contentsnippet.substring(0, 150).replace(/"/g, "'") : '';
-            promptData += `[ID: ${item.id}]\nNASLOV: ${cleanTitle}\nPOVZETEK: ${cleanSnippet}\n---\n`;
+            promptData += `[ID: ${item.id}]\nURL: ${item.link}\nNASLOV: ${cleanTitle}\nPOVZETEK: ${cleanSnippet}\n---\n`;
         });
 
         const prompt = `
-            You are an expert news editor for a Slovenian news aggregator.
-            Your task is to classify news articles into one of the exact predefined categories.
+            You are an expert news editor. Your task is to classify news articles into exactly one category.
             
-            RULES:
-            - "slovenija": Domestic politics, local news, national affairs.
-            - "svet": International news, foreign politics, wars (e.g. Ukraine, Gaza), global events.
-            - "kronika": Crime, accidents, courts, police, fires, fatalities (domestic OR international).
-            - "sport": Sports, matches, athletes, competitions.
-            - "posel-tech": Business, economy, companies, stock market, technology, AI, science.
-            - "moto": Cars, traffic, vehicles, mobility.
-            - "magazin": Celebrities, entertainment, showbiz, royalty, horoscopes, reality TV.
-            - "lifestyle": Health, wellness, food, home, relationships, travel.
-            - "kultura": Arts, books, theater, exhibitions, movies (art-house).
-            CRITICAL: Every single article MUST fit into one of the above 9 categories. Find the best possible fit based on the primary subject, even if it spans multiple topics. Do NOT use any other category.
+            CATEGORIES:
+            - "slovenija": Domestic politics, regional news, national affairs.
+            - "svet": Foreign politics, international events, wars.
+            - "kronika": Crime, accidents, police reports, courts, fires.
+            - "sport": Sports results, athletes, matches.
+            - "posel-tech": Business, economy, stocks, technology, science, AI.
+            - "moto": Cars, mobility, traffic, automotive reviews.
+            - "magazin": Entertainment, celebrities, movies, music, reality TV, horoscopes.
+            - "lifestyle": Food, health, travel, relationships, home.
+            - "kultura": Arts, books, theater, exhibitions.
+            - "oglas": STRICTLY for paid promotions, advertorials, or self-promotion.
+            
+            RULES FOR "oglas":
+            1. If the URL contains "/promo/", "/advertorial/", "/sponzorirano/", "/dpc-", or "/plačana-objava/", it is an "oglas".
+            2. If the content is purely promoting a service, product, or a specific brand without journalistic value, it is an "oglas".
+            3. CRITICAL: If an article is a regular news story (even if it is about real estate, quirky topics, or from a magazine section) and the URL is NOT promotional, do NOT tag it as "oglas". Fix misclassified ads.
+            
+            CRITICAL: Every single article MUST fit into one of the categories. Do NOT use any other category.
             
             ARTICLES TO CLASSIFY:
             ${promptData}
         `;
 
+        // Uporabimo gemini-1.5-flash za stabilnost (ali gemini-2.0-flash, če ga že imaš potrjenega)
         const model = genAI.getGenerativeModel({ 
-            model: "gemini-2.5-flash", 
+            model: "gemini-1.5-flash", 
             generationConfig: { 
                 responseMimeType: "application/json",
                 responseSchema: categorySchema, 
-                temperature: 0.1 // Zelo nizka temperatura za maksimalno determiniranost
+                temperature: 0.1 
             }
         });
 
@@ -108,14 +114,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             throw new Error("Neveljaven odgovor od AI.");
         }
 
-        console.log("✅ AI je uspešno vrnil kategorije.");
+        console.log("✅ AI je uspešno določil nove kategorije.");
 
-        // 5. Priprava podatkov za masovno posodobitev v Supabase
-        const classifications = aiData.classifications;
-        
-        // Supabase nima direktne bulk update funkcije z različnimi vrednostmi, 
-        // zato lahko uporabimo upsert ali posamezne update (ker imamo < 40 vrstic, je Promise.all čisto ok).
-        const updatePromises = classifications.map((item: any) => {
+        // 5. Posodobitev v bazi
+        const updatePromises = aiData.classifications.map((item: any) => {
             return supabase
                 .from('news')
                 .update({ 
@@ -125,8 +127,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                 .eq('id', item.id);
         });
 
-        // Tisti, ki jih je AI morda ignoriral (zaradi napake), označimo, da se ne bodo ponavljali v neskončnost
-        const processedIds = new Set(classifications.map((c: any) => c.id));
+        // Tisti, ki so ostali brez klasifikacije, označimo kot True, da ne obtičijo v zanki
+        const processedIds = new Set(aiData.classifications.map((c: any) => c.id));
         const skippedItems = newsItems.filter(item => !processedIds.has(item.id));
         
         skippedItems.forEach(item => {
@@ -138,17 +140,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
              );
         });
 
-        const results = await Promise.allSettled(updatePromises);
-        
-        const errors = results.filter(r => r.status === 'rejected');
-        if (errors.length > 0) {
-            console.error(`Opozorilo: Ni uspelo posodobiti ${errors.length} vrstic.`);
-        }
+        await Promise.allSettled(updatePromises);
 
         return res.status(200).json({ 
             success: true, 
             processed: newsItems.length,
-            message: `Uspešno kategoriziranih ${newsItems.length} novic.` 
+            message: `Uspešno obdelanih ${newsItems.length} zapisov.` 
         });
 
     } catch (e: any) {
