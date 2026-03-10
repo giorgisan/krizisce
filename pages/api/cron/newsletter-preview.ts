@@ -259,12 +259,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
              - Entertainment, celebrities, or international politics MUST go into "🌍 Svet".
              - Business, companies, and inflation MUST go into "💰 Gospodarstvo".
          - NO CATEGORY DUPLICATES: Never place the same news item in two different categories.
-         - MERGING RULE (CRITICAL): You may ONLY combine story IDs if they cover the EXACT SAME EVENT. DO NOT merge different stories (e.g. do not merge "dirty political campaign" with "voting locations" just because both are politics). If they are different stories, create separate items for them.
+         - MERGING RULE (CRITICAL): You may ONLY combine story IDs if they cover the EXACT SAME EVENT. DO NOT merge different stories. If they are different stories, create separate items for them.
          - Provide 2 to 4 items per category. Choose the most important ones.
       3. Each 'item.theme': 2-4 word punchy label.
       4. Each 'item.text': 1-2 short sentences. Write in an active, present-tense tone.
       5. Each 'item.story_ids': An ARRAY of numbers corresponding to the [STORY ID: X] tags.
-      6. 'whats_ahead': Scan ALL stories explicitly for ALL upcoming events, schedules, or announcements. If found, combine them into a cohesive paragraph. If ZERO upcoming events, return "".
+      6. 'whats_ahead': MAX 1-2 sentences highlighting a specific future event (e.g., a planned meeting, a sports match, a weather warning). 
+         CRITICAL RULES FOR WHATS_AHEAD:
+         - DO NOT MENTION ANYTHING related to stories already covered in the categories (e.g., DO NOT mention gas prices, inflation, or political campaigns here if they are already in the main news).
+         - If there are NO distinct future events mentioned in the text, you MUST return an EXACTLY empty string "".
       7. 'closing_line': 1 sentence highlighting a specific positive, interesting, or notable fact from ANY story to leave the reader with a final thought.
       
       HARD RULES: Never invent facts, numbers, or names. Do not combine facts from two different stories into one sentence unless they are about the exact same event. Output in Formal Slovenian.
