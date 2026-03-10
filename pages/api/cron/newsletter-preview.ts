@@ -15,6 +15,7 @@ const resend = new Resend(process.env.RESEND_API_KEY)
 
 const BRAND_COLOR = "#ea580c"; 
 
+// --- SCHEMA DEFINICIJA ---
 const newsletterSchema = {
     type: SchemaType.OBJECT,
     properties: {
@@ -53,10 +54,10 @@ const newsletterSchema = {
 // --- AI VALIDATOR ---
 async function validateOutput(aiData: any, promptData: string, currentDayStr: string): Promise<any> {
     const validationPrompt = `
-You are a strict fact-checker. Compare OUTPUT against SOURCE.
+You are a strict fact-checker and editor. Compare OUTPUT against SOURCE.
 
 CRITICAL TEMPORAL CONTEXT:
-Today is exactly ${currentDayStr}.
+Today is exactly ${currentDayStr} (Morning).
 
 SOURCE:
 ${promptData}
@@ -66,12 +67,11 @@ ${JSON.stringify(aiData)}
 
 TASK:
 1. Verify that EVERY fact, number, name, location, and title in the OUTPUT exists explicitly in the SOURCE.
-2. PAY SPECIAL ATTENTION TO 'ORIGINAL TITLES' in the source. If the 'SUMMARY' claims the location is 'Bagdad', but the 'ORIGINAL TITLES' say 'Oslo' or 'Norveška', the summary is WRONG. You must correct the OUTPUT to match the ORIGINAL TITLES. The ORIGINAL TITLES are the ultimate ground truth.
-3. Check for "hallucinations": Did the OUTPUT add any titles, adjectives, specific dates, or statistics that are NOT in the SOURCE? 
-   -> EXCEPTION: Temporal words like "danes", "jutri", or "ta konec tedna" are strictly ALLOWED in the 'whats_ahead' section.
-4. If you find any hallucinated or altered details (like wrong locations), remove them or correct them to match the SOURCE exactly.
-5. TEMPORAL CHECK (CRITICAL): Ensure temporal references are correct relative to TODAY (${currentDayStr}). If a news source says something is happening "v torek" and today is "torek", the newsletter MUST say "danes" (today), not "v torek".
-6. Return the corrected OUTPUT as valid JSON matching the exact original structure. If nothing to fix, return OUTPUT unchanged.
+2. PAY SPECIAL ATTENTION TO 'ORIGINAL TITLES' in the source. They are the ultimate ground truth.
+3. Check for "hallucinations".
+4. TEMPORAL CHECK (CRITICAL): Ensure temporal references are correct relative to TODAY (${currentDayStr}). If a news source says something is happening "v torek" and today is "torek", the newsletter MUST say "danes" (today), not "v torek".
+5. RELEVANCE & OUTDATED NEWS (CRITICAL): If the OUTPUT describes a temporary state from yesterday that is no longer relevant today (e.g., "dolge kolone na črpalkah", "zaprta avtocesta", "prometni zastoji"), you MUST rewrite it to reflect today's reality (e.g., "Nove cene goriv so danes stopile v veljavo...") or completely REMOVE the item if it has zero relevance today. Do not send readers stale news. It is better to have an empty section than outdated news.
+6. Return the corrected OUTPUT as valid JSON matching the exact original structure.
 `;
 
     const model = genAI.getGenerativeModel({ 
@@ -225,43 +225,39 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         }
     })
 
-    // Določimo točen datum in danes v tednu
     const currentDateStr = new Intl.DateTimeFormat('sl-SI', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).format(new Date());
 
     const prompt = `
       You are an elite editor for a premium Slovenian morning news digest called 'Križišče'.
       Your job is to compress the RAW NEWS below into a highly readable, structured daily briefing.
-      You have NO other knowledge. If it is not in the RAW NEWS, it does not exist.
       
-      CRITICAL TEMPORAL CONTEXT:
-      TODAY IS: ${currentDateStr}.
-      If any news source mentions an event happening on the current day of the week, you MUST write "danes" (today) instead of naming the day. If it happens tomorrow, write "jutri". NEVER write "v torek" if today is "torek".
+      CRITICAL TEMPORAL CONTEXT & RELEVANCE FILTER:
+      TODAY IS: ${currentDateStr} (Morning).
+      1. RELATIVE TIME: If a source mentions an event happening on the current day of the week, you MUST write "danes" (today). If it happens tomorrow, write "jutri". NEVER write "v torek" if today is "torek".
+      2. FILTER OUT STALE NEWS (CRITICAL): You are writing a morning briefing. Readers do NOT care about temporary disruptions from yesterday (e.g., traffic jams, closed roads, queues at gas stations before midnight). 
+         - WRONG: "Zaradi napovedane podražitve so na črpalkah dolge kolone." (That was yesterday).
+         - RIGHT: "Danes so začele veljati nove, višje cene goriv."
+         - If a story is entirely about a resolved temporary issue (like a cleared car crash or a traffic jam), IGNORE IT COMPLETELY. It is better to skip it than to include outdated news.
       
       RAW NEWS SUMMARIES:
       ${promptData}
       
       YOUR TASK:
-      1. 'intro': 2-3 sentences. Conversational, warm "morning anchor" tone. Highlight the most important or surprising story FROM THE TOP NOVICE SECTION. DO NOT use cliché temporal phrases like "včerajšnji dogodki", "pretekli dan" or "odmeva". Jump straight into the narrative. Do NOT start with "Dobro jutro" or "Danes:".
+      1. 'intro': 2-3 sentences. Conversational, warm "morning anchor" tone. Highlight the most important or surprising story FROM THE TOP NOVICE SECTION. DO NOT use cliché temporal phrases like "včerajšnji dogodki". Jump straight into the narrative. Do NOT start with "Dobro jutro" or "Danes:".
       2. 'categories': Create between 3 and 5 categories based strictly on the available news. 
          CATEGORIES RULES:
          - ONLY use stories from the '=== TOP NOVICE ===' section.
          - You MUST ONLY use category titles from this exact list: "🏔️ Slovenija", "🌍 Svet", "💰 Gospodarstvo", "⚖️ Kronika", "🏆 Šport".
-         - ONLY create a category if you have at least 2 highly relevant stories for it. Do NOT force 5 categories if the news does not strongly support them.
+         - ONLY create a category if you have at least 2 highly relevant stories for it.
          - ALWAYS make "🏔️ Slovenija" the FIRST category.
          - STRICT THEMATIC SORTING: Sports news MUST go into "🏆 Šport". Crime, accidents, or police news MUST go into "⚖️ Kronika".
          - NO CATEGORY DUPLICATES: Never place the same news item in two different categories.
-         - SEMANTIC DEDUPLICATION (CRITICAL): The RAW NEWS often contains multiple stories about the exact same overarching event (e.g., "Trump threats to Iran" and "Israeli strikes on Tehran"). YOU MUST COMBINE THEM into ONE single comprehensive news item. Write ONE summary text and use BOTH story IDs in the 'story_ids' array. NEVER create two separate items for the same conflict/event.
-         - Provide 2-3 items per category.
+         - SEMANTIC DEDUPLICATION (CRITICAL): COMBINE stories about the exact same overarching event into ONE single item. Write ONE summary text and use BOTH story IDs in the 'story_ids' array.
       3. Each 'item.theme': 2-4 word punchy label.
       4. Each 'item.text': 1-2 short sentences. Write in an active, present-tense tone.
-      5. Each 'item.story_ids': An ARRAY of numbers corresponding to the [STORY ID: X] tags. If you merged multiple stories (e.g. ID 2 and ID 5) into one item, write [2, 5]. If it's one story, write [2].
-      6. 'whats_ahead': Scan ALL stories explicitly for ALL upcoming events, schedules, or announcements. If found, combine them into a cohesive 2-4 sentence paragraph. 
-         CRITICAL RULE 1: If ZERO upcoming events are mentioned, return an EXACTLY empty string "".
-         CRITICAL RULE 2: DO NOT DUPLICATE. If an event is in the 'categories' section, DO NOT mention it here.
-         CRITICAL RULE 3: TEMPORAL CONSISTENCY. Cross-check events! If a story states an event (e.g., an evacuation, a match, a meeting) is already "concluded", "finished", or "landed", DO NOT list it as an upcoming event. Avoid logical contradictions.
+      5. Each 'item.story_ids': An ARRAY of numbers corresponding to the [STORY ID: X] tags.
+      6. 'whats_ahead': Scan ALL stories explicitly for ALL upcoming events, schedules, or announcements. If found, combine them into a cohesive paragraph. If ZERO upcoming events, return "".
       7. 'closing_line': 1 sentence highlighting a specific positive, interesting, or notable fact from ANY story to leave the reader with a final thought.
-      
-      HARD RULES: Never invent facts, numbers, or names. Do not combine facts from two different stories into one sentence unless they are about the exact same event. Output in Formal Slovenian.
       `
 
     const generationConfig = { 
@@ -506,9 +502,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (insertError) throw insertError;
 
     const adminUrl = `https://krizisce.si/api/cron/send-newsletter?id=${insertedNewsletter.id}&key=${process.env.CRON_SECRET}`;
-    
     const regenerateUrl = `https://krizisce.si/api/cron/newsletter-preview?key=${process.env.CRON_SECRET}`;
-    
     const adminPreviewHtml = finalEmailHtml.replace('{{USER_ID}}', 'test_admin_id');
 
     const adminEmailHtml = `
@@ -518,7 +512,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         
         <div style="margin-top: 20px;">
           <a href="${adminUrl}" style="background-color: #ea580c; color: #ffffff; padding: 14px 28px; text-decoration: none; font-weight: bold; border-radius: 8px; display: inline-block; margin: 5px;">Odobri in pošlji vsem</a>
-          
           <a href="${regenerateUrl}" style="background-color: transparent; color: #ea580c; border: 2px solid #ea580c; padding: 12px 24px; text-decoration: none; font-weight: bold; border-radius: 8px; display: inline-block; margin: 5px;">Ponovno generiraj ⟳</a>
         </div>
       </div>
