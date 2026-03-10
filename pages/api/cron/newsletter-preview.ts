@@ -225,8 +225,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         }
     })
 
-    
-    // Določimo točen datum in danes v tednu
     const currentDateStr = new Intl.DateTimeFormat('sl-SI', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).format(new Date());
 
     const prompt = `
@@ -241,7 +239,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
          - WRONG: "Zaradi napovedane podražitve so na črpalkah dolge kolone." (That was yesterday).
          - RIGHT: "Danes so začele veljati nove, višje cene goriv."
          - If a story is ONLY about a minor resolved traffic jam or a broken down vehicle with no major consequences, IGNORE IT.
-         - EXCEPTION FOR MAJOR EVENTS: If a story involves a SEVERE accident (fatalities, massive damage), KEEP IT, but focus on the event and consequences, NOT the past traffic state (e.g., "Včerajšnja huda nesreča pri Postojni je zahtevala...").
+         - EXCEPTION FOR MAJOR EVENTS: If a story involves a SEVERE accident (fatalities, massive damage), KEEP IT, but focus on the event and consequences, NOT the past traffic state.
 
       RAW NEWS SUMMARIES:
       ${promptData}
@@ -261,7 +259,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
              - Entertainment, celebrities, or international politics MUST go into "🌍 Svet".
              - Business, companies, and inflation MUST go into "💰 Gospodarstvo".
          - NO CATEGORY DUPLICATES: Never place the same news item in two different categories.
-         - SEMANTIC DEDUPLICATION: COMBINE stories about the exact same overarching event into ONE single item. Write ONE summary text and use BOTH story IDs in the 'story_ids' array.
+         - MERGING RULE (CRITICAL): You may ONLY combine story IDs if they cover the EXACT SAME EVENT. DO NOT merge different stories (e.g. do not merge "dirty political campaign" with "voting locations" just because both are politics). If they are different stories, create separate items for them.
          - Provide 2 to 4 items per category. Choose the most important ones.
       3. Each 'item.theme': 2-4 word punchy label.
       4. Each 'item.text': 1-2 short sentences. Write in an active, present-tense tone.
@@ -316,9 +314,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         
         cat.items.forEach((item: any) => {
             let sourceLinksHtml = '';
+            // Uporabimo Map, da preprečimo duplikate medijev (če imamo 2 linka z Dela, prikažemo samo enega)
             const linkMap = new Map<string, string>(); 
             
-            const ids = Array.isArray(item.story_ids) ? item.story_ids : (item.story_id !== undefined ? [item.story_id] : []);
+            // Varno preverjanje story_ids (fallback če AI vrne single int)
+            let ids: number[] = [];
+            if (Array.isArray(item.story_ids)) {
+                ids = item.story_ids;
+            } else if (typeof item.story_id === 'number') {
+                ids = [item.story_id as number];
+            } else if (typeof item.story_ids === 'number') {
+                ids = [item.story_ids as number];
+            }
             
             ids.forEach((id: number) => {
                 const story = topStories[id];
@@ -332,6 +339,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                             let name = hostname.split('.')[0];
                             name = name.charAt(0).toUpperCase() + name.slice(1);
                             
+                            // Normalizacija imen
                             if (hostname.includes('rtvslo')) name = 'RTV SLO';
                             if (hostname.includes('24ur')) name = '24ur';
                             if (hostname.includes('siol')) name = 'Siol';
@@ -342,6 +350,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                             if (hostname.includes('n1info')) name = 'N1';
                             if (hostname.includes('svet24')) name = 'Svet24';
 
+                            // Uporabimo ime medija kot KLJUČ. Če Delo že obstaja za to novico, ga ne dodamo drugič.
                             if (!linkMap.has(name)) {
                                 linkMap.set(name, `<a href="${url}" style="color: ${BRAND_COLOR}; text-decoration: none; font-weight: 500;">${name}</a>`);
                             }
