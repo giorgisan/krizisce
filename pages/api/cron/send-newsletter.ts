@@ -48,7 +48,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // Tukaj zgradimo unikatne maile, kjer se {{USER_EMAIL}} zamenja s skritim {{USER_ID}}
     const emailsPayload = subscribers.map(sub => ({
-      from: 'Križišče <jutro@krizisce.si>', 
+      from: 'Križišče <jutro@krizisce.si>',
+      reply_to: 'gjkcme@gmail.com',
       to: [sub.email],
       subject: newsletter.subject,
       // POPRAVEK: Zamenjaj USER_ID, da se ujema s tvojim HTML-jem
