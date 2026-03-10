@@ -82,8 +82,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             You are an expert news editor. Your task is to classify news articles into exactly one category.
             
             CATEGORIES:
-            - "slovenija", "svet", "sport", "posel-tech", "moto", "magazin", "lifestyle", "kultura".
-            - "kronika": Crime, accidents, police reports, courts, fires.
+            - "slovenija": Domestic politics, local news, national affairs.
+            - "svet": International news, foreign politics, wars (e.g. Ukraine, Gaza), global events.
+            - "kronika": Crime, accidents, courts, police, fires, fatalities (domestic OR international).
+            - "sport": Sports, matches, athletes, competitions.
+            - "posel-tech": Business, economy, companies, stock market, technology, AI, science.
+            - "moto": Cars, traffic, vehicles, mobility.
+            - "magazin": Celebrities, entertainment, showbiz, royalty, horoscopes, reality TV.
+            - "lifestyle": Health, wellness, food, home, relationships, travel.
+            - "kultura": Arts, books, theater, exhibitions, movies (art-house).
             - "oglas": STRICTLY for paid promotions, advertorials, or self-promotion.
             
             RULES FOR "oglas":
@@ -97,25 +104,45 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             ${promptData}
         `;
 
-        // Uporaba izbranega modela gemini-2.5-flash-lite
-        const model = genAI.getGenerativeModel({ 
-            model: "gemini-2.5-flash-lite", 
-            generationConfig: { 
-                responseMimeType: "application/json",
-                responseSchema: categorySchema, 
-                temperature: 0.1 
+        // --- 4. KLIC AI MODELA S FALLBACK LOGIKO ---
+        const modelsToTry = [
+            "gemini-2.5-flash-lite",           // Primarni, najhitrejši in najcenejši
+            "gemini-2.5-flash",                // Prva rezerva
+            "gemini-3.1-flash-lite-preview"    // Druga rezerva
+        ];
+
+        let aiData = null;
+
+        for (const modelName of modelsToTry) {
+            try {
+                console.log(`🤖 Poskušam klasifikacijo z modelom: ${modelName}...`);
+                const model = genAI.getGenerativeModel({ 
+                    model: modelName, 
+                    generationConfig: { 
+                        responseMimeType: "application/json",
+                        responseSchema: categorySchema, 
+                        temperature: 0.1 
+                    }
+                });
+
+                const result = await model.generateContent(prompt);
+                const parsed = JSON.parse(result.response.text());
+
+                if (parsed && parsed.classifications) {
+                    aiData = parsed;
+                    console.log(`✅ AI uspešen z modelom: ${modelName}`);
+                    break; // Uspešno pridobljen JSON, prekinemo zanko
+                }
+            } catch (err: any) {
+                console.warn(`⚠️ Model ${modelName} ni uspel: ${err.message}. Preklapljam na naslednjega...`);
             }
-        });
-
-        // 4. Klic AI modela
-        const result = await model.generateContent(prompt);
-        const aiData = JSON.parse(result.response.text());
-
-        if (!aiData || !aiData.classifications) {
-            throw new Error("Neveljaven odgovor od AI.");
         }
 
-        console.log("✅ AI je uspešno določil nove kategorije.");
+        // Če so čisto vsi modeli padli (Google je globalno down)
+        if (!aiData || !aiData.classifications) {
+            throw new Error("❌ Vsi AI modeli so odpovedali ali vrnili neveljaven odgovor.");
+        }
+        // -------------------------------------------
 
         // 5. Priprava posodobitev v bazi
         const updatePromises = aiData.classifications.map((item: any) => {
