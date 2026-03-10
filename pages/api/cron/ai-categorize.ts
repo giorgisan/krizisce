@@ -25,7 +25,7 @@ const categorySchema = {
                     category: { 
                         type: SchemaType.STRING,
                         // Tukaj so natančno definirane dovoljene kategorije, ki ustrezajo tvojemu sistemu
-                        enum: ['slovenija', 'svet', 'kronika', 'sport', 'magazin', 'lifestyle', 'posel-tech', 'moto', 'kultura', 'ostalo'] 
+                        enum: ['slovenija', 'svet', 'kronika', 'sport', 'magazin', 'lifestyle', 'posel-tech', 'moto', 'kultura'] 
                     }
                 },
                 required: ["id", "category"]
@@ -84,7 +84,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             - "magazin": Celebrities, entertainment, showbiz, royalty, horoscopes, reality TV.
             - "lifestyle": Health, wellness, food, home, relationships, travel.
             - "kultura": Arts, books, theater, exhibitions, movies (art-house).
-            - "ostalo": Only if it strictly doesn't fit anywhere else.
+            CRITICAL: Every single article MUST fit into one of the above 9 categories. Find the best possible fit based on the primary subject, even if it spans multiple topics. Do NOT use any other category.
             
             ARTICLES TO CLASSIFY:
             ${promptData}
