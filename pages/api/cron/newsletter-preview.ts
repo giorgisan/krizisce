@@ -544,7 +544,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const { data: emailData, error: emailError } = await resend.emails.send({
       from: 'Križišče <jutro@krizisce.si>', 
-      reply_to: 'gjkcme@gmail.com',         
+      replyTo: 'gjkcme@gmail.com',         
       to: ['gjkcme@gmail.com'], 
       subject: `[PREDOGLED] ${subjectStr}`,
       html: adminEmailHtml, 
