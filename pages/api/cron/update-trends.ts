@@ -126,9 +126,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             trends = result.trends || [];
             summaryText = result.summary || '';
         } catch (err2: any) {
-            console.error("❌ Both AI models failed in update-trends.");
-            return res.status(500).json({ error: 'AI generation failed', details: err2.message });
-        }
+          console.error("❌ Both AI models failed in update-trends.", JSON.stringify(err2));
+          return res.status(500).json({ error: 'AI generation failed', details: err2.message, full: JSON.stringify(err2) });
+      }
     }
 
     // 5. SAVE TO DATABASE
