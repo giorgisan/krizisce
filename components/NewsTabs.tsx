@@ -35,7 +35,7 @@ const TABS = [
   },
   {
     id: 'monitor',
-    label: 'Monitor',
+    label: 'Medijski presek',
     isLink: true,
     href: '/analiza',
     icon: (
