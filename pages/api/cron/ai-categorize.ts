@@ -1,6 +1,7 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { createClient } from '@supabase/supabase-js';
 import { GoogleGenerativeAI, SchemaType } from '@google/generative-ai';
+import crypto from 'crypto'; // Nujno za varno primerjanje ključev
 
 // Omogočimo dovolj časa za izvajanje na Vercelu (do 60 sekund)
 export const maxDuration = 60; 
@@ -12,7 +13,7 @@ const supabase = createClient(
 
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_KEY || '');
 
-// Shema, ki prisili AI, da vrne natančen JSON s kategorijami za vsak ID
+// Shema s tipom INTEGER za ID in vsemi kategorijami
 const categorySchema = {
     type: SchemaType.OBJECT,
     properties: {
@@ -21,10 +22,9 @@ const categorySchema = {
             items: {
                 type: SchemaType.OBJECT,
                 properties: {
-                    id: { type: SchemaType.NUMBER },
+                    id: { type: SchemaType.INTEGER },
                     category: { 
                         type: SchemaType.STRING,
-                        // DODANO: 'oglas' je zdaj veljavna kategorija, ki jo AI lahko potrdi ali spremeni
                         enum: ['slovenija', 'svet', 'kronika', 'sport', 'magazin', 'lifestyle', 'posel-tech', 'moto', 'kultura', 'oglas'] 
                     }
                 },
@@ -36,32 +36,41 @@ const categorySchema = {
 };
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-    // 1. Varnostno preverjanje (cron secret)
-    if (req.query.key !== process.env.CRON_SECRET) {
+    // --- 1. VARNOSTNI POPRAVEK: Preprečevanje Timing Attacka ---
+    const expectedKey = process.env.CRON_SECRET || 'fallback_secret';
+    const providedKey = (req.query.key as string) || '';
+
+    const a = Buffer.alloc(32);
+    const b = Buffer.alloc(32);
+    Buffer.from(expectedKey).copy(a);
+    Buffer.from(providedKey).copy(b);
+
+    const isMatch = crypto.timingSafeEqual(a, b) && expectedKey.length === providedKey.length;
+
+    if (!isMatch) {
         return res.status(401).json({ error: 'Unauthorized' });
     }
+    // --------------------------------------------------------
 
     try {
         console.log("🚀 Začenjam AI kategorizacijo in čiščenje oglasov...");
 
-        // 2. Potegnemo novice, ki še niso bile preverjene z AI.
-        // Odstranili smo filter .neq('category', 'oglas'), da AI preveri tudi morebitne napačne oglase.
+        // 2. Potegnemo novice (tudi morebitne napačne oglase)
         const { data: newsItems, error: fetchError } = await supabase
             .from('news')
-            .select('id, title, contentsnippet, category, link') // Dodan 'link', da AI vidi URL
+            .select('id, title, contentsnippet, category, link')
             .eq('ai_categorized', false)
             .order('publishedat', { ascending: false })
             .limit(40);
 
         if (fetchError) throw fetchError;
-
         if (!newsItems || newsItems.length === 0) {
             return res.status(200).json({ message: "Vse novice so že obdelane." });
         }
 
         console.log(`Pripravljam ${newsItems.length} novic za AI analizo.`);
 
-        // 3. Priprava podatkov za AI prompt (vključno z URL-jem za detekcijo oglasov)
+        // 3. Priprava podatkov za AI prompt
         let promptData = "";
         newsItems.forEach(item => {
             const cleanTitle = item.title ? item.title.replace(/"/g, "'") : '';
@@ -73,15 +82,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             You are an expert news editor. Your task is to classify news articles into exactly one category.
             
             CATEGORIES:
-            - "slovenija": Domestic politics, regional news, national affairs.
-            - "svet": Foreign politics, international events, wars.
+            - "slovenija", "svet", "sport", "posel-tech", "moto", "magazin", "lifestyle", "kultura".
             - "kronika": Crime, accidents, police reports, courts, fires.
-            - "sport": Sports results, athletes, matches.
-            - "posel-tech": Business, economy, stocks, technology, science, AI.
-            - "moto": Cars, mobility, traffic, automotive reviews.
-            - "magazin": Entertainment, celebrities, movies, music, reality TV, horoscopes.
-            - "lifestyle": Food, health, travel, relationships, home.
-            - "kultura": Arts, books, theater, exhibitions.
             - "oglas": STRICTLY for paid promotions, advertorials, or self-promotion.
             
             RULES FOR "oglas":
@@ -95,9 +97,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             ${promptData}
         `;
 
-        // Uporabimo gemini-1.5-flash za stabilnost (ali gemini-2.0-flash, če ga že imaš potrjenega)
+        // Uporaba izbranega modela gemini-2.5-flash-lite
         const model = genAI.getGenerativeModel({ 
-            model: "gemini-1.5-flash", 
+            model: "gemini-2.5-flash-lite", 
             generationConfig: { 
                 responseMimeType: "application/json",
                 responseSchema: categorySchema, 
@@ -107,8 +109,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
         // 4. Klic AI modela
         const result = await model.generateContent(prompt);
-        const responseText = result.response.text();
-        const aiData = JSON.parse(responseText);
+        const aiData = JSON.parse(result.response.text());
 
         if (!aiData || !aiData.classifications) {
             throw new Error("Neveljaven odgovor od AI.");
@@ -116,7 +117,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
         console.log("✅ AI je uspešno določil nove kategorije.");
 
-        // 5. Posodobitev v bazi
+        // 5. Priprava posodobitev v bazi
         const updatePromises = aiData.classifications.map((item: any) => {
             return supabase
                 .from('news')
@@ -124,27 +125,30 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                     category: item.category,
                     ai_categorized: true 
                 })
-                .eq('id', item.id);
+                .eq('id', Number(item.id));
         });
 
-        // Tisti, ki so ostali brez klasifikacije, označimo kot True, da ne obtičijo v zanki
-        const processedIds = new Set(aiData.classifications.map((c: any) => c.id));
-        const skippedItems = newsItems.filter(item => !processedIds.has(item.id));
+        const processedIds = new Set(aiData.classifications.map((c: any) => Number(c.id)));
+        const skippedItems = newsItems.filter(item => !processedIds.has(Number(item.id)));
         
         skippedItems.forEach(item => {
              updatePromises.push(
-                 supabase
-                    .from('news')
-                    .update({ ai_categorized: true })
-                    .eq('id', item.id)
+                 supabase.from('news').update({ ai_categorized: true }).eq('id', Number(item.id))
              );
         });
 
-        await Promise.allSettled(updatePromises);
+        // --- ROBUSTNOST: Logiranje napak pri posodabljanju ---
+        const results = await Promise.allSettled(updatePromises);
+        const failed = results.filter(r => r.status === 'rejected');
+        
+        if (failed.length > 0) {
+            console.error(`${failed.length} posodobitev je spodletelo.`, failed);
+        }
 
         return res.status(200).json({ 
             success: true, 
             processed: newsItems.length,
+            failed: failed.length,
             message: `Uspešno obdelanih ${newsItems.length} zapisov.` 
         });
 
