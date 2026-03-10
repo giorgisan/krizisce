@@ -85,7 +85,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             - "oglas": STRICTLY for paid promotions, advertorials, or self-promotion.
             
             RULES FOR "oglas":
-            1. If the URL contains "/promo/", "/advertorial/", "/sponzorirano/", "/dpc-", or "/plačana-objava/", it is an "oglas".
+            1. If the URL contains "/promo/", "/advertorial/", "/sponzorirano/" or "/plačana-objava/", it is an "oglas".
             2. If the content is purely promoting a service, product, or a specific brand without journalistic value, it is an "oglas".
             3. CRITICAL: If an article is a regular news story (even if it is about real estate, quirky topics, or from a magazine section) and the URL is NOT promotional, do NOT tag it as "oglas". Fix misclassified ads.
             
