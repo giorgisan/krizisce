@@ -15,7 +15,6 @@ const resend = new Resend(process.env.RESEND_API_KEY)
 
 const BRAND_COLOR = "#ea580c"; 
 
-// --- SCHEMA DEFINICIJA (SPREMENJENA v story_ids: ARRAY) ---
 const newsletterSchema = {
     type: SchemaType.OBJECT,
     properties: {
@@ -52,9 +51,12 @@ const newsletterSchema = {
 };
 
 // --- AI VALIDATOR ---
-async function validateOutput(aiData: any, promptData: string): Promise<any> {
+async function validateOutput(aiData: any, promptData: string, currentDayStr: string): Promise<any> {
     const validationPrompt = `
 You are a strict fact-checker. Compare OUTPUT against SOURCE.
+
+CRITICAL TEMPORAL CONTEXT:
+Today is exactly ${currentDayStr}.
 
 SOURCE:
 ${promptData}
@@ -68,10 +70,10 @@ TASK:
 3. Check for "hallucinations": Did the OUTPUT add any titles, adjectives, specific dates, or statistics that are NOT in the SOURCE? 
    -> EXCEPTION: Temporal words like "danes", "jutri", or "ta konec tedna" are strictly ALLOWED in the 'whats_ahead' section.
 4. If you find any hallucinated or altered details (like wrong locations), remove them or correct them to match the SOURCE exactly.
-5. Return the corrected OUTPUT as valid JSON matching the exact original structure. If nothing to fix, return OUTPUT unchanged.
+5. TEMPORAL CHECK (CRITICAL): Ensure temporal references are correct relative to TODAY (${currentDayStr}). If a news source says something is happening "v torek" and today is "torek", the newsletter MUST say "danes" (today), not "v torek".
+6. Return the corrected OUTPUT as valid JSON matching the exact original structure. If nothing to fix, return OUTPUT unchanged.
 `;
 
-    // Uporaba 2.5-flash za maksimalno hitrost
     const model = genAI.getGenerativeModel({ 
         model: "gemini-2.5-flash", 
         generationConfig: { 
@@ -104,7 +106,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const mergedTopics: any[] = [];
     const urlToTopicIndex = new Map<string, number>();
 
-    // Inteligentno čiščenje URL-jev (odstrani tracking, www. in trailing slashes)
     const normalizeUrl = (u: string) => {
         if (!u) return '';
         try {
@@ -140,7 +141,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
                     let targetIndex = -1;
                     
-                    // Združevanje SAMO po normaliziranih URL-jih (brez nevarnega fuzzy matchinga)
                     for (const s of currentSources) {
                         const rawUrl = typeof s === 'string' ? s : s.url;
                         const url = normalizeUrl(rawUrl);
@@ -163,7 +163,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                         });
                         existing.score = existing.sources.length;
 
-                        // Obdržimo najdaljši povzetek
                         if (item.summary.length > existing.summary.length) {
                              existing.summary = item.summary;
                         }
@@ -216,7 +215,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             promptData += "=== OSTALE NOVICE (Skeniraj SAMO za 'whats_ahead' in 'closing_line') ===\n\n";
         }
         
-        // Izluščimo originalne naslove virov (Ground Truth)
         const uniqueTitles = Array.from(new Set(story.sources.map((s: any) => s.title || ''))).filter((t: any) => t.length > 0);
         const titlesString = uniqueTitles.length > 0 ? uniqueTitles.join(' | ') : 'Ni na voljo';
 
@@ -227,10 +225,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         }
     })
 
+    // Določimo točen datum in danes v tednu
+    const currentDateStr = new Intl.DateTimeFormat('sl-SI', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).format(new Date());
+
     const prompt = `
       You are an elite editor for a premium Slovenian morning news digest called 'Križišče'.
       Your job is to compress the RAW NEWS below into a highly readable, structured daily briefing.
       You have NO other knowledge. If it is not in the RAW NEWS, it does not exist.
+      
+      CRITICAL TEMPORAL CONTEXT:
+      TODAY IS: ${currentDateStr}.
+      If any news source mentions an event happening on the current day of the week, you MUST write "danes" (today) instead of naming the day. If it happens tomorrow, write "jutri". NEVER write "v torek" if today is "torek".
       
       RAW NEWS SUMMARIES:
       ${promptData}
@@ -287,7 +292,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     try {
         console.log("🔍 Začenjam hitro AI validacijo...");
-        aiData = await validateOutput(aiData, promptData);
+        aiData = await validateOutput(aiData, promptData, currentDateStr);
         console.log("✅ AI validacija uspešno zaključena.");
     } catch (validationErr) {
         console.error("⚠️ Napaka pri AI validaciji, nadaljujem z osnovnimi podatki:", validationErr);
@@ -305,7 +310,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             let sourceLinksHtml = '';
             const linkMap = new Map<string, string>(); 
             
-            // Iteracija čez vse ID-je za združevanje virov
             const ids = Array.isArray(item.story_ids) ? item.story_ids : (item.story_id !== undefined ? [item.story_id] : []);
             
             ids.forEach((id: number) => {
