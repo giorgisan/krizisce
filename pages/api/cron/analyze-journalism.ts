@@ -1,7 +1,7 @@
 import { NextApiRequest, NextApiResponse } from 'next'
 import { createClient } from '@supabase/supabase-js'
 import { GoogleGenerativeAI, SchemaType } from '@google/generative-ai'
-import crypto from 'crypto' // Dodan crypto modul za timing attack defense
+import crypto from 'crypto' 
 
 export const maxDuration = 60; 
 
@@ -17,15 +17,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const expectedKey = process.env.CRON_SECRET || 'fallback_secret';
   const providedKey = (req.query.key as string) || '';
 
-  // 1. Zavarujemo dolžino: vedno ustvarimo 32-bajtni buffer (hash), da preprečimo "length-based" timing attack
   const a = Buffer.alloc(32);
   const b = Buffer.alloc(32);
   
-  // 2. Varno kopiramo vrednosti, do maksimalno 32 bajtov
   Buffer.from(expectedKey).copy(a);
   Buffer.from(providedKey).copy(b);
 
-  // 3. Preverimo tako kriptografsko enakost kot tudi izvirno dolžino
   const isMatch = crypto.timingSafeEqual(a, b) && expectedKey.length === providedKey.length;
 
   if (!isMatch) {
@@ -68,9 +65,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
        })
     })
 
-    const currentDate = new Intl.DateTimeFormat('sl-SI', { day: 'numeric', month: 'long', year: 'numeric' }).format(new Date());
+    // --- POPRAVEK: Pravilno definiranje časa in letnice ---
+    const today = new Date();
+    const currentDate = new Intl.DateTimeFormat('sl-SI', { day: 'numeric', month: 'long', year: 'numeric' }).format(today);
+    const currentYear = today.getFullYear(); 
+    // ------------------------------------------------------
 
-    // POSODOBLJEN PROMPT Z DINAMIČNIM KONTEKSTOM IN STROGIMI PRAVILI ZA HALUCINACIJE
     const prompt = `
       You are an expert media analyst and fact-checker. Analyze how Slovenian media is reporting on the following ${topStories.length} events. 
       Use both the title and the provided snippet to evaluate the media framing.
@@ -99,7 +99,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       ${promptData}
     `
 
-    // POSODOBLJENA SHEMA ZA INTEGER 0-100
     const responseSchema = {
       type: SchemaType.ARRAY,
       description: "Seznam analiziranih medijskih zgodb.",
@@ -138,18 +137,44 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
     };
 
-    const model = genAI.getGenerativeModel({ 
-        model: "gemini-2.5-pro",
-        generationConfig: {
-            responseMimeType: "application/json",
-            responseSchema: responseSchema,
-            temperature: 0.2, 
-        }
-    }); 
+    // --- KLIC AI MODELA S FALLBACK LOGIKO ---
+    const modelsToTry = [
+        "gemini-3.1-pro-preview", // Primarni (najpametnejši za Media DNA)
+        "gemini-2.5-pro",         // Prva rezerva (stabilna Pro verzija)
+        "gemini-2.5-flash"        // Zadnja rešilna bilka (hitra verzija)
+    ];
 
-    const result = await model.generateContent(prompt);
-    const analysisText = result.response.text();
-    let analysisData = JSON.parse(analysisText);
+    let analysisData = null;
+
+    for (const modelName of modelsToTry) {
+        try {
+            console.log(`🤖 Poskušam AI analizo z modelom: ${modelName}...`);
+            const model = genAI.getGenerativeModel({ 
+                model: modelName, 
+                generationConfig: {
+                    responseMimeType: "application/json",
+                    responseSchema: responseSchema,
+                    temperature: 0.2, 
+                }
+            }); 
+
+            const result = await model.generateContent(prompt);
+            const parsed = JSON.parse(result.response.text());
+            
+            if (parsed && Array.isArray(parsed)) {
+                analysisData = parsed;
+                console.log(`✅ AI uspešen z modelom: ${modelName}`);
+                break; // Uspešno! Prekinemo zanko.
+            }
+        } catch (err: any) {
+            console.warn(`⚠️ Model ${modelName} ni uspel: ${err.message}. Preklapljam na naslednjega...`);
+        }
+    }
+
+    if (!analysisData) {
+        throw new Error("❌ Vsi AI modeli so odpovedali ali vrnili neveljaven odgovor.");
+    }
+    // ----------------------------------------
 
     const finalData = analysisData.map((aiItem: any, index: number) => {
         const originalGroup = topStories[index];
