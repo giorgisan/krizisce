@@ -7,6 +7,7 @@ import { useTheme } from 'next-themes'
 import { useRouter } from 'next/router'
 import { CATEGORIES, CategoryId } from '../lib/categories'
 import { motion, AnimatePresence } from 'framer-motion'
+import { sourceColors } from '@/lib/sources'
 
 const getCategoryColor = (colorClass: string) => {
   if (colorClass.includes('emerald')) return '#10b981'
@@ -37,6 +38,11 @@ type WeatherData = {
   icon: string
 } | null
 
+type ArchiveData = {
+  counts: Record<string, number>
+  total: number
+} | null
+
 type Props = {
   onOpenFilter?: () => void
   onSearch?: (query: string) => void
@@ -65,6 +71,12 @@ export default function Header({
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false)
   
   const [weather, setWeather] = useState<WeatherData>(null)
+  
+  // NOVO: Stanje za Medijski utrip
+  const [archiveData, setArchiveData] = useState<ArchiveData>(null)
+  const [isPulseOpen, setIsPulseOpen] = useState(false)
+  const pulseRef = useRef<HTMLDivElement>(null)
+  
   const searchInputRef = useRef<HTMLInputElement>(null)
 
   const { theme, setTheme, resolvedTheme } = useTheme()
@@ -74,6 +86,31 @@ export default function Header({
 
   useEffect(() => {
     setMounted(true)
+    
+    // Zapiranje utripa ob kliku ven
+    const handleClickOutside = (e: MouseEvent) => {
+      if (pulseRef.current && !pulseRef.current.contains(e.target as Node)) {
+        setIsPulseOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  // Pridobivanje današnje statistike za utrip
+  useEffect(() => {
+    const fetchPulse = async () => {
+      try {
+        const res = await fetch('/api/archive')
+        if (!res.ok) return
+        const data = await res.json()
+        if (data.counts) setArchiveData(data)
+      } catch (err) {}
+    }
+    fetchPulse()
+    // Osvežimo na vsakih 5 minut
+    const interval = setInterval(fetchPulse, 1000 * 60 * 5)
+    return () => clearInterval(interval)
   }, [])
 
   useEffect(() => {
@@ -300,6 +337,69 @@ export default function Header({
           </div>
 
           <div className="hidden md:flex items-center gap-4 shrink-0 ml-auto">
+            
+            {/* NOVO: MEDIJSKI UTRIP (Gumb s števcem) */}
+            {mounted && archiveData && (
+              <div className="relative" ref={pulseRef}>
+                <button
+                  onClick={() => setIsPulseOpen(!isPulseOpen)}
+                  className={`flex items-center gap-2 px-3 py-1.5 rounded-full border transition-all duration-300 ${
+                    isPulseOpen 
+                    ? 'bg-emerald-500/20 border-emerald-500/40 shadow-[0_0_15px_rgba(16,185,129,0.1)]' 
+                    : 'bg-emerald-500/5 border-emerald-500/10 hover:bg-emerald-500/10'
+                  }`}
+                  title="Današnji medijski utrip"
+                >
+                  <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                  </span>
+                  <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 tabular-nums">
+                    {archiveData.total} <span className="font-medium opacity-70 ml-0.5">danes</span>
+                  </span>
+                </button>
+
+                <AnimatePresence>
+                  {isPulseOpen && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                      className="absolute right-0 mt-3 w-64 bg-white dark:bg-gray-900 rounded-2xl shadow-2xl border border-gray-100 dark:border-gray-800 p-5 z-[100]"
+                    >
+                      <h4 className="text-[10px] uppercase tracking-widest font-bold text-gray-400 mb-4 flex items-center justify-between">
+                        Današnje objave
+                        <span className="bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded text-[9px] text-gray-500">{new Date().toLocaleDateString('sl-SI')}</span>
+                      </h4>
+                      
+                      <div className="space-y-3">
+                        {Object.entries(archiveData.counts)
+                          .sort((a, b) => b[1] - a[1])
+                          .slice(0, 10)
+                          .map(([source, count]) => (
+                            <div key={source} className="flex items-center justify-between group">
+                              <div className="flex items-center gap-2.5 overflow-hidden">
+                                <span className="w-2 h-2 rounded-full shrink-0 shadow-sm" style={{ backgroundColor: sourceColors[source] || '#ccc' }} />
+                                <span className="text-xs font-medium text-gray-600 dark:text-gray-300 truncate group-hover:text-gray-900 dark:group-hover:text-white transition-colors">{source}</span>
+                              </div>
+                              <span className="text-xs font-mono font-bold text-gray-900 dark:text-white bg-gray-50 dark:bg-gray-800/50 px-1.5 py-0.5 rounded">{count}</span>
+                            </div>
+                          ))}
+                      </div>
+
+                      <Link 
+                        href="/arhiv" 
+                        onClick={() => setIsPulseOpen(false)}
+                        className="mt-5 block pt-4 border-t border-gray-50 dark:border-gray-800 text-[11px] font-bold text-brand hover:text-brand-dark transition-colors text-center uppercase tracking-wider"
+                      >
+                        Poglej celoten arhiv →
+                      </Link>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            )}
+
             {router.pathname === '/' && (
               <div className="w-64 lg:w-80">
                 <form onSubmit={handleSubmit} className="relative group">
@@ -312,8 +412,8 @@ export default function Header({
                     type="search"
                     placeholder="Išči po naslovu ali podnaslovu ..."
                     className="block w-full pl-10 pr-3 py-1.5 bg-gray-100 dark:bg-gray-800 border border-transparent 
-                              focus:bg-white dark:focus:bg-black focus:border-brand/30 focus:ring-2 focus:ring-brand/10
-                              rounded-md text-sm transition-all placeholder-gray-500 text-gray-900 dark:text-white"
+                               focus:bg-white dark:focus:bg-black focus:border-brand/30 focus:ring-2 focus:ring-brand/10
+                               rounded-md text-sm transition-all placeholder-gray-500 text-gray-900 dark:text-white"
                     value={searchVal}
                     onChange={handleSearchChange}
                   />
