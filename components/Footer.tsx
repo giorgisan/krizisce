@@ -138,7 +138,7 @@ export default function Footer() {
             <div className="lg:col-span-3">
               <h4 className="text-sm font-semibold text-gray-900 dark:text-gray-200 mb-4">Povezave</h4>
               <ul className="space-y-2.5 text-sm text-gray-600 dark:text-gray-500">
-                <li><Link href="/analiza" prefetch={false} className="hover:text-brand transition-colors">Medijski presek</Link></li>
+                <li><Link href="/analiza" prefetch={false} className="hover:text-brand transition-colors">Medijska analiza</Link></li>
                 <li><Link href="/arhiv" className="hover:text-brand transition-colors">Arhiv novic</Link></li>
                 <li><Link href="/projekt" className="hover:text-brand transition-colors">O projektu</Link></li>
                 <li><Link href="/pogoji" className="hover:text-brand transition-colors">Pogoji uporabe</Link></li>
