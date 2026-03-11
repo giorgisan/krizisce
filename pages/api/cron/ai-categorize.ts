@@ -1,9 +1,8 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { createClient } from '@supabase/supabase-js';
 import { GoogleGenerativeAI, SchemaType } from '@google/generative-ai';
-import crypto from 'crypto'; // Nujno za varno primerjanje ključev
+import crypto from 'crypto'; 
 
-// Omogočimo dovolj časa za izvajanje na Vercelu (do 60 sekund)
 export const maxDuration = 60; 
 
 const supabase = createClient(
@@ -13,7 +12,6 @@ const supabase = createClient(
 
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_KEY || '');
 
-// Shema s tipom INTEGER za ID in vsemi kategorijami
 const categorySchema = {
     type: SchemaType.OBJECT,
     properties: {
@@ -55,7 +53,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     try {
         console.log("🚀 Začenjam AI kategorizacijo in čiščenje oglasov...");
 
-        // 2. Potegnemo novice (tudi morebitne napačne oglase)
         const { data: newsItems, error: fetchError } = await supabase
             .from('news')
             .select('id, title, contentsnippet, category, link')
@@ -70,7 +67,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
         console.log(`Pripravljam ${newsItems.length} novic za AI analizo.`);
 
-        // 3. Priprava podatkov za AI prompt
         let promptData = "";
         newsItems.forEach(item => {
             const cleanTitle = item.title ? item.title.replace(/"/g, "'") : '';
@@ -78,6 +74,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             promptData += `[ID: ${item.id}]\nURL: ${item.link}\nNASLOV: ${cleanTitle}\nPOVZETEK: ${cleanSnippet}\n---\n`;
         });
 
+        // --- POPRAVLJEN IN PAMETNEJŠI PROMPT ZA PREPREČEVANJE LAŽNIH OGLASOV ---
         const prompt = `
             You are an expert news editor. Your task is to classify news articles into exactly one category.
             
@@ -86,17 +83,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             - "svet": International news, foreign politics, wars (e.g. Ukraine, Gaza), global events.
             - "kronika": Crime, accidents, courts, police, fires, fatalities (domestic OR international).
             - "sport": Sports, matches, athletes, competitions.
-            - "posel-tech": Business, economy, companies, stock market, technology, AI, science.
-            - "moto": Cars, traffic, vehicles, mobility.
-            - "magazin": Celebrities, entertainment, showbiz, royalty, horoscopes, reality TV.
+            - "posel-tech": Business, economy, companies, PR initiatives, technology, AI, science.
+            - "moto": Cars, traffic, vehicles, mobility, car awards.
+            - "magazin": Celebrities, entertainment, showbiz, quirky/viral stories, prize games, media self-promotion.
             - "lifestyle": Health, wellness, food, home, relationships, travel.
             - "kultura": Arts, books, theater, exhibitions, movies (art-house).
-            - "oglas": STRICTLY for paid promotions, advertorials, or self-promotion.
+            - "oglas": STRICTLY for pure external paid commercial ads.
             
-            RULES FOR "oglas":
-            1. If the URL contains "/promo/", "/advertorial/", "/sponzorirano/" or "/plačana-objava/", it is an "oglas".
-            2. If the content is purely promoting a service, product, or a specific brand without journalistic value, it is an "oglas".
-            3. CRITICAL: If an article is a regular news story (even if it is about real estate, quirky topics, or from a magazine section) and the URL is NOT promotional, do NOT tag it as "oglas". Fix misclassified ads.
+            CRITICAL RULES TO AVOID FALSE "oglas":
+            1. Viral, funny or quirky stories (e.g., real estate fails, bizarre events) are "magazin", NOT "oglas".
+            2. Articles mentioning car brands or car awards (e.g., Renault Clio) are "moto", NOT "oglas".
+            3. Corporate PR stories about charity or society (e.g., Coca-Cola helps women) are "posel-tech" or "lifestyle", NOT "oglas".
+            4. Media self-promotion or crosswords (e.g., "Berite naš časopis", "Z ugankami do nagrad") are "magazin", NOT "oglas".
+            5. ONLY use "oglas" if the article is a blatant paid sales pitch for a product/service AND has zero journalistic value. If the URL contains "/promo/", look at the title - if it's just a crossword or media promo, tag it as "magazin".
             
             CRITICAL: Every single article MUST fit into one of the categories. Do NOT use any other category.
             
@@ -131,18 +130,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                 if (parsed && parsed.classifications) {
                     aiData = parsed;
                     console.log(`✅ AI uspešen z modelom: ${modelName}`);
-                    break; // Uspešno pridobljen JSON, prekinemo zanko
+                    break; 
                 }
             } catch (err: any) {
                 console.warn(`⚠️ Model ${modelName} ni uspel: ${err.message}. Preklapljam na naslednjega...`);
             }
         }
 
-        // Če so čisto vsi modeli padli (Google je globalno down)
         if (!aiData || !aiData.classifications) {
             throw new Error("❌ Vsi AI modeli so odpovedali ali vrnili neveljaven odgovor.");
         }
-        // -------------------------------------------
 
         // 5. Priprava posodobitev v bazi
         const updatePromises = aiData.classifications.map((item: any) => {
