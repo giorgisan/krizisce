@@ -395,10 +395,10 @@ export default function Header({
                       : 'bg-slate-50 dark:bg-slate-800/40 border-slate-200 dark:border-slate-700/50 hover:bg-slate-100 dark:hover:bg-slate-800'
                     }`}
                   >
-                    <span className="relative flex h-1.5 w-1.5">
-                      {/* Custom počasen pulse */}
-                      <span className="animate-[pulse_3s_ease-in-out_infinite] absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-80"></span>
-                      <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span>
+                    <span className="relative flex h-2 w-2">
+                      {/* Popravljen počasen 3s utrip, ki preverjeno deluje! */}
+                      <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-60 animate-[ping_3s_cubic-bezier(0,0,0.2,1)_infinite]"></span>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
                     </span>
                     <span className="text-[11px] font-bold text-slate-600 dark:text-slate-300 tabular-nums uppercase tracking-tight">
                       Danes: {archiveData.total}
