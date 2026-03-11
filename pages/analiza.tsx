@@ -88,19 +88,28 @@ function HowItWorksModal({ onClose }: { onClose: () => void }) {
               Umetna inteligenca na našem portalu <strong>ne ocenjuje celotnega novinarskega dela</strong> ali vsebine dolgih člankov. Analizira izključno <span className="font-semibold text-gray-900 dark:text-gray-100">»izložbo«</span> – torej naslov in kratek povzetek, ki ga medij pošilja v splet in s katerim bralce vabi h kliku.
             </p>
             
-            <div className="bg-gray-50 dark:bg-gray-800/50 p-4 rounded-xl border border-gray-100 dark:border-gray-700/50 mt-4 space-y-3">
-              <p>Model strojno in objektivno ocenjuje 3 parametre na lestvici od 0 do 100:</p>
-              <ul className="space-y-3 text-[13px] md:text-[14px]">
+            <div className="bg-gray-50 dark:bg-gray-800/50 p-4 rounded-xl border border-gray-100 dark:border-gray-700/50 mt-4 space-y-4">
+              <p className="font-medium text-gray-800 dark:text-gray-200">Model strojno ocenjuje 3 parametre na lestvici od 0 do 100:</p>
+              <ul className="space-y-4 text-[13px] md:text-[14px]">
                 <li>
-                  <strong className="text-blue-600 dark:text-blue-400 block mb-0.5">1. Informacija (Vaba vs. Dejstva)</strong>
+                  <strong className="text-gray-900 dark:text-white block mb-0.5">
+                    <span className="font-mono text-[12px] md:text-[13px] tracking-wider uppercase text-gray-600 dark:text-gray-400 mr-1.5">1. Informacija</span> 
+                    <span className="font-normal opacity-70">(Vaba vs. Dejstva)</span>
+                  </strong>
                   Ali naslov takoj pove bistvo dogodka ali pa namerno skriva ključno informacijo, da bi vas prisilil v klik (t.i. <em>clickbait</em>)?
                 </li>
                 <li>
-                  <strong className="text-rose-500 dark:text-rose-400 block mb-0.5">2. Emocija (Nevtralno vs. Dramatizacija)</strong>
+                  <strong className="text-gray-900 dark:text-white block mb-0.5">
+                    <span className="font-mono text-[12px] md:text-[13px] tracking-wider uppercase text-gray-600 dark:text-gray-400 mr-1.5">2. Emocija</span> 
+                    <span className="font-normal opacity-70">(Nevtralno vs. Dramatizacija)</span>
+                  </strong>
                   Ali medij poroča suho in klinično ali pa uporablja dramatične besede (šokantno, kaos, grozljivka), velike črke in klicaje za vzbujanje čustev?
                 </li>
                 <li>
-                  <strong className="text-orange-500 dark:text-orange-400 block mb-0.5">3. Interpretacija (Samo dejstva vs. Uredniški spin)</strong>
+                  <strong className="text-gray-900 dark:text-white block mb-0.5">
+                    <span className="font-mono text-[12px] md:text-[13px] tracking-wider uppercase text-gray-600 dark:text-gray-400 mr-1.5">3. Interpretacija</span> 
+                    <span className="font-normal opacity-70">(Samo dejstva vs. Uredniški spin)</span>
+                  </strong>
                   Ali povzetek navaja zgolj gola dejstva, ali pa vsebuje vrednostne sodbe in pridevnike, ki bralcu narekujejo, <em>kaj naj si o dogodku misli</em>?
                 </li>
               </ul>
@@ -379,22 +388,21 @@ export default function AnalizaPage({ analysis, lastUpdated }: Props) {
                       Medijski presek
                   </h1>
                   
-                  {/* --- POPRAVEK: Ločen naslov in font-mono za tehnični opis --- */}
+                  {/* --- POPRAVEK: Tvoj stari dobro berljiv oranžen gumb, zraven 'strojnega' teksta --- */}
                   <div className="mt-3 max-w-2xl">
                     <p className="text-[14px] md:text-[15px] font-medium text-gray-800 dark:text-gray-200">
                       Ena novica. Več naslovov. Kdo pretirava?
                     </p>
-                    <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1.5 text-gray-500 dark:text-gray-400">
+                    <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-2 text-gray-500 dark:text-gray-400">
                       <p className="font-mono text-[11px] md:text-[12px] leading-relaxed">
                         &gt; Strojna analiza poročanja razkriva informacijski šum in pristranskost.
                       </p>
                       <button
                         onClick={() => setShowInfoModal(true)}
-                        className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300 font-mono transition-colors text-[10px] md:text-[11px] focus:outline-none"
+                        className="inline-flex items-center gap-1 text-brand font-semibold hover:underline transition-colors text-[12px] md:text-[13px] focus:outline-none"
                         title="Preberite, kako deluje algoritem"
                       >
-                        <svg className="w-3 h-3 opacity-70" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" /></svg>
-                        [kako_deluje]
+                        💡 Kako deluje?
                       </button>
                     </div>
                   </div>
