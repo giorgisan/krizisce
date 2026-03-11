@@ -523,7 +523,7 @@ export default function Header({
                         <input
                             ref={searchInputRef}
                             type="search"
-                            placeholder="Išči po novicah..."
+                            placeholder="Išči ..."
                             className="w-full pl-10 pr-4 py-3 bg-gray-100 dark:bg-gray-900 border-none rounded-lg text-gray-900 dark:text-white placeholder-gray-500 focus:ring-2 focus:ring-brand"
                             value={searchVal}
                             onChange={handleSearchChange}
