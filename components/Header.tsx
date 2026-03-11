@@ -272,7 +272,7 @@ export default function Header({
       `}
     >
       <div className="w-full relative z-50 border-b border-gray-100 dark:border-gray-800/60">
-        <div className="max-w-[1800px] mx-auto px-4 md:px-8 lg:px-16 h-16 flex items-center justify-between gap-4 relative">
+        <div className="max-w-[1800px] mx-auto px-4 md:px-8 lg:px-16 h-16 flex items-center justify-between gap-3 relative"> {/* gap-4 -> gap-3 */}
           
           <div className="flex md:hidden shrink-0 z-10 w-10">
              <button 
@@ -356,9 +356,9 @@ export default function Header({
              </button>
           </div>
 
-          <div className="hidden md:flex items-center gap-2.5 shrink-0 ml-auto">
+          <div className="hidden md:flex items-center gap-2 shrink-0 ml-auto"> {/* gap-2.5 -> gap-2 */}
             {router.pathname === '/' && (
-              <div className="w-48 lg:w-64">
+              <div className="w-48 lg:w-60"> {/* Malce ožji iskalnik */}
                 <form onSubmit={handleSubmit} className="relative group">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                     <svg className="h-4 w-4 text-gray-400 group-focus-within:text-brand transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -378,16 +378,17 @@ export default function Header({
               </div>
             )}
 
-            <div className="h-5 w-px bg-gray-200 dark:bg-gray-700 ml-1"></div>
+            <div className="h-5 w-px bg-gray-200 dark:bg-gray-700 mx-1"></div>
             
-            {/* MEDIJSKI UTRIP - Prikaz s skeleton loaderjem */}
-            <div className="relative ml-1" ref={pulseRef}>
+            {/* MEDIJSKI UTRIP - Počasen Pulse, z napisom "Danes:" in tooltipom */}
+            <div className="relative" ref={pulseRef}>
               {!mounted || !archiveData ? (
-                <div className="w-[105px] h-[30px] rounded-full bg-slate-200/50 dark:bg-slate-700/50 animate-pulse border border-transparent"></div>
+                <div className="w-[85px] h-[30px] rounded-full bg-slate-200/50 dark:bg-slate-700/50 animate-pulse border border-transparent"></div>
               ) : (
                 <>
                   <button
                     onClick={() => setIsPulseOpen(!isPulseOpen)}
+                    title="Pregled današnjih objav"
                     className={`flex items-center gap-2 px-2.5 py-1.5 rounded-full border transition-all duration-300 h-[30px] ${
                       isPulseOpen 
                       ? 'bg-slate-100 dark:bg-slate-800 border-slate-300 dark:border-slate-600' 
@@ -395,11 +396,12 @@ export default function Header({
                     }`}
                   >
                     <span className="relative flex h-1.5 w-1.5">
-                      <span className="animate-[pulse_2s_cubic-bezier(0.4,0,0.6,1)_infinite] absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-75"></span>
+                      {/* Custom počasen pulse */}
+                      <span className="animate-[pulse_3s_ease-in-out_infinite] absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-80"></span>
                       <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span>
                     </span>
                     <span className="text-[11px] font-bold text-slate-600 dark:text-slate-300 tabular-nums uppercase tracking-tight">
-                      št. novic: {archiveData.total}
+                      Danes: {archiveData.total}
                     </span>
                   </button>
 
@@ -440,22 +442,21 @@ export default function Header({
               )}
             </div>
 
-            {/* VREME - Prikaz s skeleton loaderjem */}
+            {/* VREME - Fiksni kraj brez hoverja */}
             {!mounted || !weather ? (
-              <div className="w-[58px] h-[30px] rounded-full bg-gray-200/50 dark:bg-gray-700/50 animate-pulse border border-transparent"></div>
+              <div className="w-[75px] h-[30px] rounded-full bg-gray-200/50 dark:bg-gray-700/50 animate-pulse border border-transparent"></div>
             ) : (
               <div 
-                className="group flex items-center text-[11px] font-semibold text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-800/50 px-2 py-1.5 rounded-full border border-gray-200/50 dark:border-gray-700/50 transition-all cursor-default h-[30px]" 
+                className="flex items-center text-[11px] font-semibold text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-800/50 px-2.5 py-1.5 rounded-full border border-gray-200/50 dark:border-gray-700/50 h-[30px]" 
                 title="Vreme"
               >
-                  <span className="max-w-0 overflow-hidden opacity-0 group-hover:max-w-xs group-hover:opacity-100 group-hover:mr-1.5 transition-all duration-300 ease-out whitespace-nowrap">
-                      {weather.city}
-                  </span>
+                  <span className="mr-1.5 hidden lg:inline-block">{weather.city}</span>
                   <span className="text-gray-900 dark:text-white mr-1">{weather.temp} °C</span>
                   <span className="text-sm leading-none">{weather.icon}</span>
               </div>
             )}
 
+            {/* IKONE - Manjši padding */}
             {router.pathname === '/' && (
               <button 
                 onClick={onOpenFilter}
@@ -662,7 +663,7 @@ export default function Header({
                 <div className="flex-1 overflow-y-auto p-4 space-y-6">
                     <div className="space-y-1">
                         <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 pl-1 text-left">Orodja</p>
-                        
+
                         {/* 1. FILTRIRAJ VIRE */}
                         {router.pathname === '/' && (
                             <button onClick={() => { onOpenFilter(); setMobileMenuOpen(false); }} className="w-full flex items-center gap-3 px-2 py-3 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100/50 dark:hover:bg-gray-900/50">
@@ -708,17 +709,21 @@ export default function Header({
                                 <span className="text-left">{isDark ? 'Svetla tema' : 'Temna tema'}</span>
                             </button>
                         )}
+                    </div>
 
-                        {/* 6. DANAŠNJI UTRIP NA MOBILE (Zdaj na dnu pod Orodja) */}
+                    <hr className="border-gray-100 dark:border-gray-800/50 my-4" />
+
+                    <div className="space-y-4">
+                        {/* DANAŠNJI UTRIP NA MOBILE (Premaknjeno na dno nad Kontakt) */}
                         {archiveData && (
-                          <div className="mx-1 mt-4 mb-2 bg-slate-50 dark:bg-slate-900/50 rounded-xl p-4 border border-slate-200 dark:border-slate-800">
+                          <div className="mx-1 mb-4 bg-slate-50 dark:bg-slate-900/50 rounded-xl p-4 border border-slate-200 dark:border-slate-800">
                              <div className="flex items-center gap-2 mb-4">
                                 <span className="relative flex h-1.5 w-1.5">
-                                  <span className="animate-[pulse_2s_cubic-bezier(0.4,0,0.6,1)_infinite] absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-75"></span>
+                                  <span className="animate-[pulse_3s_ease-in-out_infinite] absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-80"></span>
                                   <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span>
                                 </span>
-                                <span className="text-[11px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
-                                    Današnji utrip: {archiveData.total} novic
+                                <span className="text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
+                                    Današnji utrip: {archiveData.total}
                                 </span>
                              </div>
                              <div className="grid grid-cols-2 gap-y-3 gap-x-4">
@@ -744,11 +749,7 @@ export default function Header({
                              </Link>
                           </div>
                         )}
-                    </div>
 
-                    <hr className="border-gray-100 dark:border-gray-800/50 my-4" />
-
-                    <div className="space-y-4">
                         <div>
                             <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 pl-1 text-left">Kontakt</p>
                             <a href="mailto:gjkcme@gmail.com" className="block px-2 py-2 text-sm text-gray-600 dark:text-gray-400 hover:text-brand transition-colors text-left">
