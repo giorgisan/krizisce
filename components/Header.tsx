@@ -396,7 +396,7 @@ export default function Header({
                     }`}
                   >
                     <span className="relative flex h-1.5 w-1.5">
-                      <span className="animate-[pulse_3s_ease-in-out_infinite] absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-80"></span>
+                      <span className="animate-[ping_4s_ease-in-out_infinite] absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-50"></span>
                       <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span>
                     </span>
                     <span className="text-[11px] font-bold text-slate-600 dark:text-slate-300 tabular-nums uppercase tracking-tight leading-none pt-px">
@@ -714,7 +714,7 @@ export default function Header({
                           <div className="mx-1 mt-4 mb-2 bg-slate-50 dark:bg-slate-900/50 rounded-xl p-4 border border-slate-200 dark:border-slate-800">
                              <div className="flex items-center gap-2 mb-4">
                                 <span className="relative flex h-1.5 w-1.5">
-                                  <span className="animate-[pulse_3s_ease-in-out_infinite] absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-80"></span>
+                                  <span className="animate-[ping_4s_ease-in-out_infinite] absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-50"></span>
                                   <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span>
                                 </span>
                                 <span className="text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
