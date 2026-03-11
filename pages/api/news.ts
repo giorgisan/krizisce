@@ -159,15 +159,27 @@ async function syncToSupabase(items: FeedNewsItem[]) {
   const dedupedIn = softDedupe(shaped)
   const rows = dedupedIn.map(feedItemToDbRow).filter(Boolean) as any[]
   
-  if (!rows.length) return
+  // --- HITRI POPRAVEK: Absolutno brisanje duplikatov po link_key ---
+  const uniqueRowsMap = new Map();
+  for (const row of rows) {
+      const existing = uniqueRowsMap.get(row.link_key);
+      // Če imamo dve novici z istim URL-jem, obdržimo tisto, ki je objavljena kasneje (novejša)
+      if (!existing || (row.publishedat && existing.publishedat && row.publishedat > existing.publishedat)) {
+          uniqueRowsMap.set(row.link_key, row);
+      }
+  }
+  const uniqueRows = Array.from(uniqueRowsMap.values());
+  // ----------------------------------------------------------------
+  
+  if (!uniqueRows.length) return
 
-  if (process.env.NODE_ENV !== 'production' || rows.length > 0) {
-      console.log(`[Sync] Pripravljenih ${rows.length} vrstic za vpis.`)
+  if (process.env.NODE_ENV !== 'production' || uniqueRows.length > 0) {
+      console.log(`[Sync] Pripravljenih ${uniqueRows.length} vrstic za vpis.`)
   }
 
   const { error } = await (supabaseWrite as any)
     .from('news')
-    .upsert(rows, { onConflict: 'link_key' }) 
+    .upsert(uniqueRows, { onConflict: 'link_key' }) 
   
   if (error) {
       console.error('[Sync] DB Error:', error)
