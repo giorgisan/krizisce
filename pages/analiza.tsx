@@ -63,7 +63,7 @@ const getLogoSrc = (sourceName: string) => {
   return '/logo.png';
 }
 
-// --- MODALNO OKNO ---
+// --- MODALNO OKNO (Z barvnimi številkami in monospaced oklepaji) ---
 function HowItWorksModal({ onClose }: { onClose: () => void }) {
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm transition-opacity" onClick={onClose}>
@@ -385,16 +385,25 @@ export default function AnalizaPage({ analysis, lastUpdated }: Props) {
                       Medijski presek
                   </h1>
                   
-                  {/* --- VRNJENO NA PRVOTNO --- */}
-                  <p className="text-[13px] md:text-[14px] text-gray-500 dark:text-gray-400 mt-2.5 max-w-2xl leading-relaxed inline-block">
-                    <strong className="text-gray-700 dark:text-gray-300">Ena novica. Več naslovov. <span className="text-gray-900 dark:text-white">Kdo pretirava?</span></strong> Strojna analiza in pregled uredniških odločitev pri ključnih temah. S pomočjo umetne inteligence prepoznavamo vzorce poročanja, destiliramo gola dejstva in na vizualnem spektru razkrivamo informacijski šum, čustveni naboj ter novinarsko pristranskost.{' '}
-                    <button 
-                      onClick={() => setShowInfoModal(true)} 
-                      className="inline-flex items-center gap-1 text-brand font-semibold hover:underline ml-1 focus:outline-none"
-                    >
-                      💡 Kako deluje?
-                    </button>
-                  </p>
+                  {/* --- GLAVA: Z monokromatskim, berljivim in jasnim gumbom --- */}
+                  <div className="mt-3 max-w-2xl">
+                    <p className="text-[14px] md:text-[15px] font-medium text-gray-800 dark:text-gray-200">
+                      Ena novica. Več naslovov. Kdo pretirava?
+                    </p>
+                    <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1.5 text-gray-500 dark:text-gray-400">
+                      <p className="font-mono text-[11px] md:text-[12px] leading-relaxed">
+                        &gt; Strojna analiza poročanja razkriva informacijski šum in pristranskost.
+                      </p>
+                      <button
+                        onClick={() => setShowInfoModal(true)}
+                        className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-gray-200/60 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 font-mono transition-colors text-[11px] md:text-[12px] focus:outline-none"
+                        title="Preberite, kako deluje algoritem"
+                      >
+                        <svg className="w-3.5 h-3.5 opacity-70" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" /></svg>
+                        [kako_deluje]
+                      </button>
+                    </div>
+                  </div>
                   {/* -------------------------------------------------------- */}
 
                 </div>
