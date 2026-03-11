@@ -395,9 +395,9 @@ export default function Header({
                       : 'bg-slate-50 dark:bg-slate-800/40 border-slate-200 dark:border-slate-700/50 hover:bg-slate-100 dark:hover:bg-slate-800 hover:border-slate-300 dark:hover:border-slate-600'
                     }`}
                   >
-                    <span className="relative flex h-1 w-1">
-                      <span className="animate-[ping_4s_ease-in-out_infinite] absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-50"></span>
-                      <span className="relative inline-flex rounded-full h-1 w-1 bg-emerald-500"></span>
+                    <span className="relative flex h-2.5 w-2.5 items-center justify-center">
+                      <span className="animate-[ping_4s_ease-in-out_infinite] absolute inline-flex h-[3px] w-[3px] rounded-full bg-emerald-400 opacity-40"></span>
+                      <span className="relative inline-flex rounded-full h-[3px] w-[3px] bg-emerald-500"></span>
                     </span>
                     <span className="text-[11px] font-bold text-slate-600 dark:text-slate-300 tabular-nums uppercase tracking-tight leading-none pt-px">
                       Danes: {archiveData.total}
@@ -713,9 +713,9 @@ export default function Header({
                         {archiveData && (
                           <div className="mx-1 mt-4 mb-2 bg-slate-50 dark:bg-slate-900/50 rounded-xl p-4 border border-slate-200 dark:border-slate-800">
                              <div className="flex items-center gap-2 mb-4">
-                                <span className="relative flex h-1 w-1">
-                                  <span className="animate-[ping_4s_ease-in-out_infinite] absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-50"></span>
-                                  <span className="relative inline-flex rounded-full h-1 w-1 bg-emerald-500"></span>
+                                <span className="relative flex h-2.5 w-2.5 items-center justify-center">
+                                  <span className="animate-[ping_4s_ease-in-out_infinite] absolute inline-flex h-[3px] w-[3px] rounded-full bg-emerald-400 opacity-40"></span>
+                                  <span className="relative inline-flex rounded-full h-[3px] w-[3px] bg-emerald-500"></span>
                                 </span>
                                 <span className="text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
                                     Danes: {archiveData.total}
