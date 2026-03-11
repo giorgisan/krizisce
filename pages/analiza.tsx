@@ -80,7 +80,7 @@ function HowItWorksModal({ onClose }: { onClose: () => void }) {
           </button>
 
           <h2 className="text-xl md:text-2xl font-serif font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-            <span className="text-brand">💡</span> Kako deluje AI analiza?
+            <span className="text-brand">💡</span> Kako deluje UI analiza?
           </h2>
           
           <div className="text-[14px] md:text-[15px] leading-relaxed text-gray-600 dark:text-gray-300 space-y-4">
@@ -89,7 +89,7 @@ function HowItWorksModal({ onClose }: { onClose: () => void }) {
             </p>
             
             <div className="bg-gray-50 dark:bg-gray-800/50 p-4 rounded-xl border border-gray-100 dark:border-gray-700/50 mt-4 space-y-4">
-              <p className="font-medium text-gray-800 dark:text-gray-200">Model strojno ocenjuje 3 parametre na lestvici od 0 do 100:</p>
+              <p className="font-medium text-gray-800 dark:text-gray-200">UI strojno ocenjuje 3 parametre na lestvici od 0 do 100:</p>
               <ul className="space-y-4 text-[13px] md:text-[14px]">
                 <li>
                   <strong className="text-blue-600 dark:text-blue-400 block mb-0.5">
@@ -387,7 +387,7 @@ export default function AnalizaPage({ analysis, lastUpdated }: Props) {
                   
                   {/* --- GLAVA STRANI (Natančna replika slike image_dfed9f.png) --- */}
                   <p className="text-[13px] md:text-[14px] text-gray-500 dark:text-gray-400 mt-2.5 max-w-2xl leading-relaxed inline-block">
-                    <strong className="text-gray-700 dark:text-gray-300">Ena novica. Več naslovov. <span className="text-gray-900 dark:text-white">Kdo pretirava?</span></strong> Strojna analiza medijskega poročanja razkriva informacijski šum, čustveni naboj ter novinarsko pristranskost različnih virov.
+                    <strong className="text-gray-700 dark:text-gray-300">Ena novica. Več naslovov. <span className="text-gray-900 dark:text-white">Kdo pretirava?</span></strong> Strojna analiza medijskega poročanja razkriva informacijski šum, čustveni naboj ter novinarsko pristranskost.
                     <button 
                       onClick={() => setShowInfoModal(true)} 
                       className="inline-flex items-center gap-1.5 px-2 py-0.5 ml-1.5 rounded-md bg-gray-100/80 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 font-medium transition-colors text-[12px] focus:outline-none align-middle translate-y-[-1px]"
