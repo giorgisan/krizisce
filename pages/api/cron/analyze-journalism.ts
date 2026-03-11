@@ -70,7 +70,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const currentDate = new Intl.DateTimeFormat('sl-SI', { day: 'numeric', month: 'long', year: 'numeric' }).format(new Date());
 
-    // POSODOBLJEN PROMPT ZA 0-100 SPEKTER
+    // POSODOBLJEN PROMPT Z DINAMIČNIM KONTEKSTOM IN STROGIMI PRAVILI ZA HALUCINACIJE
     const prompt = `
       You are an expert media analyst and fact-checker. Analyze how Slovenian media is reporting on the following ${topStories.length} events. 
       Use both the title and the provided snippet to evaluate the media framing.
@@ -79,8 +79,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       The 'topic' and 'summary' fields MUST be derived EXCLUSIVELY from article TITLES and snippet CONTENT.
       NEVER use the [source_url] path or slug to determine the topic, location, subject, or any factual detail.
 
-      CRITICAL FACT-CHECKING RULE:
-      Today's date is ${currentDate}. Keep valid political/professional titles, but correct outdated ones.
+      CRITICAL FACT-CHECKING RULE (ANTI-HALLUCINATION):
+      Today's date is ${currentDate} and the current year is ${currentYear}. 
+      1. You MUST NEVER add chronological titles like "nekdanji" (former) or "bivši" (ex) to political figures or positions UNLESS the word is EXPLICITLY written in the source snippets.
+      2. If the source says "Donald Trump", you must output "Donald Trump". Do NOT automatically prepend "nekdanji predsednik".
+      3. Keep valid political/professional titles, but correct outdated ones based on the current year (${currentYear}).
 
       NEW TASK: MEDIA DNA ON A 0-100 SPECTRUM
       Evaluate the "Media DNA" of every single source based on its TITLE and snippet using a scale from 0 to 100 for three dimensions:
