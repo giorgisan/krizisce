@@ -63,6 +63,68 @@ const getLogoSrc = (sourceName: string) => {
   return '/logo.png';
 }
 
+// --- MODALNO OKNO ZA RAZLAGO "KAKO DELUJE" ---
+function HowItWorksModal({ onClose }: { onClose: () => void }) {
+  return (
+    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm transition-opacity" onClick={onClose}>
+      <div 
+        className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden border border-gray-200 dark:border-gray-700 relative transform transition-transform scale-100"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="p-6 md:p-8">
+          <button 
+            onClick={onClose}
+            className="absolute top-4 right-4 p-2 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors rounded-full hover:bg-gray-100 dark:hover:bg-gray-800"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12"></path></svg>
+          </button>
+
+          <h2 className="text-xl md:text-2xl font-serif font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+            <span className="text-brand">💡</span> Kako deluje AI analiza?
+          </h2>
+          
+          <div className="text-[14px] md:text-[15px] leading-relaxed text-gray-600 dark:text-gray-300 space-y-4">
+            <p>
+              Umetna inteligenca na našem portalu <strong>ne ocenjuje celotnega novinarskega dela</strong> ali vsebine dolgih člankov. Analizira izključno <span className="font-semibold text-gray-900 dark:text-gray-100">»izložbo«</span> – torej naslov in kratek povzetek, ki ga medij pošilja v splet in s katerim bralce vabi h kliku.
+            </p>
+            
+            <div className="bg-gray-50 dark:bg-gray-800/50 p-4 rounded-xl border border-gray-100 dark:border-gray-700/50 mt-4 space-y-3">
+              <p>Model strojno in objektivno ocenjuje 3 parametre na lestvici od 0 do 100:</p>
+              <ul className="space-y-3 text-[13px] md:text-[14px]">
+                <li>
+                  <strong className="text-blue-600 dark:text-blue-400 block mb-0.5">1. Informacija (Vaba vs. Dejstva)</strong>
+                  Ali naslov takoj pove bistvo dogodka ali pa namerno skriva ključno informacijo, da bi vas prisilil v klik (t.i. <em>clickbait</em>)?
+                </li>
+                <li>
+                  <strong className="text-rose-500 dark:text-rose-400 block mb-0.5">2. Emocija (Nevtralno vs. Dramatizacija)</strong>
+                  Ali medij poroča suho in klinično ali pa uporablja dramatične besede (šokantno, kaos, grozljivka), velike črke in klicaje za vzbujanje čustev?
+                </li>
+                <li>
+                  <strong className="text-orange-500 dark:text-orange-400 block mb-0.5">3. Interpretacija (Samo dejstva vs. Uredniški spin)</strong>
+                  Ali povzetek navaja zgolj gola dejstva, ali pa vsebuje vrednostne sodbe in pridevnike, ki bralcu narekujejo, <em>kaj naj si o dogodku misli</em>?
+                </li>
+              </ul>
+            </div>
+
+            <p className="text-[13px] italic opacity-90 mt-4 pt-2 border-t border-gray-100 dark:border-gray-800">
+              Sistem je 100% avtomatiziran. Model ne ve, za kateri slovenski medij gre, temveč ocenjuje zgolj surov tekst in išče vzorce nevtralnega novinarstva.
+            </p>
+          </div>
+        </div>
+        <div className="bg-gray-50 dark:bg-gray-800/80 px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex justify-end">
+          <button 
+            onClick={onClose}
+            className="px-5 py-2 bg-gray-900 hover:bg-black dark:bg-white dark:hover:bg-gray-100 text-white dark:text-gray-900 text-sm font-bold rounded-lg transition-colors"
+          >
+            Razumem
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+// ---------------------------------------------
+
 // 1. KOMPONENTA: Animiran Kupček Logotipov (Z dvigom in Z-index Fixom)
 function ClusterGroup({ cluster, setPreviewUrl }: { cluster: { value: number, sources: SourceItem[] }, setPreviewUrl: (url: string) => void }) {
     const [isHovered, setIsHovered] = useState(false);
@@ -73,13 +135,11 @@ function ClusterGroup({ cluster, setPreviewUrl }: { cluster: { value: number, so
 
     return (
         <div 
-            // KLJUČEN POPRAVEK: Ko je isHovered = true, dobi z-[100] in preskoči vse sosednje logotipe!
             className={`absolute top-1/2 left-0 -translate-y-1/2 -translate-x-1/2 w-8 h-8 cursor-pointer ${isHovered ? 'z-[100]' : 'z-10'}`}
             style={{ left: `${cluster.value}%` }}
             onMouseEnter={() => setIsHovered(true)}
             onMouseLeave={() => setIsHovered(false)}
         >
-            {/* Hitbox - Nevidno polje, ki je zdaj malce višje, da pokrije dvignjene logotipe in prepreči utripanje */}
             {isHovered && N > 1 && (
                 <div 
                     className="absolute top-1/2 -translate-y-1/2"
@@ -88,27 +148,21 @@ function ClusterGroup({ cluster, setPreviewUrl }: { cluster: { value: number, so
                         width: `${N * 36 + 16}px`, 
                         left: direction === 1 ? '-8px' : 'auto',
                         right: direction === -1 ? '-8px' : 'auto',
-                        marginTop: '-12px' // Pomik navzgor
+                        marginTop: '-12px'
                     }}
                 />
             )}
 
             {cluster.sources.map((source, idx) => {
                 const cleanTitle = source.title.replace(/^["']|["']$/g, '');
-                
-                // Horizontalni odmik v odstotkih širine ikone
                 const xOffsetPercent = N > 1 ? idx * 115 * direction : 0;
-                
-                // DVIG (Lift): Če gremo čez miško in je več virov, logotipe dvignemo za 14px v zrak!
                 const yLift = (isHovered && N > 1) ? '-14px' : '0px';
                 
                 return (
                     <div 
                         key={idx}
-                        // Dodan hover:!z-[110] zagotavlja, da je tisti logo, nad katerim si specifično z miško, čisto spredaj
                         className="absolute top-1/2 left-1/2 transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] group/pin hover:!z-[110]"
                         style={{
-                            // Prej se je premikal samo levo/desno. Zdaj dodajamo še yLift!
                             transform: isHovered 
                                 ? `translate(calc(-50% + ${xOffsetPercent}%), calc(-50% + ${yLift}))` 
                                 : `translate(calc(-50% + ${idx * 2}px), calc(-50% - ${idx * 2}px))`,
@@ -153,7 +207,6 @@ function ClusterGroup({ cluster, setPreviewUrl }: { cluster: { value: number, so
                 )
             })}
             
-            {/* Če je v kupčku več virov in NE hoveramo, prikažemo majhno številko */}
             {!isHovered && N > 1 && (
                 <div className="absolute -top-1 -right-1 md:-right-2 bg-brand text-white text-[8px] font-bold w-3.5 h-3.5 flex items-center justify-center rounded-full shadow-sm z-50">
                     {N}
@@ -305,12 +358,18 @@ function AnalysisCard({ item, idx, setPreviewUrl }: { item: AnalysisItem, idx: n
 
 export default function AnalizaPage({ analysis, lastUpdated }: Props) {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+  const [showInfoModal, setShowInfoModal] = useState(false); // State za modal
+
   const validAnalysis = Array.isArray(analysis) ? analysis : [];
 
   return (
     <>
       <Head><title>Medijski presek | Križišče</title></Head>
       <Header activeCategory="vse" activeSource="Vse" />
+      
+      {/* Vstavljen zunanji modalni pop-up, ki se prikaže samo, če je state = true */}
+      {showInfoModal && <HowItWorksModal onClose={() => setShowInfoModal(false)} />}
+
       <main className="min-h-screen bg-[#F9FAFB] dark:bg-gray-900 pb-20 overflow-x-hidden">
         
         <div className="bg-white dark:bg-gray-800/60 border-b border-gray-200 dark:border-gray-800 py-6 md:py-10">
@@ -323,8 +382,15 @@ export default function AnalizaPage({ analysis, lastUpdated }: Props) {
                       </svg>
                       Medijski presek
                   </h1>
-                  <p className="text-[13px] md:text-[14px] text-gray-500 dark:text-gray-400 mt-2.5 max-w-2xl leading-relaxed">
-                    <strong className="text-gray-700 dark:text-gray-300">Ena novica. Več naslovov. <span className="text-gray-900 dark:text-white">Kdo pretirava?</span></strong> Strojna analiza in pregled uredniških odločitev pri ključnih temah. S pomočjo umetne inteligence prepoznavamo vzorce poročanja, destiliramo gola dejstva in na vizualnem spektru razkrivamo informacijski šum, čustveni naboj ter novinarsko pristranskost.
+                  <p className="text-[13px] md:text-[14px] text-gray-500 dark:text-gray-400 mt-2.5 max-w-2xl leading-relaxed inline-block">
+                    <strong className="text-gray-700 dark:text-gray-300">Ena novica. Več naslovov. <span className="text-gray-900 dark:text-white">Kdo pretirava?</span></strong> Strojna analiza in pregled uredniških odločitev pri ključnih temah. S pomočjo umetne inteligence prepoznavamo vzorce poročanja, destiliramo gola dejstva in na vizualnem spektru razkrivamo informacijski šum, čustveni naboj ter novinarsko pristranskost.{' '}
+                    {/* GUMB ZA ODPRTJE MODALA P Pripet takoj za tekstom */}
+                    <button 
+                      onClick={() => setShowInfoModal(true)} 
+                      className="inline-flex items-center gap-1 text-brand font-semibold hover:underline ml-1 focus:outline-none"
+                    >
+                      💡 Kako deluje?
+                    </button>
                   </p>
                 </div>
                 
