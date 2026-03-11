@@ -72,11 +72,11 @@ export default function Header({
   
   const [weather, setWeather] = useState<WeatherData>(null)
   
-  // NOVO: Stanje za Medijski utrip
+  // LOGIKA ZA UTIRP (PULSE)
   const [archiveData, setArchiveData] = useState<ArchiveData>(null)
   const [isPulseOpen, setIsPulseOpen] = useState(false)
   const pulseRef = useRef<HTMLDivElement>(null)
-  
+
   const searchInputRef = useRef<HTMLInputElement>(null)
 
   const { theme, setTheme, resolvedTheme } = useTheme()
@@ -86,8 +86,6 @@ export default function Header({
 
   useEffect(() => {
     setMounted(true)
-    
-    // Zapiranje utripa ob kliku ven
     const handleClickOutside = (e: MouseEvent) => {
       if (pulseRef.current && !pulseRef.current.contains(e.target as Node)) {
         setIsPulseOpen(false)
@@ -97,19 +95,42 @@ export default function Header({
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
-  // Pridobivanje današnje statistike za utrip
+  // Pridobivanje podatkov o utripu (sessionStorage cache + explicit date)
   useEffect(() => {
-    const fetchPulse = async () => {
+    const CACHE_KEY = 'krizisce-pulse-v1'
+    const CACHE_DURATION = 1000 * 60 * 5
+
+    const fetchPulse = async (force = false) => {
+      if (!force) {
+        const cachedRaw = sessionStorage.getItem(CACHE_KEY)
+        if (cachedRaw) {
+          try {
+            const { data, timestamp } = JSON.parse(cachedRaw)
+            if (Date.now() - timestamp < CACHE_DURATION) {
+              setArchiveData(data)
+              return
+            }
+          } catch {}
+        }
+      }
+
       try {
-        const res = await fetch('/api/archive')
+        const today = new Date().toISOString().split('T')[0]
+        const res = await fetch(`/api/archive?date=${today}`)
         if (!res.ok) return
         const data = await res.json()
-        if (data.counts) setArchiveData(data)
+        if (data.counts) {
+          setArchiveData(data)
+          sessionStorage.setItem(CACHE_KEY, JSON.stringify({
+            data: data,
+            timestamp: Date.now()
+          }))
+        }
       } catch (err) {}
     }
+
     fetchPulse()
-    // Osvežimo na vsakih 5 minut
-    const interval = setInterval(fetchPulse, 1000 * 60 * 5)
+    const interval = setInterval(() => fetchPulse(true), CACHE_DURATION)
     return () => clearInterval(interval)
   }, [])
 
@@ -162,8 +183,7 @@ export default function Header({
           timestamp: Date.now()
         }))
 
-      } catch (err) {
-      }
+      } catch (err) {}
     }
 
     const cachedRaw = localStorage.getItem(CACHE_KEY)
@@ -337,69 +357,6 @@ export default function Header({
           </div>
 
           <div className="hidden md:flex items-center gap-4 shrink-0 ml-auto">
-            
-            {/* NOVO: MEDIJSKI UTRIP (Gumb s števcem) */}
-            {mounted && archiveData && (
-              <div className="relative" ref={pulseRef}>
-                <button
-                  onClick={() => setIsPulseOpen(!isPulseOpen)}
-                  className={`flex items-center gap-2 px-3 py-1.5 rounded-full border transition-all duration-300 ${
-                    isPulseOpen 
-                    ? 'bg-emerald-500/20 border-emerald-500/40 shadow-[0_0_15px_rgba(16,185,129,0.1)]' 
-                    : 'bg-emerald-500/5 border-emerald-500/10 hover:bg-emerald-500/10'
-                  }`}
-                  title="Današnji medijski utrip"
-                >
-                  <span className="relative flex h-2 w-2">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-                  </span>
-                  <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 tabular-nums">
-                    {archiveData.total} <span className="font-medium opacity-70 ml-0.5">danes</span>
-                  </span>
-                </button>
-
-                <AnimatePresence>
-                  {isPulseOpen && (
-                    <motion.div
-                      initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                      className="absolute right-0 mt-3 w-64 bg-white dark:bg-gray-900 rounded-2xl shadow-2xl border border-gray-100 dark:border-gray-800 p-5 z-[100]"
-                    >
-                      <h4 className="text-[10px] uppercase tracking-widest font-bold text-gray-400 mb-4 flex items-center justify-between">
-                        Današnje objave
-                        <span className="bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded text-[9px] text-gray-500">{new Date().toLocaleDateString('sl-SI')}</span>
-                      </h4>
-                      
-                      <div className="space-y-3">
-                        {Object.entries(archiveData.counts)
-                          .sort((a, b) => b[1] - a[1])
-                          .slice(0, 10)
-                          .map(([source, count]) => (
-                            <div key={source} className="flex items-center justify-between group">
-                              <div className="flex items-center gap-2.5 overflow-hidden">
-                                <span className="w-2 h-2 rounded-full shrink-0 shadow-sm" style={{ backgroundColor: sourceColors[source] || '#ccc' }} />
-                                <span className="text-xs font-medium text-gray-600 dark:text-gray-300 truncate group-hover:text-gray-900 dark:group-hover:text-white transition-colors">{source}</span>
-                              </div>
-                              <span className="text-xs font-mono font-bold text-gray-900 dark:text-white bg-gray-50 dark:bg-gray-800/50 px-1.5 py-0.5 rounded">{count}</span>
-                            </div>
-                          ))}
-                      </div>
-
-                      <Link 
-                        href="/arhiv" 
-                        onClick={() => setIsPulseOpen(false)}
-                        className="mt-5 block pt-4 border-t border-gray-50 dark:border-gray-800 text-[11px] font-bold text-brand hover:text-brand-dark transition-colors text-center uppercase tracking-wider"
-                      >
-                        Poglej celoten arhiv →
-                      </Link>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
-            )}
-
             {router.pathname === '/' && (
               <div className="w-64 lg:w-80">
                 <form onSubmit={handleSubmit} className="relative group">
@@ -412,8 +369,8 @@ export default function Header({
                     type="search"
                     placeholder="Išči po naslovu ali podnaslovu ..."
                     className="block w-full pl-10 pr-3 py-1.5 bg-gray-100 dark:bg-gray-800 border border-transparent 
-                               focus:bg-white dark:focus:bg-black focus:border-brand/30 focus:ring-2 focus:ring-brand/10
-                               rounded-md text-sm transition-all placeholder-gray-500 text-gray-900 dark:text-white"
+                              focus:bg-white dark:focus:bg-black focus:border-brand/30 focus:ring-2 focus:ring-brand/10
+                              rounded-md text-sm transition-all placeholder-gray-500 text-gray-900 dark:text-white"
                     value={searchVal}
                     onChange={handleSearchChange}
                   />
@@ -422,6 +379,62 @@ export default function Header({
             )}
 
             <div className="h-6 w-px bg-gray-200 dark:bg-gray-700"></div>
+
+            {/* MEDIJSKI UTRIP (Pill) - Premaknjeno zraven vremena */}
+            {mounted && archiveData && (
+              <div className="relative" ref={pulseRef}>
+                <button
+                  onClick={() => setIsPulseOpen(!isPulseOpen)}
+                  className={`flex items-center gap-2 px-3 py-1.5 rounded-full border transition-all duration-300 ${
+                    isPulseOpen 
+                    ? 'bg-emerald-500/20 border-emerald-500/40' 
+                    : 'bg-emerald-500/5 border-emerald-500/10 hover:bg-emerald-500/10'
+                  }`}
+                >
+                  <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                  </span>
+                  <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 tabular-nums">
+                    št. novic: {archiveData.total}
+                  </span>
+                </button>
+
+                <AnimatePresence>
+                  {isPulseOpen && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                      className="absolute right-0 mt-2 w-56 bg-white dark:bg-gray-900 rounded-xl shadow-2xl border border-gray-100 dark:border-gray-800 p-4 z-[100]"
+                    >
+                      <h4 className="text-[10px] uppercase tracking-widest font-bold text-gray-400 mb-3">Današnje objave</h4>
+                      <div className="space-y-2.5">
+                        {Object.entries(archiveData.counts)
+                          .sort((a, b) => b[1] - a[1])
+                          .slice(0, 8)
+                          .map(([source, count]) => (
+                            <div key={source} className="flex items-center justify-between group">
+                              <div className="flex items-center gap-2 overflow-hidden">
+                                <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: sourceColors[source] || '#ccc' }} />
+                                <span className="text-xs text-gray-600 dark:text-gray-300 truncate">{source}</span>
+                              </div>
+                              <span className="text-xs font-mono font-bold text-gray-900 dark:text-white">{count}</span>
+                            </div>
+                          ))}
+                      </div>
+                      <Link 
+                        href="/arhiv" 
+                        onClick={() => setIsPulseOpen(false)}
+                        className="mt-4 block pt-3 border-t border-gray-50 dark:border-gray-800 text-[11px] font-bold text-brand hover:underline text-center"
+                      >
+                        Poglej celoten arhiv →
+                      </Link>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            )}
             
             {weather && (
               <div className="flex items-center text-xs font-semibold text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-800/50 px-2.5 py-1 rounded-full border border-gray-200/50 dark:border-gray-700/50" title={`${weather.city}: ${weather.temp}°C`}>
@@ -635,6 +648,42 @@ export default function Header({
 
                 <div className="flex-1 overflow-y-auto p-4 space-y-6">
                     
+                    {/* IMPLEMENTACIJA UTRIPA NA MOBILE */}
+                    {archiveData && (
+                      <div className="bg-emerald-500/5 dark:bg-emerald-500/10 rounded-xl p-4 border border-emerald-500/10 dark:border-emerald-500/20">
+                         <div className="flex items-center gap-2 mb-4">
+                            <span className="relative flex h-2 w-2">
+                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                            </span>
+                            <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">
+                                Današnji utrip: {archiveData.total} novic
+                            </span>
+                         </div>
+                         <div className="grid grid-cols-2 gap-y-3 gap-x-4">
+                            {Object.entries(archiveData.counts)
+                              .sort((a, b) => b[1] - a[1])
+                              .slice(0, 10)
+                              .map(([source, count]) => (
+                                <div key={source} className="flex items-center justify-between overflow-hidden">
+                                  <div className="flex items-center gap-1.5 overflow-hidden">
+                                    <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: sourceColors[source] || '#ccc' }} />
+                                    <span className="text-[11px] text-gray-600 dark:text-gray-400 truncate">{source}</span>
+                                  </div>
+                                  <span className="text-[11px] font-mono font-bold text-gray-700 dark:text-gray-300">{count}</span>
+                                </div>
+                              ))}
+                         </div>
+                         <Link 
+                            href="/arhiv" 
+                            onClick={() => setMobileMenuOpen(false)}
+                            className="mt-4 block text-center text-[11px] font-bold text-emerald-600 dark:text-emerald-400 py-2 border-t border-emerald-500/10"
+                         >
+                            Celotna statistika →
+                         </Link>
+                      </div>
+                    )}
+
                     <div className="space-y-1">
                         <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 pl-1 text-left">Orodja</p>
                         
