@@ -63,7 +63,7 @@ const getLogoSrc = (sourceName: string) => {
   return '/logo.png';
 }
 
-// --- MODALNO OKNO ZA RAZLAGO "KAKO DELUJE" ---
+// --- MODALNO OKNO ---
 function HowItWorksModal({ onClose }: { onClose: () => void }) {
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm transition-opacity" onClick={onClose}>
@@ -123,14 +123,12 @@ function HowItWorksModal({ onClose }: { onClose: () => void }) {
     </div>
   )
 }
-// ---------------------------------------------
 
 // 1. KOMPONENTA: Animiran Kupček Logotipov (Z dvigom in Z-index Fixom)
 function ClusterGroup({ cluster, setPreviewUrl }: { cluster: { value: number, sources: SourceItem[] }, setPreviewUrl: (url: string) => void }) {
     const [isHovered, setIsHovered] = useState(false);
     const N = cluster.sources.length;
     
-    // Če je kupček na desni polovici (nad 70%), naj se razpre V LEVO, da ne uide ven.
     const direction = cluster.value > 70 ? -1 : 1; 
 
     return (
@@ -148,14 +146,16 @@ function ClusterGroup({ cluster, setPreviewUrl }: { cluster: { value: number, so
                         width: `${N * 36 + 16}px`, 
                         left: direction === 1 ? '-8px' : 'auto',
                         right: direction === -1 ? '-8px' : 'auto',
-                        marginTop: '-12px'
+                        marginTop: '-12px' 
                     }}
                 />
             )}
 
             {cluster.sources.map((source, idx) => {
                 const cleanTitle = source.title.replace(/^["']|["']$/g, '');
+                
                 const xOffsetPercent = N > 1 ? idx * 115 * direction : 0;
+                
                 const yLift = (isHovered && N > 1) ? '-14px' : '0px';
                 
                 return (
@@ -187,7 +187,6 @@ function ClusterGroup({ cluster, setPreviewUrl }: { cluster: { value: number, so
                             </div>
                         </div>
                         
-                        {/* Tooltip */}
                         <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-56 md:w-60 p-2.5 md:p-3 bg-gray-900 text-white text-[11px] leading-snug rounded-xl opacity-0 group-hover/pin:opacity-100 pointer-events-none group-hover/pin:pointer-events-auto transition-opacity shadow-2xl flex flex-col gap-1.5">
                             <div className="font-bold text-brand uppercase tracking-wider text-[8.5px]">{source.source}</div>
                             <div className="text-gray-100 font-medium text-[11px] md:text-[11.5px]">"{cleanTitle}"</div>
@@ -358,7 +357,7 @@ function AnalysisCard({ item, idx, setPreviewUrl }: { item: AnalysisItem, idx: n
 
 export default function AnalizaPage({ analysis, lastUpdated }: Props) {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
-  const [showInfoModal, setShowInfoModal] = useState(false); // State za modal
+  const [showInfoModal, setShowInfoModal] = useState(false); 
 
   const validAnalysis = Array.isArray(analysis) ? analysis : [];
 
@@ -367,7 +366,6 @@ export default function AnalizaPage({ analysis, lastUpdated }: Props) {
       <Head><title>Medijski presek | Križišče</title></Head>
       <Header activeCategory="vse" activeSource="Vse" />
       
-      {/* Vstavljen zunanji modalni pop-up, ki se prikaže samo, če je state = true */}
       {showInfoModal && <HowItWorksModal onClose={() => setShowInfoModal(false)} />}
 
       <main className="min-h-screen bg-[#F9FAFB] dark:bg-gray-900 pb-20 overflow-x-hidden">
@@ -382,16 +380,22 @@ export default function AnalizaPage({ analysis, lastUpdated }: Props) {
                       </svg>
                       Medijski presek
                   </h1>
-                  <p className="text-[13px] md:text-[14px] text-gray-500 dark:text-gray-400 mt-2.5 max-w-2xl leading-relaxed inline-block">
-                    <strong className="text-gray-700 dark:text-gray-300">Ena novica. Več naslovov. <span className="text-gray-900 dark:text-white">Kdo pretirava?</span></strong> Strojna analiza in pregled uredniških odločitev pri ključnih temah. S pomočjo umetne inteligence prepoznavamo vzorce poročanja, destiliramo gola dejstva in na vizualnem spektru razkrivamo informacijski šum, čustveni naboj ter novinarsko pristranskost.{' '}
-                    {/* GUMB ZA ODPRTJE MODALA P Pripet takoj za tekstom */}
+                  
+                  {/* --- POPRAVEK: Skrajšan tekst in subtilen inline gumb --- */}
+                  <p className="text-[13px] md:text-[14px] text-gray-500 dark:text-gray-400 mt-3 max-w-2xl leading-relaxed">
+                    <strong className="text-gray-700 dark:text-gray-300">Ena novica. Več naslovov. <span className="text-gray-900 dark:text-white">Kdo pretirava?</span></strong> Strojna analiza medijskega poročanja razkriva informacijski šum, čustveni naboj ter novinarsko pristranskost različnih virov.
+                    
                     <button 
                       onClick={() => setShowInfoModal(true)} 
-                      className="inline-flex items-center gap-1 text-brand font-semibold hover:underline ml-1 focus:outline-none"
+                      className="inline-flex items-center gap-1.5 px-2 py-0.5 ml-2 rounded-md bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300 font-medium transition-colors text-[12px] md:text-[13px] focus:outline-none align-middle"
+                      title="Preberite, kako deluje algoritem"
                     >
-                      💡 Kako deluje?
+                      <svg className="w-3.5 h-3.5 opacity-70" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" /></svg>
+                      Kako deluje
                     </button>
                   </p>
+                  {/* -------------------------------------------------------- */}
+
                 </div>
                 
                 <div className="w-full md:w-auto flex flex-row-reverse md:flex-col items-center md:items-end justify-between md:justify-start gap-3 mt-3 md:mt-0">
