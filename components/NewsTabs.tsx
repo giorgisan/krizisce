@@ -35,9 +35,9 @@ const TABS = [
   },
   {
     id: 'monitor',
-    // Mobile: "Presek" | Desktop: "Medijski presek"
-    labelMobile: 'Presek',
-    labelDesktop: 'Medijski presek',
+    // Mobile: "Analiza" | Desktop: "Medijska analiza"
+    labelMobile: 'Analiza',
+    labelDesktop: 'Medijska analiza',
     isLink: true,
     href: '/analiza',
     icon: (
