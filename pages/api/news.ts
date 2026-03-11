@@ -159,13 +159,16 @@ async function syncToSupabase(items: FeedNewsItem[]) {
   const dedupedIn = softDedupe(shaped)
   const rows = dedupedIn.map(feedItemToDbRow).filter(Boolean) as any[]
   
-  // --- HITRI POPRAVEK: Absolutno brisanje duplikatov po link_key ---
+  // --- HITRI POPRAVEK: Absolutno brisanje duplikatov po link_key (case-insensitive) ---
   const uniqueRowsMap = new Map();
   for (const row of rows) {
-      const existing = uniqueRowsMap.get(row.link_key);
+      if (!row.link_key) continue;
+      const safeKey = row.link_key.toString().trim().toLowerCase();
+      const existing = uniqueRowsMap.get(safeKey);
+      
       // Če imamo dve novici z istim URL-jem, obdržimo tisto, ki je objavljena kasneje (novejša)
       if (!existing || (row.publishedat && existing.publishedat && row.publishedat > existing.publishedat)) {
-          uniqueRowsMap.set(row.link_key, row);
+          uniqueRowsMap.set(safeKey, row);
       }
   }
   const uniqueRows = Array.from(uniqueRowsMap.values());
@@ -174,17 +177,24 @@ async function syncToSupabase(items: FeedNewsItem[]) {
   if (!uniqueRows.length) return
 
   if (process.env.NODE_ENV !== 'production' || uniqueRows.length > 0) {
-      console.log(`[Sync] Pripravljenih ${uniqueRows.length} vrstic za vpis.`)
+      console.log(`[Sync] Pripravljenih ${uniqueRows.length} vrstic za vpis. Razrezujem na pakete...`)
   }
 
-  const { error } = await (supabaseWrite as any)
-    .from('news')
-    .upsert(uniqueRows, { onConflict: 'link_key' }) 
-  
-  if (error) {
-      console.error('[Sync] DB Error:', error)
-      throw error
+  // --- NOVO: CHUNKING (Razrez na pakete po 50 novic za preprečevanje TimeouT-a) ---
+  const CHUNK_SIZE = 50;
+  for (let i = 0; i < uniqueRows.length; i += CHUNK_SIZE) {
+      const chunk = uniqueRows.slice(i, i + CHUNK_SIZE);
+      
+      const { error } = await (supabaseWrite as any)
+        .from('news')
+        .upsert(chunk, { onConflict: 'link_key' }) 
+      
+      if (error) {
+          console.error(`[Sync] DB Error pri paketu ${i} do ${i + CHUNK_SIZE}:`, error)
+          throw error
+      }
   }
+  // -------------------------------------------------------------------------------
 }
 
 type Row = {
@@ -228,7 +238,7 @@ function rowToItem(r: Row): FeedNewsItem {
 /* -------------------------------------------------------------------------- */
 type PagedOk = { items: FeedNewsItem[]; nextCursor: number | null }
 type ListOk = FeedNewsItem[]
-type TrendsOk = { items: any[]; aiSummary: string | null; aiTime: string | null } // NOVO: Tip za trends odgovor
+type TrendsOk = { items: any[]; aiSummary: string | null; aiTime: string | null } 
 type Err = { error: string }
 
 export default async function handler(
@@ -245,7 +255,6 @@ export default async function handler(
     const tagQuery = (req.query.tag as string) || null 
 
     // --- 1. TRENDING (BRANJE IZ CACHE-A + AI POVZETEK) ---
-    // SPREMENJENO: Zdaj vrača objekt z items, aiSummary in aiTime
     if (variant === 'trending') {
       try {
         const groupsPromise = supabaseRead
@@ -311,7 +320,6 @@ export default async function handler(
     const limit = Math.min(Math.max(limitParam || defaultLimit, 1), 300)
     const cursor = req.query.cursor ? Number(req.query.cursor) : null
 
-    // SPREMEMBA: Odstranjen image_key iz selecta
     let q = supabaseRead
       .from('news')
       .select('id, link, link_key, title, source, image, contentsnippet, published_at, publishedat, created_at, category, keywords')
