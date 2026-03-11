@@ -395,7 +395,7 @@ export default function Header({
                   >
                     <span className="inline-flex rounded-full h-[5px] w-[5px] bg-emerald-500 animate-[pulse_3s_ease-in-out_infinite]"></span>
 
-                    <span className="text-[11px] font-bold text-slate-600 dark:text-slate-300 tabular-nums uppercase tracking-tight leading-none pt-px">
+                    <span className="text-[11px] font-bold text-slate-600 dark:text-slate-300 tabular-nums tracking-tight leading-none pt-px">
                       Danes: {archiveData.total}
                     </span>
                   </button>
