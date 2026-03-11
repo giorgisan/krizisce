@@ -72,7 +72,7 @@ export default function Header({
   
   const [weather, setWeather] = useState<WeatherData>(null)
   
-  // LOGIKA ZA UTIRP (PULSE)
+  // --- LOGIKA ZA UTRIP (PULSE) ---
   const [archiveData, setArchiveData] = useState<ArchiveData>(null)
   const [isPulseOpen, setIsPulseOpen] = useState(false)
   const pulseRef = useRef<HTMLDivElement>(null)
@@ -95,7 +95,7 @@ export default function Header({
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
-  // Pridobivanje podatkov o utripu (sessionStorage cache + explicit date)
+  // Pridobivanje podatkov o utripu (Claude fixes: sessionStorage + explicit date)
   useEffect(() => {
     const CACHE_KEY = 'krizisce-pulse-v1'
     const CACHE_DURATION = 1000 * 60 * 5
@@ -379,23 +379,24 @@ export default function Header({
             )}
 
             <div className="h-6 w-px bg-gray-200 dark:bg-gray-700"></div>
-
-            {/* MEDIJSKI UTRIP (Pill) - Premaknjeno zraven vremena */}
+            
+            {/* MEDIJSKI UTRIP (Pill) - Premaknjeno zraven vremena z novo oznako */}
             {mounted && archiveData && (
               <div className="relative" ref={pulseRef}>
                 <button
                   onClick={() => setIsPulseOpen(!isPulseOpen)}
                   className={`flex items-center gap-2 px-3 py-1.5 rounded-full border transition-all duration-300 ${
                     isPulseOpen 
-                    ? 'bg-emerald-500/20 border-emerald-500/40' 
+                    ? 'bg-emerald-500/20 border-emerald-500/40 shadow-sm' 
                     : 'bg-emerald-500/5 border-emerald-500/10 hover:bg-emerald-500/10'
                   }`}
                 >
                   <span className="relative flex h-2 w-2">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                    {/* Claude fix: animate-pulse namesto ping za manjši vizualni hrup */}
+                    <span className="animate-pulse absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                     <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
                   </span>
-                  <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 tabular-nums">
+                  <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 tabular-nums uppercase tracking-tight">
                     št. novic: {archiveData.total}
                   </span>
                 </button>
@@ -435,7 +436,7 @@ export default function Header({
                 </AnimatePresence>
               </div>
             )}
-            
+
             {weather && (
               <div className="flex items-center text-xs font-semibold text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-800/50 px-2.5 py-1 rounded-full border border-gray-200/50 dark:border-gray-700/50" title={`${weather.city}: ${weather.temp}°C`}>
                   <span className="mr-1.5">{weather.city}</span>
@@ -648,12 +649,13 @@ export default function Header({
 
                 <div className="flex-1 overflow-y-auto p-4 space-y-6">
                     
-                    {/* IMPLEMENTACIJA UTRIPA NA MOBILE */}
+                    {/* IMPLEMENTACIJA UTRIPA NA MOBILE (Hamburger Menu) */}
                     {archiveData && (
                       <div className="bg-emerald-500/5 dark:bg-emerald-500/10 rounded-xl p-4 border border-emerald-500/10 dark:border-emerald-500/20">
                          <div className="flex items-center gap-2 mb-4">
                             <span className="relative flex h-2 w-2">
-                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                              {/* Tudi tukaj Claude fix: animate-pulse namesto ping */}
+                              <span className="animate-pulse absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                               <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
                             </span>
                             <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">
@@ -679,7 +681,7 @@ export default function Header({
                             onClick={() => setMobileMenuOpen(false)}
                             className="mt-4 block text-center text-[11px] font-bold text-emerald-600 dark:text-emerald-400 py-2 border-t border-emerald-500/10"
                          >
-                            Celotna statistika →
+                            Celotna statistika dneva →
                          </Link>
                       </div>
                     )}
@@ -687,7 +689,7 @@ export default function Header({
                     <div className="space-y-1">
                         <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 pl-1 text-left">Orodja</p>
                         
-                        {/* 1. FILTRIRAJ VIRE (Prikaže se samo na naslovnici) */}
+                        {/* 1. FILTRIRAJ VIRE */}
                         {router.pathname === '/' && (
                             <button onClick={() => { onOpenFilter(); setMobileMenuOpen(false); }} className="w-full flex items-center gap-3 px-2 py-3 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100/50 dark:hover:bg-gray-900/50">
                                 <svg className="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" /></svg>
