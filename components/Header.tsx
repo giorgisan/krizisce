@@ -72,7 +72,7 @@ export default function Header({
   
   const [weather, setWeather] = useState<WeatherData>(null)
   
-  // --- LOGIKA ZA UTRIP (PULSE) ---
+  // LOGIKA ZA UTIRP (PULSE)
   const [archiveData, setArchiveData] = useState<ArchiveData>(null)
   const [isPulseOpen, setIsPulseOpen] = useState(false)
   const pulseRef = useRef<HTMLDivElement>(null)
@@ -95,7 +95,7 @@ export default function Header({
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
-  // Pridobivanje podatkov o utripu (Claude fixes: sessionStorage + explicit date)
+  // Pridobivanje podatkov o utripu (sessionStorage cache + explicit date)
   useEffect(() => {
     const CACHE_KEY = 'krizisce-pulse-v1'
     const CACHE_DURATION = 1000 * 60 * 5
@@ -369,8 +369,8 @@ export default function Header({
                     type="search"
                     placeholder="Išči po naslovu ali podnaslovu ..."
                     className="block w-full pl-10 pr-3 py-1.5 bg-gray-100 dark:bg-gray-800 border border-transparent 
-                              focus:bg-white dark:focus:bg-black focus:border-brand/30 focus:ring-2 focus:ring-brand/10
-                              rounded-md text-sm transition-all placeholder-gray-500 text-gray-900 dark:text-white"
+                               focus:bg-white dark:focus:bg-black focus:border-brand/30 focus:ring-2 focus:ring-brand/10
+                               rounded-md text-sm transition-all placeholder-gray-500 text-gray-900 dark:text-white"
                     value={searchVal}
                     onChange={handleSearchChange}
                   />
@@ -379,24 +379,23 @@ export default function Header({
             )}
 
             <div className="h-6 w-px bg-gray-200 dark:bg-gray-700"></div>
-            
-            {/* MEDIJSKI UTRIP (Pill) - Premaknjeno zraven vremena z novo oznako */}
+
+            {/* MEDIJSKI UTRIP (Pill) - Nevtralne barve, tik ob vremenu */}
             {mounted && archiveData && (
               <div className="relative" ref={pulseRef}>
                 <button
                   onClick={() => setIsPulseOpen(!isPulseOpen)}
                   className={`flex items-center gap-2 px-3 py-1.5 rounded-full border transition-all duration-300 ${
                     isPulseOpen 
-                    ? 'bg-emerald-500/20 border-emerald-500/40 shadow-sm' 
-                    : 'bg-emerald-500/5 border-emerald-500/10 hover:bg-emerald-500/10'
+                    ? 'bg-gray-200 dark:bg-gray-700 border-gray-300 dark:border-gray-600' 
+                    : 'bg-gray-50 dark:bg-gray-800/50 border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800'
                   }`}
                 >
                   <span className="relative flex h-2 w-2">
-                    {/* Claude fix: animate-pulse namesto ping za manjši vizualni hrup */}
-                    <span className="animate-pulse absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                    <span className="animate-pulse absolute inline-flex h-full w-full rounded-full bg-gray-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-gray-500"></span>
                   </span>
-                  <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 tabular-nums uppercase tracking-tight">
+                  <span className="text-[11px] font-bold text-gray-600 dark:text-gray-400 tabular-nums uppercase tracking-tight">
                     št. novic: {archiveData.total}
                   </span>
                 </button>
@@ -436,7 +435,7 @@ export default function Header({
                 </AnimatePresence>
               </div>
             )}
-
+            
             {weather && (
               <div className="flex items-center text-xs font-semibold text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-800/50 px-2.5 py-1 rounded-full border border-gray-200/50 dark:border-gray-700/50" title={`${weather.city}: ${weather.temp}°C`}>
                   <span className="mr-1.5">{weather.city}</span>
@@ -649,16 +648,15 @@ export default function Header({
 
                 <div className="flex-1 overflow-y-auto p-4 space-y-6">
                     
-                    {/* IMPLEMENTACIJA UTRIPA NA MOBILE (Hamburger Menu) */}
+                    {/* IMPLEMENTACIJA UTRIPA NA MOBILE (Hamburger Menu) - Nevtralne barve */}
                     {archiveData && (
-                      <div className="bg-emerald-500/5 dark:bg-emerald-500/10 rounded-xl p-4 border border-emerald-500/10 dark:border-emerald-500/20">
+                      <div className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-4 border border-gray-200 dark:border-gray-700">
                          <div className="flex items-center gap-2 mb-4">
                             <span className="relative flex h-2 w-2">
-                              {/* Tudi tukaj Claude fix: animate-pulse namesto ping */}
-                              <span className="animate-pulse absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                              <span className="animate-pulse absolute inline-flex h-full w-full rounded-full bg-gray-400 opacity-75"></span>
+                              <span className="relative inline-flex rounded-full h-2 w-2 bg-gray-500"></span>
                             </span>
-                            <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">
+                            <span className="text-xs font-bold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
                                 Današnji utrip: {archiveData.total} novic
                             </span>
                          </div>
@@ -679,7 +677,7 @@ export default function Header({
                          <Link 
                             href="/arhiv" 
                             onClick={() => setMobileMenuOpen(false)}
-                            className="mt-4 block text-center text-[11px] font-bold text-emerald-600 dark:text-emerald-400 py-2 border-t border-emerald-500/10"
+                            className="mt-4 block text-center text-[11px] font-bold text-gray-500 dark:text-gray-400 py-2 border-t border-gray-100 dark:border-gray-800"
                          >
                             Celotna statistika dneva →
                          </Link>
