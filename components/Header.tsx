@@ -356,10 +356,9 @@ export default function Header({
              </button>
           </div>
 
-          {/* Orodjarna - Manjši razmaki (gap-2.5) */}
           <div className="hidden md:flex items-center gap-2.5 shrink-0 ml-auto">
             {router.pathname === '/' && (
-              <div className="w-48 lg:w-64"> {/* Iskalnik je sedaj ožji */}
+              <div className="w-48 lg:w-64">
                 <form onSubmit={handleSubmit} className="relative group">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                     <svg className="h-4 w-4 text-gray-400 group-focus-within:text-brand transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -380,68 +379,73 @@ export default function Header({
             )}
 
             <div className="h-5 w-px bg-gray-200 dark:bg-gray-700 ml-1"></div>
-
-            {/* MEDIJSKI UTRIP - Nežen pulse */}
-            {mounted && archiveData && (
-              <div className="relative ml-1" ref={pulseRef}>
-                <button
-                  onClick={() => setIsPulseOpen(!isPulseOpen)}
-                  className={`flex items-center gap-2 px-2.5 py-1.5 rounded-full border transition-all duration-300 ${
-                    isPulseOpen 
-                    ? 'bg-slate-100 dark:bg-slate-800 border-slate-300 dark:border-slate-600' 
-                    : 'bg-slate-50 dark:bg-slate-800/40 border-slate-200 dark:border-slate-700/50 hover:bg-slate-100 dark:hover:bg-slate-800'
-                  }`}
-                >
-                  <span className="relative flex h-1.5 w-1.5">
-                    {/* Zelo nežen pulse - uporabljamo opacity animacijo namesto scale ping-a */}
-                    <span className="animate-[pulse_2s_cubic-bezier(0.4,0,0.6,1)_infinite] absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span>
-                  </span>
-                  <span className="text-[11px] font-bold text-slate-600 dark:text-slate-300 tabular-nums uppercase tracking-tight">
-                    št. novic: {archiveData.total}
-                  </span>
-                </button>
-
-                <AnimatePresence>
-                  {isPulseOpen && (
-                    <motion.div
-                      initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                      className="absolute right-0 mt-2 w-52 bg-white dark:bg-gray-900 rounded-xl shadow-2xl border border-gray-100 dark:border-gray-800 p-4 z-[100]"
-                    >
-                      <h4 className="text-[10px] uppercase tracking-widest font-bold text-gray-400 mb-3">Današnje objave</h4>
-                      <div className="space-y-2">
-                        {Object.entries(archiveData.counts)
-                          .sort((a, b) => b[1] - a[1])
-                          .slice(0, 8)
-                          .map(([source, count]) => (
-                            <div key={source} className="flex items-center justify-between group">
-                              <div className="flex items-center gap-2 overflow-hidden">
-                                <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: sourceColors[source] || '#ccc' }} />
-                                <span className="text-xs text-gray-600 dark:text-gray-300 truncate">{source}</span>
-                              </div>
-                              <span className="text-[11px] font-mono font-bold text-gray-900 dark:text-white">{count}</span>
-                            </div>
-                          ))}
-                      </div>
-                      <Link 
-                        href="/arhiv" 
-                        onClick={() => setIsPulseOpen(false)}
-                        className="mt-3 block pt-3 border-t border-gray-50 dark:border-gray-800 text-[11px] font-bold text-brand hover:underline text-center"
-                      >
-                        Poglej celoten arhiv →
-                      </Link>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
-            )}
             
-            {/* VREME - Hover prikaže mesto */}
-            {weather && (
+            {/* MEDIJSKI UTRIP - Prikaz s skeleton loaderjem */}
+            <div className="relative ml-1" ref={pulseRef}>
+              {!mounted || !archiveData ? (
+                <div className="w-[105px] h-[30px] rounded-full bg-slate-200/50 dark:bg-slate-700/50 animate-pulse border border-transparent"></div>
+              ) : (
+                <>
+                  <button
+                    onClick={() => setIsPulseOpen(!isPulseOpen)}
+                    className={`flex items-center gap-2 px-2.5 py-1.5 rounded-full border transition-all duration-300 h-[30px] ${
+                      isPulseOpen 
+                      ? 'bg-slate-100 dark:bg-slate-800 border-slate-300 dark:border-slate-600' 
+                      : 'bg-slate-50 dark:bg-slate-800/40 border-slate-200 dark:border-slate-700/50 hover:bg-slate-100 dark:hover:bg-slate-800'
+                    }`}
+                  >
+                    <span className="relative flex h-1.5 w-1.5">
+                      <span className="animate-[pulse_2s_cubic-bezier(0.4,0,0.6,1)_infinite] absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span>
+                    </span>
+                    <span className="text-[11px] font-bold text-slate-600 dark:text-slate-300 tabular-nums uppercase tracking-tight">
+                      št. novic: {archiveData.total}
+                    </span>
+                  </button>
+
+                  <AnimatePresence>
+                    {isPulseOpen && (
+                      <motion.div
+                        initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                        className="absolute right-0 mt-2 w-52 bg-white dark:bg-gray-900 rounded-xl shadow-2xl border border-gray-100 dark:border-gray-800 p-4 z-[100]"
+                      >
+                        <h4 className="text-[10px] uppercase tracking-widest font-bold text-gray-400 mb-3">Današnje objave</h4>
+                        <div className="space-y-2">
+                          {Object.entries(archiveData.counts)
+                            .sort((a, b) => b[1] - a[1])
+                            .slice(0, 8)
+                            .map(([source, count]) => (
+                              <div key={source} className="flex items-center justify-between group">
+                                <div className="flex items-center gap-2 overflow-hidden">
+                                  <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: sourceColors[source] || '#ccc' }} />
+                                  <span className="text-xs text-gray-600 dark:text-gray-300 truncate">{source}</span>
+                                </div>
+                                <span className="text-[11px] font-mono font-bold text-gray-900 dark:text-white">{count}</span>
+                              </div>
+                            ))}
+                        </div>
+                        <Link 
+                          href="/arhiv" 
+                          onClick={() => setIsPulseOpen(false)}
+                          className="mt-3 block pt-3 border-t border-gray-50 dark:border-gray-800 text-[11px] font-bold text-brand hover:underline text-center"
+                        >
+                          Poglej celoten arhiv →
+                        </Link>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </>
+              )}
+            </div>
+
+            {/* VREME - Prikaz s skeleton loaderjem */}
+            {!mounted || !weather ? (
+              <div className="w-[58px] h-[30px] rounded-full bg-gray-200/50 dark:bg-gray-700/50 animate-pulse border border-transparent"></div>
+            ) : (
               <div 
-                className="group flex items-center text-[11px] font-semibold text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-800/50 px-2 py-1.5 rounded-full border border-gray-200/50 dark:border-gray-700/50 transition-all cursor-default" 
+                className="group flex items-center text-[11px] font-semibold text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-800/50 px-2 py-1.5 rounded-full border border-gray-200/50 dark:border-gray-700/50 transition-all cursor-default h-[30px]" 
                 title="Vreme"
               >
                   <span className="max-w-0 overflow-hidden opacity-0 group-hover:max-w-xs group-hover:opacity-100 group-hover:mr-1.5 transition-all duration-300 ease-out whitespace-nowrap">
@@ -659,9 +663,55 @@ export default function Header({
                     <div className="space-y-1">
                         <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 pl-1 text-left">Orodja</p>
                         
-                        {/* 1. DANAŠNJI UTRIP NA MOBILE (Premaknjeno pod Orodja, nežen pulse) */}
+                        {/* 1. FILTRIRAJ VIRE */}
+                        {router.pathname === '/' && (
+                            <button onClick={() => { onOpenFilter(); setMobileMenuOpen(false); }} className="w-full flex items-center gap-3 px-2 py-3 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100/50 dark:hover:bg-gray-900/50">
+                                <svg className="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" /></svg>
+                                <span className="text-left">Filtriraj vire</span>
+                            </button>
+                        )}
+
+                        {/* 2. MEDIJSKI PRESEK */}
+                         <Link href="/analiza" prefetch={false} onClick={() => setMobileMenuOpen(false)} className="flex items-center justify-between px-2 py-3 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100/50 dark:hover:bg-gray-900/50 group">
+                            <div className="flex items-center gap-3">
+                                <svg className="w-5 h-5 text-gray-400 group-hover:text-brand transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M15.042 21.672 13.684 16.6m0 0-2.51 2.225.569-9.47 5.227 7.917-3.286-.672Zm-7.518-.267A8.25 8.25 0 1 1 20.25 10.5M8.288 14.212A5.25 5.25 0 1 1 17.25 10.5" />
+                                </svg>
+                                <span className="text-left">Medijski Presek</span>
+                            </div>
+                        </Link>
+
+                        {/* 3. ARHIV NOVIC */}
+                        <Link href="/arhiv" onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-3 px-2 py-3 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100/50 dark:hover:bg-gray-900/50">
+                            <svg className="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                                <line x1="16" y1="2" x2="16" y2="6" />
+                                <line x1="8" y1="2" x2="8" y2="6" />
+                                <line x1="3" y1="10" x2="21" y2="10" />
+                                <path d="M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01M16 18h.01" strokeLinecap="round" />
+                            </svg>
+                            <span className="text-left">Arhiv novic</span>
+                        </Link>
+
+                        {/* 4. JUTRANJI PREGLED */}
+                        <Link href="/pregled" onClick={() => setMobileMenuOpen(false)} className="flex items-center justify-between px-2 py-3 rounded-lg text-brand hover:bg-brand/10 dark:hover:bg-brand/10 transition-colors group">
+                            <div className="flex items-center gap-3">
+                                <span className="text-lg leading-none -ml-0.5">☕</span>
+                                <span className="text-left font-semibold">Jutranji pregled</span>
+                            </div>
+                        </Link>
+                        
+                        {/* 5. TEMA */}
+                        {mounted && (
+                            <button onClick={() => setTheme(isDark ? 'light' : 'dark')} className="w-full flex items-center gap-3 px-2 py-3 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100/50 dark:hover:bg-gray-900/50">
+                                <span className="text-lg leading-none">{isDark ? '🌙' : '☀️'}</span>
+                                <span className="text-left">{isDark ? 'Svetla tema' : 'Temna tema'}</span>
+                            </button>
+                        )}
+
+                        {/* 6. DANAŠNJI UTRIP NA MOBILE (Zdaj na dnu pod Orodja) */}
                         {archiveData && (
-                          <div className="mx-1 mb-4 mt-2 bg-slate-50 dark:bg-slate-900/50 rounded-xl p-4 border border-slate-200 dark:border-slate-800">
+                          <div className="mx-1 mt-4 mb-2 bg-slate-50 dark:bg-slate-900/50 rounded-xl p-4 border border-slate-200 dark:border-slate-800">
                              <div className="flex items-center gap-2 mb-4">
                                 <span className="relative flex h-1.5 w-1.5">
                                   <span className="animate-[pulse_2s_cubic-bezier(0.4,0,0.6,1)_infinite] absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-75"></span>
@@ -693,52 +743,6 @@ export default function Header({
                                 Celotna statistika →
                              </Link>
                           </div>
-                        )}
-
-                        {/* 2. FILTRIRAJ VIRE */}
-                        {router.pathname === '/' && (
-                            <button onClick={() => { onOpenFilter(); setMobileMenuOpen(false); }} className="w-full flex items-center gap-3 px-2 py-3 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100/50 dark:hover:bg-gray-900/50">
-                                <svg className="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" /></svg>
-                                <span className="text-left">Filtriraj vire</span>
-                            </button>
-                        )}
-
-                        {/* 3. MEDIJSKI PRESEK */}
-                         <Link href="/analiza" prefetch={false} onClick={() => setMobileMenuOpen(false)} className="flex items-center justify-between px-2 py-3 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100/50 dark:hover:bg-gray-900/50 group">
-                            <div className="flex items-center gap-3">
-                                <svg className="w-5 h-5 text-gray-400 group-hover:text-brand transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="M15.042 21.672 13.684 16.6m0 0-2.51 2.225.569-9.47 5.227 7.917-3.286-.672Zm-7.518-.267A8.25 8.25 0 1 1 20.25 10.5M8.288 14.212A5.25 5.25 0 1 1 17.25 10.5" />
-                                </svg>
-                                <span className="text-left">Medijski Presek</span>
-                            </div>
-                        </Link>
-
-                        {/* 4. ARHIV NOVIC */}
-                        <Link href="/arhiv" onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-3 px-2 py-3 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100/50 dark:hover:bg-gray-900/50">
-                            <svg className="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
-                                <line x1="16" y1="2" x2="16" y2="6" />
-                                <line x1="8" y1="2" x2="8" y2="6" />
-                                <line x1="3" y1="10" x2="21" y2="10" />
-                                <path d="M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01M16 18h.01" strokeLinecap="round" />
-                            </svg>
-                            <span className="text-left">Arhiv novic</span>
-                        </Link>
-
-                        {/* 5. JUTRANJI PREGLED */}
-                        <Link href="/pregled" onClick={() => setMobileMenuOpen(false)} className="flex items-center justify-between px-2 py-3 rounded-lg text-brand hover:bg-brand/10 dark:hover:bg-brand/10 transition-colors group">
-                            <div className="flex items-center gap-3">
-                                <span className="text-lg leading-none -ml-0.5">☕</span>
-                                <span className="text-left font-semibold">Jutranji pregled</span>
-                            </div>
-                        </Link>
-                        
-                        {/* 6. TEMA */}
-                        {mounted && (
-                            <button onClick={() => setTheme(isDark ? 'light' : 'dark')} className="w-full flex items-center gap-3 px-2 py-3 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100/50 dark:hover:bg-gray-900/50">
-                                <span className="text-lg leading-none">{isDark ? '🌙' : '☀️'}</span>
-                                <span className="text-left">{isDark ? 'Svetla tema' : 'Temna tema'}</span>
-                            </button>
                         )}
                     </div>
 
