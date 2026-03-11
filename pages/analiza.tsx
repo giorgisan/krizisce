@@ -1,4 +1,4 @@
-import React, { useState, ComponentType } from 'react'
+import React, { useState, useEffect, ComponentType } from 'react'
 import { GetStaticProps } from 'next'
 import Head from 'next/head'
 import Image from 'next/image' 
@@ -63,23 +63,35 @@ const getLogoSrc = (sourceName: string) => {
   return '/logo.png';
 }
 
-// --- MODALNO OKNO ---
+// --- MODALNO OKNO (POPRAVLJEN MOBILE SCROLL IN ZAKLEP OZADJA) ---
 function HowItWorksModal({ onClose }: { onClose: () => void }) {
+  
+  // ZAKLENEMO SCROLLANJE OZADJA KO JE POP-UP ODPRT
+  useEffect(() => {
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, []);
+
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm transition-opacity" onClick={onClose}>
       <div 
-        className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden border border-gray-200 dark:border-gray-700 relative transform transition-transform scale-100"
+        // Omejili smo višino na 90vh (90% zaslona) in ga spremenili v flex-col
+        className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col overflow-hidden border border-gray-200 dark:border-gray-700 relative transform transition-transform scale-100"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="p-6 md:p-8">
-          <button 
-            onClick={onClose}
-            className="absolute top-4 right-4 p-2 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors rounded-full hover:bg-gray-100 dark:hover:bg-gray-800"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12"></path></svg>
-          </button>
+        {/* Absolute "X" gumb ostane vedno zgoraj desno, z-10 ga drži nad vsebino */}
+        <button 
+          onClick={onClose}
+          className="absolute top-4 right-4 p-2 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 z-10"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12"></path></svg>
+        </button>
 
-          <h2 className="text-xl md:text-2xl font-serif font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+        {/* Vsebinski del, ki omogoča drsenje (overflow-y-auto) */}
+        <div className="p-6 md:p-8 overflow-y-auto">
+          <h2 className="text-xl md:text-2xl font-serif font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2 pr-6">
             <span className="text-brand">💡</span> Kako deluje UI analiza?
           </h2>
           
@@ -117,7 +129,9 @@ function HowItWorksModal({ onClose }: { onClose: () => void }) {
             </p>
           </div>
         </div>
-        <div className="bg-gray-50 dark:bg-gray-800/80 px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex justify-end">
+
+        {/* Noga okna z gumbom ostane vedno vidna spodaj (shrink-0 preprečuje krčenje) */}
+        <div className="bg-gray-50 dark:bg-gray-800/80 px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex justify-end shrink-0">
           <button 
             onClick={onClose}
             className="px-5 py-2 bg-gray-900 hover:bg-black dark:bg-white dark:hover:bg-gray-100 text-white dark:text-gray-900 text-sm font-bold rounded-lg transition-colors"
@@ -125,6 +139,7 @@ function HowItWorksModal({ onClose }: { onClose: () => void }) {
             Razumem
           </button>
         </div>
+
       </div>
     </div>
   )
@@ -385,18 +400,16 @@ export default function AnalizaPage({ analysis, lastUpdated }: Props) {
                       Medijski presek
                   </h1>
                   
-                  {/* --- POPRAVEK: Oznaka <p> z inline-flex gumbom, ki posnema naravno besedo in se pravilno prelomi --- */}
-                  <p className="text-[13px] md:text-[14px] text-gray-500 dark:text-gray-400 mt-2.5 max-w-2xl leading-relaxed">
-                    <strong className="text-gray-700 dark:text-gray-300">Ena novica. Več naslovov. <span className="text-gray-900 dark:text-white">Kdo pretirava?</span></strong> Strojna analiza medijskega poročanja razkriva informacijski šum, čustveni naboj ter novinarsko pristranskost.{' '}
+                  <p className="text-[13px] md:text-[14px] text-gray-500 dark:text-gray-400 mt-2.5 max-w-2xl leading-relaxed inline-block">
+                    <strong className="text-gray-700 dark:text-gray-300">Ena novica. Več naslovov. <span className="text-gray-900 dark:text-white">Kdo pretirava?</span></strong> Strojna analiza medijskega poročanja razkriva informacijski šum, čustveni naboj ter novinarsko pristranskost.
                     <button 
                       onClick={() => setShowInfoModal(true)} 
-                      className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-gray-200/80 hover:bg-gray-300 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 font-medium transition-colors text-[11px] md:text-[12px] whitespace-nowrap focus:outline-none align-middle transform -translate-y-[1px]"
+                      className="inline-flex items-center gap-1.5 px-2 py-0.5 ml-1.5 rounded-md bg-gray-100/80 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 font-medium transition-colors text-[12px] focus:outline-none align-middle translate-y-[-1px]"
                     >
                       <svg className="w-3.5 h-3.5 opacity-70" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" /></svg>
                       Kako deluje
                     </button>
                   </p>
-                  {/* -------------------------------------------------------- */}
 
                 </div>
                 
