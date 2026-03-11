@@ -406,7 +406,7 @@ export default function Home({ initialNews, initialTrendingWords, initialTrendin
                 </div>
             )}
 
-            {/* --- HERO SEKCIJA: AI Briefing (Levo) & Medijski presek (Desno) --- */}
+            {/* --- HERO SEKCIJA: AI Briefing (Levo) & Medijska analiza (Desno) --- */}
             {showHeroSection && (
                  <div className="flex flex-col lg:flex-row gap-4 lg:gap-8 items-stretch mb-6">
                      
@@ -417,7 +417,7 @@ export default function Home({ initialNews, initialTrendingWords, initialTrendin
                          )}
                      </div>
 
-                     {/* Desni stolpec - Medijski presek Banner (Prikazan SAMO na desktopu, skrit na mobilcu) */}
+                     {/* Desni stolpec - Medijska analiza Banner (Prikazan SAMO na desktopu, skrit na mobilcu) */}
                      <div className="hidden lg:block w-full lg:w-[340px] xl:w-[380px] shrink-0">
                          <Link 
                             href="/analiza" 
@@ -440,7 +440,7 @@ export default function Home({ initialNews, initialTrendingWords, initialTrendin
                                          </svg>
                                      </div>
                                      <div>
-                                         <h3 className="text-[15px] font-bold text-gray-700 dark:text-gray-300 mb-0.5 group-hover:text-brand transition-colors">Medijski presek</h3>
+                                         <h3 className="text-[15px] font-bold text-gray-700 dark:text-gray-300 mb-0.5 group-hover:text-brand transition-colors">Medijska analiza</h3>
                                          <p className="text-[12px] text-gray-500/80 dark:text-gray-400/80 transition-colors group-hover:text-gray-500 dark:group-hover:text-gray-400">Analiza pristopa k poročanju</p>
                                      </div>
                                  </div>
