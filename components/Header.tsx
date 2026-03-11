@@ -95,7 +95,7 @@ export default function Header({
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
-  // Fetch današnje statistike (sessionStorage + explicit date)
+  // Fetch današnje statistike
   useEffect(() => {
     const CACHE_KEY = 'krizisce-pulse-v1'
     const CACHE_DURATION = 1000 * 60 * 5
@@ -356,9 +356,10 @@ export default function Header({
              </button>
           </div>
 
-          <div className="hidden md:flex items-center gap-4 shrink-0 ml-auto">
+          {/* Orodjarna - Manjši razmaki (gap-2.5) */}
+          <div className="hidden md:flex items-center gap-2.5 shrink-0 ml-auto">
             {router.pathname === '/' && (
-              <div className="w-64 lg:w-80">
+              <div className="w-48 lg:w-64"> {/* Iskalnik je sedaj ožji */}
                 <form onSubmit={handleSubmit} className="relative group">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                     <svg className="h-4 w-4 text-gray-400 group-focus-within:text-brand transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -367,10 +368,10 @@ export default function Header({
                   </div>
                   <input
                     type="search"
-                    placeholder="Išči po naslovu ali podnaslovu ..."
-                    className="block w-full pl-10 pr-3 py-1.5 bg-gray-100 dark:bg-gray-800 border border-transparent 
+                    placeholder="Išči ..."
+                    className="block w-full pl-9 pr-3 py-1.5 bg-gray-100 dark:bg-gray-800 border border-transparent 
                                focus:bg-white dark:focus:bg-black focus:border-brand/30 focus:ring-2 focus:ring-brand/10
-                               rounded-md text-sm transition-all placeholder-gray-500 text-gray-900 dark:text-white"
+                               rounded-md text-[13px] transition-all placeholder-gray-500 text-gray-900 dark:text-white"
                     value={searchVal}
                     onChange={handleSearchChange}
                   />
@@ -378,25 +379,26 @@ export default function Header({
               </div>
             )}
 
-            <div className="h-6 w-px bg-gray-200 dark:bg-gray-700"></div>
-            
-            {/* MEDIJSKI UTRIP (Pill) - Nevtralen pill, zelena pika s pulse */}
+            <div className="h-5 w-px bg-gray-200 dark:bg-gray-700 ml-1"></div>
+
+            {/* MEDIJSKI UTRIP - Nežen pulse */}
             {mounted && archiveData && (
-              <div className="relative" ref={pulseRef}>
+              <div className="relative ml-1" ref={pulseRef}>
                 <button
                   onClick={() => setIsPulseOpen(!isPulseOpen)}
-                  className={`flex items-center gap-2.5 px-3 py-1.5 rounded-full border transition-all duration-300 ${
+                  className={`flex items-center gap-2 px-2.5 py-1.5 rounded-full border transition-all duration-300 ${
                     isPulseOpen 
                     ? 'bg-slate-100 dark:bg-slate-800 border-slate-300 dark:border-slate-600' 
                     : 'bg-slate-50 dark:bg-slate-800/40 border-slate-200 dark:border-slate-700/50 hover:bg-slate-100 dark:hover:bg-slate-800'
                   }`}
                 >
-                  <span className="relative flex h-2 w-2">
-                    <span className="animate-pulse absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                  <span className="relative flex h-1.5 w-1.5">
+                    {/* Zelo nežen pulse - uporabljamo opacity animacijo namesto scale ping-a */}
+                    <span className="animate-[pulse_2s_cubic-bezier(0.4,0,0.6,1)_infinite] absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span>
                   </span>
-                  <span className="text-[11px] font-bold text-slate-600 dark:text-slate-300 tabular-nums tracking-tight">
-                    Št. novic: {archiveData.total}
+                  <span className="text-[11px] font-bold text-slate-600 dark:text-slate-300 tabular-nums uppercase tracking-tight">
+                    št. novic: {archiveData.total}
                   </span>
                 </button>
 
@@ -406,10 +408,10 @@ export default function Header({
                       initial={{ opacity: 0, y: 10, scale: 0.95 }}
                       animate={{ opacity: 1, y: 0, scale: 1 }}
                       exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                      className="absolute right-0 mt-2 w-56 bg-white dark:bg-gray-900 rounded-xl shadow-2xl border border-gray-100 dark:border-gray-800 p-4 z-[100]"
+                      className="absolute right-0 mt-2 w-52 bg-white dark:bg-gray-900 rounded-xl shadow-2xl border border-gray-100 dark:border-gray-800 p-4 z-[100]"
                     >
                       <h4 className="text-[10px] uppercase tracking-widest font-bold text-gray-400 mb-3">Današnje objave</h4>
-                      <div className="space-y-2.5">
+                      <div className="space-y-2">
                         {Object.entries(archiveData.counts)
                           .sort((a, b) => b[1] - a[1])
                           .slice(0, 8)
@@ -419,14 +421,14 @@ export default function Header({
                                 <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: sourceColors[source] || '#ccc' }} />
                                 <span className="text-xs text-gray-600 dark:text-gray-300 truncate">{source}</span>
                               </div>
-                              <span className="text-xs font-mono font-bold text-gray-900 dark:text-white">{count}</span>
+                              <span className="text-[11px] font-mono font-bold text-gray-900 dark:text-white">{count}</span>
                             </div>
                           ))}
                       </div>
                       <Link 
                         href="/arhiv" 
                         onClick={() => setIsPulseOpen(false)}
-                        className="mt-4 block pt-3 border-t border-gray-50 dark:border-gray-800 text-[11px] font-bold text-brand hover:underline text-center"
+                        className="mt-3 block pt-3 border-t border-gray-50 dark:border-gray-800 text-[11px] font-bold text-brand hover:underline text-center"
                       >
                         Poglej celoten arhiv →
                       </Link>
@@ -435,10 +437,16 @@ export default function Header({
                 </AnimatePresence>
               </div>
             )}
-
+            
+            {/* VREME - Hover prikaže mesto */}
             {weather && (
-              <div className="flex items-center text-xs font-semibold text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-800/50 px-2.5 py-1 rounded-full border border-gray-200/50 dark:border-gray-700/50" title={`${weather.city}: ${weather.temp}°C`}>
-                  <span className="mr-1.5">{weather.city}</span>
+              <div 
+                className="group flex items-center text-[11px] font-semibold text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-800/50 px-2 py-1.5 rounded-full border border-gray-200/50 dark:border-gray-700/50 transition-all cursor-default" 
+                title="Vreme"
+              >
+                  <span className="max-w-0 overflow-hidden opacity-0 group-hover:max-w-xs group-hover:opacity-100 group-hover:mr-1.5 transition-all duration-300 ease-out whitespace-nowrap">
+                      {weather.city}
+                  </span>
                   <span className="text-gray-900 dark:text-white mr-1">{weather.temp} °C</span>
                   <span className="text-sm leading-none">{weather.icon}</span>
               </div>
@@ -447,21 +455,21 @@ export default function Header({
             {router.pathname === '/' && (
               <button 
                 onClick={onOpenFilter}
-                className={`relative p-2 rounded-md transition-colors ${activeSource !== 'Vse' ? 'text-brand bg-brand/10' : 'text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800'}`}
+                className={`relative p-1.5 rounded-md transition-colors ${activeSource !== 'Vse' ? 'text-brand bg-brand/10' : 'text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800'}`}
                 title="Filtriraj po viru"
               >
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
                 </svg>
                 {activeSource !== 'Vse' && (
-                  <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-brand rounded-full ring-2 ring-white dark:ring-gray-900" />
+                  <span className="absolute top-1 right-1 w-1.5 h-1.5 bg-brand rounded-full ring-2 ring-white dark:ring-gray-900" />
                 )}
               </button>
             )}
 
             <Link
                 href="/arhiv"
-                className={`p-2 rounded-md transition-colors text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800 ${router.pathname === '/arhiv' ? 'text-brand' : ''}`}
+                className={`p-1.5 rounded-md transition-colors text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800 ${router.pathname === '/arhiv' ? 'text-brand' : ''}`}
                 title="Arhiv"
             >
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -476,7 +484,8 @@ export default function Header({
             {mounted && (
                 <button
                     onClick={() => setTheme(isDark ? 'light' : 'dark')}
-                    className="p-2 rounded-md text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800 transition-colors"
+                    className="p-1.5 rounded-md text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800 transition-colors"
+                    title="Preklopi temo"
                 >
                     {isDark ? (
                     <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -650,15 +659,15 @@ export default function Header({
                     <div className="space-y-1">
                         <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 pl-1 text-left">Orodja</p>
                         
-                        {/* NOVO: DANAŠNJI UTRIP NA MOBILE (Zdaj pod Orodja) */}
+                        {/* 1. DANAŠNJI UTRIP NA MOBILE (Premaknjeno pod Orodja, nežen pulse) */}
                         {archiveData && (
-                          <div className="mx-1 mb-4 bg-slate-50 dark:bg-slate-900/50 rounded-xl p-4 border border-slate-200 dark:border-slate-800">
+                          <div className="mx-1 mb-4 mt-2 bg-slate-50 dark:bg-slate-900/50 rounded-xl p-4 border border-slate-200 dark:border-slate-800">
                              <div className="flex items-center gap-2 mb-4">
-                                <span className="relative flex h-2 w-2">
-                                  <span className="animate-pulse absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                                <span className="relative flex h-1.5 w-1.5">
+                                  <span className="animate-[pulse_2s_cubic-bezier(0.4,0,0.6,1)_infinite] absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-75"></span>
+                                  <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span>
                                 </span>
-                                <span className="text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
+                                <span className="text-[11px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
                                     Današnji utrip: {archiveData.total} novic
                                 </span>
                              </div>
@@ -686,7 +695,7 @@ export default function Header({
                           </div>
                         )}
 
-                        {/* 1. FILTRIRAJ VIRE */}
+                        {/* 2. FILTRIRAJ VIRE */}
                         {router.pathname === '/' && (
                             <button onClick={() => { onOpenFilter(); setMobileMenuOpen(false); }} className="w-full flex items-center gap-3 px-2 py-3 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100/50 dark:hover:bg-gray-900/50">
                                 <svg className="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" /></svg>
@@ -694,7 +703,7 @@ export default function Header({
                             </button>
                         )}
 
-                        {/* 2. MEDIJSKI PRESEK */}
+                        {/* 3. MEDIJSKI PRESEK */}
                          <Link href="/analiza" prefetch={false} onClick={() => setMobileMenuOpen(false)} className="flex items-center justify-between px-2 py-3 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100/50 dark:hover:bg-gray-900/50 group">
                             <div className="flex items-center gap-3">
                                 <svg className="w-5 h-5 text-gray-400 group-hover:text-brand transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -704,7 +713,7 @@ export default function Header({
                             </div>
                         </Link>
 
-                        {/* 3. ARHIV NOVIC */}
+                        {/* 4. ARHIV NOVIC */}
                         <Link href="/arhiv" onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-3 px-2 py-3 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100/50 dark:hover:bg-gray-900/50">
                             <svg className="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                                 <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
@@ -716,7 +725,7 @@ export default function Header({
                             <span className="text-left">Arhiv novic</span>
                         </Link>
 
-                        {/* 4. JUTRANJI PREGLED */}
+                        {/* 5. JUTRANJI PREGLED */}
                         <Link href="/pregled" onClick={() => setMobileMenuOpen(false)} className="flex items-center justify-between px-2 py-3 rounded-lg text-brand hover:bg-brand/10 dark:hover:bg-brand/10 transition-colors group">
                             <div className="flex items-center gap-3">
                                 <span className="text-lg leading-none -ml-0.5">☕</span>
@@ -724,7 +733,7 @@ export default function Header({
                             </div>
                         </Link>
                         
-                        {/* 5. TEMA */}
+                        {/* 6. TEMA */}
                         {mounted && (
                             <button onClick={() => setTheme(isDark ? 'light' : 'dark')} className="w-full flex items-center gap-3 px-2 py-3 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100/50 dark:hover:bg-gray-900/50">
                                 <span className="text-lg leading-none">{isDark ? '🌙' : '☀️'}</span>
