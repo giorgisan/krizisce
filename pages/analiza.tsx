@@ -315,7 +315,7 @@ function AnalysisCard({ item, idx, setPreviewUrl }: { item: AnalysisItem, idx: n
           
           <div className="bg-gray-50/80 dark:bg-[#1e293b]/30 rounded-lg border border-gray-100 dark:border-gray-700/50 p-3.5 md:p-4 mt-2">
               <p className="text-[12.5px] md:text-[13.5px] text-gray-600 dark:text-gray-300 leading-relaxed">
-                  <span className="font-bold text-gray-400 dark:text-gray-500 uppercase text-[9.5px] md:text-[11px] mr-2 tracking-wider">Kontekst:</span>
+                  <span className="font-bold text-gray-400 dark:text-gray-500 uppercase text-[9.5px] md:text-[10px] mr-2 tracking-wider">Kontekst:</span>
                   {item.framing_analysis}
               </p>
           </div>
