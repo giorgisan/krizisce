@@ -395,7 +395,7 @@ export default function Header({
                       : 'bg-slate-50 dark:bg-slate-800/40 border-slate-200 dark:border-slate-700/50 hover:bg-slate-100 dark:hover:bg-slate-800'
                     }`}
                   >
-                    <span className="relative flex h-2 w-2">
+                    <span className="relative flex h-1 w-1">
                       {/* Popravljen počasen 3s utrip, ki preverjeno deluje! */}
                       <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-60 animate-[ping_3s_cubic-bezier(0,0,0.2,1)_infinite]"></span>
                       <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
@@ -718,7 +718,7 @@ export default function Header({
                         {archiveData && (
                           <div className="mx-1 mb-4 bg-slate-50 dark:bg-slate-900/50 rounded-xl p-4 border border-slate-200 dark:border-slate-800">
                              <div className="flex items-center gap-2 mb-4">
-                                <span className="relative flex h-1.5 w-1.5">
+                                <span className="relative flex h-1 w-1">
                                   <span className="animate-[pulse_3s_ease-in-out_infinite] absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-80"></span>
                                   <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span>
                                 </span>
