@@ -63,7 +63,7 @@ const getLogoSrc = (sourceName: string) => {
   return '/logo.png';
 }
 
-// --- MODALNO OKNO ---
+// --- MODALNO OKNO (Ostane SUPER!) ---
 function HowItWorksModal({ onClose }: { onClose: () => void }) {
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm transition-opacity" onClick={onClose}>
@@ -304,7 +304,7 @@ function AnalysisCard({ item, idx, setPreviewUrl }: { item: AnalysisItem, idx: n
                   <div className="text-[9px] font-bold uppercase tracking-wider text-gray-400 mb-2">Ključna dejstva</div>
                   <ul className="space-y-1.5 md:space-y-2">
                       {bullets.map((bullet, bIdx) => (
-                          <li key={bIdx} className="text-[13px] md:text-[14px] text-gray-700 dark:text-gray-300 leading-relaxed flex items-start gap-2.5">
+                          <li key={bIdx} className="text-[13px] md:text-[14px] text-gray-700 dark:text-gray-300 leading-snug flex items-start gap-2.5">
                               <span className="text-brand mt-1.5 w-1 h-1 rounded-full shrink-0 bg-brand"></span>
                               <span>{bullet}</span>
                           </li>
@@ -314,9 +314,8 @@ function AnalysisCard({ item, idx, setPreviewUrl }: { item: AnalysisItem, idx: n
           </div>
           
           <div className="bg-gray-50/80 dark:bg-[#1e293b]/30 rounded-lg border border-gray-100 dark:border-gray-700/50 p-3.5 md:p-4 mt-2">
-              {/* POPRAVEK: text-[13px] md:text-[14px] in leading-relaxed za uskladitev s ključnimi dejstvi */}
-              <p className="text-[13px] md:text-[14px] text-gray-600 dark:text-gray-300 leading-relaxed">
-                  <span className="font-bold text-gray-400 dark:text-gray-500 uppercase text-[9.5px] md:text-[10px] mr-2 tracking-wider">Kontekst:</span>
+              <p className="text-[12.5px] md:text-[13.5px] text-gray-600 dark:text-gray-300 leading-relaxed">
+                  <span className="font-bold text-gray-400 dark:text-gray-500 uppercase text-[10.5px] md:text-[10px] mr-2 tracking-wider">Kontekst:</span>
                   {item.framing_analysis}
               </p>
           </div>
@@ -386,6 +385,7 @@ export default function AnalizaPage({ analysis, lastUpdated }: Props) {
                       Medijski presek
                   </h1>
                   
+                  {/* --- GLAVA STRANI (Natančna replika slike image_dfed9f.png) --- */}
                   <p className="text-[13px] md:text-[14px] text-gray-500 dark:text-gray-400 mt-2.5 max-w-2xl leading-relaxed inline-block">
                     <strong className="text-gray-700 dark:text-gray-300">Ena novica. Več naslovov. <span className="text-gray-900 dark:text-white">Kdo pretirava?</span></strong> Strojna analiza medijskega poročanja razkriva informacijski šum, čustveni naboj ter novinarsko pristranskost.
                     <button 
@@ -396,6 +396,7 @@ export default function AnalizaPage({ analysis, lastUpdated }: Props) {
                       Kako deluje
                     </button>
                   </p>
+                  {/* -------------------------------------------------------- */}
 
                 </div>
                 
