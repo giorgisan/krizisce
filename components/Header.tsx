@@ -395,7 +395,7 @@ export default function Header({
                     <span className="animate-pulse absolute inline-flex h-full w-full rounded-full bg-gray-400 opacity-75"></span>
                     <span className="relative inline-flex rounded-full h-2 w-2 bg-gray-500"></span>
                   </span>
-                  <span className="text-[11px] font-bold text-gray-600 dark:text-gray-400 tabular-nums uppercase tracking-tight">
+                  <span className="text-[11px] font-bold text-gray-600 dark:text-gray-400 tabular-nums tracking-tight">
                     št. novic: {archiveData.total}
                   </span>
                 </button>
