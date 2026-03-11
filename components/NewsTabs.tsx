@@ -1,6 +1,6 @@
 'use client'
 
-import React from 'react'
+import React, { useRef, useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
 import Link from 'next/link'
 
@@ -35,7 +35,9 @@ const TABS = [
   },
   {
     id: 'monitor',
-    label: 'Medijski presek',
+    // Mobile: "Presek" | Desktop: "Medijski presek"
+    labelMobile: 'Presek',
+    labelDesktop: 'Medijski presek',
     isLink: true,
     href: '/analiza',
     icon: (
@@ -47,65 +49,97 @@ const TABS = [
 ]
 
 export default function NewsTabs({ active, onChange }: NewsTabsProps) {
-  // Ločimo tabe na tiste, ki menjajo stanje in tiste, ki so povezave
   const stateTabs = TABS.filter(t => !t.isLink)
   const linkTabs = TABS.filter(t => t.isLink)
 
+  // UX dodatek: detekcija scrolla, da vemo, ali naj prikažemo "fading edge" senco na desni
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [canScrollRight, setCanScrollRight] = useState(false);
+
+  const checkScroll = () => {
+      if (scrollRef.current) {
+          const { scrollLeft, scrollWidth, clientWidth } = scrollRef.current;
+          // Če imamo še več kot 5px za scrollanje v desno, prikaži indikator
+          setCanScrollRight(scrollLeft < scrollWidth - clientWidth - 5);
+      }
+  };
+
+  useEffect(() => {
+      checkScroll();
+      window.addEventListener('resize', checkScroll);
+      return () => window.removeEventListener('resize', checkScroll);
+  }, []);
+
   return (
-    <div className="flex items-center justify-start w-full gap-2 sm:gap-3 overflow-x-auto no-scrollbar pb-1">
-      
-      {/* 1. KAPSULA ZA STANJE (Najnovejše / Aktualno) */}
-      <div className="relative flex p-1 bg-gray-200/50 dark:bg-gray-800/60 rounded-full backdrop-blur-sm border border-gray-200 dark:border-gray-700/50 shrink-0">
-        {stateTabs.map((tab) => {
-          const isActive = tab.id === active
+    <div className="relative w-full">
+        {/* Fading Edge Indikator na desni (viden samo, ko je scroll mogoč) */}
+        <div 
+            className={`absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-[#F9FAFB] dark:from-gray-900 to-transparent pointer-events-none z-30 transition-opacity duration-300 ${canScrollRight ? 'opacity-100' : 'opacity-0'}`} 
+            aria-hidden="true" 
+        />
+
+        <div 
+            ref={scrollRef}
+            onScroll={checkScroll}
+            // pr-4 (padding-right) poskrbi, da gumb ob scrollu na konec ne butne ostro v rob zaslona
+            className="flex items-center justify-start w-full gap-2 sm:gap-3 overflow-x-auto no-scrollbar pb-1 pr-4 sm:pr-0"
+        >
           
-          return (
-            <button
-              key={tab.id}
-              onClick={() => onChange(tab.id)}
-              className={`relative z-10 flex items-center px-3 sm:px-4 py-1.5 text-[13px] sm:text-sm font-medium transition-colors duration-200 rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand shrink-0
-                ${isActive 
-                  ? 'text-gray-900 dark:text-white' 
-                  : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
-                }`}
-              style={{ WebkitTapHighlightColor: 'transparent' }}
+          {/* 1. KAPSULA ZA STANJE (Najnovejše / Aktualno) */}
+          <div className="relative flex p-1 bg-gray-200/50 dark:bg-gray-800/60 rounded-full backdrop-blur-sm border border-gray-200 dark:border-gray-700/50 shrink-0">
+            {stateTabs.map((tab) => {
+              const isActive = tab.id === active
+              
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => onChange(tab.id)}
+                  className={`relative z-10 flex items-center px-3 sm:px-4 py-1.5 text-[13px] sm:text-sm font-medium transition-colors duration-200 rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand shrink-0
+                    ${isActive 
+                      ? 'text-gray-900 dark:text-white' 
+                      : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
+                    }`}
+                  style={{ WebkitTapHighlightColor: 'transparent' }}
+                >
+                  <span className={`flex items-center relative z-20 ${isActive && tab.id === 'trending' ? 'text-brand' : ''}`}>
+                    {tab.id === 'trending' && isActive ? (
+                        <span className="text-brand">{tab.icon}</span>
+                    ) : (
+                        <span>{tab.icon}</span>
+                    )}
+                    {tab.label}
+                  </span>
+
+                  {isActive && (
+                    <motion.div
+                      layoutId="active-pill"
+                      className="absolute inset-0 bg-white dark:bg-gray-700 shadow-sm rounded-full z-10"
+                      transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+                    />
+                  )}
+                </button>
+              )
+            })}
+          </div>
+
+          {/* 2. SAMOSTOJEN GUMB ZA MONITOR (Odcepljen) */}
+          {linkTabs.map((tab) => (
+            <Link 
+                key={tab.id} 
+                href={tab.href!} 
+                className="flex items-center px-3 sm:px-4 py-[7px] text-[13px] sm:text-sm font-medium transition-all duration-200 rounded-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm text-gray-600 dark:text-gray-300 hover:text-brand hover:border-brand/30 hover:bg-gray-50 dark:hover:bg-gray-700 shrink-0"
+                style={{ WebkitTapHighlightColor: 'transparent' }}
             >
-              <span className={`flex items-center relative z-20 ${isActive && tab.id === 'trending' ? 'text-brand' : ''}`}>
-                {tab.id === 'trending' && isActive ? (
-                   <span className="text-brand">{tab.icon}</span>
-                ) : (
-                   <span>{tab.icon}</span>
-                )}
-                {tab.label}
-              </span>
+                <span className="flex items-center transition-colors">
+                  <span>{tab.icon}</span>
+                  {/* Prikaz različnih label za mobile in desktop */}
+                  <span className="sm:hidden">{tab.labelMobile}</span>
+                  <span className="hidden sm:inline">{tab.labelDesktop}</span>
+                </span>
+            </Link>
+          ))}
 
-              {isActive && (
-                <motion.div
-                  layoutId="active-pill"
-                  className="absolute inset-0 bg-white dark:bg-gray-700 shadow-sm rounded-full z-10"
-                  transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-                />
-              )}
-            </button>
-          )
-        })}
-      </div>
-
-      {/* 2. SAMOSTOJEN GUMB ZA MONITOR (Odcepljen) */}
-      {linkTabs.map((tab) => (
-         <Link 
-            key={tab.id} 
-            href={tab.href!} 
-            className="flex items-center px-3 sm:px-4 py-[7px] text-[13px] sm:text-sm font-medium transition-all duration-200 rounded-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm text-gray-600 dark:text-gray-300 hover:text-brand hover:border-brand/30 hover:bg-gray-50 dark:hover:bg-gray-700 shrink-0"
-            style={{ WebkitTapHighlightColor: 'transparent' }}
-         >
-            <span className="flex items-center group-hover:text-brand transition-colors">
-               <span>{tab.icon}</span>
-               {tab.label}
-            </span>
-         </Link>
-      ))}
-
+        </div>
     </div>
   )
 }
