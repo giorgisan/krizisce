@@ -332,10 +332,8 @@ export default function Header({
                                text-[10px] md:text-xs font-medium rounded-full 
                                transition-all cursor-pointer ml-3 backdrop-blur-sm"
                 >
-                    <span className="relative flex h-2 w-2">
-                      <span className="absolute inline-flex h-full w-full rounded-full bg-[#10b981] opacity-75 animate-[ping_3s_cubic-bezier(0,0,0.2,1)_infinite]"></span>
-                      <span className="relative inline-flex rounded-full h-2 w-2 bg-[#10b981]"></span>
-                    </span>
+                    <span className="inline-flex rounded-full h-[5px] w-[5px] bg-emerald-500 animate-[pulse_3s_ease-in-out_infinite]"></span>
+
                     <span className="flex items-center leading-none">
                         <span className="font-bold">Na voljo so sveže novice</span>
                         <span className="ml-1 opacity-80">— kliknite za osvežitev</span>
@@ -395,10 +393,8 @@ export default function Header({
                       : 'bg-slate-50 dark:bg-slate-800/40 border-slate-200 dark:border-slate-700/50 hover:bg-slate-100 dark:hover:bg-slate-800 hover:border-slate-300 dark:hover:border-slate-600'
                     }`}
                   >
-                    <span className="relative flex h-2.5 w-2.5 items-center justify-center">
-                      <span className="animate-[ping_4s_ease-in-out_infinite] absolute inline-flex h-[3px] w-[3px] rounded-full bg-emerald-400 opacity-40"></span>
-                      <span className="relative inline-flex rounded-full h-[3px] w-[3px] bg-emerald-500"></span>
-                    </span>
+                    <span className="inline-flex rounded-full h-[5px] w-[5px] bg-emerald-500 animate-[pulse_3s_ease-in-out_infinite]"></span>
+
                     <span className="text-[11px] font-bold text-slate-600 dark:text-slate-300 tabular-nums uppercase tracking-tight leading-none pt-px">
                       Danes: {archiveData.total}
                     </span>
