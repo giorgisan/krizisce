@@ -385,17 +385,17 @@ export default function AnalizaPage({ analysis, lastUpdated }: Props) {
                       Medijski presek
                   </h1>
                   
-                  {/* --- GLAVA STRANI (POPRAVEK ZA MOBILE: Gumb je ločen blok z razmikom, če se prelomi) --- */}
-                  <div className="mt-2.5 max-w-2xl text-[13px] md:text-[14px] text-gray-500 dark:text-gray-400 leading-relaxed">
-                    <strong className="text-gray-700 dark:text-gray-300">Ena novica. Več naslovov. <span className="text-gray-900 dark:text-white">Kdo pretirava?</span></strong> Strojna analiza medijskega poročanja razkriva informacijski šum, čustveni naboj ter novinarsko pristranskost.
+                  {/* --- POPRAVEK: Oznaka <p> z inline-flex gumbom, ki posnema naravno besedo in se pravilno prelomi --- */}
+                  <p className="text-[13px] md:text-[14px] text-gray-500 dark:text-gray-400 mt-2.5 max-w-2xl leading-relaxed">
+                    <strong className="text-gray-700 dark:text-gray-300">Ena novica. Več naslovov. <span className="text-gray-900 dark:text-white">Kdo pretirava?</span></strong> Strojna analiza medijskega poročanja razkriva informacijski šum, čustveni naboj ter novinarsko pristranskost.{' '}
                     <button 
                       onClick={() => setShowInfoModal(true)} 
-                      className="inline-flex items-center justify-center gap-1.5 px-2 py-0.5 mt-2 md:mt-0 md:ml-1.5 rounded-md bg-gray-100/80 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 font-medium transition-colors text-[12px] focus:outline-none md:align-middle md:translate-y-[-1px] border border-gray-200 dark:border-gray-700 md:border-transparent whitespace-nowrap"
+                      className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-gray-200/80 hover:bg-gray-300 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 font-medium transition-colors text-[11px] md:text-[12px] whitespace-nowrap focus:outline-none align-middle transform -translate-y-[1px]"
                     >
                       <svg className="w-3.5 h-3.5 opacity-70" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" /></svg>
                       Kako deluje
                     </button>
-                  </div>
+                  </p>
                   {/* -------------------------------------------------------- */}
 
                 </div>
