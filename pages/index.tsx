@@ -441,7 +441,7 @@ export default function Home({ initialNews, initialTrendingWords, initialTrendin
                                      </div>
                                      <div>
                                          <h3 className="text-[15px] font-bold text-gray-700 dark:text-gray-300 mb-0.5 group-hover:text-brand transition-colors">Medijska analiza</h3>
-                                         <p className="text-[12px] text-gray-500/80 dark:text-gray-400/80 transition-colors group-hover:text-gray-500 dark:group-hover:text-gray-400">Analiza pristopa k poročanju</p>
+                                         <p className="text-[12px] text-gray-500/80 dark:text-gray-400/80 transition-colors group-hover:text-gray-500 dark:group-hover:text-gray-400">Vpogled v način poročanja</p>
                                      </div>
                                  </div>
                                  
