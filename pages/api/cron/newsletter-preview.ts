@@ -48,7 +48,8 @@ const newsletterSchema = {
         whats_ahead: { type: SchemaType.STRING },
         closing_line: { type: SchemaType.STRING }
     },
-    required: ["intro", "categories", "whats_ahead", "closing_line"]
+    // KLJUČNO: Odstranil sem "whats_ahead" iz obveznih polj. AI ga zdaj lahko preprosto ignorira.
+    required: ["intro", "categories", "closing_line"]
 };
 
 // --- AI VALIDATOR ---
@@ -71,7 +72,8 @@ TASK:
 3. Check for "hallucinations".
 4. TEMPORAL CHECK (CRITICAL): Ensure temporal references are correct relative to TODAY (${currentDayStr}). If a news source says something is happening "v torek" and today is "torek", the newsletter MUST say "danes" (today), not "v torek".
 5. RELEVANCE & OUTDATED NEWS (CRITICAL): If the OUTPUT describes a temporary state from yesterday that is no longer relevant today (e.g., "dolge kolone na črpalkah", "zaprta avtocesta", "prometni zastoji"), you MUST rewrite it to reflect today's reality (e.g., "Nove cene goriv so danes stopile v veljavo...") or completely REMOVE the item if it has zero relevance today. Do not send readers stale news. It is better to have an empty section than outdated news.
-6. Return the corrected OUTPUT as valid JSON matching the exact original structure.
+6. WHATS_AHEAD CHECK: If the 'whats_ahead' field contains general statements, philosophical questions, or events NOT explicitly mentioned in the source as happening in the future, REMOVE the 'whats_ahead' field completely.
+7. Return the corrected OUTPUT as valid JSON matching the exact original structure.
 `;
 
     const model = genAI.getGenerativeModel({ 
@@ -264,10 +266,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       3. Each 'item.theme': 2-4 word punchy label.
       4. Each 'item.text': 1-2 short sentences. Write in an active, present-tense tone.
       5. Each 'item.story_ids': An ARRAY of numbers corresponding to the [STORY ID: X] tags.
-      6. 'whats_ahead': MAX 1-2 sentences highlighting a specific future event (e.g., a planned meeting, a sports match, a weather warning). 
-         CRITICAL RULES FOR WHATS_AHEAD:
-         - DO NOT MENTION ANYTHING related to stories already covered in the categories (e.g., DO NOT mention gas prices, inflation, or political campaigns here if they are already in the main news).
-         - If there are NO distinct future events mentioned in the text, you MUST return an EXACTLY empty string "".
+      6. 'whats_ahead': (OPTIONAL) ONLY fill this if there is a concrete, EXPLICITLY STATED future event (e.g., an upcoming sports match, a scheduled political summit, a weather warning for the next days). Do NOT put general questions, implications, or repeated news here. If there is NO distinct future event, completely omit this field.
       7. 'closing_line': 1 sentence highlighting a specific positive, interesting, or notable fact from ANY story to leave the reader with a final thought.
       
       HARD RULES: Never invent facts, numbers, or names. Do not combine facts from two different stories into one sentence unless they are about the exact same event. Output in Formal Slovenian.
@@ -547,19 +546,4 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       replyTo: 'gjkcme@gmail.com',         
       to: ['gjkcme@gmail.com'], 
       subject: `[PREDOGLED] ${subjectStr}`,
-      html: adminEmailHtml, 
-    });
-
-    if (emailError) throw emailError;
-
-    return res.status(200).json({ 
-        success: true, 
-        message: "Predogled shranjen in poslan tebi v potrditev!", 
-        newsletter_id: insertedNewsletter.id 
-    })
-
-  } catch (e: any) {
-      console.error("Newsletter Error:", e)
-      return res.status(500).json({ error: e.message })
-  }
-}
+      html: adminEmailHtml,
