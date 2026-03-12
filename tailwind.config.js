@@ -12,7 +12,7 @@ module.exports = {
     extend: {
       fontFamily: {
         sans: ['var(--font-inter)', ...defaultTheme.fontFamily.sans],
-        serif: ['var(--font-playfair)', ...defaultTheme.fontFamily.serif],
+        serif: ['var(--font-newsreader)', ...defaultTheme.fontFamily.serif],
       },
       colors: {
         brand: '#fc9c6c',
@@ -30,7 +30,6 @@ module.exports = {
     },
   },
   plugins: [
-    // require('@tailwindcss/line-clamp') je odstranjen, ker je vgrajen v Tailwind v3.3+
     require('tailwind-scrollbar-hide'), 
   ],
   safelist: [
