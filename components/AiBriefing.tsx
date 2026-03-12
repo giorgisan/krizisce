@@ -26,32 +26,29 @@ export default function AiBriefing({ summary, time }: Props) {
 
   return (
     <div className="w-full h-full">
-      {/* Levi rob z novim, bolj subtilnim premium gradientom */}
-      <div className="relative pl-3.5 pr-3 py-2.5 border-l-[3px] border-brand/60 bg-gradient-to-r from-brand/5 to-transparent dark:from-brand/10 dark:to-transparent rounded-r-md h-full flex flex-col justify-center">
+      {/* Vrnjen tvoj originalni "okvir" z levim robom, ki ti je bil ljubši */}
+      <div className="relative pl-4 pr-3 py-2 border-l-2 border-brand/50 bg-gray-50/50 dark:bg-gray-800/30 rounded-r-md h-full flex flex-col justify-center">
         
-        <div className="flex items-center flex-wrap gap-x-1.5 gap-y-0.5 mb-1.5">
-            <svg viewBox="0 0 24 24" fill="none" className="w-3.5 h-3.5 text-brand opacity-90" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
-            </svg>
-            <span className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-brand dark:text-brand/90">
+        <div className="flex items-center flex-wrap gap-x-2 gap-y-0.5 mb-1.5">
+            <span className="text-[10px] sm:text-[11px] font-black uppercase tracking-widest text-brand/80 dark:text-brand/90">
               NA KRATKO
             </span>
-            <span className="text-gray-300 dark:text-gray-600 text-[10px] ml-0.5">•</span>
-            <span className="text-[10px] text-gray-500 dark:text-gray-400 font-medium ml-0.5 tracking-wide">
+            <span className="text-gray-300 dark:text-gray-600 text-[10px]">•</span>
+            <span className="text-[10px] sm:text-[11px] text-gray-400 dark:text-gray-500 font-medium">
               O čem poročajo mediji
             </span>
             {time && (
               <>
-                <span className="text-gray-300 dark:text-gray-600 text-[10px] ml-0.5">•</span>
-                <span className="text-[10px] text-gray-400 dark:text-gray-500 font-medium ml-0.5">
-                  osveženo {getRelativeTime(time)}
+                <span className="text-gray-300 dark:text-gray-600 text-[10px]">•</span>
+                <span className="text-[10px] font-mono text-gray-400 dark:text-gray-500">
+                  {getRelativeTime(time)}
                 </span>
               </>
             )}
         </div>
         
-        {/* Vrnjen font-serif in dodana temnejša siva za dark mode (dark:text-gray-300 namesto text-gray-200 ali čiste bele) */}
-        <p className="font-serif text-[14px] sm:text-[15px] leading-snug text-gray-800 dark:text-gray-300 font-medium">
+        {/* Vrnjen tvoj originalni Sans-Serif font s slike in ohranjena mehkejša barva za temni način */}
+        <p className="text-[13px] sm:text-[14px] leading-snug text-gray-700 dark:text-gray-300/90 font-normal">
             {summary}
         </p>
       </div>
