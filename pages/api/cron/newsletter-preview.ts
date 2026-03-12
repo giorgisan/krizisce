@@ -546,4 +546,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       replyTo: 'gjkcme@gmail.com',         
       to: ['gjkcme@gmail.com'], 
       subject: `[PREDOGLED] ${subjectStr}`,
-      html: adminEmailHtml,
+      html: adminEmailHtml, 
+    });
+
+    if (emailError) throw emailError;
+
+    return res.status(200).json({ 
+        success: true, 
+        message: "Predogled shranjen in poslan tebi v potrditev!", 
+        newsletter_id: insertedNewsletter.id 
+    })
+
+  } catch (e: any) {
+      console.error("Newsletter Error:", e)
+      return res.status(500).json({ error: e.message })
+  }
+}
