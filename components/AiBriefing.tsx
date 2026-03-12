@@ -26,7 +26,7 @@ export default function AiBriefing({ summary, time }: Props) {
 
   return (
     <div className="w-full h-full">
-      {/* Vrnjen levi rob z novim, bolj subtilnim premium gradientom namesto polne barve */}
+      {/* Levi rob z novim, bolj subtilnim premium gradientom */}
       <div className="relative pl-3.5 pr-3 py-2.5 border-l-[3px] border-brand/60 bg-gradient-to-r from-brand/5 to-transparent dark:from-brand/10 dark:to-transparent rounded-r-md h-full flex flex-col justify-center">
         
         <div className="flex items-center flex-wrap gap-x-1.5 gap-y-0.5 mb-1.5">
@@ -50,8 +50,8 @@ export default function AiBriefing({ summary, time }: Props) {
             )}
         </div>
         
-        {/* Odstranjen font-serif, vrnjen na lažjo težo in uporabljena mehkejša barva (text-gray-300/90) za temni način */}
-        <p className="text-[13px] sm:text-[14px] leading-snug text-gray-700 dark:text-gray-300/90 font-normal">
+        {/* Vrnjen font-serif in dodana temnejša siva za dark mode (dark:text-gray-300 namesto text-gray-200 ali čiste bele) */}
+        <p className="font-serif text-[14px] sm:text-[15px] leading-snug text-gray-800 dark:text-gray-300 font-medium">
             {summary}
         </p>
       </div>
