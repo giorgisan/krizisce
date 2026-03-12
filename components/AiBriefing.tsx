@@ -26,8 +26,11 @@ export default function AiBriefing({ summary, time }: Props) {
 
   return (
     <div className="w-full h-full">
-      <div className="relative pl-4 pr-3 py-2 border-l-2 border-brand/50 bg-gray-50/50 dark:bg-gray-800/30 rounded-r-md h-full flex flex-col justify-center">
-        <div className="flex items-center flex-wrap gap-x-2 gap-y-0.5 mb-1.5">
+      {/* Rahlo zmanjšan padding (pl-3.5 in py-1.5 namesto pl-4 in py-2) za bolj kompaktno ohišje */}
+      <div className="relative pl-3.5 pr-3 py-1.5 border-l-2 border-brand/50 bg-gray-50/50 dark:bg-gray-800/30 rounded-r-md h-full flex flex-col justify-center">
+        
+        {/* Zmanjšan spodnji margin (mb-1 namesto mb-1.5) */}
+        <div className="flex items-center flex-wrap gap-x-2 gap-y-0.5 mb-1">
             <span className="text-[10px] sm:text-[11px] font-black uppercase tracking-widest text-brand/80 dark:text-brand/90">
               NA KRATKO
             </span>
@@ -45,8 +48,8 @@ export default function AiBriefing({ summary, time }: Props) {
             )}
         </div>
         
-        {/* Zmanjšan razmik med vrsticami (leading-snug) in prilagojen font */}
-        <p className="text-[13px] sm:text-[14px] leading-snug text-gray-700 dark:text-gray-300/90 font-normal">
+        {/* Font pomanjšan na 12px (mobile) in 13px (desktop), zmanjšan line-height na leading-tight */}
+        <p className="text-[12px] sm:text-[13px] leading-tight text-gray-700 dark:text-gray-300/90 font-normal">
             {summary}
         </p>
       </div>
