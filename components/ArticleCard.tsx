@@ -155,12 +155,9 @@ export default function ArticleCard({ news, priority = false }: Props) {
   const [eyeHover,   setEyeHover]   = useState(false)
   const showEye = isTouch ? true : eyeVisible
 
-  // ... (začetek datoteke in logika ArticleCard ostaneta nespremenjena) ...
-
   return (
     <>
       <a
-        // ... (vsi tisti stari reši, target, rel, onMouseEnter, etc. ostanejo enaki) ...
         ref={cardRef}
         href={news.link}
         target="_blank"
@@ -181,24 +178,71 @@ export default function ArticleCard({ news, priority = false }: Props) {
       >
         <div
           className="relative w-full aspect-[16/9] overflow-hidden shrink-0"
-          style={ /* ... */ }
+          style={
+            !imgLoaded && lqipSrc
+              ? { backgroundImage: `url(${lqipSrc})`, backgroundSize: 'cover', backgroundPosition: 'center', filter: 'blur(12px)', transform: 'scale(1.05)' }
+              : undefined
+          }
         >
-          {/* Skeleton loading in Slika ostanejo enaki... */}
+          {!imgLoaded && !useFallback && !!currentSrc && (
+            <div className="absolute inset-0 grid place-items-center pointer-events-none
+                            bg-gradient-to-br from-gray-200 via-gray-300 to-gray-200
+                            dark:from-gray-700 dark:via-gray-800 dark:to-gray-700 animate-pulse">
+            </div>
+          )}
 
-          {/* Kategorija Label - NOVO: Bolj 'pill' dizajn, manjša zameglitev, polna barva ozadja */}
+          {useFallback || !currentSrc ? (
+            <div className="absolute inset-0 flex items-center justify-center">
+               <div className="absolute inset-0 bg-gradient-to-br from-gray-200 via-gray-300 to-gray-200 dark:from-gray-700 dark:via-gray-800 dark:to-gray-700" />
+               <span className="relative z-10 text-sm font-medium text-gray-700 dark:text-gray-300">
+                 Križišče
+               </span>
+            </div>
+          ) : (
+            <Image
+              src={currentSrc as string}
+              alt={news.title}
+              fill
+              className={`object-cover transition-opacity duration-200 ${
+                priority ? 'opacity-100' : 'opacity-0 data-[ok=true]:opacity-100'
+              }`}
+              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+              onError={handleImgError}
+              onLoadingComplete={() => setImgLoaded(true)}
+              priority={priority} 
+              data-ok={imgLoaded}
+              unoptimized={true} 
+            />
+          )}
+
           {categoryDef && categoryDef.id !== 'ostalo' && (
              <span className={`hidden sm:flex items-center absolute bottom-2.5 right-2.5 z-10 px-2 py-0.5 text-[9px] font-black uppercase tracking-widest text-white bg-black/60 dark:bg-black/80 backdrop-blur-sm rounded-full pointer-events-none`}>
                {categoryDef.label}
              </span>
           )}
 
-          {/* Preview Gumb ostane enak ... */}
+          <button
+            onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowPreview(true) }}
+            onMouseEnter={() => setEyeHover(true)}
+            onMouseLeave={() => setEyeHover(false)}
+            onFocus={() => setEyeHover(true)}
+            onBlur={() => setEyeHover(false)}
+            aria-label="Predogled"
+            className={`peer absolute top-2 right-2 h-8 w-8 grid place-items-center rounded-full
+                        ring-1 ring-black/10 dark:ring-white/10 text-gray-700 dark:text-gray-200
+                        bg-white/80 dark:bg-gray-900/80 backdrop-blur transition-opacity duration-150 transform-gpu
+                        ${showEye ? 'opacity-100' : 'opacity-0'} ${isTouch ? '' : 'md:opacity-0 md:group-hover:opacity-100'}`}
+            style={{ transform: eyeHover ? 'translateY(0) scale(1.30)' : 'translateY(0) scale(1)' }}
+          >
+            <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+              <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12Z" stroke="currentColor" strokeWidth="2" fill="none" />
+              <circle cx="12" cy="12" r="3.5" stroke="currentColor" strokeWidth="2" fill="none" />
+            </svg>
+          </button>
         </div>
 
-        {/* ========== BESEDILO - VRNJENO NA KOMPAKTNOST ========== */}
-        {/* p-3 namesto p-4, flex-col brez gap-2.5 */}
+        {/* ========== BESEDILO ========== */}
         <div className="p-3 flex flex-col flex-1">
-          {/* mb-2 za tesen, a jasen razmik od naslova */}
           <div className="mb-2 flex items-center justify-between flex-wrap gap-y-1">
             <div className="flex items-center gap-1.5 min-w-0">
               {logoPath && (
@@ -213,23 +257,20 @@ export default function ArticleCard({ news, priority = false }: Props) {
                   />
                 </div>
               )}
-              {/* Zadržimo uppercase in tracking za urejen videz, a manjša velikost */}
-              <span className="truncate text-[10px] font-bold uppercase tracking-wider" style={{ color: sourceColor }}>
+              <span className="truncate text-[10px] font-bold uppercase tracking-wider opacity-80" style={{ color: sourceColor }}>
                 {news.source}
               </span>
             </div>
             
-            <span className="text-[11px] text-gray-500 dark:text-gray-400 shrink-0 tabular-nums font-medium">
+            <span className="text-[11px] text-gray-400 dark:text-gray-500 shrink-0 tabular-nums font-medium">
                {formattedDate}
             </span>
           </div>
           
-          {/* Naslov: font-serif ohranjamo, mb-1 vrnemo, leading-tight vrnemo, velikost rahlo prilagojena */}
           <h3 className="font-serif line-clamp-3 text-[15px] sm:text-[16px] font-semibold leading-tight text-gray-900 dark:text-gray-100 mb-1">
             {news.title}
           </h3>
           
-          {/* Snippet: vrnjeno na line-clamp-3 za več vsebine */}
           <p className="line-clamp-3 text-[13px] leading-snug text-gray-600 dark:text-gray-400 flex-1">
             {news.contentSnippet}
           </p>
