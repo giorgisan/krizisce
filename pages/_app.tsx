@@ -3,34 +3,30 @@ import type { AppProps } from 'next/app'
 import { ThemeProvider } from 'next-themes'
 import Script from 'next/script'
 import { Analytics } from '@vercel/analytics/next'
-// 1. DODAN IMPORT ZA SPEED INSIGHTS
 import { SpeedInsights } from "@vercel/speed-insights/next"
 import Head from 'next/head'
 import { useEffect } from 'react'
 
-// 1. UVOZ FONTOV
-import { Inter, Playfair_Display } from 'next/font/google'
+import { Inter, Newsreader } from 'next/font/google'
 
-// ---> NOVO: Uvoz naše nove Toast komponente <---
 import NewsletterToast from '@/components/NewsletterToast'
 
 const inter = Inter({
   subsets: ['latin', 'latin-ext'],
   variable: '--font-inter',
   display: 'swap',
-  adjustFontFallback: false, // DODANO: Prepreči avtomatsko generiranje fallbacka, ki lahko pokvari Š
+  adjustFontFallback: false,
 })
 
-const playfair = Playfair_Display({
+const newsreader = Newsreader({
   subsets: ['latin', 'latin-ext'],
-  variable: '--font-playfair',
+  variable: '--font-newsreader',
   display: 'swap',
   adjustFontFallback: false,
 })
 
 function App({ Component, pageProps }: AppProps) {
   
-  // Prepreči skakanje strani pri navigaciji
   useEffect(() => {
     if ('scrollRestoration' in history) {
       history.scrollRestoration = 'manual'
@@ -46,7 +42,7 @@ function App({ Component, pageProps }: AppProps) {
       <style jsx global>{`
         :root {
           --font-inter: ${inter.style.fontFamily};
-          --font-playfair: ${playfair.style.fontFamily};
+          --font-newsreader: ${newsreader.style.fontFamily};
         }
 
         html {
@@ -55,7 +51,6 @@ function App({ Component, pageProps }: AppProps) {
           -moz-osx-font-smoothing: auto;
         }
 
-        /* SCROLLBAR FIX */
         .scrollbar-hide::-webkit-scrollbar {
             display: none;
         }
@@ -65,7 +60,6 @@ function App({ Component, pageProps }: AppProps) {
         }
       `}</style>
 
-      {/* UMAMI ANALYTICS */}
       <Script 
         src="https://cloud.umami.is/script.js" 
         data-website-id="bebf6633-ff51-4051-9772-5eb199dfced9"
@@ -79,18 +73,13 @@ function App({ Component, pageProps }: AppProps) {
         storageKey="theme"
         disableTransitionOnChange
       >
-        <main className={`${inter.variable} ${playfair.variable} font-sans antialiased min-h-screen bg-white dark:bg-gray-900 text-gray-900 dark:text-white transition-colors duration-300`}>
+        <main className={`${inter.variable} ${newsreader.variable} font-sans antialiased min-h-screen bg-white dark:bg-gray-900 text-gray-900 dark:text-white transition-colors duration-300`}>
           <Component {...pageProps} />
         </main>
       </ThemeProvider>
 
-      {/* VERCEL ANALYTICS */}
       <Analytics />
-      
-      {/* SPEED INSIGHTS */}
       <SpeedInsights />
-
-      {/* ---> NOVO: Subtilno animirano obvestilo za newsletter <--- */}
       <NewsletterToast />
     </>
   )
