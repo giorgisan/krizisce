@@ -19,14 +19,12 @@ import { CATEGORIES, determineCategory } from '@/lib/categories'
 type PreviewProps = { url: string; onClose: () => void }
 const ArticlePreview = dynamic(() => import('./ArticlePreview'), { ssr: false }) as ComponentType<PreviewProps>
 
-// Fiksna širina za Weserv proxy
 const TARGET_WIDTH = 640 
 const TARGET_HEIGHT = 360
 
 interface Props { news: NewsItem; priority?: boolean }
 
 export default function ArticleCard({ news, priority = false }: Props) {
-  // --- ZAGOTOVLJENO OSVEŽEVANJE ČASA ---
   const [now, setNow] = useState(Date.now())
 
   useEffect(() => {
@@ -41,7 +39,6 @@ export default function ArticleCard({ news, priority = false }: Props) {
     return () => clearTimeout(timeoutId)
   }, [])
 
-  // --- LOGIKA ZA DATUM ---
   const formattedDate = useMemo(() => {
     const ms = news.publishedAt || 0
     if (!ms) return ''
@@ -86,20 +83,18 @@ export default function ArticleCard({ news, priority = false }: Props) {
   const rawImg = news.image ?? null
   const proxyInitiallyOn = !!rawImg 
 
-  const [useProxy, setUseProxy]          = useState<boolean>(proxyInitiallyOn)
+  const [useProxy, setUseProxy]       = useState<boolean>(proxyInitiallyOn)
   const [useFallback, setUseFallback] = useState<boolean>(!rawImg)
-  const [imgLoaded, setImgLoaded]       = useState<boolean>(false)
+  const [imgLoaded, setImgLoaded]     = useState<boolean>(false)
   
   const cardRef = useRef<HTMLAnchorElement>(null)
 
-  // Weserv URL generiramo takoj
   const currentSrc = useMemo(() => {
     if (!rawImg) return null
     if (useProxy) return proxiedImage(rawImg, TARGET_WIDTH, TARGET_HEIGHT, 1)
     return rawImg
   }, [rawImg, useProxy])
 
-  // Lqip
   const lqipSrc = useMemo(() => {
     if (!rawImg) return null
     return proxiedImage(rawImg, 28, 16, 1)
@@ -112,17 +107,16 @@ export default function ArticleCard({ news, priority = false }: Props) {
 
   const handleImgError = () => {
     if (rawImg && useProxy) {
-      setUseProxy(false) // Poskusi original
+      setUseProxy(false)
       setImgLoaded(false)
       return
     }
     if (!useFallback) {
-      setUseFallback(true) // Prikaži placeholder
+      setUseFallback(true)
       setImgLoaded(false)
     }
   }
 
-  // --- ANALITIKA ---
   const sendBeacon = (payload: any) => {
     try {
       const json = JSON.stringify(payload)
@@ -143,7 +137,6 @@ export default function ArticleCard({ news, priority = false }: Props) {
   }
   const handleAuxClick = (e: MouseEvent<HTMLAnchorElement>) => { if (e.button === 1) logClick() }
 
-  // --- PREVIEW LOGIKA ---
   const [showPreview, setShowPreview] = useState(false)
   const previewOpenedAtRef = useRef<number | null>(null)
   
@@ -191,7 +184,6 @@ export default function ArticleCard({ news, priority = false }: Props) {
               : undefined
           }
         >
-          {/* Skeleton loading */}
           {!imgLoaded && !useFallback && !!currentSrc && (
             <div className="absolute inset-0 grid place-items-center pointer-events-none
                             bg-gradient-to-br from-gray-200 via-gray-300 to-gray-200
@@ -211,7 +203,6 @@ export default function ArticleCard({ news, priority = false }: Props) {
               src={currentSrc as string}
               alt={news.title}
               fill
-              // POPRAVEK: Če je priority, slika nima fade-in efekta (je takoj vidna)
               className={`object-cover transition-opacity duration-200 ${
                 priority ? 'opacity-100' : 'opacity-0 data-[ok=true]:opacity-100'
               }`}
@@ -224,14 +215,12 @@ export default function ArticleCard({ news, priority = false }: Props) {
             />
           )}
 
-          {/* Kategorija Label */}
           {categoryDef && categoryDef.id !== 'ostalo' && (
              <span className={`hidden sm:block absolute bottom-2 right-2 z-10 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-gray-900 dark:text-white bg-white/30 dark:bg-black/30 backdrop-blur-md rounded shadow-sm border border-white/20 dark:border-white/10 pointer-events-none`}>
                {categoryDef.label}
              </span>
           )}
 
-          {/* Preview Gumb */}
           <button
             onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowPreview(true) }}
             onMouseEnter={() => setEyeHover(true)}
@@ -253,34 +242,38 @@ export default function ArticleCard({ news, priority = false }: Props) {
         </div>
 
         {/* ========== BESEDILO ========== */}
-        <div className="p-3 flex flex-col flex-1">
-          <div className="mb-2 flex items-center justify-between flex-wrap gap-y-1">
+        <div className="p-4 flex flex-col flex-1 gap-2.5">
+          <div className="flex items-center justify-between flex-wrap gap-y-1">
             <div className="flex items-center gap-2 min-w-0">
               {logoPath && (
-                <div className="relative h-4 w-4 shrink-0 rounded-full overflow-hidden bg-gray-100 dark:bg-gray-700">
+                <div className="relative h-[18px] w-[18px] shrink-0 rounded-full overflow-hidden bg-gray-100 dark:bg-gray-700 shadow-sm">
                   <Image 
                     src={logoPath} 
                     alt={news.source} 
-                    width={16} 
-                    height={16}
+                    width={18} 
+                    height={18}
                     className="object-cover h-full w-full"
                     unoptimized={true} 
                   />
                 </div>
               )}
-              <span className="truncate text-[12px] font-medium tracking-[0.01em]" style={{ color: sourceColor }}>
+              <span className="truncate text-[10px] sm:text-[11px] font-bold uppercase tracking-wider opacity-80" style={{ color: sourceColor }}>
                 {news.source}
               </span>
             </div>
             
-            <span className="text-[11px] text-gray-500 dark:text-gray-400 shrink-0 tabular-nums">
+            <span className="text-[11px] text-gray-400 dark:text-gray-500 shrink-0 tabular-nums font-medium">
                {formattedDate}
             </span>
           </div>
           
-          <h3 className="line-clamp-3 text-[15px] font-semibold leading-tight text-gray-900 dark:text-gray-100 mb-1">{news.title}</h3>
+          <h3 className="font-serif line-clamp-3 text-[16px] sm:text-[17px] font-semibold leading-[1.35] text-gray-900 dark:text-gray-100">
+            {news.title}
+          </h3>
           
-          <p className="line-clamp-3 text-[13px] text-gray-600 dark:text-gray-400 flex-1">{news.contentSnippet}</p>
+          <p className="line-clamp-2 text-[13px] leading-relaxed text-gray-500 dark:text-gray-400 flex-1">
+            {news.contentSnippet}
+          </p>
         </div>
       </a>
 
