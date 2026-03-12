@@ -36,7 +36,7 @@ export default function AiBriefing({ summary, time }: Props) {
             </span>
             <span className="text-gray-300 dark:text-gray-600 text-[10px]">•</span>
             <span className="text-[10px] sm:text-[11px] text-gray-400 dark:text-gray-500 font-medium">
-              Analiza zadnjih objav
+              O čem poročajo mediji
             </span>
             {time && (
               <>
