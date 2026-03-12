@@ -50,8 +50,8 @@ export default function AiBriefing({ summary, time }: Props) {
             )}
         </div>
         
-        {/* Nov font-serif za tekst povzetka */}
-        <p className="font-serif text-[14px] sm:text-[15px] leading-snug text-gray-800 dark:text-gray-200 font-medium">
+        {/* Odstranjen font-serif, vrnjen na lažjo težo in uporabljena mehkejša barva (text-gray-300/90) za temni način */}
+        <p className="text-[13px] sm:text-[14px] leading-snug text-gray-700 dark:text-gray-300/90 font-normal">
             {summary}
         </p>
       </div>
