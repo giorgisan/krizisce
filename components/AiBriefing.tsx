@@ -26,31 +26,30 @@ export default function AiBriefing({ summary, time }: Props) {
 
   return (
     <div className="w-full h-full">
-      {/* Gradient in debel levi rob, nekoliko zmanjšan padding (py-2) za večjo kompaktnost */}
-      <div className="relative pl-3.5 pr-3 py-2 border-l-[3px] border-brand/60 bg-gradient-to-r from-brand/5 to-transparent dark:from-brand/10 dark:to-transparent rounded-r-md h-full flex flex-col justify-center">
+      {/* Rahlo zmanjšan padding (pl-3.5 in py-1.5 namesto pl-4 in py-2) za bolj kompaktno ohišje */}
+      <div className="relative pl-3.5 pr-3 py-1.5 border-l-2 border-brand/50 bg-gray-50/50 dark:bg-gray-800/30 rounded-r-md h-full flex flex-col justify-center">
         
-        {/* Zmanjšan margin-bottom (mb-1) */}
-        <div className="flex items-center flex-wrap gap-x-1.5 gap-y-0.5 mb-1">
-            {/* Ikona je odstranjena */}
-            <span className="text-[10px] font-bold uppercase tracking-wider text-brand dark:text-brand/90">
+        {/* Zmanjšan spodnji margin (mb-1 namesto mb-1.5) */}
+        <div className="flex items-center flex-wrap gap-x-2 gap-y-0.5 mb-1">
+            <span className="text-[10px] sm:text-[11px] font-black uppercase tracking-widest text-brand/80 dark:text-brand/90">
               NA KRATKO
             </span>
-            <span className="text-gray-300 dark:text-gray-600 text-[10px] ml-0.5">•</span>
-            <span className="text-[10px] text-gray-500 dark:text-gray-400 font-medium ml-0.5 tracking-wide">
-              O čem poročajo mediji
+            <span className="text-gray-300 dark:text-gray-600 text-[10px]">•</span>
+            <span className="text-[10px] sm:text-[11px] text-gray-400 dark:text-gray-500 font-medium">
+              Analiza zadnjih objav
             </span>
             {time && (
               <>
-                <span className="text-gray-300 dark:text-gray-600 text-[10px] ml-0.5">•</span>
-                <span className="text-[10px] text-gray-400 dark:text-gray-500 font-medium ml-0.5">
-                  osveženo {getRelativeTime(time)}
+                <span className="text-gray-300 dark:text-gray-600 text-[10px]">•</span>
+                <span className="text-[10px] font-mono text-gray-400 dark:text-gray-500">
+                  {getRelativeTime(time)}
                 </span>
               </>
             )}
         </div>
         
-        {/* Sans-serif font, stopnjo manjši (12px na mobilcih, 13px na namizju) in z manjšim razmikom vrstic (leading-tight) */}
-        <p className="text-[12px] sm:text-[13px] leading-tight text-gray-800 dark:text-gray-300/90 font-medium">
+        {/* Font pomanjšan na 12px (mobile) in 13px (desktop), zmanjšan line-height na leading-tight */}
+        <p className="text-[12px] sm:text-[13px] leading-tight text-gray-700 dark:text-gray-300/90 font-normal">
             {summary}
         </p>
       </div>
