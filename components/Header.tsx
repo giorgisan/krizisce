@@ -667,13 +667,13 @@ export default function Header({
                             </button>
                         )}
 
-                        {/* 2. MEDIJSKI PRESEK */}
+                        {/* 2. MEDIJSKA ANALIZA */}
                          <Link href="/analiza" prefetch={false} onClick={() => setMobileMenuOpen(false)} className="flex items-center justify-between px-2 py-3 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100/50 dark:hover:bg-gray-900/50 group">
                             <div className="flex items-center gap-3">
                                 <svg className="w-5 h-5 text-gray-400 group-hover:text-brand transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                                     <path strokeLinecap="round" strokeLinejoin="round" d="M15.042 21.672 13.684 16.6m0 0-2.51 2.225.569-9.47 5.227 7.917-3.286-.672Zm-7.518-.267A8.25 8.25 0 1 1 20.25 10.5M8.288 14.212A5.25 5.25 0 1 1 17.25 10.5" />
                                 </svg>
-                                <span className="text-left">Medijski Presek</span>
+                                <span className="text-left">Medijska analiza</span>
                             </div>
                         </Link>
 
