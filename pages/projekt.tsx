@@ -22,7 +22,7 @@ export default function Projekt() {
                   Križišče je sodoben, neodvisen in pameten agregator. Naš sistem samodejno spremlja javne vire največjih slovenskih portalov in jih v realnem času razvršča v pregleden časovni trak. Da bi zmanjšali informacijski šum, uporabljamo napredne rešitve:
                 </p>
                 <ul className="list-disc pl-5 space-y-2 mb-4">
-                  <li><strong>Umetna inteligenca (AI):</strong> Skrbi za natančno kategorizacijo vsebin in samodejno združevanje iste zgodbe iz več različnih virov, kar prinaša izjemno čist in pregleden vmesnik.</li>
+                  <li><strong>Umetna inteligenca (UI):</strong> Skrbi za natančno kategorizacijo vsebin in samodejno združevanje iste zgodbe iz več različnih virov, kar prinaša izjemno čist in pregleden vmesnik.</li>
                   <li><strong>Dnevni novičnik:</strong> Sistem vsako jutro zbere in povzame ključne dogodke preteklega dne, ki jih po želji dostavi naravnost v vaš nabiralnik.</li>
                   <li><strong>Nevtralnost in podpora medijem:</strong> Ne ustvarjamo lastnih novic in ne gostimo vsebin. Sistem deluje kot smerokaz, ki bralce preusmerja k izviru informacij. Za poglobljeno branje pa je seveda potreben obisk (in podpora) posameznega medija.</li>
                 </ul>
