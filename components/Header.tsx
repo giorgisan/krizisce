@@ -412,7 +412,7 @@ export default function Header({
                         <div className="space-y-2">
                           {Object.entries(archiveData.counts)
                             .sort((a, b) => b[1] - a[1])
-                            .slice(0, 8)
+                            .slice(0, 10)
                             .map(([source, count]) => (
                               <div key={source} className="flex items-center justify-between group">
                                 <div className="flex items-center gap-2 overflow-hidden">
