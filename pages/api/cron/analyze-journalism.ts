@@ -65,11 +65,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
        })
     })
 
-    // --- POPRAVEK: Pravilno definiranje časa in letnice ---
     const today = new Date();
     const currentDate = new Intl.DateTimeFormat('sl-SI', { day: 'numeric', month: 'long', year: 'numeric' }).format(today);
     const currentYear = today.getFullYear(); 
-    // ------------------------------------------------------
 
     const prompt = `
       You are an expert media analyst and fact-checker. Analyze how Slovenian media is reporting on the following ${topStories.length} events. 
@@ -93,8 +91,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       Additionally, for the overall event, you must write a 'consensus_headline'. This is a single, ultra-neutral, distilled headline created by combining the facts from all sources. It must answer Who, What, Where, and Consequence.
       
-      NEW TASK: QUOTE EXTRACTION (OPTIONAL BUT HIGHLY ENCOURAGED)
-      If there is a striking, important, or controversial DIRECT QUOTE mentioned in the snippets for this story, extract it EXACTLY word-for-word in the 'key_quote' object. Do not paraphrase. If no direct quote is present, omit the 'key_quote' field completely.
+      NEW TASK: QUOTE EXTRACTION WITH EXACT SOURCE URL (OPTIONAL BUT HIGHLY ENCOURAGED)
+      If there is a striking, important, or controversial DIRECT QUOTE mentioned in the snippets for this story, extract it EXACTLY word-for-word in the 'key_quote' object. Do not paraphrase. 
+      CRITICAL: You MUST also provide the exact [source_url] of the specific snippet where you found this quote. If no direct quote is present, omit the 'key_quote' field completely.
 
       CRITICAL REQUIREMENT: The analysis text and all JSON values MUST be written entirely in the SLOVENIAN language.
 
@@ -114,12 +113,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           framing_analysis: { type: SchemaType.STRING, description: "Kratek odstavek (2-3 stavki), ki primerja pristope različnih medijev k tej zgodbi." },
           key_quote: {
             type: SchemaType.OBJECT,
-            description: "OPTIONAL: The most important, exact direct quote from the story.",
+            description: "OPTIONAL: The most important, exact direct quote from the story and its exact source URL.",
             properties: {
                 quote: { type: SchemaType.STRING, description: "The EXACT word-for-word quote in Slovenian." },
-                author: { type: SchemaType.STRING, description: "The name of the person who said it." }
+                author: { type: SchemaType.STRING, description: "The name of the person who said it." },
+                source_url: { type: SchemaType.STRING, description: "The EXACT [source_url] from the INPUT DATA where this quote was found." }
             },
-            required: ["quote", "author"]
+            required: ["quote", "author", "source_url"]
           },
           sources: {
             type: SchemaType.ARRAY,
@@ -193,7 +193,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         const originalGroup = topStories[index];
         if (originalGroup) {
             aiItem.main_image = originalGroup.image || null;
-            // Shranimo source URLs, da jih bo newsletter skripta lažje poiskala ob citatu
             aiItem.source_urls = originalGroup.storyArticles 
                 ? [originalGroup.link, ...originalGroup.storyArticles.map((a: any) => a.link)]
                 : [originalGroup.link];
