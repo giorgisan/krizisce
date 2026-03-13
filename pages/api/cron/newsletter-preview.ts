@@ -49,9 +49,10 @@ const newsletterSchema = {
             type: SchemaType.OBJECT,
             properties: {
                 quote: { type: SchemaType.STRING },
-                author: { type: SchemaType.STRING }
+                author: { type: SchemaType.STRING },
+                story_id: { type: SchemaType.NUMBER } // Dodano za ekstrakcijo vira!
             },
-            required: ["quote", "author"]
+            required: ["quote", "author", "story_id"]
         },
         number_of_the_day: {
             type: SchemaType.OBJECT,
@@ -62,7 +63,7 @@ const newsletterSchema = {
             required: ["number", "description"]
         }
     },
-    // KLJUČNO: "number_of_the_day" je OSTRANJEN iz required, da preprečimo halucinacije!
+    // "number_of_the_day" je opcijski, "quote_of_the_day" obvezen
     required: ["intro", "categories", "quote_of_the_day"]
 };
 
@@ -84,9 +85,9 @@ TASK:
 1. Verify that EVERY fact, number, name, location, and title in the OUTPUT exists explicitly in the SOURCE.
 2. PAY SPECIAL ATTENTION TO 'ORIGINAL TITLES' in the source. They are the ultimate ground truth.
 3. Check for "hallucinations".
-4. TEMPORAL CHECK (CRITICAL): Ensure temporal references are correct relative to TODAY (${currentDayStr}). If a news source says something is happening "v torek" and today is "torek", the newsletter MUST say "danes" (today), not "v torek".
-5. RELEVANCE & OUTDATED NEWS (CRITICAL): If the OUTPUT describes a temporary state from yesterday that is no longer relevant today, MUST rewrite it or REMOVE the item.
-6. QUOTE & NUMBER CHECK: Verify that the 'quote_of_the_day' and 'number_of_the_day' (if present) actually exist in the provided SOURCE text. Do not allow invented quotes or fake statistics. If 'number_of_the_day' is fabricated, completely remove the 'number_of_the_day' object.
+4. TEMPORAL CHECK (CRITICAL): Ensure temporal references are correct relative to TODAY (${currentDayStr}).
+5. RELEVANCE & OUTDATED NEWS (CRITICAL): Rewrite or REMOVE items detailing minor temporary states from yesterday that are no longer relevant today.
+6. QUOTE & NUMBER CHECK: Verify that the 'quote_of_the_day' and 'number_of_the_day' (if present) actually exist in the provided SOURCE text. Ensure the quote has the correct 'story_id'. If 'number_of_the_day' is fabricated, completely remove the 'number_of_the_day' object.
 7. Return the corrected OUTPUT as valid JSON matching the exact original structure.
 `;
 
@@ -260,17 +261,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
          - Titles allowed: "🏔️ Slovenija", "🌍 Svet", "💰 Gospodarstvo", "⚖️ Kronika", "🏆 Šport", "🎭 Zabava".
          - STRICT SORTING: Slovenian Celebrity/Entertainment MUST go into "🎭 Zabava" or "🌍 Svet", NOT "🏔️ Slovenija".
          - Merge stories ONLY if they cover the EXACT SAME EVENT.
+         - MAX 4 items per category. Choose only the most important ones.
       3. Each 'item.theme': 2-4 word punchy label.
       4. Each 'item.text': 1-2 short active sentences.
-      5. 'number_of_the_day': (OPTIONAL) Extract ONE concrete, highly interesting number from ANY news story (e.g., a massive sum of money, a sports record, a number of victims or votes). 
+      5. 'number_of_the_day': (OPTIONAL) Extract ONE concrete, highly interesting number from ANY news story. 
          - If there are NO highly interesting numbers in the news today, completely OMIT this field.
          - 'number': Just the digit/format (e.g., "47", "1,2 milijona", "51").
-         - 'description': A short, punchy explanation of what this number means (e.g., "toliko točk je dosegel Luka Dončić za zmago." or "je ocena škode po včerajšnjem neurju.").
+         - 'description': A short, punchy explanation.
       6. 'quote_of_the_day': Extract ONE striking, controversial, or inspiring direct quote mentioned in the text. 
          - 'quote': The translated quote in Slovenian.
          - 'author': The name of the person who said it.
+         - 'story_id': The exact [STORY ID: X] from which the quote was taken.
          
-      CRITICAL DEDUPLICATION RULE: The 'number_of_the_day' and 'quote_of_the_day' MUST be about different events, and ideally highlight details that were NOT already heavily summarized in the main categories. Keep the content fresh!
+      CRITICAL DEDUPLICATION RULE: The 'number_of_the_day' and 'quote_of_the_day' MUST be about different events, and ideally highlight details that were NOT already heavily summarized in the main categories.
       `;
 
     const generationConfig = { 
@@ -307,6 +310,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         console.error("⚠️ Napaka pri AI validaciji, nadaljujem z osnovnimi podatki:", validationErr);
     }
 
+    // --- PROGRAMSKO SORTIRANJE KATEGORIJ (Trda logka, da je Slovenija vedno prva) ---
+    if (aiData.categories && Array.isArray(aiData.categories)) {
+        const categoryOrder = ["🏔️ Slovenija", "🌍 Svet", "💰 Gospodarstvo", "⚖️ Kronika", "🏆 Šport", "🎭 Zabava"];
+        aiData.categories.sort((a: any, b: any) => {
+            let indexA = categoryOrder.indexOf(a.title);
+            let indexB = categoryOrder.indexOf(b.title);
+            if (indexA === -1) indexA = 99; // Če si AI izmisli novo kategorijo, gre na konec
+            if (indexB === -1) indexB = 99;
+            return indexA - indexB;
+        });
+    }
+
     // --- IZRAČUN DINAMIČNEGA BRALNEGA ČASA ---
     let totalTextLength = 0;
     if (aiData.intro) totalTextLength += aiData.intro.split(/\s+/).length;
@@ -314,7 +329,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (aiData.categories && Array.isArray(aiData.categories)) {
         aiData.categories.forEach((cat: any) => {
             if (cat.items && Array.isArray(cat.items)) {
-                cat.items.forEach((item: any) => {
+                // Dodana stroga omejitev na 4 novice tukaj samo za izračun časa
+                cat.items.slice(0, 4).forEach((item: any) => {
                     if (item.theme) totalTextLength += item.theme.split(/\s+/).length;
                     if (item.text) totalTextLength += item.text.split(/\s+/).length;
                 });
@@ -331,7 +347,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         if (aiData.number_of_the_day.description) totalTextLength += aiData.number_of_the_day.description.split(/\s+/).length;
     }
 
-    // Predpostavimo povprečno hitrost branja 200 besed na minuto, minimum pa vedno vsaj 1 minuta.
     const calculatedReadingTime = Math.max(1, Math.ceil(totalTextLength / 200));
     // ----------------------------------------
 
@@ -343,63 +358,66 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     aiData.categories.forEach((cat: any) => {
         let itemsHtml = '';
         
-        cat.items.forEach((item: any) => {
-            let sourceLinksHtml = '';
-            const linkMap = new Map<string, string>(); 
-            
-            let ids: number[] = [];
-            if (Array.isArray(item.story_ids)) {
-                ids = item.story_ids;
-            } else if (typeof item.story_id === 'number') {
-                ids = [item.story_id as number];
-            } else if (typeof item.story_ids === 'number') {
-                ids = [item.story_ids as number];
-            }
-            
-            ids.forEach((id: number) => {
-                const story = topStories[id];
-                if (story && Array.isArray(story.sources)) {
-                    story.sources.forEach((s: any) => {
-                        const url = typeof s === 'string' ? s : s.url;
-                        if (!url) return;
-                        
-                        try {
-                            const hostname = new URL(url).hostname.replace('www.', '');
-                            let name = hostname.split('.')[0];
-                            name = name.charAt(0).toUpperCase() + name.slice(1);
-                            
-                            if (hostname.includes('rtvslo')) name = 'RTV SLO';
-                            if (hostname.includes('24ur')) name = '24ur';
-                            if (hostname.includes('siol')) name = 'Siol';
-                            if (hostname.includes('slovenskenovice')) name = 'Slov. novice';
-                            if (hostname.includes('delo')) name = 'Delo';
-                            if (hostname.includes('dnevnik')) name = 'Dnevnik';
-                            if (hostname.includes('zurnal24')) name = 'Žurnal24';
-                            if (hostname.includes('n1info')) name = 'N1';
-                            if (hostname.includes('svet24')) name = 'Svet24';
-
-                            if (!linkMap.has(name)) {
-                                linkMap.set(name, `<a href="${url}" style="color: ${BRAND_COLOR}; text-decoration: none; font-weight: 500;">${name}</a>`);
-                            }
-                        } catch(e) {}
-                    });
+        // STROGA OMEJITEV: Prikažemo največ 4 novice na kategorijo!
+        if (cat.items && Array.isArray(cat.items)) {
+            cat.items.slice(0, 4).forEach((item: any) => {
+                let sourceLinksHtml = '';
+                const linkMap = new Map<string, string>(); 
+                
+                let ids: number[] = [];
+                if (Array.isArray(item.story_ids)) {
+                    ids = item.story_ids;
+                } else if (typeof item.story_id === 'number') {
+                    ids = [item.story_id as number];
+                } else if (typeof item.story_ids === 'number') {
+                    ids = [item.story_ids as number];
                 }
+                
+                ids.forEach((id: number) => {
+                    const story = topStories[id];
+                    if (story && Array.isArray(story.sources)) {
+                        story.sources.forEach((s: any) => {
+                            const url = typeof s === 'string' ? s : s.url;
+                            if (!url) return;
+                            
+                            try {
+                                const hostname = new URL(url).hostname.replace('www.', '');
+                                let name = hostname.split('.')[0];
+                                name = name.charAt(0).toUpperCase() + name.slice(1);
+                                
+                                if (hostname.includes('rtvslo')) name = 'RTV SLO';
+                                if (hostname.includes('24ur')) name = '24ur';
+                                if (hostname.includes('siol')) name = 'Siol';
+                                if (hostname.includes('slovenskenovice')) name = 'Slov. novice';
+                                if (hostname.includes('delo')) name = 'Delo';
+                                if (hostname.includes('dnevnik')) name = 'Dnevnik';
+                                if (hostname.includes('zurnal24')) name = 'Žurnal24';
+                                if (hostname.includes('n1info')) name = 'N1';
+                                if (hostname.includes('svet24')) name = 'Svet24';
+
+                                if (!linkMap.has(name)) {
+                                    linkMap.set(name, `<a href="${url}" style="color: ${BRAND_COLOR}; text-decoration: none; font-weight: 500;">${name}</a>`);
+                                }
+                            } catch(e) {}
+                        });
+                    }
+                });
+
+                if (linkMap.size > 0) {
+                    const linksArray = Array.from(linkMap.values());
+                    sourceLinksHtml = `<div style="margin-top: 4px; font-size: 13px; color: #6B7280; font-family: -apple-system, Arial, sans-serif;">⮑ Beri na: ${linksArray.join(', ')}</div>`;
+                }
+
+                itemsHtml += `
+                  <div style="margin-bottom: 18px;">
+                    <p style="font-size: 15px; line-height: 1.6; color: #374151; margin-top: 0; margin-bottom: 0; font-family: -apple-system, Arial, sans-serif;">
+                      <strong style="color: #111827;">${item.theme}:</strong> ${item.text}
+                    </p>
+                    ${sourceLinksHtml}
+                  </div>
+                `;
             });
-
-            if (linkMap.size > 0) {
-                const linksArray = Array.from(linkMap.values());
-                sourceLinksHtml = `<div style="margin-top: 4px; font-size: 13px; color: #6B7280; font-family: -apple-system, Arial, sans-serif;">⮑ Beri na: ${linksArray.join(', ')}</div>`;
-            }
-
-            itemsHtml += `
-              <div style="margin-bottom: 18px;">
-                <p style="font-size: 15px; line-height: 1.6; color: #374151; margin-top: 0; margin-bottom: 0; font-family: -apple-system, Arial, sans-serif;">
-                  <strong style="color: #111827;">${item.theme}:</strong> ${item.text}
-                </p>
-                ${sourceLinksHtml}
-              </div>
-            `;
-        });
+        }
 
         let displayTitle = cat.title;
         const titleMatch = displayTitle.match(/^([^\p{L}\p{N}]+)\s*(.*)$/u);
@@ -416,6 +434,54 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             </div>
         `;
     }); 
+
+    // --- GRADNJA VIRA ZA IZJAVO DNEVA ---
+    let quoteHtml = '';
+    if (aiData.quote_of_the_day) {
+        let quoteSourceHtml = '';
+        const qId = aiData.quote_of_the_day.story_id;
+        
+        // Preverimo, če imamo veljaven story_id in potegnemo URL prvega vira
+        if (typeof qId === 'number' && topStories[qId]) {
+            const story = topStories[qId];
+            if (story.sources && story.sources.length > 0) {
+                const firstSource = story.sources[0];
+                const rawUrl = typeof firstSource === 'string' ? firstSource : firstSource.url;
+                if (rawUrl) {
+                    try {
+                        const hostname = new URL(rawUrl).hostname.replace('www.', '');
+                        let sname = hostname.split('.')[0];
+                        sname = sname.charAt(0).toUpperCase() + sname.slice(1);
+                        if (hostname.includes('rtvslo')) sname = 'RTV SLO';
+                        if (hostname.includes('24ur')) sname = '24ur';
+                        if (hostname.includes('siol')) sname = 'Siol';
+                        if (hostname.includes('slovenskenovice')) sname = 'Slov. novice';
+                        if (hostname.includes('delo')) sname = 'Delo';
+                        if (hostname.includes('dnevnik')) sname = 'Dnevnik';
+                        if (hostname.includes('zurnal24')) sname = 'Žurnal24';
+                        if (hostname.includes('n1info')) sname = 'N1';
+                        if (hostname.includes('svet24')) sname = 'Svet24';
+
+                        quoteSourceHtml = `&nbsp; <a href="${rawUrl}" target="_blank" style="color: #9CA3AF; text-decoration: underline; font-size: 11px; font-weight: normal;">(Vir: ${sname})</a>`;
+                    } catch(e) {}
+                }
+            }
+        }
+
+        quoteHtml = `
+        <div style="background-color: #FFF7ED; border-left: 4px solid ${BRAND_COLOR}; padding: 24px; margin-top: 20px; margin-bottom: 40px; border-radius: 0 8px 8px 0;">
+          <h3 style="font-size: 13px; color: #9A3412; font-weight: bold; margin-top: 0; margin-bottom: 12px; font-family: -apple-system, Arial, sans-serif; text-transform: uppercase; letter-spacing: 0.1em;">
+            💬 Izjava dneva
+          </h3>
+          <p style="font-size: 16px; line-height: 1.6; color: #431407; margin: 0 0 12px 0; font-family: Georgia, 'Times New Roman', serif; font-style: italic;">
+            "${aiData.quote_of_the_day.quote}"
+          </p>
+          <p style="font-size: 13px; color: #C2410C; margin: 0; font-family: -apple-system, Arial, sans-serif; font-weight: 600;">
+            — ${aiData.quote_of_the_day.author} ${quoteSourceHtml}
+          </p>
+        </div>
+        `;
+    }
 
     let finalImageUrl = bestImage;
     if (finalImageUrl) {
@@ -451,18 +517,27 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                     <p style="margin: 0; font-size: 13px; color: #6B7280; font-family: -apple-system, Arial, sans-serif; text-align: center;">
                       ${todayStr}
                     </p>
-                    <p style="margin: 8px 0 0 0; font-size: 12px; color: #9CA3AF; font-family: -apple-system, Arial, sans-serif; text-align: center; font-weight: 500;">
-                      ⏱️ Čas branja: ~${calculatedReadingTime} min
-                    </p>
                   </td>
                 </tr>
 
                 <tr>
                   <td style="padding: 40px 24px;">
 
-                    <p style="font-size: 18px; line-height: 1.6; color: #111827; margin-top: 0; margin-bottom: 10px; font-family: -apple-system, Arial, sans-serif; font-weight: bold;">
-                      Dobro jutro! ☕
-                    </p>
+                    <table width="100%" border="0" cellspacing="0" cellpadding="0" style="margin-bottom: 15px;">
+                      <tr>
+                        <td align="left" valign="middle">
+                          <p style="font-size: 18px; line-height: 1; color: #111827; margin: 0; font-family: -apple-system, Arial, sans-serif; font-weight: bold;">
+                            Dobro jutro! ☕
+                          </p>
+                        </td>
+                        <td align="right" valign="middle">
+                          <span style="background-color: #F3F4F6; color: #6B7280; font-size: 11px; padding: 4px 10px; border-radius: 12px; font-family: -apple-system, Arial, sans-serif; font-weight: 600;">
+                            ⏱️ ~${calculatedReadingTime} min branja
+                          </span>
+                        </td>
+                      </tr>
+                    </table>
+
                     <p style="font-size: 16px; line-height: 1.6; color: #111827; margin-top: 0; margin-bottom: 30px; font-family: -apple-system, Arial, sans-serif;">
                       ${aiData.intro}
                     </p>
@@ -486,19 +561,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                     </div>
                     ` : ''}
                     
-                    ${aiData.quote_of_the_day ? `
-                    <div style="background-color: #FFF7ED; border-left: 4px solid ${BRAND_COLOR}; padding: 24px; margin-top: 20px; margin-bottom: 40px; border-radius: 0 8px 8px 0;">
-                      <h3 style="font-size: 13px; color: #9A3412; font-weight: bold; margin-top: 0; margin-bottom: 12px; font-family: -apple-system, Arial, sans-serif; text-transform: uppercase; letter-spacing: 0.1em;">
-                        💬 Izjava dneva
-                      </h3>
-                      <p style="font-size: 16px; line-height: 1.6; color: #431407; margin: 0 0 12px 0; font-family: Georgia, 'Times New Roman', serif; font-style: italic;">
-                        "${aiData.quote_of_the_day.quote}"
-                      </p>
-                      <p style="font-size: 13px; color: #C2410C; margin: 0; font-family: -apple-system, Arial, sans-serif; font-weight: 600;">
-                        — ${aiData.quote_of_the_day.author}
-                      </p>
-                    </div>
-                    ` : ''}
+                    ${quoteHtml}
 
                     <table border="0" cellspacing="0" cellpadding="0" align="center" style="margin: 30px auto 20px auto;">
                       <tr>
