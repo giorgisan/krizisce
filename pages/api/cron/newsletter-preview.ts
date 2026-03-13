@@ -310,21 +310,24 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         aiData = JSON.parse(result.response.text());
         console.log("✅ Uspešno uporabljen model: gemini-3.1-pro-preview");
     } catch (err: any) {
-        console.warn("⚠️ 3.1-pro-preview ni uspel. Fallback na stabilni gemini-2.5-pro...");
+        // TUKAJ DODAMO err.message ZA NATANČEN LOG
+        console.warn(`⚠️ 3.1-pro-preview ni uspel (${err.message}). Fallback na stabilni gemini-2.5-pro...`);
         try {
             const fallbackModel = genAI.getGenerativeModel({ model: "gemini-2.5-pro", generationConfig });
             const fallbackResult = await fallbackModel.generateContent(prompt);
             aiData = JSON.parse(fallbackResult.response.text());
             console.log("✅ Uspešno uporabljen model: gemini-2.5-pro");
         } catch (fallbackErr: any) {
-            console.warn("⚠️ 2.5-pro ni uspel. Zadnji fallback na gemini-2.5-flash...");
+            // TUKAJ DODAMO fallbackErr.message ZA NATANČEN LOG
+            console.warn(`⚠️ 2.5-pro ni uspel (${fallbackErr.message}). Zadnji fallback na gemini-2.5-flash...`);
             try {
                 const lastModel = genAI.getGenerativeModel({ model: "gemini-2.5-flash", generationConfig });
                 const lastResult = await lastModel.generateContent(prompt);
                 aiData = JSON.parse(lastResult.response.text());
                 console.log("✅ Uspešno uporabljen model: gemini-2.5-flash");
             } catch (lastErr: any) {
-                console.error("⚠️ AI napaka vseh modelov:", lastErr);
+                // TUKAJ DODAMO lastErr.message ZA NATANČEN LOG
+                console.error(`⚠️ AI napaka vseh modelov: ${lastErr.message}`);
                 throw new Error("Napaka pri AI generaciji: " + lastErr.message);
             }
         }
