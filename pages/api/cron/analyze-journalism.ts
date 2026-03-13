@@ -101,14 +101,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         - Search for a substantive statement that provides insight, opinion, or a key fact.
         - The quote MUST appear verbatim in the snippet text.
         - Direct quotes (inside » «, " " or “ ”) have absolute priority.
-        - SEMANTICS: The quote must be understandable without reading the whole article.
+
+        FILTER RULES:
+        - Avoid sentences that start with reporting verbs: "Dejal je, da", "Poudaril je, da", "Izpostavil je, da", "Meni, da", "Po njegovih besedah", "Ocenil je, da".
+        - These are journalist paraphrases. If such phrasing appears, choose another sentence or omit the quote.
+        - Avoid short, information-poor quotes such as "To je pomembno", "To je velik dan", "To je resno", "To je nesprejemljivo".
+        - Prefer statements that contain a concrete claim, action, or decision.
+        - Prefer sentences spoken in the first person ("mi", "jaz", "naš", "smo", "bom"), if available.
+        - The sentence MUST NOT start with conjunctions such as "da", "ker", "če", "ampak".
+
         - TARGET LENGTH: One concise sentence (ideally under 120 characters).
-        - The quote MUST be a single continuous sentence. Do NOT merge fragments.
-        - CRITICAL: If a sentence is too long, do NOT cut it. Either find a shorter impactful sentence or omit the 'key_quote'.
-        - AVOID: Simple exclamations, generic transitions ("More follows"), or journalist's filler text.
-        - SELECTION HIERARCHY:
-            a. Verbatim speech from a person (official, witness, expert).
-            b. A unique and definitive factual claim from the report.
+        - If a sentence is too long, choose a different one or omit 'key_quote'.
+        - SEMANTICS: The quote must be understandable and semantically complete on its own.
         - You MUST provide the exact [source_url] of the snippet where this text was found.
     
       INPUT DATA:
