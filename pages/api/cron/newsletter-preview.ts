@@ -284,6 +284,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
          - 'description': A short, punchy explanation.
       6. 'quote_of_the_day': Extract ONE striking, controversial, or inspiring direct quote mentioned in the text. 
          - CRITICAL: If a '- KEY QUOTE:' is provided in the SOURCE text, you MUST prioritize it and use it EXACTLY word-for-word.
+         - AVOID: Do NOT use boring PR fillers (e.g., "To je pomemben dan za nas") or journalist transitions.
+         - QUALITY FILTER: Choose a quote that carries an opinion, a decision, or a definitive claim about the event.
          - 'quote': The exact quote in Slovenian. Do not invent it.
          - 'author': The name of the person who said it.
          - 'story_id': The exact [STORY ID: X] from which the quote was taken.
@@ -477,20 +479,26 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             }
         }
 
-        // NOVI IZGLED CITATA
-        quoteHtml = `
-        <div style="background-color: #FAFAFA; border-left: 3px solid ${BRAND_COLOR}; padding: 20px 24px; margin: 24px 0 40px 0; border-radius: 0 8px 8px 0; border: 1px solid #F3F4F6;">
-          <h3 style="font-size: 12px; color: #6B7280; font-weight: bold; margin-top: 0; margin-bottom: 12px; font-family: -apple-system, Arial, sans-serif; text-transform: uppercase; letter-spacing: 0.1em;">
-            💬 Izjava dneva
-          </h3>
-          <p style="font-size: 16px; line-height: 1.6; color: #111827; margin: 0 0 12px 0; font-family: Georgia, 'Times New Roman', serif; font-style: italic;">
-            "${aiData.quote_of_the_day.quote}"
-          </p>
-          <p style="font-size: 13px; color: #4B5563; margin: 0; font-family: -apple-system, Arial, sans-serif; font-weight: 600;">
-            — ${aiData.quote_of_the_day.author} ${quoteSourceHtml}
-          </p>
-        </div>
-        `;
+        // NOVI IZGLED CITATA (Minimalno nadgrajen)
+          quoteHtml = `
+          <div style="background-color: #FFF7ED; border-left: 4px solid ${BRAND_COLOR}; padding: 24px; margin: 32px 0; border-radius: 4px;">
+            <table width="100%" border="0" cellspacing="0" cellpadding="0">
+              <tr>
+                <td style="font-family: -apple-system, Arial, sans-serif;">
+                  <h3 style="font-size: 12px; color: ${BRAND_COLOR}; font-weight: bold; margin: 0 0 12px 0; text-transform: uppercase; letter-spacing: 0.1em;">
+                    💬 Izjava dneva
+                  </h3>
+                  <p style="font-size: 17px; line-height: 1.6; color: #111827; margin: 0 0 16px 0; font-family: Georgia, 'Times New Roman', serif; font-style: italic; font-weight: 500;">
+                    "${aiData.quote_of_the_day.quote}"
+                  </p>
+                  <p style="font-size: 13px; color: #4B5563; margin: 0; font-family: -apple-system, Arial, sans-serif; font-weight: 600;">
+                    — ${aiData.quote_of_the_day.author} ${quoteSourceHtml}
+                  </p>
+                </td>
+              </tr>
+            </table>
+          </div>
+          `;
     }
 
     let finalImageUrl = bestImage;
