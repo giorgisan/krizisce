@@ -60,12 +60,10 @@ const newsletterSchema = {
                 number: { type: SchemaType.STRING },
                 description: { type: SchemaType.STRING }
             }
-            // Ni v 'required', ker je opcijsko
         },
         whats_ahead: { type: SchemaType.STRING },
         closing_line: { type: SchemaType.STRING }
     },
-    // whats_ahead in closing_line sta opcijska, zato ju ni v required
     required: ["intro", "categories", "quote_of_the_day"]
 };
 
@@ -301,25 +299,40 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     };
 
     let aiData;
+    // Prazne spremenljivke v primeru vseh neuspehov
+    aiData = { intro: "Pregled je v pripravi.", categories: [], quote_of_the_day: { quote: "", author: "", story_id: 0 } };
+
     try {
-        console.log("🚀 Poskušam hiter in stabilen model: gemini-2.5-flash...");
-        const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash", generationConfig });
+        console.log("🚀 Poskušam najpametnejši model: gemini-3.1-pro-preview...");
+        const model = genAI.getGenerativeModel({ model: "gemini-3.1-pro-preview", generationConfig });
         const result = await model.generateContent(prompt);
         aiData = JSON.parse(result.response.text());
+        console.log("✅ Uspešno uporabljen model: gemini-3.1-pro-preview");
     } catch (err: any) {
-        console.warn("⚠️ 2.5-flash ni uspel. Fallback na gemini-2.0-flash...");
+        console.warn("⚠️ 3.1-pro-preview ni uspel. Fallback na stabilni gemini-2.5-pro...");
         try {
-            const fallbackModel = genAI.getGenerativeModel({ model: "gemini-2.0-flash", generationConfig });
+            const fallbackModel = genAI.getGenerativeModel({ model: "gemini-2.5-pro", generationConfig });
             const fallbackResult = await fallbackModel.generateContent(prompt);
             aiData = JSON.parse(fallbackResult.response.text());
+            console.log("✅ Uspešno uporabljen model: gemini-2.5-pro");
         } catch (fallbackErr: any) {
-            throw new Error("Napaka pri AI generaciji: " + fallbackErr.message);
+            console.warn("⚠️ 2.5-pro ni uspel. Zadnji fallback na gemini-2.5-flash...");
+            try {
+                const lastModel = genAI.getGenerativeModel({ model: "gemini-2.5-flash", generationConfig });
+                const lastResult = await lastModel.generateContent(prompt);
+                aiData = JSON.parse(lastResult.response.text());
+                console.log("✅ Uspešno uporabljen model: gemini-2.5-flash");
+            } catch (lastErr: any) {
+                console.error("⚠️ AI napaka vseh modelov:", lastErr);
+                throw new Error("Napaka pri AI generaciji: " + lastErr.message);
+            }
         }
     }
 
     try {
         console.log("🔍 Začenjam hitro AI validacijo...");
         aiData = await validateOutput(aiData, promptData, currentDateStr);
+        console.log("✅ AI validacija uspešno zaključena.");
     } catch (validationErr) {
         console.error("⚠️ Napaka pri AI validaciji, nadaljujem z osnovnimi podatki:", validationErr);
     }
@@ -463,7 +476,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // --- CITAT DNEVA (Marelična) ---
     let quoteHtml = '';
-    if (aiData.quote_of_the_day) {
+    if (aiData.quote_of_the_day && aiData.quote_of_the_day.quote) {
         let quoteSourceHtml = '';
         const qId = aiData.quote_of_the_day.story_id;
         
