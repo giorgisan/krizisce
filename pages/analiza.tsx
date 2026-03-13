@@ -364,39 +364,40 @@ function AnalysisCard({ item, idx, setPreviewUrl }: { item: AnalysisItem, idx: n
                   </p>
               </div>
 
-              {/* CITAT (Desno 1/3 - Zelo blag fade in watermark) */}
+              // Poišči v kodi AnalysisCard komponento in zamenjaj samo del za CITAT:
+
+              {/* CITAT (Desno 1/3 - Brez ozadja, le subtilen fade in watermark) */}
               {hasQuote && (
-                  <div className="lg:col-span-1 relative overflow-hidden h-full bg-brand/5 dark:bg-brand/10 border-l-[3px] border-brand/30 rounded-r-xl p-4 md:p-5 flex flex-col justify-center">
+                  <div className="lg:col-span-1 relative overflow-hidden h-full border-l-[3px] border-brand/60 p-4 md:p-5 flex flex-col justify-center bg-gradient-to-br from-white/[0.02] to-transparent">
                       
                       {/* Subtilen vodni žig (narekovaj) */}
-                      <div className="absolute -top-4 right-2 text-[90px] font-serif font-black text-brand/10 dark:text-brand/5 select-none pointer-events-none leading-none">
+                      <div className="absolute -top-4 right-2 text-[90px] font-serif font-black text-white/[0.03] select-none pointer-events-none leading-none">
                           &rdquo;
                       </div>
-
+              
                       <div className="relative z-10 flex flex-col gap-2.5">
-                          <p className="text-[14px] md:text-[15px] italic font-serif text-gray-800 dark:text-gray-200 leading-relaxed pr-4">
+                          <p className="text-[14px] md:text-[15px] italic font-serif text-gray-200 leading-relaxed pr-4">
                               "{item.key_quote!.quote}"
                           </p>
                           
                           <div className="flex items-center flex-wrap gap-2 text-[11px] md:text-[12px]">
-                              <span className="font-bold text-gray-900 dark:text-gray-100">— {item.key_quote!.author}</span>
+                              <span className="font-bold text-gray-100">— {item.key_quote!.author}</span>
                               
-                              {/* Dodan točen vir in ikona */}
                               {item.key_quote!.source_url && quoteSourceName && (
                                   <>
-                                      <span className="text-gray-300 dark:text-gray-600">•</span>
+                                      <span className="text-gray-500">•</span>
                                       <a 
                                         href={item.key_quote!.source_url} 
                                         target="_blank" 
                                         rel="noopener noreferrer"
-                                        className="flex items-center gap-1.5 text-gray-500 dark:text-gray-400 hover:text-brand transition-colors"
+                                        className="flex items-center gap-1.5 text-gray-400 hover:text-brand transition-colors"
                                       >
                                           <img 
                                               src={getLogoSrc(quoteSourceName)} 
                                               alt={quoteSourceName} 
                                               className="w-3.5 h-3.5 object-contain opacity-70 grayscale"
                                           />
-                                          <span className="font-medium underline decoration-gray-300 dark:decoration-gray-600 underline-offset-2">
+                                          <span className="font-medium underline decoration-gray-600 underline-offset-2">
                                               Vir: {quoteSourceName}
                                           </span>
                                       </a>
