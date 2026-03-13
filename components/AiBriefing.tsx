@@ -41,8 +41,12 @@ export default function AiBriefing({ summary, time }: Props) {
             {time && (
               <>
                 <span className="text-gray-300 dark:text-gray-600 text-[10px]">•</span>
-                <span className="text-[10px] font-mono text-gray-400 dark:text-gray-500">
-                  osveženo {getRelativeTime(time)}
+                <span className="flex items-center text-[10px] font-mono text-gray-400 dark:text-gray-500" title="Čas zadnje osvežitve">
+                  {/* Zamenjano z ikono ure */}
+                  <svg className="w-3 h-3 mr-1 opacity-80" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  {getRelativeTime(time)}
                 </span>
               </>
             )}
