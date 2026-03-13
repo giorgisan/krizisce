@@ -105,7 +105,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         - TARGET LENGTH: One concise sentence (ideally under 120 characters).
         - The quote MUST be a single continuous sentence. Do NOT merge fragments.
         - CRITICAL: If a sentence is too long, do NOT cut it. Either find a shorter impactful sentence or omit the 'key_quote'.
-        - SEMANTICS: The quote must be understandable without reading the whole article.
         - AVOID: Simple exclamations, generic transitions ("More follows"), or journalist's filler text.
         - SELECTION HIERARCHY:
             a. Verbatim speech from a person (official, witness, expert).
