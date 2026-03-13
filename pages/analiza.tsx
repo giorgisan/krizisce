@@ -17,7 +17,7 @@ const ArticlePreview = dynamic(() => import('@/components/ArticlePreview'), {
 
 interface MediaDNA {
   informativnost: number; 
-  custveni_naboj: number;       
+  custveni_naboj: number;        
   pristranskost: number;   
 }
 
@@ -35,6 +35,11 @@ interface AnalysisItem {
   framing_analysis: string; 
   main_image?: string; 
   sources: SourceItem[];
+  // Dodan key_quote za prikaz citata iz baze
+  key_quote?: {
+      quote: string;
+      author: string;
+  };
 }
 
 interface Props {
@@ -63,10 +68,8 @@ const getLogoSrc = (sourceName: string) => {
   return '/logo.png';
 }
 
-// --- MODALNO OKNO (POPRAVLJEN MOBILE SCROLL IN ZAKLEP OZADJA) ---
+// --- MODALNO OKNO ---
 function HowItWorksModal({ onClose }: { onClose: () => void }) {
-  
-  // ZAKLENEMO SCROLLANJE OZADJA KO JE POP-UP ODPRT
   useEffect(() => {
     document.body.style.overflow = 'hidden';
     return () => {
@@ -77,11 +80,9 @@ function HowItWorksModal({ onClose }: { onClose: () => void }) {
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm transition-opacity" onClick={onClose}>
       <div 
-        // Omejili smo višino na 90vh (90% zaslona) in ga spremenili v flex-col
         className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col overflow-hidden border border-gray-200 dark:border-gray-700 relative transform transition-transform scale-100"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Absolute "X" gumb ostane vedno zgoraj desno, z-10 ga drži nad vsebino */}
         <button 
           onClick={onClose}
           className="absolute top-4 right-4 p-2 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 z-10"
@@ -89,7 +90,6 @@ function HowItWorksModal({ onClose }: { onClose: () => void }) {
           <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12"></path></svg>
         </button>
 
-        {/* Vsebinski del, ki omogoča drsenje (overflow-y-auto) */}
         <div className="p-6 md:p-8 overflow-y-auto">
           <h2 className="text-xl md:text-2xl font-serif font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2 pr-6">
             <span className="text-brand">💡</span> Kako deluje UI analiza?
@@ -130,7 +130,6 @@ function HowItWorksModal({ onClose }: { onClose: () => void }) {
           </div>
         </div>
 
-        {/* Noga okna z gumbom ostane vedno vidna spodaj (shrink-0 preprečuje krčenje) */}
         <div className="bg-gray-50 dark:bg-gray-800/80 px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex justify-end shrink-0">
           <button 
             onClick={onClose}
@@ -315,7 +314,7 @@ function AnalysisCard({ item, idx, setPreviewUrl }: { item: AnalysisItem, idx: n
                     <img src={proxiedImage(item.main_image, 400, 300, 1)} alt="" className="w-full h-full object-cover" />
                 </div>
               )}
-              <div className="flex-1">
+              <div className="flex-1 flex flex-col justify-center">
                   <div className="text-[9px] font-bold uppercase tracking-wider text-gray-400 mb-2">Ključna dejstva</div>
                   <ul className="space-y-1.5 md:space-y-2">
                       {bullets.map((bullet, bIdx) => (
@@ -328,6 +327,21 @@ function AnalysisCard({ item, idx, setPreviewUrl }: { item: AnalysisItem, idx: n
               </div>
           </div>
           
+          {/* PRIKAZ CITATA DNEVA */}
+          {item.key_quote && item.key_quote.quote && (
+              <div className="bg-orange-50/50 dark:bg-orange-900/10 border-l-4 border-brand/60 rounded-r-lg p-3.5 md:p-4 mt-2 mb-2 flex flex-col gap-1">
+                  <div className="flex items-start gap-2">
+                      <svg className="w-4 h-4 text-brand/50 mt-0.5 shrink-0" fill="currentColor" viewBox="0 0 24 24">
+                          <path d="M14.017 21v-7.391c0-5.704 3.731-9.57 8.983-10.609l.995 2.151c-2.432.917-3.995 3.638-3.995 5.849h4v10h-9.983zm-14.017 0v-7.391c0-5.704 3.748-9.57 9-10.609l.996 2.151c-2.433.917-3.996 3.638-3.996 5.849h3.983v10h-9.983z" />
+                      </svg>
+                      <p className="text-[14px] md:text-[15px] italic font-serif text-gray-800 dark:text-gray-200 leading-relaxed">
+                          "{item.key_quote.quote}"
+                      </p>
+                  </div>
+                  <span className="text-[11px] md:text-[12px] font-bold text-brand ml-6">— {item.key_quote.author}</span>
+              </div>
+          )}
+
           <div className="bg-gray-50/80 dark:bg-[#1e293b]/30 rounded-lg border border-gray-100 dark:border-gray-700/50 p-3.5 md:p-4 mt-2">
               <p className="text-[13px] md:text-[14px] text-gray-600 dark:text-gray-300 leading-relaxed">
                   <span className="font-bold text-gray-400 dark:text-gray-500 uppercase text-[9.5px] md:text-[10px] mr-2 tracking-wider">Kontekst:</span>
