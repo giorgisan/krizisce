@@ -363,8 +363,7 @@ function AnalysisCard({ item, idx, setPreviewUrl }: { item: AnalysisItem, idx: n
                       {item.framing_analysis}
                   </p>
               </div>
-
-              // Poišči v kodi AnalysisCard komponento in zamenjaj samo del za CITAT:
+        
 
               {/* CITAT (Desno 1/3 - Brez ozadja, le subtilen fade in watermark) */}
               {hasQuote && (
