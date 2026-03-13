@@ -356,7 +356,7 @@ function AnalysisCard({ item, idx, setPreviewUrl }: { item: AnalysisItem, idx: n
           {/* GRID LAYOUT: Kontekst (Levo 2/3) in Citat (Desno 1/3) */}
           <div className={`grid grid-cols-1 ${hasQuote ? 'lg:grid-cols-3' : ''} gap-4 mt-3`}>
               
-              {/* KONTEKST (Levo) */}
+              {/* KONTEKST (Levo 2/3) */}
               <div className={`${hasQuote ? 'lg:col-span-2' : ''} bg-gray-50/80 dark:bg-[#1e293b]/30 rounded-lg border border-gray-100 dark:border-gray-700/50 p-4 md:p-5 flex flex-col justify-center h-full`}>
                   <p className="text-[13px] md:text-[14px] text-gray-600 dark:text-gray-300 leading-relaxed">
                       <span className="font-bold text-gray-400 dark:text-gray-500 uppercase text-[9.5px] md:text-[10px] mr-2 tracking-wider block sm:inline mb-1 sm:mb-0">Kontekst:</span>
@@ -364,11 +364,11 @@ function AnalysisCard({ item, idx, setPreviewUrl }: { item: AnalysisItem, idx: n
                   </p>
               </div>
 
-              {/* CITAT (Desno - zelo blag fade) */}
+              {/* CITAT (Desno 1/3 - Zelo blag fade in watermark) */}
               {hasQuote && (
                   <div className="lg:col-span-1 relative overflow-hidden h-full bg-brand/5 dark:bg-brand/10 border-l-[3px] border-brand/30 rounded-r-xl p-4 md:p-5 flex flex-col justify-center">
                       
-                      {/* Subtilen vodni žig */}
+                      {/* Subtilen vodni žig (narekovaj) */}
                       <div className="absolute -top-4 right-2 text-[90px] font-serif font-black text-brand/10 dark:text-brand/5 select-none pointer-events-none leading-none">
                           &rdquo;
                       </div>
@@ -381,6 +381,7 @@ function AnalysisCard({ item, idx, setPreviewUrl }: { item: AnalysisItem, idx: n
                           <div className="flex items-center flex-wrap gap-2 text-[11px] md:text-[12px]">
                               <span className="font-bold text-gray-900 dark:text-gray-100">— {item.key_quote!.author}</span>
                               
+                              {/* Dodan točen vir in ikona */}
                               {item.key_quote!.source_url && quoteSourceName && (
                                   <>
                                       <span className="text-gray-300 dark:text-gray-600">•</span>
