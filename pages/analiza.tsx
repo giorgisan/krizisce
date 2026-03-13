@@ -291,9 +291,6 @@ function AnalysisCard({ item, idx, setPreviewUrl }: { item: AnalysisItem, idx: n
   const newsId = `novica-${idx + 1}`;
   const isFocused = router.asPath.endsWith(`#${newsId}`);
   const bullets = splitSummaryIntoBullets(item.summary);
-  
-  // Poberemo podatke za vir (prvi vir v skupini)
-  const primarySource = item.sources?.[0];
 
   return (
     <article id={newsId} className={`relative mb-8 md:mb-12 group/card transition-all duration-500 ${isFocused ? 'ring-2 ring-brand shadow-xl scale-[1.005]' : ''}`}>
@@ -329,50 +326,22 @@ function AnalysisCard({ item, idx, setPreviewUrl }: { item: AnalysisItem, idx: n
               </div>
           </div>
           
-          {/* SPREMENJEN BLOK ZA CITAT: Subtilnejše ozadje, vodni žig in ikona vira */}
+          {/* SPREMENJEN BLOK ZA CITAT: Nežen gradient in velik narekovaj v ozadju */}
           {item.key_quote && item.key_quote.quote && (
-              <div className="relative overflow-hidden bg-gray-50 dark:bg-[#1e293b]/50 border-l-4 border-brand/70 rounded-r-lg p-4 mt-2 mb-2 flex flex-col gap-2">
+              <div className="relative overflow-hidden bg-gradient-to-r from-gray-100/80 to-transparent dark:from-gray-800/40 dark:to-transparent border-l-[3px] border-brand/60 rounded-r-xl p-5 mt-4 mb-2">
                   
-                  {/* Vodni žig (Watermark) v ozadju */}
-                  <div className="absolute -bottom-4 -right-1 text-[54px] font-black uppercase tracking-tighter text-gray-900/5 dark:text-white/5 select-none pointer-events-none transform -rotate-2">
-                      IZPOSTAVLJENO
+                  {/* Vodni žig (Velik narekovaj) v ozadju */}
+                  <div className="absolute -top-4 right-4 text-[120px] font-serif font-black text-gray-200/70 dark:text-gray-700/30 select-none pointer-events-none leading-none">
+                      &rdquo;
                   </div>
 
-                  <div className="relative z-10 flex items-start gap-3">
-                      <svg className="w-5 h-5 text-brand/40 mt-0.5 shrink-0" fill="currentColor" viewBox="0 0 24 24">
-                          <path d="M14.017 21v-7.391c0-5.704 3.731-9.57 8.983-10.609l.995 2.151c-2.432.917-3.995 3.638-3.995 5.849h4v10h-9.983zm-14.017 0v-7.391c0-5.704 3.748-9.57 9-10.609l.996 2.151c-2.433.917-3.996 3.638-3.996 5.849h3.983v10h-9.983z" />
-                      </svg>
+                  <div className="relative z-10 flex flex-col gap-2.5">
+                      <p className="text-[14.5px] md:text-[15.5px] italic font-serif text-gray-700 dark:text-gray-300 leading-relaxed pr-10">
+                          "{item.key_quote.quote}"
+                      </p>
                       
-                      <div className="flex flex-col gap-2.5">
-                          <p className="text-[14px] md:text-[15px] italic font-serif text-gray-800 dark:text-gray-200 leading-relaxed pr-6 md:pr-10">
-                              "{item.key_quote.quote}"
-                          </p>
-                          
-                          <div className="flex items-center flex-wrap gap-2 text-[11px] md:text-[12px]">
-                              <span className="font-bold text-gray-700 dark:text-gray-300">— {item.key_quote.author}</span>
-                              
-                              {/* Dodan vir in ikona */}
-                              {primarySource && (
-                                  <>
-                                      <span className="text-gray-300 dark:text-gray-600">•</span>
-                                      <a 
-                                        href={primarySource.url} 
-                                        target="_blank" 
-                                        rel="noopener noreferrer"
-                                        className="flex items-center gap-1.5 text-gray-500 dark:text-gray-400 hover:text-brand dark:hover:text-brand transition-colors"
-                                      >
-                                          <img 
-                                              src={getLogoSrc(primarySource.source)} 
-                                              alt={primarySource.source} 
-                                              className="w-3.5 h-3.5 object-contain opacity-70 grayscale"
-                                          />
-                                          <span className="font-medium underline decoration-gray-300 dark:decoration-gray-600 underline-offset-2">
-                                              Vir: {primarySource.source}
-                                          </span>
-                                      </a>
-                                  </>
-                              )}
-                          </div>
+                      <div className="flex items-center gap-2 text-[12px]">
+                          <span className="font-bold text-gray-900 dark:text-gray-100">— {item.key_quote.author}</span>
                       </div>
                   </div>
               </div>
