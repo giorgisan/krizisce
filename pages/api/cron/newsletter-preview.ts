@@ -364,13 +364,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         });
     }
     
-    if (aiData.quote_of_the_day) {
-        if (aiData.quote_of_the_day.quote) totalTextLength += aiData.quote_of_the_day.quote.split(/\s+/).length;
+    if (aiData.quote_of_the_day && aiData.quote_of_the_day.quote) {
+        totalTextLength += aiData.quote_of_the_day.quote.split(/\s+/).length;
         if (aiData.quote_of_the_day.author) totalTextLength += aiData.quote_of_the_day.author.split(/\s+/).length;
     }
     
-    if (aiData.number_of_the_day) {
-        if (aiData.number_of_the_day.description) totalTextLength += aiData.number_of_the_day.description.split(/\s+/).length;
+    if (aiData.number_of_the_day && aiData.number_of_the_day.description) {
+        totalTextLength += aiData.number_of_the_day.description.split(/\s+/).length;
     }
 
     const calculatedReadingTime = Math.max(1, Math.ceil(totalTextLength / 200));
@@ -461,16 +461,20 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // --- ŠTEVILKA DNEVA (Bledo modra) ---
     let numberHtml = '';
-    if (aiData.number_of_the_day) {
+    if (aiData.number_of_the_day && aiData.number_of_the_day.number) {
         numberHtml = `
-        <div style="background-color: #F0F9FF; border-left: 4px solid #3B82F6; padding: 24px; margin-top: 40px; margin-bottom: 20px; border-radius: 4px; border: 1px solid #E0F2FE;">
-          <h3 style="font-size: 11px; color: #2563EB; font-weight: bold; margin: 0 0 12px 0; font-family: -apple-system, Arial, sans-serif; text-transform: uppercase; letter-spacing: 0.15em;">
-            📊 Številka dneva
-          </h3>
-          <p style="font-size: 15px; line-height: 1.5; color: #1E293B; margin: 0; font-family: -apple-system, Arial, sans-serif;">
-            <strong style="font-size: 24px; color: #1E40AF; margin-right: 8px;">${aiData.number_of_the_day.number}</strong> — ${aiData.number_of_the_day.description}
-          </p>
-        </div>
+        <table width="100%" border="0" cellspacing="0" cellpadding="0" style="margin-top: 40px; margin-bottom: 20px;">
+          <tr>
+            <td style="background-color: #F0F9FF; border-left: 4px solid #3B82F6; border-top: 1px solid #E0F2FE; border-right: 1px solid #E0F2FE; border-bottom: 1px solid #E0F2FE; padding: 24px; border-radius: 4px;">
+              <h3 style="font-size: 11px; color: #2563EB; font-weight: bold; margin: 0 0 12px 0; font-family: -apple-system, Arial, sans-serif; text-transform: uppercase; letter-spacing: 0.15em;">
+                📊 Številka dneva
+              </h3>
+              <p style="font-size: 15px; line-height: 1.5; color: #1E293B; margin: 0; font-family: -apple-system, Arial, sans-serif;">
+                <strong style="font-size: 24px; color: #1E40AF; margin-right: 8px;">${aiData.number_of_the_day.number}</strong> — ${aiData.number_of_the_day.description}
+              </p>
+            </td>
+          </tr>
+        </table>
         `;
     }
 
@@ -505,23 +509,21 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         }
 
         quoteHtml = `
-        <div style="background-color: #FFF7ED; border-left: 4px solid ${BRAND_COLOR}; padding: 24px; margin: 32px 0; border-radius: 4px; border: 1px solid #FFEDD5;">
-          <table width="100%" border="0" cellspacing="0" cellpadding="0">
-            <tr>
-              <td style="font-family: -apple-system, Arial, sans-serif;">
-                <h3 style="font-size: 11px; color: ${BRAND_COLOR}; font-weight: bold; margin: 0 0 12px 0; text-transform: uppercase; letter-spacing: 0.15em;">
-                  💬 Izjava dneva
-                </h3>
-                <p style="font-size: 18px; line-height: 1.5; color: #111827; margin: 0 0 14px 0; font-family: Georgia, 'Times New Roman', serif; font-style: italic; font-weight: 500;">
-                  "${aiData.quote_of_the_day.quote}"
-                </p>
-                <p style="font-size: 13px; color: #4B5563; margin: 0; font-family: -apple-system, Arial, sans-serif; font-weight: 600;">
-                  — ${aiData.quote_of_the_day.author} ${quoteSourceHtml}
-                </p>
-              </td>
-            </tr>
-          </table>
-        </div>
+        <table width="100%" border="0" cellspacing="0" cellpadding="0" style="margin: 32px 0;">
+          <tr>
+            <td style="background-color: #FFF7ED; border-left: 4px solid ${BRAND_COLOR}; border-top: 1px solid #FFEDD5; border-right: 1px solid #FFEDD5; border-bottom: 1px solid #FFEDD5; padding: 24px; border-radius: 4px;">
+              <h3 style="font-size: 11px; color: ${BRAND_COLOR}; font-weight: bold; margin: 0 0 12px 0; font-family: -apple-system, Arial, sans-serif; text-transform: uppercase; letter-spacing: 0.15em;">
+                💬 Izjava dneva
+              </h3>
+              <p style="font-size: 18px; line-height: 1.5; color: #111827; margin: 0 0 14px 0; font-family: Georgia, 'Times New Roman', serif; font-style: italic; font-weight: 500;">
+                "${aiData.quote_of_the_day.quote}"
+              </p>
+              <p style="font-size: 13px; color: #4B5563; margin: 0; font-family: -apple-system, Arial, sans-serif; font-weight: 600;">
+                — ${aiData.quote_of_the_day.author} ${quoteSourceHtml}
+              </p>
+            </td>
+          </tr>
+        </table>
         `;
     }
 
@@ -529,14 +531,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     let whatsAheadHtml = '';
     if (aiData.whats_ahead) {
         whatsAheadHtml = `
-        <div style="background-color: #F1F5F9; border-left: 4px solid #94A3B8; padding: 24px; margin-top: 32px; margin-bottom: 20px; border-radius: 4px; border: 1px solid #F1F5F9;">
-          <h3 style="font-size: 11px; color: #475569; font-weight: bold; margin: 0 0 10px 0; font-family: -apple-system, Arial, sans-serif; text-transform: uppercase; letter-spacing: 0.15em;">
-            🗓️ Kaj nas čaka
-          </h3>
-          <p style="font-size: 15px; line-height: 1.5; color: #334155; margin: 0; font-family: -apple-system, Arial, sans-serif;">
-            ${aiData.whats_ahead}
-          </p>
-        </div>
+        <table width="100%" border="0" cellspacing="0" cellpadding="0" style="margin-top: 32px; margin-bottom: 20px;">
+          <tr>
+            <td style="background-color: #F8FAFC; border-left: 4px solid #94A3B8; border-top: 1px solid #F1F5F9; border-right: 1px solid #F1F5F9; border-bottom: 1px solid #F1F5F9; padding: 24px; border-radius: 4px;">
+              <h3 style="font-size: 11px; color: #475569; font-weight: bold; margin: 0 0 10px 0; font-family: -apple-system, Arial, sans-serif; text-transform: uppercase; letter-spacing: 0.15em;">
+                🗓️ Kaj nas čaka
+              </h3>
+              <p style="font-size: 15px; line-height: 1.5; color: #334155; margin: 0; font-family: -apple-system, Arial, sans-serif;">
+                ${aiData.whats_ahead}
+              </p>
+            </td>
+          </tr>
+        </table>
         `;
     }
 
@@ -544,14 +550,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     let closingHtml = '';
     if (aiData.closing_line) {
         closingHtml = `
-        <div style="background-color: #FEFCE8; border-left: 4px solid #EAB308; padding: 24px; margin-top: 32px; margin-bottom: 20px; border-radius: 4px; border: 1px solid #FEF08A;">
-          <h3 style="font-size: 11px; color: #CA8A04; font-weight: bold; margin: 0 0 10px 0; font-family: -apple-system, Arial, sans-serif; text-transform: uppercase; letter-spacing: 0.15em;">
-            💡 Za konec
-          </h3>
-          <p style="font-size: 15px; line-height: 1.6; color: #422006; margin: 0; font-family: -apple-system, Arial, sans-serif;">
-            ${aiData.closing_line}
-          </p>
-        </div>
+        <table width="100%" border="0" cellspacing="0" cellpadding="0" style="margin-top: 32px; margin-bottom: 20px;">
+          <tr>
+            <td style="background-color: #FEFCE8; border-left: 4px solid #EAB308; border-top: 1px solid #FEF08A; border-right: 1px solid #FEF08A; border-bottom: 1px solid #FEF08A; padding: 24px; border-radius: 4px;">
+              <h3 style="font-size: 11px; color: #CA8A04; font-weight: bold; margin: 0 0 10px 0; font-family: -apple-system, Arial, sans-serif; text-transform: uppercase; letter-spacing: 0.15em;">
+                💡 Za konec
+              </h3>
+              <p style="font-size: 15px; line-height: 1.6; color: #422006; margin: 0; font-family: -apple-system, Arial, sans-serif;">
+                ${aiData.closing_line}
+              </p>
+            </td>
+          </tr>
+        </table>
         `;
     }
 
