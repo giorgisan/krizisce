@@ -31,6 +31,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   // --------------------------------------------------------
 
   try {
+    // 1. Pridobivanje novic iz predpomnilnika
     const { data: cacheData, error: cacheError } = await supabase
       .from('trending_groups_cache')
       .select('data')
@@ -47,9 +48,46 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const topStories = allGroups.slice(0, 5)
 
+    // 2. Pridobivanje ZADNJE analize iz baze
+    const { data: lastAnalysisObj } = await supabase
+      .from('media_analysis')
+      .select('data')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single();
+
+    const lastAnalysisData = lastAnalysisObj?.data || [];
+
+    // 3. LOGIKA ZA PRESKAKOVANJE (OPTIMIZACIJA)
+    const groupsToAnalyze: { index: number, group: any }[] = [];
+    const finalData = new Array(5).fill(null);
+
+    topStories.forEach((group, index) => {
+       // Preverimo, če se glavni link te skupine že nahaja v zadnji analizi
+       const existingAnalysis = lastAnalysisData.find((aiItem: any) =>
+          aiItem.source_urls && aiItem.source_urls.includes(group.link)
+       );
+
+       if (existingAnalysis) {
+           // Zgodbo smo že analizirali, samo prekopiramo stare podatke na ustrezno mesto
+           finalData[index] = existingAnalysis;
+       } else {
+           // To je povsem nova zgodba, pripravimo jo za AI
+           groupsToAnalyze.push({ index, group });
+       }
+    });
+
+    // Če so vse zgodbe že obdelane, zaključimo in prihranimo denar!
+    if (groupsToAnalyze.length === 0) {
+        console.log("Ni novih zgodb za analizo. Preskakujem AI klic.");
+        return res.status(200).json({ success: true, message: "Brez sprememb. Vse zgodbe so že analizirane.", count: 0 });
+    }
+
+    // Priprava prompta SAMO za manjkajoče (nove) zgodbe
     let promptData = ""
-    topStories.forEach((group: any, index: number) => {
-       promptData += `\nZGODBA ${index + 1}:\n`
+    groupsToAnalyze.forEach((item, i) => {
+       promptData += `\nZGODBA ${i + 1}:\n`
+       const group = item.group;
        const mainArticle = { 
            source: group.source, 
            title: group.title, 
@@ -59,9 +97,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
        const otherArticles = group.storyArticles || [];
        const allInGroup = [mainArticle, ...otherArticles];
        
-       allInGroup.slice(0, 8).forEach((item: any) => {
-          const snippet = item.snippet || item.contentsnippet || item.contentSnippet || '';
-          promptData += `- Vir: ${item.source}\n  Naslov: "${item.title}"\n  Povzetek: "${snippet}"\n  [source_url]: "${item.link}"\n`
+       allInGroup.slice(0, 8).forEach((article: any) => {
+          const snippet = article.snippet || article.contentsnippet || article.contentSnippet || '';
+          promptData += `- Vir: ${article.source}\n  Naslov: "${article.title}"\n  Povzetek: "${snippet}"\n  [source_url]: "${article.link}"\n`
        })
     })
 
@@ -70,7 +108,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const currentYear = today.getFullYear(); 
 
     const prompt = `
-      You are an expert media analyst and fact-checker. Analyze how Slovenian media is reporting on the following ${topStories.length} events. 
+      You are an expert media analyst and fact-checker. Analyze how Slovenian media is reporting on the following ${groupsToAnalyze.length} events. 
       Use both the title and the provided snippet to evaluate the media framing.
 
       CRITICAL - TOPIC AND SUMMARY NAMING RULE:
@@ -145,23 +183,21 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             }
           }
         },
-        // 'key_quote' je namerno izpuščen iz required, da preprečimo halucinacije, ko ni citata.
         required: ["topic", "consensus_headline", "summary", "framing_analysis", "sources"]
       }
     };
 
-    // --- KLIC AI MODELA S FALLBACK LOGIKO ---
     const modelsToTry = [
-        "gemini-3.1-pro-preview", // Primarni (najpametnejši za Media DNA)
-        "gemini-2.5-pro",         // Prva rezerva (stabilna Pro verzija)
-        "gemini-2.5-flash"        // Zadnja rešilna bilka (hitra verzija)
+        "gemini-3.1-pro-preview", 
+        "gemini-2.5-pro",         
+        "gemini-2.5-flash"        
     ];
 
     let analysisData = null;
 
     for (const modelName of modelsToTry) {
         try {
-            console.log(`🤖 Poskušam AI analizo z modelom: ${modelName}...`);
+            console.log(`🤖 Poskušam AI analizo z modelom: ${modelName} za ${groupsToAnalyze.length} novih zgodb...`);
             const model = genAI.getGenerativeModel({ 
                 model: modelName, 
                 generationConfig: {
@@ -177,7 +213,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             if (parsed && Array.isArray(parsed)) {
                 analysisData = parsed;
                 console.log(`✅ AI uspešen z modelom: ${modelName}`);
-                break; // Uspešno! Prekinemo zanko.
+                break;
             }
         } catch (err: any) {
             console.warn(`⚠️ Model ${modelName} ni uspel: ${err.message}. Preklapljam na naslednjega...`);
@@ -187,17 +223,20 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (!analysisData) {
         throw new Error("❌ Vsi AI modeli so odpovedali ali vrnili neveljaven odgovor.");
     }
-    // ----------------------------------------
 
-    const finalData = analysisData.map((aiItem: any, index: number) => {
-        const originalGroup = topStories[index];
-        if (originalGroup) {
+    // Združevanje novih in starih analiz nazaj v pravilni vrstni red (top 5)
+    groupsToAnalyze.forEach((item, aiIndex) => {
+        const aiItem = analysisData[aiIndex];
+        const originalGroup = item.group;
+        
+        if (originalGroup && aiItem) {
             aiItem.main_image = originalGroup.image || null;
             aiItem.source_urls = originalGroup.storyArticles 
                 ? [originalGroup.link, ...originalGroup.storyArticles.map((a: any) => a.link)]
                 : [originalGroup.link];
+            
+            finalData[item.index] = aiItem;
         }
-        return aiItem;
     });
 
     const { error: insertError } = await supabase.from('media_analysis').insert({ 
@@ -212,7 +251,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         console.error('Napaka pri revalidaciji:', revalidateError);
     }
 
-    return res.status(200).json({ success: true, count: finalData.length, data: finalData })
+    return res.status(200).json({ success: true, count: finalData.length, newlyAnalyzed: groupsToAnalyze.length, data: finalData })
 
   } catch (e: any) {
       console.error("Monitor AI Error:", e)
