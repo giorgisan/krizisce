@@ -97,10 +97,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       1. LANGUAGE: The entire output MUST be in SLOVENIAN.
       2. TOPIC/SUMMARY: Derive EXCLUSIVELY from TITLES and snippets. NEVER use [source_url] strings to guess facts.
       3. ANTI-HALLUCINATION: NEVER add "nekdanji" or "bivši" to political titles unless explicitly in the source. Donald Trump is "Donald Trump", not automatically "nekdanji predsednik".
-      4. QUOTES: Extract a verbatim, word-for-word DIRECT QUOTE from the snippets. 
-         - It MUST be exact. Do NOT paraphrase or invent. 
-         - If no verbatim quote is found, OMIT the 'key_quote' object.
-         - You MUST provide the exact [source_url] of the snippet containing the quote.
+      4. STATEMENTS & QUOTES (WORD-FOR-WORD ONLY): Look for the most impactful piece of information to highlight.
+         - Priority 1: A striking direct quote from a person involved.
+         - Priority 2: If no direct quote is found, extract a powerful, distinctive sentence or claim EXACTLY as written.
+         - CRITICAL: It MUST be an EXACT word-for-word match from the snippets. Do NOT paraphrase, summarize, or edit. 
+         - If the source text is too generic to provide an interesting highlight, omit the 'key_quote' object.
+         - You MUST provide the exact [source_url] of the snippet where this text was found.
 
       INPUT DATA:
       ${promptData}
@@ -151,7 +153,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     };
 
     // --- KLIC AI MODELA S FALLBACK LOGIKO ---
-    const modelsToTry = ["gemini-3.1-pro-preview", "gemini-2.5-pro", "gemini-2.5-flash"];
+    const modelsToTry = ["gemini-2.5-pro", "gemini-2.5-flash", "gemini-2.0-flash"];
     let analysisData = null;
 
     for (const modelName of modelsToTry) {
