@@ -216,7 +216,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                             sources: cleanSources,
                             uniqueUrls: uniqueUrls, 
                             score: cleanSources.length,
-                            key_quote: item.key_quote || null // <-- Shranjevanje citata
+                            key_quote: item.key_quote || null
                         });
                     }
                 })
@@ -284,7 +284,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
          - 'description': A short, punchy explanation.
       6. 'quote_of_the_day': Extract ONE striking, controversial, or inspiring direct quote mentioned in the text. 
          - CRITICAL: If a '- KEY QUOTE:' is provided in the SOURCE text, you MUST prioritize it and use it EXACTLY word-for-word.
-         - AVOID: Do NOT use boring PR fillers (e.g., "To je pomemben dan za nas") or journalist transitions.
          - QUALITY FILTER: Choose a quote that carries an opinion, a decision, or a definitive claim about the event.
          - 'quote': The exact quote in Slovenian. Do not invent it.
          - 'author': The name of the person who said it.
@@ -448,6 +447,22 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         `;
     }); 
 
+    // --- NOVO: VIZUALNO POSODOBLJENA ŠTEVILKA DNEVA (Bleda modra) ---
+    let numberHtml = '';
+    if (aiData.number_of_the_day) {
+        numberHtml = `
+        <div style="background-color: #F0F9FF; border-left: 4px solid #3B82F6; padding: 24px; margin-top: 40px; margin-bottom: 20px; border-radius: 4px; border: 1px solid #E0F2FE;">
+          <h3 style="font-size: 11px; color: #2563EB; font-weight: bold; margin: 0 0 12px 0; font-family: -apple-system, Arial, sans-serif; text-transform: uppercase; letter-spacing: 0.15em;">
+            📊 Številka dneva
+          </h3>
+          <p style="font-size: 15px; line-height: 1.5; color: #1E293B; margin: 0; font-family: -apple-system, Arial, sans-serif;">
+            <strong style="font-size: 24px; color: #1E40AF; margin-right: 8px;">${aiData.number_of_the_day.number}</strong> — ${aiData.number_of_the_day.description}
+          </p>
+        </div>
+        `;
+    }
+
+    // --- NOVO: VIZUALNO POSODOBLJEN CITAT (Marelična) ---
     let quoteHtml = '';
     if (aiData.quote_of_the_day) {
         let quoteSourceHtml = '';
@@ -456,7 +471,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         if (typeof qId === 'number' && topStories[qId]) {
             const story = topStories[qId];
             
-            // POPRAVEK: rawUrl definiran samo enkrat
             const rawUrl = aiData.quote_of_the_day.source_url || (story.sources && story.sources.length > 0 ? (typeof story.sources[0] === 'string' ? story.sources[0] : story.sources[0].url) : null);
 
             if (rawUrl) {
@@ -479,26 +493,25 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             }
         }
 
-        // NOVI IZGLED CITATA (Minimalno nadgrajen)
-          quoteHtml = `
-          <div style="background-color: #FFF7ED; border-left: 4px solid ${BRAND_COLOR}; padding: 24px; margin: 32px 0; border-radius: 4px;">
-            <table width="100%" border="0" cellspacing="0" cellpadding="0">
-              <tr>
-                <td style="font-family: -apple-system, Arial, sans-serif;">
-                  <h3 style="font-size: 12px; color: ${BRAND_COLOR}; font-weight: bold; margin: 0 0 12px 0; text-transform: uppercase; letter-spacing: 0.1em;">
-                    💬 Izjava dneva
-                  </h3>
-                  <p style="font-size: 17px; line-height: 1.6; color: #111827; margin: 0 0 16px 0; font-family: Georgia, 'Times New Roman', serif; font-style: italic; font-weight: 500;">
-                    "${aiData.quote_of_the_day.quote}"
-                  </p>
-                  <p style="font-size: 13px; color: #4B5563; margin: 0; font-family: -apple-system, Arial, sans-serif; font-weight: 600;">
-                    — ${aiData.quote_of_the_day.author} ${quoteSourceHtml}
-                  </p>
-                </td>
-              </tr>
-            </table>
-          </div>
-          `;
+        quoteHtml = `
+        <div style="background-color: #FFF7ED; border-left: 4px solid ${BRAND_COLOR}; padding: 24px; margin: 32px 0 40px 0; border-radius: 4px; border: 1px solid #FFEDD5;">
+          <table width="100%" border="0" cellspacing="0" cellpadding="0">
+            <tr>
+              <td style="font-family: -apple-system, Arial, sans-serif;">
+                <h3 style="font-size: 11px; color: ${BRAND_COLOR}; font-weight: bold; margin: 0 0 12px 0; text-transform: uppercase; letter-spacing: 0.15em;">
+                  💬 Izjava dneva
+                </h3>
+                <p style="font-size: 18px; line-height: 1.5; color: #111827; margin: 0 0 14px 0; font-family: Georgia, 'Times New Roman', serif; font-style: italic; font-weight: 500;">
+                  "${aiData.quote_of_the_day.quote}"
+                </p>
+                <p style="font-size: 13px; color: #4B5563; margin: 0; font-family: -apple-system, Arial, sans-serif; font-weight: 600;">
+                  — ${aiData.quote_of_the_day.author} ${quoteSourceHtml}
+                </p>
+              </td>
+            </tr>
+          </table>
+        </div>
+        `;
     }
 
     let finalImageUrl = bestImage;
@@ -568,16 +581,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
                     ${categoriesHtml}
 
-                    ${aiData.number_of_the_day ? `
-                    <div style="background-color: #F8FAFC; border: 1px solid #E2E8F0; padding: 20px; margin-top: 40px; margin-bottom: 20px; border-radius: 8px;">
-                      <h3 style="font-size: 12px; color: #64748B; font-weight: bold; margin-top: 0; margin-bottom: 10px; font-family: -apple-system, Arial, sans-serif; text-transform: uppercase; letter-spacing: 0.1em;">
-                        📊 Številka dneva
-                      </h3>
-                      <p style="font-size: 15px; line-height: 1.5; color: #334155; margin: 0; font-family: -apple-system, Arial, sans-serif;">
-                        <strong style="font-size: 22px; color: ${BRAND_COLOR}; margin-right: 6px;">${aiData.number_of_the_day.number}</strong> — ${aiData.number_of_the_day.description}
-                      </p>
-                    </div>
-                    ` : ''}
+                    ${numberHtml}
                     
                     ${quoteHtml}
 
