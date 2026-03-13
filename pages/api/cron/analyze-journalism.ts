@@ -97,13 +97,25 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       1. LANGUAGE: The entire output MUST be in SLOVENIAN.
       2. TOPIC/SUMMARY: Derive EXCLUSIVELY from TITLES and snippets. NEVER use [source_url] strings to guess facts.
       3. ANTI-HALLUCINATION: NEVER add "nekdanji" or "bivši" to political titles unless explicitly in the source. Donald Trump is "Donald Trump", not automatically "nekdanji predsednik".
-      4. STATEMENTS & QUOTES (WORD-FOR-WORD ONLY): Look for the most impactful piece of information to highlight.
-         - Priority 1: A striking direct quote from a person involved.
-         - Priority 2: If no direct quote is found, extract a powerful, distinctive sentence or claim EXACTLY as written.
-         - CRITICAL: It MUST be an EXACT word-for-word match from the snippets. Do NOT paraphrase, summarize, or edit. 
-         - If the source text is too generic to provide an interesting highlight, omit the 'key_quote' object.
+      4. QUOTE EXTRACTION (WORD-FOR-WORD ONLY):
+         - Search for a substantive statement that provides insight, opinion, or a key fact.
+         - The quote MUST appear verbatim in the snippet text. If any word differs from the snippet, discard the quote.
+         - Direct quotes may appear inside quotation marks (" "), Slovenian quotes (» «) or (“ ”).
+         - Maximum length: cca. 120 characters. Do NOT truncate sentences. If a sentence exceeds 120 characters, choose a different shorter sentence.
+         - Internally evaluate several candidate sentences before choosing the best one.  Return only the final quote.
+         - The sentence must be semantically complete and understandable on its own.
+         - Prefer statements that describe the main development, decision, or conflict in the event.
+         - The quote must be a single continuous sentence from the snippet. Do NOT merge fragments from different sentences.
+         - Follow this selection process:
+            a. Look for a direct quote inside quotation marks.
+            b. If none exists, select a sentence that contains a claim, decision, or factual statement.
+            c. Avoid generic sentences such as:
+               - "Dogodek se je zgodil danes"
+               - "O tem so poročali mediji"
+         - Prefer statements spoken by identifiable people (politicians, officials, witnesses). Avoid sentences written by the journalist unless no direct speech exists.
          - You MUST provide the exact [source_url] of the snippet where this text was found.
-
+         - If the only quotes available are non-substantive, OMIT the 'key_quote' object entirely.
+    
       INPUT DATA:
       ${promptData}
     `
