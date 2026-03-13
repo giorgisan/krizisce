@@ -35,9 +35,11 @@ interface AnalysisItem {
   framing_analysis: string; 
   main_image?: string; 
   sources: SourceItem[];
+  // Dodan source_url za natančen prikaz vira
   key_quote?: {
       quote: string;
       author: string;
+      source_url?: string; 
   };
 }
 
@@ -291,6 +293,30 @@ function AnalysisCard({ item, idx, setPreviewUrl }: { item: AnalysisItem, idx: n
   const newsId = `novica-${idx + 1}`;
   const isFocused = router.asPath.endsWith(`#${newsId}`);
   const bullets = splitSummaryIntoBullets(item.summary);
+  
+  // Določanje natančnega imena vira za citat, če je na voljo
+  let quoteSourceName = '';
+  if (item.key_quote?.source_url) {
+      const matched = item.sources.find(s => s.url === item.key_quote!.source_url);
+      if (matched) {
+          quoteSourceName = matched.source;
+      } else {
+          try {
+              const hostname = new URL(item.key_quote.source_url).hostname.replace('www.', '');
+              quoteSourceName = hostname.split('.')[0];
+              quoteSourceName = quoteSourceName.charAt(0).toUpperCase() + quoteSourceName.slice(1);
+              if (hostname.includes('rtvslo')) quoteSourceName = 'RTV SLO';
+              if (hostname.includes('24ur')) quoteSourceName = '24ur';
+              if (hostname.includes('siol')) quoteSourceName = 'Siol';
+              if (hostname.includes('slovenskenovice')) quoteSourceName = 'Slov. novice';
+              if (hostname.includes('delo')) quoteSourceName = 'Delo';
+              if (hostname.includes('dnevnik')) quoteSourceName = 'Dnevnik';
+              if (hostname.includes('zurnal24')) quoteSourceName = 'Žurnal24';
+              if (hostname.includes('n1info')) quoteSourceName = 'N1';
+              if (hostname.includes('svet24')) quoteSourceName = 'Svet24';
+          } catch(e) {}
+      }
+  }
 
   return (
     <article id={newsId} className={`relative mb-8 md:mb-12 group/card transition-all duration-500 ${isFocused ? 'ring-2 ring-brand shadow-xl scale-[1.005]' : ''}`}>
@@ -307,7 +333,7 @@ function AnalysisCard({ item, idx, setPreviewUrl }: { item: AnalysisItem, idx: n
             {item.consensus_headline || item.topic}
           </h2>
           
-          <div className="flex flex-col sm:flex-row gap-5 md:gap-6 mb-4">
+          <div className="flex flex-col sm:flex-row gap-5 md:gap-6 mb-2">
               {item.main_image && (
                 <div className="w-full sm:w-36 md:w-44 lg:w-48 aspect-video sm:aspect-[4/3] rounded-lg overflow-hidden relative border border-gray-100 dark:border-gray-700 shrink-0">
                     <img src={proxiedImage(item.main_image, 400, 300, 1)} alt="" className="w-full h-full object-cover" />
@@ -326,33 +352,62 @@ function AnalysisCard({ item, idx, setPreviewUrl }: { item: AnalysisItem, idx: n
               </div>
           </div>
           
-          {/* SPREMENJEN BLOK ZA CITAT: Nežen gradient in velik narekovaj v ozadju */}
-          {item.key_quote && item.key_quote.quote && (
-              <div className="relative overflow-hidden bg-gradient-to-r from-gray-100/80 to-transparent dark:from-gray-800/40 dark:to-transparent border-l-[3px] border-brand/60 rounded-r-xl p-5 mt-4 mb-2">
-                  
-                  {/* Vodni žig (Velik narekovaj) v ozadju */}
-                  <div className="absolute -top-4 right-4 text-[120px] font-serif font-black text-gray-200/70 dark:text-gray-700/30 select-none pointer-events-none leading-none">
-                      &rdquo;
-                  </div>
-
-                  <div className="relative z-10 flex flex-col gap-2.5">
-                      <p className="text-[14.5px] md:text-[15.5px] italic font-serif text-gray-700 dark:text-gray-300 leading-relaxed pr-10">
-                          "{item.key_quote.quote}"
-                      </p>
+          {/* GRID LAYOUT ZA CITAT IN KONTEKST (Side-by-side) */}
+          <div className={`grid grid-cols-1 ${item.key_quote && item.key_quote.quote ? 'lg:grid-cols-2' : ''} gap-4 mt-3`}>
+              
+              {/* CITAT */}
+              {item.key_quote && item.key_quote.quote && (
+                  <div className="relative overflow-hidden h-full bg-gradient-to-r from-gray-100/80 to-transparent dark:from-gray-800/40 dark:to-transparent border-l-[3px] border-brand/60 rounded-r-xl p-4 md:p-5 flex flex-col justify-center">
                       
-                      <div className="flex items-center gap-2 text-[12px]">
-                          <span className="font-bold text-gray-900 dark:text-gray-100">— {item.key_quote.author}</span>
+                      {/* Vodni žig (Velik narekovaj) */}
+                      <div className="absolute -top-4 right-4 text-[120px] font-serif font-black text-gray-200/70 dark:text-gray-700/30 select-none pointer-events-none leading-none">
+                          &rdquo;
+                      </div>
+
+                      <div className="relative z-10 flex flex-col gap-2.5">
+                          <p className="text-[14px] md:text-[15px] italic font-serif text-gray-700 dark:text-gray-300 leading-relaxed pr-8">
+                              "{item.key_quote.quote}"
+                          </p>
+                          
+                          <div className="flex items-center flex-wrap gap-2 text-[11px] md:text-[12px]">
+                              <span className="font-bold text-gray-900 dark:text-gray-100">— {item.key_quote.author}</span>
+                              
+                              {/* Dodan točen vir in ikona */}
+                              {item.key_quote.source_url && quoteSourceName && (
+                                  <>
+                                      <span className="text-gray-300 dark:text-gray-600">•</span>
+                                      <a 
+                                        href={item.key_quote.source_url} 
+                                        target="_blank" 
+                                        rel="noopener noreferrer"
+                                        className="flex items-center gap-1.5 text-gray-500 dark:text-gray-400 hover:text-brand dark:hover:text-brand transition-colors"
+                                      >
+                                          <img 
+                                              src={getLogoSrc(quoteSourceName)} 
+                                              alt={quoteSourceName} 
+                                              className="w-3.5 h-3.5 object-contain opacity-70 grayscale"
+                                          />
+                                          <span className="font-medium underline decoration-gray-300 dark:decoration-gray-600 underline-offset-2">
+                                              Vir: {quoteSourceName}
+                                          </span>
+                                      </a>
+                                  </>
+                              )}
+                          </div>
                       </div>
                   </div>
-              </div>
-          )}
+              )}
 
-          <div className="bg-gray-50/80 dark:bg-[#1e293b]/30 rounded-lg border border-gray-100 dark:border-gray-700/50 p-3.5 md:p-4 mt-2">
-              <p className="text-[13px] md:text-[14px] text-gray-600 dark:text-gray-300 leading-relaxed">
-                  <span className="font-bold text-gray-400 dark:text-gray-500 uppercase text-[9.5px] md:text-[10px] mr-2 tracking-wider">Kontekst:</span>
-                  {item.framing_analysis}
-              </p>
+              {/* KONTEKST */}
+              <div className="bg-gray-50/80 dark:bg-[#1e293b]/30 rounded-lg border border-gray-100 dark:border-gray-700/50 p-4 md:p-5 flex flex-col justify-center h-full">
+                  <p className="text-[13px] md:text-[14px] text-gray-600 dark:text-gray-300 leading-relaxed">
+                      <span className="font-bold text-gray-400 dark:text-gray-500 uppercase text-[9.5px] md:text-[10px] mr-2 tracking-wider block sm:inline mb-1 sm:mb-0">Kontekst:</span>
+                      {item.framing_analysis}
+                  </p>
+              </div>
           </div>
+          {/* KONEC GRID LAYOUTA */}
+
         </div>
 
         <div className="px-6 md:px-10 py-5 md:py-7 border-t border-gray-100 dark:border-gray-700/50 bg-gray-50/50 dark:bg-[#1e293b]/20 rounded-b-xl flex flex-col">
