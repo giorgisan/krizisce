@@ -50,7 +50,8 @@ const newsletterSchema = {
             properties: {
                 quote: { type: SchemaType.STRING },
                 author: { type: SchemaType.STRING },
-                story_id: { type: SchemaType.NUMBER } 
+                story_id: { type: SchemaType.NUMBER },
+                source_url: { type: SchemaType.STRING }
             },
             required: ["quote", "author", "story_id"]
         },
