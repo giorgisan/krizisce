@@ -50,7 +50,7 @@ const newsletterSchema = {
             properties: {
                 quote: { type: SchemaType.STRING },
                 author: { type: SchemaType.STRING },
-                story_id: { type: SchemaType.NUMBER } // Dodano za ekstrakcijo vira!
+                story_id: { type: SchemaType.NUMBER } 
             },
             required: ["quote", "author", "story_id"]
         },
@@ -63,7 +63,6 @@ const newsletterSchema = {
             required: ["number", "description"]
         }
     },
-    // "number_of_the_day" je opcijski, "quote_of_the_day" obvezen
     required: ["intro", "categories", "quote_of_the_day"]
 };
 
@@ -85,9 +84,11 @@ TASK:
 1. Verify that EVERY fact, number, name, location, and title in the OUTPUT exists explicitly in the SOURCE.
 2. PAY SPECIAL ATTENTION TO 'ORIGINAL TITLES' in the source. They are the ultimate ground truth.
 3. Check for "hallucinations".
-4. TEMPORAL CHECK (CRITICAL): Ensure temporal references are correct relative to TODAY (${currentDayStr}).
-5. RELEVANCE & OUTDATED NEWS (CRITICAL): Rewrite or REMOVE items detailing minor temporary states from yesterday that are no longer relevant today.
-6. QUOTE & NUMBER CHECK: Verify that the 'quote_of_the_day' and 'number_of_the_day' (if present) actually exist in the provided SOURCE text. Ensure the quote has the correct 'story_id'. If 'number_of_the_day' is fabricated, completely remove the 'number_of_the_day' object.
+4. TEMPORAL CHECK: Ensure temporal references are correct relative to TODAY (${currentDayStr}).
+5. RELEVANCE & OUTDATED NEWS: Rewrite or REMOVE items detailing minor temporary states from yesterday that are no longer relevant today.
+6. QUOTE & NUMBER CHECK (CRITICAL): 
+   - Verify that the 'quote_of_the_day' is an EXACT word-for-word match from the SOURCE text. If the quote is fabricated, paraphrased, or not present in the text, you MUST replace it with a real quote from the text, or completely remove the 'quote_of_the_day' object.
+   - Verify 'number_of_the_day' exists in the text. If fabricated, remove the 'number_of_the_day' object.
 7. Return the corrected OUTPUT as valid JSON matching the exact original structure.
 `;
 
@@ -259,9 +260,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       1. 'intro': 2-3 sentences. Write in a conversational, warm, and engaging "morning anchor" tone. Highlight the most important story FROM THE TOP NOVICE. DO NOT start with a greeting (no "Dobro jutro").
       2. 'categories': Create 3-5 categories. 
          - Titles allowed: "🏔️ Slovenija", "🌍 Svet", "💰 Gospodarstvo", "⚖️ Kronika", "🏆 Šport", "🎭 Zabava".
-         - STRICT SORTING: Slovenian Celebrity/Entertainment MUST go into "🎭 Zabava" or "🌍 Svet", NOT "🏔️ Slovenija".
+         - STRICT SORTING CRITICAL RULE: Any news involving abuse (zlorabe), crime, police investigations, or court cases MUST go into "⚖️ Kronika", regardless of who is involved (even chefs or celebrities).
          - Merge stories ONLY if they cover the EXACT SAME EVENT.
-         - MAX 4 items per category. Choose only the most important ones.
+         - You MUST provide EXACTLY 3 or 4 items per category. Pick only the most impactful news.
       3. Each 'item.theme': 2-4 word punchy label.
       4. Each 'item.text': 1-2 short active sentences.
       5. 'number_of_the_day': (OPTIONAL) Extract ONE concrete, highly interesting number from ANY news story. 
@@ -269,7 +270,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
          - 'number': Just the digit/format (e.g., "47", "1,2 milijona", "51").
          - 'description': A short, punchy explanation.
       6. 'quote_of_the_day': Extract ONE striking, controversial, or inspiring direct quote mentioned in the text. 
-         - 'quote': The translated quote in Slovenian.
+         - 'quote': The exact quote in Slovenian. Do not invent it.
          - 'author': The name of the person who said it.
          - 'story_id': The exact [STORY ID: X] from which the quote was taken.
          
@@ -310,26 +311,23 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         console.error("⚠️ Napaka pri AI validaciji, nadaljujem z osnovnimi podatki:", validationErr);
     }
 
-    // --- PROGRAMSKO SORTIRANJE KATEGORIJ (Trda logka, da je Slovenija vedno prva) ---
     if (aiData.categories && Array.isArray(aiData.categories)) {
         const categoryOrder = ["🏔️ Slovenija", "🌍 Svet", "💰 Gospodarstvo", "⚖️ Kronika", "🏆 Šport", "🎭 Zabava"];
         aiData.categories.sort((a: any, b: any) => {
             let indexA = categoryOrder.indexOf(a.title);
             let indexB = categoryOrder.indexOf(b.title);
-            if (indexA === -1) indexA = 99; // Če si AI izmisli novo kategorijo, gre na konec
+            if (indexA === -1) indexA = 99; 
             if (indexB === -1) indexB = 99;
             return indexA - indexB;
         });
     }
 
-    // --- IZRAČUN DINAMIČNEGA BRALNEGA ČASA ---
     let totalTextLength = 0;
     if (aiData.intro) totalTextLength += aiData.intro.split(/\s+/).length;
     
     if (aiData.categories && Array.isArray(aiData.categories)) {
         aiData.categories.forEach((cat: any) => {
             if (cat.items && Array.isArray(cat.items)) {
-                // Dodana stroga omejitev na 4 novice tukaj samo za izračun časa
                 cat.items.slice(0, 4).forEach((item: any) => {
                     if (item.theme) totalTextLength += item.theme.split(/\s+/).length;
                     if (item.text) totalTextLength += item.text.split(/\s+/).length;
@@ -348,7 +346,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     const calculatedReadingTime = Math.max(1, Math.ceil(totalTextLength / 200));
-    // ----------------------------------------
 
     const todayStr = new Intl.DateTimeFormat('sl-SI', { weekday: 'long', day: 'numeric', month: 'long' }).format(new Date())
     const subjectStr = `Jutranji pregled: ${todayStr} - krizisce.si`
@@ -358,7 +355,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     aiData.categories.forEach((cat: any) => {
         let itemsHtml = '';
         
-        // STROGA OMEJITEV: Prikažemo največ 4 novice na kategorijo!
         if (cat.items && Array.isArray(cat.items)) {
             cat.items.slice(0, 4).forEach((item: any) => {
                 let sourceLinksHtml = '';
@@ -435,13 +431,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         `;
     }); 
 
-    // --- GRADNJA VIRA ZA IZJAVO DNEVA ---
     let quoteHtml = '';
     if (aiData.quote_of_the_day) {
         let quoteSourceHtml = '';
         const qId = aiData.quote_of_the_day.story_id;
         
-        // Preverimo, če imamo veljaven story_id in potegnemo URL prvega vira
         if (typeof qId === 'number' && topStories[qId]) {
             const story = topStories[qId];
             if (story.sources && story.sources.length > 0) {
@@ -532,7 +526,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                         </td>
                         <td align="right" valign="middle">
                           <span style="background-color: #F3F4F6; color: #6B7280; font-size: 11px; padding: 4px 10px; border-radius: 12px; font-family: -apple-system, Arial, sans-serif; font-weight: 600;">
-                            ⏱️ ~${calculatedReadingTime} min branja
+                            ⏱️ Čas branja: ~${calculatedReadingTime} min
                           </span>
                         </td>
                       </tr>
