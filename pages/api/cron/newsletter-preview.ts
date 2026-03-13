@@ -540,13 +540,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         `;
     }
 
-    // --- ZA KONEC (Brez okvirja, ležeče) ---
+    // --- ZA KONEC (Nežno rumena z žarnico) ---
     let closingHtml = '';
     if (aiData.closing_line) {
         closingHtml = `
-        <p style="font-size: 15px; line-height: 1.6; color: #4B5563; margin-top: 35px; margin-bottom: 10px; font-family: -apple-system, Arial, sans-serif; font-style: italic; text-align: center;">
-          ✨ ${aiData.closing_line}
-        </p>
+        <div style="background-color: #FEFCE8; border-left: 4px solid #EAB308; padding: 24px; margin-top: 32px; margin-bottom: 20px; border-radius: 4px; border: 1px solid #FEF08A;">
+          <h3 style="font-size: 11px; color: #CA8A04; font-weight: bold; margin: 0 0 10px 0; font-family: -apple-system, Arial, sans-serif; text-transform: uppercase; letter-spacing: 0.15em;">
+            💡 Za konec
+          </h3>
+          <p style="font-size: 15px; line-height: 1.6; color: #422006; margin: 0; font-family: -apple-system, Arial, sans-serif;">
+            ${aiData.closing_line}
+          </p>
+        </div>
         `;
     }
 
