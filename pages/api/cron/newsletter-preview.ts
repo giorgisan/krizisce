@@ -529,7 +529,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     let whatsAheadHtml = '';
     if (aiData.whats_ahead) {
         whatsAheadHtml = `
-        <div style="background-color: #F8FAFC; border-left: 4px solid #94A3B8; padding: 24px; margin-top: 32px; margin-bottom: 20px; border-radius: 4px; border: 1px solid #F1F5F9;">
+        <div style="background-color: #F1F5F9; border-left: 4px solid #94A3B8; padding: 24px; margin-top: 32px; margin-bottom: 20px; border-radius: 4px; border: 1px solid #F1F5F9;">
           <h3 style="font-size: 11px; color: #475569; font-weight: bold; margin: 0 0 10px 0; font-family: -apple-system, Arial, sans-serif; text-transform: uppercase; letter-spacing: 0.15em;">
             🗓️ Kaj nas čaka
           </h3>
