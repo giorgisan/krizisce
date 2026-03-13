@@ -87,7 +87,7 @@ TASK:
 4. TEMPORAL CHECK: Ensure temporal references are correct relative to TODAY (${currentDayStr}).
 5. RELEVANCE & OUTDATED NEWS: Rewrite or REMOVE items detailing minor temporary states from yesterday that are no longer relevant today.
 6. QUOTE & NUMBER CHECK (CRITICAL): 
-   - Verify that the 'quote_of_the_day' is an EXACT word-for-word match from the SOURCE text. If the quote is fabricated, paraphrased, or not present in the text, you MUST replace it with a real quote from the text, or completely remove the 'quote_of_the_day' object.
+   - Verify that the 'quote_of_the_day' is an EXACT match from the SOURCE text (specifically look for the 'KEY QUOTE' line). If the quote is fabricated, paraphrased, or not present in the text, you MUST replace it with a real quote from the text, or completely remove the 'quote_of_the_day' object.
    - Verify 'number_of_the_day' exists in the text. If fabricated, remove the 'number_of_the_day' object.
 7. Return the corrected OUTPUT as valid JSON matching the exact original structure.
 `;
@@ -188,6 +188,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                         if (!existing.image_url && item.main_image && item.main_image.startsWith('http')) {
                             existing.image_url = item.main_image;
                         }
+
+                        // Shrani key_quote, če ga prej še nismo imeli
+                        if (!existing.key_quote && item.key_quote) {
+                            existing.key_quote = item.key_quote;
+                        }
+
                     } else {
                         const newIndex = mergedTopics.length;
                         const uniqueUrls = new Set<string>();
@@ -209,7 +215,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                             image_url: item.main_image && item.main_image.startsWith('http') ? item.main_image : null,
                             sources: cleanSources,
                             uniqueUrls: uniqueUrls, 
-                            score: cleanSources.length
+                            score: cleanSources.length,
+                            key_quote: item.key_quote || null // <-- Shranjevanje citata
                         });
                     }
                 })
@@ -236,7 +243,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         const uniqueTitles = Array.from(new Set(story.sources.map((s: any) => s.title || ''))).filter((t: any) => t.length > 0);
         const titlesString = uniqueTitles.length > 0 ? uniqueTitles.join(' | ') : 'Ni na voljo';
 
-        promptData += `[STORY ID: ${index}]\n- TOPIC: ${story.topic}\n- ORIGINAL TITLES: ${titlesString}\n- SUMMARY: ${story.summary}\n\n`;
+        promptData += `[STORY ID: ${index}]\n- TOPIC: ${story.topic}\n- ORIGINAL TITLES: ${titlesString}\n- SUMMARY: ${story.summary}\n`;
+        
+        // Dodajanje KEY QUOTE naravnost v promptData
+        if (story.key_quote && story.key_quote.quote && story.key_quote.author) {
+            promptData += `- KEY QUOTE: "${story.key_quote.quote}" — ${story.key_quote.author}\n`;
+        }
+        promptData += `\n`;
         
         if (!bestImage && story.image_url && index < 15) {
             bestImage = story.image_url;
@@ -270,6 +283,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
          - 'number': Just the digit/format (e.g., "47", "1,2 milijona", "51").
          - 'description': A short, punchy explanation.
       6. 'quote_of_the_day': Extract ONE striking, controversial, or inspiring direct quote mentioned in the text. 
+         - CRITICAL: If a '- KEY QUOTE:' is provided in the SOURCE text, you MUST prioritize it and use it EXACTLY word-for-word.
          - 'quote': The exact quote in Slovenian. Do not invent it.
          - 'author': The name of the person who said it.
          - 'story_id': The exact [STORY ID: X] from which the quote was taken.
