@@ -455,25 +455,30 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             if (story.sources && story.sources.length > 0) {
                 const firstSource = story.sources[0];
                 const rawUrl = typeof firstSource === 'string' ? firstSource : firstSource.url;
-                if (rawUrl) {
-                    try {
-                        const hostname = new URL(rawUrl).hostname.replace('www.', '');
-                        let sname = hostname.split('.')[0];
-                        sname = sname.charAt(0).toUpperCase() + sname.slice(1);
-                        if (hostname.includes('rtvslo')) sname = 'RTV SLO';
-                        if (hostname.includes('24ur')) sname = '24ur';
-                        if (hostname.includes('siol')) sname = 'Siol';
-                        if (hostname.includes('slovenskenovice')) sname = 'Slov. novice';
-                        if (hostname.includes('delo')) sname = 'Delo';
-                        if (hostname.includes('dnevnik')) sname = 'Dnevnik';
-                        if (hostname.includes('zurnal24')) sname = 'Žurnal24';
-                        if (hostname.includes('n1info')) sname = 'N1';
-                        if (hostname.includes('svet24')) sname = 'Svet24';
-
-                        quoteSourceHtml = `&nbsp; <a href="${rawUrl}" target="_blank" style="color: #9CA3AF; text-decoration: underline; font-size: 11px; font-weight: normal;">(Vir: ${sname})</a>`;
-                    } catch(e) {}
-                }
-            }
+                // --- TUKAJ JE POPRAVEK ---
+              // Uporabimo source_url od AI, če obstaja, sicer pa prvo povezavo (fallback)
+              const rawUrl = aiData.quote_of_the_day.source_url || (story.sources && story.sources.length > 0 ? (typeof story.sources[0] === 'string' ? story.sources[0] : story.sources[0].url) : null);
+              // -------------------------
+  
+              if (rawUrl) {
+                  try {
+                      const hostname = new URL(rawUrl).hostname.replace('www.', '');
+                      let sname = hostname.split('.')[0];
+                      sname = sname.charAt(0).toUpperCase() + sname.slice(1);
+                      if (hostname.includes('rtvslo')) sname = 'RTV SLO';
+                      if (hostname.includes('24ur')) sname = '24ur';
+                      if (hostname.includes('siol')) sname = 'Siol';
+                      if (hostname.includes('slovenskenovice')) sname = 'Slov. novice';
+                      if (hostname.includes('delo')) sname = 'Delo';
+                      if (hostname.includes('dnevnik')) sname = 'Dnevnik';
+                      if (hostname.includes('zurnal24')) sname = 'Žurnal24';
+                      if (hostname.includes('n1info')) sname = 'N1';
+                      if (hostname.includes('svet24')) sname = 'Svet24';
+  
+                      quoteSourceHtml = `&nbsp; <a href="${rawUrl}" target="_blank" style="color: #9CA3AF; text-decoration: underline; font-size: 11px; font-weight: normal;">(Vir: ${sname})</a>`;
+                  } catch(e) {}
+              }
+          }
         }
 
         quoteHtml = `
