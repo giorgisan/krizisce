@@ -247,7 +247,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         
         // Dodajanje KEY QUOTE naravnost v promptData
         if (story.key_quote && story.key_quote.quote && story.key_quote.author) {
-            promptData += `- KEY QUOTE: "${story.key_quote.quote}" — ${story.key_quote.author}\n`;
+            promptData += `- KEY QUOTE: "${story.key_quote.quote}" — ${story.key_quote.author} [source_url: ${story.key_quote.source_url || ''}]\n`;
         }
         promptData += `\n`;
         
@@ -287,6 +287,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
          - 'quote': The exact quote in Slovenian. Do not invent it.
          - 'author': The name of the person who said it.
          - 'story_id': The exact [STORY ID: X] from which the quote was taken.
+         - 'source_url': The exact URL provided in the KEY QUOTE line, or leave empty.
          
       CRITICAL DEDUPLICATION RULE: The 'number_of_the_day' and 'quote_of_the_day' MUST be about different events, and ideally highlight details that were NOT already heavily summarized in the main categories.
       `;
@@ -420,7 +421,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
                 itemsHtml += `
                   <div style="margin-bottom: 18px;">
-                    <p style="font-size: 15px; line-height: 1.6; color: #374151; margin-top: 0; margin-bottom: 0; font-family: -apple-system, Arial, sans-serif;">
+                    <p style="font-size: 15px; line-height: 1.6; color: #374151; margin: 0; font-family: -apple-system, Arial, sans-serif;">
                       <strong style="color: #111827;">${item.theme}:</strong> ${item.text}
                     </p>
                     ${sourceLinksHtml}
@@ -452,44 +453,40 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         
         if (typeof qId === 'number' && topStories[qId]) {
             const story = topStories[qId];
-            if (story.sources && story.sources.length > 0) {
-                const firstSource = story.sources[0];
-                const rawUrl = typeof firstSource === 'string' ? firstSource : firstSource.url;
-                // --- TUKAJ JE POPRAVEK ---
-              // Uporabimo source_url od AI, če obstaja, sicer pa prvo povezavo (fallback)
-              const rawUrl = aiData.quote_of_the_day.source_url || (story.sources && story.sources.length > 0 ? (typeof story.sources[0] === 'string' ? story.sources[0] : story.sources[0].url) : null);
-              // -------------------------
-  
-              if (rawUrl) {
-                  try {
-                      const hostname = new URL(rawUrl).hostname.replace('www.', '');
-                      let sname = hostname.split('.')[0];
-                      sname = sname.charAt(0).toUpperCase() + sname.slice(1);
-                      if (hostname.includes('rtvslo')) sname = 'RTV SLO';
-                      if (hostname.includes('24ur')) sname = '24ur';
-                      if (hostname.includes('siol')) sname = 'Siol';
-                      if (hostname.includes('slovenskenovice')) sname = 'Slov. novice';
-                      if (hostname.includes('delo')) sname = 'Delo';
-                      if (hostname.includes('dnevnik')) sname = 'Dnevnik';
-                      if (hostname.includes('zurnal24')) sname = 'Žurnal24';
-                      if (hostname.includes('n1info')) sname = 'N1';
-                      if (hostname.includes('svet24')) sname = 'Svet24';
-  
-                      quoteSourceHtml = `&nbsp; <a href="${rawUrl}" target="_blank" style="color: #9CA3AF; text-decoration: underline; font-size: 11px; font-weight: normal;">(Vir: ${sname})</a>`;
-                  } catch(e) {}
-              }
-          }
+            
+            // POPRAVEK: rawUrl definiran samo enkrat
+            const rawUrl = aiData.quote_of_the_day.source_url || (story.sources && story.sources.length > 0 ? (typeof story.sources[0] === 'string' ? story.sources[0] : story.sources[0].url) : null);
+
+            if (rawUrl) {
+                try {
+                    const hostname = new URL(rawUrl).hostname.replace('www.', '');
+                    let sname = hostname.split('.')[0];
+                    sname = sname.charAt(0).toUpperCase() + sname.slice(1);
+                    if (hostname.includes('rtvslo')) sname = 'RTV SLO';
+                    if (hostname.includes('24ur')) sname = '24ur';
+                    if (hostname.includes('siol')) sname = 'Siol';
+                    if (hostname.includes('slovenskenovice')) sname = 'Slov. novice';
+                    if (hostname.includes('delo')) sname = 'Delo';
+                    if (hostname.includes('dnevnik')) sname = 'Dnevnik';
+                    if (hostname.includes('zurnal24')) sname = 'Žurnal24';
+                    if (hostname.includes('n1info')) sname = 'N1';
+                    if (hostname.includes('svet24')) sname = 'Svet24';
+
+                    quoteSourceHtml = `&nbsp; <a href="${rawUrl}" target="_blank" style="color: #9CA3AF; text-decoration: underline; font-size: 11px; font-weight: normal;">(Vir: ${sname})</a>`;
+                } catch(e) {}
+            }
         }
 
+        // NOVI IZGLED CITATA
         quoteHtml = `
-        <div style="background-color: #FFF7ED; border-left: 4px solid ${BRAND_COLOR}; padding: 24px; margin-top: 20px; margin-bottom: 40px; border-radius: 0 8px 8px 0;">
-          <h3 style="font-size: 13px; color: #9A3412; font-weight: bold; margin-top: 0; margin-bottom: 12px; font-family: -apple-system, Arial, sans-serif; text-transform: uppercase; letter-spacing: 0.1em;">
+        <div style="background-color: #FAFAFA; border-left: 3px solid ${BRAND_COLOR}; padding: 20px 24px; margin: 24px 0 40px 0; border-radius: 0 8px 8px 0; border: 1px solid #F3F4F6;">
+          <h3 style="font-size: 12px; color: #6B7280; font-weight: bold; margin-top: 0; margin-bottom: 12px; font-family: -apple-system, Arial, sans-serif; text-transform: uppercase; letter-spacing: 0.1em;">
             💬 Izjava dneva
           </h3>
-          <p style="font-size: 16px; line-height: 1.6; color: #431407; margin: 0 0 12px 0; font-family: Georgia, 'Times New Roman', serif; font-style: italic;">
+          <p style="font-size: 16px; line-height: 1.6; color: #111827; margin: 0 0 12px 0; font-family: Georgia, 'Times New Roman', serif; font-style: italic;">
             "${aiData.quote_of_the_day.quote}"
           </p>
-          <p style="font-size: 13px; color: #C2410C; margin: 0; font-family: -apple-system, Arial, sans-serif; font-weight: 600;">
+          <p style="font-size: 13px; color: #4B5563; margin: 0; font-family: -apple-system, Arial, sans-serif; font-weight: 600;">
             — ${aiData.quote_of_the_day.author} ${quoteSourceHtml}
           </p>
         </div>
