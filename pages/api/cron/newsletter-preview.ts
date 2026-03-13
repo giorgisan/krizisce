@@ -45,11 +45,25 @@ const newsletterSchema = {
                 required: ["title", "items"] 
             }
         },
-        whats_ahead: { type: SchemaType.STRING },
-        closing_line: { type: SchemaType.STRING }
+        quote_of_the_day: { 
+            type: SchemaType.OBJECT,
+            properties: {
+                quote: { type: SchemaType.STRING },
+                author: { type: SchemaType.STRING }
+            },
+            required: ["quote", "author"]
+        },
+        number_of_the_day: {
+            type: SchemaType.OBJECT,
+            properties: {
+                number: { type: SchemaType.STRING },
+                description: { type: SchemaType.STRING }
+            },
+            required: ["number", "description"]
+        }
     },
-    // KLJUČNO: Odstranil sem "whats_ahead" iz obveznih polj. AI ga zdaj lahko preprosto ignorira.
-    required: ["intro", "categories", "closing_line"]
+    // KLJUČNO: "number_of_the_day" je OSTRANJEN iz required, da preprečimo halucinacije!
+    required: ["intro", "categories", "quote_of_the_day"]
 };
 
 // --- AI VALIDATOR ---
@@ -71,8 +85,8 @@ TASK:
 2. PAY SPECIAL ATTENTION TO 'ORIGINAL TITLES' in the source. They are the ultimate ground truth.
 3. Check for "hallucinations".
 4. TEMPORAL CHECK (CRITICAL): Ensure temporal references are correct relative to TODAY (${currentDayStr}). If a news source says something is happening "v torek" and today is "torek", the newsletter MUST say "danes" (today), not "v torek".
-5. RELEVANCE & OUTDATED NEWS (CRITICAL): If the OUTPUT describes a temporary state from yesterday that is no longer relevant today (e.g., "dolge kolone na črpalkah", "zaprta avtocesta", "prometni zastoji"), you MUST rewrite it to reflect today's reality (e.g., "Nove cene goriv so danes stopile v veljavo...") or completely REMOVE the item if it has zero relevance today. Do not send readers stale news. It is better to have an empty section than outdated news.
-6. WHATS_AHEAD CHECK: If the 'whats_ahead' field contains general statements, philosophical questions, or events NOT explicitly mentioned in the source as happening in the future, REMOVE the 'whats_ahead' field completely.
+5. RELEVANCE & OUTDATED NEWS (CRITICAL): If the OUTPUT describes a temporary state from yesterday that is no longer relevant today, MUST rewrite it or REMOVE the item.
+6. QUOTE & NUMBER CHECK: Verify that the 'quote_of_the_day' and 'number_of_the_day' (if present) actually exist in the provided SOURCE text. Do not allow invented quotes or fake statistics. If 'number_of_the_day' is fabricated, completely remove the 'number_of_the_day' object.
 7. Return the corrected OUTPUT as valid JSON matching the exact original structure.
 `;
 
@@ -214,7 +228,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     
     topStories.forEach((story, index) => {
         if (index === 15) {
-            promptData += "=== OSTALE NOVICE (Skeniraj SAMO za 'whats_ahead' in 'closing_line') ===\n\n";
+            promptData += "=== OSTALE NOVICE ===\n\n";
         }
         
         const uniqueTitles = Array.from(new Set(story.sources.map((s: any) => s.title || ''))).filter((t: any) => t.length > 0);
@@ -230,52 +244,39 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const currentDateStr = new Intl.DateTimeFormat('sl-SI', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).format(new Date());
 
     const prompt = `
-      You are an elite editor for a premium Slovenian morning news digest called 'Križišče'.
+      You are an elite editor for a premium Slovenian morning news digest called 'Križišče' (similar to Axios or Politico Playbook).
       Your job is to compress the RAW NEWS below into a highly readable, structured daily briefing.
       You have NO other knowledge. If it is not in the RAW NEWS, it does not exist.
       
-      CRITICAL TEMPORAL CONTEXT & RELEVANCE FILTER:
-      TODAY IS: ${currentDateStr} (Morning).
-      1. RELATIVE TIME: If a news source mentions an event happening on the current day of the week, you MUST write "danes" (today). If it happens tomorrow, write "jutri". NEVER write "v torek" if today is "torek".
-      2. FILTER OUT TRIVIAL STALE NEWS: You are writing a morning briefing. Readers do NOT care about minor temporary disruptions from yesterday (e.g., ordinary traffic jams, cleared queues at gas stations). 
-         - WRONG: "Zaradi napovedane podražitve so na črpalkah dolge kolone." (That was yesterday).
-         - RIGHT: "Danes so začele veljati nove, višje cene goriv."
-         - If a story is ONLY about a minor resolved traffic jam or a broken down vehicle with no major consequences, IGNORE IT.
-         - EXCEPTION FOR MAJOR EVENTS: If a story involves a SEVERE accident (fatalities, massive damage), KEEP IT, but focus on the event and consequences, NOT the past traffic state.
-
+      CRITICAL TEMPORAL CONTEXT:
+      TODAY IS: ${currentDateStr} (Morning). If a news source mentions an event happening on the current day, MUST write "danes" (today).
+      
       RAW NEWS SUMMARIES:
       ${promptData}
       
       YOUR TASK:
-      1. 'intro': 2-3 sentences. Write in a conversational, warm, and engaging "morning anchor" tone. Highlight the most important or surprising story FROM THE TOP NOVICE SECTION. 
-         CRITICAL: DO NOT start with "Dobro jutro", "Danes:", or any greeting. The HTML already has a greeting. START IMMEDIATELY WITH THE NARRATIVE. DO NOT use cliché temporal phrases like "včerajšnji dogodki".
-      2. 'categories': Create between 3 and 5 categories based strictly on the available news. 
-         CATEGORIES RULES:
-         - ONLY use stories from the '=== TOP NOVICE ===' section.
-         - You MUST ONLY use category titles from this exact list: "🏔️ Slovenija", "🌍 Svet", "💰 Gospodarstvo", "⚖️ Kronika", "🏆 Šport".
-         - ONLY create a category if you have at least 2 highly relevant stories for it.
-         - ALWAYS make "🏔️ Slovenija" the FIRST category.
-         - STRICT THEMATIC SORTING: 
-             - Sports news MUST go into "🏆 Šport". 
-             - Crime, accidents, police investigations, or natural disasters (domestic OR international) MUST go into "⚖️ Kronika". 
-             - Entertainment, celebrities, or international politics MUST go into "🌍 Svet".
-             - Business, companies, and inflation MUST go into "💰 Gospodarstvo".
-         - NO CATEGORY DUPLICATES: Never place the same news item in two different categories.
-         - MERGING RULE (CRITICAL): You may ONLY combine story IDs if they cover the EXACT SAME EVENT. DO NOT merge different stories. If they are different stories, create separate items for them.
-         - Provide 2 to 4 items per category. Choose the most important ones.
+      1. 'intro': 2-3 sentences. Write in a conversational, warm, and engaging "morning anchor" tone. Highlight the most important story FROM THE TOP NOVICE. DO NOT start with a greeting (no "Dobro jutro").
+      2. 'categories': Create 3-5 categories. 
+         - Titles allowed: "🏔️ Slovenija", "🌍 Svet", "💰 Gospodarstvo", "⚖️ Kronika", "🏆 Šport", "🎭 Zabava".
+         - STRICT SORTING: Slovenian Celebrity/Entertainment MUST go into "🎭 Zabava" or "🌍 Svet", NOT "🏔️ Slovenija".
+         - Merge stories ONLY if they cover the EXACT SAME EVENT.
       3. Each 'item.theme': 2-4 word punchy label.
-      4. Each 'item.text': 1-2 short sentences. Write in an active, present-tense tone.
-      5. Each 'item.story_ids': An ARRAY of numbers corresponding to the [STORY ID: X] tags.
-      6. 'whats_ahead': (OPTIONAL) ONLY fill this if there is a concrete, EXPLICITLY STATED future event (e.g., an upcoming sports match, a scheduled political summit, a weather warning for the next days). Do NOT put general questions, implications, or repeated news here. If there is NO distinct future event, completely omit this field.
-      7. 'closing_line': 1 sentence highlighting a specific positive, interesting, or notable fact from ANY story to leave the reader with a final thought.
-      
-      HARD RULES: Never invent facts, numbers, or names. Do not combine facts from two different stories into one sentence unless they are about the exact same event. Output in Formal Slovenian.
+      4. Each 'item.text': 1-2 short active sentences.
+      5. 'number_of_the_day': (OPTIONAL) Extract ONE concrete, highly interesting number from ANY news story (e.g., a massive sum of money, a sports record, a number of victims or votes). 
+         - If there are NO highly interesting numbers in the news today, completely OMIT this field.
+         - 'number': Just the digit/format (e.g., "47", "1,2 milijona", "51").
+         - 'description': A short, punchy explanation of what this number means (e.g., "toliko točk je dosegel Luka Dončić za zmago." or "je ocena škode po včerajšnjem neurju.").
+      6. 'quote_of_the_day': Extract ONE striking, controversial, or inspiring direct quote mentioned in the text. 
+         - 'quote': The translated quote in Slovenian.
+         - 'author': The name of the person who said it.
+         
+      CRITICAL DEDUPLICATION RULE: The 'number_of_the_day' and 'quote_of_the_day' MUST be about different events, and ideally highlight details that were NOT already heavily summarized in the main categories. Keep the content fresh!
       `;
 
     const generationConfig = { 
         responseMimeType: "application/json",
         responseSchema: newsletterSchema, 
-        temperature: 0.3 
+        temperature: 0.4 
     };
 
     let aiData;
@@ -306,6 +307,34 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         console.error("⚠️ Napaka pri AI validaciji, nadaljujem z osnovnimi podatki:", validationErr);
     }
 
+    // --- IZRAČUN DINAMIČNEGA BRALNEGA ČASA ---
+    let totalTextLength = 0;
+    if (aiData.intro) totalTextLength += aiData.intro.split(/\s+/).length;
+    
+    if (aiData.categories && Array.isArray(aiData.categories)) {
+        aiData.categories.forEach((cat: any) => {
+            if (cat.items && Array.isArray(cat.items)) {
+                cat.items.forEach((item: any) => {
+                    if (item.theme) totalTextLength += item.theme.split(/\s+/).length;
+                    if (item.text) totalTextLength += item.text.split(/\s+/).length;
+                });
+            }
+        });
+    }
+    
+    if (aiData.quote_of_the_day) {
+        if (aiData.quote_of_the_day.quote) totalTextLength += aiData.quote_of_the_day.quote.split(/\s+/).length;
+        if (aiData.quote_of_the_day.author) totalTextLength += aiData.quote_of_the_day.author.split(/\s+/).length;
+    }
+    
+    if (aiData.number_of_the_day) {
+        if (aiData.number_of_the_day.description) totalTextLength += aiData.number_of_the_day.description.split(/\s+/).length;
+    }
+
+    // Predpostavimo povprečno hitrost branja 200 besed na minuto, minimum pa vedno vsaj 1 minuta.
+    const calculatedReadingTime = Math.max(1, Math.ceil(totalTextLength / 200));
+    // ----------------------------------------
+
     const todayStr = new Intl.DateTimeFormat('sl-SI', { weekday: 'long', day: 'numeric', month: 'long' }).format(new Date())
     const subjectStr = `Jutranji pregled: ${todayStr} - krizisce.si`
     
@@ -316,10 +345,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         
         cat.items.forEach((item: any) => {
             let sourceLinksHtml = '';
-            // Uporabimo Map, da preprečimo duplikate medijev (če imamo 2 linka z Dela, prikažemo samo enega)
             const linkMap = new Map<string, string>(); 
             
-            // Varno preverjanje story_ids (fallback če AI vrne single int)
             let ids: number[] = [];
             if (Array.isArray(item.story_ids)) {
                 ids = item.story_ids;
@@ -341,7 +368,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                             let name = hostname.split('.')[0];
                             name = name.charAt(0).toUpperCase() + name.slice(1);
                             
-                            // Normalizacija imen
                             if (hostname.includes('rtvslo')) name = 'RTV SLO';
                             if (hostname.includes('24ur')) name = '24ur';
                             if (hostname.includes('siol')) name = 'Siol';
@@ -352,7 +378,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                             if (hostname.includes('n1info')) name = 'N1';
                             if (hostname.includes('svet24')) name = 'Svet24';
 
-                            // Uporabimo ime medija kot KLJUČ. Če Delo že obstaja za to novico, ga ne dodamo drugič.
                             if (!linkMap.has(name)) {
                                 linkMap.set(name, `<a href="${url}" style="color: ${BRAND_COLOR}; text-decoration: none; font-weight: 500;">${name}</a>`);
                             }
@@ -420,11 +445,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                     <h1 style="margin: 0 0 6px 0; font-size: 32px; color: #111827; font-family: Georgia, 'Times New Roman', serif; font-weight: bold; letter-spacing: -0.02em; line-height: 1; text-align: center;">
                       Križišče
                     </h1>
-                    <p style="margin: 0 0 10px 0; font-size: 14px; color: ${BRAND_COLOR}; text-transform: uppercase; letter-spacing: 0.15em; font-family: -apple-system, Arial, sans-serif; font-weight: bold; text-align: center;">
+                    <p style="margin: 0 0 4px 0; font-size: 14px; color: ${BRAND_COLOR}; text-transform: uppercase; letter-spacing: 0.15em; font-family: -apple-system, Arial, sans-serif; font-weight: bold; text-align: center;">
                       Jutranji pregled
                     </p>
                     <p style="margin: 0; font-size: 13px; color: #6B7280; font-family: -apple-system, Arial, sans-serif; text-align: center;">
                       ${todayStr}
+                    </p>
+                    <p style="margin: 8px 0 0 0; font-size: 12px; color: #9CA3AF; font-family: -apple-system, Arial, sans-serif; text-align: center; font-weight: 500;">
+                      ⏱️ Čas branja: ~${calculatedReadingTime} min
                     </p>
                   </td>
                 </tr>
@@ -446,26 +474,31 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                     ` : ''}
 
                     ${categoriesHtml}
-                    
-                    ${aiData.whats_ahead ? `
-                    <div style="background-color: #EFF6FF; border-left: 4px solid #3B82F6; padding: 20px; margin-top: 40px; margin-bottom: 20px;">
-                      <h3 style="font-size: 15px; color: #1E3A8A; font-weight: bold; margin-top: 0; margin-bottom: 8px; font-family: -apple-system, Arial, sans-serif; text-transform: uppercase; letter-spacing: 0.05em;">
-                        📅 Kaj nas čaka
+
+                    ${aiData.number_of_the_day ? `
+                    <div style="background-color: #F8FAFC; border: 1px solid #E2E8F0; padding: 20px; margin-top: 40px; margin-bottom: 20px; border-radius: 8px;">
+                      <h3 style="font-size: 12px; color: #64748B; font-weight: bold; margin-top: 0; margin-bottom: 10px; font-family: -apple-system, Arial, sans-serif; text-transform: uppercase; letter-spacing: 0.1em;">
+                        📊 Številka dneva
                       </h3>
-                      <p style="font-size: 15px; line-height: 1.6; color: #1E3A8A; margin: 0; font-family: -apple-system, Arial, sans-serif;">
-                        ${aiData.whats_ahead}
+                      <p style="font-size: 15px; line-height: 1.5; color: #334155; margin: 0; font-family: -apple-system, Arial, sans-serif;">
+                        <strong style="font-size: 22px; color: ${BRAND_COLOR}; margin-right: 6px;">${aiData.number_of_the_day.number}</strong> — ${aiData.number_of_the_day.description}
                       </p>
                     </div>
                     ` : ''}
-
-                    <div style="background-color: #FFF7ED; border-left: 4px solid ${BRAND_COLOR}; padding: 20px; margin-top: ${aiData.whats_ahead ? '20px' : '40px'}; margin-bottom: 40px;">
-                      <h3 style="font-size: 15px; color: #9A3412; font-weight: bold; margin-top: 0; margin-bottom: 8px; font-family: -apple-system, Arial, sans-serif; text-transform: uppercase; letter-spacing: 0.05em;">
-                        💡 Za konec
+                    
+                    ${aiData.quote_of_the_day ? `
+                    <div style="background-color: #FFF7ED; border-left: 4px solid ${BRAND_COLOR}; padding: 24px; margin-top: 20px; margin-bottom: 40px; border-radius: 0 8px 8px 0;">
+                      <h3 style="font-size: 13px; color: #9A3412; font-weight: bold; margin-top: 0; margin-bottom: 12px; font-family: -apple-system, Arial, sans-serif; text-transform: uppercase; letter-spacing: 0.1em;">
+                        💬 Izjava dneva
                       </h3>
-                      <p style="font-size: 15px; line-height: 1.6; color: #431407; margin: 0; font-family: -apple-system, Arial, sans-serif;">
-                        ${aiData.closing_line}
+                      <p style="font-size: 16px; line-height: 1.6; color: #431407; margin: 0 0 12px 0; font-family: Georgia, 'Times New Roman', serif; font-style: italic;">
+                        "${aiData.quote_of_the_day.quote}"
+                      </p>
+                      <p style="font-size: 13px; color: #C2410C; margin: 0; font-family: -apple-system, Arial, sans-serif; font-weight: 600;">
+                        — ${aiData.quote_of_the_day.author}
                       </p>
                     </div>
+                    ` : ''}
 
                     <table border="0" cellspacing="0" cellpadding="0" align="center" style="margin: 30px auto 20px auto;">
                       <tr>
