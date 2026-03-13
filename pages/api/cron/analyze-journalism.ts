@@ -92,6 +92,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       3. pristranskost: 0 = "Samo nevtralna dejstva", 100 = "Uredniški spin / Vsiljevanje mnenja / Pristranskost".
 
       Additionally, for the overall event, you must write a 'consensus_headline'. This is a single, ultra-neutral, distilled headline created by combining the facts from all sources. It must answer Who, What, Where, and Consequence.
+      
+      NEW TASK: QUOTE EXTRACTION (OPTIONAL BUT HIGHLY ENCOURAGED)
+      If there is a striking, important, or controversial DIRECT QUOTE mentioned in the snippets for this story, extract it EXACTLY word-for-word in the 'key_quote' object. Do not paraphrase. If no direct quote is present, omit the 'key_quote' field completely.
 
       CRITICAL REQUIREMENT: The analysis text and all JSON values MUST be written entirely in the SLOVENIAN language.
 
@@ -109,6 +112,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           consensus_headline: { type: SchemaType.STRING, description: "A neutral, distilled headline combining facts from all sources." },
           summary: { type: SchemaType.STRING, description: "A detailed, factual 3 to 4 sentence summary of the story based STRICTLY on titles and snippets." },
           framing_analysis: { type: SchemaType.STRING, description: "Kratek odstavek (2-3 stavki), ki primerja pristope različnih medijev k tej zgodbi." },
+          key_quote: {
+            type: SchemaType.OBJECT,
+            description: "OPTIONAL: The most important, exact direct quote from the story.",
+            properties: {
+                quote: { type: SchemaType.STRING, description: "The EXACT word-for-word quote in Slovenian." },
+                author: { type: SchemaType.STRING, description: "The name of the person who said it." }
+            },
+            required: ["quote", "author"]
+          },
           sources: {
             type: SchemaType.ARRAY,
             description: "Seznam virov in njihov Medijski DNK.",
@@ -133,6 +145,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             }
           }
         },
+        // 'key_quote' je namerno izpuščen iz required, da preprečimo halucinacije, ko ni citata.
         required: ["topic", "consensus_headline", "summary", "framing_analysis", "sources"]
       }
     };
@@ -180,6 +193,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         const originalGroup = topStories[index];
         if (originalGroup) {
             aiItem.main_image = originalGroup.image || null;
+            // Shranimo source URLs, da jih bo newsletter skripta lažje poiskala ob citatu
+            aiItem.source_urls = originalGroup.storyArticles 
+                ? [originalGroup.link, ...originalGroup.storyArticles.map((a: any) => a.link)]
+                : [originalGroup.link];
         }
         return aiItem;
     });
