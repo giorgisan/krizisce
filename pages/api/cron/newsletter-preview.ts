@@ -59,10 +59,13 @@ const newsletterSchema = {
             properties: {
                 number: { type: SchemaType.STRING },
                 description: { type: SchemaType.STRING }
-            },
-            required: ["number", "description"]
-        }
+            }
+            // Ni v 'required', ker je opcijsko
+        },
+        whats_ahead: { type: SchemaType.STRING },
+        closing_line: { type: SchemaType.STRING }
     },
+    // whats_ahead in closing_line sta opcijska, zato ju ni v required
     required: ["intro", "categories", "quote_of_the_day"]
 };
 
@@ -87,9 +90,10 @@ TASK:
 4. TEMPORAL CHECK: Ensure temporal references are correct relative to TODAY (${currentDayStr}).
 5. RELEVANCE & OUTDATED NEWS: Rewrite or REMOVE items detailing minor temporary states from yesterday that are no longer relevant today.
 6. QUOTE & NUMBER CHECK (CRITICAL): 
-   - Verify that the 'quote_of_the_day' is an EXACT match from the SOURCE text (specifically look for the 'KEY QUOTE' line). If the quote is fabricated, paraphrased, or not present in the text, you MUST replace it with a real quote from the text, or completely remove the 'quote_of_the_day' object.
-   - Verify 'number_of_the_day' exists in the text. If fabricated, remove the 'number_of_the_day' object.
-7. Return the corrected OUTPUT as valid JSON matching the exact original structure.
+   - Verify that the 'quote_of_the_day' is an EXACT match from the SOURCE text. 
+   - Verify 'number_of_the_day' exists in the text.
+7. WHATS AHEAD CHECK: If 'whats_ahead' is present, verify it describes an EXPLICIT future event mentioned in the source. If invented, remove it.
+8. Return the corrected OUTPUT as valid JSON matching the exact original structure.
 `;
 
     const model = genAI.getGenerativeModel({ 
@@ -189,7 +193,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                             existing.image_url = item.main_image;
                         }
 
-                        // Shrani key_quote, če ga prej še nismo imeli
                         if (!existing.key_quote && item.key_quote) {
                             existing.key_quote = item.key_quote;
                         }
@@ -232,7 +235,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(200).json({ message: "Ni podatkov za newsletter." })
     }
 
-    let promptData = "=== TOP NOVICE (Obvezno uporabi za 'intro' in 'categories') ===\n\n";
+    let promptData = "=== TOP NOVICE ===\n\n";
     let bestImage = "";
     
     topStories.forEach((story, index) => {
@@ -245,7 +248,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
         promptData += `[STORY ID: ${index}]\n- TOPIC: ${story.topic}\n- ORIGINAL TITLES: ${titlesString}\n- SUMMARY: ${story.summary}\n`;
         
-        // Dodajanje KEY QUOTE naravnost v promptData
         if (story.key_quote && story.key_quote.quote && story.key_quote.author) {
             promptData += `- KEY QUOTE: "${story.key_quote.quote}" — ${story.key_quote.author} [source_url: ${story.key_quote.source_url || ''}]\n`;
         }
@@ -270,27 +272,26 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       ${promptData}
       
       YOUR TASK:
-      1. 'intro': 2-3 sentences. Write in a conversational, warm, and engaging "morning anchor" tone. Highlight the most important story FROM THE TOP NOVICE. DO NOT start with a greeting (no "Dobro jutro").
+      1. 'intro': 2-3 sentences. Write in a conversational, warm, and engaging "morning anchor" tone. Highlight the most important or surprising story FROM THE TOP NOVICE SECTION. 
+         CRITICAL: DO NOT start with "Dobro jutro", "Danes:", or any greeting. The HTML already has a greeting. START IMMEDIATELY WITH THE NARRATIVE.
       2. 'categories': Create 3-5 categories. 
          - Titles allowed: "🏔️ Slovenija", "🌍 Svet", "💰 Gospodarstvo", "⚖️ Kronika", "🏆 Šport", "🎭 Zabava".
-         - STRICT SORTING CRITICAL RULE: Any news involving abuse (zlorabe), crime, police investigations, or court cases MUST go into "⚖️ Kronika", regardless of who is involved (even chefs or celebrities).
+         - STRICT SORTING CRITICAL RULE: Any news involving abuse (zlorabe), crime, police investigations, or court cases MUST go into "⚖️ Kronika", regardless of who is involved.
          - Merge stories ONLY if they cover the EXACT SAME EVENT.
-         - You MUST provide EXACTLY 3 or 4 items per category. Pick only the most impactful news.
+         - Provide 3 or 4 items per category. Pick only the most impactful news.
       3. Each 'item.theme': 2-4 word punchy label.
       4. Each 'item.text': 1-2 short active sentences.
       5. 'number_of_the_day': (OPTIONAL) Extract ONE concrete, highly interesting number from ANY news story. 
-         - If there are NO highly interesting numbers in the news today, completely OMIT this field.
-         - 'number': Just the digit/format (e.g., "47", "1,2 milijona", "51").
+         - 'number': Just the digit/format (e.g., "47", "1,2 milijona").
          - 'description': A short, punchy explanation.
       6. 'quote_of_the_day': Extract ONE striking, controversial, or inspiring direct quote mentioned in the text. 
-         - CRITICAL: If a '- KEY QUOTE:' is provided in the SOURCE text, you MUST prioritize it and use it EXACTLY word-for-word.
-         - QUALITY FILTER: Choose a quote that carries an opinion, a decision, or a definitive claim about the event.
-         - 'quote': The exact quote in Slovenian. Do not invent it.
-         - 'author': The name of the person who said it.
-         - 'story_id': The exact [STORY ID: X] from which the quote was taken.
-         - 'source_url': The exact URL provided in the KEY QUOTE line, or leave empty.
-         
-      CRITICAL DEDUPLICATION RULE: The 'number_of_the_day' and 'quote_of_the_day' MUST be about different events, and ideally highlight details that were NOT already heavily summarized in the main categories.
+         - CRITICAL: If a '- KEY QUOTE:' is provided, prioritize it.
+         - QUALITY FILTER: Choose a quote that carries an opinion, a decision, or a definitive claim. Dramatic or impactful short exclamations ARE allowed if they are the core of the event.
+         - AVOID: Boring PR fillers or journalist transitions.
+      7. 'whats_ahead': (OPTIONAL) ONLY fill this if there is a concrete, EXPLICITLY STATED future event (e.g., an upcoming sports match, a scheduled political summit, a weather warning). Do NOT put general questions, implications, or repeated news here. If there is NO distinct future event, completely omit this field.
+      8. 'closing_line': (OPTIONAL) 1 sentence highlighting a specific positive, interesting, or notable fact from ANY story to leave the reader with a final thought.
+      
+      CRITICAL DEDUPLICATION RULE: The 'number_of_the_day', 'quote_of_the_day', and 'closing_line' MUST ideally highlight details that were NOT already heavily summarized in the main categories.
       `;
 
     const generationConfig = { 
@@ -305,16 +306,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash", generationConfig });
         const result = await model.generateContent(prompt);
         aiData = JSON.parse(result.response.text());
-        console.log("✅ Uspešno uporabljen model: gemini-2.5-flash");
     } catch (err: any) {
         console.warn("⚠️ 2.5-flash ni uspel. Fallback na gemini-2.0-flash...");
         try {
             const fallbackModel = genAI.getGenerativeModel({ model: "gemini-2.0-flash", generationConfig });
             const fallbackResult = await fallbackModel.generateContent(prompt);
             aiData = JSON.parse(fallbackResult.response.text());
-            console.log("✅ Uspešno uporabljen model: gemini-2.0-flash");
         } catch (fallbackErr: any) {
-            console.error("⚠️ AI napaka:", fallbackErr);
             throw new Error("Napaka pri AI generaciji: " + fallbackErr.message);
         }
     }
@@ -322,7 +320,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     try {
         console.log("🔍 Začenjam hitro AI validacijo...");
         aiData = await validateOutput(aiData, promptData, currentDateStr);
-        console.log("✅ AI validacija uspešno zaključena.");
     } catch (validationErr) {
         console.error("⚠️ Napaka pri AI validaciji, nadaljujem z osnovnimi podatki:", validationErr);
     }
@@ -340,6 +337,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     let totalTextLength = 0;
     if (aiData.intro) totalTextLength += aiData.intro.split(/\s+/).length;
+    if (aiData.whats_ahead) totalTextLength += aiData.whats_ahead.split(/\s+/).length;
+    if (aiData.closing_line) totalTextLength += aiData.closing_line.split(/\s+/).length;
     
     if (aiData.categories && Array.isArray(aiData.categories)) {
         aiData.categories.forEach((cat: any) => {
@@ -447,7 +446,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         `;
     }); 
 
-    // --- NOVO: VIZUALNO POSODOBLJENA ŠTEVILKA DNEVA (Bleda modra) ---
+    // --- ŠTEVILKA DNEVA (Bledo modra) ---
     let numberHtml = '';
     if (aiData.number_of_the_day) {
         numberHtml = `
@@ -462,7 +461,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         `;
     }
 
-    // --- NOVO: VIZUALNO POSODOBLJEN CITAT (Marelična) ---
+    // --- CITAT DNEVA (Marelična) ---
     let quoteHtml = '';
     if (aiData.quote_of_the_day) {
         let quoteSourceHtml = '';
@@ -470,7 +469,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         
         if (typeof qId === 'number' && topStories[qId]) {
             const story = topStories[qId];
-            
             const rawUrl = aiData.quote_of_the_day.source_url || (story.sources && story.sources.length > 0 ? (typeof story.sources[0] === 'string' ? story.sources[0] : story.sources[0].url) : null);
 
             if (rawUrl) {
@@ -494,7 +492,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         }
 
         quoteHtml = `
-        <div style="background-color: #FFF7ED; border-left: 4px solid ${BRAND_COLOR}; padding: 24px; margin: 32px 0 40px 0; border-radius: 4px; border: 1px solid #FFEDD5;">
+        <div style="background-color: #FFF7ED; border-left: 4px solid ${BRAND_COLOR}; padding: 24px; margin: 32px 0; border-radius: 4px; border: 1px solid #FFEDD5;">
           <table width="100%" border="0" cellspacing="0" cellpadding="0">
             <tr>
               <td style="font-family: -apple-system, Arial, sans-serif;">
@@ -511,6 +509,31 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             </tr>
           </table>
         </div>
+        `;
+    }
+
+    // --- KAJ NAS ČAKA (Nevtralna siva/modra) ---
+    let whatsAheadHtml = '';
+    if (aiData.whats_ahead) {
+        whatsAheadHtml = `
+        <div style="background-color: #F8FAFC; border-left: 4px solid #94A3B8; padding: 24px; margin-top: 32px; margin-bottom: 20px; border-radius: 4px; border: 1px solid #F1F5F9;">
+          <h3 style="font-size: 11px; color: #475569; font-weight: bold; margin: 0 0 10px 0; font-family: -apple-system, Arial, sans-serif; text-transform: uppercase; letter-spacing: 0.15em;">
+            🗓️ Kaj nas čaka
+          </h3>
+          <p style="font-size: 15px; line-height: 1.5; color: #334155; margin: 0; font-family: -apple-system, Arial, sans-serif;">
+            ${aiData.whats_ahead}
+          </p>
+        </div>
+        `;
+    }
+
+    // --- ZA KONEC (Brez okvirja, ležeče) ---
+    let closingHtml = '';
+    if (aiData.closing_line) {
+        closingHtml = `
+        <p style="font-size: 15px; line-height: 1.6; color: #4B5563; margin-top: 35px; margin-bottom: 10px; font-family: -apple-system, Arial, sans-serif; font-style: italic; text-align: center;">
+          ✨ ${aiData.closing_line}
+        </p>
         `;
     }
 
@@ -581,9 +604,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
                     ${categoriesHtml}
 
+                    ${whatsAheadHtml}
+
                     ${numberHtml}
                     
                     ${quoteHtml}
+                    
+                    ${closingHtml}
 
                     <table border="0" cellspacing="0" cellpadding="0" align="center" style="margin: 30px auto 20px auto;">
                       <tr>
