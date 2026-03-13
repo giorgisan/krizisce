@@ -35,7 +35,6 @@ interface AnalysisItem {
   framing_analysis: string; 
   main_image?: string; 
   sources: SourceItem[];
-  // Dodan source_url za natančen prikaz vira
   key_quote?: {
       quote: string;
       author: string;
@@ -318,6 +317,8 @@ function AnalysisCard({ item, idx, setPreviewUrl }: { item: AnalysisItem, idx: n
       }
   }
 
+  const hasQuote = Boolean(item.key_quote && item.key_quote.quote);
+
   return (
     <article id={newsId} className={`relative mb-8 md:mb-12 group/card transition-all duration-500 ${isFocused ? 'ring-2 ring-brand shadow-xl scale-[1.005]' : ''}`}>
       
@@ -352,35 +353,42 @@ function AnalysisCard({ item, idx, setPreviewUrl }: { item: AnalysisItem, idx: n
               </div>
           </div>
           
-          {/* GRID LAYOUT ZA CITAT IN KONTEKST (Side-by-side) */}
-          <div className={`grid grid-cols-1 ${item.key_quote && item.key_quote.quote ? 'lg:grid-cols-2' : ''} gap-4 mt-3`}>
+          {/* GRID LAYOUT: Kontekst (Levo 2/3) in Citat (Desno 1/3) */}
+          <div className={`grid grid-cols-1 ${hasQuote ? 'lg:grid-cols-3' : ''} gap-4 mt-3`}>
               
-              {/* CITAT */}
-              {item.key_quote && item.key_quote.quote && (
-                  <div className="relative overflow-hidden h-full bg-gradient-to-r from-gray-100/80 to-transparent dark:from-gray-800/40 dark:to-transparent border-l-[3px] border-brand/60 rounded-r-xl p-4 md:p-5 flex flex-col justify-center">
+              {/* KONTEKST (Levo) */}
+              <div className={`${hasQuote ? 'lg:col-span-2' : ''} bg-gray-50/80 dark:bg-[#1e293b]/30 rounded-lg border border-gray-100 dark:border-gray-700/50 p-4 md:p-5 flex flex-col justify-center h-full`}>
+                  <p className="text-[13px] md:text-[14px] text-gray-600 dark:text-gray-300 leading-relaxed">
+                      <span className="font-bold text-gray-400 dark:text-gray-500 uppercase text-[9.5px] md:text-[10px] mr-2 tracking-wider block sm:inline mb-1 sm:mb-0">Kontekst:</span>
+                      {item.framing_analysis}
+                  </p>
+              </div>
+
+              {/* CITAT (Desno - zelo blag fade) */}
+              {hasQuote && (
+                  <div className="lg:col-span-1 relative overflow-hidden h-full bg-brand/5 dark:bg-brand/10 border-l-[3px] border-brand/30 rounded-r-xl p-4 md:p-5 flex flex-col justify-center">
                       
-                      {/* Vodni žig (Velik narekovaj) */}
-                      <div className="absolute -top-4 right-4 text-[120px] font-serif font-black text-gray-200/70 dark:text-gray-700/30 select-none pointer-events-none leading-none">
+                      {/* Subtilen vodni žig */}
+                      <div className="absolute -top-4 right-2 text-[90px] font-serif font-black text-brand/10 dark:text-brand/5 select-none pointer-events-none leading-none">
                           &rdquo;
                       </div>
 
                       <div className="relative z-10 flex flex-col gap-2.5">
-                          <p className="text-[14px] md:text-[15px] italic font-serif text-gray-700 dark:text-gray-300 leading-relaxed pr-8">
-                              "{item.key_quote.quote}"
+                          <p className="text-[14px] md:text-[15px] italic font-serif text-gray-800 dark:text-gray-200 leading-relaxed pr-4">
+                              "{item.key_quote!.quote}"
                           </p>
                           
                           <div className="flex items-center flex-wrap gap-2 text-[11px] md:text-[12px]">
-                              <span className="font-bold text-gray-900 dark:text-gray-100">— {item.key_quote.author}</span>
+                              <span className="font-bold text-gray-900 dark:text-gray-100">— {item.key_quote!.author}</span>
                               
-                              {/* Dodan točen vir in ikona */}
-                              {item.key_quote.source_url && quoteSourceName && (
+                              {item.key_quote!.source_url && quoteSourceName && (
                                   <>
                                       <span className="text-gray-300 dark:text-gray-600">•</span>
                                       <a 
-                                        href={item.key_quote.source_url} 
+                                        href={item.key_quote!.source_url} 
                                         target="_blank" 
                                         rel="noopener noreferrer"
-                                        className="flex items-center gap-1.5 text-gray-500 dark:text-gray-400 hover:text-brand dark:hover:text-brand transition-colors"
+                                        className="flex items-center gap-1.5 text-gray-500 dark:text-gray-400 hover:text-brand transition-colors"
                                       >
                                           <img 
                                               src={getLogoSrc(quoteSourceName)} 
@@ -397,21 +405,12 @@ function AnalysisCard({ item, idx, setPreviewUrl }: { item: AnalysisItem, idx: n
                       </div>
                   </div>
               )}
-
-              {/* KONTEKST */}
-              <div className="bg-gray-50/80 dark:bg-[#1e293b]/30 rounded-lg border border-gray-100 dark:border-gray-700/50 p-4 md:p-5 flex flex-col justify-center h-full">
-                  <p className="text-[13px] md:text-[14px] text-gray-600 dark:text-gray-300 leading-relaxed">
-                      <span className="font-bold text-gray-400 dark:text-gray-500 uppercase text-[9.5px] md:text-[10px] mr-2 tracking-wider block sm:inline mb-1 sm:mb-0">Kontekst:</span>
-                      {item.framing_analysis}
-                  </p>
-              </div>
           </div>
           {/* KONEC GRID LAYOUTA */}
 
         </div>
 
         <div className="px-6 md:px-10 py-5 md:py-7 border-t border-gray-100 dark:border-gray-700/50 bg-gray-50/50 dark:bg-[#1e293b]/20 rounded-b-xl flex flex-col">
-            
             <SpectrumLine 
                 title="Informacija" 
                 propKey="informativnost" 
@@ -421,7 +420,6 @@ function AnalysisCard({ item, idx, setPreviewUrl }: { item: AnalysisItem, idx: n
                 sources={item.sources} 
                 setPreviewUrl={setPreviewUrl} 
             />
-
             <SpectrumLine 
                 title="Emocija" 
                 propKey="custveni_naboj" 
@@ -431,7 +429,6 @@ function AnalysisCard({ item, idx, setPreviewUrl }: { item: AnalysisItem, idx: n
                 sources={item.sources} 
                 setPreviewUrl={setPreviewUrl} 
             />
-
             <SpectrumLine 
                 title="Interpretacija" 
                 propKey="pristranskost" 
@@ -441,7 +438,6 @@ function AnalysisCard({ item, idx, setPreviewUrl }: { item: AnalysisItem, idx: n
                 sources={item.sources} 
                 setPreviewUrl={setPreviewUrl} 
             />
-            
         </div>
       </div>
     </article>
@@ -484,7 +480,6 @@ export default function AnalizaPage({ analysis, lastUpdated }: Props) {
                       Kako deluje
                     </button>
                   </p>
-
                 </div>
                 
                 <div className="w-full md:w-auto flex flex-row-reverse md:flex-col items-center md:items-end justify-between md:justify-start gap-3 mt-3 md:mt-0">
