@@ -354,9 +354,35 @@ export default function Header({
              </button>
           </div>
 
-          <div className="hidden md:flex items-center gap-1.5 shrink-0 ml-auto">
+          <div className="hidden md:flex items-center gap-2 lg:gap-3 shrink-0 ml-auto">
+            {/* Opozorilo za nove novice (Zdaj vidno tudi na md zaslonih) */}
+            <AnimatePresence initial={false}>
+                {hasNew && !refreshing && router.pathname === '/' && (
+                <motion.button
+                    key="fresh-pill"
+                    initial={{ opacity: 0, scale: 0.95, y: 5 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.95, y: 5 }}
+                    onClick={refreshNow}
+                    className="flex items-center gap-1.5 lg:gap-2 px-2.5 lg:px-3 py-1 
+                               bg-[#10b981]/10 dark:bg-[#10b981]/20 
+                               border border-[#10b981]/30
+                               hover:bg-[#10b981]/20 dark:hover:bg-[#10b981]/30
+                               text-[#10b981] dark:text-[#34d399]
+                               text-[10px] md:text-xs font-medium rounded-full 
+                               transition-all cursor-pointer backdrop-blur-sm mr-1 lg:mr-2"
+                >
+                    <span className="inline-flex rounded-full h-[5px] w-[5px] bg-emerald-500 animate-[pulse_3s_ease-in-out_infinite]"></span>
+                    <span className="flex items-center leading-none">
+                        <span className="font-bold hidden lg:inline">Na voljo so sveže novice</span>
+                        <span className="font-bold lg:hidden">Sveže novice</span>
+                    </span>
+                </motion.button>
+                )}
+            </AnimatePresence>
+
             {router.pathname === '/' && (
-              <div className="w-48 lg:w-56">
+              <div className="w-40 lg:w-56 transition-all">
                 <form onSubmit={handleSubmit} className="relative group">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                     <svg className="h-4 w-4 text-gray-400 group-focus-within:text-brand transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -378,24 +404,23 @@ export default function Header({
 
             <div className="h-5 w-px bg-gray-200 dark:bg-gray-700 mx-0.5"></div>
             
-            {/* MEDIJSKI UTRIP - Skeleton zamenjan z vsebino, "Danes:" tekst in title hover */}
-            <div className="relative ml-0.5" ref={pulseRef}>
+            {/* MEDIJSKI UTRIP */}
+            <div className="relative" ref={pulseRef}>
               {!mounted || !archiveData ? (
-                <div className="w-[85px] h-[28px] rounded-full bg-slate-200/50 dark:bg-slate-700/50 animate-pulse border border-transparent"></div>
+                <div className="w-[75px] lg:w-[85px] h-[28px] rounded-full bg-slate-200/50 dark:bg-slate-700/50 animate-pulse border border-transparent"></div>
               ) : (
                 <>
                   <button
                     onClick={() => setIsPulseOpen(!isPulseOpen)}
                     title="Pregled današnjih objav"
-                    className={`flex items-center gap-2 px-2.5 py-1 rounded-full border transition-all duration-300 h-[28px] ${
+                    className={`flex items-center gap-1.5 lg:gap-2 px-2 lg:px-2.5 py-1 rounded-full border transition-all duration-300 h-[28px] ${
                       isPulseOpen 
                       ? 'bg-slate-100 dark:bg-slate-800 border-slate-300 dark:border-slate-600 shadow-sm' 
                       : 'bg-slate-50 dark:bg-slate-800/40 border-slate-200 dark:border-slate-700/50 hover:bg-slate-100 dark:hover:bg-slate-800 hover:border-slate-300 dark:hover:border-slate-600'
                     }`}
                   >
                     <span className="inline-flex rounded-full h-[5px] w-[5px] bg-emerald-500 animate-[pulse_3s_ease-in-out_infinite]"></span>
-
-                    <span className="text-[11px] font-bold text-slate-600 dark:text-slate-300 tabular-nums tracking-tight leading-none pt-px">
+                    <span className="text-[10px] lg:text-[11px] font-bold text-slate-600 dark:text-slate-300 tabular-nums tracking-tight leading-none pt-px">
                       Danes: {archiveData.total}
                     </span>
                   </button>
@@ -437,12 +462,12 @@ export default function Header({
               )}
             </div>
 
-            {/* VREME - Skeleton zamenjan z vsebino. Fiksni izpis kraja in temperature. */}
+            {/* VREME */}
             {!mounted || !weather ? (
-              <div className="w-[100px] h-[28px] rounded-full bg-gray-200/50 dark:bg-gray-700/50 animate-pulse border border-transparent"></div>
+              <div className="w-[80px] lg:w-[100px] h-[28px] rounded-full bg-gray-200/50 dark:bg-gray-700/50 animate-pulse border border-transparent"></div>
             ) : (
               <div 
-                className="flex items-center text-[11px] font-semibold text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-800/50 px-2.5 py-1 rounded-full border border-gray-200/50 dark:border-gray-700/50 h-[28px]" 
+                className="flex items-center text-[10px] lg:text-[11px] font-semibold text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-800/50 px-2 lg:px-2.5 py-1 rounded-full border border-gray-200/50 dark:border-gray-700/50 h-[28px]" 
                 title="Trenutno vreme"
               >
                   <span className="mr-1.5 hidden lg:inline-block truncate max-w-[80px] leading-none pt-px">{weather.city}</span>
@@ -451,7 +476,7 @@ export default function Header({
               </div>
             )}
 
-            {/* IKONE - Manjši padding */}
+            {/* IKONE */}
             {router.pathname === '/' && (
               <button 
                 onClick={onOpenFilter}
