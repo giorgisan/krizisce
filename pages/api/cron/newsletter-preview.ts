@@ -288,7 +288,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
          - QUALITY FILTER: Choose a quote that carries an opinion, a decision, or a definitive claim. Dramatic or impactful short exclamations ARE allowed if they are the core of the event.
          - AVOID: Boring PR fillers or journalist transitions.
       7. 'whats_ahead': (OPTIONAL) ONLY fill this if there is a concrete, EXPLICITLY STATED future event (e.g., an upcoming sports match, a scheduled political summit, a weather warning). Do NOT put general questions, implications, or repeated news here. If there is NO distinct future event, completely omit this field.
-      8. 'closing_line': (OPTIONAL) 1 sentence highlighting a specific positive, interesting, or notable fact from ANY story to leave the reader with a final thought.
+      8. 'closing_line': (OPTIONAL) 1 sentence highlighting a specific, positive, concrete, interesting or notable fact from the ANY story to leave the reader with a final thought. AVOID generic summaries or cliches. CRITICAL TEMPORAL RULE: This is a MORNING newsletter. Do NOT use phrases like "Za konec dneva", "Včeraj", or "Za lahko noč". If there is no specific interesting fact, completely OMIT this field.
       
       CRITICAL DEDUPLICATION RULE: The 'number_of_the_day', 'quote_of_the_day', and 'closing_line' MUST ideally highlight details that were NOT already heavily summarized in the main categories.
       `;
