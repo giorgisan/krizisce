@@ -354,42 +354,41 @@ function AnalysisCard({ item, idx, setPreviewUrl }: { item: AnalysisItem, idx: n
           </div>
           
           {/* GRID LAYOUT: Kontekst (Levo 2/3) in Citat (Desno 1/3) */}
-          <div className={`grid grid-cols-1 ${hasQuote ? 'md:grid-cols-3' : ''} gap-4 mt-3`}>
+          <div className={`grid grid-cols-1 ${hasQuote ? 'md:grid-cols-3' : ''} gap-4 mt-3 items-stretch`}>
               
               {/* KONTEKST (Levo 2/3) */}
-              <div className={`${hasQuote ? 'md:col-span-2' : ''} bg-gray-50/80 dark:bg-[#1e293b]/30 rounded-lg border border-gray-100 dark:border-gray-700/50 p-4 md:p-5 flex flex-col justify-center h-full`}>
+              <div className={`${hasQuote ? 'md:col-span-2' : ''} bg-gray-50/80 dark:bg-[#1e293b]/30 rounded-lg border border-gray-100 dark:border-gray-700/50 p-4 md:p-5 flex flex-col`}>
                   <p className="text-[13px] md:text-[14px] text-gray-600 dark:text-gray-300 leading-relaxed">
                       <span className="font-bold text-gray-400 dark:text-gray-500 uppercase text-[9.5px] md:text-[10px] mr-2 tracking-wider block sm:inline mb-1 sm:mb-0">Kontekst:</span>
                       {item.framing_analysis}
                   </p>
               </div>
         
-
-              {/* CITAT (Desno 1/3 - Brez ozadja, le subtilen fade in watermark) */}
+              {/* CITAT (Desno 1/3) */}
               {hasQuote && (
-                  <div className="md:col-span-1 relative overflow-hidden h-full border-l-[3px] border-brand/60 p-4 md:p-5 flex flex-col justify-center bg-gradient-to-br from-white/[0.02] to-transparent">
+                  <div className="md:col-span-1 relative overflow-hidden border-l-[3px] border-brand/60 p-4 md:p-5 flex flex-col justify-start bg-gradient-to-br from-black/[0.02] dark:from-white/[0.02] to-transparent rounded-r-lg">
                       
                       {/* Subtilen vodni žig (narekovaj) */}
                       <div className="absolute -top-4 right-2 text-[90px] font-serif font-black text-black/[0.03] dark:text-white/[0.03] select-none pointer-events-none leading-none">
                           &rdquo;
                       </div>
                
-                      <div className="relative z-10 flex flex-col gap-2.5">
-                          <p className="text-[14px] md:text-[15px] italic font-serif text-gray-800 dark:text-gray-200 leading-relaxed pr-4">
+                      <div className="relative z-10 flex flex-col gap-3">
+                          <p className="text-[14px] md:text-[15px] italic font-serif text-gray-800 dark:text-gray-200 leading-relaxed pr-2">
                               "{item.key_quote!.quote}"
                           </p>
                           
-                          <div className="flex items-center flex-wrap gap-2 text-[11px] md:text-[12px]">
+                          <div className="flex flex-col sm:flex-row sm:items-center sm:flex-wrap gap-1.5 sm:gap-2 text-[11px] md:text-[12px] mt-auto pt-1">
                               <span className="font-bold text-gray-900 dark:text-gray-100">— {item.key_quote!.author}</span>
                               
                               {item.key_quote!.source_url && quoteSourceName && (
-                                  <>
-                                      <span className="text-gray-400 dark:text-gray-500">•</span>
+                                  <div className="flex items-center gap-1.5 sm:gap-2 text-gray-500 dark:text-gray-400">
+                                      <span className="hidden sm:inline opacity-60">•</span>
                                       <a 
                                         href={item.key_quote!.source_url} 
                                         target="_blank" 
                                         rel="noopener noreferrer"
-                                        className="flex items-center gap-1.5 text-gray-500 hover:text-brand dark:text-gray-400 dark:hover:text-brand transition-colors"
+                                        className="flex items-center gap-1.5 hover:text-brand dark:hover:text-brand transition-colors"
                                       >
                                           <img 
                                               src={getLogoSrc(quoteSourceName)} 
@@ -400,7 +399,7 @@ function AnalysisCard({ item, idx, setPreviewUrl }: { item: AnalysisItem, idx: n
                                               Vir: {quoteSourceName}
                                           </span>
                                       </a>
-                                  </>
+                                  </div>
                               )}
                           </div>
                       </div>
