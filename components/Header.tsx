@@ -285,7 +285,7 @@ export default function Header({
              </button>
           </div>
 
-          <div className="absolute left-1/2 -translate-x-1/2 md:static md:translate-x-0 md:flex md:items-center md:gap-4 md:mr-auto z-0">
+          <div className="absolute left-1/2 -translate-x-1/2 md:static md:translate-x-0 flex items-center gap-2 md:gap-4 md:mr-auto z-0">
             <Link href="/" onClick={handleLogoClick} className="group">
                 <div className="flex flex-col items-center justify-center md:hidden">
                     <div className="flex items-center gap-1.5">
@@ -316,6 +316,7 @@ export default function Header({
                 </div>
             </Link>
 
+            {/* Opozorilo za nove novice (Leva stran) */}
             <AnimatePresence initial={false}>
                 {hasNew && !refreshing && router.pathname === '/' && (
                 <motion.button
@@ -324,19 +325,18 @@ export default function Header({
                     animate={{ opacity: 1, scale: 1, y: 0 }}
                     exit={{ opacity: 0, scale: 0.95, y: 5 }}
                     onClick={refreshNow}
-                    className="hidden lg:flex items-center gap-2 px-3 py-1 
+                    className="hidden md:flex items-center gap-1.5 lg:gap-2 px-2.5 lg:px-3 py-1 
                                bg-[#10b981]/10 dark:bg-[#10b981]/20 
                                border border-[#10b981]/30
                                hover:bg-[#10b981]/20 dark:hover:bg-[#10b981]/30
                                text-[#10b981] dark:text-[#34d399]
                                text-[10px] md:text-xs font-medium rounded-full 
-                               transition-all cursor-pointer ml-3 backdrop-blur-sm"
+                               transition-all cursor-pointer backdrop-blur-sm md:ml-2 lg:ml-3"
                 >
                     <span className="inline-flex rounded-full h-[5px] w-[5px] bg-emerald-500 animate-[pulse_3s_ease-in-out_infinite]"></span>
-
                     <span className="flex items-center leading-none">
-                        <span className="font-bold">Na voljo so sveže novice</span>
-                        <span className="ml-1 opacity-80">— kliknite za osvežitev</span>
+                        <span className="font-bold hidden lg:inline">Na voljo so sveže novice</span>
+                        <span className="font-bold lg:hidden">Sveže novice</span>
                     </span>
                 </motion.button>
                 )}
@@ -355,32 +355,7 @@ export default function Header({
           </div>
 
           <div className="hidden md:flex items-center gap-2 lg:gap-3 shrink-0 ml-auto">
-            {/* Opozorilo za nove novice (Zdaj vidno tudi na md zaslonih) */}
-            <AnimatePresence initial={false}>
-                {hasNew && !refreshing && router.pathname === '/' && (
-                <motion.button
-                    key="fresh-pill"
-                    initial={{ opacity: 0, scale: 0.95, y: 5 }}
-                    animate={{ opacity: 1, scale: 1, y: 0 }}
-                    exit={{ opacity: 0, scale: 0.95, y: 5 }}
-                    onClick={refreshNow}
-                    className="flex items-center gap-1.5 lg:gap-2 px-2.5 lg:px-3 py-1 
-                               bg-[#10b981]/10 dark:bg-[#10b981]/20 
-                               border border-[#10b981]/30
-                               hover:bg-[#10b981]/20 dark:hover:bg-[#10b981]/30
-                               text-[#10b981] dark:text-[#34d399]
-                               text-[10px] md:text-xs font-medium rounded-full 
-                               transition-all cursor-pointer backdrop-blur-sm mr-1 lg:mr-2"
-                >
-                    <span className="inline-flex rounded-full h-[5px] w-[5px] bg-emerald-500 animate-[pulse_3s_ease-in-out_infinite]"></span>
-                    <span className="flex items-center leading-none">
-                        <span className="font-bold hidden lg:inline">Na voljo so sveže novice</span>
-                        <span className="font-bold lg:hidden">Sveže novice</span>
-                    </span>
-                </motion.button>
-                )}
-            </AnimatePresence>
-
+            
             {router.pathname === '/' && (
               <div className="w-40 lg:w-56 transition-all">
                 <form onSubmit={handleSubmit} className="relative group">
@@ -730,7 +705,7 @@ export default function Header({
                             </button>
                         )}
                         
-                        {/* 6. DANAŠNJI UTRIP NA MOBILE (Premaknjeno na dno pod Temo) */}
+                        {/* 6. DANAŠNJI UTRIP NA MOBILE */}
                         {archiveData && (
                           <div className="mx-1 mt-4 mb-2 bg-slate-50 dark:bg-slate-900/50 rounded-xl p-4 border border-slate-200 dark:border-slate-800">
                              <div className="flex items-center gap-2 mb-4">
